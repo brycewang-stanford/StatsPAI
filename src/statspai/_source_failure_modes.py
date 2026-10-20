@@ -904,6 +904,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "and needs demean=True.",
         },
     ],
+    "ltmle_msm": [
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use more data.",
+            "symptom": "ltmle_msm: <n> rows are too few.",
+        }
+    ],
     "mmhc": [
         {
             "exception": "statspai.MethodIncompatibility",

@@ -24,6 +24,7 @@ from .collaborative import ctmle
 from .hal_tmle import HALClassifier, HALRegressor, hal_tmle
 from .lmtp import lmtp
 from .ltmle import LTMLEResult, ltmle
+from .ltmle_msm import LTMLEMSMResult, ltmle_msm
 from .ltmle_survival import LTMLESurvivalResult, ltmle_survival
 from .super_learner import SuperLearner, super_learner
 from .tmle import TMLE, tmle
@@ -34,6 +35,8 @@ __all__ = [
     "super_learner",
     "SuperLearner",
     "ltmle",
+    "ltmle_msm",
+    "LTMLEMSMResult",
     "lmtp",
     "LTMLEResult",
     "ltmle_survival",

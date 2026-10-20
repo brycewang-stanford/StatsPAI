@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 435 |
 | | aligned | 60 |
 | | **subtotal** | **495** |
-| **No external software reference** | analytical-only (T1) | 422 |
+| **No external software reference** | analytical-only (T1) | 423 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **484** |
-| No numerical evidence yet | unverified | 636 |
+| | **subtotal** | **485** |
+| No numerical evidence yet | unverified | 637 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 495 | 961 | 974 | 50.8% |
+| estimator callables | 495 | 962 | 975 | 50.8% |
 | infrastructure (parity N/A) | 0 | 13 | 231 | 0.0% |
-| result / exception classes | 0 | 5 | 410 | 0.0% |
-| **all registered** | 495 | 979 | 1615 | 30.7% |
+| result / exception classes | 0 | 5 | 411 | 0.0% |
+| **all registered** | 495 | 980 | 1617 | 30.6% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 155 | 354 | 354 |
+| causal | 155 | 355 | 355 |
 | regression | 45 | 59 | 62 |
 | timeseries | 24 | 52 | 53 |
 | inference | 28 | 51 | 52 |
@@ -675,7 +675,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 422 functions
+## analytical-only — 423 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -905,6 +905,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `lpbwselect_mse_rot` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+1) |
 | `lpcmci` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `lprobust_at_point` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
+| `ltmle_msm` | [`test_ltmle_msm_parity.py`](../tests/reference_parity/test_ltmle_msm_parity.py) |
 | `ltmle_survival` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `machado_mata` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) |
 | `marginal_policy_effect` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
@@ -1104,6 +1105,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 636 functions
+## unverified — 637 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

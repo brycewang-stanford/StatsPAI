@@ -71,9 +71,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `structural` | 6,108 | 15 | 15 |
 | `utils` | 6,961 | 15 | 42 |
 | `survival` | 6,714 | 12 | 18 |
+| `tmle` | 6,459 | 11 | 15 |
 | `workflow` | 4,549 | 5 | 3 |
 | `gmm` | 4,305 | 12 | 4 |
-| `tmle` | 5,218 | 9 | 13 |
 | `qte` | 4,154 | 9 | 13 |
 | `robustness` | 4,099 | 8 | 14 |
 | `network` | 3,514 | 9 | 33 |

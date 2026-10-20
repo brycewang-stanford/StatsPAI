@@ -63,6 +63,26 @@ All notable changes to StatsPAI will be documented in this file.
   and `track` is `method='min'` (it said `'min'` -> `field`, `'dense'` ->
   `track`); checked in Stata 18. No numbers change.
 
+### `sp.ltmle_msm`: working marginal structural models
+
+#### Added
+
+- `sp.ltmle_msm(data, y, treatments, covariates_time, regimes,
+  summary_measures, msm_terms=, baseline=, censoring=, msm_weights=,
+  weights=)`: longitudinal TMLE of a logistic working marginal structural
+  model over a set of static, dynamic (callable) or per-unit regimes -- R
+  `ltmle::ltmleMSM` with one final outcome node. Per-regime sequential
+  regressions, one fluctuation per node shared by all regimes (covariates
+  the working-model design, weights `h(d) / g`), the projection fitted to
+  the targeted means, influence-curve SEs, and the IPTW estimate alongside.
+  Equals ltmle 1.3-0 (GPL-2, used as a black box) to 1e-8 on nine
+  configurations (static, equal / user / empirical projection weights, a
+  baseline term, censoring, a continuous outcome, observation weights, a
+  dynamic regime, a duplicated regime;
+  `tests/reference_parity/test_ltmle_msm_parity.py`). Pooling over several
+  outcome nodes (`final.Ynodes`) and `variance.method='tmle'` are not
+  implemented.
+
 ### `design=` on `sp.ltmle` and `sp.match`
 
 #### Added

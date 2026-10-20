@@ -22597,6 +22597,112 @@
     "name": "ltmle"
   },
   {
+    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ltmle_msm: <n> rows are too few -> Use more data.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "baseline": {
+          "description": "Baseline covariates (in every history; usable in ``msm_terms``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "censoring": {
+          "description": "Censoring indicator after each treatment (1 = observed).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "covariates_time": {
+          "description": "Covariates measured before each treatment (``K`` lists, may be empty).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "msm_terms": {
+          "description": "Right-hand side of the working model: columns of ``summary_measures`` and / or baseline covariates; an intercept is always included. Default: every summary measure.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "msm_weights": {
+          "default": "empirical",
+          "description": "Projection weights ``h(d, V)``: the share of units whose observed treatments match each regime (R's default), ``None`` for equal weights, or a length-``J`` (or ``n x J``) array.",
+          "type": "string"
+        },
+        "outcome_type": {
+          "default": "auto",
+          "description": "outcome_type parameter (str).",
+          "enum": [
+            "auto",
+            "binary",
+            "continuous"
+          ],
+          "type": "string"
+        },
+        "propensity_bounds": {
+          "default": [
+            0.01,
+            1.0
+          ],
+          "description": "Bounds on the cumulative probability of following a regime and remaining uncensored (R ``gbounds``).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "regimes": {
+          "description": "The regimes ``d_1, ..., d_J``: each a static sequence of ``K`` 0/1 values, a callable ``regime(k, history)`` as in ``sp.ltmle``, or an ``n x K`` 0/1 array (one assignment per unit).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "summary_measures": {
+          "description": "One row per regime (``J`` rows), columns naming the measures of the regime the working model uses (e.g. the number of treated periods).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "treatments": {
+          "description": "Binary treatment column per time point (``K`` of them).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weights": {
+          "description": "Observation (sampling) weights column (R ``observation.weights``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Final outcome (0/1, or continuous: scaled to ``[0, 1]`` by its observed range).",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "covariates_time",
+        "regimes",
+        "summary_measures",
+        "treatments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ltmle_msm"
+  },
+  {
     "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
     "input_schema": {
       "properties": {

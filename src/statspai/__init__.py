@@ -1301,6 +1301,7 @@ from .tmle import (
     TMLE,
     HALClassifier,
     HALRegressor,
+    LTMLEMSMResult,
     LTMLEResult,
     LTMLESurvivalResult,
     SuperLearner,
@@ -1308,6 +1309,7 @@ from .tmle import (
     hal_tmle,
     lmtp,
     ltmle,
+    ltmle_msm,
     ltmle_survival,
     super_learner,
     tmle,
@@ -3193,8 +3195,10 @@ __all__ = [
     "ITSResult",
     # Longitudinal TMLE
     "ltmle",
+    "ltmle_msm",
     "lmtp",
     "LTMLEResult",
+    "LTMLEMSMResult",
     # DiD-family extras
     "harvest_did",
     "overlap_weighted_did",

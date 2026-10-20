@@ -12723,6 +12723,23 @@
       "tolerance": "psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10)"
     },
     {
+      "function": "ltmle_msm",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ltmle_msm_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "ltmle_survival",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
