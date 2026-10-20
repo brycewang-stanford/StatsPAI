@@ -4873,3 +4873,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — fixes from the re-probe of the 10-19/20 functions
+
+- **Commits.** `78a696752` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 04, 05, 08,
+  16, 18, 24, 36, 44, 45, 46, 49, 50, 53, 65, 66, 71, 72, 79, 84) and
+  `tests/orig_parity/results/_implementation_trace.json` (02, 06, 07, 09,
+  10, 11).
+- **Reason.** Source files on those modules' estimation paths changed:
+  input checks (`core/_validate.py`, `survival/models.py`,
+  `survival/competing_risks.py`, `mediation/mediate.py`,
+  `inference/jackknife.py`, `spatial/models/ml.py`), `n_obs` of
+  `sun_abraham` / `did_imputation`, `augsynth(progfunc='none', scm=False)`,
+  ordered-Categorical outcomes in `regression/multinomial.py`, and z
+  inference for the spatial ML fits.
+- **Effect on the paper.** None. Before re-recording, the Python side of
+  every listed module was re-run: results are byte-identical or differ in
+  the last digits (at most 1.9e-13 relative, inside the 1e-9
+  reproducibility tolerance), so the committed results were kept. The
+  spatial modules compare estimates and SEs, which the z change leaves as
+  they were.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
