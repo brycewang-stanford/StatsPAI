@@ -309,7 +309,10 @@ def match(
     caliper : float, optional
         Maximum distance for a valid match. Units left without a match are
         excluded with a warning; if no unit at all finds one the call
-        raises ``DataInsufficient``.
+        raises ``DataInsufficient``. Not read by ``method='kernel'`` or
+        ``method='llr'`` (the kernel bandwidth is ``bwidth``), as in Stata
+        ``psmatch2``; passing it there warns and sets
+        ``model_info['caliper_ignored']``.
     caliper_scale : {'raw', 'sd'}, default 'raw'
         ``'raw'`` reads ``caliper`` on the scale of the distance (Stata
         ``psmatch2 , caliper()``); ``'sd'`` in standard deviations of the
@@ -1347,6 +1350,24 @@ class MatchEstimator:
             raise MethodIncompatibility(
                 "match: radius matching requires caliper > 0 " "(the radius bandwidth)"
             )
+        # Kernel and local linear matching weight every control by the
+        # kernel at bandwidth ``bwidth``; a caliper is not read (Stata
+        # psmatch2 behaves the same: test_psm_options_parity.py). Say so
+        # rather than let the option look as if it trimmed anything.
+        self.caliper_ignored = self.caliper is not None and (
+            self.method == "kernel"
+            or (self.method == "llr" and not self.llr_stata_compat)
+        )
+        if self.caliper_ignored:
+            warnings.warn(
+                f"match: caliper has no effect with method={self.method!r} "
+                "matching, as in Stata psmatch2; every control is weighted by "
+                f"the kernel at bandwidth bwidth={self.bwidth}. Use bwidth to "
+                "change the window, or method='radius' for a caliper-bounded "
+                "kernel.",
+                UserWarning,
+                stacklevel=3,
+            )
 
         if self.se_method not in (
             "auto",
@@ -1671,6 +1692,8 @@ class MatchEstimator:
             "balance": balance,
             **extra_info,
         }
+        if self.caliper_ignored:
+            model_info["caliper_ignored"] = True
         if self._has_pair_options:
             model_info["exact"] = list(self.exact_vars)
             model_info["covariate_calipers"] = dict(self.covariate_calipers)

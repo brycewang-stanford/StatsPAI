@@ -381,3 +381,28 @@ def test_psmatch2_kernel_ignores_caliper(df, stata_radius_sd):
     assert ref["est_with_caliper0p001"] == ref["est"]
     res = _fit(df, method="kernel", bwidth=0.06)
     assert res.estimate == pytest.approx(ref["est"], rel=RTOL)
+
+
+@pytest.mark.parametrize("method", ["kernel", "llr"])
+def test_caliper_with_kernel_or_llr_warns_and_keeps_the_number(
+    df, stata_radius_sd, method
+):
+    """A caliper passed to kernel / local linear matching is not read (as in
+    psmatch2, black box above). The estimate is unchanged at caliper(0.001)
+    -- a width that would leave almost no radius match -- and a warning plus
+    model_info['caliper_ignored'] say so."""
+    kw = dict(y="y", treat="d", covariates=X, method=method, bwidth=0.06)
+    if method == "llr":
+        kw.update(kernel="tricube", bootstrap_reps=20, bootstrap_seed=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        base = sp.match(df, **kw)
+    with pytest.warns(UserWarning, match="caliper has no effect"):
+        cal = sp.match(df, caliper=0.001, **kw)
+    assert cal.estimate == base.estimate
+    assert cal.model_info["caliper_ignored"] is True
+    assert "caliper_ignored" not in base.model_info
+    if method == "kernel":
+        assert cal.estimate == pytest.approx(
+            stata_radius_sd["kernel_epan_bw0p06"]["est_with_caliper0p001"], rel=RTOL
+        )
