@@ -1,7 +1,9 @@
 # Clean-room spec: MR-PRESSO (`sp.mr_presso`)
 
 Scope: `mr_presso` and its nested helpers in
-`src/statspai/mendelian/diagnostics.py` (audit row H15,
+`src/statspai/mendelian/diagnostics.py` (moved unchanged to
+`src/statspai/mendelian/presso.py` on 2026-10-20; the old import path still
+works) (audit row H15,
 `docs/dev/2026-10-20-license-provenance-audit.md`). The other functions in
 that file (`mr_heterogeneity`, `mr_steiger`, `mr_radial`, ...) were not
 flagged and are unchanged. Public API kept: the signature

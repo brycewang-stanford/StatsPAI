@@ -65,8 +65,8 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "mr_bma": ("statspai.mendelian.multivariable", "mr_bma"),
     "bayesian_model_averaging": ("statspai.mendelian.multivariable", "mr_bma"),
     # -- Diagnostics (dispatched for agent-native discoverability) - #
-    "presso": ("statspai.mendelian.diagnostics", "mr_presso"),
-    "mr_presso": ("statspai.mendelian.diagnostics", "mr_presso"),
+    "presso": ("statspai.mendelian.presso", "mr_presso"),
+    "mr_presso": ("statspai.mendelian.presso", "mr_presso"),
     "radial": ("statspai.mendelian.diagnostics", "mr_radial"),
     "mr_radial": ("statspai.mendelian.diagnostics", "mr_radial"),
     "leave_one_out": ("statspai.mendelian.diagnostics", "mr_leave_one_out"),
