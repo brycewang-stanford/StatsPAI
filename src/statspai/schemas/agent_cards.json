@@ -14801,7 +14801,9 @@
     },
     "stability": "stable",
     "typical_n_min": 30,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_xtregar_stata.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -50684,7 +50686,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_egen_public.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -70205,6 +70209,7 @@
       "tests": [
         "tests/reference_parity/test_xtevent_Stata_parity.py",
         "tests/reference_parity/test_xtevent_extensions_Stata_parity.py",
+        "tests/reference_parity/test_xtevent_omitted_Stata_parity.py",
         "tests/reference_parity/test_xtevent_smpath_Stata_screen.py"
       ],
       "tolerance": ""
@@ -103740,6 +103745,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) [R version 4.5.2 (2025-10-31), Stata 18, boottest 4.5.3, fwildclusterboot 0.14.3]; tolerance p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_wcb_bootcluster_parity.py",
       "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
     ],
     "validation_status": "certified"

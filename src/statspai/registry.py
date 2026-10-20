@@ -36520,6 +36520,8 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "xttobit": ["tests/test_xttobit_stata.py"],
     "xtivreg": ["tests/test_xtivreg_stata.py"],
     "xtpcse": ["tests/test_xtpcse_stata.py"],
+    "xtregar": ["tests/test_xtregar_stata.py"],
+    "egen": ["tests/test_egen_public.py"],
     "xtset": ["tests/test_data_layer.py"],
     "lag": ["tests/test_data_layer.py"],
     "lead": ["tests/test_data_layer.py"],

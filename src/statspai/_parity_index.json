@@ -19614,6 +19614,7 @@
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vce_menu_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py",
+        "tests/reference_parity/test_wcb_bootcluster_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_in_modules": [
@@ -24842,6 +24843,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_wcb_bootcluster_parity.py",
         "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
       ],
       "also_verified_by": [
@@ -25180,6 +25182,7 @@
       "test": [
         "tests/reference_parity/test_xtevent_Stata_parity.py",
         "tests/reference_parity/test_xtevent_extensions_Stata_parity.py",
+        "tests/reference_parity/test_xtevent_omitted_Stata_parity.py",
         "tests/reference_parity/test_xtevent_smpath_Stata_screen.py"
       ],
       "tolerance": ""
