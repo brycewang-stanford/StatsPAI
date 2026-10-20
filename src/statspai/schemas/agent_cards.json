@@ -36783,7 +36783,8 @@
     "typical_n_min": 10,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MRPRESSO::mr_presso (NbDistribution = 2000) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Raw estimate and SE, observed RSS, and the outlier-corrected estimate and SE at 1e-10; outlier set {12, 14} identical. The simulated p-values are Monte Carlo on both sides (T3) and follow the reference's k / B convention. -- tests/reference_parity/test_mr_R_parity.py",
-      "tests/reference_parity/test_mr_parity.py"
+      "tests/reference_parity/test_mr_parity.py",
+      "tests/reference_parity/test_mr_presso_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -54150,6 +54151,7 @@
     "typical_n_min": 10,
     "validation_notes": [
       "Cross-language parity (aligned) vs GRAPPLE::grappleRobustEst (GitHub jingshuw/GRAPPLE 317e837) [GRAPPLE 0.2.2]; tolerance sandwich at GRAPPLE's estimates 1e-6 (l2 1e-12); fitted beta 1e-3, tau2 / SE 1e-4 -- tests/reference_parity/test_misc_sens_R_parity.py",
+      "tests/reference_parity/test_grapple_R_parity.py",
       "tests/reference_parity/test_grapple_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py"
     ],
@@ -96254,6 +96256,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (aligned) vs CBPS::CBPS 0.24 (Imai & Ratkovic 2014); tolerance ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead. -- tests/reference_parity/test_matching_r_parity.py",
+      "tests/reference_parity/test_cbps_R_parity.py",
       "tests/reference_parity/test_matching_parity.py",
       "tests/reference_parity/test_paper_parity.py"
     ],
@@ -103343,7 +103346,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R EValue::evalues.RD [EValue 4.1.4, R version 4.5.2 (2025-10-31)]; tolerance 1e-12 rel (observed 5.8e-14: grid built by seq vs np.arange) -- tests/reference_parity/test_inference_sens_R_parity.py"
+      "Cross-language parity (bit-exact) vs R EValue::evalues.RD [EValue 4.1.4, R version 4.5.2 (2025-10-31)]; tolerance 1e-12 rel (observed 5.8e-14: grid built by seq vs np.arange) -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_evalue_rd_grid_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -133845,7 +133849,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R mediation::medsens (lm/lm, rho.by = 0.1) [mediation 4.5.1]; tolerance 1e-10 rel -- tests/reference_parity/test_misc_sens_R_parity.py"
+      "Cross-language parity (bit-exact) vs R mediation::medsens (lm/lm, rho.by = 0.1) [mediation 4.5.1]; tolerance 1e-10 rel -- tests/reference_parity/test_misc_sens_R_parity.py",
+      "tests/reference_parity/test_medsens_R_parity.py"
     ],
     "validation_status": "certified"
   },

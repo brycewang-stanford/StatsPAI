@@ -3211,6 +3211,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cbps_R_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_paper_parity.py"
       ],
@@ -7271,6 +7272,9 @@
       "tolerance": "1e-13 rel (observed 3.3e-16)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_evalue_rd_grid_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -9240,6 +9244,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_grapple_R_parity.py",
         "tests/reference_parity/test_grapple_parity.py"
       ],
       "also_verified_by": [
@@ -13386,6 +13391,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_medsens_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -14696,7 +14704,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_mr_parity.py"
+        "tests/reference_parity/test_mr_parity.py",
+        "tests/reference_parity/test_mr_presso_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
