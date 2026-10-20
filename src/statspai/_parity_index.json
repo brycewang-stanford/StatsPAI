@@ -22231,7 +22231,8 @@
         "tests/reference_parity/test_survival_weighted_parity.py",
         "tests/reference_parity/test_survreg_streg_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
-        "tests/reference_parity/test_twfe_decomposition_known_truth.py"
+        "tests/reference_parity/test_twfe_decomposition_known_truth.py",
+        "tests/reference_parity/test_westfall_young_wyoung_parity.py"
       ],
       "tolerance": ""
     },
