@@ -5209,3 +5209,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the radius `caliper_scale='sd'` fix in `sp.match`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `b56926659` (fix), `5f6047f0c` (traces).
+- **Reason.** `sp.match(method='radius')` now honours `caliper_scale='sd'`.
+  `src/statspai/matching/match.py` is on the traced paths of Track A module
+  11 and original-data modules 04 / 04b. None of them uses radius matching
+  with an SD caliper; all three were re-run first and reproduce their
+  committed results bit for bit. Only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
