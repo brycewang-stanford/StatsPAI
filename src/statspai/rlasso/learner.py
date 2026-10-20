@@ -11,10 +11,20 @@ heteroskedasticity-robust, and theory-justified, exactly as in
   ``E[D|X]`` (the natural choice for the partially-linear model ``sp.dml(
   model='plr')``).
 * :class:`RlassoClassifier` — a **linear-probability** classifier for
-  binary nuisances (e.g. IRM propensities).  It fits ``rlasso`` to the
-  0/1 label and clips the linear prediction into ``(eps, 1-eps)``; it is
-  a convenience, not a calibrated probability model — prefer a genuine
-  classifier when propensity calibration matters.
+  binary nuisances.  It fits ``rlasso`` to the 0/1 label and clips the
+  linear prediction into ``[clip, 1 - clip]``; it is a convenience, not a
+  probability model.  A linear prediction leaves ``[0, 1]`` for rows with
+  extreme covariates, and as a propensity score such a row gets an
+  inverse weight of up to ``1 / clip`` (1000 by default), so it warns when
+  the clip binds.  For a propensity score use
+  :class:`RlassologitClassifier` (``hdm``'s ``rlassoLATE`` also fits its
+  propensities with ``rlassologit``).
+* :class:`RlassologitClassifier` — the logistic rigorous Lasso.
+
+None of the three takes observation weights (``hdm::rlasso`` has none):
+``fit(..., sample_weight=w)`` raises ``TypeError`` instead of silently
+fitting unweighted, so ``sp.dml``'s weighted cross-fitting warns that the
+nuisance is unweighted and ``sp.SuperLearner`` refuses the learner.
 
 Both follow the scikit-learn estimator contract (``get_params`` /
 ``set_params`` / clone-safe ``__init__``) so ``sklearn.base.clone`` —
@@ -30,11 +40,24 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 from __future__ import annotations
 
 import inspect
+import warnings
 from typing import Any, Dict, Optional
 
 import numpy as np
 
+from ..exceptions import AssumptionWarning
 from ._core import rlasso
+
+
+def _refuse_sample_weight(learner: Any, sample_weight: Any) -> None:
+    """``hdm::rlasso`` has no observation weights; refuse rather than ignore."""
+    if sample_weight is not None:
+        raise TypeError(
+            f"{type(learner).__name__}.fit() does not take sample_weight: the "
+            "rigorous Lasso has no observation weights, and fitting "
+            "unweighted would silently ignore them."
+        )
+
 
 # ---------------------------------------------------------------------------
 # Duck-typed sklearn-estimator base (imports NO sklearn at module load).
@@ -145,6 +168,7 @@ class RlassoRegressor(_SklearnCompatEstimator):
         self.lambda_start = lambda_start
 
     def fit(self, X: Any, y: Any, sample_weight: Any = None) -> "RlassoRegressor":
+        _refuse_sample_weight(self, sample_weight)
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -175,8 +199,13 @@ class RlassoClassifier(_SklearnCompatEstimator):
     """Linear-probability classifier backed by the rigorous Lasso.
 
     Fits ``rlasso`` to the 0/1 label and exposes clipped
-    ``predict_proba``.  Use only when a linear-probability propensity is
-    acceptable; for calibrated propensities use a genuine classifier.
+    ``predict_proba``.  Use only when a linear-probability model is
+    acceptable.  For a propensity score that is inverted (``sp.ipw``,
+    ``sp.aipw``, ``sp.dml(model='irm')``) use
+    :class:`RlassologitClassifier`: a linear prediction below ``clip`` is
+    set to ``clip``, so a treated row with extreme covariates gets weight
+    ``1 / clip``.  ``predict_proba`` warns (``AssumptionWarning``) whenever
+    the clip binds.
 
     Examples
     --------
@@ -218,6 +247,7 @@ class RlassoClassifier(_SklearnCompatEstimator):
         self.clip = clip
 
     def fit(self, X: Any, y: Any, sample_weight: Any = None) -> "RlassoClassifier":
+        _refuse_sample_weight(self, sample_weight)
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
@@ -241,7 +271,32 @@ class RlassoClassifier(_SklearnCompatEstimator):
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)
-        p1 = np.clip(self.fit_.predict(X), self.clip, 1.0 - self.clip)
+        raw = np.asarray(self.fit_.predict(X), dtype=float)
+        p1 = np.clip(raw, self.clip, 1.0 - self.clip)
+        below = int(np.sum(raw < self.clip))
+        above = int(np.sum(raw > 1.0 - self.clip))
+        if below or above:
+            warnings.warn(
+                AssumptionWarning(
+                    f"RlassoClassifier: the linear-probability prediction "
+                    f"is outside [{self.clip:g}, {1.0 - self.clip:g}] for "
+                    f"{below + above} of {raw.size} rows ({below} below, "
+                    f"{above} above) and was clipped there. As a propensity "
+                    f"score such a row gets an inverse weight of up to "
+                    f"{1.0 / self.clip:.0f}, which can dominate a weighted "
+                    "estimate.",
+                    recovery_hint="For a propensity score use "
+                    "sp.RlassologitClassifier(), the logistic rigorous Lasso.",
+                    diagnostics={
+                        "n_below": below,
+                        "n_above": above,
+                        "n": int(raw.size),
+                        "clip": float(self.clip),
+                    },
+                    alternative_functions=["sp.RlassologitClassifier"],
+                ),
+                stacklevel=2,
+            )
         out: np.ndarray = np.column_stack([1.0 - p1, p1])
         return out
 
@@ -303,6 +358,7 @@ class RlassologitClassifier(_SklearnCompatEstimator):
     def fit(self, X: Any, y: Any, sample_weight: Any = None) -> "RlassologitClassifier":
         from ._logit import rlassologit
 
+        _refuse_sample_weight(self, sample_weight)
         X = np.asarray(X, dtype=float)
         if X.ndim == 1:
             X = X.reshape(-1, 1)

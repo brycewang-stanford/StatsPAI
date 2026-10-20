@@ -4,6 +4,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Classifier learners in DML, metalearners, causal forest; `sp.RlassoClassifier` as a propensity
+
+- **⚠️ Correctness**: `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) residualised on the classifier's hard 0/1 label from `predict`, so the residual was `T - 1{p > 0.5}`, not `T - E[T | state]`. A classifier on a 0/1 target now gives P(T = 1), and a classifier on any other target is refused, as in `sp.dml`. Estimates with a classifier learner change; the default `RidgeCV` and any regressor are byte-identical.
+- **⚠️ Correctness**: `sp.RlassoRegressor`, `sp.RlassoClassifier` and `sp.RlassologitClassifier` ignored `sample_weight` in `fit` (the rigorous Lasso has no observation weights). They now raise `TypeError`, so a weighted `sp.dml` fit warns that the nuisance is fitted unweighted (it was silently unweighted before; numbers unchanged), `sp.SuperLearner(sample_weight=)` refuses the learner, and `sp.ipw` / `sp.aipw(weights=, ps_learner=)` with one of them raises instead of returning an unweighted propensity.
+- **Fixed**: `sp.dml` (`irm` / `iivm` `ml_m`, `ml_r`; a classifier under `plr` / `pliv`), `sp.dml_did(ml_m=)`, `sp.dml_model_averaging`, `sp.metalearner` / `sp.auto_cate(propensity_model=)`, `sp.causal_forest(model_t=)` and `sp.conformal_counterfactual(propensity_model=)` raised `IndexError` with `sp.SuperLearner`, whose `predict_proba` is the `(n,)` vector of P(Y = 1), and indexed column 1 regardless of `classes_`. They now read the probability through `core/_learners.py`, which also maps a single-class `(n, 1)` output to 0 or 1. Test: a SuperLearner with a one-learner library equals that learner in every one of them to rtol 1e-9 (`tests/test_learner_proba_routing.py`). Outputs with the default learners and with scikit-learn classifiers are byte-identical.
+- **Changed**: `sp.RlassoClassifier.predict_proba` warns (`AssumptionWarning`) when its linear-probability prediction is clipped to `[clip, 1 - clip]`. On a design with ATE 1.2, `sp.ipw(ps_learner=sp.RlassoClassifier())` returned -1.23 (-2.19 on another draw) while logit, boosting and `sp.RlassologitClassifier` gave 1.07 to 1.24: about 3% of rows had a linear prediction outside [0, 1], a treated row clipped to 0.001 carried weight 1000, and two or three rows set the estimate. The classifier itself is right: intercept and coefficients equal `hdm::rlasso` on the 0/1 label to 1e-12 and its columns are [P(0), P(1)] (`tests/test_rlasso_classifier_propensity.py`, hdm 0.3.2). For a propensity use `sp.RlassologitClassifier`, as hdm's `rlassoLATE` uses `rlassologit`.
+
 ### Leftovers from the 2026-10-20 probe (xtevent, data layer, translation)
 
 #### Fixed

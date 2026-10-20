@@ -5,6 +5,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
+
+- `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) now residualises
+  on the classifier's P(T = 1) instead of its hard 0/1 label; estimates
+  with a classifier change. A classifier on a target that is not 0/1 is
+  refused. Regressors, including the default `RidgeCV`, are unchanged.
+- `sp.RlassoRegressor` / `sp.RlassoClassifier` / `sp.RlassologitClassifier`
+  `.fit(..., sample_weight=w)` raises `TypeError` (the weights used to be
+  ignored). Weighted `sp.dml` fits fall back to an unweighted nuisance with
+  a warning, as for any learner without weights; in `sp.ipw` / `sp.aipw`
+  with `weights=` choose a learner whose `fit` takes `sample_weight`.
+- `sp.RlassoClassifier.predict_proba` warns when it clips. It is a
+  linear-probability model; for an inverse-weighted propensity use
+  `sp.RlassologitClassifier`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.wild_cluster_boot(bootcluster=)` across one-way clusters
 
 With one-way `cluster=` and a `bootcluster=` that cuts across it, the
