@@ -45674,6 +45674,78 @@
     "name": "xtpcse"
   },
   {
+    "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics. Failure modes: xtregar: method=<method> is not 're' or 'fe' -> method='re' (random effects, Stata's default) or 'fe'; xtregar: rhotype=<rhotype> is not one of <', '.join(_RHOTYPES)> -> rhotype='dw' is Stata's default; 'tscorr' is bounded by one; xtregar: twostep does not apply to rhotype='onestep' -> Drop twostep=True; onestep is not iterated.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "lbi": {
+          "default": false,
+          "description": "Report the modified Bhargava et al. Durbin-Watson and the Baltagi-Wu LBI statistic for rho = 0",
+          "type": "boolean"
+        },
+        "method": {
+          "default": "re",
+          "description": "'re' (Baltagi-Wu GLS, Stata's default) or 'fe' (within)",
+          "type": "string"
+        },
+        "rhof": {
+          "description": "Fixed rho instead of estimating it",
+          "type": "number"
+        },
+        "rhotype": {
+          "default": "dw",
+          "description": "Estimator of rho: 'dw', 'regress', 'freg', 'tscorr', 'theil', 'nagar' or 'onestep'",
+          "type": "string"
+        },
+        "time": {
+          "description": "Integer time index (a gap of d periods = d steps)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "twostep": {
+          "default": false,
+          "description": "Stop at the first estimate of rho instead of iterating",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "id",
+        "time",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtregar"
+  },
+  {
     "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear panel model with time-varying regressors; Under the null the idiosyncratic errors are serially uncorrelated, which makes the first-differenced errors correlated at -0.5; Many panels: the variance is clustered on the panel. Failure modes: sp.xtserial: time=<time> must count periods (integers) -> Convert dates to a period index first; sp.xtserial: too few consecutive observations to difference -> The test needs at least three consecutive periods per panel; sp.xtserial: no regressor changes within panels -> The first-difference regression needs at least one time-varying regressor.",
     "input_schema": {
       "properties": {

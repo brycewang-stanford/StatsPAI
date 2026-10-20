@@ -1069,6 +1069,7 @@ from .panel.xtintreg import xtintreg as xtintreg
 from .panel.xtintreg import xttobit as xttobit
 from .panel.xtivreg import xtivreg as xtivreg
 from .panel.xtpcse import xtpcse as xtpcse
+from .panel.xtregar import xtregar as xtregar
 from .parity import ParityStatus as ParityStatus
 from .parity import parity_matrix as parity_matrix
 from .parity import parity_status as parity_status

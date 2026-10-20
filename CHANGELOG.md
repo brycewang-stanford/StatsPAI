@@ -111,6 +111,43 @@ All notable changes to StatsPAI will be documented in this file.
   which its tie fractions count (SEs ~3e-4 apart; the test reproduces R's
   numbers that way). Stata `svy` keeps replicate estimates in float unless
   `saving(, double)` is used, which moves its e(V) by ~1e-7.
+### `sp.xtregar`: fixed- and random-effects regression with an AR(1) disturbance
+
+#### Added
+
+- `sp.xtregar(data, y=, x=, id=, time=, method='re'|'fe', rhotype=, rhof=,
+  twostep=, lbi=)` is Stata's `xtregar` on unbalanced panels with gaps in
+  the time index: `rho` from iterated Prais-Winsten on the demeaned data
+  without a constant (every `rhotype`: `dw`, `regress`, `freg`, `tscorr`,
+  `theil`, `nagar`, `onestep`) or fixed; Baltagi and Wu's transformation
+  (`rho^d` across a gap of `d` periods); the within estimator or Baltagi
+  and Wu's GLS; the modified Bhargava et al. Durbin-Watson and LBI
+  statistics. Against Stata 18 MP on 29 runs (every rhotype, iterated and
+  two-step, fixed rho, LBI, gap-free subset): coefficients, standard
+  errors and every reported scalar agree to 1e-15
+  (`tests/test_xtregar_stata.py`). Conventions pinned along the way:
+  `theil` and `nagar` count the constant in `k` and divide by the number
+  of consecutive pairs; the `F` test of `u_i = 0` uses the transformed
+  constant in the pooled model.
+- Two departures, both documented: the fixed-effects `_cons` standard
+  error is divided by `1 - rho` like the coefficient (Stata leaves it
+  undivided, about 2.5 times too small at `rho = 0.6` by simulation), and
+  the random-effects Wald test has `p` degrees of freedom (Stata labels it
+  `chi2(p + 1)`).
+
+### Evidence notes (no numeric change)
+
+- `sp.xtintreg`: the 0.5% gap in `se(sigma_e)` against Stata is Stata's
+  analytic Hessian under adaptive quadrature, which differs from the
+  curvature of its own likelihood (finite differences of Stata's `e(ll)`
+  give our number); with `intmethod(ghermite) intpoints(100)` Stata's
+  standard errors match ours to 1e-10.
+- `sp.group_sequential`: expected sample sizes match Stata `gsdesign` to
+  1e-7 for efficacy-only and binding designs. For nonbinding futility
+  Stata adds efficacy crossings computed with futility ignored to futility
+  crossings computed with futility followed, so its weights sum to more
+  than one (its futility-only ESS1 exceeds `N_max`); ours follows the
+  futility rule. Both are now tested.
 
 ### `design=` on `sp.ltmle` and `sp.match`
 

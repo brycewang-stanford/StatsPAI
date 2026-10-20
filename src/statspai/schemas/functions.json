@@ -7517,6 +7517,84 @@
     }
   },
   {
+    "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics.",
+    "name": "xtregar",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "id": {
+          "description": "Panel identifier",
+          "type": "string",
+          "x-aliases": [
+            "entity"
+          ],
+          "x-statspai-role": "column"
+        },
+        "lbi": {
+          "default": false,
+          "description": "Report the modified Bhargava et al. Durbin-Watson and the Baltagi-Wu LBI statistic for rho = 0",
+          "type": "boolean"
+        },
+        "method": {
+          "default": "re",
+          "description": "'re' (Baltagi-Wu GLS, Stata's default) or 'fe' (within)",
+          "type": "string"
+        },
+        "rhof": {
+          "description": "Fixed rho instead of estimating it",
+          "type": "number"
+        },
+        "rhotype": {
+          "default": "dw",
+          "description": "Estimator of rho: 'dw', 'regress', 'freg', 'tscorr', 'theil', 'nagar' or 'onestep'",
+          "type": "string"
+        },
+        "time": {
+          "description": "Integer time index (a gap of d periods = d steps)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "twostep": {
+          "default": false,
+          "description": "Stop at the first estimate of rho instead of iterating",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covariates"
+          ]
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x",
+        "id",
+        "time"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
     "name": "xttobit",
     "parameters": {

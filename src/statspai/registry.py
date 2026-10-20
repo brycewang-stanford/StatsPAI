@@ -9123,6 +9123,83 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="xtregar",
+            category="panel",
+            description=(
+                "Fixed- or random-effects linear regression with an AR(1) "
+                "disturbance on unbalanced, unequally spaced panels (Stata "
+                "xtregar): rho from the demeaned regression (dw, regress, "
+                "freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu "
+                "transformation, within estimator or Baltagi-Wu GLS, and the "
+                "modified Bhargava et al. Durbin-Watson and LBI statistics."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec("x", "list", True, description="Regressors"),
+                ParamSpec("id", "str", True, description="Panel identifier"),
+                ParamSpec(
+                    "time",
+                    "str",
+                    True,
+                    description="Integer time index (a gap of d periods = d steps)",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "re",
+                    "'re' (Baltagi-Wu GLS, Stata's default) or 'fe' (within)",
+                ),
+                ParamSpec(
+                    "rhotype",
+                    "str",
+                    False,
+                    "dw",
+                    "Estimator of rho: 'dw', 'regress', 'freg', 'tscorr', "
+                    "'theil', 'nagar' or 'onestep'",
+                ),
+                ParamSpec(
+                    "rhof", "float", False, None, "Fixed rho instead of estimating it"
+                ),
+                ParamSpec(
+                    "twostep",
+                    "bool",
+                    False,
+                    False,
+                    "Stop at the first estimate of rho instead of iterating",
+                ),
+                ParamSpec(
+                    "lbi",
+                    "bool",
+                    False,
+                    False,
+                    "Report the modified Bhargava et al. Durbin-Watson and the "
+                    "Baltagi-Wu LBI statistic for rho = 0",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
+            ],
+            returns="EconometricResults",
+            example='sp.xtregar(df, y="invest", x=["mvalue", "kstock"], id="firm", time="year", method="fe")',
+            tags=[
+                "panel",
+                "ar1",
+                "serial-correlation",
+                "fixed-effects",
+                "random-effects",
+            ],
+            reference="baltagi1999unequally",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xttobit",
             category="panel",
             description=(

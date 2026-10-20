@@ -1833,6 +1833,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "statistic would divide by zero.",
         },
     ],
+    "xtregar": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "method='re' (random effects, Stata's default) or " "'fe'.",
+            "symptom": "xtregar: method=<method> is not 're' or 'fe'.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "rhotype='dw' is Stata's default; 'tscorr' is bounded " "by one.",
+            "symptom": "xtregar: rhotype=<rhotype> is not one of <', "
+            "'.join(_RHOTYPES)>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop twostep=True; onestep is not iterated.",
+            "symptom": "xtregar: twostep does not apply to " "rhotype='onestep'.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass |rhof| < 1, or omit it to estimate rho.",
+            "symptom": "xtregar: rhof=<rhof> must lie strictly between -1 " "and 1.",
+        },
+    ],
     "xtserial": [
         {
             "exception": "statspai.MethodIncompatibility",
