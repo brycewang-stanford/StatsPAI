@@ -4758,3 +4758,15 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — trace 33 re-recorded after var.py docstring references
+
+- **Commits.** `69dc2cfd9` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 33).
+- **Reason.** `sp.granger_causality`'s docstring in `timeseries/var.py`
+  gained a References section (Granger 1969, Dumitrescu-Hurlin 2012); no
+  code changed.
+- **Effect on the paper.** None. Module 33 was re-run and its committed
+  result is byte-identical; only the source hash in the trace changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
