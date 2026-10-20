@@ -4968,3 +4968,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces 33 / 34 re-record after the clean-room local-projection rewrite
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2746f026c`.
+- **Reason.** The IV / state-dependent / panel local projections and the
+  Dumitrescu-Hurlin test were rewritten clean-room (`d46afbb4a`):
+  `timeseries/var.py` (module 33) and `timeseries/local_projections.py`
+  changed, and `_lp_dispatch.py` on the module-34 path was replaced by
+  `_lpx_route.py`. The direct and Cholesky paths that Track A exercises are
+  the pre-extension code; `33_var.py` and `34_lp.py` were re-run first and
+  reproduce their committed results byte for byte; only the trace was
+  re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
