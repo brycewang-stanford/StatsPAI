@@ -111934,7 +111934,7 @@
           },
           "se_method": {
             "default": "bootstrap",
-            "description": "Standard errors of the two bounds. ``'analytic'`` is the asymptotic variance of Lee (2009, Proposition 3) exactly as Stata's ``leebounds`` (default ``vce(analytic)``) computes it; ``'bootstrap'`` resamples units ``n_bootstrap`` times.",
+            "description": "Standard errors of the two bounds. ``'analytic'`` is the asymptotic variance of Lee (2009, Proposition 3) with sample analogues; with ``trimming='leebounds'`` it equals Stata ``leebounds``' default ``vce(analytic)``. ``'bootstrap'`` resamples units ``n_bootstrap`` times.",
             "enum": [
               "bootstrap",
               "analytic"
@@ -111961,7 +111961,7 @@
             "type": "string"
           },
           "weights": {
-            "description": "Sampling (probability) weights, Stata ``leebounds [pw=]``: the retention rates, the trimming quantile, the kept mass, the means and the analytic variance are all weighted (weights rescaled to mean one). Needs ``trimming='leebounds'`` (which also stores the weights in single precision, as ``leebounds`` does) or ``'exact'``; not available with ``covariates``. The bootstrap resamples units together with their weights. One difference from ``leebounds``: without a tie at the threshold it leaves the weights out of the untrimmed arm's variance term in the *upper* bound's SE; here that term is weighted for both bounds (``tests/reference_parity/test_lee_bounds_weights_Stata_parity.py`` rebuilds Stata's number).",
+            "description": "Sampling (probability) weights, Stata ``leebounds [pw=]``: the retention rates, the trimming quantile, the kept mass, the means and the analytic variance are all weighted (weights rescaled to mean one). Needs ``trimming='leebounds'`` (which also holds the weights in single precision, as ``leebounds`` does) or ``'exact'``; not available with ``covariates``. The bootstrap resamples units together with their weights. One difference from ``leebounds``: when no observation sits at the threshold of the tail that keeps the upper outcomes, ``leebounds``' standard error of that bound uses the unweighted variance of the untrimmed arm; here that variance is weighted for both bounds (``tests/reference_parity/test_lee_bounds_weights_Stata_parity.py`` rebuilds Stata's number).",
             "type": "string",
             "x-statspai-role": "column"
           },
