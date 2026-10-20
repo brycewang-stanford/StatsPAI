@@ -445,3 +445,44 @@ def test_remediation_hints_reference_registered_functions():
         n for n in referenced if n not in registered and not hasattr(sp, n)
     )
     assert not missing, f"remediation.py references unknown functions: {missing}"
+
+
+def test_result_id_with_data_path_on_a_function_without_data(tmp_path):
+    # 2026-10-20 probe: slopes / hypotheses / predictions after a result_id
+    # failed with a raw TypeError when the call also carried data_path (the
+    # loaded frame was injected as data=). The frame is now reported as not
+    # applied and the call runs on the fit, as without data_path.
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({"x": rng.normal(size=300)})
+    df["y"] = (df["x"] + rng.logistic(size=300) > 0).astype(int)
+    path = str(tmp_path / "d.csv")
+    df.to_csv(path, index=False)
+    fit = _rpc(
+        "tools/call",
+        {
+            "name": "call_function",
+            "arguments": {
+                "function": "logit",
+                "arguments": {"formula": "y ~ x"},
+                "data_path": path,
+                "as_handle": True,
+            },
+        },
+    )["result"]["structuredContent"]
+    outs = []
+    for extra in ({}, {"data_path": path}):
+        res = _rpc(
+            "tools/call",
+            {
+                "name": "call_function",
+                "arguments": {
+                    "function": "avg_slopes",
+                    "arguments": {},
+                    "result_id": fit["result_id"],
+                    **extra,
+                },
+            },
+        )["result"]
+        assert not res.get("isError"), res
+        outs.append(res["structuredContent"])
+    assert "data" in outs[1]["_unsupported_args"]

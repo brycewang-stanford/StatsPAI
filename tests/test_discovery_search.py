@@ -126,3 +126,17 @@ def test_phrase_tokens_have_synonyms_or_targets():
 
     for _phrase, token in ds.PHRASES:
         assert token in ds.SYNONYMS or token in ds.CONCEPT_TARGETS, token
+
+
+def test_unknown_category_is_refused_with_the_list():
+    # 2026-10-20 probe: category="did" returned [] as if nothing matched.
+    import pytest
+
+    import statspai as sp
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility) as exc:
+        sp.search_functions("did", category="did")
+    assert "causal" in exc.value.diagnostics["categories"]
+    hits = sp.search_functions("did", category="Causal")
+    assert hits and all(h["category"] == "causal" for h in hits)

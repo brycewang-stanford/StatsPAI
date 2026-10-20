@@ -21069,7 +21069,7 @@
           "x-statspai-role": "column"
         },
         "weights": {
-          "description": "Matching or balancing weights (``NaN`` = not in the sample); the default is the unweighted sample.",
+          "description": "Matching or balancing weights (``NaN`` = unmatched, weight 0); the default is the unweighted sample. The bins are set on every row with complete covariates whatever its weight, so a weighted (after matching) and an unweighted (before matching) L1 use the same cells. Negative or infinite weights are refused.",
           "type": "string"
         }
       },

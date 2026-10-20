@@ -75,3 +75,20 @@ def test_accepts_pc_output_and_refuses_bad_input():
         sp.ida(df, res, x="x", y="y", method="optimal")
     with pytest.raises(sp.MethodIncompatibility, match="not a node"):
         sp.ida(df, res, x="x", y="w")
+
+
+def test_cpdag_as_json_dict_equals_the_dataframe():
+    # 2026-10-20 probe: an agent sends the CPDAG as DataFrame.to_dict()
+    # (labels included); it was refused as "an array needs node names".
+    rng = np.random.default_rng(0)
+    a = rng.normal(size=2000)
+    b = a + rng.normal(size=2000)
+    c = b + rng.normal(size=2000)
+    df = pd.DataFrame({"a": a, "b": b, "c": c})
+    cp = pd.DataFrame(
+        [[0, 1, 0], [1, 0, 1], [0, 1, 0]], index=list("abc"), columns=list("abc")
+    )
+    via_json = json.loads(json.dumps(cp.to_dict()))
+    r1 = sp.ida(df, cp, x="b", y="c")
+    r2 = sp.ida(df, via_json, x="b", y="c")
+    assert np.allclose(sorted(r1.effects), sorted(r2.effects), rtol=0, atol=0)

@@ -80,6 +80,15 @@ class IDAResult(ResultProtocolMixin):
 def _cpdag_matrix(cpdag: Any, names: Optional[Sequence[str]]) -> pd.DataFrame:
     if isinstance(cpdag, dict) and "cpdag" in cpdag:
         cpdag = cpdag["cpdag"]
+    if (
+        isinstance(cpdag, dict)
+        and cpdag
+        and all(isinstance(v, dict) for v in cpdag.values())
+    ):
+        # DataFrame.to_dict() form, {column: {row: value}}: what an agent
+        # sends over JSON (the MCP path refused it, 2026-10-20 probe)
+        cpdag = pd.DataFrame(cpdag)
+        cpdag = cpdag.reindex(index=list(cpdag.columns))
     if isinstance(cpdag, pd.DataFrame):
         A = cpdag.copy()
     else:

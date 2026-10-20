@@ -111,7 +111,14 @@ def dispatch_registry_tool(
         kwargs = {k: v for k, v in kwargs.items() if k in allowed}
 
     if data is not None and "data" not in kwargs:
-        kwargs["data"] = data
+        if allowed is None or "data" in allowed:
+            kwargs["data"] = data
+        else:
+            # A function without a data= parameter (slopes / hypotheses /
+            # predictions after a result_id) used to get one anyway and
+            # fail with a raw TypeError (2026-10-20 probe). The loaded data
+            # is reported as not applied; the fit's own data is used.
+            unsupported = sorted(set(unsupported) | {"data"})
 
     from ..exceptions import StatsPAIError
     from ._replay import build_replay

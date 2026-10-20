@@ -453,4 +453,9 @@ from ._card_examples_new import NEW_EXAMPLES as _NEW_EXAMPLES  # noqa: E402
 
 RUNNABLE_EXAMPLES.update(_NEW_EXAMPLES)
 
+# Entry points that gained parameters in that batch.
+from ._card_examples_changed import CHANGED_EXAMPLES as _CHANGED  # noqa: E402
+
+RUNNABLE_EXAMPLES.update(_CHANGED)
+
 __all__ = ["RUNNABLE_EXAMPLES"]

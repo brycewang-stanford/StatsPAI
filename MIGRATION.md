@@ -19,6 +19,27 @@ returns `NA` for these rows.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ ordered Categorical outcomes, spatial z intervals, `dose_response(method='dr')` defaults
+
+- `sp.ologit` / `sp.oprobit` / `sp.gologit` read an ordered `pd.Categorical`
+  outcome in its declared order (they sorted the labels alphabetically).
+  Integer-coded outcomes are unchanged.
+- The spatial maximum-likelihood fits (`sar`, `sem`, `sdm`, `sac`, `sdem`,
+  `gns`) report z p-values and normal intervals, as Stata `spregress, ml`;
+  estimates and standard errors are unchanged. There is no switch back.
+- `sp.dose_response(method='dr')` without `treatment_model=` now uses the
+  documented linear treatment model (it received gradient boosting) and
+  fits the variance on cross-fitted residuals; curves from default calls
+  change. Pass `treatment_model=` to choose another learner.
+- `sp.msprt`: the default `min_per_arm` is 10 with the plug-in variance
+  (it was 2, which broke the level); pass `min_per_arm=2` for the old
+  sequence of looks.
+- `sp.augsynth(progfunc='none', scm=False)` is SCM, as in R augsynth.
+- `sp.lee_bounds(weights=)` drops zero-weight rows (SEs and `n_obs` change
+  when there are any).
+
+---
+
 ## 1.39.6 → unreleased: `sp.margins` after `fepois` / `feglm` needs `vcov=False`
 
 After a fit with absorbed fixed effects and a non-linear link

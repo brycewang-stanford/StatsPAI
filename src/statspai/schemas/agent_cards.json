@@ -10665,7 +10665,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.causal_impact(df, y=\"sales\", time=\"date\", intervention_time=\"2020-03-15\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nT = 100\nx = np.cumsum(rng.normal(size=T))\ny = 1 + 0.8 * x + rng.normal(size=T)\ny[70:] += 2.0\ndf = pd.DataFrame({'t': np.arange(T), 'y': y, 'x': x})\nr = sp.causal_impact(df, y='y', time='t', intervention_time=70, covariates=['x'])",
     "failure_modes": [
       {
         "alternative": "sp.synth",
@@ -22774,7 +22774,7 @@
       ],
       "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
-    "example": "sp.predictions(fit)",
+    "example": "df = sp.cps_wage()\nfit = sp.logit('union ~ education + experience', data=df)\nr = sp.predictions(fit)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
@@ -23279,7 +23279,7 @@
       ],
       "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
-    "example": "sp.slopes(fit, \"x\")",
+    "example": "df = sp.cps_wage()\nfit = sp.logit('union ~ education + experience', data=df)\nr = sp.slopes(fit, 'education')",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
@@ -23558,7 +23558,7 @@
       ],
       "tolerance": "estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian"
     },
-    "example": "sp.hypotheses(fit, \"b2 = b3\")",
+    "example": "df = sp.cps_wage()\nfit = sp.regress('log_wage ~ education + experience + tenure', data=df)\nr = sp.hypotheses(fit, 'experience = tenure')",
     "failure_modes": [
       {
         "alternative": "",
@@ -23673,7 +23673,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.svar(fit, B=np.tril(np.full((3, 3), np.nan)))",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nT = 300\ne = rng.normal(size=(T, 2))\nY = np.zeros((T, 2))\nfor t in range(1, T):\n Y[t] = 0.5 * Y[t - 1] + e[t] @ np.array([[1.0, 0.5], [0.0, 1.0]])\nfit = sp.var(pd.DataFrame(Y, columns=['a', 'b']), lags=1)\nr = sp.svar(fit, B=np.tril(np.full((2, 2), np.nan)))",
     "failure_modes": [
       {
         "alternative": "",
@@ -28968,7 +28968,7 @@
       ],
       "tolerance": "rel_est<=2e-05, rel_se<=1e-06"
     },
-    "example": "sp.augsynth(df, outcome=\"gdp\", unit=\"state\", time=\"year\", treated_unit=\"CA\", treatment_time=1989)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nunits, T = 12, 20\nrows = [(u, t, np.cumsum(rng.normal(size=T))[t] + u) for u in range(units) for t in range(T)]\ndf = pd.DataFrame(rows, columns=['unit', 'year', 'y'])\ndf.loc[(df.unit == 0) & (df.year >= 15), 'y'] += 2.0\nr = sp.augsynth(df, outcome='y', unit='unit', time='year', treated_unit=0, treatment_time=15, placebo=False)",
     "failure_modes": [
       {
         "alternative": "sp.sdid",
@@ -29179,7 +29179,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.sar(W, data=df, formula=\"crime ~ income + education\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 100\nW = np.zeros((n, n)) # ring: each unit linked to its two neighbours\nfor i in range(n):\n W[i, (i - 1) % n] = W[i, (i + 1) % n] = 1\nWn = W / 2\nx = rng.normal(size=n)\ny = np.linalg.solve(np.eye(n) - 0.4 * Wn, 1 + x + rng.normal(size=n))\ndf = pd.DataFrame({'y': y, 'x': x})\nr = sp.sar(W, data=df, formula='y ~ x')",
     "failure_modes": [
       {
         "alternative": "sp.sar_gmm",
@@ -30231,7 +30231,7 @@
       ],
       "tolerance": "coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7"
     },
-    "example": "sp.msm(panel, y=\"Y\", treat=\"A\", id=\"id\", time=\"t\", time_varying=[\"L_lag\"], baseline=[\"V\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nrows = []\nfor i in range(300):\n V = rng.normal(); L = rng.normal(); A_prev = 0\n for t in range(3):\n A = int(rng.random() < 1 / (1 + np.exp(-(0.5 * L + A_prev))))\n Y = A + 0.5 * L + V + rng.normal()\n rows.append((i, t, V, L, A, Y))\n L = 0.3 * L + 0.5 * A + rng.normal(); A_prev = A\npanel = pd.DataFrame(rows, columns=['id', 't', 'V', 'L', 'A', 'Y'])\nr = sp.msm(panel, y='Y', treat='A', id='id', time='t', time_varying=['L'], baseline=['V'])",
     "failure_modes": [
       {
         "alternative": "sp.hal_tmle",
@@ -62557,7 +62557,7 @@
       ],
       "tolerance": "1e-9 rel on the dose-response function at 5 doses (observed 5.1e-10)"
     },
-    "example": "sp.dose_response(df, y=\"y\", treat=\"dose\", covariates=[\"x1\",\"x2\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 600\nx1, x2 = rng.normal(size=(2, n))\ndose = 0.5 * x1 + rng.normal(size=n)\ndf = pd.DataFrame({'x1': x1, 'x2': x2, 'dose': dose,\n 'y': np.sin(dose) + x1 + x2 + rng.normal(size=n)})\nr = sp.dose_response(df, y='y', treat='dose', covariates=['x1', 'x2'], method='dr')",
     "failure_modes": [
       {
         "alternative": "",
@@ -62751,7 +62751,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.spillover(df, y=\"y\", treat=\"d\", cluster=\"village\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ncl = np.repeat(np.arange(150), 6)\nd = rng.binomial(1, 0.5, cl.size)\npeers = (pd.Series(d).groupby(cl).transform('sum') - d) / 5\ndf = pd.DataFrame({'village': cl, 'd': d,\n 'y': 1 + 1.5 * d + 2 * peers + rng.normal(size=cl.size)})\nr = sp.spillover(df, y='y', treat='d', cluster='village', n_bootstrap=50)",
     "failure_modes": [
       {
         "alternative": "sp.cluster_matched_pair",
@@ -65131,8 +65131,7 @@
             "x-statspai-role": "dataframe"
           },
           "min_per_arm": {
-            "default": 2,
-            "description": "Skip looks with fewer per arm",
+            "description": "Skip looks with fewer per arm (default 1 with sigma=, 10 with the plug-in variance)",
             "type": "integer"
           },
           "sigma": {
@@ -66525,7 +66524,7 @@
       ],
       "tolerance": "b / se 1e-12 abs (observed <= 3e-16)"
     },
-    "example": "sp.did_2x2(df, y=\"earnings\", treat=\"treated\", time=\"year\")",
+    "example": "df = sp.dgp_did(n_units=100, n_periods=2, seed=3)\ndf['post'] = (df['time'] == 1).astype(int)\ndf['g'] = df.groupby('unit')['treated'].transform('max')\nr = sp.did_2x2(df, y='y', treat='g', time='post')",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -68918,7 +68917,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.didregress(df, \"lemp\", \"d\", group=\"countyreal\", time=\"year\")",
+    "example": "df = sp.dgp_did(n_units=100, n_periods=8, seed=2)\nr = sp.didregress(df, 'y', 'treated', group='unit', time='time')",
     "failure_modes": [
       {
         "alternative": "sp.callaway_santanna",
@@ -70196,7 +70195,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.xtevent(df, y=\"y\", policy=\"z\", panel=\"id\", time=\"t\", window=3, cluster=\"state\")",
+    "example": "df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=1)\ndf['first_treat'] = df['first_treat'].fillna(0)\nr = sp.xtevent(df, y='y', policy='treated', panel='unit', time='time', window=2)",
     "failure_modes": [
       {
         "alternative": "",
@@ -80986,7 +80985,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.did_imputation(\n data=df, y='wage', group='county', time='year',\n first_treat='first_treat', horizon=list(range(-5, 6)),\n)",
+    "example": "df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=1)\ndf['first_treat'] = df['first_treat'].fillna(0)\nr = sp.bjs(df, y='y', group='unit', time='time', first_treat='first_treat')",
     "failure_modes": [
       {
         "alternative": "sp.honest_did",
@@ -94839,7 +94838,7 @@
             "x-statspai-role": "column"
           },
           "weights": {
-            "description": "Matching or balancing weights (``NaN`` = not in the sample); the default is the unweighted sample.",
+            "description": "Matching or balancing weights (``NaN`` = unmatched, weight 0); the default is the unweighted sample. The bins are set on every row with complete covariates whatever its weight, so a weighted (after matching) and an unweighted (before matching) L1 use the same cells. Negative or infinite weights are refused.",
             "type": "string"
           }
         },
@@ -96087,7 +96086,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.sumstats(df, output='table1.docx') # doctest: +SKIP",
+    "example": "df = sp.cps_wage()\nr = sp.sumstats(df, vars=['log_wage', 'education', 'experience'], output='dataframe')",
     "failure_modes": [
       {
         "alternative": "",
@@ -96236,7 +96235,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.balance_table( # doctest: +SKIP\n df, treat='union', covariates=cov, output='balance.docx'\n)",
+    "example": "df = sp.cps_wage()\nr = sp.balance_table(df, treat='union', covariates=['education', 'experience', 'female'], output='dataframe')",
     "failure_modes": [
       {
         "alternative": "",
@@ -96526,7 +96525,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "fig, ax, bins = sp.binscatter(df, y='wage', x='education')",
+    "example": "import matplotlib\nmatplotlib.use('Agg')\ndf = sp.cps_wage()\nr = sp.binscatter(df, y='log_wage', x='experience', n_bins=15)",
     "failure_modes": [
       {
         "alternative": "",
@@ -99127,7 +99126,7 @@
       ],
       "tolerance": "1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and logit-with-interaction; <= 1e-10 otherwise)"
     },
-    "example": "me = sp.margins(result, data=df)",
+    "example": "df = sp.cps_wage()\nfit = sp.logit('union ~ education + experience', data=df)\nr = sp.margins(fit, data=df)",
     "failure_modes": [
       {
         "exception": "(none -- informational)",
@@ -99277,7 +99276,7 @@
       ],
       "tolerance": "1e-10 rel (observed <= 3.5e-15 est / SE; marginaleffects SE 1.8e-10, numerical Jacobian)"
     },
-    "example": "m = sp.margins_at(result, data=df, at={\"experience\": [1, 5, 10, 15, 20]})",
+    "example": "df = sp.cps_wage()\nfit = sp.logit('union ~ education + experience', data=df)\nr = sp.margins_at(fit, data=df, at={'experience': [1, 5, 10, 20]})",
     "failure_modes": [
       {
         "exception": "(none -- informational)",
@@ -101360,7 +101359,7 @@
       ],
       "tolerance": "CLR statistic and p-value vs ivmodel rel 1e-9 (observed 1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 (observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further)"
     },
-    "example": "panel = sp.weakrobust(df, y='wage', endog='educ',\n instruments=['z1', 'z2'],\n clr_simulations=2000, grid_size=101,\n random_state=0)",
+    "example": "df = sp.dgp_iv(n=500, first_stage=0.2, seed=0)\nr = sp.weakrobust(df, y='y', endog='treatment', instruments=['instrument'], exog=['x1', 'x2'], random_state=0)",
     "failure_modes": [
       {
         "alternative": "sp.conditional_lr_ci",
@@ -103587,7 +103586,7 @@
       ],
       "tolerance": "p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14)"
     },
-    "example": "boot = sp.wild_cluster_boot(result, data=df, cluster=\"state\",\n variable=\"x1\", n_boot=199, seed=0)",
+    "example": "df = sp.dgp_cluster_rct(n_clusters=20, cluster_size=30, seed=0)\nfit = sp.regress('y ~ treatment', data=df, cluster='cluster_id')\nr = sp.wild_cluster_boot(fit, data=df, cluster='cluster_id', variable='treatment', n_boot=499, seed=1)",
     "failure_modes": [
       {
         "alternative": "sp.wild_cluster_boot",
@@ -119132,7 +119131,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.cox(formula=\"time ~ age + treatment\", data=df,\n event=\"status\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 500\nage = rng.normal(size=n)\ntreatment = rng.integers(0, 2, n)\nt = rng.exponential(1 / np.exp(0.5 * age - 0.7 * treatment))\nc = rng.exponential(2.0, n)\ndf = pd.DataFrame({'age': age, 'treatment': treatment,\n 'time': np.minimum(t, c),\n 'status': (t <= c).astype(int)})\nr = sp.cox(formula='time ~ age + treatment', data=df, event='status')",
     "failure_modes": [
       {
         "alternative": "sp.aft",
@@ -119332,7 +119331,7 @@
       ],
       "tolerance": "S(t) at every event time 1e-12 (observed ~3e-17); median exact"
     },
-    "example": "km = sp.kaplan_meier(data=df, duration=\"time\", event=\"status\",\n conf_type=\"log-log\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 300\nt = rng.exponential(5.0, n)\nc = rng.exponential(10.0, n)\ndf = pd.DataFrame({'time': np.minimum(t, c),\n 'status': (t <= c).astype(int)})\nr = sp.kaplan_meier(data=df, duration='time', event='status', conf_type='log-log')",
     "failure_modes": [
       {
         "exception": "(none -- informational)",
@@ -119924,7 +119923,7 @@
       ],
       "tolerance": "R 1e-10 rel (observed 6e-15); Stata coefficients 1e-7 and SEs 1e-8 (Stata's ml stops 5e-9 away), log likelihood 1e-10"
     },
-    "example": "res = sp.finegray(\n df, duration=\"time\", event=\"status\", x=[\"x\"], cause=1\n)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 600\nx = rng.normal(size=n)\nt1 = rng.exponential(1 / np.exp(0.5 * x))\nt2 = rng.exponential(1.0, n)\nc = rng.exponential(3.0, n)\nt = np.minimum.reduce([t1, t2, c])\nstatus = np.select([t == t1, t == t2], [1, 2], 0)\ndf = pd.DataFrame({'x': x, 'time': t, 'status': status})\nr = sp.finegray(df, duration='time', event='status', x=['x'], cause=1)",
     "failure_modes": [
       {
         "alternative": "sp.kaplan_meier",
@@ -122128,7 +122127,7 @@
       ],
       "tolerance": "chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8"
     },
-    "example": "gc = sp.granger_causality(vr, caused=\"y\", causing=\"x\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nT = 300\nx = rng.normal(size=T)\ny = np.r_[0.0, 0.6 * x[:-1]] + rng.normal(size=T)\nfit = sp.var(pd.DataFrame({'y': y, 'x': x}), lags=1)\nr = sp.granger_causality(fit, caused='y', causing='x')",
     "failure_modes": [
       {
         "alternative": "sp.johansen",
@@ -144195,7 +144194,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.local_projections(df, outcome=\"y\", shock=\"shock\", horizons=8)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nT = 200\nshock = rng.normal(size=T)\ny = np.zeros(T)\nfor t in range(1, T):\n y[t] = 0.5 * y[t - 1] + shock[t] + rng.normal(scale=0.5)\ndf = pd.DataFrame({'y': y, 'shock': shock})\nr = sp.local_projections(df, outcome='y', shock='shock', horizons=6)",
     "failure_modes": [
       {
         "alternative": "var",
@@ -149240,7 +149239,7 @@
       ],
       "tolerance": ""
     },
-    "example": "res2 = sp.gformula_mc(\n df,\n treatment_cols=['A0', 'A1', 'A2'],\n confounder_cols=[['L0'], ['L1'], ['L2']],\n outcome_col='Y',\n strategy=dynamic,\n n_simulations=2000, bootstrap=0, seed=0,\n)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 500\nL0 = rng.normal(size=n); A0 = rng.binomial(1, 0.5, n)\nL1 = L0 + A0 + rng.normal(size=n); A1 = rng.binomial(1, 0.5, n)\nY = A0 + A1 + L1 + rng.normal(size=n)\ndf = pd.DataFrame({'L0': L0, 'A0': A0, 'L1': L1, 'A1': A1, 'Y': Y})\nr = sp.gformula_mc(df, treatment_cols=['A0', 'A1'],\n confounder_cols=[['L0'], ['L1']], outcome_col='Y',\n strategy=(1, 1), control_strategy=(0, 0), n_simulations=2000, bootstrap=20, seed=0)",
     "failure_modes": [
       {
         "alternative": "sp.gformula_mc",
@@ -160533,7 +160532,7 @@
       ],
       "tolerance": "components 1e-12 rel; delta SEs 1e-12 rel vs CMAverse (vcov='ols'); variances 5e-9 rel vs med4way (vcov='ml')"
     },
-    "example": "res = sp.four_way_decomposition(df, y=\"y\", treat=\"a\", mediator=\"m\")",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\na = rng.integers(0, 2, n)\nm = 0.5 * a + rng.normal(size=n)\ndf = pd.DataFrame({'a': a, 'm': m,\n 'y': a + m + 0.5 * a * m + rng.normal(size=n)})\nr = sp.four_way_decomposition(df, y='y', treat='a', mediator='m')",
     "failure_modes": [
       {
         "alternative": "sp.gelbach",
@@ -160877,7 +160876,7 @@
       ],
       "tolerance": "psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10)"
     },
-    "example": "res = sp.ltmle(\n df, y=\"Y\", treatments=[\"A0\", \"A1\"],\n covariates_time=[[\"L0\"], [\"L1\"]],\n)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 800\nL0 = rng.normal(size=n)\nA0 = rng.binomial(1, 1 / (1 + np.exp(-L0)))\nL1 = 0.5 * L0 + A0 + rng.normal(size=n)\nA1 = rng.binomial(1, 1 / (1 + np.exp(-L1)))\nY = A0 + A1 + L1 + rng.normal(size=n)\ndf = pd.DataFrame({'L0': L0, 'A0': A0, 'L1': L1, 'A1': A1, 'Y': Y})\nr = sp.ltmle(df, y='Y', treatments=['A0', 'A1'], covariates_time=[['L0'], ['L1']])",
     "failure_modes": [
       {
         "alternative": "msm",

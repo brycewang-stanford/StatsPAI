@@ -300,6 +300,97 @@ All notable changes to StatsPAI will be documented in this file.
   returns `NA` there). The grid now moves to the estimate in that case, as
   the relative-magnitude family already did; every other set is unchanged.
 
+### Re-probe of the functions added or changed on 2026-10-19/20
+
+Boundary probes (known-truth simulations, missing values, label columns,
+single clusters, polars and the MCP path) of the ~60 functions from that
+batch, then a re-run of the 2026-10-19 agent-native audit.
+
+#### ⚠️ Correctness
+
+- `sp.dose_response(method='dr')` called without models received the GPS
+  default (gradient boosting) for the treatment mean, and its variance
+  model was fitted on in-sample residuals, so the density collapsed: on
+  `E[Y(t)] = sin(t)` the curve ran from -71 to 697. The DR curve now uses
+  its documented linear default and cross-fitted (honest) residuals for the
+  variance; every grid point is within 3 SEs of the truth on that design
+  (`tests/test_dose_response_dr.py`). An unfitted sklearn ensemble passed
+  as a model also crashed on truth testing (`dose_response`,
+  `conformal_ite`).
+- `sp.ologit` / `sp.oprobit` / `sp.gologit` sorted the labels of an
+  ordered `pd.Categorical` outcome alphabetically, scrambling it; the
+  declared order is now used (identical to the fit on integer codes).
+- `sp.lee_bounds(weights=)` kept zero-weight rows in the mean-one
+  rescaling and in N: analytic SEs were `sqrt(n_positive / n)` too small
+  and `n_obs` counted them. They are dropped with a warning.
+- `sp.sar` / `sem` / `sdm` / `sac` / `sdem` / `gns` (maximum likelihood)
+  report z statistics and normal intervals, as Stata `spregress, ml`; they
+  used t(n - k). Estimates and SEs are unchanged; intervals now equal Stata
+  18's on the same data (`tests/test_spatial_ml_z_inference.py`).
+- `sp.augsynth(progfunc='none', scm=False)` returned the average of
+  uniform donor weights (6.878 on the probe panel); R
+  `augsynth(progfunc = "None", scm = FALSE)` returns the SCM estimate
+  (3.334), as the docstring says. Without the ridge augmentation the fit
+  is now SCM whatever `scm=` says.
+- `sp.sun_abraham` / `sp.did_imputation` reported `n_obs = len(data)`
+  after dropping rows with a missing outcome; `n_obs` now counts the rows
+  used.
+- `sp.l1_imbalance(weights=)` set its bins after dropping zero-weight rows,
+  so an after-matching L1 used other cells than the before-matching one
+  (0.150 instead of 0.104 after k2k). Bins come from every complete row.
+- `sp.msprt` with the plug-in variance rejected 9.5% of null experiments
+  at a nominal 5% (the first looks used 2 observations per arm). The
+  default `min_per_arm` is now 10 with the plug-in variance (2.5-3.0% in
+  simulation) and 1 with `sigma=`.
+- `sp.spillover` dropped rows with a missing outcome before computing peer
+  exposure, so their treatment vanished from their cluster-mates'
+  exposure. Exposure now uses every unit; such rows leave only the
+  contrasts (with a warning), and a missing treatment or cluster is refused.
+
+#### Fixed
+
+- `sp.margins` / `sp.margins_at(vcov=False)` ignored the flag after LDV
+  models (intreg, ologit, gologit, heckprobit).
+- Typed errors instead of raw numpy / pandas ones, or silent acceptance:
+  `heckprobit` with an outcome constant on the selected rows (used to
+  report convergence with SE 3e30); panel `local_projections` and
+  `xtivreg` / `iv_wild_bootstrap` with one cluster (SE ~1e-16 or
+  ZeroDivisionError); `iv_wild_bootstrap` with `data` in another row order
+  than the fit (silently mismatched clusters); `xtpcse` with collinear
+  regressors or no consecutive periods for `ar1`; panel
+  `granger_causality` with a series constant within a unit;
+  `wild_cluster_boot(bootcluster=)` naming a missing column; spatial ML
+  formulas with `C()` / expressions or missing values; `causal_impact`
+  with missing values, duplicated periods, collinear covariates or an
+  incomparable `intervention_time`; `bacon_decomposition(covariates=)`
+  with a categorical, time-invariant or duplicated covariate (was
+  misdiagnosed as "treatment collinear"); label-valued treatments in
+  `mediate`, `four_way_decomposition`, `lee_bounds`, `mediate_paths`,
+  `stteffects`, `l1_imbalance`; negative durations and event codes other
+  than 0/1 in `kaplan_meier` / `cox` / `rmst` / `logrank_test`;
+  `search_functions(category=)` with an unknown category (returned []).
+- Rows dropped for a missing weight are now announced (`ebalance`,
+  `match(sampling_weights=)`, `finegray`, `cox`, `kaplan_meier`, `rmst`).
+- `sp.binscatter(method='binsreg', ci=True)` crashed when a bias-corrected
+  interval excluded its dot; intervals are drawn as segments.
+- `sp.coefplot(drop='Intercept')` (a string) was read letter by letter.
+- `sp.ida` accepts a CPDAG sent as `DataFrame.to_dict()` (the MCP form).
+- `match(method='cem', k2k=True)`: pandas FutureWarning on the cell column.
+- MCP: `call_function` folds arguments sent next to `function` instead of
+  under `arguments`; a `result_id` call to a function without `data=`
+  (slopes, hypotheses, predictions ...) no longer fails when the request
+  also carries `data_path`.
+
+#### Agent discovery
+
+- `search_functions`: "entropy balancing" ranks `sp.ebalance` first, the
+  Chinese term for weak instruments reaches the weak-IV diagnostics, and
+  `synthdid` (the R package name) resolves to `sp.sdid`.
+- Card examples: the 30 functions added in the batch and 31 that gained
+  parameters now carry examples that build their own data and run as
+  written (`tests/test_card_examples.py` runs all of them); before, every
+  one failed with `NameError`.
+
 ### `sp.mediate(design=)`
 
 #### Added
