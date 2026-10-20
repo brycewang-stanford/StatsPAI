@@ -1,53 +1,46 @@
-"""Armstrong-Kolesar honest RD inference, ported from R ``RDHonest``.
+"""Bias-aware ("honest") inference for sharp RD with local linear regression.
 
-Why this file exists
---------------------
-``sp.rd_honest`` produced the right *point estimate* but built its interval
-out of two approximations that are not the Armstrong-Kolesar construction:
+Clean-room implementation, written from the method papers
+(``armstrong2018optimal``, ``armstrong2020simple``, ``kolesar2018inference``,
+``imbens2012optimal``) and from the documentation of the R package
+``RDHonest`` (its help pages and vignette). ``RDHonest`` (GPL-3) was used
+only as a black box: its outputs on the fixtures under
+``tests/reference_parity/_fixtures`` are the acceptance target. The
+specification this file implements is ``docs/dev/cleanroom/rd_honest.md``.
 
-1. **The worst-case bias was a closed form, ``M h^2 / 6``**, rather than the
-   bias of the estimator actually computed. The honest bias depends on the
-   realised kernel weights, so no formula in ``h`` alone can be it. Measured
-   against ``RDHonest``, the closed form was 1.58-1.62x too large -- and the
-   ratio *moved with* ``h``, which is the signature of a quantity that is
-   design-dependent on one side and not the other.
+The estimator
+-------------
+Local linear regression on each side of the cutoff with kernel weights
+``K((x - c) / h)``. The jump estimate is a linear functional of the
+outcomes, ``tau_hat = sum_i w_i Y_i``, where ``w`` holds the intercept
+weights of the right-hand fit and minus those of the left-hand fit.
 
-2. **The interval was ``estimate +/- (2 * bias + z * se)``.** The honest
-   interval is ``estimate +/- cv_{1-alpha}(bias / se) * se``, where ``cv``
-   is the ``1-alpha`` quantile of ``|N(t, 1)|``. The two are not the same
-   and the difference is not conservative in a useful way: at ``bias/se =
-   1.3`` the correct half-length is ``2.95 * se`` while the old form gave
-   ``6.24 * se``, more than twice as wide.
+Worst-case bias over ``|f''| <= M`` (``M`` is the bound on the second
+derivative on either side):
 
-Together these made intervals up to ~2x wider than they should be. A CI that
-is needlessly wide is not "safe" -- it is a different, less informative
-procedure being reported under Armstrong-Kolesar's name.
+* Holder class (``sclass='H'``, the default): the least favourable function
+  is the piecewise quadratic ``M d^2 (1{d < 0} - 1{d >= 0}) / 2`` with
+  ``d = x - c`` (vignette, eq. for ``B_{M,h}``), so the bound is
+  ``(M / 2) |sum_i w_i d_i^2 sign(d_i)|``.
+* Taylor class (``sclass='T'``): ``(M / 2) sum_i |w_i| d_i^2``.
 
-The formulas
-------------
-Write the estimator as a linear functional ``tau_hat = sum_i w_i Y_i``,
-where ``w`` comes from the two one-sided weighted local linear fits.
+Standard error ``sqrt(sum_i w_i^2 sigma_i^2)`` with ``sigma_i^2`` the
+nearest-neighbour variance (Abadie-Imbens), or, with clusters, the
+cluster-robust form ``sqrt(sum_g (sum_{i in g} w_i e_i)^2)`` with ``e`` the
+local linear residuals. The interval is ``tau_hat +/- cv_{1-alpha}(B/se) se``
+where ``cv_{1-alpha}(t)`` is the ``1 - alpha`` quantile of ``|N(t, 1)|``.
 
-* **Taylor class** (``sclass='T'``), ``|f(x) - f(0) - f'(0) x| <= M x^2/2``::
-
-      bias = M/2 * sum_i |w_i x_i^2|
-
-* **Holder class** (``sclass='H'``, the default: ``f'`` is ``M``-Lipschitz)::
-
-      bias = M/2 * |sum_{x<0} w_i x_i^2  -  sum_{x>=0} w_i x_i^2|
-
-  The Holder bound is the smaller of the two -- cancellation between the
-  sides is allowed because a Lipschitz ``f'`` cannot bend in opposite
-  directions at will.
-
-* **Standard error**: ``sqrt(sum_i w_i^2 sigma2_i)`` with ``sigma2`` from
-  ``J``-nearest-neighbour differences (``J = 3``).
-
-* **Interval**: ``tau_hat +/- cv_{1-alpha}(bias/se) * se``.
-
-References
-----------
-armstrong2018optimal, armstrong2020simple
+Bandwidth and smoothness choices
+--------------------------------
+* ``M`` (when not supplied): the rule of thumb of ``armstrong2020simple``,
+  the largest ``|f''|`` of a global quartic fitted separately on each side,
+  over the range of the data on that side.
+* ``h`` (when not supplied): minimises worst-case MSE, the FLCI half-length
+  or the ``beta`` quantile of the one-sided excess length, computed under a
+  preliminary variance that is homoskedastic on each side of the cutoff,
+  estimated from residuals of a local linear fit at the Imbens-Kalyanaraman
+  bandwidth (vignette). With clusters the preliminary covariance adds a
+  common within-cluster covariance (Moulton structure, vignette).
 """
 
 from __future__ import annotations
@@ -58,6 +51,7 @@ import numpy as np
 from scipy import optimize, stats
 
 __all__ = [
+    "nn_deviations",
     "cv_bias",
     "honest_weights",
     "honest_bias",
@@ -65,48 +59,49 @@ __all__ = [
     "honest_fit",
     "honest_bandwidth",
     "m_rule_of_thumb",
+    "honest_rd",
 ]
 
 _KERNELS = ("triangular", "uniform", "epanechnikov")
 
 
+# --------------------------------------------------------------------------
+# Kernels and the linear-estimator weights
+# --------------------------------------------------------------------------
+
+
 def _kern(u: np.ndarray, kernel: str) -> np.ndarray:
-    a = np.abs(u)
-    inside = a <= 1
-    if kernel == "uniform":
-        return np.asarray(inside.astype(float))
-    if kernel == "epanechnikov":
-        return np.asarray(0.75 * (1 - u**2) * inside)
-    return np.asarray((1 - a) * inside)
+    """Kernel ``K(u)`` up to a constant (constants cancel in the weights).
 
-
-def cv_bias(t: float, alpha: float = 0.05) -> float:
-    """``RDHonest::CVb``: the ``1-alpha`` quantile of ``|N(t, 1)|``.
-
-    Solves ``P(-cv <= Z + t <= cv) = 1 - alpha``. At ``t = 0`` this is the
-    usual ``1.96``; it grows to roughly ``t + z_{1-alpha}`` for large ``t``,
-    which is why using ``bias + z * se`` overstates the interval at every
-    finite ``t``.
-
-    Examples
-    --------
-    >>> from statspai.rd._rdhonest import cv_bias
-    >>> round(cv_bias(0.0), 6)
-    1.959964
-    >>> round(cv_bias(1.0), 6)
-    2.646146
-    >>> bool(cv_bias(8.0) < 8.0 + 1.959964)  # strictly below bias + z*se
-    True
+    Supports are closed: ``|u| <= 1``. For the triangular and Epanechnikov
+    kernels the boundary point carries zero weight anyway; for the uniform
+    kernel an observation exactly at distance ``h`` is inside the window.
     """
-    t = float(abs(t))
-    if not np.isfinite(t):
-        return float("inf")
+    a = np.abs(np.asarray(u, dtype=float))
+    if kernel == "triangular":
+        return np.clip(1.0 - a, 0.0, None)
+    if kernel == "uniform":
+        return (a <= 1.0).astype(float)
+    if kernel == "epanechnikov":
+        return np.clip(1.0 - a * a, 0.0, None)
+    raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
 
-    def f(cv: float) -> float:
-        return stats.norm.cdf(cv - t) - stats.norm.cdf(-cv - t) - (1 - alpha)
 
-    hi = t + stats.norm.ppf(1 - alpha / 2) + 10.0
-    return float(optimize.brentq(f, 0.0, hi, xtol=1e-14, rtol=1e-15))
+def _side_intercept_weights(d: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """Weights ``a`` with ``a @ y`` = intercept of the ``k``-weighted fit of
+    ``y`` on ``(1, d)``. Only rows with ``k > 0`` enter; the rest get 0."""
+    a = np.zeros_like(d)
+    m = k > 0
+    dm, km = d[m], k[m]
+    s0, s1, s2 = km.sum(), (km * dm).sum(), (km * dm * dm).sum()
+    det = s0 * s2 - s1 * s1
+    if not np.isfinite(det) or det <= 1e-12 * max(s0 * s2, 1e-300):
+        raise ValueError(
+            "fewer than two distinct values of the running variable carry "
+            "kernel weight on one side of the cutoff; increase the bandwidth"
+        )
+    a[m] = km * (s2 - s1 * dm) / det
+    return a
 
 
 def honest_weights(
@@ -114,74 +109,353 @@ def honest_weights(
 ) -> np.ndarray:
     """Weights ``w`` with ``tau_hat = sum_i w_i Y_i`` for local linear RD.
 
-    Two one-sided weighted least squares fits; the RD estimate is the
-    difference of their intercepts, so the right side enters with ``+`` and
-    the left with ``-``.
+    Units with ``x >= c`` are treated. The right-hand intercept weights enter
+    with a plus sign and the left-hand ones with a minus sign, so ``w`` sums
+    to zero and is orthogonal to ``x`` and to ``x 1{x >= c}``.
+
+    Raises
+    ------
+    ValueError
+        If either side has fewer than two distinct values with positive
+        kernel weight (the local line is not identified).
     """
-    u = (x - c) / h
-    k = _kern(u, kernel)
-    w = np.zeros_like(x, dtype=float)
-    for sign, mask in ((1.0, x >= c), (-1.0, x < c)):
-        idx = np.flatnonzero(mask & (k > 0))
-        if idx.size < 2:
-            continue
-        xs = np.column_stack([np.ones(idx.size), x[idx] - c])
-        kw = k[idx]
-        xtw = (xs * kw[:, None]).T
-        try:
-            a = np.linalg.solve(xtw @ xs, xtw)
-        except np.linalg.LinAlgError:  # pragma: no cover - degenerate window
-            continue
-        w[idx] += sign * a[0]
+    d = np.asarray(x, dtype=float) - c
+    k = _kern(d / h, kernel)
+    right = d >= 0
+    w = np.zeros_like(d)
+    w[right] = _side_intercept_weights(d[right], k[right])
+    w[~right] = -_side_intercept_weights(d[~right], k[~right])
     return w
 
 
 def honest_bias(
     w: np.ndarray, x: np.ndarray, c: float, M: float, sclass: str = "H"
 ) -> float:
-    """Worst-case bias of the linear estimator over the smoothness class.
+    """Worst-case bias of ``sum_i w_i Y_i`` over ``|f''| <= M`` on each side.
 
-    ``sclass='H'`` (Holder, the RDHonest default) allows the two sides'
-    curvature contributions to cancel; ``'T'`` (Taylor) does not, and is
-    therefore always at least as large.
+    ``'H'`` (Holder): ``(M/2) |sum_i w_i d_i^2 sign(d_i)|``, attained by the
+    piecewise quadratic of the RDHonest vignette (the bias is linear in
+    ``f``, and local linear weights do not change the sign of the relevant
+    integral, ``armstrong2020simple``). ``'T'`` (Taylor):
+    ``(M/2) sum_i |w_i| d_i^2``, no cancellation allowed.
     """
-    if sclass not in ("H", "T"):
-        raise ValueError(f"sclass must be 'H' or 'T', got {sclass!r}")
-    nz = w != 0
-    wt, xx = w[nz], x[nz] - c
-    if wt.size == 0:  # pragma: no cover - empty window
-        return float("inf")
+    d = np.asarray(x, dtype=float) - c
+    w = np.asarray(w, dtype=float)
+    if sclass == "H":
+        return float(0.5 * M * abs(np.sum(w * d * d * np.sign(d))))
     if sclass == "T":
-        return float(M / 2 * np.sum(np.abs(wt * xx**2)))
-    left = np.sum(wt[xx < 0] * xx[xx < 0] ** 2)
-    right = np.sum(wt[xx >= 0] * xx[xx >= 0] ** 2)
-    return float(M / 2 * abs(left - right))
+        return float(0.5 * M * np.sum(np.abs(w) * d * d))
+    raise ValueError(f"sclass must be 'H' or 'T', got {sclass!r}")
+
+
+# --------------------------------------------------------------------------
+# Critical value
+# --------------------------------------------------------------------------
+
+
+def cv_bias(t: float, alpha: float = 0.05) -> float:
+    """``1 - alpha`` quantile of ``|N(t, 1)|``.
+
+    The critical value of a bias-aware interval for an estimator whose
+    worst-case bias is ``t`` standard errors (``armstrong2020simple``). It is
+    the root ``c`` of ``Phi(c - t) - Phi(-c - t) = 1 - alpha``; at ``t = 0`` it
+    is ``z_{1 - alpha/2}`` and it approaches ``t + z_{1-alpha}`` as ``t``
+    grows.
+
+    Examples
+    --------
+    >>> from statspai.rd._rdhonest import cv_bias
+    >>> round(cv_bias(0.0), 6)
+    1.959964
+    """
+    t = abs(float(t))
+    alpha = float(alpha)
+
+    def tail(cv: float) -> float:
+        # P(|N(t,1)| > cv) - alpha, written with upper tails for accuracy
+        return stats.norm.sf(cv - t) + stats.norm.cdf(-cv - t) - alpha
+
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must lie in (0, 1), got {alpha!r}")
+    # tail(0) = 1 - alpha > 0 and tail decreases to -alpha, so [0, hi] brackets
+    hi = t + abs(stats.norm.isf(alpha / 2.0)) + 1.0
+    while tail(hi) > 0:  # pragma: no cover - the bracket above always works
+        hi *= 2.0
+    return float(optimize.brentq(tail, 0.0, hi, xtol=1e-15, rtol=1e-15, maxiter=500))
+
+
+# --------------------------------------------------------------------------
+# Nearest-neighbour variance
+# --------------------------------------------------------------------------
+
+
+def nn_deviations(x: np.ndarray, Y: np.ndarray, J: int = 3) -> np.ndarray:
+    """Scaled nearest-neighbour deviations on one side of the cutoff.
+
+    Row ``i`` is ``sqrt(m/(m+1)) (Y_i - Ybar_i)`` where ``Ybar_i`` averages the
+    outcomes of the ``m`` nearest neighbours of unit ``i`` in ``x`` (Abadie and
+    Imbens's matching estimator of the conditional variance). ``m = J``
+    unless neighbours are tied at the ``J``-th distance: all tied units are
+    used and ``m`` counts them, which keeps
+    ``E[(Y_i - Ybar_i)(Y_i - Ybar_i)'] = (1 + 1/m) Sigma`` and matters with a
+    discrete running variable. The outer product of a row with itself
+    estimates ``Var(Y_i | x_i)``; ``Y`` may have several columns.
+    """
+    x = np.asarray(x, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+    vec = Y.ndim == 1
+    Y2 = Y[:, None] if vec else Y
+    n = x.size
+    out = np.zeros_like(Y2)
+    if n < 2:
+        return out[:, 0] if vec else out
+    J = int(min(J, n - 1))
+    order = np.argsort(x, kind="mergesort")
+    xs, ys = x[order], Y2[order]
+    # groups of equal x: neighbours at distance zero
+    u, start, cnt = np.unique(xs, return_index=True, return_counts=True)
+    gsum = np.add.reduceat(ys, start, axis=0)
+    G = u.size
+    nb_sum = np.empty_like(gsum)
+    nb_cnt = np.empty(G, dtype=np.int64)
+    for g in range(G):
+        tot_s, tot_n = gsum[g].copy(), int(cnt[g])
+        lo, hi = g - 1, g + 1
+        # expand outward until at least J others are in, keeping ties whole
+        while tot_n - 1 < J:
+            dl = u[g] - u[lo] if lo >= 0 else np.inf
+            dr = u[hi] - u[g] if hi < G else np.inf
+            dist = min(dl, dr)
+            if dl == dist:
+                tot_s += gsum[lo]
+                tot_n += int(cnt[lo])
+                lo -= 1
+            if dr == dist:
+                tot_s += gsum[hi]
+                tot_n += int(cnt[hi])
+                hi += 1
+        nb_sum[g] = tot_s
+        nb_cnt[g] = tot_n
+    grp = np.repeat(np.arange(G), cnt)
+    m = (nb_cnt[grp] - 1).astype(float)
+    dev = ys - (nb_sum[grp] - ys) / m[:, None]
+    out[order] = np.sqrt(m / (m + 1.0))[:, None] * dev
+    return out[:, 0] if vec else out
 
 
 def sigma_nn(x: np.ndarray, y: np.ndarray, J: int = 3) -> np.ndarray:
-    """``RDHonest::sigmaNN``: J-nearest-neighbour conditional variances.
-
-    ``x`` must be sorted ascending. Ties are kept whole -- the neighbour set
-    is everything within the J-th smallest distance -- so the count can
-    exceed ``J``, which matters on running variables with mass points.
+    """Nearest-neighbour estimates of ``Var(Y_i | x_i)`` on one side:
+    ``m/(m+1) (Y_i - Ybar_i)^2``, see :func:`nn_deviations` (ties at the
+    ``J``-th distance are all used). Call it separately for each side of the
+    cutoff; ``x`` need not be sorted.
     """
-    n = len(x)
-    if n < 2:  # pragma: no cover - guarded upstream
-        return np.zeros(n)
-    J = min(J, n - 1)
-    out = np.empty(n)
-    for k in range(n):
-        lo = max(k - J, 0)
-        cand = np.concatenate([x[lo:k], x[k + 1 : min(k + J + 1, n)]])
-        d = np.sort(np.abs(cand - x[k]))[J - 1]
-        ind = np.abs(x - x[k]) <= d
-        ind[k] = False
-        jk = float(ind.sum())
-        if jk == 0:  # pragma: no cover - only if all points coincide
-            out[k] = 0.0
-            continue
-        out[k] = jk / (jk + 1.0) * (y[k] - y[ind].mean()) ** 2
+    return nn_deviations(x, y, J) ** 2
+
+
+def _nn_variance_by_side(
+    x: np.ndarray, y: np.ndarray, c: float, J: int, inwin: np.ndarray
+) -> np.ndarray:
+    """Nearest-neighbour variances computed within the estimation window
+    (units with positive kernel weight), separately on each side; 0 for
+    units outside the window, which carry no weight."""
+    right = x >= c
+    s2 = np.zeros_like(np.asarray(y, dtype=float))
+    for side in (right, ~right):
+        m = side & inwin
+        s2[m] = sigma_nn(x[m], y[m], J)
+    return s2
+
+
+# --------------------------------------------------------------------------
+# Local linear residuals and preliminary variance
+# --------------------------------------------------------------------------
+
+
+def _ll_residuals(
+    x: np.ndarray, y: np.ndarray, c: float, h: float, kernel: str
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Residuals of the kernel-weighted linear fit on each side, and the
+    in-window mask (positive kernel weight). Residuals outside are 0."""
+    d = np.asarray(x, dtype=float) - c
+    y = np.asarray(y, dtype=float)
+    k = _kern(d / h, kernel)
+    inwin = k > 0
+    e = np.zeros_like(d)
+    for side in (d >= 0, d < 0):
+        m = side & inwin
+        X = np.column_stack([np.ones(m.sum()), d[m]])
+        sw = np.sqrt(k[m])
+        beta, *_ = np.linalg.lstsq(X * sw[:, None], y[m] * sw, rcond=None)
+        e[m] = y[m] - X @ beta
+    return e, inwin
+
+
+def _min_bandwidth(x: np.ndarray, c: float, n_min: int = 3) -> float:
+    """Smallest bandwidth with at least ``n_min`` distinct support points
+    on each side inside the closed window ``|x - c| <= h``."""
+    d = x - c
+    d = np.asarray(d, dtype=float)
+    out = 0.0
+    for side in (np.unique(d[d >= 0]), np.unique(-d[d < 0])):
+        if side.size < n_min:
+            raise ValueError(
+                "fewer than three distinct values of the running variable on "
+                "one side of the cutoff; honest local linear inference is not "
+                "available"
+            )
+        out = max(out, float(np.sort(side)[n_min - 1]))
     return out
+
+
+def _edge_kernel_constant() -> float:
+    """``C_K`` of ``imbens2012optimal`` for the triangular (edge) kernel,
+    computed from the kernel moments (the paper rounds it to 3.4375).
+
+    For boundary local linear regression with kernel ``K`` on ``[0, 1]``,
+    with ``nu_j = int u^j K`` and ``pi_j = int u^j K^2``:
+    ``B = (nu_2^2 - nu_1 nu_3) / (nu_0 nu_2 - nu_1^2)`` (bias constant) and
+    ``V = int (nu_2 - nu_1 u)^2 K^2 / (nu_0 nu_2 - nu_1^2)^2`` (variance
+    constant), and ``C_K = (V / B^2)^(1/5)``. For ``K(u) = 1 - u`` the moments
+    are rational: nu = (1/2, 1/6, 1/12, 1/20), pi = (1/3, 1/12, 1/30).
+    """
+    nu0, nu1, nu2, nu3 = 1 / 2, 1 / 6, 1 / 12, 1 / 20
+    pi0, pi1, pi2 = 1 / 3, 1 / 12, 1 / 30
+    den = nu0 * nu2 - nu1**2
+    B = (nu2**2 - nu1 * nu3) / den
+    V = (nu2**2 * pi0 - 2 * nu1 * nu2 * pi1 + nu1**2 * pi2) / den**2
+    return (V / B**2) ** 0.2
+
+
+def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
+    """Imbens-Kalyanaraman bandwidth for the jump (``imbens2012optimal``).
+
+    Pilot only: it fixes the window of the preliminary local linear fit that
+    estimates the conditional variance used to choose ``h``. It is not
+    clamped to the range of the data. Steps, with ``d = x - c``:
+
+    1. ``h1 = 1.84 s_x N^(-1/5)`` (``s_x`` the sample standard deviation);
+       density ``f = (N_-(h1) + N_+(h1)) / (2 N h1)``; side sample variances
+       (divisor ``n - 1``) of ``Y`` within ``max(h1, h_min)``, where
+       ``h_min`` is the smallest window with three support points on each
+       side (binds only with a discrete running variable).
+    2. ``m3 = 6 g4`` from a global cubic in ``d`` with a jump indicator;
+       ``h2_side = 7200^(1/7) (s2_side / (f m3^2))^(1/7) N_side^(-1/7)``
+       (the paper rounds ``7200^(1/7)`` to 3.56); curvatures ``m2_side``
+       from an unweighted quadratic on ``[0, h2]`` (resp. ``[-h2, 0)``).
+    3. ``r_side = 2160 s2_side / (n2_side h2_side^4)`` and
+       ``h = C_K ((s2_- + s2_+) / (f ((m2_+ - m2_-)^2 + r_+ + r_-)))^(1/5)
+       N^(-1/5)`` with the exact edge-kernel constant ``C_K``.
+
+    The two unrounded constants and the regularisation ``2160`` were
+    identified by matching ``RDHonest``'s selected bandwidths on simulated
+    designs (black box); see ``docs/dev/cleanroom/rd_honest.md``.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    d = x - c
+    N = d.size
+    right = d >= 0
+    Np, Nm = int(right.sum()), int((~right).sum())
+    h1 = 1.84 * np.std(x, ddof=1) * N ** (-0.2)
+    f0 = (np.sum(right & (d <= h1)) + np.sum((~right) & (d >= -h1))) / (2.0 * N * h1)
+    # the side variances use the Silverman window, widened if needed so
+    # that each side has three support points (a discrete running variable)
+    hv = max(h1, _min_bandwidth(x, c))
+    wr = right & (d <= hv)
+    wl = (~right) & (d >= -hv)
+    s2p = float(np.var(y[wr], ddof=1))
+    s2m = float(np.var(y[wl], ddof=1))
+    X = np.column_stack([np.ones(N), right.astype(float), d, d**2, d**3])
+    gam, *_ = np.linalg.lstsq(X, y, rcond=None)
+    m3sq = (6.0 * gam[4]) ** 2
+    k2 = 7200.0 ** (1.0 / 7.0)
+    h2p = k2 * (s2p / (f0 * m3sq)) ** (1 / 7) * Np ** (-1 / 7)
+    h2m = k2 * (s2m / (f0 * m3sq)) ** (1 / 7) * Nm ** (-1 / 7)
+
+    def curv(mask: np.ndarray) -> Tuple[float, int]:
+        dd = d[mask]
+        T = np.column_stack([np.ones(dd.size), dd, dd * dd])
+        lam, *_ = np.linalg.lstsq(T, y[mask], rcond=None)
+        return 2.0 * lam[2], int(mask.sum())
+
+    m2p, n2p = curv(right & (d <= h2p))
+    m2m, n2m = curv((~right) & (d >= -h2m))
+    rp = 2160.0 * s2p / (n2p * h2p**4)
+    rm = 2160.0 * s2m / (n2m * h2m**4)
+    return float(
+        _edge_kernel_constant()
+        * ((s2p + s2m) / (f0 * ((m2p - m2m) ** 2 + rp + rm))) ** 0.2
+        * N ** (-0.2)
+    )
+
+
+def _moulton_rho(e: np.ndarray, cl: np.ndarray) -> float:
+    """Common within-cluster covariance of residuals ``e`` (Moulton):
+    the average of ``e_i e_j`` over ordered pairs ``i != j`` in the same
+    cluster."""
+    _, inv = np.unique(cl, return_inverse=True)
+    s = np.bincount(inv, weights=e)
+    ss = np.bincount(inv, weights=e * e)
+    n = np.bincount(inv)
+    pairs = float(np.sum(n * (n - 1)))
+    if pairs <= 0:
+        return 0.0
+    return float(np.sum(s * s - ss) / pairs)
+
+
+def _prelim_variance(
+    x: np.ndarray,
+    y: np.ndarray,
+    c: float,
+    kernel: str,
+    cluster: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, float]:
+    """Preliminary variance for bandwidth choice.
+
+    Residuals of a triangular-kernel local linear fit at the
+    Imbens-Kalyanaraman bandwidth (floored so each side has three support
+    points) are squared and averaged within each side; every unit on a side
+    gets that side's value. The pilot fit is triangular whatever ``kernel``
+    the estimator uses (``kernel`` is accepted for API symmetry only). With
+    clusters, also returns the common within-cluster covariance (Moulton).
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    h0 = max(_ik_bandwidth(x, y, c), _min_bandwidth(x, c))
+    e, inwin = _ll_residuals(x, y, c, h0, "triangular")
+    right = x >= c
+    s2 = np.empty_like(e)
+    for side in (right, ~right):
+        m = side & inwin
+        s2[side] = np.mean(e[m] ** 2)
+    rho = 0.0
+    if cluster is not None:
+        rho = _moulton_rho(e[inwin], np.asarray(cluster)[inwin])
+    return s2, rho
+
+
+# --------------------------------------------------------------------------
+# One fit, bandwidth choice, rule of thumb for M
+# --------------------------------------------------------------------------
+
+
+def _cluster_sd2(
+    w: np.ndarray, s2: np.ndarray, rho: float, cl: Optional[np.ndarray]
+) -> float:
+    v = float(np.sum(w * w * s2))
+    if cl is not None and rho != 0.0:
+        _, inv = np.unique(cl, return_inverse=True)
+        sw = np.bincount(inv, weights=w)
+        v += rho * float(np.sum(sw * sw) - np.sum(w * w))
+    return v
+
+
+def _eff_obs(x: np.ndarray, c: float, h: float, w: np.ndarray) -> float:
+    """Effective observations (vignette): units in the window times
+    ``sum k_uniform^2 / sum w^2``."""
+    wu = honest_weights(x, c, h, "uniform")
+    inwin = wu != 0
+    return float(inwin.sum() * np.sum(wu * wu) / np.sum(w * w))
 
 
 def honest_fit(
@@ -198,245 +472,84 @@ def honest_fit(
     cluster: Optional[np.ndarray] = None,
     rho: float = 0.0,
 ) -> Dict[str, float]:
-    """One honest RD fit at a given bandwidth and smoothness bound.
+    """One honest RD fit at a given bandwidth ``h`` and bound ``M``.
 
-    With ``cluster`` (integer codes aligned with ``x``) the variance is
-    ``NPReg``'s clustered one, ``sum_g (sum_{i in g} w_i e_i)^2`` with ``e``
-    the residuals of the joint local linear fit -- or, when ``sigma2`` is
-    supplied (the bandwidth search), ``sum w^2 sigma2 + rho (sum_g
-    (sum_{i in g} w_i)^2 - sum w^2)`` with the Moulton ``rho``.
+    The standard error uses ``sigma2`` when supplied, otherwise the
+    nearest-neighbour variances; with ``cluster`` it is the cluster-robust
+    sum over clusters of the weighted local linear residuals. Returns the
+    estimate, standard error, worst-case bias, critical value, interval,
+    one-sided limits, effective observations, maximal leverage and p-value.
     """
-    order = np.argsort(x, kind="mergesort")
-    xs, ys = x[order], y[order]
-    cl = None if cluster is None else np.asarray(cluster)[order]
-    w = honest_weights(xs, c, h, kernel)
-    nz = w != 0
-    if nz.sum() < 4:
-        raise ValueError(
-            f"bandwidth h={h:g} leaves only {int(nz.sum())} observations "
-            "with non-zero weight; too few for local linear RD"
-        )
-    est = float(np.sum(w * ys))
-    bias = honest_bias(w, xs, c, M, sclass)
-    if cl is not None and sigma2 is None:
-        e = _npreg_resid(xs, ys, c, h, kernel)
-        G = int(cl.max()) + 1
-        S = np.bincount(cl[nz], weights=(w * e)[nz], minlength=G)
-        s2 = None
-        var = float(np.sum(S**2))
-    elif sigma2 is None:
-        s2 = np.zeros_like(xs)
-        # Each SIDE gets its own nearest-neighbour variance. Pooling across
-        # the cutoff lets a point just left of c difference against one just
-        # right of it, straddling the discontinuity the whole design is
-        # about; that alone was worth ~1% on the standard error.
-        for side in (xs < c, xs >= c):
-            idx = np.flatnonzero(side & nz)
-            if idx.size >= 2:
-                s2[idx] = sigma_nn(xs[idx], ys[idx], J)
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    w = honest_weights(x, c, h, kernel)
+    est = float(w @ y)
+    if cluster is not None:
+        e, _ = _ll_residuals(x, y, c, h, kernel)
+        _, inv = np.unique(np.asarray(cluster), return_inverse=True)
+        sg = np.bincount(inv, weights=w * e)
+        se = float(np.sqrt(np.sum(sg * sg)))
     else:
-        s2 = sigma2[order]
-    if s2 is not None:
-        var = float(np.sum(w[nz] ** 2 * s2[nz]))
-        if cl is not None and rho != 0.0:
-            G = int(cl.max()) + 1
-            Sw = np.bincount(cl[nz], weights=w[nz], minlength=G)
-            var += rho * (float(np.sum(Sw**2)) - float(np.sum(w[nz] ** 2)))
-    se = float(np.sqrt(max(var, 0.0)))
-    cv = cv_bias(bias / se, alpha) if se > 0 else float("inf")
-    half = cv * se
-    eff_obs = _eff_obs(xs, c, h, w)
+        if sigma2 is None:
+            inwin = _kern((x - c) / h, kernel) > 0
+            s2 = _nn_variance_by_side(x, y, c, J, inwin)
+        else:
+            s2 = sigma2
+        se = float(np.sqrt(np.sum(w * w * s2)))
+    bias = honest_bias(w, x, c, M, sclass)
+    t = bias / se if se > 0 else 0.0
+    cv = cv_bias(t, alpha)
+    z1 = stats.norm.isf(alpha)
+    tstat = abs(est) / se if se > 0 else np.inf
     return {
         "estimate": est,
         "se": se,
         "bias": bias,
         "cv": cv,
-        "ci_lower": est - half,
-        "ci_upper": est + half,
-        "half_length": half,
+        "ci_lower": est - cv * se,
+        "ci_upper": est + cv * se,
+        "ci_lower_onesided": est - bias - z1 * se,
+        "ci_upper_onesided": est + bias + z1 * se,
         "bandwidth": float(h),
         "M": float(M),
-        "eff_obs": eff_obs,
-        "n_effective": int(nz.sum()),
+        "eff_obs": _eff_obs(x, c, h, w),
+        "leverage": float(np.max(w * w) / np.sum(w * w)),
+        "p_value": float(stats.norm.sf(tstat - t) + stats.norm.cdf(-tstat - t)),
     }
 
 
-def _eff_obs(x: np.ndarray, c: float, h: float, w: np.ndarray) -> float:
-    """``NPReg``'s effective observations.
+def _criterion_value(
+    bias: float, sd: float, opt_criterion: str, alpha: float, beta: float
+) -> float:
+    if opt_criterion == "MSE":
+        return bias * bias + sd * sd
+    if opt_criterion == "FLCI":
+        return cv_bias(bias / sd, alpha) * sd
+    if opt_criterion == "OCI":
+        # beta quantile of the worst-case excess length of the one-sided CI
+        return 2.0 * bias + (stats.norm.isf(alpha) + stats.norm.ppf(beta)) * sd
+    raise ValueError(
+        f"opt_criterion must be 'MSE', 'FLCI' or 'OCI', got {opt_criterion!r}"
+    )
 
-    The count of observations a *uniform*-kernel fit on the same window
-    would need to reach this fit's variance: ``sum(Wu) * sum(wu^2) /
-    sum(w^2)``, where ``wu`` are the uniform-kernel estimator weights. It is
-    not ``sum`` of the kernel weights, which is what a first guess produces
-    and which is off by four orders of magnitude.
+
+def _optimal_h(objective, h_lo: float, h_hi: float) -> float:
+    """Minimise ``objective`` over ``(h_lo, h_hi)`` with Brent's bounded
+    golden-section/parabolic search (Forsythe, Malcolm and Moler's ``fmin``).
+
+    The criteria can have several local minima of almost equal height; a
+    single bracketed Brent search over the whole range is the convention the
+    acceptance fixtures encode, so no grid pre-search is done.
     """
-    wu = honest_weights(x, c, h, "uniform")
-    denom = float(np.sum(w**2))
-    if denom <= 0:  # pragma: no cover - guarded upstream
-        return 0.0
-    n_u = float(np.sum(np.abs(x - c) <= h))
-    return n_u * float(np.sum(wu**2)) / denom
-
-
-def _hmin(x: np.ndarray, c: float) -> float:
-    """``PrelimVar``'s floor: enough distinct AND enough raw points per side."""
-    xp = np.sort(x[x >= c] - c)
-    xm = np.sort(np.abs(x[x < c] - c))
-    up, um = np.unique(xp), np.unique(xm)
-    cands = []
-    for arr, k in ((up, 2), (um, 2), (xp, 3), (xm, 3)):
-        if arr.size > k:
-            cands.append(float(arr[k]))
-    if not cands:  # pragma: no cover - degenerate design
-        raise ValueError("too few observations on one side of the cutoff")
-    return max(cands)
-
-
-def _sidewise_mean(
-    resid2: np.ndarray, x: np.ndarray, c: float, inwin: np.ndarray
-) -> np.ndarray:
-    """Collapse residual variances to one value per side.
-
-    ``PrelimVar`` returns a homoskedastic-within-side variance -- the mean
-    over the observations that actually entered the preliminary fit. This
-    is why ``IKBW`` can index it with ``[1]``.
-    """
-    out = np.zeros_like(x, dtype=float)
-    for mask in (x >= c, x < c):
-        sel = mask & inwin
-        if sel.any():
-            out[mask] = float(resid2[sel].mean())
-    return out
-
-
-def _prelim_var_silverman(x: np.ndarray, y: np.ndarray, c: float) -> np.ndarray:
-    """``PrelimVar(se.initial='Silverman')``: order-0 uniform fit.
-
-    Two group means inside a Silverman-rule window, with the usual
-    ``l/(l-1)`` correction for having estimated each mean.
-    """
-    n = len(x)
-    h1 = max(1.84 * float(np.std(x, ddof=1)) / n ** (1 / 5), _hmin(x, c))
-    inwin = np.abs(x - c) <= h1
-    resid = np.zeros_like(x, dtype=float)
-    counts = {}
-    for key, mask in (("p", x >= c), ("m", x < c)):
-        sel = mask & inwin
-        counts[key] = int(sel.sum())
-        if sel.any():
-            resid[sel] = y[sel] - y[sel].mean()
-    r2 = resid**2
-    for key, mask in (("p", x >= c), ("m", x < c)):
-        lk = counts[key]
-        if lk > 1:
-            r2[mask & inwin] *= lk / (lk - 1.0)
-    return _sidewise_mean(r2, x, c, inwin)
-
-
-def _npreg_resid(
-    x: np.ndarray, y: np.ndarray, c: float, h: float, kernel: str
-) -> np.ndarray:
-    """Residuals from ``NPReg``'s JOINT order-1 fit.
-
-    The design is ``[I(x>=c), I(x>=c)*x, 1, x]`` -- both sides in one
-    weighted regression, not two separate ones. Residuals are raw (not
-    weighted), and are defined outside the window too.
-    """
-    w = _kern((x - c) / h, kernel)
-    xc = x - c
-    right = (x >= c).astype(float)
-    z = np.column_stack([right, right * xc, np.ones_like(xc), xc])
-    sw = np.sqrt(w)
-    beta, *_ = np.linalg.lstsq(z * sw[:, None], y * sw, rcond=None)
-    return np.asarray(y - z @ beta)
-
-
-def _moulton(u: np.ndarray, cl: np.ndarray) -> float:
-    """``RDHonest::Moulton``: the within-cluster residual correlation."""
-    G = int(cl.max()) + 1
-    n_g = np.bincount(cl, minlength=G)
-    den = float(np.sum(n_g.astype(float) ** 2) - u.size)
-    if den <= 0:
-        return 0.0
-    S = np.bincount(cl, weights=u, minlength=G)
-    return float((np.sum(S**2) - np.sum(u**2)) / den)
-
-
-def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
-    """``RDHonest::IKBW``: Imbens-Kalyanaraman pilot bandwidth.
-
-    Only used to pick the window for the preliminary variance, so its own
-    constants are the boundary triangular-kernel ones (``nu0 = 4.8``,
-    ``mu2 = -0.1``) regardless of the kernel the user asked for.
-    """
-    xc = x - c
-    n = len(x)
-    n_m = int((xc < 0).sum())
-    n_p = int((xc >= 0).sum())
-    const = (4.8 / 0.1**2) ** (1 / 5)
-    sigma2 = _prelim_var_silverman(x, y, c)
-    h1 = 1.84 * float(np.std(x, ddof=1)) / n ** (1 / 5)
-    f0 = float(np.sum(np.abs(xc) <= h1)) / (2 * n * h1)
-    var_m = float(sigma2[xc < 0][0])
-    var_p = float(sigma2[xc >= 0][0])
-
-    design = np.column_stack([np.ones(n), (xc >= 0).astype(float), xc, xc**2, xc**3])
-    beta, *_ = np.linalg.lstsq(design, y, rcond=None)
-    m3 = 6 * beta[4]
-    if m3 == 0 or f0 <= 0:  # pragma: no cover - degenerate design
-        return float("nan")
-
-    h2m = 7200 ** (1 / 7) * (var_m / (f0 * m3**2)) ** (1 / 7) * n_m ** (-1 / 7)
-    h2p = 7200 ** (1 / 7) * (var_p / (f0 * m3**2)) ** (1 / 7) * n_p ** (-1 / 7)
-
-    def quad(mask: np.ndarray) -> float:
-        xi, yi = xc[mask], y[mask]
-        d = np.column_stack([np.ones(xi.size), xi, xi**2])
-        b, *_ = np.linalg.lstsq(d, yi, rcond=None)
-        return 2 * float(b[2])
-
-    sel_m = (xc >= -h2m) & (xc < 0)
-    sel_p = (xc <= h2p) & (xc >= 0)
-    if sel_m.sum() < 3 or sel_p.sum() < 3:  # pragma: no cover
-        return float("nan")
-    m2m, m2p = quad(sel_m), quad(sel_p)
-    r_m = 2160 * var_m / (int(sel_m.sum()) * h2m**4)
-    r_p = 2160 * var_p / (int(sel_p.sum()) * h2p**4)
-    denom = f0 * n * ((m2p - m2m) ** 2 + r_m + r_p)
-    return float(const * ((var_p + var_m) / denom) ** (1 / 5))
-
-
-def _prelim_var_ehw(
-    x: np.ndarray,
-    y: np.ndarray,
-    c: float,
-    kernel: str,
-    cluster: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, float]:
-    """``PrelimVar(se.initial='EHW')``: the variance ``OptBW`` searches under.
-
-    Freezing the variance before the bandwidth search is deliberate: it
-    makes the objective a smooth function of ``h`` rather than one whose
-    noise term is re-estimated at each trial value.
-    """
-    h1 = _ik_bandwidth(x, y, c)
-    if not np.isfinite(h1):  # pragma: no cover - degenerate design
-        h1 = float("inf")
-    # Deliberately NOT clamped to the data range. The IK pilot bandwidth can
-    # exceed it -- on a design with x in [-1, 1] it comes out at 2.62 -- and
-    # RDHonest lets it, which flattens the triangular weighting rather than
-    # truncating it. Clamping here changed the preliminary variance by ~5%
-    # and moved the selected bandwidth by 0.9%.
-    h = max(h1, _hmin(x, c))
-    e = _npreg_resid(x, y, c, h, "triangular")
-    inwin = _kern((x - c) / h, "triangular") != 0
-    rho = 0.0
-    if cluster is not None:
-        # PrelimVar: Moulton rho from the same preliminary residuals, on
-        # the observations inside the pilot window (clusters re-coded there)
-        codes = np.unique(cluster[inwin], return_inverse=True)[1]
-        rho = _moulton(e[inwin], codes)
-    return _sidewise_mean(e**2, x, c, inwin), rho
+    if h_hi <= h_lo:
+        return float(h_lo)
+    res = optimize.minimize_scalar(
+        objective,
+        bounds=(h_lo, h_hi),
+        method="bounded",
+        options={"xatol": 1e-10 * h_hi, "maxiter": 2000},
+    )
+    return float(res.x)
 
 
 def honest_bandwidth(
@@ -451,99 +564,124 @@ def honest_bandwidth(
     sclass: str = "H",
     cluster: Optional[np.ndarray] = None,
 ) -> float:
-    """``RDHonest::OptBW``: the bandwidth minimising the chosen criterion.
+    """Bandwidth minimising the chosen criterion under a preliminary
+    variance that is homoskedastic on each side of the cutoff.
 
-    ``MSE`` minimises ``bias^2 + se^2``; ``FLCI`` minimises the honest
-    interval's length directly; ``OCI`` minimises the one-sided
-    ``beta``-quantile criterion.
+    ``opt_criterion``: ``'MSE'`` (worst-case mean squared error),
+    ``'FLCI'`` (half-length of the fixed-length CI) or ``'OCI'`` (``beta``
+    quantile of the worst-case excess length of a one-sided CI).
     """
-    crit = opt_criterion.upper()
-    if crit not in ("MSE", "FLCI", "OCI"):
-        raise ValueError(
-            f"opt_criterion must be 'MSE', 'FLCI' or 'OCI', got {opt_criterion!r}"
-        )
-    order = np.argsort(x, kind="mergesort")
-    xs, ys = x[order], y[order]
-    cls = None if cluster is None else np.asarray(cluster)[order]
-    s2, rho = _prelim_var_ehw(xs, ys, c, kernel, cls)
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    s2, rho = _prelim_variance(x, y, c, kernel, cluster)
+    cl = None if cluster is None else np.asarray(cluster)
 
-    def obj(h: float) -> float:
+    def objective(h: float) -> float:
         try:
-            r = honest_fit(
-                xs,
-                ys,
-                c,
-                float(h),
-                M,
-                kernel,
-                alpha,
-                sclass,
-                sigma2=s2,
-                cluster=cls,
-                rho=rho,
-            )
-        except (ValueError, np.linalg.LinAlgError):
-            return float("inf")
-        if crit == "MSE":
-            return r["bias"] ** 2 + r["se"] ** 2
-        if crit == "FLCI":
-            return r["ci_upper"] - r["ci_lower"]
-        return 2 * r["bias"] + r["se"] * (
-            stats.norm.ppf(1 - alpha) + stats.norm.ppf(beta)
+            w = honest_weights(x, c, h, kernel)
+        except ValueError:
+            return np.inf
+        sd = np.sqrt(_cluster_sd2(w, s2, rho, cl))
+        return _criterion_value(
+            honest_bias(w, x, c, M, sclass), sd, opt_criterion, alpha, beta
         )
 
-    xr = xs[xs >= c] - c
-    xl = np.abs(xs[xs < c] - c)
-    ur, ul = np.unique(xr), np.unique(xl)
-    if ur.size < 2 or ul.size < 2:  # pragma: no cover - degenerate design
-        raise ValueError("each side of the cutoff needs >= 2 distinct x values")
-    hmin = max(ur[1], ul[1])
-    hmax = float(np.max(np.abs(xs - c)))
+    # Search range: from the second distinct distance to the cutoff (the
+    # smallest bandwidth at which a line can be fitted on both sides) to the
+    # largest distance.
+    h_lo = _min_bandwidth(x, c, 2)
+    h_hi = float(np.max(np.abs(x - c)))
     if kernel == "uniform":
-        # The objective is a step function in h under a uniform kernel, so a
-        # continuous optimiser can stall between support points.
-        supp = np.unique(np.abs(xs - c))
-        supp = supp[supp >= hmin]
-        vals = [obj(float(hh)) for hh in supp]
-        return float(supp[int(np.argmin(vals))])
-    res = optimize.minimize_scalar(
-        obj,
-        bounds=(hmin, hmax),
-        method="bounded",
-        options={"xatol": np.finfo(float).eps ** 0.75},
-    )
-    return float(abs(res.x))
+        # The criterion is a step function of h that changes only where h
+        # crosses a data point, so it is minimised over those points.
+        grid = np.unique(np.abs(x - c))
+        grid = grid[grid >= h_lo]
+        if sclass == "H" and cl is None:
+            vals = _uniform_holder_path(x - c, s2, grid, M, opt_criterion, alpha, beta)
+        else:
+            vals = np.array([objective(h) for h in grid])
+        return float(grid[int(np.nanargmin(vals))])
+    return _optimal_h(objective, h_lo, h_hi)
+
+
+def _uniform_holder_path(
+    d: np.ndarray,
+    s2: np.ndarray,
+    grid: np.ndarray,
+    M: float,
+    opt_criterion: str,
+    alpha: float,
+    beta: float,
+) -> np.ndarray:
+    """Criterion of the uniform-kernel estimator at each bandwidth in
+    ``grid`` (Holder class, no clusters), from cumulative sums.
+
+    On one side the intercept weights of an unweighted line through the
+    window are ``a_i = (S2 - S1 d_i) / (S0 S2 - S1^2)`` with ``Sk = sum d^k``.
+    Hence ``sum a_i d_i^2 = (S2^2 - S1 S3) / det`` and
+    ``sum a_i^2 s2_i = (S2^2 T0 - 2 S1 S2 T1 + S1^2 T2) / det^2`` with
+    ``Tk = sum d^k s2``; both are prefix sums over units sorted by ``|d|``.
+    """
+    bias_sum = np.zeros(grid.size)
+    var = np.zeros(grid.size)
+    ok = np.ones(grid.size, dtype=bool)
+    for side in (d >= 0, d < 0):
+        ds, vs = d[side], s2[side]
+        order = np.argsort(np.abs(ds), kind="mergesort")
+        ds, vs = ds[order], vs[order]
+        cs = [np.concatenate([[0.0], np.cumsum(ds**k)]) for k in range(4)]
+        ct = [np.concatenate([[0.0], np.cumsum(ds**k * vs)]) for k in range(3)]
+        idx = np.searchsorted(np.abs(ds), grid, side="right")
+        S0, S1, S2, S3 = (c_[idx] for c_ in cs)
+        T0, T1, T2 = (c_[idx] for c_ in ct)
+        det = S0 * S2 - S1 * S1
+        good = det > 1e-12 * np.maximum(S0 * S2, 1e-300)
+        ok &= good
+        det = np.where(good, det, 1.0)
+        bias_sum += (S2 * S2 - S1 * S3) / det
+        var += (S2 * S2 * T0 - 2 * S1 * S2 * T1 + S1 * S1 * T2) / det**2
+    out = np.full(grid.size, np.inf)
+    for i in np.flatnonzero(ok):
+        out[i] = _criterion_value(
+            0.5 * M * abs(bias_sum[i]),
+            float(np.sqrt(var[i])),
+            opt_criterion,
+            alpha,
+            beta,
+        )
+    return out
 
 
 def m_rule_of_thumb(x: np.ndarray, y: np.ndarray, c: float) -> float:
-    """``RDHonest::MROT``: Armstrong-Kolesar rule of thumb for ``M``.
+    """Rule-of-thumb smoothness bound (``armstrong2020simple``).
 
-    A global quartic is fitted on each side; ``M`` is the largest ``|f''|``
-    over that side's support, checking the interior stationary point of
-    ``f''`` as well as the two endpoints. The two sides' values are maxed.
+    Fits a global quartic in ``x - c`` separately on each side of the
+    cutoff and returns the largest absolute second derivative of the two
+    fits over the range of the data on its side.
     """
-    out = []
-    for mask in (x >= c, x < c):
-        xi, yi = x[mask], y[mask]
-        if len(np.unique(xi)) < 4:
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    d = x - c
+    best = 0.0
+    for side in (d >= 0, d < 0):
+        ds = d[side]
+        if np.unique(ds).size < 5:
             raise ValueError(
-                "insufficient unique values of the running variable on one "
-                "side of the cutoff to compute the rule of thumb for M"
+                "the rule of thumb for M fits a quartic on each side of the "
+                "cutoff and needs at least five distinct values per side; "
+                "supply M"
             )
-        design = np.column_stack([xi**k for k in range(5)])
-        beta, *_ = np.linalg.lstsq(design, yi, rcond=None)
-        b2, b3, b4 = beta[2], beta[3], beta[4]
-
-        def f2(v: float) -> float:
-            return float(abs(2 * b2 + 6 * v * b3 + 12 * v**2 * b4))
-
-        m = max(f2(float(xi.min())), f2(float(xi.max())))
-        if abs(b4) > 1e-10:
-            stat = -b3 / (4 * b4)
-            if xi.min() < stat < xi.max():
-                m = max(m, f2(stat))
-        out.append(m)
-    return float(max(out))
+        X = np.column_stack([ds**p for p in range(5)])
+        b, *_ = np.linalg.lstsq(X, y[side], rcond=None)
+        # f''(d) = 2 b2 + 6 b3 d + 12 b4 d^2: check the ends and the vertex
+        pts = [ds.min(), ds.max()]
+        if b[4] != 0:
+            v = -b[3] / (4.0 * b[4])
+            if ds.min() < v < ds.max():
+                pts.append(v)
+        f2 = [abs(2 * b[2] + 6 * b[3] * p + 12 * b[4] * p * p) for p in pts]
+        best = max(best, max(f2))
+    return float(best)
 
 
 def honest_rd(
@@ -558,31 +696,22 @@ def honest_rd(
     sclass: str = "H",
     J: int = 3,
     cluster: Optional[np.ndarray] = None,
+    beta: float = 0.8,
 ) -> Tuple[Dict[str, float], bool]:
-    """Full honest RD: pick ``M`` and ``h`` if not supplied, then fit.
+    """Full honest RD: rule-of-thumb ``M`` and optimal ``h`` when not given.
 
-    Returns the fit dict and whether ``M`` came from the rule of thumb.
-    ``cluster`` (any labels aligned with ``x``) gives ``RDHonest``'s
-    ``clusterid`` behaviour: Moulton-corrected variance in the bandwidth
-    search and the cluster-robust standard error in the fit.
+    Returns ``(fit, M_estimated)`` with ``fit`` as in :func:`honest_fit`.
     """
     if kernel not in _KERNELS:
         raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
-    ok = np.isfinite(x) & np.isfinite(y)
-    x, y = x[ok], y[ok]
-    codes = None
-    if cluster is not None:
-        codes = np.unique(np.asarray(cluster)[ok], return_inverse=True)[1]
-    m_estimated = M is None
+    M_estimated = M is None
     if M is None:
         M = m_rule_of_thumb(x, y, c)
     if h is None:
         h = honest_bandwidth(
-            x, y, c, M, kernel, opt_criterion, alpha, sclass=sclass, cluster=codes
+            x, y, c, M, kernel, opt_criterion.upper(), alpha, beta, sclass, cluster
         )
-    fit = honest_fit(
-        x, y, c, float(h), float(M), kernel, alpha, sclass, J, cluster=codes
-    )
-    return fit, m_estimated
+    fit = honest_fit(x, y, c, h, M, kernel, alpha, sclass, J, cluster=cluster)
+    return fit, M_estimated

@@ -189,7 +189,8 @@ def rd_honest(
     cl_arr = df[cluster].to_numpy() if cluster else None
     n_obs = len(y_arr)
 
-    # Everything below delegates to rd/_rdhonest.py, a port of R RDHonest.
+    # Everything below delegates to rd/_rdhonest.py (clean-room; R RDHonest
+    # used only as a black-box acceptance target).
     # The previous implementation got the point estimate right but built the
     # interval from two approximations that are not Armstrong-Kolesar's:
     #

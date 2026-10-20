@@ -1,45 +1,38 @@
 """
-Bias-aware confidence intervals for fuzzy RD (Noack & Rothe 2024).
+Bias-aware confidence sets for fuzzy RD (Noack & Rothe 2024).
 
-Implements ``rd_bias_aware_fuzzy``: a bias-aware confidence set for the
-fuzzy regression discontinuity parameter τ = (μ_Y(c+) − μ_Y(c−))
-/ (μ_D(c+) − μ_D(c−)) based on local-linear regression.  The CI takes
-the smoothing bias of *both* numerator and denominator into account,
-following Noack & Rothe (2024, Econometrica 92(3), 687-711).
+``rd_bias_aware_fuzzy`` reports a bias-aware confidence set for the fuzzy RD
+parameter ``tau = Delta_Y / Delta_D``, the ratio of the jumps in the outcome
+and treatment means at the cutoff, both estimated by the same local linear
+weights. Following ``noack2024biasaware`` the set is obtained by inverting
+Anderson-Rubin type tests: ``t`` is in the set when
 
-Unlike the conventional fuzzy-RD t-ratio CI, which can have severely
-distorted coverage when the first stage is moderate, the bias-aware
-construction has uniformly correct coverage over the smoothness class
+    |Delta_Y_hat - t Delta_D_hat| <= cv_{1-alpha}(b(t) / s(t)) s(t),
 
-    F(M_Y, M_D) = { (g_Y, g_D) : |g_Y''| ≤ M_Y, |g_D''| ≤ M_D }
+where ``s(t)`` is the standard error of ``Delta_Y_hat - t Delta_D_hat`` and
+``b(t) = (M_Y + |t| M_D) B_1`` its worst-case bias over
+``|g_Y''| <= M_Y, |g_D''| <= M_D`` (``B_1`` the bias of the weights per unit
+curvature). The set is valid however weak the first stage is; it may be
+unbounded or a union of two rays, which is the information a weak first stage
+carries (``kaliski2025power`` discuss the power asymmetry of the usual
+t-ratio interval).
 
-via Anderson--Rubin style test inversion: τ_0 lies in the CI iff
-``tau_to_test = mu_Y(c+) - mu_Y(c-) - τ_0 * (mu_D(c+) - mu_D(c-))``
-fails to be rejected when accounting for worst-case bias of the
-numerator and denominator local-linear estimators.
-
-The CI also addresses the *power asymmetry* documented in
-Kaliski, Keane & Neal (2025, NBER 33972): when the first-stage
-discontinuity is small, the conventional 2SLS-style CI has poor
-power on one side.  The Anderson-Rubin construction here is naturally
-robust to weak first stages.
+The ingredients (jumps, nearest-neighbour or cluster variance, worst-case
+bias, rule-of-thumb bounds, default bandwidth) and the linearised
+Wald-ratio interval of ``armstrong2020simple`` are also returned under
+``model_info['bias_aware']['rdhonest']``; these follow the documentation of R
+``RDHonest`` (vignette, fuzzy RD section). Clean-room implementation: the
+reference (GPL-3) was used only as a black box, see
+``docs/dev/cleanroom/rd_honest.md``.
 
 References
 ----------
-Noack, C. and Rothe, C. (2024).
-"Bias-Aware Inference in Fuzzy Regression Discontinuity Designs."
-*Econometrica*, 92(3), 687-711. doi:10.3982/ECTA19466.
-[@noack2024biasaware]
-
-Kaliski, D., Keane, M.P. and Neal, T. (2025).
-"The Power Asymmetry in Fuzzy Regression Discontinuity Designs."
-NBER Working Paper No. 33972. doi:10.3386/w33972. [@kaliski2025power]
+noack2024biasaware, kaliski2025power, armstrong2020simple
 """
 
 from __future__ import annotations
 
-import warnings
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -49,16 +42,22 @@ from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._rdhonest import (
-    _hmin,
+    _KERNELS,
     _ik_bandwidth,
     _kern,
+    _ll_residuals,
+    _min_bandwidth,
+    _optimal_h,
     cv_bias,
     honest_bias,
     honest_weights,
     m_rule_of_thumb,
+    nn_deviations,
 )
+
+__all__ = ["rd_bias_aware_fuzzy"]
 
 
 @records_call("rd_bias_aware_fuzzy")
@@ -77,475 +76,392 @@ def rd_bias_aware_fuzzy(
     cluster: Optional[str] = None,
     n_grid: int = 401,
 ) -> CausalResult:
-    """
-    Bias-aware confidence interval for fuzzy RD (Noack & Rothe 2024).
-
-    Constructs an Anderson--Rubin-style CI for the Wald-ratio fuzzy RD
-    parameter that takes worst-case smoothing bias of the numerator and
-    denominator local-linear estimates into account.  The CI is robust
-    to weak first stages and avoids the power asymmetry documented in
-    Kaliski-Keane-Neal (2025).
+    """Bias-aware confidence interval for fuzzy RD (Noack & Rothe 2024).
 
     Parameters
     ----------
-    data : pd.DataFrame
+    data : pandas.DataFrame
     y : str
-        Outcome column.
+        Outcome.
     x : str
-        Running variable column.
+        Running variable; units with ``x >= c`` are assigned to treatment.
     fuzzy : str
-        Treatment indicator column for the fuzzy first stage.
-    c : float, default 0.0
-        RD cutoff.
+        Treatment received.
+    c : float, default 0
+        Cutoff.
     M_y, M_d : float, optional
-        Smoothness bounds on |g_Y''| and |g_D''|.  If ``None``, each is
-        Armstrong & Kolesar's rule of thumb (R ``RDHonest``'s ``MROT``:
-        the largest ``|f''|`` of a global quartic on each side), as in
-        :func:`rd_honest`.
+        Bounds on the second derivatives of the outcome and treatment means
+        on either side. When omitted, the rule of thumb of Armstrong and
+        Kolesar (global quartic on each side) is applied to each.
     h : float, optional
-        Bandwidth.  If ``None``, R ``RDHonest``'s default for a fuzzy
-        design: the MSE-optimal honest bandwidth with ``T0 = 0``.
-    kernel : str, default ``'triangular'``
-        Kernel.
+        Bandwidth. When omitted, the bandwidth minimising the worst-case MSE
+        of ``Delta_Y_hat - tau_h Delta_D_hat`` (``tau_h`` the Wald ratio at
+        that bandwidth), with worst-case bias ``M_y B_1(h)`` (an initial
+        effect of zero) and a preliminary covariance of ``(Y, D)`` that is
+        homoskedastic on each side.
+    kernel : {'triangular', 'uniform', 'epanechnikov'}
     alpha : float, default 0.05
-        Significance level.
     cluster : str, optional
-        Cluster variable. The variance of the jump estimator is then the
-        cluster-sum form RDHonest uses (EHW residuals, no finite-sample
-        factor); without clusters it is RDHonest's nearest-neighbour
-        variance (``J = 3``).
+        Cluster identifier. Standard errors become cluster-robust sums of the
+        weighted local linear residuals, and the bandwidth search adds a
+        common within-cluster covariance.
     n_grid : int, default 401
-        Grid resolution for the AR-style test inversion.
+        Points of the diagnostic rejection grid returned in
+        ``model_info['bias_aware']['rejection_grid']``. The endpoints of the
+        confidence set are solved exactly, not read off the grid.
 
     Returns
     -------
     CausalResult
-        Result with ``model_info['bias_aware']`` containing
-        ``M_y``, ``M_d``, ``naive_ci`` (Wald ratio +/- z * delta-method SE),
-        ``bias_aware_ci`` (the Anderson-Rubin-type set), ``rdhonest``
-        (R ``RDHonest``'s linearised honest fuzzy CI: estimate, std.error,
-        maximum.bias, conf.low / conf.high), ``rejection_grid`` and
-        ``first_stage_F``.
-
-    Notes
-    -----
-    The bias-aware CI is the set of ``τ_0`` for which the test statistic
-
-        T(τ_0) = (Δ̂_Y − τ_0 · Δ̂_D) / σ̂(τ_0)
-
-    has |T(τ_0)| ≤ cv(b(τ_0)) where ``b(τ_0) = (M_Y + |τ_0| M_D) B / σ̂(τ_0)``
-    is the worst-case bias-to-noise ratio of the numerator–denominator
-    combination and ``B`` the exact Hölder-class worst-case bias of the
-    local-linear jump per unit of ``M`` (from the realised weights). The
-    grid inversion accommodates non-convex CIs under weak first stages.
-
-    Every ingredient -- the jumps, the 2x2 variance, ``B``, the rule-of-
-    thumb ``M`` and the default bandwidth -- is R ``RDHonest``'s; at
-    ``τ_0 = τ̂`` the statistic's bias and noise are exactly RDHonest's
-    ``maximum.bias`` and ``std.error`` times ``|Δ̂_D|``
-    (tests/reference_parity/test_rd_iv_rd_R_parity.py). The inversion
-    itself follows Noack & Rothe (2024); RDHonest reports the linearised
-    interval instead, which is returned alongside.
-
-    Through 1.28.0 the bias bound was the closed form ``h² M / 12``, which
-    understates the worst-case local-linear boundary bias (the asymptotic
-    constant is 1/10 for the triangular kernel), ``M`` came from local
-    quadratic curvature at the cutoff, and the default bandwidth was a
-    Silverman rule of thumb.
+        ``estimate`` is the Wald ratio, ``se`` its delta-method standard
+        error, ``ci`` the Anderson-Rubin bias-aware set (with infinite ends
+        when it is unbounded). ``model_info['bias_aware']`` carries the
+        jumps, the 2x2 variance of ``(Delta_Y_hat, Delta_D_hat)``, the bias
+        per unit curvature, the first-stage F statistic, whether the set is
+        a single interval, and the linearised interval under ``'rdhonest'``.
 
     Examples
     --------
-    >>> import statspai as sp
     >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
     >>> rng = np.random.default_rng(0)
-    >>> n = 600
-    >>> age = rng.uniform(60, 70, n)
-    >>> # Take-up jumps sharply at the cutoff -> strong first stage:
-    >>> p = 0.05 + 0.9 * (age >= 65)
-    >>> retired = (rng.uniform(size=n) < np.clip(p, 0, 1)).astype(float)
-    >>> earnings = 20 - 4.0 * retired + 0.1 * (age - 65) + rng.normal(0, 1.0, n)
-    >>> df = pd.DataFrame({'age': age, 'earnings': earnings, 'retired': retired})
-    >>> r = sp.rd_bias_aware_fuzzy(df, y='earnings', x='age', fuzzy='retired',
-    ...                            c=65.0, n_grid=101)
-    >>> lo, hi = r.model_info['bias_aware']['bias_aware_ci']
-    >>> bool(lo < hi)
-    True
+    >>> x = rng.uniform(-1, 1, 1500)
+    >>> d = (rng.uniform(size=1500) < 0.2 + 0.5 * (x >= 0)).astype(float)
+    >>> yy = 1 + 2 * d + 0.5 * x + rng.normal(0, 0.7, 1500)
+    >>> df = pd.DataFrame({"y": yy, "d": d, "x": x})
+    >>> r = sp.rd_bias_aware_fuzzy(df, y="y", x="x", fuzzy="d", M_y=2, M_d=0.5)
+
+    References
+    ----------
+    noack2024biasaware, armstrong2020simple
     """
-    # --- Parse data ---------------------------------------------------
-    needed = [y, x, fuzzy]
-    if cluster is not None:
-        needed.append(cluster)
+    if kernel not in _KERNELS:
+        raise MethodIncompatibility(
+            f"kernel must be one of {_KERNELS}, got {kernel!r}",
+            recovery_hint="Use kernel='triangular' (the default).",
+        )
     check_columns(
         data,
-        {"y": y, "x": x, "fuzzy": fuzzy, "cluster": cluster},
+        {"y": y, "x": x, "fuzzy": fuzzy, "cluster": cluster or None},
         function="sp.rd_bias_aware_fuzzy",
     )
-    df = data.dropna(subset=needed).copy()
-    Y = df[y].to_numpy(dtype=float)
-    X = df[x].to_numpy(dtype=float) - float(c)
-    D = df[fuzzy].to_numpy(dtype=float)
-    cl = df[cluster].to_numpy() if cluster is not None else None
-    n_obs = len(Y)
+    cols = [y, x, fuzzy] + ([cluster] if cluster else [])
+    df = data[cols].dropna()
+    xv = df[x].to_numpy(dtype=float)
+    Y = np.column_stack([df[y].to_numpy(dtype=float), df[fuzzy].to_numpy(dtype=float)])
+    cl = df[cluster].to_numpy() if cluster else None
+    n_obs = int(xv.size)
 
-    if kernel not in ("triangular", "epanechnikov", "uniform"):
-        raise ValueError(f"Unsupported kernel '{kernel}'.")  # pragma: no cover
-    if alpha <= 0 or alpha >= 1:
-        raise ValueError("alpha must be in (0, 1).")  # pragma: no cover
+    def _rot(col: int, label: str) -> float:
+        try:
+            return m_rule_of_thumb(xv, Y[:, col], c)
+        except ValueError as exc:
+            raise DataInsufficient(
+                str(exc),
+                recovery_hint=f"Supply {label}.",
+            ) from exc
 
-    order = np.argsort(X, kind="mergesort")
-    X, Y, D = X[order], Y[order], D[order]
-    cl = cl[order] if cl is not None else None
-    YD = np.column_stack([Y, D])
+    My_est, Md_est = M_y is None, M_d is None
+    My = _rot(0, "M_y") if My_est else float(M_y)
+    Md = _rot(1, "M_d") if Md_est else float(M_d)
+    if My < 0 or Md < 0:
+        raise MethodIncompatibility(
+            "M_y and M_d must be non-negative",
+            recovery_hint="Pass curvature bounds >= 0.",
+        )
 
-    # --- M and bandwidth (RDHonest defaults) --------------------------
-    M_y_estimated = M_y is None
-    M_d_estimated = M_d is None
-    if M_y is None:
-        M_y = m_rule_of_thumb(X, Y, 0.0)
-    if M_d is None:
-        M_d = m_rule_of_thumb(X, D, 0.0)
-    M_y, M_d = float(M_y), float(M_d)
     if h is None:
-        h = _frd_bandwidth(X, YD, M_y, M_d, kernel, alpha)
+        try:
+            h = _frd_bandwidth(xv, Y, c, My, Md, kernel, alpha, cl=cl)
+        except ValueError as exc:
+            raise DataInsufficient(
+                str(exc), recovery_hint="Supply h, or check the data near the cutoff."
+            ) from exc
     h = float(h)
+    try:
+        comp = _frd_components(xv, Y, c, h, kernel, cl)
+    except ValueError as exc:
+        raise DataInsufficient(
+            str(exc), recovery_hint="Widen h; each side needs two support points."
+        ) from exc
 
-    comp = _frd_components(X, YD, h, kernel, cl=cl)
-    delta_y, delta_d, V, B = comp["delta_y"], comp["delta_d"], comp["V"], comp["B"]
-    var_dd = float(V[3])
-
-    sd_d = float(np.std(D)) if len(D) else 1.0
-    weak_first_stage = abs(delta_d) < 0.01 * max(sd_d, 1e-6)
-    if weak_first_stage:
-        warnings.warn(  # pragma: no cover
-            "rd_bias_aware_fuzzy: estimated first-stage discontinuity is "
-            "tiny relative to Var(D); naive CI is reported as unbounded "
-            "and the bias-aware AR CI is the appropriate object.",
-            UserWarning,
+    dY, dD, V, unit = comp["delta_y"], comp["delta_d"], comp["V"], comp["unit_bias"]
+    scale_d = max(float(np.max(np.abs(Y[:, 1]))), 1e-300)
+    if abs(dD) <= 1e-10 * scale_d:
+        raise DataInsufficient(
+            "the treatment received does not jump at the cutoff",
+            recovery_hint="Check the fuzzy= column; a sharp design needs "
+            "sp.rd_honest.",
         )
 
-    z = stats.norm.ppf(1 - alpha / 2)
-    if weak_first_stage:
-        tau_hat = float("nan")  # pragma: no cover
-        se_naive = float("nan")  # pragma: no cover
-        naive_ci = (float("-inf"), float("inf"))
-        rdhonest: Dict[str, Any] = {}
-    else:
-        tau_hat = delta_y / delta_d
-        se_naive = _se_comb(V, tau_hat) / abs(delta_d)
-        naive_ci = (tau_hat - z * se_naive, tau_hat + z * se_naive)
-        # R RDHonest's reported (linearised) honest interval.
-        max_bias = (M_y + M_d * abs(tau_hat)) * B / abs(delta_d)
-        b_ratio = max_bias / se_naive if se_naive > 0 else float("inf")
-        cv_hat = cv_bias(b_ratio, alpha)
-        rdhonest = {
-            "estimate": tau_hat,
-            "std.error": se_naive,
-            "maximum.bias": max_bias,
-            "cv": cv_hat,
-            "conf.low": tau_hat - cv_hat * se_naive,
-            "conf.high": tau_hat + cv_hat * se_naive,
-            "p.value": float(
-                stats.norm.cdf(b_ratio - abs(tau_hat / se_naive))
-                + stats.norm.cdf(-b_ratio - abs(tau_hat / se_naive))
-            ),
-        }
+    # Linearised Wald-ratio interval (Armstrong-Kolesar; RDHonest's output)
+    tau = dY / dD
+    se_tau = _se_comb(V, tau) / abs(dD)
+    bias_tau = (My + abs(tau) * Md) * unit / abs(dD)
+    b = bias_tau / se_tau if se_tau > 0 else 0.0
+    cv = cv_bias(b, alpha)
+    tstat = abs(tau) / se_tau
+    rdh = {
+        "estimate": float(tau),
+        "std.error": float(se_tau),
+        "maximum.bias": float(bias_tau),
+        "cv": float(cv),
+        "conf.low": float(tau - cv * se_tau),
+        "conf.high": float(tau + cv * se_tau),
+        "p.value": float(stats.norm.sf(tstat - b) + stats.norm.cdf(-tstat - b)),
+    }
 
-    # --- AR-style inversion -------------------------------------------
-    def _excess(t0: float) -> float:
-        """``|T(t0)| - cv(b(t0))``: negative inside the set."""
-        se_t = _se_comb(V, t0)
-        if se_t <= 0:  # pragma: no cover - degenerate
-            return float("inf")
-        bias_t = (M_y + abs(t0) * M_d) * B
-        return abs(delta_y - t0 * delta_d) / se_t - cv_bias(bias_t / se_t, alpha)
+    # Anderson-Rubin bias-aware set
+    pieces, ar_grid = _ar_set(dY, dD, V, My, Md, unit, alpha, tau, se_tau, n_grid)
+    lo = pieces[0][0] if pieces else np.nan
+    hi = pieces[-1][1] if pieces else np.nan
+    z = float(stats.norm.ppf(1 - alpha / 2))
+    naive = (tau - z * se_tau, tau + z * se_tau)
+    F = float(dD**2 / V[1, 1]) if V[1, 1] > 0 else np.inf
 
-    if np.isfinite(tau_hat) and np.isfinite(se_naive):
-        span = max(abs(tau_hat) + 6 * se_naive, 5.0)
-        grid_lo = tau_hat - span
-        grid_hi = tau_hat + span
-    else:
-        scale = max(abs(delta_y), 6 * float(np.sqrt(V[0])), 5.0)
-        grid_lo = -100 * scale
-        grid_hi = 100 * scale
-    grid = np.linspace(grid_lo, grid_hi, int(n_grid))
-    exc = np.array([_excess(float(t0)) for t0 in grid])
-    accept = exc <= 0
-
-    if accept.any():
-        idx = np.where(accept)[0]
-        ci_lo = float(grid[idx.min()])
-        ci_hi = float(grid[idx.max()])
-        # Refine the two outer endpoints between the last rejected and the
-        # first accepted grid point.
-        if idx.min() > 0:
-            ci_lo = float(
-                optimize.brentq(_excess, grid[idx.min() - 1], ci_lo, xtol=1e-12)
-            )
-        if idx.max() < len(grid) - 1:
-            ci_hi = float(
-                optimize.brentq(_excess, ci_hi, grid[idx.max() + 1], xtol=1e-12)
-            )
-        non_convex = not np.all(accept[idx.min() : idx.max() + 1])
-    else:
-        ci_lo, ci_hi = float("nan"), float("nan")  # pragma: no cover
-        non_convex = False
-
-    bias_aware_ci = (ci_lo, ci_hi)
-
-    # --- Power asymmetry diagnostic (KKN 2025) -----------------------
-    first_stage_t = abs(delta_d) / np.sqrt(var_dd) if var_dd > 0 else float("inf")
-    first_stage_F = float(first_stage_t**2)
-    if first_stage_F < 10.0:
-        warnings.warn(
-            f"rd_bias_aware_fuzzy: first-stage F = {first_stage_F:.2f} < 10. "
-            "Conventional fuzzy-RD t-tests have a power asymmetry (Kaliski-"
-            "Keane-Neal 2025); the bias-aware AR CI here is robust, but you "
-            "should also report the ITT (sharp RD on the outcome) per their "
-            "recommendation.",
-            UserWarning,
-        )
-
-    # --- Pretty summary ----------------------------------------------
     summary = (
         "\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "  Bias-Aware Fuzzy RD (Noack & Rothe 2024 ECTA)\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"  τ̂ (Wald ratio):           {tau_hat:.4f}\n"
-        f"  Δ̂_Y (numerator jump):     {delta_y:.4f}\n"
-        f"  Δ̂_D (denominator jump):   {delta_d:.4f}\n"
-        f"  First-stage F:            {first_stage_F:.2f}\n"
-        f"\n"
-        f"  Naive {int((1 - alpha) * 100)}% CI:       "
-        f"[{naive_ci[0]:.4f}, {naive_ci[1]:.4f}]\n"
-        f"  Bias-aware {int((1 - alpha) * 100)}% CI:  "
-        f"[{ci_lo:.4f}, {ci_hi:.4f}]"
-        f"{' (non-convex)' if non_convex else ''}\n"
-        f"\n"
-        f"  M_y:                      {M_y:.4g} "
-        f"{'(estimated)' if M_y_estimated else '(supplied)'}\n"
-        f"  M_d:                      {M_d:.4g} "
-        f"{'(estimated)' if M_d_estimated else '(supplied)'}\n"
+        f"  τ̂ (Wald ratio):           {tau:.4f}\n"
+        f"  Δ̂_Y (numerator jump):     {dY:.4f}\n"
+        f"  Δ̂_D (denominator jump):   {dD:.4f}\n"
+        f"  First-stage F:            {F:.2f}\n"
+        "\n"
+        f"  Naive {int(round((1 - alpha) * 100))}% CI:       [{naive[0]:.4f}, {naive[1]:.4f}]\n"
+        f"  Bias-aware {int(round((1 - alpha) * 100))}% CI:  [{lo:.4f}, {hi:.4f}]"
+        + ("  (not a single interval)" if len(pieces) > 1 else "")
+        + "\n\n"
+        f"  M_y:                      {My:.4g} ({'rule of thumb' if My_est else 'supplied'})\n"
+        f"  M_d:                      {Md:.4g} ({'rule of thumb' if Md_est else 'supplied'})\n"
         f"  Bandwidth h:              {h:.4f}\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
     )
-
-    # P-value derived from the bias-aware test of H0: τ=0
-    # (whether 0 lies in the bias-aware CI).
-    pvalue = (
-        2 * stats.norm.sf(abs(tau_hat) / se_naive)
-        if (np.isfinite(tau_hat) and np.isfinite(se_naive) and se_naive > 0)
-        else float("nan")
-    )
-    if not np.isfinite(pvalue) and ci_lo == ci_lo and ci_hi == ci_hi:
-        # Approximate p-value from the AR CI: if 0 is well inside the CI,
-        # report a conservative 1.0; if outside, report alpha.
-        pvalue = float(alpha) if not (ci_lo <= 0 <= ci_hi) else 1.0
-
-    out = CausalResult(
+    info: Dict[str, Any] = {
+        "naive_ci": naive,
+        "bias_aware_ci": (float(lo), float(hi)),
+        "bias_aware_pieces": [(float(a), float(b_)) for a, b_ in pieces],
+        "non_convex_ci": len(pieces) > 1,
+        "M_y": float(My),
+        "M_d": float(Md),
+        "M_y_estimated": bool(My_est),
+        "M_d_estimated": bool(Md_est),
+        "delta_y": float(dY),
+        "delta_d": float(dD),
+        "first_stage_F": F,
+        "bandwidth": h,
+        "kernel": kernel,
+        "bias_per_unit_M": float(unit),
+        "variance_2x2": [
+            float(V[0, 0]),
+            float(V[0, 1]),
+            float(V[1, 0]),
+            float(V[1, 1]),
+        ],
+        "n_effective": int(comp["n_eff"]),
+        "rdhonest": rdh,
+        "rejection_grid": ar_grid,
+    }
+    return CausalResult(
         method="Bias-aware fuzzy RD (Noack-Rothe 2024)",
         estimand="LATE at cutoff",
-        estimate=tau_hat,
-        se=se_naive,
-        pvalue=pvalue,
-        ci=bias_aware_ci,
+        estimate=float(tau),
+        se=float(se_tau),
+        pvalue=float(2 * stats.norm.sf(tstat)),
+        ci=(float(lo), float(hi)),
         alpha=alpha,
-        n_obs=int(n_obs),
-        model_info={
-            "bias_aware": {
-                "naive_ci": naive_ci,
-                "bias_aware_ci": bias_aware_ci,
-                "non_convex_ci": bool(non_convex),
-                "M_y": float(M_y),
-                "M_d": float(M_d),
-                "M_y_estimated": bool(M_y_estimated),
-                "M_d_estimated": bool(M_d_estimated),
-                "delta_y": delta_y,
-                "delta_d": delta_d,
-                "first_stage_F": first_stage_F,
-                "bandwidth": float(h),
-                "kernel": kernel,
-                "bias_per_unit_M": float(B),
-                "variance_2x2": [float(v) for v in V],
-                "n_effective": comp["n_effective"],
-                "rdhonest": rdhonest,
-                "rejection_grid": (grid.tolist(), accept.tolist()),
-            },
-            "summary_str": summary,
-        },
+        n_obs=n_obs,
+        model_info={"bias_aware": info, "summary_str": summary},
     )
-    try:
-        from ..output._lineage import attach_provenance as _attach_prov
-
-        _attach_prov(
-            out,
-            function="sp.rd.rd_bias_aware_fuzzy",
-            params={
-                "y": y,
-                "x": x,
-                "fuzzy": fuzzy,
-                "c": c,
-                "M_y": M_y,
-                "M_d": M_d,
-                "h": h,
-                "kernel": kernel,
-                "alpha": alpha,
-                "cluster": cluster,
-            },
-            data=data,
-            overwrite=False,
-        )
-    except Exception:  # pragma: no cover
-        pass  # pragma: no cover
-    return out
-
-
-# ---------------------------------------------------------------------------
-# Fuzzy-RD honest machinery (port of RDHonest's FRD path)
-# ---------------------------------------------------------------------------
-
-
-def _sigma_nn_2(x: np.ndarray, Y: np.ndarray, J: int = 3) -> np.ndarray:
-    """``RDHonest::sigmaNN`` for a two-column outcome; rows ``(YY, YD, DY, DD)``.
-
-    ``x`` sorted ascending; ties are kept whole, as in the univariate port.
-    """
-    n = len(x)
-    J = min(J, n - 1)
-    out = np.empty((n, 4))
-    for k in range(n):
-        lo = max(k - J, 0)
-        cand = np.concatenate([x[lo:k], x[k + 1 : min(k + J + 1, n)]])
-        d = np.sort(np.abs(cand - x[k]))[J - 1]
-        ind = np.abs(x - x[k]) <= d
-        ind[k] = False
-        jk = float(ind.sum())
-        dev = Y[k] - Y[ind].mean(axis=0)
-        out[k] = jk / (jk + 1.0) * np.outer(dev, dev).ravel()
-    return out
-
-
-def _joint_resid(
-    x: np.ndarray, Y: np.ndarray, h: float, kernel: str
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Residuals of ``NPReg``'s joint order-1 fit (both columns), and ``w != 0``."""
-    w = _kern(x / h, kernel)
-    right = (x >= 0).astype(float)
-    z = np.column_stack([right, right * x, np.ones_like(x), x])
-    sw = np.sqrt(w)
-    beta, *_ = np.linalg.lstsq(z * sw[:, None], Y * sw[:, None], rcond=None)
-    return Y - z @ beta, w != 0
-
-
-def _prelim_var_frd(x: np.ndarray, Y: np.ndarray) -> np.ndarray:
-    """``PrelimVar(se.initial='EHW')`` for FRD: side-wise means of the 2x2
-    EHW residual products at the IK bandwidth of the outcome."""
-    h1 = _ik_bandwidth(x, Y[:, 0], 0.0)
-    if not np.isfinite(h1):  # pragma: no cover - degenerate design
-        h1 = float("inf")
-    r, inwin = _joint_resid(x, Y, max(h1, _hmin(x, 0.0)), "triangular")
-    prod = np.einsum("ni,nj->nij", r, r).reshape(len(x), 4)
-    out = np.zeros_like(prod)
-    for mask in (x >= 0, x < 0):
-        sel = mask & inwin
-        if sel.any():
-            out[mask] = prod[sel].mean(axis=0)
-    return out
 
 
 def _frd_components(
     x: np.ndarray,
     Y: np.ndarray,
+    c: float,
     h: float,
     kernel: str,
-    sigma2: Optional[np.ndarray] = None,
     cl: Optional[np.ndarray] = None,
     J: int = 3,
 ) -> Dict[str, Any]:
-    """Jumps, the 2x2 variance of the jump estimator, and the bias factor.
+    """Jumps of both columns, the 2x2 variance of the jump estimator and the
+    worst-case bias per unit curvature (Holder class) at bandwidth ``h``.
 
-    ``x`` sorted and centred. ``V`` is ``(VYY, VYD, VDY, VDD)``: RDHonest's
-    ``colSums(w^2 * sigma2)`` (nearest-neighbour ``sigma2`` by default,
-    ``supplied`` in the bandwidth search) or, with clusters, the
-    cross-product of cluster sums of ``w * residual`` (its EHW-cluster
-    form, with no finite-sample factor). ``B`` is the worst-case bias per
-    unit of ``M`` under the Holder class: ``honest_bias(w, M=1)``.
+    Without clusters the variance is ``sum_i w_i^2 Sigma_i`` with ``Sigma_i``
+    the nearest-neighbour covariance of ``(Y_i, D_i)`` computed within the
+    window on each side; with clusters it is
+    ``sum_g (sum_{i in g} w_i e_i)(sum_{i in g} w_i e_i)'`` with ``e`` the
+    local linear residuals of both columns.
     """
-    w = honest_weights(x, 0.0, h, kernel)
-    nz = w != 0
-    if nz.sum() < 4:
-        raise DataInsufficient(
-            f"bandwidth h={h:g} leaves only {int(nz.sum())} observations with "
-            "non-zero weight",
-            recovery_hint="Increase the bandwidth h.",
-        )
-    dY = float(w @ Y[:, 0])
-    dD = float(w @ Y[:, 1])
-    if cl is not None:
-        r, _ = _joint_resid(x, Y, h, kernel)
-        s = w[:, None] * r
-        _, codes = np.unique(cl[nz], return_inverse=True)
-        G = np.zeros((int(codes.max()) + 1, 2))
-        np.add.at(G, codes, s[nz])
-        V = (G.T @ G).ravel()
+    w = honest_weights(x, c, h, kernel)
+    jumps = w @ Y
+    inwin = _kern((x - c) / h, kernel) > 0
+    if cl is None:
+        dev = np.zeros_like(Y)
+        right = x >= c
+        for side in (right, ~right):
+            m = side & inwin
+            dev[m] = nn_deviations(x[m], Y[m], J)
+        wd = w[:, None] * dev
+        V = wd.T @ wd
     else:
-        if sigma2 is None:
-            sigma2 = np.zeros((len(x), 4))
-            for side in (x < 0, x >= 0):
-                idx = np.flatnonzero(side & nz)
-                if idx.size >= 2:
-                    sigma2[idx] = _sigma_nn_2(x[idx], Y[idx], J)
-        V = (w[:, None] ** 2 * sigma2).sum(axis=0)
+        E = np.column_stack(
+            [_ll_residuals(x, Y[:, j], c, h, kernel)[0] for j in range(2)]
+        )
+        _, inv = np.unique(cl, return_inverse=True)
+        S = np.column_stack([np.bincount(inv, weights=w * E[:, j]) for j in range(2)])
+        V = S.T @ S
     return {
-        "w": w,
-        "delta_y": dY,
-        "delta_d": dD,
+        "delta_y": float(jumps[0]),
+        "delta_d": float(jumps[1]),
         "V": V,
-        "B": honest_bias(w, x, 0.0, 1.0),
-        "n_effective": int(nz.sum()),
+        "unit_bias": honest_bias(w, x, c, 1.0, "H"),
+        "n_eff": int(np.count_nonzero(w)),
     }
 
 
-def _se_comb(V: np.ndarray, t: float) -> float:
-    """SE of ``Delta_Y - t * Delta_D``."""
-    return float(np.sqrt(max(V[0] - 2 * t * V[1] + t * t * V[3], 0.0)))
+def _prelim_cov(
+    x: np.ndarray, Y: np.ndarray, c: float, cl: Optional[np.ndarray]
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Preliminary covariance of ``(Y, D)`` for the bandwidth search.
+
+    Residuals of triangular-kernel local linear fits of both columns at the
+    Imbens-Kalyanaraman bandwidth of the outcome (floored so each side has
+    three support points); their cross-products are averaged within each
+    side. With clusters, also the common within-cluster covariance matrix of
+    the residuals (Moulton structure).
+    """
+    h0 = max(_ik_bandwidth(x, Y[:, 0], c), _min_bandwidth(x, c))
+    E = np.empty_like(Y)
+    for j in range(Y.shape[1]):
+        E[:, j], inwin = _ll_residuals(x, Y[:, j], c, h0, "triangular")
+    right = x >= c
+    S = []
+    for side in (~right, right):
+        e = E[side & inwin]
+        S.append(e.T @ e / e.shape[0])
+    rho = None
+    if cl is not None:
+        e = E[inwin]
+        _, inv = np.unique(np.asarray(cl)[inwin], return_inverse=True)
+        sums = np.column_stack(
+            [np.bincount(inv, weights=e[:, j]) for j in range(e.shape[1])]
+        )
+        n_g = np.bincount(inv)
+        pairs = float(np.sum(n_g * (n_g - 1)))
+        rho = (sums.T @ sums - e.T @ e) / pairs if pairs > 0 else np.zeros((2, 2))
+    return S[0], S[1], rho
 
 
 def _frd_bandwidth(
     x: np.ndarray,
     Y: np.ndarray,
+    c: float,
     M_y: float,
     M_d: float,
     kernel: str,
     alpha: float,
     T0: float = 0.0,
+    cl: Optional[np.ndarray] = None,
 ) -> float:
-    """``RDHonest::OptBW`` for FRD (MSE criterion, ``T0bias = TRUE``)."""
-    s2 = _prelim_var_frd(x, Y)
-    M_eff = M_y + M_d * abs(T0)
+    """MSE-optimal bandwidth for fuzzy RD.
 
-    def obj(h: float) -> float:
+    For each candidate ``h``: worst-case bias ``(M_y + |T0| M_d) B_1(h)``
+    and variance ``sum_i w_i^2 a' Sigma_side(i) a`` with
+    ``a = (1, -tau_h)``, ``tau_h`` the Wald ratio at ``h`` and ``Sigma`` the
+    preliminary covariance (plus the within-cluster term). Searched as in the
+    sharp case (Brent over the range of the running variable; the support
+    grid for the uniform kernel).
+    """
+    Sm, Sp, rho = _prelim_cov(x, Y, c, cl)
+    right = x >= c
+    inv = None if cl is None else np.unique(np.asarray(cl), return_inverse=True)[1]
+
+    def objective(h: float) -> float:
         try:
-            comp = _frd_components(x, Y, float(h), kernel, sigma2=s2)
-        except (ValueError, np.linalg.LinAlgError):
-            return float("inf")
-        tau = comp["delta_y"] / comp["delta_d"]
-        se = _se_comb(comp["V"], tau)
-        bias = M_eff * comp["B"]
-        return bias**2 + se**2
+            w = honest_weights(x, c, h, kernel)
+        except ValueError:
+            return np.inf
+        jumps = w @ Y
+        if jumps[1] == 0:
+            return np.inf
+        a = np.array([1.0, -jumps[0] / jumps[1]])
+        s2 = np.where(right, a @ Sp @ a, a @ Sm @ a)
+        var = float(np.sum(w * w * s2))
+        if rho is not None:
+            sw = np.bincount(inv, weights=w)
+            var += float(a @ rho @ a) * float(np.sum(sw * sw) - np.sum(w * w))
+        bias = (M_y + abs(T0) * M_d) * honest_bias(w, x, c, 1.0, "H")
+        return bias * bias + max(var, 0.0)
 
-    xr = np.unique(x[x >= 0])
-    xl = np.unique(np.abs(x[x < 0]))
-    hmin = max(xr[1], xl[1])
-    hmax = float(np.max(np.abs(x)))
+    h_lo = _min_bandwidth(x, c, 2)
+    h_hi = float(np.max(np.abs(x - c)))
     if kernel == "uniform":
-        supp = np.unique(np.abs(x))
-        supp = supp[supp >= hmin]
-        return float(supp[int(np.argmin([obj(float(v)) for v in supp]))])
-    res = optimize.minimize_scalar(
-        obj,
-        bounds=(hmin, hmax),
-        method="bounded",
-        options={"xatol": np.finfo(float).eps ** 0.75},
-    )
-    return float(abs(res.x))
+        grid = np.unique(np.abs(x - c))
+        grid = grid[grid >= h_lo]
+        vals = np.array([objective(h) for h in grid])
+        return float(grid[int(np.nanargmin(vals))])
+    return _optimal_h(objective, h_lo, h_hi)
+
+
+def _se_comb(V: np.ndarray, t: float) -> float:
+    """Standard error of ``Delta_Y_hat - t Delta_D_hat``."""
+    return float(np.sqrt(max(V[0, 0] - 2.0 * t * V[0, 1] + t * t * V[1, 1], 0.0)))
+
+
+def _ar_set(
+    dY: float,
+    dD: float,
+    V: np.ndarray,
+    My: float,
+    Md: float,
+    unit: float,
+    alpha: float,
+    tau: float,
+    se_tau: float,
+    n_grid: int,
+) -> Tuple[List[Tuple[float, float]], Tuple[List[float], List[bool]]]:
+    """The set ``{t : |dY - t dD| <= cv(b(t)/s(t)) s(t)}`` as a list of
+    intervals (ends may be infinite), and a diagnostic grid around ``tau``.
+
+    ``g(t) = |dY - t dD| - cv(b(t)/s(t)) s(t)`` is continuous; the set is
+    ``g <= 0``. Its ends are the roots of ``g``, bracketed on a grid and
+    solved by Brent's method. Far from ``tau`` both terms grow linearly in
+    ``|t|``, so the set is unbounded in a direction exactly when
+    ``|dD| <= cv(Md B_1 / sqrt(V_DD)) sqrt(V_DD)``.
+    """
+
+    def g(t: float) -> float:
+        s = _se_comb(V, t)
+        b = (My + abs(t) * Md) * unit
+        if s <= 0:
+            return abs(dY - t * dD) - b
+        return abs(dY - t * dD) - cv_bias(b / s, alpha) * s
+
+    sdd = float(np.sqrt(max(V[1, 1], 0.0)))
+    unbounded = sdd > 0 and abs(dD) <= cv_bias(Md * unit / sdd, alpha) * sdd
+    width = max(5.0, 20.0 * se_tau)
+    span = width
+    # widen until the set is bracketed (or known to be unbounded)
+    for _ in range(60):
+        if unbounded or (g(tau - span) > 0 and g(tau + span) > 0):
+            break
+        span *= 2.0
+    ts = tau + np.linspace(-span, span, max(int(n_grid), 3) * 4 + 1)
+    gs = np.array([g(t) for t in ts])
+    inside = gs <= 0
+    pieces: List[Tuple[float, float]] = []
+    start: Optional[float] = -np.inf if (unbounded and inside[0]) else None
+    for i in range(1, ts.size):
+        if inside[i] and not inside[i - 1]:
+            start = optimize.brentq(g, ts[i - 1], ts[i], xtol=1e-14, rtol=1e-15)
+        elif inside[i - 1] and not inside[i]:
+            end = optimize.brentq(g, ts[i - 1], ts[i], xtol=1e-14, rtol=1e-15)
+            pieces.append((start if start is not None else ts[i - 1], end))
+            start = None
+    if start is not None or (inside[-1] and unbounded):
+        pieces.append((start if start is not None else -np.inf, np.inf))
+    grid = tau + np.linspace(-width, width, max(int(n_grid), 2))
+    accepted = [bool(g(t) <= 0) for t in grid]
+    return pieces, ([float(t) for t in grid], accepted)

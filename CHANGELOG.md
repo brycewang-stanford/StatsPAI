@@ -4,6 +4,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Honest RD (`sp.rd_honest`, `sp.rd_discrete`, `sp.rd_bias_aware_fuzzy`): clean-room rewrite
+
+- **Changed**: `rd/_rdhonest.py`, `rd/bias_aware.py` and `rd/rd_discrete.py`
+  are reimplemented from Armstrong-Kolesár (2018, 2020), Kolesár-Rothe (2018),
+  Imbens-Kalyanaraman, the R `RDHonest` help pages and vignette, and
+  `RDHonest`'s outputs on our data (black box; licence audit row H8). The
+  previous files described themselves as ports of the GPL-3 package. Public
+  signatures and result fields are unchanged and every committed `RDHonest`
+  fixture still matches at its registered tolerance. Black-box checks over
+  ~40 further designs (279 selected bandwidths for sharp RD, fuzzy RD with
+  clusters and all three kernels) agree to <= 1.3e-7. Specification:
+  `docs/dev/cleanroom/rd_honest.md`.
+- **Open item**: for `rd_discrete(method='bme')`, R reports as
+  `maximum.bias` the bias of one of the two binding support-point choices,
+  but which one could not be determined from outputs. We report the one at
+  the farther end of the two-sided interval; it equals R's on the fixtures
+  and can differ elsewhere (only `maximum_bias` and the BME p-values; the
+  interval is unaffected).
+
 ### `sp.interference("partial" | "hudgens_halloran")` deprecated; `sp.mmqreg` SE guidance; `mmqreg` in `sp.from_stata`
 
 - **Deprecated**: the dispatcher aliases `partial` and `hudgens_halloran` route to `sp.spillover`, which is not the Hudgens-Halloran estimator. They now emit a `FutureWarning`; in the next minor release they will route to `sp.two_stage_interference`. Numbers are unchanged. The dispatcher's default `design` is now `"spillover"` (the same estimator), so calls without a design neither warn nor change target later. See MIGRATION.md.
