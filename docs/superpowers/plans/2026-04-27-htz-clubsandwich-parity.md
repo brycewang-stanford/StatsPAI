@@ -1,3 +1,7 @@
+> **Superseded (2026-10-21).** The HTZ code this plan built was replaced by a
+> clean-room rewrite; see `docs/dev/cleanroom/htz.md`. Kept as a historical
+> record only.
+
 # clubSandwich-equivalent HTZ Wald DOF Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +12,7 @@
 
 **Tech Stack:** NumPy + SciPy (existing). pytest. R + clubSandwich (verified installed at `/usr/local/bin/Rscript`) only as black-box reference for fixture generation and parity testing — no GPL code copied.
 
-**Spec:** [`docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md`](../specs/2026-04-27-htz-clubsandwich-parity-design.md)
+**Spec:** the original design note was deleted on 2026-10-21; the current specification is [`docs/dev/cleanroom/htz.md`](../../dev/cleanroom/htz.md).
 
 **Pre-flight context:**
 - WIP state: `src/statspai/fast/inference.py` has uncommitted changes adding `cluster_dof_bm` + `cluster_dof_wald_bm` + `extra_df=` plumbing to `boottest`. HTZ work builds on this WIP and will land *after* it (or alongside, as a separate commit in the same push).
@@ -31,7 +35,7 @@
 ```python
 """Tests for clubSandwich-equivalent HTZ Wald DOF (Pustejovsky-Tipton 2018).
 
-See docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md.
+See docs/dev/cleanroom/htz.md.
 """
 from __future__ import annotations
 
@@ -1672,7 +1676,7 @@ Expected: prints a finite η in (2, 40) range and the start of WaldTestResult do
 
 - [ ] **Step 4: Spec acceptance walkthrough**
 
-Open the spec at [`docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md`](../specs/2026-04-27-htz-clubsandwich-parity-design.md), §8 acceptance criteria. Confirm each of the 8 items:
+Open the spec (deleted 2026-10-21; now [`docs/dev/cleanroom/htz.md`](../../dev/cleanroom/htz.md)), §8 acceptance criteria. Confirm each of the 8 items:
 
 1. `pytest tests/test_fast_htz.py -q` → 16/16 ✓ (or 13/16 sans R)
 2. Full suite no regressions ✓
