@@ -6,13 +6,17 @@ including lazy-loaded ones routed through ``statspai.__getattr__``.
 
 Usage::
 
-    python3 scripts/generate_stub.py
+    python3 scripts/generate_stub.py           # rewrite the stub
+    python3 scripts/generate_stub.py --check   # exit 1 if it is stale
 
-The output is committed to the repo; it is not generated at install time.
+The output is committed to the repo (black / isort format it at commit
+time); it is not generated at install time. ``--check`` and
+``tests/test_type_stub.py`` compare the declarations, not the formatting.
 """
 
 from __future__ import annotations
 
+import ast
 import sys
 import types
 from pathlib import Path
@@ -58,13 +62,8 @@ def _relative(modname: str) -> str:
     return "." + modname[len("statspai.") :]
 
 
-def main() -> None:
-    # Force a clean import so ``__all__`` reflects current source.
-    for k in list(sys.modules):
-        if k.startswith("statspai"):
-            del sys.modules[k]
-    import statspai as sp  # noqa: E402
-
+def build_stub(sp: types.ModuleType) -> tuple[str, dict[str, int]]:
+    """The stub text for the imported ``statspai`` package, and counts."""
     submodule_lines: set[str] = set()
     leaf_lines: set[str] = set()
     unresolved: list[str] = []
@@ -123,12 +122,63 @@ def main() -> None:
             out.append(f"{n}: Any")
         out.append("")
 
+    counts = {
+        "submodules": len(submodule_lines),
+        "leaves": len(leaf_lines),
+        "unresolved": len(unresolved),
+    }
+    return "\n".join(out), counts
+
+
+def declarations(text: str) -> set[str]:
+    """The stub's declarations, independent of how they are formatted."""
+    out: set[str] = set()
+    for node in ast.parse(text).body:
+        if isinstance(node, ast.ImportFrom):
+            mod = "." * node.level + (node.module or "")
+            for a in node.names:
+                out.add(f"from {mod} import {a.name} as {a.asname or a.name}")
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            out.add(f"{node.target.id}: {ast.unparse(node.annotation)}")
+    return out
+
+
+def stale(sp: types.ModuleType, target: Path = ROOT / "__init__.pyi") -> dict:
+    """Declarations missing from / extra in the committed stub."""
+    want = declarations(build_stub(sp)[0])
+    have = declarations(target.read_text(encoding="utf-8"))
+    return {"missing": sorted(want - have), "extra": sorted(have - want)}
+
+
+def main() -> None:
+    # Force a clean import so ``__all__`` reflects current source.
+    for k in list(sys.modules):
+        if k.startswith("statspai"):
+            del sys.modules[k]
+    import statspai as sp  # noqa: E402
+
     target = ROOT / "__init__.pyi"
-    target.write_text("\n".join(out), encoding="utf-8")
+    if "--check" in sys.argv[1:]:
+        diff = stale(sp, target)
+        if diff["missing"] or diff["extra"]:
+            print(
+                f"{target} is stale: {len(diff['missing'])} declarations "
+                f"missing, {len(diff['extra'])} extra; run "
+                "python3 scripts/generate_stub.py"
+            )
+            for line in diff["missing"][:20]:
+                print(f"  + {line}")
+            for line in diff["extra"][:20]:
+                print(f"  - {line}")
+            sys.exit(1)
+        print(f"{target} is current.")
+        return
+    text, counts = build_stub(sp)
+    target.write_text(text, encoding="utf-8")
     print(
-        f"submodules: {len(submodule_lines)}\n"
-        f"leaves:     {len(leaf_lines)}\n"
-        f"unresolved: {len(unresolved)}\n"
+        f"submodules: {counts['submodules']}\n"
+        f"leaves:     {counts['leaves']}\n"
+        f"unresolved: {counts['unresolved']}\n"
         f"wrote:      {target}"
     )
 

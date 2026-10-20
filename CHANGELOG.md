@@ -86,6 +86,12 @@ All notable changes to StatsPAI will be documented in this file.
   (n = 1000-2000) this gives one bin per value where binsreg selects
   about ten; above the cutoff its mass-point adjustment is still not
   implemented (warned, as before). The default `method` is unchanged.
+- `src/statspai/__init__.pyi` had drifted from the runtime namespace by
+  107 declarations (103 public names missing, e.g. `sp.ida`,
+  `sp.binned_residuals`; four pointing to modules that moved). Regenerated;
+  `scripts/generate_stub.py --check` and a test in
+  `tests/test_type_stub.py` now compare the stub's declarations with
+  `sp.__all__`, so it cannot drift silently again.
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 
