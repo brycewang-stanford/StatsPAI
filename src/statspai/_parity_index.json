@@ -9396,6 +9396,9 @@
       "tolerance": "local betas and SEs 1e-9 rel (observed 1.3e-11 / 3.5e-14); RSS, AIC, AICc, BIC, enp, edf 1e-10 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_gwr_golden_search_blackbox.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -11714,6 +11717,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_cleanroom_leebounds.py",
         "tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py",
         "tests/reference_parity/test_lee_bounds_missing_Stata_parity.py",
         "tests/reference_parity/test_lee_bounds_parity.py",

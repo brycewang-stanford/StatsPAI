@@ -111983,10 +111983,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata leebounds 1.5 (Tauchmann), vce(analytic) [Stata 18, leebounds 1.5 (2013-07-17, Tauchmann)]; tolerance 1e-10 rel on bounds and analytic variances -- tests/reference_parity/test_teffects_R_parity.py",
+      "tests/reference_parity/test_cleanroom_leebounds.py",
       "tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py",
       "tests/reference_parity/test_lee_bounds_missing_Stata_parity.py",
-      "tests/reference_parity/test_lee_bounds_parity.py",
-      "tests/reference_parity/test_lee_bounds_tight_Stata_parity.py"
+      "tests/reference_parity/test_lee_bounds_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -139939,7 +139939,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs GWmodel::bw.gwr 2.4.1 (golden section gold(); gwr.aic / gwr.cv) [GWmodel 2.4.1, R version 4.5.2 (2025-10-31)]; tolerance selected bandwidth 1e-10 rel (observed 0 on 8 configurations); criterion values 1e-11 rel (observed 7.0e-15) -- tests/reference_parity/test_spatial_survey_R_parity.py"
+      "Cross-language parity (bit-exact) vs GWmodel::bw.gwr 2.4.1 (golden section gold(); gwr.aic / gwr.cv) [GWmodel 2.4.1, R version 4.5.2 (2025-10-31)]; tolerance selected bandwidth 1e-10 rel (observed 0 on 8 configurations); criterion values 1e-11 rel (observed 7.0e-15) -- tests/reference_parity/test_spatial_survey_R_parity.py",
+      "tests/reference_parity/test_gwr_golden_search_blackbox.py"
     ],
     "validation_status": "certified"
   },
