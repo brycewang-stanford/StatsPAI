@@ -5,6 +5,16 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.binscatter(method='binsreg')` on a discrete `x`
+
+With `n_bins` left to the selector and an `x` that takes at most about
+30 + (rule-of-thumb bins) distinct values, each value is now its own bin
+(Stata / R binsreg's behaviour); the dots, `n_bins` and intervals change,
+often from a single collapsed bin. Pass `n_bins=` to keep binning the
+values. Continuous `x` and explicit `n_bins` are unchanged.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.xtivreg(method='re')` on balanced panels with time-invariant variables
 
 On a balanced panel, `sp.xtivreg(method='re')` now follows Stata 18's

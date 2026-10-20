@@ -73,6 +73,19 @@ All notable changes to StatsPAI will be documented in this file.
   condition, the largest lag order the panel allows and the short units
   (`tests/reference_parity/test_ts_causal_parity.py`). The threshold was
   checked against both at T = 8 / 9 (K = 1) and 11 / 12 (K = 2).
+- ⚠️ Correctness: `sp.binscatter(method='binsreg')` on an `x` with few
+  distinct values selected the number of bins as if `x` were continuous;
+  the quantile knots then collapsed (one bin for a ten-value `x`). As the
+  binsreg help describes (`dfcheck(20 30)`, `masspoints(veryfew)`) and
+  Stata `binsreg` 2.2 does, an `x` with at most `30 + J_rot` distinct
+  values now gets one bin per value, dots and intervals from the `p = 0`
+  fit; dots and intervals match Stata to 1e-10 on a ten-value fixture
+  (`tests/test_binsreg_parity.py`; binsreg is GPL, used as a black box).
+  The cutoff uses our continuous-`x` rule of thumb, which is larger than
+  binsreg's mass-point-adjusted one, so between roughly 42 and 49 values
+  (n = 1000-2000) this gives one bin per value where binsreg selects
+  about ten; above the cutoff its mass-point adjustment is still not
+  implemented (warned, as before). The default `method` is unchanged.
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

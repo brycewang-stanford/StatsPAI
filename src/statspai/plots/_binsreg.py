@@ -27,6 +27,16 @@ test data were compared) gives the same bins, dots, intervals and the
 same IMSE choice of the number of bins on the 40 designs of
 ``tests/test_binsreg_parity.py``; the band's critical value is
 simulated by both and agrees only in distribution.
+
+Mass points: when ``x`` has at most ``30 + J_rot`` distinct values (the
+``dfcheck(20 30)`` effective-sample-size check of the binsreg help), each
+value is its own bin and the dots are the ``p = 0`` fit, as Stata
+``binsreg`` 2.2 does (its ``masspoints(veryfew)``); checked against its
+output on a ten-value ``x``. ``J_rot`` here is the rule of thumb computed
+as for continuous ``x``; binsreg's own is adjusted for the mass points and
+is smaller (it switched at 41-43 values on n = 1000-2000 draws where this
+switches at about 45-49), and above the cutoff its mass-point adjustment
+of the bin selection is not implemented (a warning says so).
 """
 
 from __future__ import annotations
@@ -149,6 +159,19 @@ def select_nbins(
             recovery_hint="Pass n_bins= explicitly.",
         )
     n_unique = int(np.unique(x).size)
+    rot_poly = _rot(x, y, w)
+    rot = max(rot_poly, int(np.ceil((2.0 * n) ** (1.0 / 3.0))))
+    if n_unique < n and n_unique <= 30 + rot:
+        # Too few mass points for bin selection (binsreg's dfcheck(20 30)):
+        # Stata / R binsreg then proceed as with masspoints(veryfew), one
+        # bin per distinct value and dots(0 0).
+        return {
+            "rot_poly": rot_poly,
+            "rot": rot,
+            "dpi": n_unique,
+            "n_unique": n_unique,
+            "veryfew": True,
+        }
     if n_unique < n:
         warnings.warn(
             AssumptionWarning(
@@ -161,8 +184,6 @@ def select_nbins(
             ),
             stacklevel=3,
         )
-    rot_poly = _rot(x, y, w)
-    rot = max(rot_poly, int(np.ceil((2.0 * n) ** (1.0 / 3.0))))
     # the degrees-of-freedom checks of the binsreg article (dfcheck 20, 30):
     # the plug-in needs n > 30 + J_rot, else the rule of thumb stands
     dpi = _dpi(x, y, w, rot) if n > 30 + rot else rot
@@ -192,6 +213,8 @@ def binsreg_series(
         J = selection["dpi"]
     else:
         J = int(n_bins)
+    if selection.get("veryfew"):
+        return _veryfew_series(x, y, w, ci, cb, level, nsims, seed, selection)
     knots = np.unique(binsreg_knots(x, J))
     if len(knots) - 1 < J:
         selection["unique_knots"] = True
@@ -262,6 +285,93 @@ def binsreg_series(
                     "cb_upper": fit + cval * se,
                 }
             )
+    return {
+        "dots": out,
+        "n_bins": J,
+        "knots": knots,
+        "selection": selection,
+        "band": band,
+        "cb_critical_value": cval,
+    }
+
+
+def _veryfew_series(
+    x: np.ndarray,
+    y: np.ndarray,
+    w: Optional[np.ndarray],
+    ci: bool,
+    cb: bool,
+    level: float,
+    nsims: int,
+    seed: Optional[int],
+    selection: Dict[str, Any],
+) -> Dict[str, Any]:
+    """One bin per distinct value of ``x`` (binsreg's ``masspoints(veryfew)``).
+
+    The dot of value ``v`` is ``b_v + mean(w)'g`` from the regression of
+    ``y`` on the value indicators and ``w``, placed at ``v``; intervals and
+    the band come from the same regression (``dots(0 0)``, HC1), as Stata
+    ``binsreg`` 2.2 reports them on discrete ``x``
+    (``tests/test_binsreg_parity.py``).
+    """
+    values, idx = np.unique(x, return_inverse=True)
+    J = len(values)
+    if J < 2:
+        raise DataInsufficient(
+            "binsreg: x takes a single value", recovery_hint="Use a variable x."
+        )
+    warnings.warn(
+        AssumptionWarning(
+            f"binsreg: x takes {J} distinct values in {len(x)} rows, too few "
+            "to select the number of bins; one bin per value, as R / Stata "
+            "binsreg do (masspoints(veryfew), dots(0 0))",
+            recovery_hint="Pass n_bins= to bin the values instead.",
+            diagnostics={"n": len(x), "n_unique": J},
+        ),
+        stacklevel=4,
+    )
+    B0 = np.eye(J)[idx]
+    X = B0 if w is None else np.column_stack([B0, w])
+    beta = _lstsq(X, y)
+    wbar = None if w is None else w.mean(axis=0)
+    L = np.eye(J)
+    if wbar is not None:
+        L = np.column_stack([L, np.tile(wbar, (J, 1))])
+    dots = L @ beta
+    nj = np.bincount(idx, minlength=J)
+    out = pd.DataFrame({"x_mean": values, "y_mean": dots, "n": nj})
+    band = None
+    cval = None
+    if ci or cb:
+        if len(y) <= X.shape[1] + 1:
+            raise DataInsufficient(
+                f"binsreg: {len(y)} observations cannot support intervals with "
+                f"{J} bins",
+                recovery_hint="Use ci=False.",
+            )
+        V = _hc1(X, y - X @ beta)
+        se = np.sqrt(np.einsum("ij,jk,ik->i", L, V, L))
+        if ci:
+            z = norm.ppf(0.5 + level / 2.0)
+            out["ci_lower"] = dots - z * se
+            out["ci_upper"] = dots + z * se
+        if cb:
+            rng = np.random.default_rng(seed)
+            vals, vecs = np.linalg.eigh(V)
+            root = vecs * np.sqrt(np.clip(vals, 0.0, None))
+            draws = rng.standard_normal((nsims, V.shape[0])) @ root.T
+            with np.errstate(divide="ignore", invalid="ignore"):
+                t = np.abs(draws @ L.T) / se
+            cval = float(np.quantile(np.nanmax(t, axis=1), level))
+            band = pd.DataFrame(
+                {
+                    "x": values,
+                    "fit": dots,
+                    "cb_lower": dots - cval * se,
+                    "cb_upper": dots + cval * se,
+                }
+            )
+    knots = np.r_[values[0], (values[:-1] + values[1:]) / 2.0, values[-1]]
     return {
         "dots": out,
         "n_bins": J,

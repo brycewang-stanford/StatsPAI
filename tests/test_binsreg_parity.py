@@ -219,8 +219,79 @@ def test_binsreg_method_refuses_what_it_does_not_implement():
 
 def test_repeated_x_values_warn_that_mass_points_are_not_adjusted():
     rng = np.random.default_rng(0)
-    x = rng.integers(0, 40, 600).astype(float)
-    y = np.sin(x / 10) + rng.normal(size=600)
+    # 200 possible values: above the one-bin-per-value cutoff
+    x = rng.integers(0, 200, 600).astype(float)
+    y = np.sin(x / 50) + rng.normal(size=600)
     with pytest.warns(sp.AssumptionWarning, match="mass points"):
         sel = select_nbins(x, y)
-    assert sel["n_unique"] == len(np.unique(x))
+    assert sel["n_unique"] == len(np.unique(x)) and not sel.get("veryfew")
+
+
+# --------------------------------------------------------------------------
+# discrete x: Stata binsreg 2.2 (GPL, black box), 2026-10-20
+# --------------------------------------------------------------------------
+def _discrete():
+    r = np.random.default_rng(11)
+    n = 800
+    x = r.integers(1, 11, n).astype(float)
+    w = 0.3 * x + r.normal(size=n)
+    y = np.sin(x / 3) + 0.5 * w + r.normal(size=n)
+    return pd.DataFrame({"x": x, "y": np.round(y, 12), "w": np.round(w, 12)})
+
+
+# binsreg y x, nodraw / binsreg y x w, nodraw ci(95): savedata() columns
+STATA_DISCRETE_DOTS = [
+    0.4432566966645578, 1.0452011378587558, 1.2892934507221583,
+    1.5282833784886498, 1.7180640789850288, 1.6722730813402895,
+    1.745711242109949, 1.6652814180730118, 1.6608546293244446,
+    1.1218923572224111,
+]  # fmt: skip
+STATA_DISCRETE_DOTS_W = [
+    1.0812227583916523, 1.5005834725220881, 1.6683476943896827,
+    1.690571976494736, 1.806163856294789, 1.5790478966752239,
+    1.5232790805417211, 1.1948314381382938, 1.1346867950353143,
+    0.56116353906279814,
+]  # fmt: skip
+STATA_DISCRETE_CI = [
+    (0.85939591646964164, 1.3030496003136629),
+    (1.2830545536225113, 1.7181123914216649),
+    (1.4541121337912721, 1.8825832549880932),
+    (1.4640183338138193, 1.9171256191756527),
+    (1.5600226512400284, 2.0523050613495499),
+    (1.3614303677696249, 1.796665425580823),
+    (1.2876247957239679, 1.7589333653594743),
+    (0.98251137165490643, 1.4071515046216811),
+    (0.90563889330919556, 1.363734696761433),
+    (0.33161202316536315, 0.79071505496023309),
+]
+
+
+def test_discrete_x_one_bin_per_value_as_stata():
+    """Ten distinct values in 800 rows: Stata binsreg warns 'Too small
+    effective sample size for bin selection' and uses ten bins with
+    dots(0 0); the selection used to collapse to a single bin."""
+    df = _discrete()
+    with pytest.warns(Warning, match="one bin per value"):
+        _, _, r0 = sp.binscatter(df, y="y", x="x", method="binsreg")
+    assert r0.attrs["binsreg"]["n_bins"] == 10
+    np.testing.assert_array_equal(r0["x_mean"], np.arange(1.0, 11.0))
+    np.testing.assert_allclose(r0["y_mean"], STATA_DISCRETE_DOTS, rtol=1e-10)
+    np.testing.assert_array_equal(r0["n"], np.bincount(df["x"].astype(int))[1:])
+    with pytest.warns(Warning, match="one bin per value"):
+        _, _, r1 = sp.binscatter(
+            df, y="y", x="x", controls=["w"], method="binsreg", ci=True
+        )
+    np.testing.assert_allclose(r1["y_mean"], STATA_DISCRETE_DOTS_W, rtol=1e-10)
+    np.testing.assert_allclose(
+        r1[["ci_lower", "ci_upper"]].to_numpy(), STATA_DISCRETE_CI, rtol=1e-10
+    )
+
+
+def test_many_distinct_values_still_select_bins():
+    """60 values in 2,000 rows is above the cutoff for Stata too (it
+    selected 11 bins there): the IMSE selection runs."""
+    r = np.random.default_rng(7)
+    x = r.integers(1, 61, 2000).astype(float)
+    y = np.sin(x / 20) + r.normal(size=2000)
+    sel = select_nbins(x, y)
+    assert not sel.get("veryfew") and sel["n_unique"] == 60
