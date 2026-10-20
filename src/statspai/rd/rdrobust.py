@@ -772,8 +772,8 @@ def rdrobust(
             "running variable is discrete; consider sp.rd.rd_discrete "
             "(Kolesár & Rothe 2018, AER) for honest CIs in this regime. In "
             "tests/reliability/rd_mass_points.py the robust 95% interval "
-            "covered 89% at 10 support points a side with n = 1000 and 69% "
-            "with n = 4000: more data narrows it around a biased value.",
+            "covered 94% at 10 support points a side (n = 1000 and 4000), but "
+            "at 5 a side 97% of the fits were refused as not identified.",
             UserWarning,
             stacklevel=2,
         )
@@ -880,8 +880,8 @@ def rdrobust(
         if _n_cl < len(X_c) and int(_per_cluster.nunique().max()) == 1:
             # One cluster per support point of the running variable. In
             # tests/reliability/rd_mass_points.py the robust interval then
-            # covers 84-86% at 50 support points a side, 65-69% at 20 and
-            # 22-32% at 5, against 94-96% without the clustering.
+            # covers 84-86% at 50 support points a side, 61-66% at 20 and
+            # 41-47% at 10, against 93-96% without the clustering.
             warnings.warn(
                 AssumptionWarning(
                     f"rdrobust: cluster='{cluster}' has one value of the "
@@ -890,7 +890,7 @@ def rdrobust(
                     "interval too short, not more honest.",
                     recovery_hint=(
                         "Drop cluster= (the heteroskedasticity-robust interval "
-                        "held its coverage down to 20 support points a side), "
+                        "held its coverage down to 10 support points a side), "
                         "or use sp.rd_discrete for honest intervals with a "
                         "discrete running variable. See "
                         "tests/reliability/rd_mass_points_results.json."

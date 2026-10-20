@@ -87,18 +87,21 @@ def test_default_holds_its_coverage_down_to_twenty_support_points(results):
             assert not c["refused"]
 
 
-def test_ten_or_fewer_support_points_break_the_default(results):
-    """The bandwidth floor reaches the whole side; the linear fit is biased."""
+def test_ten_support_points_hold_and_five_are_refused(results):
+    """With rdrobust's pilot-only floor the default holds at 10 points a side.
+
+    Through 1.39.6 the final bandwidths were also floored at the 10th
+    distinct value, which reached the whole side: coverage fell to 0.89
+    (n = 1000) and 0.69 (n = 4000) at 10 points. R floors only the pilot.
+    At 5 points a side the windows hold fewer distinct values than the
+    polynomial has coefficients and nearly every fit is refused.
+    """
     for n in (1000, 4000):
-        for M in (10, 5):
-            c = _cell(results, n, M, "adjust")
-            assert c["coverage"] < 0.91, (n, M, c["coverage"])
-            assert c["bias_conventional"] > 0.15
-    # more data makes it worse, not better: the bias does not shrink
-    assert (
-        _cell(results, 4000, 10, "adjust")["coverage"]
-        < _cell(results, 1000, 10, "adjust")["coverage"]
-    )
+        c = _cell(results, n, 10, "adjust")
+        assert abs(c["coverage"] - 0.95) < 3 * c["mc_se"] + 0.005, (n, c)
+        assert sum(c["refused"].values()) < 0.01 * c["B"]
+        five = _cell(results, n, 5, "adjust")
+        assert sum(five["refused"].values()) > 0.9 * five["B"]
 
 
 def test_clustering_on_the_support_points_undercovers_everywhere(results):
