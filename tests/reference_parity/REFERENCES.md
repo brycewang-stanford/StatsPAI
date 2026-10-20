@@ -314,26 +314,28 @@ committed artifacts (not asserted bounds):
 
 Two entries are bounded by *fixture* precision rather than by the estimator.
 `r(seatt)` for the `llr` reroute was captured at 8 significant digits
-(`0.36195584`), and `pstest` accumulates MeanBias/MedBias into a Stata
-**float** variable, so only single precision survives its own reporting.
+(`0.36195584`), and the MeanBias/MedBias that `pstest` reports agree with
+the double-precision values only to single precision (**float**).
 
-Three psmatch2 behaviours the fixtures exist to pin, all established by
-reading `psmatch2.ado` / `pstest.ado` and then confirmed against the live
-package — not inferred:
+Three psmatch2 behaviours the fixtures exist to pin. Each is a black-box
+observation on the live package (its outputs compared with candidate
+computations; see `docs/dev/cleanroom/psmatch2.md` and
+`docs/dev/cleanroom/pstest.md`).
 
-* `psmatch2 ..., llr` with its **default** Epanechnikov kernel does not run
-  local linear regression matching. Its output is that of nearest-neighbour
-  matching on an `lpoly`-smoothed control outcome, so a treated
-  unit's raw outcome is compared with its match's *smoothed* one
+* `psmatch2 ..., llr` with its **default** Epanechnikov kernel does not
+  return local linear regression matching. Its output equals that of
+  nearest-neighbour matching on an `lpoly`-smoothed control outcome, so a
+  treated unit's raw outcome is compared with its match's *smoothed* one
   (`max|_y − _s_y[match]| = 0` exactly, vs `max|_y − y[match]| = 1.99`).
-  Only a non-Epanechnikov kernel reaches psmatch2's own LLR routine.
-  `llr_stata_compat=True` reproduces the substitution.
-* psmatch2 reports `seatt = .` for genuine LLR — local linear weights can be
-  negative, which its analytic formula assumes away.
-* `pstest` fits its **own probit**, refit on the matched sample with
-  `[iw=_weight]`, for the Ps R2 / LR χ² / Rubin B / Rubin R block. It does
-  not reuse psmatch2's logit propensity score; substituting `logit(_pscore)`
-  reproduces every per-covariate row while leaving Rubin's B 5.6% out.
+  With a non-Epanechnikov kernel the output is local linear regression
+  matching. `llr_stata_compat=True` reproduces the substitution.
+* psmatch2 reports `seatt = .` for LLR with the tricube kernel (the fixture
+  case), while it reports a number for the normal, uniform and biweight
+  kernels. StatsPAI refuses `se_method='psmatch2'` for LLR.
+* The Ps R2 / LR χ² / Rubin B / Rubin R block of `pstest` equals that of a
+  **probit** refit on the matched sample with `[iw=_weight]`. Substituting
+  psmatch2's logit propensity score (`_pscore`) reproduces every
+  per-covariate row while leaving Rubin's B 5.6% out.
 
 **`sp.truncreg` — the covariance options**
 (`test_truncreg_vce_parity.py`). Track A module 62 pins `truncreg`'s default

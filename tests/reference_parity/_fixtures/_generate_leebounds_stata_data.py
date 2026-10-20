@@ -1,9 +1,9 @@
 """Datasets for the ``sp.lee_bounds(trimming='leebounds')`` vs Stata fixture.
 
 Eight samples (``sample`` 1-8): continuous outcomes stored as float32 -- the
-storage that makes ``leebounds``' 16-digit threshold macro land beside the
-data value -- with either arm retained more often, plus two integer outcomes
-with heavy ties (the tie branch).
+storage on which ``leebounds``' threshold, rounded to 16 significant digits,
+lands beside the data value -- with either arm retained more often, plus two
+integer outcomes with heavy ties (a tie at the threshold).
 
     python tests/reference_parity/_fixtures/_generate_leebounds_stata_data.py
 """

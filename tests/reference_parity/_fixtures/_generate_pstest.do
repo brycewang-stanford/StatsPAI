@@ -10,19 +10,16 @@
 * 1. The post-matching standardised bias keeps the UNMATCHED pooled SD:
 *        bias_before = 100 (m1u - m0u) / sqrt((v1u + v0u)/2)
 *        bias_after  = 100 (m1m - m0m) / sqrt((v1u + v0u)/2)
-*    (pstest.ado lines 282 and 286 -- note both use v1u/v0u.)
+*    (black box: both rows reproduce with v1u/v0u.)
 *
 * 2. Matched moments use importance weights, so `summarize x [iw=w]` divides
 *    the variance by sum(w) - 1 rather than n - 1.
 *
-* 3. The Ps R2 / LR chi2 / Rubin B / Rubin R block comes from pstest's OWN
-*    probit, refit on the matched sample with [iw=_weight] -- not from the
-*    logit propensity score psmatch2 estimated:
-*        qui probit `treated' `varlist' if `touse'
-*        qui predict double `index0' if e(sample), xb
-*        qui probit `treated' `varlist' [iw=`mweight'] if `support'==1 ...
-*    Reusing _pscore reproduces the per-covariate rows exactly while getting
-*    Rubin's B wrong by ~5%.
+* 3. Black box: the Ps R2 / LR chi2 / Rubin B / Rubin R block equals that
+*    of a probit of the treatment on the covariates, unmatched on every row
+*    and refit on the matched sample with [iw=_weight]. Reusing the logit
+*    _pscore that psmatch2 estimated reproduces the per-covariate rows
+*    exactly while getting Rubin's B wrong by ~5%.
 *
 * Produces
 * --------

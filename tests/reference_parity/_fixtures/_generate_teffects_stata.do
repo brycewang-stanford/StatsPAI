@@ -99,9 +99,9 @@ foreach spec in d dflip {
 }
 
 * ---- 4. leebounds with the trimming thresholds held exactly --------------
-* A copy of leebounds.ado whose four `local uth|lth = r(r1)` lines store
-* the percentile as a %21x hex literal (exact double) instead of a
-* ~15-digit decimal, so its `y == threshold` tie test sees the quantile.
+* A patched copy of leebounds.ado whose trimming thresholds are held as
+* exact doubles (%21x) instead of rounded decimal text. Owner decision
+* pending (2026-10-21 cleanup): this patch depends on the ado's text.
 capture mkdir "`adop'"
 capture mkdir "`adop'/l"
 tempfile p1

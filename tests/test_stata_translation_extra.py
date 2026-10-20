@@ -304,8 +304,8 @@ def test_leebounds_runs_like_stata(line, key):
 
 @pytest.mark.parametrize("k", [3, 4])
 def test_weighted_leebounds_runs_like_stata(k):
-    # samples 3-4 take leebounds' tied-threshold branch on both sides, where
-    # its weighted SEs equal ours (test_lee_bounds_weights_Stata_parity.py)
+    # samples 3-4 have an outcome tied with the threshold on both sides; there
+    # leebounds' weighted SEs equal ours (test_lee_bounds_weights_Stata_parity.py)
     _check_leebounds_line(
         f"leebounds y d [pw=w] if sample == {k}, select(s) cieffect",
         f"{k}_cie",
@@ -328,7 +328,8 @@ def _check_leebounds_line(line, key, stem):
     assert mi["se_lower"] == pytest.approx(ref["se_lower"], rel=1e-8)
     assert mi["se_upper"] == pytest.approx(ref["se_upper"], rel=1e-8)
     if "cilower" in ref:
-        # leebounds' 0.001 grid for the Imbens-Manski critical value
+        # Stata's interval matches a critical value on a 0.001 grid (black
+        # box), so allow one grid step
         tol = 1.001e-3 * max(mi["se_lower"], mi["se_upper"])
         assert abs(res.ci[0] - ref["cilower"]) <= tol
         assert abs(res.ci[1] - ref["ciupper"]) <= tol

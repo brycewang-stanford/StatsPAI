@@ -67,12 +67,12 @@ def test_sample_rules_match_leebounds(ref, data, k, case):
     assert mi["se_lower"] == pytest.approx(R["se_lower"], rel=1e-8)
     assert mi["se_upper"] == pytest.approx(R["se_upper"], rel=1e-8)
     if "cilower" in R:
-        # cieffect is the Imbens-Manski interval, result.ci. leebounds
-        # searches C_n on a grid of step 0.001 (program leebci); sp solves
-        # the equation. Rebuilding leebci's grid from our bounds and SEs gives
-        # Stata's interval, and our root lies within one grid step of it.
+        # cieffect is the Imbens-Manski interval, result.ci. Stata's interval
+        # equals the one from C_n chosen on a grid of step 0.001 (black box);
+        # sp solves the equation. Rebuilding that grid from our bounds and
+        # SEs gives Stata's interval, and our root lies within one grid step.
         alpha = _CASES[case].get("alpha", 0.05)
-        c_grid = _leebci_grid(mi, alpha)
+        c_grid = _grid_cn(mi, alpha)
         assert mi["lower_bound"] - mi["se_lower"] * c_grid == pytest.approx(
             R["cilower"], rel=1e-8
         )
@@ -85,9 +85,10 @@ def test_sample_rules_match_leebounds(ref, data, k, case):
         )
 
 
-def _leebci_grid(mi, alpha):
-    """``leebci``'s C_n: the point of the 0.001 grid from z_{1-a} to z_{1-a/2}
-    minimising the squared coverage error (first minimum kept)."""
+def _grid_cn(mi, alpha):
+    """C_n on a 0.001 grid from z_{1-a} to z_{1-a/2}: the point minimising the
+    squared coverage error (first minimum kept). Black box: this reproduces
+    the interval Stata reports with ``cieffect``."""
     from scipy.stats import norm
 
     lo, hi = norm.ppf(1 - alpha), norm.ppf(1 - alpha / 2)

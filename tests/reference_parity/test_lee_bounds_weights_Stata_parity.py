@@ -4,16 +4,18 @@ Reference: Stata 18, ``leebounds y d [pw=w], select(s) cieffect``
 (Tauchmann, SSC v1.5) on ``_fixtures/leebounds_weights.csv`` from
 ``_fixtures/_generate_leebounds_weights_stata.do``: continuous and tied
 integer outcomes, either arm more retained. ``trimming='leebounds'``
-reproduces ``leebounds``' storage of the weights in single precision and
-its macros; bounds are held to 1e-12 and SEs to 1e-8.
+reproduces ``leebounds``' output, which behaves as if the weights were held
+in single precision and the thresholds rounded as macro text (black box,
+``docs/dev/cleanroom/leebounds.md``); bounds are held to 1e-12 and SEs to
+1e-8.
 
-One SE is a documented difference. Without a tie at the threshold,
-``leebounds`` computes the untrimmed arm's variance term of its "upper"
-trimmed mean (the reported upper bound when the treated arm is trimmed,
-the lower bound when the control arm is) without the weights, while every
-other term, including the same term of the other bound, is weighted. We
-weight it; the test rebuilds Stata's number by swapping in the unweighted
-variance, so the gap is explained to 1e-8.
+One SE is a documented difference. Without a tie at the threshold, Stata's
+SE of its "upper" trimmed mean (the reported upper bound when the treated
+arm is trimmed, the lower bound when the control arm is) equals the value
+obtained with the untrimmed arm's variance term left unweighted, while
+every other term, including the same term of the other bound, matches the
+weighted formula. We weight it; the test rebuilds Stata's number by
+swapping in the unweighted variance, so the gap is explained to 1e-8.
 """
 
 from __future__ import annotations

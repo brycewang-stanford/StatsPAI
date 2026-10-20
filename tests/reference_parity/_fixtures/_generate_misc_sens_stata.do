@@ -173,8 +173,9 @@ matrix b = e(b)
 matrix r = (b[1,1], b[1,2])
 wrow `fh' "attr_lee_flip" r
 * leebounds with the trimming thresholds held exactly (the round-1 teffects
-* patch): a copy whose `local uth|lth = r(r1)` lines keep the percentile as a
-* %21x hex literal, so its `y == threshold` tie branch sees the quantile.
+* patch): a patched copy that holds them as exact doubles (%21x) instead of
+* rounded decimal text. Owner decision pending (2026-10-21 cleanup): this
+* patch depends on the ado's text.
 local adop "`here'/_ado_misc_sens_patched"
 capture mkdir "`adop'"
 capture mkdir "`adop'/l"

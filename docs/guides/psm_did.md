@@ -189,9 +189,9 @@ Two things about Stata's `llr` you need to know before comparing numbers:
 
 > **`psmatch2 ..., llr` with the default kernel is not local linear
 > regression.** `epan` is psmatch2's default kernel for `llr`, and for that
-> combination `psmatch2.ado` rewrites the request as *nearest-neighbour
-> matching on an `lpoly`-smoothed outcome*. Only a non-Epanechnikov kernel
-> reaches psmatch2's own LLR routine. On the reference fixture the two give
+> combination its output equals *nearest-neighbour matching on an
+> `lpoly`-smoothed outcome*. Only a non-Epanechnikov kernel gives local
+> linear regression matching. On the reference fixture the two give
 > 0.0322 and −0.0275 respectively. StatsPAI always runs genuine LLR and warns
 > when you pass `kernel='epan'`; pass `kernel='tricube'` to reproduce Stata's
 > LLR numbers.

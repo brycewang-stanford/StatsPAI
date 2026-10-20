@@ -6,13 +6,15 @@ the eight samples of ``_fixtures/leebounds_samples.csv``, from
 as float32 (either arm retained more often) and two integer outcomes with
 heavy ties.
 
-``leebounds`` stores the trimming percentage and the quantile threshold in
-local macros (16 significant digits). The rounded threshold can sit one unit
-in the last place beyond the data value, and then ``y >= threshold`` drops
-the quantile observation: Lee's rule (``trimming='quantile'``, the default)
-and Stata differ. The UCT replication (QJE 2016, Table III assets) hit this:
-lower bound -2.51 under Lee's rule against Stata's -3.38. With ties the
-macro value equals the data and Stata takes its fractional tie branch.
+``leebounds`` behaves as if the trimming percentage and the quantile
+threshold were rounded to 16 significant digits (the text form of a Stata
+local macro; black box, ``docs/dev/cleanroom/leebounds.md``). The rounded
+threshold can sit one unit in the last place beyond the data value, and then
+the quantile observation is not kept: Lee's rule (``trimming='quantile'``,
+the default) and Stata differ. The UCT replication (QJE 2016, Table III
+assets) hit this: lower bound -2.51 under Lee's rule against Stata's -3.38.
+With ties the rounded threshold equals the data and the tied outcomes share
+the remaining mass.
 ``trimming='leebounds'`` reproduces all of it; bounds and analytic SEs are
 held to 1e-12 and 1e-8. Six of the eight samples differ
 from Lee's rule, so the artefact is the rule rather than the exception on
