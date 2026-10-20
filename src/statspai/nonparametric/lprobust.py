@@ -42,12 +42,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import factorial
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from . import _lprobust_bw as _bw
+from . import _lprobust_select as _sel
+from ._lprobust_select import (  # noqa: F401  (private name kept)
+    kernel_moment_constants as _kernel_moment_constants,
+)
 
 __all__ = [
     "LProbustPoint",
@@ -282,38 +286,6 @@ def lprobust_at_point(
 # ----------------------------------------------------------------------
 
 
-def _selector_inputs(x, y, kernel, p, deriv, n_neighbors, name):
-    xs, ys = _bw.check_point_inputs(x, y, kernel, p, deriv, n_neighbors)
-    _bw.check_orders(p, deriv, odd_only=name)
-    return xs, ys
-
-
-def _run_plug_in(xs, ys, x0, **kw):
-    try:
-        return _bw.plug_in_point(xs, ys, x0, **kw)
-    except np.linalg.LinAlgError as exc:
-        raise NumericalInstability(
-            f"a pilot local polynomial fit is singular at eval_point={x0!r}; "
-            "the window holds too few distinct values of x.",
-            recovery_hint="Raise bwcheck so every pilot window holds more "
-            "observations, or supply the bandwidth directly.",
-        ) from exc
-
-
-def _coefficient_units(
-    stage: Dict[str, float], deriv: int, order: int
-) -> Tuple[float, float]:
-    """``(V, B)`` so that ``bw^(2 order + 3) = V / (n (B + regularization))``.
-
-    Both are expressed for the ``deriv``-th polynomial coefficient rather
-    than the derivative (the ``deriv!`` factor cancels in the bandwidth).
-    """
-    f2 = float(factorial(deriv) ** 2)
-    v_num = (1 + 2 * deriv) * stage["variance"] / f2
-    b_den = 2 * (order + 1 - deriv) * stage["bias_sq"] / f2
-    return v_num, b_den
-
-
 def lpbwselect_mse_dpi(
     x: np.ndarray,
     y: np.ndarray,
@@ -397,9 +369,9 @@ def lpbwselect_mse_dpi(
     [@calonico2019nprobust] [@calonico2014robust]
     """
     _bw.check_kernel(kernel)
-    xs, ys = _selector_inputs(x, y, kernel, p, deriv, n_neighbors, "mse-dpi")
+    xs, ys = _sel.selector_inputs(x, y, kernel, p, deriv, n_neighbors, "mse-dpi")
     _bw.check_bwcheck(xs.size, bwcheck)
-    res = _run_plug_in(
+    res = _sel.run_plug_in(
         xs,
         ys,
         float(eval_point),
@@ -410,8 +382,8 @@ def lpbwselect_mse_dpi(
         bwcheck=int(bwcheck),
         bwregul=float(bwregul),
     )
-    v_h, b_h = _coefficient_units(res["stage_h"], deriv, p)
-    v_b, b_b = _coefficient_units(res["stage_b"], p + 1, p + 1)
+    v_h, b_h = _sel.coefficient_units(res["stage_h"], deriv, p)
+    v_b, b_b = _sel.coefficient_units(res["stage_b"], p + 1, p + 1)
     return {
         "h": res["h"],
         "b": res["b"],
@@ -420,53 +392,6 @@ def lpbwselect_mse_dpi(
         "V_b": v_b,
         "B_b": b_b,
     }
-
-
-def _kernel_moment_constants(p: int, deriv: int, kernel: str) -> Dict[str, float]:
-    """Asymptotic bias and variance constants of the local polynomial fit.
-
-    The equivalent-kernel constants on the one-sided support ``[0, 1]``
-    (see :func:`statspai.nonparametric._lprobust_bw.one_sided_kernel_constants`),
-    in closed form for the compact kernels.
-
-    Returns
-    -------
-    dict
-        ``bias`` (``e_nu' S^-1 c``) and ``variance`` (``e_nu' S^-1 T S^-1 e_nu``).
-    """
-    if kernel not in _KERNELS[:3]:
-        raise MethodIncompatibility(
-            "the rule-of-thumb moment constants are implemented for the compact "
-            f"kernels {_KERNELS[:3]}; got {kernel!r}.",
-            recovery_hint="Use a compact kernel, or the direct plug-in selector.",
-        )
-    c_bias, c_var = _bw.one_sided_kernel_constants(p, deriv, kernel)
-    return {"bias": c_bias, "variance": c_var}
-
-
-def _rot_inputs(x, y, kernel, p, deriv, name):
-    _bw.check_kernel(kernel)
-    xs, ys = _bw.clean_xy(x, y)
-    _bw.check_orders(p, deriv, odd_only=name)
-    if xs.size <= p + 4:
-        raise DataInsufficient(
-            f"the rule of thumb fits a global polynomial of degree {p + 3}, "
-            f"which needs more than {p + 4} observations; got {xs.size}.",
-            recovery_hint="Supply more data or lower p.",
-        )
-    consts = _kernel_moment_constants(p, deriv, kernel)
-    sigma2 = _bw.residual_variance_global(xs, ys, p + 3)
-    return xs, ys, (consts["bias"], consts["variance"]), sigma2
-
-
-def _rot_bandwidth(v_sum: float, b_sum: float, n: int, p: int, deriv: int) -> float:
-    if not (np.isfinite(v_sum) and b_sum > 0):
-        raise NumericalInstability(
-            "the rule-of-thumb bias or density estimate is degenerate "
-            f"(V={v_sum!r}, B^2={b_sum!r}); the bandwidth is not defined.",
-            recovery_hint="Use the direct plug-in selector or supply h.",
-        )
-    return _bw.closed_form_bandwidth(v_sum, b_sum, n, p, deriv)
 
 
 def lpbwselect_mse_rot(
@@ -531,7 +456,7 @@ def lpbwselect_mse_rot(
     ----------
     [@calonico2019nprobust]
     """
-    xs, ys, consts, sigma2 = _rot_inputs(x, y, kernel, p, deriv, "mse-rot")
+    xs, ys, consts, sigma2 = _sel.rot_inputs(x, y, kernel, p, deriv, "mse-rot")
     b_val, v_val = _bw.rot_point_terms(
         xs,
         ys,
@@ -542,15 +467,8 @@ def lpbwselect_mse_rot(
         sigma2=sigma2,
         constants=consts,
     )
-    h = _rot_bandwidth(v_val, b_val**2, xs.size, p, deriv)
+    h = _sel.rot_bandwidth(v_val, b_val**2, xs.size, p, deriv)
     return {"h": h, "B": b_val, "V": v_val, "C1": consts[0], "C2": consts[1]}
-
-
-#: Probabilities of the fixed quantile grid the IMSE rule of thumb averages
-#: over: 0.05, 0.075, ..., 0.95 (black-box: the reference's ``imse-rot``
-#: does not depend on ``imsegrid`` or ``eval``, and is reproduced to 1e-12
-#: only with this grid).
-_IMSE_ROT_PROBS = np.linspace(0.05, 0.95, 37)
 
 
 def lpbwselect_imse_rot(
@@ -606,8 +524,8 @@ def lpbwselect_imse_rot(
     ----------
     [@calonico2019nprobust]
     """
-    xs, ys, consts, sigma2 = _rot_inputs(x, y, kernel, p, deriv, "imse-rot")
-    grid = np.quantile(xs, _IMSE_ROT_PROBS)
+    xs, ys, consts, sigma2 = _sel.rot_inputs(x, y, kernel, p, deriv, "imse-rot")
+    grid = np.quantile(xs, _sel.IMSE_ROT_PROBS)
     terms = [
         _bw.rot_point_terms(
             xs,
@@ -623,7 +541,7 @@ def lpbwselect_imse_rot(
     ]
     v_mean = float(np.mean([v for _, v in terms]))
     b_mean = float(np.mean([b**2 for b, _ in terms]))
-    return {"h": _rot_bandwidth(v_mean, b_mean, xs.size, p, deriv)}
+    return {"h": _sel.rot_bandwidth(v_mean, b_mean, xs.size, p, deriv)}
 
 
 def lpbwselect_imse_dpi(
@@ -707,67 +625,19 @@ def lpbwselect_imse_dpi(
             recovery_hint="The reference default is 30.",
         )
     _bw.check_kernel(kernel)
-    xs, ys = _selector_inputs(x, y, kernel, p, deriv, n_neighbors, "imse-dpi")
+    xs, ys = _sel.selector_inputs(x, y, kernel, p, deriv, n_neighbors, "imse-dpi")
     _bw.check_bwcheck(xs.size, bwcheck)
-    n, q = xs.size, p + 1
-    stages_b, stages_h = [], []
-    for g in np.linspace(xs[0], xs[-1], int(imsegrid)):
-        point = _run_plug_in(
-            xs,
-            ys,
-            float(g),
-            p=p,
-            deriv=deriv,
-            kernel=kernel,
-            n_neighbors=int(n_neighbors),
-            bwcheck=int(bwcheck),
-            bwregul=float(bwregul),
-            with_h=False,
-        )
-        stages_b.append(point["stage_b"])
-        try:
-            stages_h.append(
-                _bw.stage_terms(
-                    xs,
-                    ys,
-                    float(g),
-                    order=p,
-                    deriv=deriv,
-                    pilot=point["pilot"],
-                    derivative_bw=point["b"],
-                    regularization=0.0,
-                    kernel=kernel,
-                    n_neighbors=int(n_neighbors),
-                )
-            )
-        except np.linalg.LinAlgError as exc:
-            raise NumericalInstability(
-                f"a local polynomial fit at grid point {g!r} is singular.",
-                recovery_hint="Raise bwcheck or lower imsegrid.",
-            ) from exc
-
-    def _average(stages, order, d):
-        return _bw.closed_form_bandwidth(
-            float(np.mean([s["variance"] for s in stages])),
-            float(np.mean([s["bias_sq"] for s in stages])),
-            n,
-            order,
-            d,
-        )
-
-    return {"h": _average(stages_h, p, deriv), "b": _average(stages_b, q, p + 1)}
-
-
-def _ce_rescale(order: int, deriv: int, n: int) -> float:
-    """Factor turning an MSE-optimal bandwidth into the CE rule of thumb.
-
-    ``n^(-o/((2o+3)(o+3)))`` when ``o - deriv`` is odd and
-    ``n^(-(o+2)/((2o+5)(o+3)))`` when it is even (Calonico, Cattaneo and
-    Farrell 2019, Section 2.6, with the parity taken on ``o - deriv``).
-    """
-    if (order - deriv) % 2 == 1:
-        return float(n ** (-order / ((2 * order + 3) * (order + 3))))
-    return float(n ** (-(order + 2) / ((2 * order + 5) * (order + 3))))
+    return _sel.imse_dpi(
+        xs,
+        ys,
+        p=p,
+        deriv=deriv,
+        kernel=kernel,
+        imsegrid=int(imsegrid),
+        n_neighbors=int(n_neighbors),
+        bwcheck=int(bwcheck),
+        bwregul=float(bwregul),
+    )
 
 
 def lpbwselect_ce_rot(
@@ -855,6 +725,6 @@ def lpbwselect_ce_rot(
     )
     n = xs.size
     return {
-        "h": mse["h"] * _ce_rescale(p, deriv, n),
-        "b": mse["b"] * _ce_rescale(p + 1, p + 1, n),
+        "h": mse["h"] * _sel.ce_rescale(p, deriv, n),
+        "b": mse["b"] * _sel.ce_rescale(p + 1, p + 1, n),
     }
