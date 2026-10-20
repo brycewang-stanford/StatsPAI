@@ -39,9 +39,10 @@ Conventions each comparison depends on
   rbounds::psens drops the zeros before ranking (``zero_method="wilcox"``)
   and ROUNDS its bounds to 4 decimals, so it is compared after rounding.
   The sign-test bound is the exact binomial tail, stats::binom.test.
-* E-values: EValue's own functions; evalues.RD searches a grid built with
-  ``seq`` while StatsPAI uses ``np.arange`` -- the grid points differ in the
-  last bits (observed 6e-14), hence 1e-12.
+* E-values: EValue's own functions. evalues.RD searches a bias-factor grid;
+  StatsPAI builds its grid points as ``1 + k * grid`` (clean-room spec
+  docs/dev/cleanroom/evalue.md) and matches these cases bit for bit; 1e-12
+  allows for last-bit differences in the grid points.
 * Oster: robomit rounds delta* and beta* to 6 decimals before returning
   them, so the R side is compared at 5e-7 absolute; the full-precision
   reference is Stata ``psacalc`` (test_inference_sens_stata_parity.py).

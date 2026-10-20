@@ -1,63 +1,56 @@
-"""
-Covariate-Balancing Propensity Score (Imai & Ratkovic 2014).
+"""Covariate-balancing propensity score (CBPS) for a binary treatment.
 
-CBPS estimates the propensity score by solving a moment condition that
-*jointly* enforces:
+The propensity score is a logistic model ``pi(X; beta) = expit(X'beta)``
+whose coefficients are chosen so that the inverse-probability weights it
+implies balance the covariate means, optionally together with the logit
+score equation [@imai2014covariate]. With ``n`` units, ``n1`` of them
+treated, the sample moments of Imai and Ratkovic (2014) are
 
-    (a) the logit score equation (standard MLE first-order condition);
-    (b) exact mean-balance of covariates under the implied IPW weights.
+    score   (eq. 7):   s(beta) = X'(T - pi) / n
+    balance (eq. 10):  b(beta) = X'w / n,   w = T/pi - (1 - T)/(1 - pi)
+    balance (eq. 11):  b(beta) = X'w / n,   w = (n/n1) (T - pi)/(1 - pi)
 
-The "just-identified" (exact) variant uses ``K`` moment conditions where
-``K`` equals the covariate dimension (drops the score equation).
-The "over-identified" variant stacks both sets and solves via GMM.
-This module implements both.
+(eq. 10 for the ATE, eq. 11 for the ATT). ``variant='exact'`` is the
+just-identified CBPS, ``b(beta) = 0``; ``variant='over'`` stacks
+``g = [s; b]`` and minimises the GMM criterion ``g' Sigma^{-1} g`` with the
+model-implied moment covariance ``Sigma`` of eq. (16) (ATE) or (17) (ATT).
 
-Mathematically, denote ``π(X; β) = 1 / (1 + exp(-X'β))``. The stacked
-moment vector, scaled by ``1/n`` as in the reference implementation, is
+Two observations organise the computation:
 
-    ḡ(β) = [ X'(T - π) / n ,     (MLE score)
-             X'w(β)      / n ]   (Balance)
+* The just-identified moments are the gradient of a strictly concave
+  function of ``beta`` (for the ATE ``sum_T (eta - e^{-eta}) -
+  sum_C (eta + e^{eta})``, for the ATT ``sum_T eta - sum_C e^{eta}``, with
+  ``eta = X'beta``), so the solution is unique when it exists and Newton's
+  method with a line search on that function finds it.
+* The over-identified fit is the two-step estimator (``CBPS(twostep =
+  TRUE)``, the reference's default): ``Sigma`` is evaluated once, at
+  ``a * beta_MLE`` with ``a`` the minimiser over ``[0.8, 1.1]`` of the
+  continuously-updated criterion along that ray, and then held fixed. This
+  convention was established from the reference's outputs (its reported
+  ``J`` and ``mle.J`` are reproduced by exactly this ``Sigma``, and the
+  scale sits on 0.8 or 1.1 when the unconstrained minimiser lies outside);
+  see ``docs/dev/cleanroom/cbps.md``.
 
-with ``w = T/π - (1-T)/(1-π)`` for the ATE and
-``w = (n/n_1)·(T - π)/(1 - π)`` for the ATT. CBPS minimises
-``ḡ' V(β₀)⁻¹ ḡ`` for the over-identified variant, where ``V`` is the
-*model-implied* moment covariance frozen at the starting value, and
-minimises the balance block alone for the just-identified variant. Both
-problems are solved in a standardised, orthonormalised basis; see the
-solver note above ``_fit_cbps`` for why that basis is load-bearing.
+Both criteria are invariant to a non-singular linear reparametrisation of
+the covariates, so they are solved on centred and scaled covariates and
+the coefficients mapped back.
 
-Treatment-effect point estimate uses the resulting weights in the
-standard (normalised Hajek) IPW formula; SEs come from a paired
-bootstrap re-estimation by default.
+The effect is the Hajek (self-normalised) inverse-probability-weighted
+contrast; its standard error is the standard deviation of the estimate
+over nonparametric bootstrap refits.
 
-Relationship to the R package
------------------------------
-``sp.cbps`` reproduces ``CBPS::CBPS`` for ``estimand='ATE'`` (both
-variants) and for ``estimand='ATT', variant='exact'`` to ~1e-3 relative,
-the residual being the R optimiser's own convergence slack — StatsPAI
-drives the just-identified balance loss to ~1e-20 where CBPS stops
-around 1e-10.
-
-For ``estimand='ATT', variant='over'`` the two implementations land on
-different points. CBPS's analytic ATT gradient scales the balance block
-by ``1/n_1`` where the moment's Jacobian carries ``1/n``, overstating
-that block by ``n/n_1``, and its ``optim`` call stops at a
-non-stationary point as a result. StatsPAI uses the correct Jacobian and
-attains both a lower GMM objective and better covariate balance (on
-``MatchIt::lalonde``: max |SMD| 0.037 vs 0.106, mean 0.016 vs 0.034).
-This is asserted in ``tests/reference_parity/test_matching_r_parity.py``.
+Clean-room implementation written from Imai and Ratkovic (2014); the
+reference (R ``CBPS`` 0.24, GPL >= 2) was used only as a black box.
 
 References
 ----------
-Imai, K., Ratkovic, M. (2014). "Covariate Balancing Propensity Score."
-JRSS-B, 76(1), 243-263. [@imai2014covariate]
-
-Fong, C., Ratkovic, M., Imai, K. (2022). ``CBPS`` R package documentation.
+[@imai2014covariate]
 """
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+import warnings
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -68,6 +61,20 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._validate import require_binary_treatment
 from ..core._validate import treatment_as_float as _treatment_as_float
 from ..core.results import CausalResult
+from ..exceptions import (
+    ColumnNotFound,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
+
+# Propensity scores used for weighting are kept inside [floor, 1 - floor].
+_PS_FLOOR = 1e-6
+# Search interval for the scale of the two-step weighting point.
+_SCALE_BOUNDS = (0.8, 1.1)
+# Linear index clip that only guards exp() against overflow.
+_ETA_CLIP = 35.0
+_RANK_TOL = 1e-9
 
 
 @_expands_categorical("covariates")
@@ -86,513 +93,578 @@ def cbps(
 ) -> CausalResult:
     """Covariate-Balancing Propensity Score estimator (Imai-Ratkovic 2014).
 
+    Fits a logistic propensity score whose inverse-probability weights
+    balance the covariate means and reports the Hajek-weighted treatment
+    effect.
+
     Parameters
     ----------
-    data : DataFrame
+    data : pandas.DataFrame
+        Analysis data. Rows with a missing outcome, treatment or covariate
+        are dropped.
     y : str
         Outcome column.
     treat : str
-        Binary 0/1 treatment column.
+        Treatment column, coded 0/1.
     covariates : list of str
-        Covariates entering the logit score.
-    estimand : {'ATE', 'ATT'}
-    variant : {'exact', 'over'}
-        'exact': just-identified CBPS (only balance moments). 'over':
-        over-identified CBPS (MLE + balance, solved via two-step GMM).
-    n_bootstrap : int
-    alpha : float
+        Covariates of the propensity model; they are also the balanced
+        moments. Categorical columns are expanded to indicators.
+    estimand : {'ATE', 'ATT'}, default 'ATE'
+        ``'ATE'`` balances both arms towards the pooled sample (eq. 10 of
+        Imai and Ratkovic 2014); ``'ATT'`` reweights the controls towards
+        the treated (eq. 11).
+    variant : {'exact', 'over'}, default 'over'
+        ``'exact'``: just-identified CBPS, the balance conditions alone
+        (exact mean balance when a solution exists). ``'over'``:
+        over-identified CBPS, balance conditions plus the logit score,
+        two-step GMM with the model-implied moment covariance.
+    n_bootstrap : int, default 500
+        Nonparametric bootstrap replications for the standard error (the
+        whole CBPS fit is repeated on each resample). With fewer than two
+        replications the standard error, p-value and interval are NaN.
+    alpha : float, default 0.05
+        Level of the normal-approximation confidence interval.
     seed : int, optional
+        Seed of the bootstrap resampling.
     add_intercept : bool, default True
-        Prepend a constant to the covariate matrix.
-    trim : float
-        Optional pscore clip for stability.
+        Add a constant to the propensity model. With ``False`` the
+        covariates must contain exactly one constant column.
+    trim : float, default 0.0
+        When positive, propensity scores are clipped to
+        ``[trim, 1 - trim]`` before the weights are formed (units are not
+        dropped). Scores are always kept inside ``[1e-6, 1 - 1e-6]``.
 
     Returns
     -------
     CausalResult
-        ``estimate`` is the CBPS weighted treatment effect; ``model_info``
-        contains the estimated coefficients, balance diagnostics and
-        effective sample size.
+        ``estimate`` is the Hajek IPW contrast. ``model_info`` holds the
+        propensity coefficients (``beta``, in the order intercept then
+        covariates), ``std_mean_diff_after`` (weighted mean difference over
+        the pooled within-arm standard deviation, per design column),
+        ``gmm_objective``, ``converged``, the score range and the
+        bootstrap counts.
+
+    Raises
+    ------
+    MethodIncompatibility
+        Unknown ``estimand`` / ``variant``, a treatment not coded 0/1, a
+        design with no or several constant columns, or a covariate that is
+        a linear combination of the others.
+    DataInsufficient
+        One treatment arm is empty after dropping missing rows.
 
     Examples
     --------
+    >>> import numpy as np, pandas as pd
     >>> import statspai as sp
-    >>> df = sp.cps_wage()
-    >>> result = sp.cbps(df, y='log_wage', treat='union',
-    ...                  covariates=['education', 'experience', 'tenure'],
-    ...                  estimand='ATT', n_bootstrap=20, seed=42)
-    >>> round(result.estimate, 3)
-    0.189
-    >>> report = result.summary()
-    >>> smd = result.model_info['std_mean_diff_after']  # balance after weighting
-    >>> sorted(smd)
-    ['_intercept', 'education', 'experience', 'tenure']
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.normal(size=400)
+    >>> d = rng.binomial(1, 1 / (1 + np.exp(-0.5 * x)))
+    >>> df = pd.DataFrame({"y": 1 + 2 * d + x + rng.normal(size=400),
+    ...                    "d": d, "x": x})
+    >>> res = sp.cbps(df, y="y", treat="d", covariates=["x"],
+    ...               variant="exact", n_bootstrap=50, seed=1)
+    >>> abs(res.model_info["std_mean_diff_after"]["x"]) < 1e-8
+    True
 
-    >>> # Just-identified CBPS (balance moments only)
-    >>> result = sp.cbps(df, y='log_wage', treat='union',
-    ...                  covariates=['education', 'experience', 'tenure'],
-    ...                  variant='exact', n_bootstrap=20, seed=42)
+    References
+    ----------
+    [@imai2014covariate]
+
+    Clean-room implementation; the reference (R ``CBPS`` 0.24, GPL >= 2)
+    was used only as a black box.
     """
     if estimand not in ("ATE", "ATT"):
-        raise ValueError(f"estimand must be 'ATE' or 'ATT', got {estimand!r}")
+        raise MethodIncompatibility(
+            f"cbps: estimand must be 'ATE' or 'ATT'; got {estimand!r}",
+            recovery_hint="Pass estimand='ATE' or estimand='ATT'.",
+        )
     if variant not in ("exact", "over"):
-        raise ValueError(f"variant must be 'exact' or 'over', got {variant!r}")
+        raise MethodIncompatibility(
+            f"cbps: variant must be 'exact' or 'over'; got {variant!r}",
+            recovery_hint=(
+                "Pass variant='exact' (balance conditions only) or "
+                "variant='over' (balance conditions plus the logit score)."
+            ),
+        )
+    covariates = list(covariates)
+    missing = [c for c in [y, treat] + covariates if c not in data.columns]
+    if missing:
+        raise ColumnNotFound(
+            f"cbps: column(s) {missing} not found in data",
+            recovery_hint="Check the outcome, treatment and covariate names.",
+        )
 
-    rng = np.random.default_rng(seed)
-
-    df = data[[y, treat] + list(covariates)].dropna().copy()
-    Y = df[y].to_numpy(dtype=np.float64)
-    T = _treatment_as_float(df[treat], function="cbps")
+    frame = data[[y, treat] + covariates].dropna()
+    T = _treatment_as_float(frame[treat], function="cbps", argument=treat)
     require_binary_treatment(T, function="cbps", argument=treat)
-    X = df[covariates].to_numpy(dtype=np.float64)
-    if add_intercept:
-        X = np.column_stack([np.ones(len(df)), X])
-    n, p = X.shape
+    n_treated = int(T.sum())
+    n_control = int(T.size - n_treated)
+    if n_treated == 0 or n_control == 0:
+        raise DataInsufficient(
+            f"cbps: {treat} has {n_treated} treated and {n_control} control "
+            "rows after dropping missing values; both arms are needed",
+            recovery_hint=(
+                "Check the treatment coding and the rows dropped for missing "
+                "outcome or covariate values."
+            ),
+        )
+    Y = frame[y].to_numpy(dtype=float)
+    X, names = _design(frame, covariates, add_intercept)
+    att = estimand == "ATT"
 
-    def _solve(
-        X_: np.ndarray,
-        T_: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, bool, float]:
-        return _fit_cbps(X_, T_, estimand=estimand, variant=variant)
+    fit = _fit_cbps(X, T, att, variant)
+    if not fit["converged"]:
+        warnings.warn(
+            f"cbps: the {variant} CBPS fit did not converge; the "
+            "coefficients are the last iterate. "
+            + (
+                "The balance equations may have no solution (little overlap)."
+                if variant == "exact"
+                else "Check overlap and covariate scaling."
+            ),
+            ConvergenceWarning,
+            stacklevel=2,
+        )
+    beta = fit["beta"]
+    ps = _scores(X @ beta, trim)
+    if np.any(ps <= _PS_FLOOR * (1 + 1e-9)) or np.any(ps >= 1 - _PS_FLOOR * (1 + 1e-9)):
+        warnings.warn(
+            "cbps: some propensity scores reached the 1e-6 bound "
+            "(near-separation); the weights of those units are extreme.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
+    w1, w0 = _arm_weights(T, ps, att)
+    estimate = _hajek(Y, w1, w0)
+    smd = {name: _std_mean_diff(X[:, j], T, w1, w0) for j, name in enumerate(names)}
 
-    beta_hat, ps, converged_pt, obj_pt = _solve(X, T)
-    if trim > 0:
-        ps = np.clip(ps, trim, 1 - trim)
-    w1, w0 = _cbps_weights(T, ps, estimand)
-    est = float(np.sum(w1 * Y) - np.sum(w0 * Y))
-
-    # Bootstrap with draw-until-success. Pathological resamples (all
-    # treated or all controls, optimizer failure, singular Hessian) are
-    # discarded and re-drawn so that we return exactly ``n_bootstrap``
-    # successful reps. A hard ceiling on retries guards against
-    # degenerate DGPs.
-    boot = np.empty(n_bootstrap)
-    boot_converged = np.empty(n_bootstrap, dtype=bool)
-    max_retries = 10 * n_bootstrap
-    retries = 0
-    b = 0
-    while b < n_bootstrap and retries < max_retries:
-        idx = rng.integers(0, n, size=n)
-        T_b = T[idx]
-        # Skip degenerate resamples where the treatment or control arm
-        # disappeared — CBPS has no solution in that subsample.
-        if T_b.sum() < 2 or (1 - T_b).sum() < 2:
-            retries += 1
-            continue
-        X_b, Y_b = X[idx], Y[idx]
-        try:
-            _, ps_b, conv_b, _ = _solve(X_b, T_b)
-            if trim > 0:
-                ps_b = np.clip(ps_b, trim, 1 - trim)
-            w1b, w0b = _cbps_weights(T_b, ps_b, estimand)
-            boot[b] = float(np.sum(w1b * Y_b) - np.sum(w0b * Y_b))
-            boot_converged[b] = conv_b
-            b += 1
-        except Exception:
-            retries += 1
-            continue
-    boot_used = boot[:b]
-    boot_converged_used = boot_converged[:b]
-    n_boot_success = b
-    n_boot_nonconv = int((~boot_converged_used).sum())
-    se = float(np.std(boot_used, ddof=1)) if boot_used.size > 1 else np.nan
-    z = sp_stats.norm.ppf(1 - alpha / 2)
-    ci = (est - z * se, est + z * se) if np.isfinite(se) else (np.nan, np.nan)
-    pval = float(2 * sp_stats.norm.sf(abs(est) / se)) if se and se > 0 else np.nan
-
-    # Balance diagnostics: std mean difference after weighting
-    mean_t = (X[T == 1] * w1[T == 1, None]).sum(axis=0) / max(w1[T == 1].sum(), 1e-12)
-    mean_c = (X[T == 0] * w0[T == 0, None]).sum(axis=0) / max(w0[T == 0].sum(), 1e-12)
-    pooled_sd = np.sqrt(0.5 * (X[T == 1].var(axis=0) + X[T == 0].var(axis=0)) + 1e-12)
-    smd = (mean_t - mean_c) / pooled_sd
-    balance_labels = (
-        ["_intercept"] + list(covariates) if add_intercept else list(covariates)
-    )
+    boot = _bootstrap(Y, T, X, att, variant, trim, n_bootstrap, seed)
+    se = float(np.std(boot["draws"], ddof=1)) if len(boot["draws"]) >= 2 else np.nan
+    if np.isfinite(se) and se > 0:
+        z = sp_stats.norm.ppf(1 - alpha / 2)
+        ci = (estimate - z * se, estimate + z * se)
+        pvalue = float(2 * sp_stats.norm.sf(abs(estimate) / se))
+    else:
+        ci, pvalue = (np.nan, np.nan), np.nan
+    if boot["retries"]:
+        warnings.warn(
+            f"cbps: {boot['retries']} bootstrap resample(s) could not be fitted "
+            f"({boot['nonconverged']} did not converge) and were redrawn; "
+            f"{len(boot['draws'])} of {n_bootstrap} replications were used.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
 
     model_info = {
         "model_type": f"CBPS ({variant})",
         "estimand": estimand,
-        "beta": beta_hat,
-        "n_treated": int(T.sum()),
-        "n_control": int((1 - T).sum()),
+        "beta": beta,
+        "n_treated": n_treated,
+        "n_control": n_control,
         "pscore_min": float(ps.min()),
         "pscore_max": float(ps.max()),
-        "std_mean_diff_after": dict(zip(balance_labels, smd.tolist())),
-        "converged": converged_pt,
-        "gmm_objective": obj_pt,
-        "n_bootstrap": n_bootstrap,
-        "n_bootstrap_success": n_boot_success,
-        "n_bootstrap_nonconverged": n_boot_nonconv,
-        "n_bootstrap_retries": retries,
+        "std_mean_diff_after": smd,
+        "converged": bool(fit["converged"]),
+        "gmm_objective": float(fit["objective"]),
+        "n_bootstrap": int(n_bootstrap),
+        "n_bootstrap_success": len(boot["draws"]),
+        "n_bootstrap_nonconverged": int(boot["nonconverged"]),
+        "n_bootstrap_retries": int(boot["retries"]),
     }
-
+    if variant == "over":
+        model_info["weighting_point_scale"] = float(fit["scale"])
     return CausalResult(
         method=f"CBPS ({variant}, {estimand})",
         estimand=estimand,
-        estimate=est,
+        estimate=float(estimate),
         se=se,
-        pvalue=pval,
+        pvalue=pvalue,
         ci=ci,
         alpha=alpha,
-        n_obs=n,
+        n_obs=int(T.size),
+        detail=None,
         model_info=model_info,
     )
 
 
 # ======================================================================
-# Core solver
-#
-# This is a faithful port of ``CBPS:::CBPS.2Treat`` (CBPS 0.24). Every
-# convention that affects the numerical answer is reproduced:
-#
-# 1. The design matrix is standardised (non-intercept columns centred and
-#    scaled by their sample sd) and then replaced by the left singular
-#    vectors ``U`` of the standardised matrix. The GMM problem is solved
-#    in that orthonormal basis and the coefficients are transformed back
-#    at the end. This is not cosmetic: the GMM weighting matrix and the
-#    just-identified quadratic form are basis dependent, so solving in the
-#    raw basis gives a *different* estimator.
-# 2. ``XprimeX.inv`` (the metric of the balance-only objective) is
-#    ``ginv(X'X)``, which equals the identity in the ``U`` basis.
-# 3. The GMM weighting matrix is the *model-implied* moment covariance
-#    evaluated at the starting value (``twostep=TRUE``), not the empirical
-#    outer-product of the moments.
-# 4. The optimiser sequence is: logit MLE -> scalar rescaling on
-#    [0.8, 1.1] -> BFGS on the balance loss -> (for ``method='over'``) two
-#    BFGS runs on the GMM loss started from the MLE and from the balance
-#    solution, keeping whichever attains the lower objective.
-#
-# Reference: Imai & Ratkovic (2014), JRSS-B 76(1), 243-263
-# [@imai2014covariate]; Fong, Hazlett & Imai (2018) implementation.
+# Design matrix
 # ======================================================================
 
-_PROBS_MIN = 1e-6
 
+def _design(
+    frame: pd.DataFrame, covariates: List[str], add_intercept: bool
+) -> Tuple[np.ndarray, List[str]]:
+    """Propensity design matrix and its column names.
 
-def _sigmoid(z: np.ndarray) -> np.ndarray:
-    return np.asarray(1.0 / (1.0 + np.exp(-np.clip(z, -35, 35))), dtype=float)
-
-
-def _probs(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
-    ps = _sigmoid(X @ beta)
-    return np.clip(ps, _PROBS_MIN, 1.0 - _PROBS_MIN)
-
-
-def _balance_weights(
-    ps: np.ndarray, T: np.ndarray, att: bool, n_t: float
-) -> np.ndarray:
-    """The un-normalised balance-moment weights ``w`` of CBPS.2Treat.
-
-    ATT: ``(n / n_t) * (T - p) / (1 - p)``  (``ATT.wt.func``)
-    ATE: ``(p - 1 + T)^{-1}``               (``T/p - (1-T)/(1-p)``)
+    Exactly one column must be constant: the added intercept, or (with
+    ``add_intercept=False``) one supplied by the caller.
     """
-    n = float(T.size)
-    if att:
-        return np.asarray((n / n_t) * (T - ps) / (1.0 - ps), dtype=float)
-    return np.asarray(1.0 / (ps - 1.0 + T), dtype=float)
-
-
-def _gbar(
-    beta: np.ndarray, X: np.ndarray, T: np.ndarray, att: bool, n_t: float
-) -> np.ndarray:
-    """Stacked ``[score, balance]`` sample moments, both scaled by ``1/n``."""
-    n = float(T.size)
-    ps = _probs(beta, X)
-    w = _balance_weights(ps, T, att, n_t)
-    return np.concatenate([X.T @ (T - ps) / n, X.T @ w / n])
-
-
-def _inv_v(beta: np.ndarray, X: np.ndarray, T: np.ndarray, att: bool) -> np.ndarray:
-    """Model-implied inverse moment covariance (CBPS.2Treat ``invV``)."""
-    n = float(T.size)
-    n_t = float(T.sum())
-    ps = _probs(beta, X)
-    if att:
-        X1 = X * np.sqrt(ps * (1.0 - ps))[:, None]
-        X2 = X * np.sqrt(ps / (1.0 - ps))[:, None]
-        X11 = X * np.sqrt(ps)[:, None]
-        A = X1.T @ X1
-        B = (X11.T @ X11) * (n / n_t)
-        C = (X2.T @ X2) * (n**2 / n_t**2)
+    Xc = frame[covariates].to_numpy(dtype=float).reshape(len(frame), -1)
+    if add_intercept:
+        X = np.column_stack([np.ones(len(frame)), Xc])
+        names = ["_intercept"] + covariates
     else:
-        X1 = X * np.sqrt(ps * (1.0 - ps))[:, None]
-        X2 = X / np.sqrt(ps * (1.0 - ps))[:, None]
-        X11 = X
-        A = X1.T @ X1
-        B = X11.T @ X11
-        C = X2.T @ X2
-    V = np.block([[A, B], [B, C]]) / n
-    return np.asarray(np.linalg.pinv(V), dtype=float)
+        X, names = Xc, list(covariates)
+    constant = [j for j in range(X.shape[1]) if np.ptp(X[:, j]) == 0]
+    if len(constant) != 1:
+        raise MethodIncompatibility(
+            f"cbps: the propensity design must contain exactly one constant "
+            f"column; found {len(constant)} "
+            f"({[names[j] for j in constant]})",
+            recovery_hint=(
+                "With add_intercept=True drop constant covariates; with "
+                "add_intercept=False include exactly one constant column."
+            ),
+        )
+    if X.shape[0] <= X.shape[1]:
+        raise DataInsufficient(
+            f"cbps: {X.shape[0]} rows for {X.shape[1]} propensity coefficients",
+            recovery_hint="Use fewer covariates or more data.",
+        )
+    _, sv, _ = np.linalg.svd(_Standardiser(X).Z, full_matrices=False)
+    if sv[-1] <= _RANK_TOL * sv[0]:
+        raise MethodIncompatibility(
+            "cbps: the propensity design is not full rank: a covariate is a "
+            f"linear combination of the others (singular values of the "
+            f"standardised design from {sv[0]:.3g} down to {sv[-1]:.3g})",
+            recovery_hint=(
+                "Drop the redundant covariate: the balance conditions cannot "
+                "tell collinear columns apart."
+            ),
+        )
+    return X, names
 
 
-def _fit_cbps(
-    X: np.ndarray,
-    T: np.ndarray,
-    estimand: str,
-    variant: str,
-    twostep: bool = True,
-    iterations: int = 1000,
-) -> tuple[np.ndarray, np.ndarray, bool, float]:
-    """Fit CBPS following ``CBPS:::CBPS.2Treat`` (CBPS 0.24).
+class _Standardiser:
+    """Centre and scale the non-constant columns of ``X`` (sample sd).
 
-    ``X`` is the *raw* design matrix whose first column is the intercept.
-    The solver internally standardises and orthonormalises it (see the
-    module-level note), then maps the coefficients back to the raw scale
-    so the returned ``beta`` is directly comparable to ``coef(CBPS(...))``.
-
-    Parameters
-    ----------
-    X, T : ndarray
-        Design matrix (intercept first) and 0/1 treatment.
-    estimand : {'ATE', 'ATT'}
-    variant : {'exact', 'over'}
-        ``'exact'`` minimises the balance loss only (just-identified);
-        ``'over'`` minimises the over-identified GMM loss.
-    twostep : bool, default True
-        Hold the GMM weighting matrix fixed at its value under the logit
-        starting value, as ``CBPS(..., twostep = TRUE)`` does.
-    iterations : int, default 1000
-        Maximum BFGS iterations, mirroring CBPS's ``iterations``.
-
-    Returns
-    -------
-    beta : ndarray
-        Coefficients on the raw ``X`` scale.
-    ps : ndarray
-        Fitted propensity scores, clipped to ``(1e-6, 1 - 1e-6)``.
-    converged : bool
-    obj_value : float
-        Final objective (balance loss or GMM J).
+    ``Z gamma = X beta`` with ``beta = to_original(gamma)``. The CBPS
+    criteria are invariant to this reparametrisation; it only conditions
+    the numerical problem (incomes in tens of thousands next to binaries).
     """
-    att = estimand == "ATT"
-    bal_only = variant == "exact"
-    n = float(T.size)
-    n_t = float(T.sum())
 
-    # --- Standardise + orthonormalise (CBPS.fit) -------------------------
-    # CBPS always carries an intercept and standardises every *other*
-    # column. Locate the constant column rather than assuming position 0,
-    # so a caller-supplied design matrix cannot be silently mis-scaled.
-    X_in = np.asarray(X, dtype=float)
-    col_sd = X_in.std(axis=0, ddof=1)
-    const_cols = np.flatnonzero(col_sd <= 0)
-    if const_cols.size != 1:
-        raise ValueError(
-            "CBPS requires a design matrix with exactly one constant "
-            f"(intercept) column; found {const_cols.size}. Pass "
-            "add_intercept=True and drop any constant covariates."
-        )
-    icept = int(const_cols[0])
-    order = np.concatenate([[icept], np.delete(np.arange(X_in.shape[1]), icept)])
-    inverse_order = np.argsort(order)
-    X_raw = X_in[:, order]
-    x_mean = X_raw[:, 1:].mean(axis=0)
-    x_sd = X_raw[:, 1:].std(axis=0, ddof=1)
-    X_std = X_raw.copy()
-    X_std[:, 1:] = (X_raw[:, 1:] - x_mean) / x_sd
-    U, d_sv, Vt = np.linalg.svd(X_std, full_matrices=False)
-    # Rank is read from the singular values. The factor U is orthonormal
-    # whatever the rank of X, so testing it (as this did) never fired, and
-    # with a redundant covariate the fit balanced an arbitrary null-space
-    # direction: the estimate moved and converged=True. The columns are
-    # standardised, so a relative tolerance on the singular values does
-    # not depend on the units of the covariates.
-    if d_sv[-1] <= 1e-9 * d_sv[0]:
-        raise ValueError(
-            "CBPS design matrix is not full rank: a covariate is a linear "
-            "combination of the others (singular values from "
-            f"{d_sv[0]:.3g} down to {d_sv[-1]:.3g}). Drop the redundant "
-            "covariate; the balancing conditions cannot tell it apart."
-        )
-    Xs = U  # solve in the orthonormal basis, as CBPS does
-    XpX_inv = np.linalg.pinv(Xs.T @ Xs)
+    def __init__(self, X: np.ndarray):
+        self.const = np.array([np.ptp(X[:, j]) == 0 for j in range(X.shape[1])])
+        self.mean = np.where(self.const, 0.0, X.mean(axis=0))
+        sd = X.std(axis=0, ddof=1) if X.shape[0] > 1 else np.ones(X.shape[1])
+        self.scale = np.where(self.const, 1.0, sd)
+        self.Z = (X - self.mean) / self.scale
+        self.const_value = X[0, self.const] if self.const.any() else None
 
-    # --- Objectives ------------------------------------------------------
-    def bal_loss(beta: np.ndarray) -> float:
-        ps = _probs(beta, Xs)
-        w = _balance_weights(ps, T, att, n_t) / n
-        xw = Xs.T @ w
-        return float(abs(xw @ XpX_inv @ xw))
+    def to_original(self, gamma: np.ndarray) -> np.ndarray:
+        beta = gamma / self.scale
+        if self.const.any():
+            j = int(np.flatnonzero(self.const)[0])
+            shift = float(
+                np.sum(
+                    gamma[~self.const]
+                    * self.mean[~self.const]
+                    / self.scale[~self.const]
+                )
+            )
+            beta[j] = (gamma[j] * self.const_value[0] - shift) / self.const_value[0]
+        return beta
 
-    def bal_gradient(beta: np.ndarray) -> np.ndarray:
-        ps = _probs(beta, Xs)
-        w = _balance_weights(ps, T, att, n_t) / n
-        if att:
-            dw2 = -(n / n_t) * ps / (1.0 - ps)
-            dw2 = np.where(T == 1, 0.0, dw2)
-        else:
-            dw2 = -((T - ps) ** 2) / (ps * (1.0 - ps))
-        dw = (Xs * dw2[:, None]).T / n
-        xw = Xs.T @ w
-        loss1 = xw @ XpX_inv @ xw
-        raw = 2.0 * (dw @ Xs @ XpX_inv @ xw)
-        # CBPS's sign convention on the balance gradient.
-        sign = np.where(
-            ((raw > 0) & (loss1 > 0)) | ((raw < 0) & (loss1 < 0)), 1.0, -1.0
-        )
-        return np.asarray(sign * np.abs(raw), dtype=float)
 
-    def gmm_loss(beta: np.ndarray, invV: np.ndarray) -> float:
-        g = _gbar(beta, Xs, T, att, n_t)
-        return float(g @ invV @ g)
+# ======================================================================
+# Moments (Imai & Ratkovic 2014, eqs. 7, 10, 11, 16, 17)
+# ======================================================================
 
-    def gmm_gradient(beta: np.ndarray, invV: np.ndarray) -> np.ndarray:
-        ps = _probs(beta, Xs)
-        g = _gbar(beta, Xs, T, att, n_t)
-        block1 = (Xs * (-ps * (1.0 - ps))[:, None]).T @ Xs / n
-        if att:
-            dw = -(n / n_t) * ps / (1.0 - ps)
-            dw = np.where(T == 1, 0.0, dw)
-        else:
-            dw = -((T - ps) ** 2) / (ps * (1.0 - ps))
-        # NOTE: the balance moment is (1/n) X'w for both estimands, so its
-        # Jacobian carries 1/n. CBPS's own ATT gradient divides by n_t
-        # instead, which overstates that block by a factor n/n_t and
-        # leaves optim() stopping at a non-stationary point. We use the
-        # correct Jacobian and verify convergence on the objective itself.
-        block2 = (Xs * dw[:, None]).T @ Xs / n
-        dgbar = np.concatenate([block1, block2], axis=1)
-        return np.asarray(2.0 * (dgbar @ invV @ g), dtype=float)
 
-    # --- Starting values: logit MLE, then a scalar rescaling -------------
-    # CBPS rescales the MLE by the alpha in [0.8, 1.1] that minimises the
-    # *continuously updated* GMM loss (invV recomputed at each candidate),
-    # then freezes invV at the resulting point for the twostep objective.
-    beta_glm = _warm_start_logit(Xs, T)
+def _expit(eta: np.ndarray) -> np.ndarray:
+    return 0.5 * (1.0 + np.tanh(0.5 * np.clip(eta, -_ETA_CLIP, _ETA_CLIP)))
 
-    def _cu_loss(a: float) -> float:
-        b = beta_glm * a
-        return gmm_loss(b, _inv_v(b, Xs, T, att))
 
-    scal = optimize.minimize_scalar(
-        _cu_loss, bounds=(0.8, 1.1), method="bounded", options={"xatol": 1e-10}
-    )
-    gmm_init = beta_glm * float(scal.x)
-    this_invV = _inv_v(gmm_init, Xs, T, att)
+def _score_moments(gamma, Z, T):
+    """Logit score ``Z'(T - pi)/n`` and its Jacobian."""
+    n = T.size
+    p = _expit(Z @ gamma)
+    jac = -(Z * (p * (1 - p))[:, None]).T @ Z / n
+    return Z.T @ (T - p) / n, jac
 
-    opts = {"maxiter": iterations, "gtol": 1e-12}
-    opt_bal = optimize.minimize(
-        bal_loss, gmm_init, method="BFGS", jac=bal_gradient, options=opts
-    )
 
-    if bal_only:
-        best = opt_bal
+def _balance_moments(gamma, Z, T, att):
+    """Balance moments ``Z'w/n`` (eq. 10 or 11) and their Jacobian."""
+    n = T.size
+    eta = np.clip(Z @ gamma, -_ETA_CLIP, _ETA_CLIP)
+    if att:
+        r = n / T.sum()
+        odds = np.exp(eta)
+        w = r * (T - (1 - T) * odds)  # (n/n1)(T - pi)/(1 - pi)
+        dw = -r * (1 - T) * odds
     else:
-        invV = this_invV if twostep else None
+        e_neg, e_pos = np.exp(-eta), np.exp(eta)
+        w = T * (1 + e_neg) - (1 - T) * (1 + e_pos)  # T/pi - (1-T)/(1-pi)
+        dw = -T * e_neg - (1 - T) * e_pos
+    return Z.T @ w / n, (Z * dw[:, None]).T @ Z / n
 
-        def _loss(b: np.ndarray) -> float:
-            return gmm_loss(b, invV if invV is not None else _inv_v(b, Xs, T, att))
 
-        def _grad(b: np.ndarray) -> np.ndarray:
-            return gmm_gradient(b, invV if invV is not None else _inv_v(b, Xs, T, att))
+def _moment_covariance(gamma, Z, T, att):
+    """Model-implied covariance of ``[score; balance]`` (eq. 16 / 17)."""
+    n = T.size
+    p = _expit(Z @ gamma)
+    v = p * (1 - p)
 
-        # The over-identified CBPS objective is not convex: CBPS itself
-        # hedges by starting BFGS from both the MLE and the balance
-        # solution and keeping the better one. We start from those two
-        # plus the unscaled MLE, then restart BFGS from the incumbent
-        # until it stops improving (a fresh restart discards the inverse-
-        # Hessian approximation and reliably clears the stalls that leave
-        # optim() at a non-stationary point).
-        best = None
-        for start in (gmm_init, opt_bal.x, beta_glm):
-            cand = optimize.minimize(
-                _loss, start, method="BFGS", jac=_grad, options=opts
-            )
-            if best is None or cand.fun < best.fun:
-                best = cand
-        for _ in range(5):
-            polished = optimize.minimize(
-                _loss, best.x, method="BFGS", jac=_grad, options=opts
-            )
-            if not polished.fun < best.fun * (1 - 1e-12):
+    def cross(a):
+        return (Z * a[:, None]).T @ Z / n
+
+    if att:
+        r = n / T.sum()
+        s12, s22 = r * cross(p), r * r * cross(p / (1 - p))
+    else:
+        s12, s22 = cross(np.ones(n)), cross(1 / v)
+    return np.block([[cross(v), s12], [s12.T, s22]])
+
+
+def _whitener(S: np.ndarray) -> np.ndarray:
+    """``W`` with ``W'W = S^+`` (pseudo-inverse on the positive eigenspace)."""
+    lam, vec = np.linalg.eigh(0.5 * (S + S.T))
+    keep = lam > 1e-12 * max(lam.max(), 1e-300)
+    return (vec[:, keep] / np.sqrt(lam[keep])).T
+
+
+def _stacked(gamma, Z, T, att):
+    s, ds = _score_moments(gamma, Z, T)
+    b, db = _balance_moments(gamma, Z, T, att)
+    return np.concatenate([s, b]), np.vstack([ds, db])
+
+
+def _cue_criterion(gamma, Z, T, att):
+    """Continuously-updated criterion ``g' Sigma(gamma)^+ g``."""
+    g, _ = _stacked(gamma, Z, T, att)
+    r = _whitener(_moment_covariance(gamma, Z, T, att)) @ g
+    return float(r @ r)
+
+
+# ======================================================================
+# Solvers
+# ======================================================================
+
+
+def _logit_mle(Z, T, max_iter=100):
+    """Logit maximum likelihood by Newton's method with step halving."""
+    gamma = np.zeros(Z.shape[1])
+
+    def loglik(g):
+        eta = np.clip(Z @ g, -_ETA_CLIP, _ETA_CLIP)
+        return float(T @ eta - np.logaddexp(0.0, eta).sum())
+
+    ll = loglik(gamma)
+    for _ in range(max_iter):
+        score, jac = _score_moments(gamma, Z, T)
+        try:
+            step = -np.linalg.solve(jac, score)
+        except np.linalg.LinAlgError:
+            break
+        t = 1.0
+        while t > 1e-10:
+            cand = gamma + t * step
+            ll_new = loglik(cand)
+            if ll_new >= ll - 1e-12 * abs(ll):
                 break
-            best = polished
+            t *= 0.5
+        gamma, ll = cand, ll_new
+        if np.max(np.abs(t * step)) < 1e-12 * (1 + np.max(np.abs(gamma))):
+            break
+    return gamma
 
-    beta_svd = np.asarray(best.x, dtype=float)
-    ps_final = _probs(beta_svd, Xs)
 
-    # Convergence is judged on the *problem*, not on the optimiser's exit
-    # flag. BFGS is run with a deliberately tight gtol so it keeps
-    # descending, which means it almost always terminates on precision
-    # loss and reports success=False even at an excellent solution --
-    # propagating that flag would mark nearly every fit non-converged.
-    # What matters is whether the first-order condition actually holds:
-    # for the just-identified variant, whether the balance moments are
-    # zero; for the over-identified one, whether the GMM gradient is.
-    if bal_only:
-        converged = bool(bal_loss(beta_svd) < 1e-12)
-    else:
-        invV_final = this_invV if twostep else _inv_v(beta_svd, Xs, T, att)
-        grad_norm = float(np.max(np.abs(gmm_gradient(beta_svd, invV_final))))
-        scale = max(1.0, abs(float(best.fun)))
-        converged = bool(grad_norm < 1e-6 * scale)
+def _solve_exact(Z, T, att, start, max_iter=200):
+    """Just-identified CBPS: maximise the concave potential whose gradient
+    is the balance moment vector. Returns ``(gamma, converged)``."""
+    n = T.size
+    weight = n / T.sum() if att else 1.0
 
-    # --- Map coefficients back to the raw scale (CBPS.fit) ---------------
-    d_inv = np.where(d_sv > 1e-5, 1.0 / np.where(d_sv > 1e-5, d_sv, 1.0), 0.0)
-    beta_std = Vt.T @ (d_inv * beta_svd)
-    beta_raw = beta_std.copy()
-    beta_raw[1:] = beta_std[1:] / x_sd
-    beta_raw[0] = beta_std[0] - x_mean @ beta_raw[1:]
-    beta_raw = beta_raw[inverse_order]  # restore the caller's column order
+    def potential(g):
+        eta = np.clip(Z @ g, -_ETA_CLIP, _ETA_CLIP)
+        if att:
+            val = eta[T == 1].sum() - np.exp(eta[T == 0]).sum()
+        else:
+            val = np.sum(eta[T == 1] - np.exp(-eta[T == 1])) - np.sum(
+                eta[T == 0] + np.exp(eta[T == 0])
+            )
+        return weight * val / n
 
-    return (
-        beta_raw,
-        np.asarray(ps_final, dtype=float),
-        converged,
-        float(best.fun),
+    gamma = np.asarray(start, dtype=float).copy()
+    f = potential(gamma)
+    for _ in range(max_iter):
+        g, H = _balance_moments(gamma, Z, T, att)
+        if np.max(np.abs(g)) < 1e-14:
+            break
+        try:
+            step = -np.linalg.solve(H, g)
+        except np.linalg.LinAlgError:
+            break
+        slope = float(g @ step)
+        if slope <= 0:  # not an ascent direction: Hessian lost definiteness
+            break
+        t = 1.0
+        while t > 1e-12:
+            cand = gamma + t * step
+            f_new = potential(cand)
+            if f_new >= f + 1e-4 * t * slope:
+                break
+            t *= 0.5
+        else:
+            break
+        gamma, f = cand, f_new
+        if t * np.max(np.abs(step)) < 1e-15 * (1 + np.max(np.abs(gamma))):
+            break
+    g, _ = _balance_moments(gamma, Z, T, att)
+    converged = bool(np.all(np.isfinite(gamma)) and np.max(np.abs(g)) < 1e-8)
+    return gamma, converged
+
+
+def _two_step_scale(Z, T, att, gamma_mle):
+    """Scale ``a`` in ``[0.8, 1.1]`` minimising the CUE criterion at
+    ``a * gamma_mle``; ``Sigma`` of the two-step fit is evaluated there."""
+    res = optimize.minimize_scalar(
+        lambda a: _cue_criterion(a * gamma_mle, Z, T, att),
+        bounds=_SCALE_BOUNDS,
+        method="bounded",
+        options={"xatol": 1e-10},
     )
+    return float(res.x)
 
 
-def _warm_start_logit(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-    """Warm-start coefficients for CBPS: Newton-Raphson logit via
-    statsmodels if available; else sklearn LogisticRegression; else
-    zeros. Silent warnings from a non-converging fit are swallowed — a
-    mediocre warm start is still useful to BFGS on the GMM objective.
+def _solve_over(Z, T, att, starts, weight_point):
+    """Two-step over-identified CBPS: minimise ``||W g(gamma)||^2`` with
+    ``W'W = Sigma(weight_point)^+`` from each start; keep the best."""
+    W = _whitener(_moment_covariance(weight_point, Z, T, att))
+
+    def resid(g):
+        return W @ _stacked(g, Z, T, att)[0]
+
+    def jac(g):
+        return W @ _stacked(g, Z, T, att)[1]
+
+    best = None
+    for s in starts:
+        try:
+            r = optimize.least_squares(
+                resid,
+                s,
+                jac=jac,
+                method="lm",
+                xtol=1e-15,
+                ftol=1e-15,
+                gtol=1e-15,
+                max_nfev=2000,
+            )
+        except (ValueError, np.linalg.LinAlgError):
+            continue
+        q = float(r.fun @ r.fun)
+        if np.isfinite(q) and (best is None or q < best[1]):
+            best = (r.x, q, r.status > 0)
+    if best is None:
+        return np.asarray(starts[0], dtype=float), np.nan, False
+    return best
+
+
+def _fit_cbps(X, T, att, variant):
+    """CBPS coefficients (original basis), objective and convergence."""
+    std = _Standardiser(X)
+    Z = std.Z
+    gamma_mle = _logit_mle(Z, T)
+    gamma_exact, exact_ok = _solve_exact(Z, T, att, gamma_mle)
+    if variant == "exact":
+        g, _ = _balance_moments(gamma_exact, Z, T, att)
+        S = _moment_covariance(gamma_exact, Z, T, att)[Z.shape[1] :, Z.shape[1] :]
+        r = _whitener(S) @ g
+        return {
+            "beta": std.to_original(gamma_exact),
+            "objective": float(r @ r),
+            "converged": exact_ok,
+            "scale": np.nan,
+        }
+    scale = _two_step_scale(Z, T, att, gamma_mle)
+    starts = [scale * gamma_mle, gamma_mle]
+    if exact_ok:
+        starts.append(gamma_exact)
+    gamma, q, ok = _solve_over(Z, T, att, starts, scale * gamma_mle)
+    return {
+        "beta": std.to_original(gamma),
+        "objective": q,
+        "converged": bool(ok),
+        "scale": scale,
+    }
+
+
+# ======================================================================
+# Weights, effect, balance, bootstrap
+# ======================================================================
+
+
+def _scores(eta, trim):
+    lo = max(_PS_FLOOR, float(trim))
+    return np.clip(_expit(eta), lo, 1 - lo)
+
+
+def _arm_weights(T, ps, att):
+    """Unnormalised arm weights: ATE ``T/pi`` and ``(1-T)/(1-pi)``; ATT
+    ``T`` and ``(1-T) pi/(1-pi)``."""
+    if att:
+        return T.copy(), (1 - T) * ps / (1 - ps)
+    return T / ps, (1 - T) / (1 - ps)
+
+
+def _hajek(Y, w1, w0):
+    return float(w1 @ Y / w1.sum() - w0 @ Y / w0.sum())
+
+
+def _std_mean_diff(x, T, w1, w0):
+    """Weighted treated-minus-control mean over the pooled (unweighted,
+    divisor n) within-arm standard deviation; 0 for a constant column."""
+    if np.ptp(x) == 0:
+        return 0.0
+    diff = w1 @ x / w1.sum() - w0 @ x / w0.sum()
+    pooled = np.sqrt(0.5 * (x[T == 1].var() + x[T == 0].var()))
+    return float(diff / pooled) if pooled > 0 else float("nan")
+
+
+def _bootstrap(Y, T, X, att, variant, trim, n_bootstrap, seed):
+    """Refit CBPS on ``n_bootstrap`` resamples of the rows.
+
+    A resample that cannot be fitted (one arm empty, rank-deficient design)
+    or whose fit does not converge is redrawn, at most ``n_bootstrap + 10``
+    times in total; the counts are reported.
     """
-    import warnings
-
-    try:
-        import statsmodels.api as sm  # type: ignore
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            model = sm.Logit(T, X).fit(disp=False, maxiter=100)
-        return np.asarray(model.params, dtype=np.float64)
-    except Exception:
-        pass
-
-    try:
-        from sklearn.linear_model import LogisticRegression
-
-        m = LogisticRegression(
-            max_iter=1000,
-            solver="lbfgs",
-            C=1e6,
-            fit_intercept=False,
-        )
-        m.fit(X, T)
-        return np.asarray(m.coef_[0], dtype=np.float64)
-    except Exception:
-        return np.zeros(X.shape[1], dtype=np.float64)
-
-
-def _cbps_weights(
-    T: np.ndarray, ps: np.ndarray, estimand: str
-) -> tuple[np.ndarray, np.ndarray]:
-    """Hajek-normalised weights implied by CBPS."""
-    if estimand == "ATE":
-        w1 = T / ps
-        w0 = (1 - T) / (1 - ps)
-    else:  # ATT
-        w1 = T.copy()
-        w0 = (1 - T) * ps / (1 - ps)
-    s1 = w1.sum()
-    s0 = w0.sum()
-    if s1 > 0:
-        w1 = w1 / s1
-    if s0 > 0:
-        w0 = w0 / s0
-    return np.asarray(w1, dtype=float), np.asarray(w0, dtype=float)
+    draws: List[float] = []
+    retries = nonconverged = 0
+    if n_bootstrap < 1:
+        return {"draws": draws, "retries": 0, "nonconverged": 0}
+    rng = np.random.default_rng(seed)
+    n = T.size
+    budget = n_bootstrap + 10
+    while len(draws) < n_bootstrap and retries <= budget:
+        idx = rng.integers(0, n, size=n)
+        Tb, Xb = T[idx], X[idx]
+        n1 = Tb.sum()
+        try:
+            if n1 == 0 or n1 == n:
+                raise ValueError("one arm empty")
+            std = _Standardiser(Xb)
+            if std.const.sum() != 1:
+                raise ValueError("constant column lost")
+            sv = np.linalg.svd(std.Z, compute_uv=False)
+            if sv[-1] <= _RANK_TOL * sv[0]:
+                raise ValueError("rank deficient")
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                fit = _fit_cbps(Xb, Tb, att, variant)
+        except (ValueError, np.linalg.LinAlgError):
+            retries += 1
+            continue
+        if not fit["converged"]:
+            retries += 1
+            nonconverged += 1
+            continue
+        ps = _scores(Xb @ fit["beta"], trim)
+        w1, w0 = _arm_weights(Tb, ps, att)
+        draws.append(_hajek(Y[idx], w1, w0))
+    return {"draws": draws, "retries": retries, "nonconverged": nonconverged}
 
 
 __all__ = ["cbps"]

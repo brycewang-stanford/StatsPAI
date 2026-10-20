@@ -44579,16 +44579,16 @@
       "properties": {
         "add_intercept": {
           "default": true,
-          "description": "Prepend a constant to the covariate matrix.",
+          "description": "Add a constant to the propensity model. With ``False`` the covariates must contain exactly one constant column.",
           "type": "boolean"
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of the normal-approximation confidence interval.",
           "type": "number"
         },
         "covariates": {
-          "description": "Covariates entering the logit score.",
+          "description": "Covariates of the propensity model; they are also the balanced moments. Categorical columns are expanded to indicators.",
           "items": {
             "type": "string"
           },
@@ -44596,13 +44596,13 @@
           "x-statspai-role": "columns"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Analysis data. Rows with a missing outcome, treatment or covariate are dropped.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "estimand": {
           "default": "ATE",
-          "description": "estimand parameter (Literal['ATE', 'ATT']).",
+          "description": "``'ATE'`` balances both arms towards the pooled sample (eq. 10 of Imai and Ratkovic 2014); ``'ATT'`` reweights the controls towards the treated (eq. 11).",
           "enum": [
             "ATE",
             "ATT"
@@ -44611,26 +44611,26 @@
         },
         "n_bootstrap": {
           "default": 500,
-          "description": "Number of bootstrap replications.",
+          "description": "Nonparametric bootstrap replications for the standard error (the whole CBPS fit is repeated on each resample). With fewer than two replications the standard error, p-value and interval are NaN.",
           "type": "integer"
         },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Seed of the bootstrap resampling.",
           "type": "integer"
         },
         "treat": {
-          "description": "Binary 0/1 treatment column.",
+          "description": "Treatment column, coded 0/1.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "trim": {
           "default": 0.0,
-          "description": "Optional pscore clip for stability.",
+          "description": "When positive, propensity scores are clipped to ``[trim, 1 - trim]`` before the weights are formed (units are not dropped). Scores are always kept inside ``[1e-6, 1 - 1e-6]``.",
           "type": "number"
         },
         "variant": {
           "default": "over",
-          "description": "'exact': just-identified CBPS (only balance moments). 'over': over-identified CBPS (MLE + balance, solved via two-step GMM).",
+          "description": "``'exact'``: just-identified CBPS, the balance conditions alone (exact mean balance when a solution exists). ``'over'``: over-identified CBPS, balance conditions plus the logit score, two-step GMM with the model-implied moment covariance.",
           "enum": [
             "exact",
             "over"
@@ -49482,7 +49482,7 @@
         },
         "true": {
           "default": 0.0,
-          "description": "Reference risk difference (must be <= the observed RD).",
+          "description": "Reference risk difference (must be below the observed RD).",
           "type": "number"
         }
       },
@@ -64275,7 +64275,7 @@
       "properties": {
         "conf_level": {
           "default": 0.95,
-          "description": "Level of the normal-approximation band ``ACME +/- z * SE``.",
+          "description": "Level of the normal-approximation interval at each ``rho``.",
           "type": "number"
         },
         "covariates": {
@@ -64287,27 +64287,27 @@
           "x-statspai-role": "columns"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Analysis data; rows with a missing value in a used column are dropped.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "eps": {
-          "description": "Stopping rule of the feasible-GLS iteration: stop when the squared change of the coefficient vector is at most ``eps``. The default iterates to the fixed point (machine precision). ``eps=np.sqrt(np.finfo(float).eps)`` is ``medsens``' default and reproduces its output exactly; that rule stops a few iterations early at large |rho| (ACME off by up to ~1e-4 relative).",
+          "description": "Stopping tolerance of the iterated FGLS: iteration stops once the sum of squared changes of the coefficients is below ``eps`` (``mediation::medsens`` uses ``sqrt(.Machine$double.eps)``). The default ``None`` iterates to the fixed point.",
           "type": "number"
         },
         "max_iter": {
           "default": 10000,
-          "description": "Iteration cap; a warning is raised when it binds.",
+          "description": "Maximum FGLS steps per ``rho``; a ``ConvergenceWarning`` names the ``rho`` values that reach it.",
           "type": "integer"
         },
         "mediator": {
-          "description": "Outcome, treatment (binary or continuous) and mediator columns.",
+          "description": "Mediator column (linear model).",
           "type": "string",
           "x-statspai-role": "column"
         },
         "n_grid": {
           "default": 41,
-          "description": "Number of grid points (``medsens``' default ``rho.by = 0.1`` is ``rho_range=(-0.9, 0.9), n_grid=19``).",
+          "description": "Number of equally spaced ``rho`` values (``numpy.linspace``).",
           "type": "integer"
         },
         "rho_range": {
@@ -64315,19 +64315,19 @@
             -0.9,
             0.9
           ],
-          "description": "Grid end points; must lie strictly inside (-1, 1).",
+          "description": "``(low, high)`` with ``-1 < low <= high < 1``.",
           "items": {
             "type": "number"
           },
           "type": "array"
         },
         "treat": {
-          "description": "Outcome, treatment (binary or continuous) and mediator columns.",
+          "description": "Treatment column. With a 0/1 treatment the ACME is the effect of moving from control to treatment; with a numeric treatment it is the effect per unit.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome, treatment (binary or continuous) and mediator columns.",
+          "description": "Outcome column (linear model).",
           "type": "string",
           "x-statspai-role": "column"
         }

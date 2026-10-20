@@ -110,11 +110,10 @@ The test asserts coefficient/SE equality to a tight tolerance.
 > required to be at least as good on the objective the estimator is defined
 > by, and the margin is asserted:
 >
-> - **`sp.cbps` ATT / `variant='over'`.** `CBPS::CBPS`'s analytic ATT
->   gradient divides the balance block by `n_1` where the moment's Jacobian
->   carries `1/n`, overstating it by `n/n_1`, and `optim` stops at a
->   non-stationary point. StatsPAI attains a lower GMM objective and better
->   covariate balance (max |SMD| 0.037 vs 0.106 on lalonde).
+> - **`sp.cbps` ATT / `variant='over'`.** Run as a black box, `CBPS::CBPS`
+>   stops at a point that is not stationary for its own GMM objective.
+>   StatsPAI attains a lower GMM objective and better covariate balance
+>   (max |SMD| 0.037 vs 0.106 on lalonde).
 > - **`sp.ebalance`.** Entropy balancing is defined by exact moment
 >   matching; StatsPAI drives the dual to a stationary point (relative
 >   moment gap ~1e-15) where `ebal` stops around 1e-7.

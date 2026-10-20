@@ -137,12 +137,11 @@ class TestCBPS:
     def test_cbps_att_over_dominates_r(self, lalonde, R):
         """Over-identified ATT: StatsPAI must balance strictly better than R.
 
-        CBPS's analytic ATT gradient divides the balance block by ``n_1``
-        where the moment's Jacobian carries ``1/n``, overstating that block
-        by ``n/n_1``; its ``optim`` call consequently stops at a
-        non-stationary point. StatsPAI uses the correct Jacobian, so pinning
-        to R's value would be pinning to R's bug. What we can assert is the
-        thing CBPS is *for*: covariate balance under the fitted weights.
+        Run as a black box, CBPS 0.24 stops at a point that is not
+        stationary for its own GMM objective (StatsPAI reaches a lower
+        objective from the same data), so pinning to R's coefficients would
+        pin that slack. What we can assert is the thing CBPS is *for*:
+        covariate balance under the fitted weights.
         """
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

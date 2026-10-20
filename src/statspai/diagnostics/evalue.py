@@ -12,8 +12,9 @@ For a confidence interval the E-value is computed for the confidence
 limit closest to the null (or to a user-specified ``true`` value). If
 the interval already contains that value, its E-value is exactly 1.
 
-This module reproduces the R ``EValue`` package (VanderWeele, Ding,
-Mathur, Smith) to machine precision, including:
+The formulas are taken from the papers below. The R ``EValue`` package
+(GPL-2) served only as a black-box check (its outputs on our test cases,
+never its source); the results agree to machine precision. Covered:
 
 * ratio measures ``RR`` / ``OR`` / ``HR`` with the rare / common-outcome
   conversions to the risk-ratio scale;
@@ -33,9 +34,8 @@ Medicine* 167(4), 268-274. [@vanderweele2017sensitivity]
 Ding, P. & VanderWeele, T. J. (2016). Sensitivity Analysis Without
 Assumptions. *Epidemiology* 27(3), 368-377. [@ding2016sensitivity]
 
-Mathur, M. B., Ding, P., Riddell, C. A. & VanderWeele, T. J. (2018).
-Web Site and R Package for Computing E-values. *Epidemiology* 29(5),
-e45-e47.
+``_threshold`` and ``evalue_rd`` are clean-room implementations from these
+papers (spec: ``docs/dev/cleanroom/evalue.md``).
 """
 
 from typing import Any, Dict, Optional, Tuple
@@ -349,9 +349,19 @@ def evalue_rd(
 ) -> Dict[str, Any]:
     """Exact E-value for a risk difference from a 2x2 table.
 
-    Implements the Ding & VanderWeele (2016) risk-difference E-value,
-    a faithful port of ``EValue::evalues.RD``. The exposure must be
-    coded so that the risk difference is non-negative.
+    Uses the bound of Ding & VanderWeele (2016, Proposition A.8) on the
+    population-standardised causal risk difference under confounding with
+    bounding factor ``B``,
+
+        RD_true >= (p1 - p0 * B) * (f + (1 - f) / B),
+
+    where ``p1`` / ``p0`` are the outcome risks in the exposed / unexposed
+    and ``f`` is the exposure prevalence. The point E-value converts the
+    bias factor that moves this bound to ``true`` (closed-form root of
+    the quadratic in their Proposition A.11) to the E-value scale. The
+    confidence-limit E-value uses the smallest bias factor on a grid
+    ``1, 1 + grid, 1 + 2*grid, ...`` at which the delta-method lower
+    confidence limit of the bound reaches ``true`` (their equation A.5).
 
     Parameters
     ----------
@@ -360,7 +370,7 @@ def evalue_rd(
     n01, n00 : float
         Unexposed cases and unexposed non-cases.
     true : float, default 0.0
-        Reference risk difference (must be <= the observed RD).
+        Reference risk difference (must be below the observed RD).
     alpha : float, default 0.05
         Significance level for the confidence-limit E-value.
     grid : float, default 1e-4
@@ -369,100 +379,125 @@ def evalue_rd(
     Returns
     -------
     dict
-        ``evalue_estimate`` (point E-value), ``evalue_ci`` (E-value for
-        the lower confidence limit; 1 if the CI already crosses
-        ``true``), ``rd`` (the observed risk difference), ``bias_factor``
-        and ``measure='RD'``.
+        ``evalue_estimate`` (point E-value), ``evalue_ci`` (E-value for the
+        lower confidence limit; 1.0 when the interval already reaches
+        ``true``), ``rd`` (observed risk difference), ``bias_factor`` (the
+        bias factor that moves the point estimate to ``true``),
+        ``measure`` (``'RD'``) and ``true``.
+
+    Notes
+    -----
+    Clean-room implementation from the paper (spec:
+    ``docs/dev/cleanroom/evalue.md``); R ``EValue::evalues.RD`` (GPL-2)
+    was used only as a black box and agrees to 1e-12. When no grid point
+    up to the point-estimate bias factor qualifies (a coarse grid on a very
+    precise table), that bias factor itself is used as the last grid
+    point, so the answer still overshoots the exact root by less than one
+    grid step; R returns ``NA`` there.
+
+    References
+    ----------
+    [@ding2016sensitivity]; [@vanderweele2017sensitivity].
 
     Examples
     --------
     >>> import statspai as sp
-    >>> round(sp.evalue_rd(200, 150, 100, 250)["evalue_estimate"], 4)
-    3.4142
+    >>> out = sp.evalue_rd(200, 150, 100, 250)
+    >>> round(out["evalue_estimate"], 6), round(out["evalue_ci"], 6)
+    (3.414214, 2.726306)
     """
     context = "evalue_rd"
-    cells = np.array(
-        [
-            _finite_float(n11, "n11", context),
-            _finite_float(n10, "n10", context),
-            _finite_float(n01, "n01", context),
-            _finite_float(n00, "n00", context),
-        ],
-        dtype=float,
-    )
-    if np.any(cells < 0):
+    cells = [
+        _finite_float(value, name, context)
+        for value, name in ((n11, "n11"), (n10, "n10"), (n01, "n01"), (n00, "n00"))
+    ]
+    if min(cells) < 0:
         raise MethodIncompatibility(
             "Negative cell counts are impossible.",
-            diagnostics={"context": context, "cells": cells.tolist()},
+            recovery_hint="Pass the four non-negative 2x2 cell counts.",
+            diagnostics={"context": context, "cells": cells},
         )
-    n11, n10, n01, n00 = cells.tolist()
     true = _finite_float(true, "true", context)
     alpha = _open_unit_float(alpha, "alpha", context)
     grid = _positive_float(grid, "grid", context)
-    N = cells.sum()
-    N1 = n10 + n11
-    N0 = n00 + n01
-    if N1 <= 0 or N0 <= 0:
+
+    exp_case, exp_noncase, unexp_case, unexp_noncase = cells
+    n_exposed = exp_case + exp_noncase
+    n_unexposed = unexp_case + unexp_noncase
+    if n_exposed <= 0 or n_unexposed <= 0:
         raise DataInsufficient(
             "Each exposure group must have at least one unit.",
-            diagnostics={"context": context, "N1": float(N1), "N0": float(N0)},
+            recovery_hint="Check the 2x2 table: both exposure rows need units.",
+            diagnostics={"context": context, "N1": n_exposed, "N0": n_unexposed},
         )
-    f = N1 / N
-    p1 = n11 / N1
-    p0 = n01 / N0
-    if p1 < p0:
+    n_total = n_exposed + n_unexposed
+    prev = n_exposed / n_total
+    risk1 = exp_case / n_exposed
+    risk0 = unexp_case / n_unexposed
+    rd = risk1 - risk0
+    if rd < 0:
         raise MethodIncompatibility(
             "RD < 0; relabel the exposure so the risk difference is > 0.",
-            diagnostics={"context": context, "p1": float(p1), "p0": float(p0)},
+            recovery_hint="Swap the exposed and unexposed rows of the table.",
+            diagnostics={"context": context, "rd": rd},
         )
-    if (p1 - p0) <= true:
+    if true >= rd:
         raise MethodIncompatibility(
             "true value must be strictly less than the observed risk difference.",
-            diagnostics={
-                "context": context,
-                "true": float(true),
-                "rd": float(p1 - p0),
-            },
+            recovery_hint="Choose true below the observed RD (0 by default).",
+            diagnostics={"context": context, "rd": rd, "true": true},
+        )
+    if risk0 <= 0:
+        raise MethodIncompatibility(
+            "The unexposed group has no cases, so the observed risk ratio is "
+            "infinite and no finite bias factor moves the risk difference to "
+            "`true`: the risk-difference E-value is unbounded.",
+            recovery_hint=(
+                "Report the E-value as unbounded, or add a continuity "
+                "correction (e.g. 0.5 to every cell) before calling evalue_rd."
+            ),
+            diagnostics={"context": context, "n01": unexp_case, "rd": rd},
         )
 
-    s2_f = f * (1 - f) / N
-    s2_p1 = p1 * (1 - p1) / N1
-    s2_p0 = p0 * (1 - p0) / N0
+    # Point estimate: positive root of Proposition A.11's quadratic.
+    shift = true + risk0 * (1.0 - prev) - risk1 * prev
+    bf_point = (
+        np.sqrt(shift * shift + 4.0 * risk1 * risk0 * prev * (1.0 - prev)) - shift
+    ) / (2.0 * risk0 * prev)
+    bf_point = float(bf_point)
 
-    diff = p0 * (1 - f) - p1 * f
-    est_bf = (
-        np.sqrt((true + diff) ** 2 + 4 * p1 * p0 * f * (1 - f)) - (true + diff)
-    ) / (2 * p0 * f)
-    ev_estimate = _threshold(est_bf)
-    if ev_estimate is None:
-        ev_estimate = 1.0
+    # Confidence limit: first grid bias factor whose lower limit <= true.
+    var1 = risk1 * (1.0 - risk1) / n_exposed
+    var0 = risk0 * (1.0 - risk0) / n_unexposed
+    var_prev = prev * (1.0 - prev) / n_total
+    z = float(sp_stats.norm.ppf(1.0 - alpha / 2.0))
 
-    z = sp_stats.norm.ppf(1 - alpha / 2)
-    lower_ci = (p1 - p0) - z * np.sqrt(s2_p1 + s2_p0)
-    if lower_ci <= true:
-        ev_ci = 1.0
-    else:
-        bf_search = np.arange(1.0, est_bf, grid)
-        rd_search = p1 - p0 * bf_search
-        f_search = f + (1 - f) / bf_search
-        low_search = rd_search * f_search - z * np.sqrt(
-            (s2_p1 + s2_p0 * bf_search**2) * f_search**2
-            + rd_search**2 * (1 - 1 / bf_search) ** 2 * s2_f
-        )
-        hit = np.where(low_search <= true)[0]
-        if hit.size:
-            ev_ci_raw = _threshold(float(bf_search[hit[0]]))
-            ev_ci = ev_ci_raw if ev_ci_raw is not None else 1.0
-        else:
-            ev_ci = 1.0
+    def lower_limit(bf: np.ndarray) -> np.ndarray:
+        weight = prev + (1.0 - prev) / bf
+        reduced = risk1 - risk0 * bf
+        var = (var1 + var0 * bf**2) * weight**2 + reduced**2 * (
+            1.0 - 1.0 / bf
+        ) ** 2 * var_prev
+        return reduced * weight - z * np.sqrt(var)
+
+    n_steps = int(np.floor((bf_point - 1.0) / grid + 1e-10))
+    bf_ci = bf_point  # used when no grid point qualifies
+    block = 1_000_000
+    for start in range(0, n_steps + 1, block):
+        steps = np.arange(start, min(start + block, n_steps + 1), dtype=float)
+        candidates = 1.0 + steps * grid
+        hits = np.flatnonzero(lower_limit(candidates) <= true)
+        if hits.size:
+            bf_ci = float(candidates[hits[0]])
+            break
 
     return {
-        "evalue_estimate": float(ev_estimate),
-        "evalue_ci": float(ev_ci),
-        "rd": float(p1 - p0),
-        "bias_factor": float(est_bf),
+        "evalue_estimate": _threshold(bf_point),
+        "evalue_ci": _threshold(bf_ci),
+        "rd": float(rd),
+        "bias_factor": bf_point,
         "measure": "RD",
-        "true": float(true),
+        "true": true,
     }
 
 
@@ -622,27 +657,43 @@ def evalue_from_result(
 
 
 def _threshold(x: Optional[float], true: float = 1.0) -> Optional[float]:
-    """Generalised E-value threshold (port of ``EValue:::threshold``).
+    """E-value for moving a risk ratio ``x`` to the reference ratio ``true``.
 
-    Returns the minimum confounding risk ratio needed to shift an
-    observed risk ratio ``x`` to the reference value ``true`` (default
-    the null, 1). Protective ratios (``x < 1``) are reflected.
+    Confounding can change a risk ratio by at most the bounding factor
+    ``B(e, e) = e**2 / (2e - 1)`` when both confounder associations equal
+    ``e`` (Ding & VanderWeele 2016). Moving ``x`` to ``true`` needs a bias
+    factor ``r = x / true`` (``x >= true``) or ``true / x`` (``x < true``),
+    and the E-value is the inverse ``e = r + sqrt(r * (r - 1))``. With
+    ``true = 1`` this is the VanderWeele-Ding (2017) E-value.
+
+    Returns ``None`` for a missing ``x``; ``inf`` when no finite
+    confounding reaches ``true`` (``x = 0`` or ``true = 0``); NaN when
+    both are 0 or ``true`` is NaN.
     """
-    if x is None or (isinstance(x, float) and np.isnan(x)):
+    if x is None:
         return None
     x = float(x)
+    if np.isnan(x):
+        return None
     if x < 0:
         raise MethodIncompatibility(
             "The risk ratio must be non-negative.",
-            diagnostics={"context": "_threshold", "x": x},
+            recovery_hint="Pass a risk ratio >= 0 (convert other measures first).",
+            diagnostics={"context": "evalue", "rr": x},
         )
-    if x <= 1.0:
-        x = 1.0 / x if x > 0 else np.inf
-        true = 1.0 / true if true > 0 else np.inf
-    if true <= x:
-        return float((x + np.sqrt(x * (x - true))) / true)
-    rat = true / x
-    return float(rat + np.sqrt(rat * (rat - 1.0)))
+    true = float(true)
+    if np.isnan(true):
+        return float("nan")
+    if true == 0.0 or x == 0.0:
+        if x == true:
+            return float("nan")
+        return float("inf")
+    if x == true:
+        return 1.0
+    ratio = x / true if x > true else true / x
+    if np.isinf(ratio):
+        return float("inf")
+    return float(ratio + np.sqrt(ratio * (ratio - 1.0)))
 
 
 def _ci_evalue(

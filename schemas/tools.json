@@ -5472,16 +5472,16 @@
       "properties": {
         "add_intercept": {
           "default": true,
-          "description": "Prepend a constant to the covariate matrix.",
+          "description": "Add a constant to the propensity model. With ``False`` the covariates must contain exactly one constant column.",
           "type": "boolean"
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of the normal-approximation confidence interval.",
           "type": "number"
         },
         "covariates": {
-          "description": "Covariates entering the logit score.",
+          "description": "Covariates of the propensity model; they are also the balanced moments. Categorical columns are expanded to indicators.",
           "items": {
             "type": "string"
           },
@@ -5490,7 +5490,7 @@
         },
         "estimand": {
           "default": "ATE",
-          "description": "estimand parameter (Literal['ATE', 'ATT']).",
+          "description": "``'ATE'`` balances both arms towards the pooled sample (eq. 10 of Imai and Ratkovic 2014); ``'ATT'`` reweights the controls towards the treated (eq. 11).",
           "enum": [
             "ATE",
             "ATT"
@@ -5499,26 +5499,26 @@
         },
         "n_bootstrap": {
           "default": 500,
-          "description": "Number of bootstrap replications.",
+          "description": "Nonparametric bootstrap replications for the standard error (the whole CBPS fit is repeated on each resample). With fewer than two replications the standard error, p-value and interval are NaN.",
           "type": "integer"
         },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Seed of the bootstrap resampling.",
           "type": "integer"
         },
         "treat": {
-          "description": "Binary 0/1 treatment column.",
+          "description": "Treatment column, coded 0/1.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "trim": {
           "default": 0.0,
-          "description": "Optional pscore clip for stability.",
+          "description": "When positive, propensity scores are clipped to ``[trim, 1 - trim]`` before the weights are formed (units are not dropped). Scores are always kept inside ``[1e-6, 1 - 1e-6]``.",
           "type": "number"
         },
         "variant": {
           "default": "over",
-          "description": "'exact': just-identified CBPS (only balance moments). 'over': over-identified CBPS (MLE + balance, solved via two-step GMM).",
+          "description": "``'exact'``: just-identified CBPS, the balance conditions alone (exact mean balance when a solution exists). ``'over'``: over-identified CBPS, balance conditions plus the logit score, two-step GMM with the model-implied moment covariance.",
           "enum": [
             "exact",
             "over"
@@ -13813,7 +13813,7 @@
         },
         "true": {
           "default": 0.0,
-          "description": "Reference risk difference (must be <= the observed RD).",
+          "description": "Reference risk difference (must be below the observed RD).",
           "type": "number"
         }
       },
