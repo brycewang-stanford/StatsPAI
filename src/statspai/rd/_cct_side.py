@@ -1,0 +1,269 @@
+"""One side of an RD cutoff: kernel windows, local fits and their variances.
+
+The building blocks shared by the CCT bandwidth selector
+(:mod:`statspai.rd._cct_bandwidth`) and the robust bias-corrected estimator
+(:mod:`statspai.rd._cct_inference`). Clean-room implementation written from
+Calonico, Cattaneo and Titiunik (2014, bib key ``calonico2014robust``) and
+Calonico, Cattaneo, Farrell and Titiunik (2019, Review of Economics and
+Statistics 101(3), the covariate-adjusted estimator and its HC / cluster
+variances, Supplemental Appendix Part IV); R ``rdrobust`` 4.0.0 (GPL-3) was
+used only as a black box to pin the conventions listed in
+``docs/dev/cleanroom/rd_cct.md``.
+
+Notation. On one side of the cutoff the data are the running variable
+``x`` (already centred at the cutoff) and a matrix of *columns* ``C``: the
+outcome first, then the treatment indicator for a fuzzy design, then the
+covariates. Every estimator in this module is linear in ``C``; the
+statistic of interest is a fixed linear combination ``s`` of the columns
+(``s = (1, -gamma)`` for covariate adjustment, the delta-method weights for
+a fuzzy ratio), so a variance is the sandwich of the scalar
+``a_i * (s' rho_i)`` where ``a_i`` is the observation's weight in the
+estimator and ``rho_i`` its residual vector.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Optional, Tuple
+
+import numpy as np
+
+from ._core import _kernel_fn, _spd_inverse
+from ._nn_variance import nn_residuals
+
+__all__ = ["Side", "LocalFit", "kernel_name", "complete_rows"]
+
+_KERNEL_ALIASES = {
+    "tri": "triangular",
+    "triangular": "triangular",
+    "uni": "uniform",
+    "uniform": "uniform",
+    "epa": "epanechnikov",
+    "epanechnikov": "epanechnikov",
+}
+
+
+def kernel_name(kernel: str) -> str:
+    """Canonical kernel name; raises ``ValueError`` for an unknown kernel."""
+    key = str(kernel).lower()
+    if key not in _KERNEL_ALIASES:
+        raise ValueError(
+            f"kernel must be 'triangular', 'uniform' or 'epanechnikov', got {kernel!r}"
+        )
+    return _KERNEL_ALIASES[key]
+
+
+def complete_rows(*arrays: Optional[np.ndarray]) -> np.ndarray:
+    """Rows where every given array (1-D or 2-D, ``None`` skipped) is finite."""
+    keep: Optional[np.ndarray] = None
+    for arr in arrays:
+        if arr is None:
+            continue
+        a = np.asarray(arr)
+        if a.dtype.kind not in "fc":
+            a = a.astype(float) if a.dtype.kind in "iub" else None
+        if a is None:
+            continue
+        ok = np.isfinite(a) if a.ndim == 1 else np.isfinite(a).all(axis=1)
+        keep = ok if keep is None else keep & ok
+    return keep
+
+
+class LocalFit:
+    """Weighted least-squares polynomial fit of every column on one side.
+
+    Attributes
+    ----------
+    mask : boolean array over the side's observations inside the window
+        (positive kernel-times-user weight).
+    x : running variable inside the window.
+    design : ``[1, x, ..., x^order]`` inside the window.
+    w : kernel weights ``K(x/h)/h`` (times user weights) inside the window.
+    ginv : inverse of ``design' W design``.
+    coef : ``(order + 1, n_columns)`` coefficients.
+    singular : True when the Gram matrix was not positive definite and a
+        pseudo-inverse was used.
+    """
+
+    __slots__ = ("mask", "x", "design", "w", "ginv", "coef", "order", "h", "singular")
+
+    def __init__(self, side: "Side", h: float, order: int, kernel: str) -> None:
+        k = side.kernel_weights(h, kernel)
+        mask = k > 0
+        x = side.x[mask]
+        design = np.vander(x, order + 1, increasing=True)
+        w = k[mask]
+        gram = (design * w[:, None]).T @ design
+        ginv, singular = _spd_inverse(gram)
+        self.mask = mask
+        self.x = x
+        self.design = design
+        self.w = w
+        self.ginv = ginv
+        self.coef = ginv @ ((design * w[:, None]).T @ side.cols[mask])
+        self.order = order
+        self.h = h
+        self.singular = singular
+
+    @property
+    def n(self) -> int:
+        """Number of observations in the window."""
+        return int(self.x.size)
+
+    def weights_for(self, ell: np.ndarray) -> np.ndarray:
+        """Observation weights ``a_i`` with ``ell' coef = sum_i a_i C_i``."""
+        return (self.design @ (self.ginv @ ell)) * self.w
+
+    def bias_factor(self, ell: np.ndarray) -> float:
+        """``ell' G^-1 sum_i w_i r_i x_i^(order+1)``.
+
+        Multiplied by the coefficient of ``x^(order+1)`` in the true
+        regression function this is the leading finite-sample bias of
+        ``ell' coef`` (CCT 2014, Lemma 1).
+        """
+        target = (self.design * self.w[:, None]).T @ self.x ** (self.order + 1)
+        return float(ell @ self.ginv @ target)
+
+    def leverage(self) -> np.ndarray:
+        """Diagonal of the weighted hat matrix inside the window."""
+        return np.einsum("ij,jk,ik->i", self.design, self.ginv, self.design) * self.w
+
+
+class Side:
+    """Observations on one side of the cutoff, sorted by the running variable."""
+
+    def __init__(
+        self,
+        x: np.ndarray,
+        cols: np.ndarray,
+        weights: Optional[np.ndarray] = None,
+        cluster: Optional[np.ndarray] = None,
+    ) -> None:
+        order = np.argsort(x, kind="mergesort")
+        self.x = np.asarray(x, dtype=float)[order]
+        cols = np.asarray(cols, dtype=float)
+        self.cols = (cols[:, None] if cols.ndim == 1 else cols)[order]
+        self.weights = None if weights is None else np.asarray(weights, float)[order]
+        self.cluster: Optional[np.ndarray] = None
+        if cluster is not None:
+            _, codes = np.unique(np.asarray(cluster)[order], return_inverse=True)
+            self.cluster = codes
+
+    @property
+    def n(self) -> int:
+        return int(self.x.size)
+
+    def kernel_weights(self, h: float, kernel: str) -> np.ndarray:
+        """``K(x/h)/h`` times the user weights, zero outside the window."""
+        k = _kernel_fn(self.x / h, kernel) / h
+        if self.weights is not None:
+            k = k * self.weights
+        return k
+
+    def fit(self, h: float, order: int, kernel: str) -> LocalFit:
+        return LocalFit(self, h, order, kernel)
+
+    def subset_columns(self, ncols: int) -> "Side":
+        """The same observations restricted to the first ``ncols`` columns."""
+        out = Side.__new__(Side)
+        out.x = self.x
+        out.cols = self.cols[:, :ncols]
+        out.weights = self.weights
+        out.cluster = self.cluster
+        return out
+
+
+def residual_rows(
+    side: Side,
+    fit: LocalFit,
+    vce: str,
+    nnmatch: int,
+    n_dof: Optional[int] = None,
+) -> np.ndarray:
+    """Residual vectors ``rho_i`` (one row per observation in the window).
+
+    ``vce='nn'``: nearest-neighbour residuals among the observations of the
+    window (:func:`statspai.rd._nn_variance.nn_residuals`). Otherwise the
+    plug-in residuals of ``fit``, scaled by the HC weight: 1 (hc0),
+    ``sqrt(n/(n-k))`` (hc1, ``n = n_dof`` or the window size, ``k`` the
+    number of polynomial coefficients), ``1/sqrt(1-lev)`` (hc2) or
+    ``1/(1-lev)`` (hc3). With clusters, ``nn`` and ``hc1`` use the raw
+    plug-in residuals; the small-sample factor is applied to the clustered
+    sum instead (:func:`variance_of`).
+    """
+    if side.cluster is not None and vce in ("nn", "hc1"):
+        vce = "hc0"
+    cols = side.cols[fit.mask]
+    if vce == "nn":
+        ties = np.zeros(fit.n, dtype=int)
+        return nn_residuals(fit.x, cols, ties, ties, nnmatch)
+    resid = cols - fit.design @ fit.coef
+    if vce == "hc0":
+        return resid
+    if vce == "hc1":
+        n = fit.n if n_dof is None else n_dof
+        k = fit.order + 1
+        return resid * math.sqrt(n / (n - k))
+    lev = fit.leverage()
+    if vce == "hc2":
+        return resid / np.sqrt(1.0 - lev)[:, None]
+    if vce == "hc3":
+        return resid / (1.0 - lev)[:, None]
+    raise ValueError(f"unknown vce {vce!r}")
+
+
+def variance_of(
+    side: Side,
+    mask: np.ndarray,
+    a: np.ndarray,
+    rho: np.ndarray,
+    s: np.ndarray,
+    n_coef: int,
+) -> float:
+    """Sandwich variance of ``sum_i a_i s' C_i`` given residual rows ``rho``.
+
+    Heteroskedasticity-robust: ``sum_i (a_i s' rho_i)^2``. Clustered: the
+    squared cluster sums times the CR1 factor
+    ``G/(G-1) * (n-1)/(n-n_coef)``, with ``n`` and ``G`` the observations
+    and clusters among the rows of ``mask``.
+    """
+    u = a * (rho @ s)
+    if side.cluster is None:
+        return float(np.sum(u * u))
+    codes = side.cluster[mask]
+    _, inv = np.unique(codes, return_inverse=True)
+    sums = np.bincount(inv, weights=u)
+    g = sums.size
+    n = codes.size
+    factor = (g / (g - 1.0)) * ((n - 1.0) / (n - n_coef)) if g > 1 else 1.0
+    return float(factor * np.sum(sums * sums))
+
+
+def n_clusters(side: Side, mask: Optional[np.ndarray] = None) -> int:
+    """Distinct clusters among the side's observations (or ``mask`` rows)."""
+    if side.cluster is None:
+        return 0
+    codes = side.cluster if mask is None else side.cluster[mask]
+    return int(np.unique(codes).size)
+
+
+def partial_out_covariates(
+    side: Side, fit: LocalFit, n_core: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Covariate slopes of one side's fit, and the adjusted coefficients.
+
+    Returns ``(gamma, adjusted)``: ``gamma`` is ``(d, n_core)``, the WLS
+    slope of each core column (outcome, treatment) on the covariates after
+    both are residualised on the side's polynomial; ``adjusted`` is the
+    ``(order + 1, n_core)`` polynomial coefficients of the core columns net
+    of ``coef_Z gamma``.
+    """
+    d = side.cols.shape[1] - n_core
+    core = fit.coef[:, :n_core]
+    if d == 0:
+        return np.zeros((0, n_core)), core
+    resid = side.cols[fit.mask] - fit.design @ fit.coef
+    z, y = resid[:, n_core:], resid[:, :n_core]
+    zw = z * fit.w[:, None]
+    gamma = np.linalg.solve(zw.T @ z, zw.T @ y)
+    return gamma, core - fit.coef[:, n_core:] @ gamma

@@ -12,6 +12,8 @@ to statspai.rd):
     _kernel_fn(u, kernel)           -> kernel weights K(u)
     _kernel_constants(kernel)       -> dict with C_K, mu_2, nu_0
     _kernel_mse_constant(kernel)    -> float C_K (local-linear MSE constant)
+    _spd_inverse(gram)              -> (inverse, singular) of X'WX, Cholesky
+                                       with a pseudo-inverse fallback
     _local_poly_wls(y, x, h, p, kernel, cluster=None, covs=None)
         -> (beta, vcov, n_eff) with HC1 or cluster-robust variance;
            optional additive covariate augmentation; returned beta/vcov
@@ -31,6 +33,7 @@ from __future__ import annotations
 from typing import Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
+from scipy import linalg as _sp_linalg
 from scipy import stats as _sp_stats
 
 _KERNEL_TABLE = {
@@ -71,6 +74,24 @@ def _kernel_constants(kernel: str) -> dict:
 def _kernel_mse_constant(kernel: str) -> float:
     """C_{1,1}: MSE-optimal bandwidth constant for local linear."""
     return _KERNEL_TABLE.get(kernel, _KERNEL_TABLE["triangular"])["C_K"]
+
+
+def _spd_inverse(gram: np.ndarray) -> Tuple[np.ndarray, bool]:
+    """Inverse of a symmetric Gram matrix ``X'WX``.
+
+    Returns ``(inverse, singular)``. The inverse comes from the Cholesky
+    factor when the matrix is positive definite; otherwise from the
+    Moore-Penrose pseudo-inverse (relative singular-value cutoff
+    ``_RANK_TOL``), and ``singular`` is True so the caller can decide
+    whether a rank-deficient window is acceptable.
+    """
+    gram = np.asarray(gram, dtype=float)
+    try:
+        chol = np.linalg.cholesky(gram)
+    except np.linalg.LinAlgError:
+        return np.linalg.pinv(gram, rcond=_RANK_TOL, hermitian=True), True
+    lower_inv = _sp_linalg.solve_triangular(chol, np.eye(gram.shape[0]), lower=True)
+    return lower_inv.T @ lower_inv, False
 
 
 def _sandwich_variance(
