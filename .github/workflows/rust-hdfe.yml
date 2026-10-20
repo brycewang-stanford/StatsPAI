@@ -136,12 +136,15 @@ jobs:
           - { os: macos-14, target: x86_64, manylinux: "" }
           - { os: macos-14, target: aarch64, manylinux: "" }
           - { os: windows-latest, target: x64, manylinux: "" }
-          - { os: windows-latest, target: aarch64, manylinux: "" }
+          # Native ARM64 runner: maturin cannot cross-compile a Windows
+          # ARM64 extension from x64 without an ARM64 interpreter.
+          - { os: windows-11-arm, target: aarch64, manylinux: "", arch: arm64 }
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          architecture: ${{ matrix.arch || '' }}
       - uses: PyO3/maturin-action@v1
         with:
           working-directory: rust/statspai_hdfe
