@@ -4784,3 +4784,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no estimate changes.
 - **Paths.**
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces re-recorded after the sp.egen export
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `4b6310a70`.
+- **Reason.** `src/statspai/__init__.py` gained the `sp.egen` export; it is
+  on the traced path of Track A modules 03, 13, 15, 24, 25, 26, 27, 53, 65,
+  66 and original-data module 08. `verify_reproduce_py.py` re-ran the ten
+  Track A modules first: fixtures byte-identical, results within 1.3e-10
+  of the committed ones. Only the source hash in the traces changed.
+- **Effect on the paper.** None; no estimate changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
