@@ -33707,7 +33707,7 @@
     "name": "rdbalance"
   },
   {
-    "description": "Bandwidth selection for :func:`rdhte`, as R ``rdhte::rdbwhte``. Validation: certified parity evidence. Assumptions: Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well; Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (density test, `sp.rddensity`). Pre-conditions: A continuous running variable with support on both sides of the cutoff; density plots and bandwidth selection need enough mass near c; running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy). Failure modes: Selected bandwidth leaves fewer than ~20 effective observations on a side -> Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction; Density test (`sp.rddensity`) p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwi...",
+    "description": "Bandwidth selection for :func:`rdhte`. Validation: certified parity evidence. Assumptions: Bandwidth selectors minimise an asymptotic MSE / coverage-error criterion under smoothness of the conditional expectation on each side of the cutoff; the selected h is data-driven, so report results at h/2 and 2h as well; Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (density test, `sp.rddensity`). Pre-conditions: A continuous running variable with support on both sides of the cutoff; density plots and bandwidth selection need enough mass near c; running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy). Failure modes: Selected bandwidth leaves fewer than ~20 effective observations on a side -> Report the effective N; consider local randomization (sp.rdrandinf) or a wider bandwidth with bias correction; Density test (`sp.rddensity`) p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat....",
     "input_schema": {
       "properties": {
         "bwselect": {
@@ -33728,6 +33728,11 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov"
+          ],
           "type": "string"
         },
         "p": {
@@ -33736,20 +33741,20 @@
           "type": "integer"
         },
         "q": {
-          "description": "Quantile level.",
+          "description": "Bias-correction order (default ``p + 1``).",
           "type": "integer"
         },
         "vce": {
-          "description": "vce parameter (Optional[str]).",
+          "description": "Variance used inside the selector (default ``'hc3'``; ``'cr1'`` with ``cluster``).",
           "type": "string"
         },
         "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "description": "Outcome and running variable.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Outcome and running variable.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -33765,7 +33770,7 @@
               "type": "array"
             }
           ],
-          "description": "Instrument, proxy, or auxiliary variable used by this estimator."
+          "description": "Moderator(s), as in :func:`rdhte`."
         }
       },
       "required": [
@@ -34122,12 +34127,12 @@
           "type": "number"
         },
         "b": {
-          "description": "Bandwidth of the bias-correction fit. Defaults to ``h`` (R has no separate ``b``). Through 1.28.0 this argument was accepted and ignored.",
+          "description": "Window of the bias-correction fit (default ``h``).",
           "type": "number"
         },
         "bwselect": {
           "default": "mserd",
-          "description": "Any ``rdbwselect`` rule.",
+          "description": "One of the CCT selectors (``mserd``, ``msetwo``, ``cerrd``, ...).",
           "type": "string"
         },
         "c": {
@@ -34136,12 +34141,12 @@
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster variable (CR1).",
+          "description": "Cluster column (CR1 variance).",
           "type": "string",
           "x-statspai-role": "column"
         },
         "eval_points": {
-          "description": "``z`` values at which to report ``CATE(z)`` (continuous ``z``).",
+          "description": "Moderator values at which to report the CATE (continuous mode).",
           "type": "string"
         },
         "h": {
@@ -34156,34 +34161,34 @@
               "type": "array"
             }
           ],
-          "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does."
+          "description": "Bandwidth, or ``(h_left, h_right)``; default MSE-optimal (``bwselect``), per level for subgroups."
         },
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
           "enum": [
             "triangular",
-            "epanechnikov",
-            "uniform"
+            "uniform",
+            "epanechnikov"
           ],
           "type": "string"
         },
         "n_eval": {
           "default": 20,
-          "description": "Number of eval.",
+          "description": "Number of default evaluation points (quantiles of ``z``).",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order of the point estimate.",
+          "description": "Polynomial order of the point estimate (``0`` = local constant).",
           "type": "integer"
         },
         "q": {
-          "description": "Order of the bias-correction fit, default ``p + 1``.",
+          "description": "Order of the bias-correction fit (default ``p + 1``).",
           "type": "integer"
         },
         "vce": {
-          "description": "Default ``'hc3'``, or ``'cr1'`` with ``cluster`` (R's defaults).",
+          "description": "Default ``'hc3'``, or ``'cr1'`` with ``cluster``.",
           "enum": [
             "hc0",
             "hc1",
@@ -34215,7 +34220,7 @@
               "type": "array"
             }
           ],
-          "description": "Covariate(s) the effect varies with. A single 0/1 column is treated as two subgroups (R's factor rule)."
+          "description": "Moderator(s). A single 0/1, boolean or categorical column gives one effect per level (subgroup analysis, a bandwidth per level); numeric columns give a linear CATE function."
         }
       },
       "required": [
@@ -34228,7 +34233,7 @@
     "name": "rdhte"
   },
   {
-    "description": "Linear combinations of :func:`rdhte` effects, as R ``rdhte_lincom``. Validation: certified parity evidence. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (density test, `sp.rddensity`); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: A continuous running variable with support on both sides of the cutoff; density plots and bandwidth selection need enough mass near c; running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy). Failure modes: Density test (`sp.rddensity`) p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.sp.rdrobust, sp.sp.rdrandinf, sp.sp.rddensity, sp.rd_honest. Typical minimum N: 500.",
+    "description": "Linear combinations of :func:`rdhte` effects. Validation: certified parity evidence. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (density test, `sp.rddensity`); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: A continuous running variable with support on both sides of the cutoff; density plots and bandwidth selection need enough mass near c; running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy). Failure modes: Density test (`sp.rddensity`) p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.sp.rdrobust, sp.sp.rdrandinf, sp.sp.rddensity, sp.rd_honest. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -34237,15 +34242,15 @@
           "type": "number"
         },
         "linfct": {
-          "description": "linfct parameter (Optional[numpy.ndarray]).",
+          "description": "Rows of weights over the reported coefficients (``model_info['coef_names']``); takes precedence over ``weights``.",
           "type": "string"
         },
         "result": {
-          "description": "result parameter (CausalResult).",
+          "description": "Output of :func:`rdhte`.",
           "type": "string"
         },
         "weights": {
-          "description": "Observation weights.",
+          "description": "Weights over the rows of ``result.detail`` (evaluation points or subgroups).",
           "type": "string"
         }
       },
