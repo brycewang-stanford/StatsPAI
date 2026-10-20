@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
+
+The default (C-LF) relative-magnitude breakdown value is now the first
+Mbar at which the set contains zero, found by a log-grid scan and bisected
+to 1e-3 relative; it used to bisect a doubling bracket to 1e-3 absolute.
+Values move in the third or fourth decimal on nested sets and can move
+more where the set is not nested in Mbar. No option restores the old
+search.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.sac` standard errors (and estimates)
 
 `sp.sac` now reports observed-information (OIM) standard errors of the

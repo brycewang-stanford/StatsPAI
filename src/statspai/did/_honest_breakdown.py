@@ -115,8 +115,9 @@ def breakdown_m(
       does.
     * ``method='relative_magnitude'`` with the covariance: the
       conditional least-favourable hybrid confidence set under
-      ``Delta^RM(Mbar)`` (HonestDiD's default), bisected in ``Mbar`` to
-      1e-3. The set is nested in ``Mbar``, so the crossing is unique.
+      ``Delta^RM(Mbar)`` (HonestDiD's default): the first ``Mbar`` at which
+      it contains zero, by a log-grid scan in ``Mbar`` and bisection to
+      1e-3 relative (the set need not be nested in ``Mbar``).
     * ``method='relative_magnitude'`` without it: the worst-case-bias
       approximation ``theta_hat +/- (Mbar max|pre| + z SE)``, giving
       ``(|theta_hat| - z SE) / max|pre|``, with a warning.
@@ -232,29 +233,6 @@ def breakdown_m(
     return float(max((abs(theta) - z_crit * se) / scale, 0.0))
 
 
-def _bisect_breakdown(excludes_zero, unit: float = 1.0, tol: float = 1e-3) -> float:
-    """Largest ``M`` with ``excludes_zero(M)``, for a set nested in ``M``.
-
-    Brackets from ``unit`` by doubling (``inf`` past ``1e4 * unit``) and
-    bisects to ``tol * unit``.
-    """
-    if not excludes_zero(0.0):
-        return 0.0
-    hi = unit
-    while excludes_zero(hi):
-        hi *= 2.0
-        if hi > 1e4 * unit:
-            return float("inf")
-    lo = hi / 2.0 if hi > unit else 0.0
-    while hi - lo > tol * unit:
-        mid = 0.5 * (lo + hi)
-        if excludes_zero(mid):
-            lo = mid
-        else:
-            hi = mid
-    return float(lo)
-
-
 def _first_inclusion(excludes_zero, unit: float = 1.0, rtol: float = 1e-3) -> float:
     """Smallest ``M`` at which the set contains zero, for sets not nested in M.
 
@@ -302,10 +280,16 @@ def _breakdown_rm(
     alpha: float,
     tol: float = 1e-3,
 ) -> float:
-    """Largest Mbar whose C-LF Delta^RM set excludes zero (bisection).
+    """First Mbar at which the C-LF Delta^RM set contains zero.
 
-    The set is nested in Mbar, so ``0 in CI(Mbar)`` is monotone and the
-    crossing can be bracketed and bisected to ``tol``.
+    The test-inverted set is not guaranteed to be nested in Mbar (the
+    least-favourable critical value and the union over Delta^RM pieces both
+    move with Mbar), so ``0 in CI(Mbar)`` need not be monotone and a
+    doubling bracket could bisect some later crossing. The log-grid scan of
+    :func:`_first_inclusion` (as for every other restriction) finds the first
+    one, to ``tol`` relative. Through 1.39 this path bisected a doubling
+    bracket to ``tol`` absolute; on nested inputs the two agree to that
+    tolerance.
     """
 
     def excludes_zero(m_bar: float) -> bool:
@@ -314,7 +298,7 @@ def _breakdown_rm(
         )
         return _excludes_zero(lo, hi)
 
-    return _bisect_breakdown(excludes_zero, 1.0, tol)
+    return _first_inclusion(excludes_zero, 1.0, rtol=tol)
 
 
 def _breakdown_restricted(

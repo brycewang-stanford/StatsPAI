@@ -2583,6 +2583,7 @@
       "additional_tests": [
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_honest_breakdown_R_parity.py",
+        "tests/reference_parity/test_honest_breakdown_rm_clf_R.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
       "also_verified_by": [

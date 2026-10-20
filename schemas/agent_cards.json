@@ -80973,6 +80973,7 @@
       "Cross-language parity (aligned) vs HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown by uniroot on the bound facing zero [CVXR 1.8.2, HonestDiD 0.2.8, R version 4.5.2 (2025-10-31)]; tolerance vs HonestDiD with its Monte-Carlo folded-normal quantile replaced by the exact one: 1e-9 (observed 6.1e-11); vs HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact 1.95996 at mu = 0) -- tests/reference_parity/test_did_synth_R_parity.py",
       "tests/external_parity/test_honest_did_paper_parity.py",
       "tests/reference_parity/test_honest_breakdown_R_parity.py",
+      "tests/reference_parity/test_honest_breakdown_rm_clf_R.py",
       "tests/reference_parity/test_honest_rm_R_parity.py"
     ],
     "validation_status": "certified"
