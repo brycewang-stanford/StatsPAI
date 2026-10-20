@@ -4924,3 +4924,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   its output is identical to the committed `53_cr2_py.json`.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — traces 08 / 13 / 24 / 71 re-recorded after the learner routing
+
+- **Commits.** `ae7b038cf` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 08, 13, 24,
+  71).
+- **Reason.** `dml/_base.py`, `dml/irm.py`, `dml/iivm.py`,
+  `forest/_grf_fit.py` and `forest/causal_forest.py` (executed by those
+  modules) now read classifier probabilities through `core/_learners.py`,
+  so `sp.SuperLearner` works as a nuisance learner.
+- **Effect on the paper.** None. The four modules were re-run before
+  re-recording: 08, 13 and 71 reproduce their committed results byte for
+  byte; 24 (Cox, which only imports the forest module) differs in the last
+  digit (about 1e-15 relative, inside the 1e-9 reproducibility tolerance),
+  so the committed result was kept.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
