@@ -4911,3 +4911,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   the 1e-9 reproducibility tolerance), so the committed result was kept.
 - **Paths.**
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-20 — trace 53 re-recorded after the bootcluster fix
+
+- **Commits.** `aa7dd1063` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 53).
+- **Reason.** `inference/jackknife.py` (`sp.wild_cluster_boot`) now hands
+  `bootcluster=` to a helper that draws the weights for intersections when
+  the bootstrap clusters cut across one-way error clusters, as boottest does;
+  module 53 (CR2) executes the file but not that path.
+- **Effect on the paper.** None. Module 53 was re-run before re-recording;
+  its output is identical to the committed `53_cr2_py.json`.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
