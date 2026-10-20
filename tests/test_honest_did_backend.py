@@ -102,3 +102,57 @@ def test_relative_magnitude_honestdid_backend_rejects_incompatible_method():
 def test_honest_did_rejects_unknown_backend():
     with pytest.raises(ValueError, match="backend"):
         honest_did(_parity_result(), backend="unknown")
+
+
+def _rm_result(shift):
+    """Post coefficients 2.0 / 2.1 minus ``shift``; pre-periods fixed."""
+    es = pd.DataFrame(
+        {
+            "relative_time": [-3, -2, 0, 1],
+            "att": [0.05, -0.03, 2.0 - shift, 2.1 - shift],
+            "se": [0.08, 0.08, 0.08, 0.08],
+        }
+    )
+    return CausalResult(
+        method="RMShift",
+        estimand="ATT(0)",
+        estimate=2.0 - shift,
+        se=0.08,
+        pvalue=0.0,
+        ci=(1.84 - shift, 2.16 - shift),
+        alpha=0.05,
+        n_obs=1000,
+        model_info={"event_study": es},
+    )
+
+
+def test_r_backend_empty_grid_is_a_typed_error_with_a_grid_that_works():
+    """An estimate 25 SE from zero lies outside HonestDiD's default RM grid
+    (-/+ 20 sd around 0), so R accepts no grid point; this raised
+    KeyError('ci_lower') before 2026-10-20 (jsonlite dropped R's lb = Inf /
+    ub = -Inf). With the suggested grid the set is the one at estimate 0 on
+    the default grid moved by 2: shifting the post coefficients by c moves
+    the relative-magnitude set by c (the pre-periods are unchanged)."""
+    from statspai.exceptions import ConvergenceFailure
+
+    _skip_unless_honestdid_available()
+    kw = dict(
+        e=0,
+        m_grid=[0.0, 0.5],
+        method="relative_magnitude",
+        backend="r",
+        honestdid_method="Conditional",
+    )
+    with pytest.raises(ConvergenceFailure, match="misses the estimate") as info:
+        honest_did(_rm_result(0.0), **kw)
+    lb, ub = info.value.diagnostics["suggested_grid"]
+    np.testing.assert_allclose([lb, ub], [2.0 - 1.6, 2.0 + 1.6], rtol=1e-12)
+    far = honest_did(_rm_result(0.0), grid_lb=lb, grid_ub=ub, **kw)
+    at_zero = honest_did(_rm_result(2.0), **kw)  # default grid covers it
+    np.testing.assert_allclose(
+        far[["ci_lower", "ci_upper"]].to_numpy(),
+        at_zero[["ci_lower", "ci_upper"]].to_numpy() + 2.0,
+        rtol=0,
+        atol=1e-9,
+    )
+    assert far["ci_lower"].iloc[0] < 2.0 < far["ci_upper"].iloc[0]

@@ -21,6 +21,15 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.xtevent(proxy_iv=1)` (a scalar lead, Stata `proxyiv(1)`) raised
   `TypeError`; it now equals `proxy_iv=[1]` and Stata. A missing external
   instrument raises `ColumnNotFound` instead of `KeyError`.
+- `sp.honest_did(backend='r')` raised `KeyError('ci_lower')` when R
+  HonestDiD accepted no point of its grid (it returns `lb = Inf`,
+  `ub = -Inf`, which jsonlite drops). HonestDiD's default grid for the
+  relative-magnitude families is -/+ 20 sd around zero, so any estimate
+  more than about 20 SE from zero hits this. It now raises
+  `ConvergenceFailure` naming the cause, with a grid around the estimate in
+  `recovery_hint` / `diagnostics['suggested_grid']`; with that grid the
+  set equals the zero-centred one moved by the estimate
+  (`tests/test_honest_did_backend.py`).
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

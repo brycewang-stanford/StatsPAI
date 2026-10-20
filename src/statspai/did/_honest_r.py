@@ -220,10 +220,14 @@ if (method %in% c("relative_magnitude", "smoothness_relative_magnitude")) {
   )
   out <- data.frame(M = sens$M, ci_lower = sens$lb, ci_upper = sens$ub)
 }
+# An empty accepted set comes back as lb = Inf, ub = -Inf; jsonlite would
+# drop those fields, so write them as null and let Python name the cause.
+out$ci_lower[!is.finite(out$ci_lower)] <- NA
+out$ci_upper[!is.finite(out$ci_upper)] <- NA
 # To a file, not stdout: HonestDiD's solvers print to stdout ("Polishing not
 # needed ..." from the C-F path), which corrupted the JSON read through 1.39.
 cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
-                     digits = 16, null = "null"),
+                     digits = 16, null = "null", na = "null"),
     file = file.path(dirname(input), "result.json"))
 """
 
@@ -314,6 +318,41 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 "backend": "honestdid",
                 "honestdid_method": honestdid_method_arg,
                 "returncode": proc.returncode,
+            },
+        )
+    empty = [
+        float(item["M"])
+        for item in out
+        if item.get("ci_lower") is None or item.get("ci_upper") is None
+    ]
+    if empty:
+        if lv is not None:
+            theta = float(lv @ post["att"].to_numpy(dtype=float))
+        else:
+            theta = float(post.loc[post["relative_time"] == e, "att"].iloc[0])
+        lb_hint = theta - 20.0 * se_hat
+        ub_hint = theta + 20.0 * se_hat
+        raise ConvergenceFailure(
+            "backend='honestdid': R HonestDiD accepted no point of its test-"
+            f"inversion grid at M = {empty} (it returns lb = Inf, ub = -Inf). "
+            + (
+                "Its default grid for the relative-magnitude families is "
+                f"-/+ 20 sd around 0, [{-20 * se_hat:.4g}, {20 * se_hat:.4g}], "
+                f"which misses the estimate {theta:.4g}."
+                if grid_lb is None and grid_ub is None and family != "smoothness"
+                else "The grid does not cover the confidence set."
+            ),
+            recovery_hint=(
+                f"Pass a grid around the estimate, e.g. grid_lb={lb_hint:.4g}, "
+                f"grid_ub={ub_hint:.4g}, or use backend='native' (which extends "
+                "its grid)."
+            ),
+            diagnostics={
+                "backend": "honestdid",
+                "empty_at_M": empty,
+                "estimate": theta,
+                "sd": se_hat,
+                "suggested_grid": [lb_hint, ub_hint],
             },
         )
     rows = []
