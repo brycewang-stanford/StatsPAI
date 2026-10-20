@@ -248,8 +248,11 @@ def test_rdrobust_quadratic_p():
 def test_rdrobust_mass_points_warning():
     rng = np.random.default_rng(5)
     n = 600
-    # discrete running variable: few distinct values
-    X = rng.integers(-5, 6, n).astype(float)
+    # Discrete running variable: 29 distinct values (< 30 triggers the
+    # warning). With 11 values the selected h left a single support point on
+    # the left of the cutoff, which rdrobust now refuses (R returns a number
+    # from a rank-deficient fit there); 29 values keep the fit identified.
+    X = rng.integers(-14, 15, n).astype(float)
     Y = 0.5 * X + 3.0 * (X >= 0) + rng.normal(0, 0.5, n)
     df = pd.DataFrame({"y": Y, "x": X})
     with pytest.warns(UserWarning, match="distinct values"):

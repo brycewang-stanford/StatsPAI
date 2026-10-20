@@ -36351,9 +36351,11 @@ _CERTIFIED_VARIANT_LIMITATIONS: Dict[str, Dict[str, List[str]]] = {
         ],
         "validation_notes": [
             "Track A rddensity module 09 is native Python reference parity: "
-            "StatsPAI ports rdbwdensity combination bandwidths, mass-point "
-            "ECDF handling, and jackknife CJM local-polynomial density "
-            "inference, matching rddensity::rddensity on the same CSV bytes.",
+            "StatsPAI implements the CJM local-polynomial density estimator, "
+            "its combination bandwidths, mass-point ECDF handling and "
+            "jackknife inference clean-room from Cattaneo, Jansson and Ma "
+            "(2018, 2020), matching rddensity::rddensity (used as a black "
+            "box) on the same CSV bytes.",
         ],
     },
     "synth": {

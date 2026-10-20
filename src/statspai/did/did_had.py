@@ -306,7 +306,7 @@ def did_had(
     **Bandwidth selection runs per horizon.** Each horizon is a separate
     regression on its own (dose, evolution) pair, so the selector is
     re-run for each — which is why Stata's ``BW`` column varies down the
-    table. Five of the six selectors ``lprobust`` accepts are ported and
+    table. Five of the six selectors ``lprobust`` accepts are implemented and
     pinned end-to-end against Stata 18 MP on the ``87_did_had.do``
     fixture; against R the selectors themselves agree to 1.6e-12 or
     better. Stata's own residual (up to ~1e-7) comes from integrating the
