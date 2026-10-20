@@ -101916,7 +101916,7 @@
       "tests/reference_parity/test_rddensity_bandwidth_regimes.py",
       "tests/reference_parity/test_rddensity_parity.py",
       "tests/reference_parity/test_rdlocrand_extensions_parity.py",
-      "Track A rddensity module 09 is native Python reference parity: StatsPAI implements the CJM local-polynomial density estimator, its combination bandwidths, mass-point ECDF handling and jackknife inference clean-room from Cattaneo, Jansson and Ma (2018, 2020), matching rddensity::rddensity (used as a black box) on the same CSV bytes."
+      "Track A rddensity module 09 is native Python reference parity: StatsPAI implements the rdbwdensity combination bandwidths, mass-point ECDF handling and jackknife CJM local-polynomial density inference clean-room from Cattaneo, Jansson and Ma (2018, 2020), matching rddensity::rddensity (used as a black box) on the same CSV bytes."
     ],
     "validation_status": "certified"
   },
