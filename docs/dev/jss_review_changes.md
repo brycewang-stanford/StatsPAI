@@ -4728,3 +4728,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/perf/results/perf_table.tex`
   - `tests/perf/figures/track_c_loglog.pdf`
   - `tests/perf/figures/track_c_loglog.png`
+
+### 2026-10-20 — module 24 trace re-recorded after weighted ph_test
+
+- **Commits.** `da89941d0` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (module 24).
+- **Reason.** `CoxResult.ph_test` now runs the `cox.zph` score test on
+  weighted and counting-process fits (`survival/models.py`,
+  `survival/_cox_core.py`), and module 24 executes both files on its
+  estimation path (the fit stores the proportional-hazards summary).
+- **Effect on the paper.** None. Module 24 was re-run and its
+  `24_coxph_py.json` differs from the committed one only in the last digit
+  (about 1e-16, within the 1e-9 reproduction tolerance), so the committed
+  result was kept; only the source hashes in the trace changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
