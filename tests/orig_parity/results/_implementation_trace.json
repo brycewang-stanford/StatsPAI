@@ -269,7 +269,7 @@
    "result_sha256": "b89cab74aaedc16e8b571d753b9af9747d7cfc6c950dfb9773885d4cd8d1d526"
   },
   "05_lee_original": {
-   "seconds": 1.17,
+   "seconds": 1.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -300,7 +300,7 @@
     "src/statspai/rd/_core.py": "e25368d16da32a3db4addeb53a1dd8c4de46f6830df998ac284d6be1eba8936b",
     "src/statspai/rd/_lpdensity.py": "93e6d7f00358450638e428650c5920ee993ccd4dec1661f46e5f999d24df0704",
     "src/statspai/rd/_nn_variance.py": "a3c10eab0c93cb053086f5a86a1e62b3e9640f2bffb97853bbdf96f45e6a69c2",
-    "src/statspai/rd/rdrobust.py": "62033f8833aa5e821a9edd25744cdb7934524b8f1ed9c37309cf659a07d38277"
+    "src/statspai/rd/rdrobust.py": "5ce5a81c7bfd06032dc049894bd1a5def3bb0efce7a5365e16a3fd0ace7f3ffb"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
