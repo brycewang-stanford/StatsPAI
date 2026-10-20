@@ -943,14 +943,14 @@
    "result_sha256": "849e3154f5a319c42462151cf017556e7e2afc8fa191ec5b4477c912a2681d62"
   },
   "23_evalue": {
-   "seconds": 1.76,
+   "seconds": 2.55,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/diagnostics/evalue.py": "86ff7c1f7f104a4c005cb24096db633816f8cdc7f7b6bb0f766511b07480e17c",
+    "src/statspai/diagnostics/evalue.py": "e9db32b7dee36793d044f557de6143a5c390da08852b58f13bb884407b9bceae",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {
