@@ -30,6 +30,12 @@ All notable changes to StatsPAI will be documented in this file.
   `recovery_hint` / `diagnostics['suggested_grid']`; with that grid the
   set equals the zero-centred one moved by the estimate
   (`tests/test_honest_did_backend.py`).
+- `sp.collapse` (and `collapse` in `sp.stata`) returned an empty frame
+  silently when no row takes part (every weight zero or missing, or `cw`
+  dropping every row). Stata 18 stops with `no observations`, `r(2000)`,
+  and leaves the data alone; so do these now (`DataInsufficient`; `_rc` is
+  2000 under `capture`). A group whose weights are all zero is left out,
+  as in Stata (`tests/test_data_layer.py`).
 
 ### Learners and input checks in the treatment-effect estimators; `sp.xttobit` / `sp.xtintreg` fixes
 

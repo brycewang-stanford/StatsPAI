@@ -365,6 +365,31 @@ def test_collapse_refuses_what_stata_refuses(grouped):
         sp.collapse(grouped, "(mean) z")
 
 
+@pytest.mark.parametrize("wtype", ["aweight", "fweight", "pweight", "iweight"])
+def test_collapse_with_no_observations_is_stata_r2000(grouped, wtype):
+    """Stata 18: every weight zero -> ``no observations``, r(2000), data
+    unchanged (an empty frame came back silently before 2026-10-20)."""
+    from statspai.exceptions import DataInsufficient
+
+    zero = grouped.assign(w=0.0)
+    with pytest.raises(DataInsufficient, match="no observations"):
+        sp.collapse(zero, "(mean) x", by="g", weights="w", weight_type=wtype)
+    rc = sp.stata("capture collapse (mean) x [aw=w], by(g)\ndisplay _rc", data=zero)
+    assert rc == 2000
+    assert sp.stata("capture collapse (mean) x [aw=w], by(g)\ncount", data=zero) == 8
+    with pytest.raises(DataInsufficient, match="no observations"):
+        sp.collapse(grouped.assign(x=np.nan), "(mean) x", by="g", cw=True)
+
+
+def test_collapse_drops_a_group_whose_weights_are_all_zero(grouped):
+    """Stata 18: a group with only zero weights is not in the result; the
+    other groups are as before."""
+    w = grouped["w"].where(grouped["g"] != 1, 0.0)
+    out = sp.collapse(grouped.assign(w=w), "(mean) mx=x", by="g", weights="w")
+    np.testing.assert_array_equal(out["g"].to_numpy(), [2, NA])
+    np.testing.assert_allclose(out["mx"], [8, 5.400000095367431641], **F32)
+
+
 def test_collapse_leaves_the_input_alone(grouped):
     before = grouped.copy()
     sp.collapse(grouped, "(mean) x", by="g", weights="w")

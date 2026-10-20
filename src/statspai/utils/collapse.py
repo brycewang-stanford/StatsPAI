@@ -16,7 +16,7 @@ from typing import Any, Callable, List, Mapping, Optional, Sequence, Tuple, Unio
 import numpy as np
 import pandas as pd
 
-from ..exceptions import ColumnNotFound, MethodIncompatibility
+from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 __all__ = ["COLLAPSE_STATS", "collapse", "collapse_frame", "frequency_rows"]
 
@@ -75,6 +75,21 @@ def frequency_rows(
     return rows.loc[rows.index.repeat(counts)], rows
 
 
+def _no_observations(weighted: bool) -> DataInsufficient:
+    """Stata ``collapse`` with no row taking part: ``no observations``,
+    ``r(2000)``, and the data are left alone (checked in Stata 18)."""
+    return DataInsufficient(
+        "collapse: no observations",
+        recovery_hint=(
+            "Every row has a zero or missing weight (or is excluded by the "
+            "row filter / cw); check the weight column."
+            if weighted
+            else "The row filter (or cw=True) leaves no rows; check it."
+        ),
+        diagnostics={"stata_rc": 2000},
+    )
+
+
 def _row_end(how: str) -> Any:
     position = 0 if how == "_row_first" else -1
     return lambda s: s.iloc[position] if len(s) else np.nan
@@ -119,6 +134,8 @@ def collapse_frame(
         return _collapse_weighted(data, targets, by, keep, weight, check_groups)
     else:
         frame = data.loc[keep]
+    if len(frame) == 0:
+        raise _no_observations(weight is not None)
     if raw is None:
         raw = frame
     if by:
@@ -170,6 +187,8 @@ def _collapse_weighted(
     if np.any(w_all[ok] < 0):
         raise _refuse("collapse: negative weights", "Weights must be >= 0.")
     frame = data.loc[ok].copy()
+    if len(frame) == 0:
+        raise _no_observations(True)
     frame["__w"] = w_all[ok]
     if by and check_groups is not None:
         check_groups(frame)
@@ -311,6 +330,9 @@ def collapse(
 
     Raises
     ------
+    DataInsufficient
+        No row takes part (every weight zero or missing, or ``cw`` drops
+        every row): Stata's ``no observations``, ``r(2000)``.
     MethodIncompatibility
         An unknown statistic; a result name used twice or equal to a
         by-variable; negative weights; non-integer frequency weights;
