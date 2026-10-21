@@ -79,5 +79,15 @@ def test_native_value_and_its_defining_property(key):
         table = sp.honest_did(
             _res(c), m_grid=[0.997 * m_star, 1.003 * m_star], **_kw(c)
         )
-    assert m_star == pytest.approx(c["mstar"], rel=1e-9)
+    # The defining property, on this platform's own draws:
     assert list(table["rejects_zero"]) == [True, False]
+    # The recorded value (macOS). The Conditional and FLCI sets are
+    # deterministic. The C-LF first-stage critical value is simulated with
+    # Generator.multivariate_normal, which factors the covariance by SVD;
+    # the singular vectors' signs depend on the LAPACK build, so one seed
+    # gives other draws on Linux / Windows and M* moves (castle C-LF:
+    # 0.405815 on macOS, 0.406076 on Linux, relative 6.4e-4). The C-LF
+    # values are held to the 3% band within which R HonestDiD brackets
+    # them (test above).
+    rel = 0.03 if c["hm"] == "C-LF" else 1e-9
+    assert m_star == pytest.approx(c["mstar"], rel=rel)
