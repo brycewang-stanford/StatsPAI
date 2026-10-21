@@ -15,11 +15,12 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-import statspai.did.did_multiplegt  # noqa: F401
 import statspai.did.did_multiplegt_dyn  # noqa: F401
+from statspai.did._dcdh_cells import _stayer_slopes
+from statspai.did._dcdh_inference import _avg_cumulative_effect
+from statspai.did._dcdh_pairwise import _estimate_placebo
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-M = sys.modules["statspai.did.did_multiplegt"]
 DYN = sys.modules["statspai.did.did_multiplegt_dyn"]
 
 K = dict(y="y", group="u", time="t", treatment="d")
@@ -87,7 +88,7 @@ def test_dcdh_stayer_slopes_recover_a_known_slope():
             y += 0.7 * dx + 0.3 * t + (2.0 if d else 0.0) * t
             rows.append({"g": g, "t": t, "d": d, "y": y, "x": x})
     df = pd.DataFrame(rows)
-    slopes = M._stayer_slopes(df, "y", "g", "t", "d", ["x"], None)
+    slopes = _stayer_slopes(df, "y", "g", "t", "d", ["x"], None)
     assert set(slopes) == {0.0, 1.0}
     for theta in slopes.values():
         assert abs(theta[0] - 0.7) < 1e-12
@@ -106,13 +107,13 @@ def test_dcdh_period_pair_without_common_units_is_skipped(panel):
 
 def test_dcdh_placebo_helper_reports_no_cells_on_two_periods(panel):
     two = panel[panel["t"].isin([2, 3])]
-    out = M._estimate_placebo(two, "y", "u", "t", "d", None, lag=1)
+    out = _estimate_placebo(two, "y", "u", "t", "d", None, lag=1)
     assert out["n_cells"] == 0
 
 
 def test_dcdh_average_cumulative_effect_needs_dynamic_draws():
-    assert M._avg_cumulative_effect([], None, 0.05) is None
-    assert M._avg_cumulative_effect([{"estimate": 1.0}], None, 0.05) is None
+    assert _avg_cumulative_effect([], None, 0.05) is None
+    assert _avg_cumulative_effect([{"estimate": 1.0}], None, 0.05) is None
 
 
 # ======================================================================
