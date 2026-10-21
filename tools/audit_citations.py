@@ -121,6 +121,69 @@ NBER_RE = re.compile(
     re.IGNORECASE | re.VERBOSE,
 )
 
+# ``NBER_RE`` accepts a bare "Working Paper 123" because NBER cites in the
+# tree are not always prefixed. Other series use the same words, so a
+# match right after one of these series names is not an NBER id (e.g.
+# Roodman's xtabond2 paper is Center for Global Development Working Paper
+# 103; auditing it as NBER w103 404s).
+_NON_NBER_SERIES_RE = re.compile(
+    r"(?:\bCGD|Center\s+for\s+Global\s+Development|\bIMF|World\s+Bank|\bIZA"
+    r"|\bECB|\bBIS|Federal\s+Reserve(?:\s+Bank\s+of\s+[A-Z][a-z]+)?"
+    r"|\bCEPR|CESifo|\bcemmap|Cowles(?:\s+Foundation)?)"
+    r"[\s,()]*$",
+    re.IGNORECASE,
+)
+
+
+def _is_other_series(line: str, start: int) -> bool:
+    """Whether the working-paper match at ``start`` follows a non-NBER
+    series name (``... CGD Working Paper 103``)."""
+    return _NON_NBER_SERIES_RE.search(line[:start]) is not None
+
+
+# DOI registration agencies other than Crossref. Their DOIs are not in
+# Crossref at all, so they are resolved through DataCite directly; asking
+# Crossref first only produced a 404 per id. Prefixes: Zenodo (10.5281),
+# Harvard Dataverse (10.7910), arXiv (10.48550), figshare (10.6084), Dryad
+# (10.5061), ICPSR (10.3886), OSF (10.17605).
+_DATACITE_PREFIXES = (
+    "10.5281/",
+    "10.7910/",
+    "10.48550/",
+    "10.6084/",
+    "10.5061/",
+    "10.3886/",
+    "10.17605/",
+)
+
+
+def _is_datacite_doi(doi: str) -> bool:
+    return doi.lower().startswith(_DATACITE_PREFIXES)
+
+
+_INITIALS_RE = re.compile(r"^(?:[A-Z]\.?\s*-?){1,4}$")
+
+
+def _crossref_author_name(a: dict) -> str:
+    """``given family`` from a Crossref author record.
+
+    Some legacy deposits swap the fields (10.1080/03610927608827353 has
+    given="Lawless", family="J. F."); when the family name is only
+    initials and the given name is not, the two are swapped back so the
+    surname is compared, not an initial.
+    """
+    given = (a.get("given") or "").strip()
+    family = (a.get("family") or "").strip()
+    if (
+        family
+        and given
+        and _INITIALS_RE.match(family)
+        and not _INITIALS_RE.match(given)
+    ):
+        given, family = family, given
+    return " ".join(filter(None, [given, family]))
+
+
 # DOI body allows ASCII printable except whitespace and string-literal /
 # punctuation closers. We allow balanced ``( ... )`` because some serial
 # DOIs encode volume / year inside parens (Elsevier handbook chapters
@@ -786,6 +849,8 @@ def extract_citations(roots: Iterable[Path]) -> list[Citation]:
                     ("doi", DOI_RE),
                 ):
                     for m in regex.finditer(line):
+                        if kind == "nber" and _is_other_series(line, m.start()):
+                            continue
                         # Find the CLOSEST markdown-bullet / blank-line
                         # boundary above the citation line. If found
                         # within ±8, anchor the block start there so
@@ -968,16 +1033,21 @@ def verify_nber(
 # ---------------------------------------------------------------------------
 
 
-def _verify_datacite_one(doi: str, refresh: bool = False) -> Optional[PaperMeta]:
+def _verify_datacite_one(
+    doi: str, refresh: bool = False, transient: Optional[set[str]] = None
+) -> Optional[PaperMeta]:
     """Resolve a DOI via DataCite (Zenodo, Figshare, etc. live here, NOT
-    Crossref). Used as a fallback when Crossref returns 404 — many
-    self-archived datasets and software DOIs are registered with the
-    DataCite agency rather than Crossref."""
+    Crossref). Used first for known DataCite prefixes and as a fallback
+    when Crossref returns 404. A DataCite 404 is a genuine miss; any other
+    failure is recorded in ``transient`` (a soft failure)."""
     url = f"https://api.datacite.org/dois/{urllib.parse.quote(doi, safe='')}"
     try:
         raw = _http_get(url, refresh=refresh, sleep=0.5)
     except _TRANSIENT_NETWORK_ERRORS as e:
         print(f"[datacite] HTTP/network error {e!r} for {doi}", file=sys.stderr)
+        is_404 = isinstance(e, urllib.error.HTTPError) and e.code == 404
+        if transient is not None and not is_404:
+            transient.add(doi)
         return None
     try:
         obj = json.loads(raw)
@@ -1018,15 +1088,25 @@ def verify_crossref(
     """
     result: dict[str, PaperMeta] = {}
     for doi in dois:
+        if _is_datacite_doi(doi):
+            meta = _verify_datacite_one(doi, refresh=refresh, transient=transient)
+            if meta is not None:
+                result[doi] = meta
+            continue
         url = f"https://api.crossref.org/works/{urllib.parse.quote(doi, safe='')}"
         crossref_404 = False
         try:
             raw = _http_get(url, refresh=refresh, sleep=0.5)
         except urllib.error.HTTPError as e:
-            print(f"[crossref] HTTP error {e!r} for {doi}", file=sys.stderr)
             if e.code == 404:
+                print(
+                    f"[crossref] {doi} is not registered with Crossref; "
+                    "trying DataCite",
+                    file=sys.stderr,
+                )
                 crossref_404 = True
             else:
+                print(f"[crossref] HTTP error {e!r} for {doi}", file=sys.stderr)
                 if transient is not None:
                     transient.add(doi)
                 continue
@@ -1047,10 +1127,7 @@ def verify_crossref(
         except json.JSONDecodeError:
             continue
         msg = obj.get("message", {})
-        authors = [
-            " ".join(filter(None, [a.get("given"), a.get("family")]))
-            for a in msg.get("author", [])
-        ]
+        authors = [_crossref_author_name(a) for a in msg.get("author", [])]
         title_list = msg.get("title", [])
         title = title_list[0].strip() if title_list else ""
         year = 0

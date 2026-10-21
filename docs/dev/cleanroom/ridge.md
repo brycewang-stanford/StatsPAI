@@ -55,9 +55,12 @@ intercept and `0` without.
 
    The rules are named after "Ridge regression: some simulations"
    (Hoerl, Kennard and Baldwin 1975, doi:10.1080/03610917508548342) and
-   "A simulation study of ridge and other regression estimators" (1976,
-   doi:10.1080/03610927608827353); both DOIs checked against Crossref and
-   doi.org on 2026-10-20 (the papers themselves were not read, so no
+   "A simulation study of ridge and other regression estimators" (Lawless
+   and Wang 1976, doi:10.1080/03610927608827353); both DOIs checked against
+   Crossref and doi.org on 2026-10-20, and the second's authors, title and
+   year again on 2026-10-21 against Crossref and the Utah TeX bibliography
+   index of Communications in Statistics 5(4), 307-323 (the papers
+   themselves were not read, so no
    claim is made here about the constants they print). The constants
    above, including the factor `p - 2` and the residual degrees of
    freedom, are fixed by the black-box outputs: both agree to <= 2e-15

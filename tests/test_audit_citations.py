@@ -984,3 +984,82 @@ def test_possessive_does_not_excuse_a_genuinely_missing_author():
     )
     claim = _make_citation("Han's SSC (arXiv:2511.14133)", id="2511.14133")
     assert any("Devavrat Shah" in issue for issue in ac.diff_citation(claim, truth))
+
+
+# ---------------------------------------------------------------------------
+# Non-NBER working-paper series and DataCite-registered DOIs
+# ---------------------------------------------------------------------------
+
+
+def test_cgd_working_paper_is_not_audited_as_nber(tmp_path):
+    # Roodman's xtabond2 paper is Center for Global Development Working
+    # Paper 103 (cgdev.org; RePEc RePEc:cgd:wpaper:103); auditing it as
+    # NBER w103 reported a 404.
+    (tmp_path / "a.md").write_text(
+        "read in its CGD Working Paper 103 version (December 2006)\n"
+        "Center for Global Development Working Paper 103\n"
+        "NBER Working Paper 22791\n"
+        "Working Paper 26463\n",
+        encoding="utf-8",
+    )
+    old_root = ac.REPO_ROOT
+    ac.REPO_ROOT = tmp_path
+    try:
+        cites = ac.extract_citations([tmp_path])
+    finally:
+        ac.REPO_ROOT = old_root
+    assert sorted(c.id for c in cites if c.kind == "nber") == ["22791", "26463"]
+
+
+def test_datacite_prefixes_skip_crossref(monkeypatch):
+    seen: list[str] = []
+
+    def fake_get(url, **kwargs):
+        seen.append(url)
+        return (
+            b'{"data": {"attributes": {"creators": [{"name": "Wang, Biaoyue"}],'
+            b' "titles": [{"title": "StatsPAI"}], "publicationYear": 2026}}}'
+        )
+
+    monkeypatch.setattr(ac, "_http_get", fake_get)
+    out = ac.verify_crossref(["10.5281/zenodo.19933900", "10.7910/DVN/ZX3VEV"])
+    assert set(out) == {"10.5281/zenodo.19933900", "10.7910/DVN/ZX3VEV"}
+    assert all("api.datacite.org" in u for u in seen)
+    assert ac._is_datacite_doi("10.48550/arXiv.1612.09596")
+    assert not ac._is_datacite_doi("10.1080/03610927608827353")
+
+
+def test_datacite_outage_is_transient_but_404_is_not(monkeypatch):
+    import urllib.error
+
+    def outage(url, **kwargs):
+        raise urllib.error.HTTPError(url, 503, "unavailable", {}, None)
+
+    monkeypatch.setattr(ac, "_http_get", outage)
+    transient: set[str] = set()
+    assert ac.verify_crossref(["10.5281/zenodo.1"], transient=transient) == {}
+    assert transient == {"10.5281/zenodo.1"}
+
+    def missing(url, **kwargs):
+        raise urllib.error.HTTPError(url, 404, "not found", {}, None)
+
+    monkeypatch.setattr(ac, "_http_get", missing)
+    transient = set()
+    assert ac.verify_crossref(["10.5281/zenodo.1"], transient=transient) == {}
+    assert transient == set()
+
+
+def test_crossref_swapped_given_family_is_repaired():
+    # Crossref deposit for Lawless & Wang (1976), Commun. Stat. 5(4):
+    # given="Lawless", family="J. F."; given="Wang", family="P".
+    assert ac._crossref_author_name({"given": "Lawless", "family": "J. F."}) == (
+        "J. F. Lawless"
+    )
+    assert ac._crossref_author_name({"given": "Wang", "family": "P"}) == "P Wang"
+    # an ordinary record is left alone
+    assert ac._crossref_author_name({"given": "Peng", "family": "Ding"}) == (
+        "Peng Ding"
+    )
+    assert ac._crossref_author_name({"given": "J. F.", "family": "Lawless"}) == (
+        "J. F. Lawless"
+    )
