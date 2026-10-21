@@ -5575,3 +5575,36 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-22 — Track C re-timed on 1.40.0
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `c535db8d7`.
+- **Reason.** The 1.40.0 batch (fixest defaults, DiD, DML, clean-room
+  rewrites) changed files on all four timed paths. Re-measured on
+  fd2a1b2b2 (the 1.40.0 release commit) with `tests/perf/run_when_idle.sh`
+  (peak load at most 1.46, no step repeated, one thread on both sides,
+  statspai-hdfe 0.9.1 loaded). None of the 46 timed-path source files nor
+  the Rust crate differs between fd2a1b2b2 and main at `824218939`;
+  `trace_perf_path.py --check` passes on the committed tree.
+- **Effect on the paper.** Track C table (`track_c_perf.tex`) and the
+  log-log figure. Seconds for StatsPAI (ratio to the reference): 01_hdfe
+  n=1e6 0.0321 (2.37, was 2.41); 02_csdid n=125k 0.0345 (2.63, was 2.61);
+  03_scm 100 donors 1.300 (3.55, was 3.59); 04_dml n=10k 0.0090 (0.99,
+  was 1.09). No conclusion in the text changes; the DML row is now parity
+  with DoubleML at n=10k rather than 9% faster.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/perf/results/perf_table.md`
+  - `tests/perf/results/perf_table.tex`
+  - `tests/perf/figures/track_c_loglog.pdf`
+  - `tests/perf/figures/track_c_loglog.png`
