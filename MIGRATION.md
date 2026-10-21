@@ -34,6 +34,29 @@ the argument is unaffected.
 
 ---
 
+## 1.39.6 → unreleased: `parity=` on the regression event studies; cluster spellings in `sp.feols`
+
+No default number changes.
+
+- `sp.sun_abraham(share_variance=)` now defaults to `None`, meaning `True`
+  unless `parity='r'` (then `False`, fixest's convention). Calls that
+  pass `share_variance` keep their behaviour; passing a value that
+  contradicts `parity=` raises `MethodIncompatibility`.
+- `sp.hdfe_ols` with an unrecognised `vce=` raises
+  `MethodIncompatibility` instead of a plain `ValueError` (it subclasses
+  `ValueError`, so existing `except ValueError` still catches it).
+  `vce='cluster firm'` and its variants now mean `cluster='firm'`
+  instead of raising.
+- `sp.feols` / `sp.fepois` / `sp.feglm`: cluster spellings that used to
+  raise pyfixest's `AssertionError` now work, and other rejected `vcov`
+  values raise `MethodIncompatibility`. Code that caught
+  `AssertionError` should catch `MethodIncompatibility` (or `ValueError`).
+- To reproduce Stata's or fixest's p-values and intervals, pass
+  `parity='stata'` or `parity='r'` to `sp.event_study`,
+  `sp.sun_abraham` or `sp.did_2x2`.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
 
 - `sp.rlasso_iv(select_Z=True, select_X=False)` now keeps an intercept in

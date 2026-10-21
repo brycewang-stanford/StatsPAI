@@ -29239,6 +29239,18 @@ def _build_registry() -> None:
                     None,
                     "Optional column name for sampling weights",
                 ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "Critical values of a reference program; estimates and SEs "
+                    "unchanged. None: t(N-K) always. 'stata' (regress, "
+                    "vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with "
+                    "cluster=, t(N-K) otherwise. Recorded in "
+                    "model_info['conventions'].",
+                    ["r", "stata"],
+                ),
             ],
             returns="CausalResult",
             example=('sp.did_2x2(df, y="earnings", treat="treated", time="year")'),
@@ -29497,13 +29509,28 @@ def _build_registry() -> None:
                     "share_variance",
                     "bool",
                     False,
-                    True,
+                    None,
                     "Carry the cohort-share estimation term of Sun & Abraham "
                     "(2021, Prop. 3) in the event-study variance (True: Stata "
                     "eventstudyinteract convention) or treat the interaction "
                     "weights as fixed (False: fixest::sunab convention). The "
                     "two coincide at single-cohort relative times; point "
-                    "estimates are unaffected.",
+                    "estimates are unaffected. None (default) is True, or "
+                    "False under parity='r'.",
+                ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "Inference conventions of a reference program; estimates "
+                    "unchanged. None: normal critical values, share term "
+                    "carried. 'stata' (eventstudyinteract): t(G-1) for "
+                    "cluster SEs, t(N-K) for the HC1 SEs of i=None, share "
+                    "term carried. 'r' (fixest sunab): the same t and "
+                    "share_variance=False. Recorded in "
+                    "model_info['conventions'].",
+                    ["r", "stata"],
                 ),
                 ParamSpec(
                     "pretest",
@@ -31274,6 +31301,18 @@ def _build_registry() -> None:
                     "cluster-robust covariance of the pre-treatment "
                     "coefficients; False withholds the key and restores the "
                     "pre-1.31 diagonal fallback, which warns.",
+                ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "Critical values of a reference program for p-values and "
+                    "CIs (estimates and SEs unchanged). None: normal. "
+                    "'stata' (reghdfe, vce(cluster)) and 'r' (fixest, "
+                    "cluster=): Student t with G-1 df. Recorded in "
+                    "model_info['conventions'].",
+                    ["r", "stata"],
                 ),
             ],
             returns="CausalResult with event_study DataFrame",

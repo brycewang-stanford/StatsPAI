@@ -23,6 +23,7 @@ from .._aliases import accepts_aliases
 from ..core._call_record import records_call
 from ..core._design_guardrails import check_design as _check_design
 from ..core._vcov_spec import markout_clusters, stata_vce_to_fixest
+from ..core._vcov_spellings import backend_rejection, normalises_fixest_vcov
 from ..core.results import EconometricResults
 from ..core.utils import (
     _widen_narrow_integers,
@@ -1696,6 +1697,7 @@ def _note_dropped_singletons(out: _Fit, n_drop: int) -> _Fit:
 @records_call("feols")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feols")
+@normalises_fixest_vcov("feols")
 @markout_clusters
 def feols(
     fml: str,
@@ -1749,6 +1751,11 @@ def feols(
         - ``"HC1"``, ``"HC2"``, ``"HC3"`` — heteroskedasticity-robust
         - ``{"CRV1": "firm"}`` — cluster-robust
         - ``{"CRV1": "firm + year"}`` — two-way clustering
+        - other spellings of the same request give identical results:
+          dict keys ``CL1`` / ``CR1`` / ``cluster`` (``CL3`` / ``CR3`` for
+          CRV3), list values, and the strings ``"cluster firm"``,
+          ``"vce(cluster firm)"``, ``"cluster:firm"``, ``"cluster(firm)"``,
+          ``"~firm"``. An unknown spelling raises ``MethodIncompatibility``.
         - ``vce="CR2"`` / ``"CR3"`` / ``"jackknife"`` (with ``cluster=``) —
           Pustejovsky-Tipton bias-reduced cluster-robust on the FE-absorbed
           within design; matches R ``clubSandwich::vcovCR(plm)``.
@@ -2070,6 +2077,8 @@ def feols(
     try:
         with _written_fe_order(), _first_stage_demeaner(pf_kwargs["fml"], pf_kwargs):
             fit = pf.feols(**pf_kwargs)
+    except AssertionError as exc:
+        raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feols") from exc
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feols")
         raise
@@ -2255,6 +2264,7 @@ def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
 @records_call("fepois")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.fepois")
+@normalises_fixest_vcov("fepois")
 @markout_clusters
 def fepois(
     fml: str,
@@ -2501,6 +2511,8 @@ def fepois(
         _prefer_compiled_demeaner(pf.fepois, pf_kwargs)
         with _written_fe_order():
             fit = pf.fepois(**pf_kwargs)
+    except AssertionError as exc:
+        raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.fepois") from exc
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.fepois")
         if not isinstance(exc, ValueError) or "Demeaning failed" not in str(exc):
@@ -2536,6 +2548,7 @@ def fepois(
 @records_call("feglm")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feglm")
+@normalises_fixest_vcov("feglm")
 @markout_clusters
 def feglm(
     fml: str,
@@ -2741,6 +2754,8 @@ def feglm(
     try:
         with _written_fe_order():
             fit = pf.feglm(**pf_kwargs)
+    except AssertionError as exc:
+        raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feglm") from exc
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feglm")
         raise

@@ -9334,6 +9334,14 @@
           "type": "string",
           "x-statspai-source": "signature"
         },
+        "parity": {
+          "description": "Critical values of a reference program; estimates and SEs unchanged. None: t(N-K) always. 'stata' (regress, vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with cluster=, t(N-K) otherwise. Recorded in model_info['conventions'].",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": true,
           "description": "Heteroskedasticity-robust SE when no cluster provided",
@@ -13919,6 +13927,14 @@
         },
         "intensity": {
           "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
+          "type": "string"
+        },
+        "parity": {
+          "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: normal. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
+          "enum": [
+            "r",
+            "stata"
+          ],
           "type": "string"
         },
         "ref_period": {

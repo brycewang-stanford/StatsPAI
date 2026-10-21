@@ -4,8 +4,8 @@
   "n_functions": 70,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 539,
-    "precondition": 57,
+    "ok": 564,
+    "precondition": 55,
     "rejected": 0
   },
   "functions": [
@@ -984,6 +984,14 @@
           "mammen": {
             "status": "ok"
           }
+        },
+        "variance_convention": {
+          "delta": {
+            "status": "ok"
+          },
+          "reference": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1021,15 +1029,13 @@
           "data",
           "y",
           "g",
-          "t",
-          "i"
+          "t"
         ],
         "schema": [
           "data",
           "y",
           "g",
-          "t",
-          "i"
+          "t"
         ],
         "schema_only": {}
       },
@@ -1045,6 +1051,14 @@
             "status": "ok"
           },
           "fixest_att": {
+            "status": "ok"
+          }
+        },
+        "parity": {
+          "r": {
+            "status": "ok"
+          },
+          "stata": {
             "status": "ok"
           }
         },
@@ -1514,7 +1528,16 @@
         "actual": "CausalResult",
         "matches": true
       },
-      "enums": {},
+      "enums": {
+        "parity": {
+          "r": {
+            "status": "ok"
+          },
+          "stata": {
+            "status": "ok"
+          }
+        }
+      },
       "alternatives": [
         {
           "name": "sun_abraham",
@@ -1567,8 +1590,8 @@
       },
       "base_call": "ok",
       "result_class": {
-        "declared": "dict",
-        "actual": "dict",
+        "declared": "BaconDecompositionResult",
+        "actual": "BaconDecompositionResult",
         "matches": true
       },
       "enums": {
@@ -1689,6 +1712,15 @@
           },
           "hc3": {
             "status": "ok"
+          },
+          "cr1": {
+            "status": "ok"
+          },
+          "cr2": {
+            "status": "ok"
+          },
+          "cr3": {
+            "status": "ok"
           }
         },
         "engine": {
@@ -1766,7 +1798,7 @@
       ],
       "provenance": {
         "curated": 6,
-        "docstring": 2
+        "docstring": 3
       }
     },
     {
@@ -1988,8 +2020,7 @@
             "status": "ok"
           },
           "noinference": {
-            "status": "precondition",
-            "error": "MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.\n  -> recovery: Declare treatment with treat='<0/1 column"
+            "status": "ok"
           }
         },
         "backend": {
@@ -2006,11 +2037,11 @@
         "covariate_method": {
           "projected": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.\n  -> recovery: Declare treatment with treat='<0/1 column"
+            "error": "MethodIncompatibility: sdid: covariate_method= was given without covariates=.\n  -> recovery: Pass covariates=[...] or drop covariate_method."
           },
           "optimized": {
             "status": "precondition",
-            "error": "MethodIncompatibility: sdid: se_method='noinference' and covariate_method= are available with treat= only.\n  -> recovery: Declare treatment with treat='<0/1 column"
+            "error": "MethodIncompatibility: sdid: covariate_method= was given without covariates=.\n  -> recovery: Pass covariates=[...] or drop covariate_method."
           }
         }
       },
@@ -3055,6 +3086,14 @@
               "cluster": "countyreal"
             }
           }
+        },
+        "cluster_df": {
+          "per_term": {
+            "status": "ok"
+          },
+          "min": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -3264,6 +3303,14 @@
         "matches": true
       },
       "enums": {
+        "fixef_rm": {
+          "none": {
+            "status": "ok"
+          },
+          "singleton": {
+            "status": "ok"
+          }
+        },
         "backend": {
           "auto": {
             "status": "ok"
@@ -3316,17 +3363,6 @@
         "matches": true
       },
       "enums": {
-        "family": {
-          "gaussian": {
-            "status": "ok"
-          },
-          "logit": {
-            "status": "ok"
-          },
-          "probit": {
-            "status": "ok"
-          }
-        },
         "backend": {
           "auto": {
             "status": "ok"
@@ -3457,11 +3493,11 @@
           },
           "logit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+            "error": "MethodIncompatibility: mediate: mediator_model='logit' needs a 0/1 mediator.\n  -> recovery: Use mediator_model='linear' for a continuous mediator."
           },
           "probit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+            "error": "MethodIncompatibility: mediate: mediator_model='probit' needs a 0/1 mediator.\n  -> recovery: Use mediator_model='linear' for a continuous mediator."
           }
         },
         "outcome_model": {
@@ -3470,15 +3506,15 @@
           },
           "logit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+            "error": "MethodIncompatibility: mediate: outcome_model='logit' needs a 0/1 outcome."
           },
           "probit": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+            "error": "MethodIncompatibility: mediate: outcome_model='probit' needs a 0/1 outcome."
           },
           "poisson": {
             "status": "precondition",
-            "error": "MethodIncompatibility: mediate: interaction=True, a non-linear mediator_model or outcome_model, and treat_values= are estimated from potential-outcome means, which"
+            "error": "MethodIncompatibility: mediate: outcome_model='poisson' needs a non-negative outcome."
           }
         },
         "pvalue_method": {
@@ -3600,6 +3636,17 @@
           "naive": {
             "status": "ok"
           }
+        },
+        "estimand": {
+          "ATT": {
+            "status": "ok"
+          },
+          "ATE": {
+            "status": "ok"
+          },
+          "ATC": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -3679,7 +3726,7 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 2
+        "docstring": 3
       }
     },
     {
@@ -3689,14 +3736,12 @@
         "signature": [
           "data",
           "y",
-          "treat",
-          "selection"
+          "treat"
         ],
         "schema": [
           "data",
           "y",
-          "treat",
-          "selection"
+          "treat"
         ],
         "schema_only": {}
       },
@@ -4414,8 +4459,8 @@
       },
       "base_call": "ok",
       "result_class": {
-        "declared": "dict",
-        "actual": "dict",
+        "declared": "SensemakrResult",
+        "actual": "SensemakrResult",
         "matches": true
       },
       "enums": {},
@@ -4447,8 +4492,8 @@
       },
       "base_call": "ok",
       "result_class": {
-        "declared": "dict",
-        "actual": "dict",
+        "declared": "OsterBoundsResult",
+        "actual": "OsterBoundsResult",
         "matches": true
       },
       "enums": {},
@@ -4551,6 +4596,15 @@
           },
           "hc3": {
             "status": "ok"
+          },
+          "cr1": {
+            "status": "ok"
+          },
+          "cr2": {
+            "status": "ok"
+          },
+          "cr3": {
+            "status": "ok"
           }
         },
         "masspoints": {
@@ -4624,8 +4678,7 @@
             "status": "ok"
           },
           "bm": {
-            "status": "precondition",
-            "error": "DataInsufficient: Too few observations for the BME regressions.\n  -> recovery: Widen h or lower order."
+            "status": "ok"
           }
         },
         "kernel": {
@@ -4780,7 +4833,7 @@
       "provenance": {
         "family": 3,
         "curated+family": 4,
-        "docstring": 2
+        "docstring": 3
       }
     },
     {
@@ -4874,6 +4927,9 @@
           },
           "relative_magnitude": {
             "status": "ok"
+          },
+          "smoothness_relative_magnitude": {
+            "status": "ok"
           }
         },
         "backend": {
@@ -4889,25 +4945,32 @@
         },
         "honestdid_method": {
           "C-LF": {
-            "status": "ok",
-            "with": {
-              "method": "relative_magnitude"
-            }
+            "status": "ok"
           },
           "Conditional": {
-            "status": "ok",
-            "with": {
-              "method": "relative_magnitude"
-            }
+            "status": "ok"
           },
           "FLCI": {
             "status": "ok"
           },
           "C-F": {
-            "status": "ok",
-            "with": {
-              "backend": "r"
-            }
+            "status": "ok"
+          }
+        },
+        "bias_direction": {
+          "positive": {
+            "status": "ok"
+          },
+          "negative": {
+            "status": "ok"
+          }
+        },
+        "monotonicity_direction": {
+          "increasing": {
+            "status": "ok"
+          },
+          "decreasing": {
+            "status": "ok"
           }
         }
       },
@@ -4993,6 +5056,14 @@
             "status": "ok"
           },
           "all": {
+            "status": "ok"
+          }
+        },
+        "variance_convention": {
+          "delta": {
+            "status": "ok"
+          },
+          "reference": {
             "status": "ok"
           }
         }

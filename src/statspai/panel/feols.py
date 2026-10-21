@@ -964,6 +964,17 @@ def feols(
         cluster_df = "per_term"
 
     # --- canonical vce= keyword (matches sp.regress / sp.feols) -------------
+    # One-way and multiway cluster spellings ("cluster firm",
+    # "vce(cluster firm)", "cluster:firm", "cluster(firm)", "~firm", and a
+    # bare "cluster" next to cluster=) mean cluster=, the default CR1.
+    from ..core._vcov_spec import _bare_kind, cluster_from_vce
+    from ..core._vcov_spellings import house_style_vce
+
+    vce, cluster = cluster_from_vce(
+        house_style_vce(vce), cluster, function="hdfe_ols", native=None, multiway=True
+    )
+    if _bare_kind(vce) == "cluster" and cluster is not None:
+        vce = None
     _HC_VCE = {"robust": True, "hc_robust": True, "hc1": True, "hc0": False}
     _BR_VCE = {"cr2": 0.5, "cr3": 1.0, "jackknife": 1.0}
     _vce = vce.lower() if isinstance(vce, str) else None
@@ -976,9 +987,14 @@ def feols(
         and _vce not in _BR_VCE
         and (_vce != "conley")
     ):
-        raise ValueError(
+        raise MethodIncompatibility(
             f"hdfe_ols vce={vce!r} not recognised; use 'robust'/'hc1'/'hc0', "
-            "'CR2'/'CR3'/'jackknife', 'conley', or 'wild'."
+            "'CR2'/'CR3'/'jackknife', 'conley', or 'wild'.",
+            recovery_hint=(
+                "For cluster-robust SEs pass cluster='<column>' or "
+                "vce='cluster <column>'."
+            ),
+            diagnostics={"vce": repr(vce)},
         )
     if _vce is not None and weights is not None:
         raise MethodIncompatibility(

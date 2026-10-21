@@ -14,7 +14,7 @@ Princeton University Press. [@angrist2009mostly]
 """
 
 import warnings
-from typing import Any, List, Optional, cast
+from typing import Any, List, Literal, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from ..core._call_record import records_call
 from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
+from . import _crit
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import require_bool
 
@@ -96,6 +97,7 @@ def did_2x2(
     seed: Optional[int] = None,
     d: Optional[str] = None,
     design: Optional[Any] = None,
+    parity: Optional[Literal["r", "stata"]] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -150,6 +152,17 @@ def did_2x2(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
+    parity : {'stata', 'r'}, optional
+        Critical-value convention for the p-values and confidence
+        intervals; coefficients and SEs do not change. ``None`` (default)
+        uses Student t with ``N - K`` degrees of freedom in every case.
+        ``'stata'`` (``regress ..., vce(cluster c)``) and ``'r'``
+        (``fixest::feols(y ~ treat * time, cluster = ~c)``) use t with
+        ``G - 1`` degrees of freedom when ``cluster`` is given, and the
+        same ``N - K`` as the default otherwise. With ``design=`` the
+        design degrees of freedom are used under every setting (Stata
+        ``svy``, R ``survey``). The convention used is in
+        ``model_info['conventions']``.
     engine : {'ols', 'bayes'}, default 'ols'
         Inference backend for the same 2×2 design. ``'ols'`` (default) is the
         frequentist OLS estimator above. ``'bayes'`` routes to
@@ -195,6 +208,7 @@ def did_2x2(
 
         return replicate_refit(did_2x2, _args, design, function="sp.did_2x2")
     vce, cluster = cluster_from_vce(vce, cluster, function="did_2x2", native=None)
+    parity = _crit.check_parity(parity, "did_2x2")
     from ..core._param_aliases import resolve_alias
 
     treat = resolve_alias("treat", treat, "d", d)
@@ -221,6 +235,12 @@ def did_2x2(
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
     if engine == "bayes":
+        if parity is not None:
+            raise MethodIncompatibility(
+                "did_2x2: parity= sets frequentist critical values and does "
+                "not apply to engine='bayes'.",
+                recovery_hint="Drop parity= or use engine='ols'.",
+            )
         return _did2x2_bayes_engine(
             data,
             y=y,
@@ -428,6 +448,10 @@ def did_2x2(
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
     df_resid = n - k if svy_df is None else svy_df
+    if parity is not None and cluster is not None and svy_df is None:
+        # Stata ``regress, vce(cluster)`` and fixest both refer the
+        # cluster-robust t statistic to t(G - 1), not t(N - K).
+        df_resid = n_cl - 1
     pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att - t_crit * att_se, att + t_crit * att_se)
@@ -526,6 +550,12 @@ def did_2x2(
     if wild_note is not None:
         model_info["inference"] = wild_note
         model_info["n_boot"] = wild_reps
+    model_info["conventions"] = _crit.conventions(
+        parity,
+        # The ATT p-value and CI come from the bootstrap under vce='wild'.
+        "bootstrap" if wild_note is not None else "t",
+        None if wild_note is not None else df_resid,
+    )
 
     _result = CausalResult(
         method="Difference-in-Differences (2x2)",
@@ -555,6 +585,7 @@ def did_2x2(
                 "robust": robust,
                 "alpha": alpha,
                 "weights": weights,
+                **({"parity": parity} if parity is not None else {}),
             },
             data=data,
             overwrite=False,

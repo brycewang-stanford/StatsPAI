@@ -44,11 +44,10 @@ Sun, L. and Abraham, S. (2021).
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
@@ -57,6 +56,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from . import _crit
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -315,13 +315,14 @@ def sun_abraham(
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
     aggregation: Optional[str] = None,
-    share_variance: bool = True,
+    share_variance: Optional[bool] = None,
     alpha: float = 0.05,
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
     window_rule: str = "report",
     anticipation: int = 0,
     ref_p: Optional[Any] = None,
+    parity: Optional[Literal["r", "stata"]] = None,
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -425,8 +426,9 @@ def sun_abraham(
 
         .. deprecated:: 1.40.0
            The implicit ``'event_time'`` headline (see MIGRATION.md).
-    share_variance : bool, default True
-        Whether Var(δ̂_ℓ) carries the cohort-share estimation term
+    share_variance : bool, optional
+        ``None`` (default) means ``True``, or ``False`` under
+        ``parity='r'``. Whether Var(δ̂_ℓ) carries the cohort-share estimation term
         ``β' Var(ŵ) β`` of Sun & Abraham (2021, Prop. 3). ``True`` is the
         authors' own Stata ``eventstudyinteract`` convention and is what
         the Stata parity module pins at machine precision. ``False``
@@ -442,6 +444,19 @@ def sun_abraham(
         cohort-by-relative-time cells, the covariates, and the levels of
         every fixed effect that is *not* nested in the cluster variable
         (with the default ``cluster=i`` that is the time effects only).
+    parity : {'stata', 'r'}, optional
+        Inference conventions of a reference program. The coefficients do
+        not change. ``None`` (default): normal critical values and the
+        share term carried. ``'stata'`` (``eventstudyinteract``, which
+        displays its IW table with t on ``e(df_r)``): Student t with
+        ``G - 1`` degrees of freedom for cluster-robust SEs and ``N - K``
+        for the HC1 SEs of ``i=None``, share term carried. ``'r'``
+        (``fixest::feols(y ~ sunab(g, t))``): the same t critical values
+        and ``share_variance=False``. An explicit ``share_variance`` that
+        contradicts the chosen program raises. On the castle-doctrine
+        panel both reproduce the reference intervals to 1e-12. The
+        pre-trend test is unchanged (Wald chi-squared). The convention
+        used is in ``model_info['conventions']``.
     alpha : float, default 0.05
         Significance level.
     pretest : {'joint', 'none'}, default 'joint'
@@ -513,6 +528,21 @@ def sun_abraham(
     event studies with heterogeneous treatment effects. *Journal of
     Econometrics*. [@sun2021estimating]
     """
+    parity = _crit.check_parity(parity, "sun_abraham")
+    if share_variance is None:
+        share_variance = parity != "r"
+    elif parity is not None and bool(share_variance) != (parity == "stata"):
+        raise MethodIncompatibility(
+            f"sun_abraham: share_variance={share_variance!r} contradicts "
+            f"parity={parity!r}. Stata eventstudyinteract carries the "
+            "cohort-share term (share_variance=True) and fixest::sunab "
+            "treats the shares as fixed (share_variance=False).",
+            recovery_hint=(
+                "Drop share_variance= (parity sets it), or drop parity= and "
+                "keep share_variance."
+            ),
+            diagnostics={"parity": parity, "share_variance": share_variance},
+        )
     df = data.copy()
 
     check_columns(
@@ -854,7 +884,16 @@ def sun_abraham(
         .sum()
         .items()
     }
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    # Critical values: normal by default; under parity='stata' / 'r' the
+    # t(G - 1) (cluster) or t(N - K) (HC1, i=None) that eventstudyinteract
+    # and fixest display.
+    crit_dist, crit_df = _crit.crit_spec(
+        parity,
+        clustered=cluster_col != "_sa_row",
+        n_clusters=n_clust,
+        df_resid=float(n - K),
+    )
+    z_crit = _crit.crit_value(alpha, crit_dist, crit_df)
 
     # Observation counts per relative time over the *estimated* cohorts
     # only — eventstudyinteract restricts the share regression to
@@ -932,7 +971,7 @@ def sun_abraham(
             )
         var_e = float(w @ V_int @ w) + float(beta_e @ var_share @ beta_e)
         se_e = float(np.sqrt(max(var_e, 0.0)))
-        pval = float(2 * stats.norm.sf(abs(est_e / se_e))) if se_e > 0 else 1.0
+        pval = _crit.two_sided_p(est_e / se_e, crit_dist, crit_df) if se_e > 0 else 1.0
 
         # Keep the linear combination and the share-variance block so the
         # pre-trend test below can build the JOINT covariance rather than
@@ -1049,7 +1088,7 @@ def sun_abraham(
     att, se_att, _ = summary_stats[aggregation_key]
 
     z = att / se_att if se_att > 0 else 0.0
-    pvalue = float(2 * stats.norm.sf(abs(z)))
+    pvalue = _crit.two_sided_p(z, crit_dist, crit_df)
     ci = (att - z_crit * se_att, att + z_crit * se_att)
 
     # The two post-treatment summaries answer different questions and differ
@@ -1110,6 +1149,9 @@ def sun_abraham(
         "dof_K": int(K),
         "dof_fe_not_nested": int(k_fe),
         "dof_convention": "fixest/reghdfe nested: (N-1)/(N-K) * G/(G-1)",
+        "conventions": _crit.conventions(
+            parity, crit_dist, crit_df, share_variance=bool(share_variance)
+        ),
     }
 
     _result = CausalResult(
@@ -1143,6 +1185,7 @@ def sun_abraham(
                 "cluster": cluster,
                 "aggregation": aggregation,
                 "share_variance": share_variance,
+                **({"parity": parity} if parity is not None else {}),
                 "alpha": alpha,
                 "anticipation": anticipation,
                 "ref_p": list(ref_periods),

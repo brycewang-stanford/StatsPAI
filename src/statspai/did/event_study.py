@@ -29,7 +29,7 @@ Trends." *American Economic Review: Insights*, 4(3), 305-322. [@roth2022pretest]
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -42,6 +42,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+from . import _crit
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
 RefPeriodSpec = Union[int, Tuple[str, int], Sequence[int]]
@@ -247,6 +248,7 @@ def event_study(
     expose_pre_vcov: bool = True,
     intensity: Optional[str] = None,
     absorb: Optional[Union[str, List[str]]] = None,
+    parity: Optional[Literal["r", "stata"]] = None,
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -329,6 +331,18 @@ def event_study(
         of the event-time coefficients is always available in
         ``model_info['vcov']`` / ``['vcov_full']`` regardless of this flag,
         and :func:`honest_did` reads it through :func:`event_study_vcov`.
+    parity : {'stata', 'r'}, optional
+        Critical-value convention for the p-values and confidence
+        intervals (the coefficients and standard errors do not change).
+        ``None`` (default) uses the normal distribution. ``'stata'``
+        (``reghdfe ..., vce(cluster)`` followed by ``invttail(e(df_r), .)``
+        or ``lincom``) and ``'r'`` (``fixest::feols`` with ``cluster =``)
+        both use Student t with ``G - 1`` degrees of freedom, ``G`` the
+        number of clusters; on the castle-doctrine and divorce panels the
+        intervals then equal Stata's and fixest's to 1e-13. The headline
+        ATT interval follows the same rule. The pre-trend test is a
+        cluster F(q, G-1) test under every setting, as Stata's ``test``.
+        The convention used is in ``model_info['conventions']``.
 
     Returns
     -------
@@ -366,6 +380,7 @@ def event_study(
     >>> bool(result.model_info['pretrend_test']['pvalue'] >= 0)
     True
     """
+    parity = _crit.check_parity(parity, "event_study")
     check_columns(
         data,
         {
@@ -598,12 +613,20 @@ def event_study(
         """Unambiguous bin label: a point period prints as-is."""
         return str(start) if start == end else f"[{start}, {end}]"
 
+    # Critical values: normal by default; under parity='stata' / 'r' the
+    # t(G - 1) of reghdfe and fixest with cluster-robust SEs (every fit
+    # here clusters, on ``cluster`` or on the unit).
+    n_clusters = len(np.unique(cluster_ids))
+    crit_dist, crit_df = _crit.crit_spec(
+        parity, clustered=True, n_clusters=n_clusters, df_resid=None
+    )
+    t_crit = _crit.crit_value(alpha, crit_dist, crit_df)
+
     es_rows = []
     for i, b in enumerate(est_bins):
         k_val = b[0]
         coef = float(beta[i])
         se_i = float(se[i])
-        t_crit = sp_stats.norm.ppf(1 - alpha / 2)
         es_rows.append(
             {
                 "relative_time": k_val,
@@ -621,7 +644,9 @@ def event_study(
                 "ci_lower": coef - t_crit * se_i,
                 "ci_upper": coef + t_crit * se_i,
                 "pvalue": (
-                    float(2 * sp_stats.norm.sf(abs(coef / se_i))) if se_i > 0 else 1.0
+                    _crit.two_sided_p(coef / se_i, crit_dist, crit_df)
+                    if se_i > 0
+                    else 1.0
                 ),
             }
         )
@@ -679,7 +704,6 @@ def event_study(
     # panel errors the reported pre-trend p-value was inconsistent with the
     # (cluster-robust) SEs printed next to it.
     pre_indices = [i for i, k_val in enumerate(rel_periods) if k_val < 0]
-    n_clusters = len(np.unique(cluster_ids))
     pretrend_result = _joint_wald_test(beta, vcov_event, pre_indices, n_clusters)
 
     # --- Overall ATT (average of post-treatment coefficients) ---
@@ -704,7 +728,7 @@ def event_study(
         att_se = float(np.sqrt(att_var)) if att_var > 0 else 0.0
     else:
         att_se = 0.0
-    att_p = float(2 * sp_stats.norm.sf(abs(att / att_se))) if att_se > 0 else 1.0
+    att_p = _crit.two_sided_p(att / att_se, crit_dist, crit_df) if att_se > 0 else 1.0
 
     _result = CausalResult(
         method=(
@@ -717,8 +741,8 @@ def event_study(
         se=att_se,
         pvalue=att_p,
         ci=(
-            att - sp_stats.norm.ppf(1 - alpha / 2) * att_se,
-            att + sp_stats.norm.ppf(1 - alpha / 2) * att_se,
+            att - t_crit * att_se,
+            att + t_crit * att_se,
         ),
         alpha=alpha,
         n_obs=n,
@@ -762,6 +786,7 @@ def event_study(
             "intensity": intensity,
             "absorb": absorb,
             "cluster_level": "unit" if cluster_var == unit else "other",
+            "conventions": _crit.conventions(parity, crit_dist, crit_df),
         },
     )
     try:
@@ -788,6 +813,7 @@ def event_study(
                 "weights": weights,
                 "intensity": intensity,
                 "absorb": absorb_terms or None,
+                **({"parity": parity} if parity is not None else {}),
             },
             data=data,
             overwrite=False,

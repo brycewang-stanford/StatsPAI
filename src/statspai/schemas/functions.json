@@ -30688,6 +30688,14 @@
           "type": "string",
           "x-statspai-source": "signature"
         },
+        "parity": {
+          "description": "Critical values of a reference program; estimates and SEs unchanged. None: t(N-K) always. 'stata' (regress, vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with cluster=, t(N-K) otherwise. Recorded in model_info['conventions'].",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": true,
           "description": "Heteroskedasticity-robust SE when no cluster provided",
@@ -30966,6 +30974,14 @@
           "x-canonical": "id",
           "x-statspai-role": "column"
         },
+        "parity": {
+          "description": "Inference conventions of a reference program; estimates unchanged. None: normal critical values, share term carried. 'stata' (eventstudyinteract): t(G-1) for cluster SEs, t(N-K) for the HC1 SEs of i=None, share term carried. 'r' (fixest sunab): the same t and share_variance=False. Recorded in model_info['conventions'].",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
         "pretest": {
           "default": "joint",
           "description": "Report the joint pre-trend Wald test ('joint') or skip it ('none').",
@@ -30994,8 +31010,7 @@
           "description": "Omitted reference relative period(s), fixest sunab's ref.p (int or list of int). Default -1 - anticipation; every value must be below -anticipation."
         },
         "share_variance": {
-          "default": true,
-          "description": "Carry the cohort-share estimation term of Sun & Abraham (2021, Prop. 3) in the event-study variance (True: Stata eventstudyinteract convention) or treat the interaction weights as fixed (False: fixest::sunab convention). The two coincide at single-cohort relative times; point estimates are unaffected.",
+          "description": "Carry the cohort-share estimation term of Sun & Abraham (2021, Prop. 3) in the event-study variance (True: Stata eventstudyinteract convention) or treat the interaction weights as fixed (False: fixest::sunab convention). The two coincide at single-cohort relative times; point estimates are unaffected. None (default) is True, or False under parity='r'.",
           "type": "boolean"
         },
         "t": {
@@ -32294,6 +32309,14 @@
         },
         "intensity": {
           "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
+          "type": "string"
+        },
+        "parity": {
+          "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: normal. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
+          "enum": [
+            "r",
+            "stata"
+          ],
           "type": "string"
         },
         "ref_period": {
@@ -57350,7 +57373,7 @@
           "type": "string"
         },
         "vcov": {
-          "description": "Variance-covariance estimator (``vce=`` is the canonical alias). - ``\"iid\"`` -- classical - ``\"HC1\"``, ``\"HC2\"``, ``\"HC3\"`` -- heteroskedasticity-robust - ``{\"CRV1\": \"firm\"}`` -- cluster-robust - ``{\"CRV1\": \"firm + year\"}`` -- two-way clustering - ``vce=\"CR2\"`` / ``\"CR3\"`` / ``\"jackknife\"`` (with ``cluster=``) -- Pustejovsky-Tipton bias-reduced cluster-robust on the FE-absorbed within design; matches R ``clubSandwich::vcovCR(plm)``. - ``vce=\"wild\"`` (with ``cluster=``) -- WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008); validated against Stata ``boottest``. - ``vce=\"conley\"`` (with ``conley_lat=/conley_lon=/conley_cutoff=``) -- Conley spatial HAC (Stata ``acreg`` planar-distance convention). - ``\"DK\"`` / ``\"NW\"`` with ``vcov_kwargs={'time_id': 't', 'panel_id': 'id', 'lag': L}`` -- Driscoll-Kraay / Newey-West panel HAC through pyfixest (R ``fixest`` ``DK(L)`` / ``NW(L)`` with ``panel.id = ~id + t``); without the ids they raise.",
+          "description": "Variance-covariance estimator (``vce=`` is the canonical alias). - ``\"iid\"`` -- classical - ``\"HC1\"``, ``\"HC2\"``, ``\"HC3\"`` -- heteroskedasticity-robust - ``{\"CRV1\": \"firm\"}`` -- cluster-robust - ``{\"CRV1\": \"firm + year\"}`` -- two-way clustering - other spellings of the same request give identical results: dict keys ``CL1`` / ``CR1`` / ``cluster`` (``CL3`` / ``CR3`` for CRV3), list values, and the strings ``\"cluster firm\"``, ``\"vce(cluster firm)\"``, ``\"cluster:firm\"``, ``\"cluster(firm)\"``, ``\"~firm\"``. An unknown spelling raises ``MethodIncompatibility``. - ``vce=\"CR2\"`` / ``\"CR3\"`` / ``\"jackknife\"`` (with ``cluster=``) -- Pustejovsky-Tipton bias-reduced cluster-robust on the FE-absorbed within design; matches R ``clubSandwich::vcovCR(plm)``. - ``vce=\"wild\"`` (with ``cluster=``) -- WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008); validated against Stata ``boottest``. - ``vce=\"conley\"`` (with ``conley_lat=/conley_lon=/conley_cutoff=``) -- Conley spatial HAC (Stata ``acreg`` planar-distance convention). - ``\"DK\"`` / ``\"NW\"`` with ``vcov_kwargs={'time_id': 't', 'panel_id': 'id', 'lag': L}`` -- Driscoll-Kraay / Newey-West panel HAC through pyfixest (R ``fixest`` ``DK(L)`` / ``NW(L)`` with ``panel.id = ~id + t``); without the ids they raise.",
           "type": "object",
           "x-aliases": [
             "vce"
