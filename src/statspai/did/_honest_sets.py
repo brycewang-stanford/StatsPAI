@@ -428,6 +428,7 @@ def restricted_table(
     grid_ub: Optional[float],
     grid_points: int,
     grid_expand: bool,
+    seed: int = 0,
 ):
     """Sensitivity table over ``m_grid`` for one restriction set.
 
@@ -460,6 +461,7 @@ def restricted_table(
                 grid_lb=grid_lb,
                 grid_ub=grid_ub,
                 max_expand=max_expand,
+                seed=seed,
             )
         else:
             lo, hi, grid, accept = rm_family_confidence_set(
@@ -478,6 +480,7 @@ def restricted_table(
                 grid_lb=grid_lb,
                 grid_ub=grid_ub,
                 max_expand=max_expand,
+                seed=seed,
             )
         if grid.size > grid_points:
             extended_at.append(float(m))

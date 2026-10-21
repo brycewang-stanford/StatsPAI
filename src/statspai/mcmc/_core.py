@@ -495,6 +495,9 @@ def design_for(design_info: Any, names: Sequence[str], data: Any) -> np.ndarray:
     if design_info is not None:
         from patsy import build_design_matrices
 
+        from ..core._formula_dtypes import float_generated_term_columns
+
+        data = float_generated_term_columns(data, design_info)
         return np.asarray(build_design_matrices([design_info], data)[0], dtype=float)
     cols = [c for c in names if c != "Intercept"]
     missing = [c for c in cols if c not in data.columns]

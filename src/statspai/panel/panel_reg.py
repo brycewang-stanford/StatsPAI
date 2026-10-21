@@ -639,10 +639,12 @@ def _expand_formula_terms(
         raise_if_formula_names_missing,
     )
 
-    frame = _coerce_string_extension_dtypes(data).copy()
+    build = [t for t in terms if not plain(t)]
+    frame = _coerce_string_extension_dtypes(
+        data, "1 + " + r_formula_idioms(" + ".join(build))
+    ).copy()
     if not frame.index.is_unique:
         frame = frame.reset_index(drop=True)
-    build = [t for t in terms if not plain(t)]
     try:
         design = dmatrix(
             "1 + " + r_formula_idioms(" + ".join(build)),

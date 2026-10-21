@@ -224,6 +224,9 @@ def conformal_regression(
 
     def design_of(frame: pd.DataFrame) -> np.ndarray:
         if design_info is not None:
+            from ..core._formula_dtypes import float_generated_term_columns
+
+            frame = float_generated_term_columns(frame, design_info)
             built = build_design_matrices([design_info], frame)[0]
             return np.asarray(built, dtype=float)
         cols = [c for c in X_df.columns if c != "Intercept"]

@@ -45,6 +45,7 @@ def _honest_did_r_backend(
     grid_points: int = 1000,
     bias_direction: Optional[str] = None,
     monotonicity_direction: Optional[str] = None,
+    seed: int = 0,
 ) -> pd.DataFrame:
     """Run the R HonestDiD reference implementation for CI parity.
 
@@ -179,6 +180,8 @@ str_or_null <- function(i) {
 }
 bias_dir <- str_or_null(12)
 mono_dir <- str_or_null(13)
+seed <- num_or_na(14)
+if (is.na(seed)) seed <- 0
 if (method %in% c("relative_magnitude", "smoothness_relative_magnitude")) {
   sens <- suppressWarnings(
     HonestDiD::createSensitivityResults_relativeMagnitudes(
@@ -199,7 +202,8 @@ if (method %in% c("relative_magnitude", "smoothness_relative_magnitude")) {
       alpha = alpha,
       grid.lb = grid_lb,
       grid.ub = grid_ub,
-      gridPoints = grid_points
+      gridPoints = grid_points,
+      seed = seed
     )
   )
   out <- data.frame(M = sens$Mbar, ci_lower = sens$lb, ci_upper = sens$ub)
@@ -215,7 +219,8 @@ if (method %in% c("relative_magnitude", "smoothness_relative_magnitude")) {
       method = honestdid_method,
       monotonicityDirection = mono_dir,
       biasDirection = bias_dir,
-      alpha = alpha
+      alpha = alpha,
+      seed = seed
     )
   )
   out <- data.frame(M = sens$M, ci_lower = sens$lb, ci_upper = sens$ub)
@@ -279,6 +284,7 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 str(_require_int(grid_points, argument="grid_points")),
                 bias or "",
                 mono or "",
+                str(int(seed)),
             ],
             check=False,
             capture_output=True,

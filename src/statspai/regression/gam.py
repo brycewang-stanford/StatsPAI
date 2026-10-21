@@ -402,6 +402,9 @@ class GAMResult(ResultProtocolMixin):
         from patsy import build_design_matrices
 
         if self._design_info is not None:
+            from ..core._formula_dtypes import float_generated_term_columns
+
+            data = float_generated_term_columns(data, self._design_info)
             P = np.asarray(
                 build_design_matrices([self._design_info], data)[0], dtype=float
             )

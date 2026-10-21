@@ -5,7 +5,7 @@ the largest ``M`` (or ``Mbar``) at which it still excludes zero.
 """
 
 import warnings
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 from scipy import stats
@@ -16,12 +16,15 @@ from ._arp_sets import rm_confidence_set
 from ._flci import breakdown_m_sd, event_study_moments
 from ._honest_common import (
     _HYBRID_OF_HM,
+    _coerce_l_vec,
+    _coerce_window,
     _extract_event_study,
     _require_alpha,
     _require_int,
     _require_string,
     _resolve_restriction,
     _rm_inputs,
+    _window_filter,
 )
 
 
@@ -33,12 +36,16 @@ def breakdown_m(
     honestdid_method: Optional[str] = None,
     bias_direction: Optional[str] = None,
     monotonicity_direction: Optional[str] = None,
+    l_vec: Optional[Any] = None,
+    window: Optional[Tuple[float, float]] = None,
+    seed: int = 0,
 ) -> float:
     """
     Compute the breakdown value of M.
 
     The breakdown M* is the largest violation magnitude under which
-    the treatment effect at relative time ``e`` remains statistically
+    the treatment effect at relative time ``e`` (or the target ``l_vec``,
+    e.g. the average post-treatment effect) remains statistically
     significant. Larger M* = more robust.
 
     Parameters
@@ -67,6 +74,19 @@ def breakdown_m(
         Shape restriction on the violation (HonestDiD's
         ``monotonicityDirection``), as in :func:`honest_did`. Needs the joint
         event-study covariance.
+    l_vec : sequence of float or ``'average'``, optional
+        Target ``l' tau_post`` instead of the single period ``e``, with the
+        meaning it has in ``honest_did``. One weight per post-treatment event
+        time of the (windowed) event study, in increasing order; ``'average'``
+        is the mean of the post-treatment effects (HonestDiD's ``l_vec``).
+        ``e`` is ignored when given.
+    window : tuple of (lo, hi), optional
+        Use only the event times with ``lo <= t <= hi``, as in
+        :func:`honest_did`.
+    seed : int, default 0
+        Seed of the simulated first-stage critical value of the ``'C-LF'``
+        hybrid (1,000 draws, HonestDiD's ``seed`` and default), so the value
+        is the same on every run. Other methods do not simulate.
 
     Returns
     -------
@@ -147,7 +167,9 @@ def breakdown_m(
     """
     e = _require_int(e, argument="e")
     alpha = _require_alpha(alpha)
+    seed = _require_int(seed, argument="seed")
     method = _require_string(method, argument="method")
+    win = _coerce_window(window)
     family, hm, bias, mono = _resolve_restriction(
         method, honestdid_method, bias_direction, monotonicity_direction
     )
@@ -162,17 +184,41 @@ def breakdown_m(
         )
         bias = mono = None
     es = _extract_event_study(result)
+    if win is not None:
+        es = es[(es["relative_time"] >= win[0]) & (es["relative_time"] <= win[1])]
+    moments = _window_filter(event_study_moments(result), win)
 
-    target = es[es["relative_time"] == e]
-    if len(target) == 0:
-        raise DataInsufficient(
-            f"No estimate at relative time e={e}",
-            recovery_hint="Choose an `e` value present in the event-study table.",
-            diagnostics={"e": e, "available": es["relative_time"].tolist()},
-        )
-
-    theta = float(target["att"].iloc[0])
-    se = float(target["se"].iloc[0])
+    lv: Optional[np.ndarray] = None
+    if l_vec is not None:
+        # The target of honest_did(l_vec=...): l' tau_post.
+        if moments is not None:
+            post_t = moments[2][moments[2] >= 0]
+        else:
+            post_t = np.sort(
+                es.loc[es["relative_time"] >= 0, "relative_time"].to_numpy(dtype=int)
+            )
+        lv = _coerce_l_vec(l_vec, post_t)
+        if moments is not None:
+            b_all, S_all, t_all = moments
+            pm = t_all >= 0
+            theta = float(lv @ b_all[pm])
+            se = float(np.sqrt(lv @ S_all[np.ix_(pm, pm)] @ lv))
+        else:
+            post_es = es[es["relative_time"] >= 0].sort_values("relative_time")
+            theta = float(lv @ post_es["att"].to_numpy(dtype=float))
+            se = float(np.sqrt(lv**2 @ post_es["se"].to_numpy(dtype=float) ** 2))
+        # the worst-case fallback drifts to the furthest weighted period
+        e = int(post_t[np.flatnonzero(lv != 0)].max())
+    else:
+        target = es[es["relative_time"] == e]
+        if len(target) == 0:
+            raise DataInsufficient(
+                f"No estimate at relative time e={e}",
+                recovery_hint="Choose an `e` value present in the event-study table.",
+                diagnostics={"e": e, "available": es["relative_time"].tolist()},
+            )
+        theta = float(target["att"].iloc[0])
+        se = float(target["se"].iloc[0])
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     plain_rm_clf = family == "rm" and bias is None and mono is None and hm == "C-LF"
@@ -180,17 +226,16 @@ def breakdown_m(
         # Every set other than the two defaults (the FLCI under smoothness,
         # C-LF under relative magnitudes), which keep their original paths.
         return _breakdown_restricted(
-            _rm_inputs(event_study_moments(result), e), family, hm, bias, mono, alpha
+            _rm_inputs(moments, e, lv), family, hm, bias, mono, alpha, seed=seed
         )
 
     if family == "smoothness":
-        moments = event_study_moments(result)
         if moments is not None:
             beta, sigma, times = moments
             post_mask = times >= 0
             n_pre = int((~post_mask).sum())
             post_times = times[post_mask]
-            if n_pre >= 1 and e in set(post_times.tolist()):
+            if n_pre >= 1 and (lv is not None or e in set(post_times.tolist())):
                 order = np.concatenate(
                     [np.where(~post_mask)[0], np.where(post_mask)[0]]
                 )
@@ -199,7 +244,7 @@ def breakdown_m(
                     sigma[np.ix_(order, order)],
                     n_pre=n_pre,
                     n_post=int(post_mask.sum()),
-                    l_post=(post_times == e).astype(float),
+                    l_post=(post_times == e).astype(float) if lv is None else lv,
                     alpha=alpha,
                 )
         warnings.warn(
@@ -215,9 +260,9 @@ def breakdown_m(
         # M* such that |theta| - M* x n_drift - z x SE = 0
         return float(max((abs(theta) - z_crit * se) / n_drift, 0.0))
 
-    inputs = _rm_inputs(event_study_moments(result), e)
+    inputs = _rm_inputs(moments, e, lv)
     if inputs is not None:
-        return _breakdown_rm(*inputs, alpha=alpha)
+        return _breakdown_rm(*inputs, alpha=alpha, seed=seed)
 
     warnings.warn(
         "breakdown_m(method='relative_magnitude'): the event-study covariance "
@@ -279,6 +324,7 @@ def _breakdown_rm(
     *,
     alpha: float,
     tol: float = 1e-3,
+    seed: int = 0,
 ) -> float:
     """First Mbar at which the C-LF Delta^RM set contains zero.
 
@@ -294,7 +340,15 @@ def _breakdown_rm(
 
     def excludes_zero(m_bar: float) -> bool:
         lo, hi, _, _ = rm_confidence_set(
-            b, s, n_pre, n_post, m_bar, l_vec=l_post, alpha=alpha, method="C-LF"
+            b,
+            s,
+            n_pre,
+            n_post,
+            m_bar,
+            l_vec=l_post,
+            alpha=alpha,
+            method="C-LF",
+            seed=seed,
         )
         return _excludes_zero(lo, hi)
 
@@ -308,6 +362,7 @@ def _breakdown_restricted(
     bias: Optional[str],
     mono: Optional[str],
     alpha: float,
+    seed: int = 0,
 ) -> float:
     """Breakdown value of the test-inverted sets of :mod:`._honest_sets`.
 
@@ -375,6 +430,7 @@ def _breakdown_restricted(
                 hybrid=hybrid,
                 bias=bias,
                 mono=mono,
+                seed=seed,
                 max_expand=10,
             )
             return _outside(m, lo, hi)
@@ -396,6 +452,7 @@ def _breakdown_restricted(
             base=family,
             bias=bias,
             mono=mono,
+            seed=seed,
             max_expand=10,
         )
         return _outside(m_bar, lo, hi)

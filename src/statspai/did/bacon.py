@@ -48,18 +48,25 @@ class BaconDecompositionResult(DictResult):
 
 def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
     """Total weight and weight-averaged estimate of each comparison type."""
-    columns = ["type", "n_comparisons", "weight", "estimate"]
+    columns = ["type", "n_comparisons", "weight", "estimate", "comparison_class"]
     if len(decomp) == 0:
         return pd.DataFrame(columns=columns)
+    labelled = _label_comparisons(decomp)
     rows = []
-    for kind, part in decomp.groupby("type", sort=False):
+    for kind, part in labelled.groupby("type", sort=False):
         weight = float(part["weight"].sum())
         average = (
             float((part["weight"] * part["estimate"]).sum() / weight)
             if weight != 0
             else float("nan")
         )
-        rows.append((kind, len(part), weight, average))
+        classes = set(part["comparison_class"]) - {"covariates_only"}
+        label = (
+            classes.pop()
+            if len(classes) == 1
+            else ("mixed" if classes else "covariates_only")
+        )
+        rows.append((kind, len(part), weight, average, label))
     return pd.DataFrame(rows, columns=columns)
 
 
@@ -74,6 +81,7 @@ def bacon_decomposition(
     alpha: float = 0.05,
     balance: str = "error",
     covariates: Optional[List[str]] = None,
+    weights: Optional[str] = None,
 ) -> "BaconDecompositionResult":
     """
     Goodman-Bacon (2021) decomposition of the TWFE DID estimator.
@@ -113,6 +121,14 @@ def bacon_decomposition(
         ``'Both Treated'`` or ``'Later vs Always Treated'`` as in R
         ``bacondecomp``; the result adds ``omega``, ``beta_within`` and
         ``beta_between``.
+    weights : str, optional
+        Column of sampling (analytic) weights, e.g. state population. The
+        weight must be positive and constant within each unit. The
+        decomposition is then that of the weighted TWFE coefficient
+        (``sp.feols(..., weights=)``, Stata ``bacondecomp ... [aw=w]``):
+        timing-group shares become weight shares and every 2x2 estimate
+        and its weight become the weighted ones (see Notes). Works with
+        and without ``covariates``.
 
     Returns
     -------
@@ -122,11 +138,21 @@ def bacon_decomposition(
         Keys:
         - ``beta_twfe``: overall TWFE estimate
         - ``decomposition``: pd.DataFrame with columns
-          [type, treated, control, estimate, weight]
+          [type, treated, control, estimate, weight, comparison_class,
+          is_forbidden]. ``comparison_class`` is ``'clean'`` (treated vs
+          never treated, earlier vs later treated), ``'forbidden'``
+          (already-treated units as the control: later vs earlier
+          treated, later vs always treated) or, with ``covariates``,
+          ``'mixed'`` for a ``'Both Treated'`` pair (it pools the clean
+          earlier-vs-later and the forbidden later-vs-earlier 2x2) and
+          ``'covariates_only'`` for the always-treated vs never-treated
+          pair, which has no 2x2 variation. ``is_forbidden`` is True for
+          ``'forbidden'`` rows only.
         - ``summary``: pd.DataFrame with one row per comparison type
-          [type, n_comparisons, weight, estimate]: the total weight of the
-          type and the weight-averaged 2×2 estimate within it, the summary
-          rows of Stata ``estat bdecomp`` and ``bacondecomp``
+          [type, n_comparisons, weight, estimate, comparison_class]: the
+          total weight of the type and the weight-averaged 2×2 estimate
+          within it, the summary rows of Stata ``estat bdecomp`` and
+          ``bacondecomp``
         - ``weighted_sum``: Σ(weight × estimate) — equals beta_twfe
           under the same dyad conventions as R ``bacondecomp`` and Stata
           ``bacondecomp``
@@ -137,6 +163,7 @@ def bacon_decomposition(
           ``already_treated_control_weight_share``.
         - ``n_units``: units decomposed; ``dropped_units``: the units
           ``balance='drop_units'`` removed (empty otherwise).
+        - ``weights``: the weight column, or None.
 
     Examples
     --------
@@ -175,14 +202,42 @@ def bacon_decomposition(
     relying heavily on comparisons with already-treated controls, so a
     heterogeneity-robust estimator (C&S, Sun-Abraham) should be used.
 
+    **Weights.** With a weight ``w_i`` that is constant within unit ``i``
+    on a balanced panel, weighted two-way demeaning is exact:
+    ``x_it - xbar_i - xbar^w_t + xbar^w``, where ``xbar_i`` is the unit's
+    time mean and ``xbar^w_t`` / ``xbar^w`` are ``w``-weighted means
+    across units (the residual is orthogonal to the unit and the period
+    dummies in the ``w``-weighted inner product). So the weighted TWFE
+    coefficient is ``sum w d~ y~ / sum w d~^2`` and Theorem 1 goes through
+    with every group size ``n_k`` replaced by the group's total weight,
+    every group mean by the weighted mean, and every 2x2 estimate by the
+    weighted 2x2 on the same window. An integer weight is the same as
+    repeating the unit that many times, so the weighted table equals the
+    unweighted table of the replicated panel; the identity
+    ``beta_twfe = sum(weight * estimate)`` holds exactly. With
+    ``covariates`` the same replacement applies to every mean, variance
+    and least-squares fit of the Section 5 decomposition (the
+    Frisch-Waugh-Lovell step is a weighted projection), and
+    ``beta_twfe = omega * beta_within + (1 - omega) * beta_between``
+    still holds exactly. ``tests/test_bacon_weights.py`` checks both
+    identities against ``sp.feols(..., weights=)`` and the replication
+    equivalence.
+
     See Goodman-Bacon (2021, *JEcon*), Theorem 1.
     """
     check_columns(
         data,
-        {"y": y, "treat": treat, "time": time, "id": id},
+        {"y": y, "treat": treat, "time": time, "id": id, "weights": weights},
         function="sp.bacon_decomposition",
     )
     df = data.copy()
+    # float32 columns (a .dta float) would keep the means and sums below in
+    # single precision: the identity beta_twfe = sum(weight * estimate)
+    # then failed by 2e-7 on Goodman-Bacon's divorce data.
+    for col in (y, treat, weights):
+        if col is not None and pd.api.types.is_float_dtype(df[col]):
+            if df[col].dtype != np.float64:
+                df[col] = df[col].astype(np.float64)
     if balance not in ("error", "drop_units"):
         raise MethodIncompatibility(
             f"balance={balance!r}; use 'error' or 'drop_units'.",
@@ -190,7 +245,7 @@ def bacon_decomposition(
         )
     dropped_units: list = []
     if balance == "drop_units":
-        df = df.dropna(subset=[y, treat, time, id])
+        df = df.dropna(subset=[y, treat, time, id] + ([weights] if weights else []))
         n_periods = df[time].nunique()
         per_unit = df.groupby(id)[time].nunique()
         dup = df.duplicated(subset=[id, time])
@@ -225,6 +280,9 @@ def bacon_decomposition(
             alternative_functions=["sp.callaway_santanna", "sp.sun_abraham"],
         )
 
+    if weights is not None:
+        _validate_unit_weights(df, weights, id)
+
     time_periods = sorted(df[time].unique())
     time_min = min(time_periods)
 
@@ -245,11 +303,11 @@ def bacon_decomposition(
 
     if covariates:
         return _decompose_with_controls(
-            df, y, treat, time, id, list(covariates), dropped_units
+            df, y, treat, time, id, list(covariates), dropped_units, weights
         )
 
     # Overall TWFE estimate (for reference)
-    beta_twfe = _twfe_estimate(df, y, treat, time, id)
+    beta_twfe = _twfe_estimate(df, y, treat, time, id, weights)
 
     # Enumerate all 2×2 comparisons
     comparisons = []
@@ -270,12 +328,17 @@ def bacon_decomposition(
                 continue
 
             wt = _bacon_weight(
-                data_pair, treat, "_treat_time", treated_group, untreated_group
+                data_pair,
+                treat,
+                "_treat_time",
+                treated_group,
+                untreated_group,
+                weights,
             )
             if not np.isfinite(wt) or abs(wt) < 1e-15:
                 continue
 
-            est = _twfe_estimate(data_pair, y, treat, time, id)
+            est = _twfe_estimate(data_pair, y, treat, time, id, weights)
 
             if untreated_group == never_treated:
                 comp_type = "Treated vs Untreated"
@@ -306,7 +369,7 @@ def bacon_decomposition(
         return BaconDecompositionResult(
             {
                 "beta_twfe": beta_twfe,
-                "decomposition": decomp,
+                "decomposition": _label_comparisons(decomp),
                 "summary": _summary_by_type(decomp),
                 "weighted_sum": 0.0,
                 "n_comparisons": 0,
@@ -314,6 +377,7 @@ def bacon_decomposition(
                 "already_treated_control_weight_share": 0.0,
                 "n_units": int(df[id].nunique()),
                 "dropped_units": dropped_units,
+                "weights": weights,
             }
         )
 
@@ -343,7 +407,7 @@ def bacon_decomposition(
     return BaconDecompositionResult(
         {
             "beta_twfe": beta_twfe,
-            "decomposition": decomp,
+            "decomposition": _label_comparisons(decomp),
             "summary": _summary_by_type(decomp),
             "weighted_sum": weighted_sum,
             "n_comparisons": len(decomp),
@@ -351,6 +415,7 @@ def bacon_decomposition(
             "already_treated_control_weight_share": forbidden_share,
             "n_units": int(df[id].nunique()),
             "dropped_units": dropped_units,
+            "weights": weights,
         }
     )
 
@@ -363,6 +428,7 @@ def _decompose_with_controls(
     id: str,
     covariates: List[str],
     dropped_units: list,
+    unit_weights: Optional[str] = None,
 ) -> "BaconDecompositionResult":
     from ._bacon_controls import bacon_with_controls, twfe_with_controls
 
@@ -375,6 +441,7 @@ def _decompose_with_controls(
         id=id,
         covariates=covariates,
         treat_time="_treat_time",
+        weights=unit_weights,
     )
     decomp = out["decomposition"]
     weights = decomp["weight"] if len(decomp) else pd.Series(dtype=float)
@@ -382,8 +449,10 @@ def _decompose_with_controls(
     abs_total = float(weights.abs().sum())
     return BaconDecompositionResult(
         {
-            "beta_twfe": twfe_with_controls(df, y, treat, time, id, covariates),
-            "decomposition": decomp,
+            "beta_twfe": twfe_with_controls(
+                df, y, treat, time, id, covariates, unit_weights
+            ),
+            "decomposition": _label_comparisons(decomp),
             "summary": _summary_by_type(decomp),
             "weighted_sum": out["weighted_sum"],
             "n_comparisons": len(decomp),
@@ -401,6 +470,7 @@ def _decompose_with_controls(
             ),
             "n_units": int(df[id].nunique()),
             "dropped_units": dropped_units,
+            "weights": unit_weights,
         }
     )
 
@@ -411,8 +481,11 @@ def _twfe_estimate(
     treat: str,
     time: str,
     id_col: str,
+    weights: Optional[str] = None,
 ) -> float:
     """Standard TWFE DID regression: Y_it = α_i + γ_t + β·D_it + ε_it."""
+    if weights is not None:
+        return _weighted_twfe_estimate(df, y, treat, time, id_col, weights)
     # Demean by unit and time (within transformation)
     panel = df.set_index([id_col, time])
     Y = panel[y].unstack()
@@ -441,6 +514,111 @@ def _twfe_estimate(
 
     beta = float(np.sum(d_flat[valid] * y_flat[valid]) / np.sum(d_flat[valid] ** 2))
     return beta
+
+
+def _weighted_twfe_estimate(
+    df: pd.DataFrame,
+    y: str,
+    treat: str,
+    time: str,
+    id_col: str,
+    weights: str,
+) -> float:
+    """Weighted TWFE coefficient, unit-constant weights, balanced panel.
+
+    ``x_it - xbar_i - xbar^w_t + xbar^w`` is the exact residual of the
+    ``w``-weighted projection on unit and period dummies when ``w`` is
+    constant within unit: ``xbar_i`` is the unit's plain time mean and the
+    period and grand means are ``w``-weighted across units.
+    """
+    panel = df.set_index([id_col, time])
+    Y = panel[y].unstack().to_numpy(dtype=float)
+    D = panel[treat].unstack().to_numpy(dtype=float)
+    w = panel[weights].unstack().to_numpy(dtype=float)[:, 0]
+    sw = w.sum()
+
+    def demean(M: np.ndarray) -> np.ndarray:
+        row = M.mean(axis=1, keepdims=True)
+        col = (w[:, None] * M).sum(axis=0, keepdims=True) / sw
+        return M - row - col + float(w @ row[:, 0]) / sw
+
+    y_dm = demean(Y)
+    d_dm = demean(D)
+    den = float(np.sum(w[:, None] * d_dm**2))
+    if den < 1e-12 * sw * D.shape[1]:
+        return 0.0
+    return float(np.sum(w[:, None] * d_dm * y_dm) / den)
+
+
+def _validate_unit_weights(df: pd.DataFrame, weights: str, id_col: str) -> None:
+    """Weights must be positive, finite and constant within unit."""
+    if not pd.api.types.is_numeric_dtype(df[weights]):
+        raise MethodIncompatibility(
+            f"bacon_decomposition: weights column {weights!r} is not numeric.",
+            recovery_hint="Pass a numeric column of positive weights.",
+            diagnostics={"weights": weights, "dtype": str(df[weights].dtype)},
+        )
+    w = df[weights].to_numpy(dtype=float)
+    if not np.isfinite(w).all() or (w <= 0).any():
+        raise MethodIncompatibility(
+            f"bacon_decomposition: weights column {weights!r} must be "
+            "positive and finite in every row.",
+            recovery_hint=(
+                "Drop the units with a zero, negative or missing weight "
+                "before decomposing; a zero weight removes the unit from the "
+                "weighted TWFE regression."
+            ),
+            diagnostics={
+                "n_nonpositive": int((w <= 0).sum()),
+                "n_nonfinite": int((~np.isfinite(w)).sum()),
+            },
+        )
+    spread = df.groupby(id_col)[weights].agg(lambda v: float(v.max() - v.min()))
+    scale = df.groupby(id_col)[weights].agg(lambda v: float(v.abs().max()))
+    varying = spread.index[spread > 1e-12 * scale]
+    if len(varying):
+        raise MethodIncompatibility(
+            f"bacon_decomposition: weights column {weights!r} varies within "
+            f"{len(varying)} unit(s), e.g. {varying[0]!r}. The decomposition "
+            "holds for a weight that is constant within each unit (weighted "
+            "two-way demeaning is exact only then).",
+            recovery_hint=(
+                "Fix each unit's weight at one value, e.g. its first-period "
+                "value: df['w0'] = df.sort_values(time).groupby(id)[w]"
+                ".transform('first'), and pass weights='w0'."
+            ),
+            diagnostics={
+                "n_units_varying": int(len(varying)),
+                "example_unit": varying[0],
+            },
+        )
+
+
+#: The comparisons that use already-treated units as the control group.
+_FORBIDDEN_TYPES = frozenset({"Later vs Earlier Treated", "Later vs Always Treated"})
+
+
+def _comparison_class(row: pd.Series) -> str:
+    kind = row["type"]
+    if kind in _FORBIDDEN_TYPES:
+        return "forbidden"
+    if kind == "Both Treated":
+        return "mixed"
+    if "beta_2x2" in row.index and not np.isfinite(row["beta_2x2"]):
+        return "covariates_only"
+    return "clean"
+
+
+def _label_comparisons(decomp: pd.DataFrame) -> pd.DataFrame:
+    """Add ``comparison_class`` and ``is_forbidden`` to the 2x2 table."""
+    decomp = decomp.copy()
+    if len(decomp) == 0:
+        decomp["comparison_class"] = pd.Series(dtype=object)
+        decomp["is_forbidden"] = pd.Series(dtype=bool)
+        return decomp
+    decomp["comparison_class"] = decomp.apply(_comparison_class, axis=1)
+    decomp["is_forbidden"] = decomp["comparison_class"].eq("forbidden")
+    return decomp
 
 
 def _validate_monotone_treatment(
@@ -496,11 +674,25 @@ def _bacon_weight(
     treat_time: str,
     treated_group: float,
     untreated_group: float,
+    weights: Optional[str] = None,
 ) -> float:
-    """Uncontrolled Goodman-Bacon weight used by R/Stata bacondecomp."""
+    """Uncontrolled Goodman-Bacon weight used by R/Stata bacondecomp.
+
+    With ``weights`` the group sizes are the groups' total weights (the
+    shares of Theorem 1 become weight shares); the treatment shares
+    ``D_k`` are unchanged, since every unit of a timing group has the same
+    treatment path.
+    """
+
+    def size(group: float) -> float:
+        rows = data_pair[treat_time] == group
+        if weights is None:
+            return float(rows.sum())
+        return float(data_pair.loc[rows, weights].sum())
+
     if untreated_group == np.inf:
-        n_u = float((data_pair[treat_time] == untreated_group).sum())
-        n_k = float((data_pair[treat_time] == treated_group).sum())
+        n_u = size(untreated_group)
+        n_k = size(treated_group)
         if n_k + n_u == 0:
             return 0.0
         n_ku = n_k / (n_k + n_u)
@@ -509,8 +701,8 @@ def _bacon_weight(
         return float((n_k + n_u) ** 2 * V_ku)
 
     if treated_group < untreated_group:
-        n_k = float((data_pair[treat_time] == treated_group).sum())
-        n_l = float((data_pair[treat_time] == untreated_group).sum())
+        n_k = size(treated_group)
+        n_l = size(untreated_group)
         if n_k + n_l == 0:
             return 0.0
         n_kl = n_k / (n_k + n_l)
@@ -524,8 +716,8 @@ def _bacon_weight(
         V_kl = n_kl * (1 - n_kl) * (D_k - D_l) / denom * (1 - D_k) / denom
         return float(((n_k + n_l) * denom) ** 2 * V_kl)
 
-    n_k = float((data_pair[treat_time] == untreated_group).sum())
-    n_l = float((data_pair[treat_time] == treated_group).sum())
+    n_k = size(untreated_group)
+    n_l = size(treated_group)
     if n_k + n_l == 0:
         return 0.0
     n_kl = n_k / (n_k + n_l)

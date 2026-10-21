@@ -961,6 +961,7 @@
       "additional_tests": [
         "tests/external_parity/test_did_paper_gallery.py",
         "tests/reference_parity/test_bacon_controls_R_parity.py",
+        "tests/reference_parity/test_bacon_weights_Stata_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_did_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
@@ -2587,6 +2588,7 @@
       "additional_tests": [
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_honest_breakdown_R_parity.py",
+        "tests/reference_parity/test_honest_breakdown_lvec_R.py",
         "tests/reference_parity/test_honest_breakdown_rm_clf_R.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
@@ -9811,6 +9813,7 @@
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_did_imputation_pretrend_vcov_Stata_parity.py",
         "tests/reference_parity/test_honest_breakdown_R_parity.py",
+        "tests/reference_parity/test_honest_breakdown_lvec_R.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_did_moments_R_parity.py",

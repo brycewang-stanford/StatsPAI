@@ -81,6 +81,32 @@ No default number changes.
 
 ---
 
+## 1.39.6 → unreleased: ⚠️ integer columns inside generated formula terms; new `sp.bacon_decomposition` columns; `sp.honest_did` attrs
+
+- A formula term that computes on an integer column (`I(x**3)`,
+  `np.power(x, 2)`) is now evaluated in float64. Results change only
+  where the integer arithmetic overflowed (e.g. a cube of an `int32` /
+  `int64` population in the millions), which used to give a wrong
+  coefficient silently. Elsewhere the design matrix is the same up to
+  the last bit. Columns used inside `C(...)` stay integers, so level
+  names such as `C(g)[T.2]` do not change. To get the old behaviour
+  there is no switch; it was a bug.
+- `sp.bacon_decomposition` reads float32 outcome / treatment / weight
+  columns in float64. On float32 data (a Stata `float`) the 2x2
+  estimates and weights move in the seventh significant digit, toward
+  Stata's; float64 data give the same numbers as before.
+- `sp.bacon_decomposition(...)['decomposition']` has two new columns,
+  `comparison_class` and `is_forbidden`, and the `summary` table has
+  `comparison_class`. Code that selects columns by name is unaffected;
+  code that compares the whole column list should add them.
+- `sp.honest_did` tables carry new `attrs` (`simulated_cv`, `seed`,
+  `lf_draws`, `next_steps`, and `breakdown_m` for the FLCI). The table
+  columns and numbers are unchanged. The FLCI path now also computes the
+  breakdown value (about half the time of the table); pass
+  `breakdown=False` to skip it.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
 
 - `sp.rlasso_iv(select_Z=True, select_X=False)` now keeps an intercept in

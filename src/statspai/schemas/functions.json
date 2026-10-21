@@ -32064,6 +32064,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "weights": {
+          "description": "Column of sampling weights (e.g. population), positive and constant within each unit: decomposes the weighted TWFE coefficient (sp.feols(..., weights=), Stata bacondecomp [aw=w]); group shares become weight shares and every 2x2 estimate and weight the weighted one. Works with covariates",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "y": {
           "description": "Outcome variable.",
           "type": "string",
@@ -37438,6 +37443,10 @@
           ],
           "type": "string"
         },
+        "breakdown": {
+          "description": "Also compute the breakdown value (:func:`breakdown_m` for the same target, restriction and method) and store it in ``attrs['breakdown_m']``. ``None`` (default) does so when it is cheap, that is for the FLCI (the default under ``'smoothness'``), where it costs about half of the table; the test-inverted sets (C-LF, Conditional, C-F) need a scan in ``M`` that takes 2 to 6 times as long as the table, so there pass ``breakdown=True`` or call :func:`breakdown_m`. Native backend only.",
+          "type": "boolean"
+        },
         "e": {
           "default": 0,
           "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
@@ -37504,6 +37513,11 @@
           "description": "A fitted DID result that contains event study estimates in ``result.model_info['event_study']``.",
           "type": "string"
         },
+        "seed": {
+          "default": 0,
+          "description": "Seed of the simulated first-stage critical value of the ``'C-LF'`` hybrid, the default for the relative-magnitude families (1,000 multivariate-normal draws; HonestDiD's ``seed`` argument and default). A fixed seed makes every run give the same interval. The draws are NumPy's, not R's or Stata's, so the C-LF bounds differ from HonestDiD / ``honestdid`` by that Monte Carlo error (typically in the third decimal). ``honestdid_method='Conditional'`` (and the FLCI and ``'C-F'``) use no simulation: their critical values are exact and match HonestDiD's grid point by point. ``backend='r'`` passes the seed to HonestDiD.",
+          "type": "integer"
+        },
         "window": {
           "description": "Use only the event times with ``lo <= t <= hi`` (inclusive; must straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata ``estat event, window(-5 5)``. The leads outside the window no longer calibrate the restriction. Both backends.",
           "items": {
@@ -37543,6 +37557,10 @@
         "bias_direction": {
           "description": "Sign or shape restriction on the violation, as in :func:`honest_did` (HonestDiD's ``biasDirection`` / ``monotonicityDirection``).",
           "type": "string"
+        },
+        "breakdown": {
+          "description": "Store the breakdown value in ``attrs['breakdown_m']``, as in :func:`honest_did`.",
+          "type": "boolean"
         },
         "e": {
           "default": 0,
@@ -37605,6 +37623,11 @@
         },
         "num_pre_periods": {
           "description": "Number of leading pre-treatment coefficients when ``event_times`` is omitted.",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed of the simulated C-LF critical value, as in :func:`honest_did`.",
           "type": "integer"
         },
         "sigma": {
@@ -37674,6 +37697,10 @@
           ],
           "type": "string"
         },
+        "l_vec": {
+          "description": "Target ``l' tau_post`` instead of the single period ``e``, with the meaning it has in ``honest_did``. One weight per post-treatment event time of the (windowed) event study, in increasing order; ``'average'`` is the mean of the post-treatment effects (HonestDiD's ``l_vec``). ``e`` is ignored when given.",
+          "type": "string"
+        },
         "method": {
           "default": "smoothness",
           "description": "The restriction whose confidence set is inverted, as in :func:`honest_did`: ``'smoothness'``, ``'relative_magnitude'`` or ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``: HonestDiD's \"deviation from linear trend\", ``Delta^SDRM``; needs two or more pre-periods).",
@@ -37695,6 +37722,18 @@
         "result": {
           "description": "DID result with event study.",
           "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed of the simulated first-stage critical value of the ``'C-LF'`` hybrid (1,000 draws, HonestDiD's ``seed`` and default), so the value is the same on every run. Other methods do not simulate.",
+          "type": "integer"
+        },
+        "window": {
+          "description": "Use only the event times with ``lo <= t <= hi``, as in :func:`honest_did`.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
         }
       },
       "required": [

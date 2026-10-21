@@ -70529,6 +70529,11 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "weights": {
+            "description": "Column of sampling weights (e.g. population), positive and constant within each unit: decomposes the weighted TWFE coefficient (sp.feols(..., weights=), Stata bacondecomp [aw=w]); group shares become weight shares and every 2x2 estimate and weight the weighted one. Works with covariates",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "y": {
             "description": "Outcome variable.",
             "type": "string",
@@ -70553,6 +70558,7 @@
       "Cross-language parity (bit-exact) vs bacondecomp::bacon [R version 4.5.2 (2025-10-31), bacondecomp 0.1.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 20_bacon -- tests/r_parity/20_bacon.py",
       "tests/external_parity/test_did_paper_gallery.py",
       "tests/reference_parity/test_bacon_controls_R_parity.py",
+      "tests/reference_parity/test_bacon_weights_Stata_parity.py",
       "tests/reference_parity/test_castle_stata_parity.py",
       "tests/reference_parity/test_did_parity.py"
     ],
@@ -82089,6 +82095,10 @@
             ],
             "type": "string"
           },
+          "breakdown": {
+            "description": "Also compute the breakdown value (:func:`breakdown_m` for the same target, restriction and method) and store it in ``attrs['breakdown_m']``. ``None`` (default) does so when it is cheap, that is for the FLCI (the default under ``'smoothness'``), where it costs about half of the table; the test-inverted sets (C-LF, Conditional, C-F) need a scan in ``M`` that takes 2 to 6 times as long as the table, so there pass ``breakdown=True`` or call :func:`breakdown_m`. Native backend only.",
+            "type": "boolean"
+          },
           "e": {
             "default": 0,
             "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
@@ -82154,6 +82164,11 @@
           "result": {
             "description": "A fitted DID result that contains event study estimates in ``result.model_info['event_study']``.",
             "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed of the simulated first-stage critical value of the ``'C-LF'`` hybrid, the default for the relative-magnitude families (1,000 multivariate-normal draws; HonestDiD's ``seed`` argument and default). A fixed seed makes every run give the same interval. The draws are NumPy's, not R's or Stata's, so the C-LF bounds differ from HonestDiD / ``honestdid`` by that Monte Carlo error (typically in the third decimal). ``honestdid_method='Conditional'`` (and the FLCI and ``'C-F'``) use no simulation: their critical values are exact and match HonestDiD's grid point by point. ``backend='r'`` passes the seed to HonestDiD.",
+            "type": "integer"
           },
           "window": {
             "description": "Use only the event times with ``lo <= t <= hi`` (inclusive; must straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata ``estat event, window(-5 5)``. The leads outside the window no longer calibrate the restriction. Both backends.",
@@ -82292,6 +82307,10 @@
             ],
             "type": "string"
           },
+          "l_vec": {
+            "description": "Target ``l' tau_post`` instead of the single period ``e``, with the meaning it has in ``honest_did``. One weight per post-treatment event time of the (windowed) event study, in increasing order; ``'average'`` is the mean of the post-treatment effects (HonestDiD's ``l_vec``). ``e`` is ignored when given.",
+            "type": "string"
+          },
           "method": {
             "default": "smoothness",
             "description": "The restriction whose confidence set is inverted, as in :func:`honest_did`: ``'smoothness'``, ``'relative_magnitude'`` or ``'smoothness_relative_magnitude'`` (alias ``'sdrm'``: HonestDiD's \"deviation from linear trend\", ``Delta^SDRM``; needs two or more pre-periods).",
@@ -82313,6 +82332,18 @@
           "result": {
             "description": "DID result with event study.",
             "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed of the simulated first-stage critical value of the ``'C-LF'`` hybrid (1,000 draws, HonestDiD's ``seed`` and default), so the value is the same on every run. Other methods do not simulate.",
+            "type": "integer"
+          },
+          "window": {
+            "description": "Use only the event times with ``lo <= t <= hi``, as in :func:`honest_did`.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -82327,8 +82358,8 @@
       "Cross-language parity (aligned) vs HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown by uniroot on the bound facing zero [CVXR 1.8.2, HonestDiD 0.2.8, R version 4.5.2 (2025-10-31)]; tolerance vs HonestDiD with its Monte-Carlo folded-normal quantile replaced by the exact one: 1e-9 (observed 6.1e-11); vs HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact 1.95996 at mu = 0) -- tests/reference_parity/test_did_synth_R_parity.py",
       "tests/external_parity/test_honest_did_paper_parity.py",
       "tests/reference_parity/test_honest_breakdown_R_parity.py",
-      "tests/reference_parity/test_honest_breakdown_rm_clf_R.py",
-      "tests/reference_parity/test_honest_rm_R_parity.py"
+      "tests/reference_parity/test_honest_breakdown_lvec_R.py",
+      "tests/reference_parity/test_honest_breakdown_rm_clf_R.py"
     ],
     "validation_status": "certified"
   },

@@ -30971,6 +30971,17 @@ def _build_registry() -> None:
                     "splits into omega * beta_within + (1 - omega) * the weighted "
                     "between-group 2x2 terms (R bacondecomp with controls)",
                 ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Column of sampling weights (e.g. population), positive and "
+                    "constant within each unit: decomposes the weighted TWFE "
+                    "coefficient (sp.feols(..., weights=), Stata bacondecomp "
+                    "[aw=w]); group shares become weight shares and every 2x2 "
+                    "estimate and weight the weighted one. Works with covariates",
+                ),
             ],
             returns="dict with 'weights', 'estimates', 'summary'",
             example=('sp.bacon_decomposition(df, y="y", treat="d", time="t", id="i")'),

@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 from patsy import dmatrices
 
+from ._formula_dtypes import float_generated_term_columns, warn_wrapped_integer_columns
+
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
 
 # Functions a formula may call without the ``np.`` prefix, so that a formula
@@ -313,10 +315,11 @@ def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
 
     from ..exceptions import MethodIncompatibility
 
-    frame = _coerce_string_extension_dtypes(data)
+    code = "0 + " + r_formula_idioms(expr)
+    frame = _coerce_string_extension_dtypes(data, code)
     try:
         design = dmatrix(
-            "0 + " + r_formula_idioms(expr),
+            code,
             frame,
             eval_env=formula_eval_env(),
             return_type="dataframe",
@@ -562,7 +565,9 @@ def parse_formula(formula: str) -> Dict[str, Any]:
     return result
 
 
-def _coerce_string_extension_dtypes(data: pd.DataFrame) -> pd.DataFrame:
+def _coerce_string_extension_dtypes(
+    data: pd.DataFrame, formula: Any = None
+) -> pd.DataFrame:
     """Cast pandas string-extension columns to ``object`` for patsy.
 
     pandas >= 3.0 makes ``StringDtype`` the default for text columns. patsy's
@@ -572,6 +577,10 @@ def _coerce_string_extension_dtypes(data: pd.DataFrame) -> pd.DataFrame:
     ``object`` restores the pandas < 3.0 code path (object -> categorical) with
     identical downstream design matrices. Numeric / bool / datetime columns are
     left untouched, and the frame is copied only when a conversion is needed.
+
+    With ``formula`` (a formula string or a patsy ``DesignInfo``), the
+    integer columns that a generated term such as ``I(x**3)`` reads are cast
+    to ``float64`` as well (:func:`float_generated_term_columns`).
     """
     offenders = {}
     for col in data.columns:
@@ -583,7 +592,11 @@ def _coerce_string_extension_dtypes(data: pd.DataFrame) -> pd.DataFrame:
             offenders[col] = data[col].astype(object)
     if offenders:
         data = data.assign(**offenders)
-    return _widen_narrow_integers(data)
+    data = _widen_narrow_integers(data)
+    if formula is not None:
+        # integer arithmetic inside I(...) wraps around even in int64
+        data = float_generated_term_columns(data, formula)
+    return data
 
 
 def _widen_narrow_integers(data: pd.DataFrame) -> pd.DataFrame:
@@ -794,11 +807,12 @@ def create_design_matrices(
     formula = stata_factor_syntax(formula, columns=list(data.columns))
     formula = expand_dot(formula, data)
     formula = r_formula_idioms(formula)
+    warn_wrapped_integer_columns(data, formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
         return fast
 
-    data = _coerce_string_extension_dtypes(data)
+    data = _coerce_string_extension_dtypes(data, formula)
     data = _complete_cases_for_factors(formula, data)
 
     safe_formula, safe_data, aliases = _alias_keyword_columns(formula, data)

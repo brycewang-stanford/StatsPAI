@@ -37,7 +37,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from ._arp_sets import rm_confidence_set
 from ._flci import event_study_moments, flci_delta_sd
 from ._honest_breakdown import _breakdown_rm, breakdown_m  # noqa: F401
@@ -89,6 +89,8 @@ def honest_did(
     grid_expand: bool = True,
     bias_direction: Optional[str] = None,
     monotonicity_direction: Optional[str] = None,
+    seed: int = 0,
+    breakdown: Optional[bool] = None,
 ) -> pd.DataFrame:
     """
     Rambachan & Roth (2023) sensitivity analysis for parallel trends.
@@ -223,6 +225,26 @@ def honest_did(
         through the reference period (HonestDiD's ``monotonicityDirection``;
         ``Delta^SDI``, ``Delta^RMD`` ...). Not together with
         ``bias_direction``. Needs the joint event-study covariance.
+    seed : int, default 0
+        Seed of the simulated first-stage critical value of the ``'C-LF'``
+        hybrid, the default for the relative-magnitude families (1,000
+        multivariate-normal draws; HonestDiD's ``seed`` argument and default).
+        A fixed seed makes every run give the same interval. The draws are
+        NumPy's, not R's or Stata's, so the C-LF bounds differ from
+        HonestDiD / ``honestdid`` by that Monte Carlo error (typically in
+        the third decimal). ``honestdid_method='Conditional'`` (and the FLCI
+        and ``'C-F'``) use no simulation: their critical values are exact
+        and match HonestDiD's grid point by point. ``backend='r'`` passes
+        the seed to HonestDiD.
+    breakdown : bool, optional
+        Also compute the breakdown value (:func:`breakdown_m` for the same
+        target, restriction and method) and store it in
+        ``attrs['breakdown_m']``. ``None`` (default) does so when it is cheap,
+        that is for the FLCI (the default under ``'smoothness'``), where it
+        costs about half of the table; the test-inverted sets (C-LF,
+        Conditional, C-F) need a scan in ``M`` that takes 2 to 6 times as
+        long as the table, so there pass ``breakdown=True`` or call
+        :func:`breakdown_m`. Native backend only.
 
     Returns
     -------
@@ -233,6 +255,18 @@ def honest_did(
         extended and ``attrs['open_at']`` those whose set still reaches the
         grid edge (bound unknown). ``attrs['delta']`` names the restriction
         set as HonestDiD does (``'DeltaSD'``, ``'DeltaSDRMPB'`` ...).
+        ``attrs['simulated_cv']`` says whether the critical value was
+        simulated (C-LF); if so ``attrs['seed']`` and ``attrs['lf_draws']``
+        record the seed and the number of draws. ``attrs['breakdown_m']``
+        holds the breakdown value when it was computed (see ``breakdown``),
+        and ``attrs['next_steps']`` the :func:`breakdown_m` call for this
+        table.
+
+    See Also
+    --------
+    breakdown_m : the largest ``M`` (``Mbar``) at which the interval still
+        excludes zero, for the same ``e`` or ``l_vec`` (e.g. the average
+        post-treatment effect) and restriction.
 
     Examples
     --------
@@ -284,6 +318,8 @@ def honest_did(
     trends. *Review of Economic Studies*. [@rambachan2023more]
     """
     e = _require_int(e, argument="e")
+    e_target = e
+    seed = _require_int(seed, argument="seed")
     method = _require_string(method, argument="method")
     alpha = _require_alpha(alpha)
     backend = _require_string(backend, argument="backend")
@@ -348,9 +384,46 @@ def honest_did(
                 and family == "smoothness"
                 else delta_name(family, bias, mono)
             )
+        simulated = out.attrs.get("interval") == "arp_c_lf"
+        out.attrs["simulated_cv"] = simulated
+        if simulated:
+            out.attrs["seed"] = seed
+            out.attrs["lf_draws"] = _LF_DRAWS
+        bd_kwargs = _breakdown_kwargs(
+            e_target, family, hm, bias, mono, alpha, l_vec, win, seed
+        )
+        out.attrs["next_steps"] = [_breakdown_step(bd_kwargs)]
+        want = (
+            breakdown
+            if breakdown is not None
+            else (code_path == "native" and out.attrs.get("interval") == "flci")
+        )
+        if want and code_path == "native":
+            try:
+                out.attrs["breakdown_m"] = float(breakdown_m(result, **bd_kwargs))
+            except StatsPAIError as exc:
+                if breakdown:
+                    raise
+                # default (auto) mode: the table stands without the extra
+                warnings.warn(
+                    f"honest_did: the breakdown value could not be computed "
+                    f"({type(exc).__name__}: {exc}); attrs['breakdown_m'] is "
+                    "None. Call sp.breakdown_m directly to see the error.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                out.attrs["breakdown_m"] = None
         return out
 
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
+        if breakdown:
+            raise MethodIncompatibility(
+                "honest_did(breakdown=True) computes the breakdown value "
+                "natively; it is not available with backend='r'.",
+                recovery_hint="Call sp.breakdown_m(result, ...) separately, "
+                "or use backend='native'.",
+                diagnostics={"backend": backend},
+            )
         return _stamp(
             _honest_did_r_backend(
                 result=result,
@@ -366,6 +439,7 @@ def honest_did(
                 grid_points=grid_points,
                 bias_direction=bias,
                 monotonicity_direction=mono,
+                seed=seed,
             ),
             "r",
         )
@@ -475,6 +549,7 @@ def honest_did(
                 grid_ub=grid_ub,
                 grid_points=grid_points,
                 grid_expand=grid_expand,
+                seed=seed,
             ),
             "native",
         )
@@ -566,6 +641,7 @@ def honest_did(
             grid_ub=grid_ub,
             grid_points=grid_points,
             grid_expand=grid_expand,
+            seed=seed,
         )
         if _rm is not None:
             return _stamp(_rm, "native")
@@ -607,6 +683,63 @@ def honest_did(
     return _stamp(_out, "native")
 
 
+#: Draws of the simulated C-LF first-stage critical value
+#: (``_arp._least_favorable_cv``; HonestDiD's ``sims = 1000``).
+_LF_DRAWS = 1000
+
+
+def _breakdown_kwargs(
+    e: int,
+    family: str,
+    hm: str,
+    bias: Optional[str],
+    mono: Optional[str],
+    alpha: float,
+    l_vec: Any,
+    window: Optional[tuple],
+    seed: int,
+) -> dict:
+    """:func:`breakdown_m` arguments for the table honest_did just built."""
+    kw: dict = {
+        "method": _RESTRICTION_LABEL[family],
+        "alpha": alpha,
+        "honestdid_method": hm,
+        "seed": seed,
+    }
+    if l_vec is None:
+        kw["e"] = e
+    else:
+        kw["l_vec"] = l_vec
+    if window is not None:
+        kw["window"] = tuple(window)
+    if bias is not None:
+        kw["bias_direction"] = bias
+    if mono is not None:
+        kw["monotonicity_direction"] = mono
+    return kw
+
+
+def _breakdown_step(kwargs: dict) -> dict:
+    """A ``next_steps`` entry (the shape of ``core.next_steps.Step``)."""
+
+    def fmt(v: Any) -> str:
+        if isinstance(v, np.ndarray):
+            v = v.tolist()
+        return repr(v)
+
+    args = ", ".join(
+        f"{k}={fmt(v)}" for k, v in kwargs.items() if not (k == "seed" and v == 0)
+    )
+    return {
+        "action": f"sp.breakdown_m(result, {args})",
+        "reason": "Rambachan & Roth (2023): the largest violation magnitude "
+        "at which this interval still excludes zero (the breakdown value).",
+        "priority": "recommended",
+        "category": "sensitivity",
+        "executable": True,
+    }
+
+
 def _native_restricted_table(
     moments: Optional[tuple],
     e: int,
@@ -621,6 +754,7 @@ def _native_restricted_table(
     grid_ub: Optional[float] = None,
     grid_points: int = 1000,
     grid_expand: bool = True,
+    seed: int = 0,
 ) -> pd.DataFrame:
     """Native table for the restriction sets of :mod:`._honest_sets`.
 
@@ -659,6 +793,7 @@ def _native_restricted_table(
         grid_ub,
         grid_points,
         grid_expand,
+        seed=seed,
     )
     if out.attrs["open_at"]:
         warnings.warn(
@@ -689,6 +824,7 @@ def _native_rm_table(
     grid_ub: Optional[float] = None,
     grid_points: int = 1000,
     grid_expand: bool = True,
+    seed: int = 0,
 ) -> Optional[pd.DataFrame]:
     """Native Delta^RM confidence sets over ``m_grid`` (None if no covariance)."""
     inputs = _rm_inputs(moments, e, l_vec)
@@ -719,6 +855,7 @@ def _native_rm_table(
             grid_points=grid_points,
             grid_lb=grid_lb,
             grid_ub=grid_ub,
+            seed=seed,
             max_expand=10 if grid_expand else 0,
         )
         if grid.size > grid_points:

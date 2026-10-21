@@ -198,7 +198,7 @@ class _FormulaDesign:
         )
 
         rhs = r_formula_idioms(formula.split("~", 1)[1].strip())
-        frame = _coerce_string_extension_dtypes(frame)
+        frame = _coerce_string_extension_dtypes(frame, rhs)
         try:
             di = patsy.dmatrix(
                 rhs, frame, eval_env=formula_eval_env(), NA_action="drop"
@@ -251,7 +251,7 @@ class _FormulaDesign:
 
         (X,) = patsy.build_design_matrices(
             [self.design_info],
-            _coerce_string_extension_dtypes(frame),
+            _coerce_string_extension_dtypes(frame, self.design_info),
             NA_action="raise",
         )
         return np.asarray(X, dtype=float)

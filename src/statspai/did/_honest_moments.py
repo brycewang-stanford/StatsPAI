@@ -125,6 +125,8 @@ def honest_did_from_moments(
     grid_expand: bool = True,
     bias_direction: Optional[str] = None,
     monotonicity_direction: Optional[str] = None,
+    seed: int = 0,
+    breakdown: Optional[bool] = None,
 ) -> pd.DataFrame:
     """Rambachan-Roth sensitivity from a coefficient vector and its covariance.
 
@@ -166,6 +168,11 @@ def honest_did_from_moments(
     bias_direction, monotonicity_direction
         Sign or shape restriction on the violation, as in :func:`honest_did`
         (HonestDiD's ``biasDirection`` / ``monotonicityDirection``).
+    seed : int, default 0
+        Seed of the simulated C-LF critical value, as in :func:`honest_did`.
+    breakdown : bool, optional
+        Store the breakdown value in ``attrs['breakdown_m']``, as in
+        :func:`honest_did`.
 
     Returns
     -------
@@ -209,6 +216,8 @@ def honest_did_from_moments(
         grid_expand=grid_expand,
         bias_direction=bias_direction,
         monotonicity_direction=monotonicity_direction,
+        seed=seed,
+        breakdown=breakdown,
     )
 
 

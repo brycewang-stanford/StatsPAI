@@ -10,7 +10,7 @@ their tooling directly into every event-study object in the library.
 | Function | Purpose |
 | --- | --- |
 | `sp.honest_did(result, e, m_grid=None, method='smoothness')` | Robust CI at event time `e` across a grid of violation magnitudes `M` |
-| `sp.breakdown_m(result, e, method='smoothness')` | Largest `M*` at which the effect remains significant |
+| `sp.breakdown_m(result, e, method='smoothness')` | Largest `M*` at which the effect remains significant; `l_vec='average'` / `window=` as in `honest_did` |
 
 Both functions are *polymorphic*: since 1.30 they accept any fitted
 event study in the library — `callaway_santanna()` and
@@ -61,6 +61,41 @@ es  = sp.aggte(cs, type='dynamic', n_boot=500, random_state=0)
 s   = sp.honest_did(es, e=1)          # robust CI table across M grid
 mst = sp.breakdown_m(es, e=1)         # scalar breakdown value
 ```
+
+## Breakdown value of an average effect
+
+The headline of many applications is the average post-treatment effect.
+`breakdown_m` takes the same `l_vec` and `window` as `honest_did`:
+
+```python
+s   = sp.honest_did(es, method='relative_magnitude', l_vec='average')
+mst = sp.breakdown_m(es, method='relative_magnitude', l_vec='average')
+```
+
+The value is the first `M` at which the interval `honest_did` reports
+contains zero. These intervals are not nested in `M`, so it is found by
+a log-grid scan and bisection, not read off a coarse grid. On the
+castle-doctrine data (Cheng and Hoekstra 2013, Callaway-Sant'Anna with
+population weights, average of e = 0..4) it is `Mbar* = 0.406` under
+C-LF; R HonestDiD excludes zero at 0.97 `Mbar*` and contains it at 1.03
+`Mbar*` (`tests/reference_parity/test_honest_breakdown_lvec_R.py`).
+
+Every `honest_did` table carries the matching call in
+`attrs['next_steps']`. For the FLCI the breakdown value costs about half
+of the table and is stored in `attrs['breakdown_m']`; for the
+test-inverted sets (C-LF, Conditional, C-F) it needs a scan that takes 2
+to 6 times as long, so pass `breakdown=True` or call `breakdown_m`.
+
+## Reproducible C-LF intervals
+
+The C-LF hybrid simulates its first-stage critical value from 1,000
+normal draws. The seed is fixed (`seed=0`, HonestDiD's default), so
+every run gives the same interval; `attrs['seed']` and
+`attrs['lf_draws']` record it. The draws are NumPy's, so C-LF bounds
+differ from R HonestDiD and Stata `honestdid` by Monte Carlo error,
+usually in the third decimal. `honestdid_method='Conditional'` has an
+exact critical value: it is deterministic and matches HonestDiD grid
+point by grid point. The FLCI and C-F are deterministic too.
 
 ## Restriction types
 

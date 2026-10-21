@@ -1214,8 +1214,8 @@ def covariates_from_formula(
 
         design = patsy.dmatrix(
             r_formula_idioms(rhs),
-            # int16 / int8 columns wrap around inside I(x**2)
-            _coerce_string_extension_dtypes(data),
+            # integer columns wrap around inside I(x**2)
+            _coerce_string_extension_dtypes(data, r_formula_idioms(rhs)),
             eval_env=formula_eval_env(),
             return_type="dataframe",
             NA_action="drop",

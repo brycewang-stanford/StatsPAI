@@ -248,7 +248,7 @@ def _design_for_new_data(
     rhs = r_formula_idioms(formula.split("~", 1)[1].strip())
     built = dmatrix(
         rhs,
-        _coerce_string_extension_dtypes(data),
+        _coerce_string_extension_dtypes(data, rhs),
         eval_env=formula_eval_env(),
         return_type="dataframe",
     )

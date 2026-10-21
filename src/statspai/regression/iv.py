@@ -2841,7 +2841,14 @@ def _materialise_formula_terms(
         raise_if_formula_names_missing,
     )
 
-    frame = _coerce_string_extension_dtypes(data).copy()
+    generated = [
+        t
+        for t in exog_terms + inst_terms + endog_terms
+        if t.replace(" ", "") not in controls
+    ]
+    frame = _coerce_string_extension_dtypes(
+        data, r_formula_idioms(dep_term + " ~ " + (" + ".join(generated) or "1"))
+    ).copy()
     # safe column name -> the name the formula engine gives the term, which
     # is the name the result reports (see ``_restore_term_names``)
     shown: Dict[str, str] = {}

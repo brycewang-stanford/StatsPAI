@@ -84,6 +84,9 @@ class RidgeResult(ResultProtocolMixin):
         if self._design_info is not None:
             from patsy import build_design_matrices
 
+            from ..core._formula_dtypes import float_generated_term_columns
+
+            data = float_generated_term_columns(data, self._design_info)
             X = np.asarray(
                 build_design_matrices([self._design_info], data)[0], dtype=float
             )

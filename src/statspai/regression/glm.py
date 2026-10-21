@@ -1899,7 +1899,14 @@ class GLMRegression(BaseModel):
 
             # pandas >= 3.0 string columns are StringDtype, which patsy cannot
             # sniff; coerce to object so prediction rebuilds the same design.
-            data = _coerce_string_extension_dtypes(data)
+            data = _coerce_string_extension_dtypes(
+                data,
+                (
+                    self._design_info
+                    if self._design_info is not None
+                    else self.formula.split("~", 1)[1]
+                ),
+            )
 
             try:
                 if self._design_info is not None:
