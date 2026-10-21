@@ -318,6 +318,7 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/external_parity/test_published_replications.py"
       ],
@@ -958,12 +959,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/reference_parity/test_bacon_controls_R_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_did_parity.py",
         "tests/reference_parity/test_twfe_decomposition_known_truth.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -2769,6 +2772,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_absorbing_reference.py",
@@ -5416,6 +5420,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_survey_did_parity.py",
         "tests/reference_parity/test_survey_replicate_parity.py"
       ],
@@ -6598,12 +6603,14 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_drdid_family_parity.py",
         "tests/reference_parity/test_drdid_rc_parity.py",
         "tests/reference_parity/test_stata_did_commands_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "evidence_grade": "T2",
@@ -7327,6 +7334,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_rebel_canal_published.py",
+        "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_event_study_grid_R_parity.py",
         "tests/reference_parity/test_event_study_options_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
@@ -7751,6 +7759,7 @@
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/external_parity/test_gow_ding_accounting.py",
         "tests/reference_parity/test_accounting_research_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
@@ -19603,6 +19612,7 @@
         "tests/stata_parity/55_hc2_hc3.do",
         "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/external_parity/test_dcdh_did_textbook.py",
+        "tests/external_parity/test_did_paper_gallery.py",
         "tests/external_parity/test_ding_first_course.py",
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_dogan_python_econometrics.py",
@@ -22605,6 +22615,7 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_validation_parity.py",
+        "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
