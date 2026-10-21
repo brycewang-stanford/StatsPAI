@@ -31147,10 +31147,13 @@ def _build_registry() -> None:
                     False,
                     "error",
                     description=(
-                        "'error' or 'drop_units' (keep units observed in every "
-                        "period)"
+                        "'error', 'drop_units' (keep units observed in every "
+                        "period) or 'observed_rows' (Theorem 1 on the observed "
+                        "rows of an unbalanced panel = Stata ddtiming; not an "
+                        "identity there: weighted_sum differs from beta_twfe, "
+                        "and it warns)"
                     ),
-                    enum=["error", "drop_units"],
+                    enum=["error", "drop_units", "observed_rows"],
                 ),
                 ParamSpec(
                     "covariates",
@@ -31199,7 +31202,8 @@ def _build_registry() -> None:
                     exception="MethodIncompatibility",
                     remedy="The decomposition holds on a balanced panel; pass "
                     "balance='drop_units' to decompose the units observed in "
-                    "every period (dropped units are listed).",
+                    "every period (dropped units are listed), or "
+                    "balance='observed_rows' for Stata ddtiming's numbers.",
                     alternative="callaway_santanna",
                 ),
             ],
@@ -35785,6 +35789,32 @@ def _build_registry() -> None:
                     "e.g. (-5, -2) as Stata estat event, window(-5 5) "
                     "pretrend; uses the sub-block of the joint covariance. "
                     "None tests every estimated lead.",
+                ),
+                ParamSpec(
+                    "sigma",
+                    "array",
+                    False,
+                    None,
+                    "Joint covariance of the coefficients when `result` is a "
+                    "coefficient vector (e.g. numbers printed in a paper; a "
+                    "diagonal matrix of squared SEs when no covariance is "
+                    "reported). Chi-squared Wald test; type='f' is refused.",
+                ),
+                ParamSpec(
+                    "event_times",
+                    "list[int]",
+                    False,
+                    None,
+                    "Event time of each coefficient (reference period "
+                    "excluded), with sigma=.",
+                ),
+                ParamSpec(
+                    "num_pre_periods",
+                    "int",
+                    False,
+                    None,
+                    "Instead of event_times: the first k coefficients are the "
+                    "leads -k-1..-2 (HonestDiD layout).",
                 ),
             ],
             returns="dict with statistic / pvalue / pre_periods",

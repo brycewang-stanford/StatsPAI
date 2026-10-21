@@ -506,6 +506,10 @@ def pretrends_test(
     type: str = "auto",
     alpha: float = 0.05,
     window: Optional[Tuple[float, float]] = None,
+    *,
+    sigma: Any = None,
+    event_times: Any = None,
+    num_pre_periods: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Joint test of pre-treatment coefficients.
 
@@ -541,6 +545,15 @@ def pretrends_test(
         refit on the window would give when the leads share one
         regression.  ``None`` (default) tests every estimated
         pre-treatment period.
+    sigma, event_times, num_pre_periods : optional
+        Test coefficients instead of a StatsPAI result: ``result`` is then
+        the coefficient vector with ``sigma`` its joint covariance (or a
+        fitted regression with ``event_times={coefficient name: event
+        time}``), with the conventions of :func:`honest_did_from_moments`.
+        The test is then the chi-squared Wald test (``type='f'`` is refused:
+        coefficients alone carry no denominator degrees of freedom).
+
+        .. versionadded:: 1.41.0
 
     Returns
     -------
@@ -573,9 +586,21 @@ def pretrends_test(
     """
     context = "pretrends_test"
     test_type = _require_string_option(type, "type", context).lower()
+    alpha = _require_open_unit_float(alpha, "alpha", context)
+    from_moments = not (
+        sigma is None and event_times is None and num_pre_periods is None
+    )
+    if from_moments and test_type == "f":
+        raise MethodIncompatibility(
+            f"{context}: type='f' needs denominator degrees of freedom, which "
+            "coefficients and their covariance do not carry.",
+            recovery_hint="Use type='wald' (the default with sigma=), or fit "
+            "the event study with a StatsPAI estimator.",
+            diagnostics={"context": context, "type": type},
+        )
+    result = _from_moments(result, sigma, event_times, num_pre_periods, alpha)
     if test_type == "auto":
         test_type = _default_test_type(result)
-    alpha = _require_open_unit_float(alpha, "alpha", context)
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)

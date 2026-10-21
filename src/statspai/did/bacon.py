@@ -20,6 +20,7 @@ Goodman-Bacon, A., Goldring, T. and Nichols, A. (2019).
 of difference-in-differences estimation."
 """
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -55,9 +56,14 @@ def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for kind, part in labelled.groupby("type", sort=False):
         weight = float(part["weight"].sum())
+        # an unidentified 2x2 (NaN estimate, balance='observed_rows') keeps
+        # its weight in the type total but not in the type's average
+        known = np.isfinite(part["estimate"].to_numpy(dtype=float))
+        w_known = float(part.loc[known, "weight"].sum())
         average = (
-            float((part["weight"] * part["estimate"]).sum() / weight)
-            if weight != 0
+            float((part.loc[known, "weight"] * part.loc[known, "estimate"]).sum())
+            / w_known
+            if w_known != 0
             else float("nan")
         )
         classes = set(part["comparison_class"]) - {"covariates_only"}
@@ -103,7 +109,7 @@ def bacon_decomposition(
         Unit identifier.
     alpha : float, default 0.05
         Significance level.
-    balance : {'error', 'drop_units'}, default 'error'
+    balance : {'error', 'drop_units', 'observed_rows'}, default 'error'
         What to do with an unbalanced panel. The decomposition theorem holds
         for a balanced panel only, so by default an unbalanced one is an
         error (as in R ``bacondecomp`` and Stata ``bacondecomp``).
@@ -111,6 +117,20 @@ def bacon_decomposition(
         treatment in every period -- Stata ``xtbalance`` before
         ``bacondecomp`` -- and decomposes the TWFE estimate on that balanced
         subpanel; the dropped units are listed in the output.
+        ``'observed_rows'`` applies Theorem 1 to the observed rows of the
+        unbalanced panel, the rule of Stata ``ddtiming``: group shares and
+        treated shares are shares of observed rows, each 2x2 is the TWFE
+        coefficient on the observed rows of its window, and a unit treated
+        in its first observed period is an already-treated control. Off a
+        balanced panel this is not a decomposition: ``weighted_sum`` (what
+        ``ddtiming`` reports as the DD estimate) differs from ``beta_twfe``,
+        weights can be negative, and a 2x2 with no treatment variation left
+        after its fixed effects has ``estimate`` NaN and ``identified``
+        False (``ddtiming`` reports 0 and keeps its weight). It warns with
+        the gap. Not with ``covariates`` or ``weights``. On a balanced panel
+        it equals the default.
+
+        .. versionadded:: 1.41.0
     covariates : list of str, optional
         Time-varying controls (R ``bacon(y ~ d + x1 + x2, ...)``). The TWFE
         coefficient with controls splits into a within-timing-group part
@@ -238,11 +258,26 @@ def bacon_decomposition(
         if col is not None and pd.api.types.is_float_dtype(df[col]):
             if df[col].dtype != np.float64:
                 df[col] = df[col].astype(np.float64)
-    if balance not in ("error", "drop_units"):
+    if balance not in ("error", "drop_units", "observed_rows"):
         raise MethodIncompatibility(
-            f"balance={balance!r}; use 'error' or 'drop_units'.",
+            f"balance={balance!r}; use 'error', 'drop_units' or 'observed_rows'.",
+            recovery_hint="'drop_units' decomposes the balanced subpanel; "
+            "'observed_rows' reproduces Stata ddtiming on the unbalanced one.",
             diagnostics={"balance": balance},
         )
+    if balance == "observed_rows":
+        if covariates or weights is not None:
+            raise MethodIncompatibility(
+                "balance='observed_rows' is defined without covariates and "
+                "weights (Stata ddtiming has neither).",
+                recovery_hint="Use balance='drop_units' for a decomposition "
+                "with covariates or weights.",
+                diagnostics={
+                    "covariates": list(covariates or []),
+                    "weights": weights,
+                },
+            )
+        return _observed_rows_result(df, y, treat, time, id)
     dropped_units: list = []
     if balance == "drop_units":
         df = df.dropna(subset=[y, treat, time, id] + ([weights] if weights else []))
@@ -416,6 +451,80 @@ def bacon_decomposition(
             "n_units": int(df[id].nunique()),
             "dropped_units": dropped_units,
             "weights": weights,
+        }
+    )
+
+
+def _observed_rows_result(
+    df: pd.DataFrame, y: str, treat: str, time: str, id_col: str
+) -> "BaconDecompositionResult":
+    """``balance='observed_rows'``: Theorem 1 on the observed rows (ddtiming)."""
+    from ._bacon_unbalanced import decompose_observed_rows, timing_groups
+
+    df = df.dropna(subset=[y, treat, time, id_col])
+    if df.duplicated(subset=[id_col, time]).any():
+        raise MethodIncompatibility(
+            "Duplicate (unit, time) rows.",
+            recovery_hint="Aggregate or drop duplicates before decomposing.",
+            diagnostics={"n_duplicates": int(df.duplicated([id_col, time]).sum())},
+        )
+    groups = timing_groups(df, treat, time, id_col).replace(-np.inf, df[time].min())
+    _validate_monotone_treatment(df, treat, time, id_col, groups)
+    decomp, beta_twfe = decompose_observed_rows(df, y, treat, time, id_col)
+    if len(decomp):
+        total = float(decomp["weight"].sum())
+        if total != 0:
+            decomp["weight"] = decomp["weight"] / total
+    known = decomp["identified"] if len(decomp) else pd.Series(dtype=bool)
+    weighted_sum = float(
+        (decomp.loc[known, "weight"] * decomp.loc[known, "estimate"]).sum()
+    )
+    abs_w = float(decomp["weight"].abs().sum()) if len(decomp) else 0.0
+    neg_share = (
+        float(decomp.loc[decomp["weight"] < 0, "weight"].abs().sum() / abs_w)
+        if abs_w > 0
+        else 0.0
+    )
+    forbidden = (
+        float(decomp.loc[decomp["type"].isin(_FORBIDDEN_TYPES), "weight"].sum())
+        if len(decomp)
+        else 0.0
+    )
+    balanced = df.groupby(id_col)[time].nunique().nunique() == 1
+    unidentified = decomp.loc[~known] if len(decomp) else decomp
+    if not balanced or len(unidentified):
+        msg = (
+            "bacon_decomposition(balance='observed_rows'): the panel is "
+            "unbalanced, so Theorem 1 is applied to the observed rows (Stata "
+            f"ddtiming) and is not an identity: sum(weight x estimate) = "
+            f"{weighted_sum:.6g}, the TWFE coefficient = {beta_twfe:.6g}."
+        )
+        if neg_share > 0:
+            msg += f" {neg_share:.1%} of the absolute weight is on negative weights."
+        if len(unidentified):
+            msg += (
+                f" {len(unidentified)} 2x2 comparison(s) have no treatment "
+                "variation after their fixed effects (estimate NaN, "
+                "identified=False; ddtiming reports 0 and keeps the weight): "
+                + ", ".join(
+                    f"{r.treated:g} vs {r.control}" for r in unidentified.itertuples()
+                )
+                + "."
+            )
+        warnings.warn(msg, UserWarning, stacklevel=4)
+    return BaconDecompositionResult(
+        {
+            "beta_twfe": beta_twfe,
+            "decomposition": _label_comparisons(decomp),
+            "summary": _summary_by_type(decomp),
+            "weighted_sum": weighted_sum,
+            "n_comparisons": len(decomp),
+            "negative_weight_share": neg_share,
+            "already_treated_control_weight_share": forbidden,
+            "n_units": int(df[id_col].nunique()),
+            "dropped_units": [],
+            "weights": None,
+            "balance": "observed_rows",
         }
     )
 

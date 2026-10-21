@@ -4070,6 +4070,10 @@
           "description": "Relative time period.",
           "type": "integer"
         },
+        "event_times": {
+          "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+          "type": "string"
+        },
         "honestdid_method": {
           "description": "Confidence set to invert, with :func:`honest_did`'s defaults: the FLCI for plain smoothness, ``'C-F'`` for smoothness with a sign or shape restriction, ``'C-LF'`` for the relative-magnitude families. ``'Conditional'`` involves no simulation.",
           "enum": [
@@ -4102,14 +4106,22 @@
           ],
           "type": "string"
         },
+        "num_pre_periods": {
+          "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+          "type": "integer"
+        },
         "result": {
-          "description": "DID result with event study.",
+          "description": "DID result with event study, or the event-study coefficients when ``sigma`` (or ``event_times`` / ``num_pre_periods``) is given.",
           "type": "string"
         },
         "seed": {
           "default": 0,
           "description": "Seed of the simulated first-stage critical value of the ``'C-LF'`` hybrid (1,000 draws, HonestDiD's ``seed`` and default), so the value is the same on every run. Other methods do not simulate.",
           "type": "integer"
+        },
+        "sigma": {
+          "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+          "type": "string"
         },
         "window": {
           "description": "Use only the event times with ``lo <= t <= hi``, as in :func:`honest_did`.",
@@ -29996,8 +30008,23 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "event_times": {
+          "description": "Event time of each coefficient (reference period excluded), with sigma=.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "num_pre_periods": {
+          "description": "Instead of event_times: the first k coefficients are the leads -k-1..-2 (HonestDiD layout).",
+          "type": "integer"
+        },
         "result": {
           "description": "DiD or event-study result with pre-period coefficients",
+          "type": "string"
+        },
+        "sigma": {
+          "description": "Joint covariance of the coefficients when `result` is a coefficient vector (e.g. numbers printed in a paper; a diagonal matrix of squared SEs when no covariance is reported). Chi-squared Wald test; type='f' is refused.",
           "type": "string"
         },
         "type": {

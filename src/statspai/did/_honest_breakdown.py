@@ -39,6 +39,10 @@ def breakdown_m(
     l_vec: Optional[Any] = None,
     window: Optional[Tuple[float, float]] = None,
     seed: int = 0,
+    *,
+    sigma: Any = None,
+    event_times: Any = None,
+    num_pre_periods: Optional[int] = None,
 ) -> float:
     """
     Compute the breakdown value of M.
@@ -50,8 +54,9 @@ def breakdown_m(
 
     Parameters
     ----------
-    result : CausalResult
-        DID result with event study.
+    result : CausalResult or array-like
+        DID result with event study, or the event-study coefficients when
+        ``sigma`` (or ``event_times`` / ``num_pre_periods``) is given.
     e : int, default 0
         Relative time period.
     method : str, default 'smoothness'
@@ -87,6 +92,17 @@ def breakdown_m(
         Seed of the simulated first-stage critical value of the ``'C-LF'``
         hybrid (1,000 draws, HonestDiD's ``seed`` and default), so the value
         is the same on every run. Other methods do not simulate.
+    sigma, event_times, num_pre_periods : optional
+        Take the event study from coefficients instead of a fitted result:
+        ``result`` is then the coefficient vector (reference period
+        excluded) and ``sigma`` its joint covariance, or a fitted regression
+        with ``event_times={coefficient name: event time}``. Same
+        conventions as :func:`honest_did_from_moments`, whose
+        ``breakdown=True`` stores the same number, so a breakdown value can
+        be computed from the estimates and standard errors printed in a
+        paper (a diagonal ``sigma`` when the paper reports no covariance).
+
+        .. versionadded:: 1.41.0
 
     Returns
     -------
@@ -168,6 +184,16 @@ def breakdown_m(
     e = _require_int(e, argument="e")
     alpha = _require_alpha(alpha)
     seed = _require_int(seed, argument="seed")
+    if sigma is not None or event_times is not None or num_pre_periods is not None:
+        from ._honest_moments import event_study_from_moments
+
+        result = event_study_from_moments(
+            result,
+            sigma,
+            event_times=event_times,
+            num_pre_periods=num_pre_periods,
+            alpha=alpha,
+        )
     method = _require_string(method, argument="method")
     win = _coerce_window(window)
     family, hm, bias, mono = _resolve_restriction(
