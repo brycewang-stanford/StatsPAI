@@ -24140,7 +24140,9 @@
         "n_obs": "int",
         "n_tried": "Optional[int]",
         "overid": "Optional[Dict[str, float]]",
+        "proxy_diagnostics": "Dict[str, Any]",
         "shock_names": "List[str]",
+        "shock_series": "pd.Series",
         "table": "Optional[pd.DataFrame]",
         "var_names": "List[str]"
       }
@@ -124278,13 +124280,23 @@
       "description": "StructuralBreakResult: For 'sup-f' / 'chow', f_stats / p_values hold the sup-F statistic (F scale) and its asymptotic p-value.",
       "fields": {
         "bic": "Optional[float]",
+        "bic_by_breaks": "ndarray",
         "break_dates": "list[int]",
+        "breaks_by_m": "Any",
+        "candidate_breaks": "ndarray",
+        "critical_values": "Optional[List[float]]",
+        "f_path": "ndarray",
         "f_stats": "Any",
+        "min_segment_size": "int",
         "n_breaks": "int",
         "n_obs": "int",
         "p_values": "Any",
+        "rss_by_breaks": "ndarray",
         "rss_full": "float",
         "rss_segments": "Optional[float]",
+        "sequential_tests": "List[Dict[str, Any]]",
+        "sup_break": "Any",
+        "sup_wald": "float",
         "test_type": "str"
       }
     },
@@ -148254,6 +148266,7 @@
         "dist": "str",
         "disturbances": "Optional[np.ndarray]",
         "gamma": "Optional[np.ndarray]",
+        "gradient_norm": "Optional[float]",
         "in_mean": "Optional[str]",
         "in_mean_lags": "tuple",
         "log_likelihood": "float",
@@ -148264,12 +148277,14 @@
         "omega": "float",
         "p": "int",
         "param_names": "Optional[List[str]]",
+        "presample": "Optional[str]",
         "q": "int",
         "residuals": "np.ndarray",
         "se_vec": "Optional[np.ndarray]",
         "sigma2": "np.ndarray",
         "std_residuals": "np.ndarray",
-        "theta": "Optional[np.ndarray]"
+        "theta": "Optional[np.ndarray]",
+        "vce": "Optional[str]"
       }
     },
     "signature": {
