@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._deprecated_keywords import deprecated_keywords as _deprecated_keywords
 from .._input_validation import check_columns, missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
@@ -56,6 +57,7 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 from ._arg_roles import check_binary_treatment as _check_binary_treatment
+from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -460,6 +462,16 @@ def wooldridge_did(
             "cluster": cluster,
         },
         function="sp.wooldridge_did",
+    )
+    # group= is the unit id: a 0/1 treatment column passed there is refused
+    # when its cohort varies within it (no unit has two first-treatment
+    # dates) and flagged when it repeats rows within a period.
+    _check_unit_is_not_treatment(
+        data.dropna(subset=[group, time]),
+        unit=group,
+        time=time,
+        cohort=first_treat,
+        function="wooldridge_did",
     )
     df = data.copy()
 
@@ -982,6 +994,11 @@ def etwfe(
     # One cohort per unit, one row per (unit, period) unless the unit is a
     # group, and no cohort without an untreated period (shared DiD checks).
     if panel:
+        # group= is the unit id: a 0/1 treatment column passed there is
+        # refused (cohort varies within it) or flagged.
+        _check_unit_is_not_treatment(
+            data, unit=group, time=time, cohort=first_treat, function="etwfe"
+        )
         _require_constant_cohort(data, unit=group, cohort=first_treat, function="etwfe")
         _duplicate_unit_period_rows(data, unit=group, time=time, function="etwfe")
     data, _always_treated = _drop_always_treated(
@@ -2292,16 +2309,16 @@ def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
     return headline
 
 
+@_deprecated_keywords(removed_in="1.42", group="treat")
 @accepts_aliases(
     _strict=True,
     unit="id",
-    treat="group",
     controls="covariates",
     # R DRDID::drdid spellings.
     yname="y",
     tname="time",
     idname="id",
-    dname="group",
+    dname="treat",
     estMethod="method",
     weightsname="weights",
 )
@@ -2309,7 +2326,7 @@ def _drdid_all(data: pd.DataFrame, **common: Any) -> CausalResult:
 def drdid(
     data: pd.DataFrame,
     y: str,
-    group: str,
+    treat: str,
     time: str,
     covariates: Optional[List[str]] = None,
     method: str = "imp",
@@ -2339,15 +2356,19 @@ def drdid(
         Dataset with one row per unit-period in 2x2 design.
     y : str
         Outcome variable.
-    group : str
+    treat : str
         Binary treatment-group indicator (1 = treated, 0 = control),
-        constant within a unit. Spell it ``treat=`` (the canonical name).
-        It is **not** the unit identifier, which goes in ``id=``: in
-        ``sp.did_imputation`` the same keyword ``group`` means the unit
-        id. A column that does not take exactly two values is refused; a
-        two-valued column not coded 0/1 runs with an
+        constant within a unit. It is **not** the unit identifier, which
+        goes in ``id=``. A column that does not take exactly two values is
+        refused; a two-valued column not coded 0/1 runs with an
         ``ArgumentRoleWarning`` naming the value taken as treated (the
         larger one).
+
+        .. deprecated:: 1.41
+           The keyword spelling ``group=`` still works but warns
+           (``DeprecationWarning``) and will be removed no earlier than
+           1.42. Everywhere else in the DiD family ``group`` is the unit
+           id. A positional third argument is unaffected.
     time : str
         Binary time indicator (1 = post, 0 = pre).
     covariates : list of str, optional
@@ -2475,6 +2496,8 @@ def drdid(
     >>> abs(result.estimate - 4.0) < 1.0
     True
     """
+    # The body predates the rename and calls the column `group`.
+    group = treat
     if variance_convention not in ("delta", "reference"):
         raise MethodIncompatibility(
             "variance_convention must be 'delta' or 'reference'; got "
@@ -2500,7 +2523,7 @@ def drdid(
         return _drdid_all(
             data,
             y=y,
-            group=group,
+            treat=group,
             time=time,
             covariates=covariates,
             alpha=alpha,
@@ -2524,7 +2547,7 @@ def drdid(
         df,
         {
             "y": y,
-            "group": group,
+            "treat": group,
             "time": time,
             "covariates": covariates if id is None else None,
         },
@@ -2622,7 +2645,7 @@ def drdid(
                     {
                         "id": id,
                         "y": y,
-                        "group": group,
+                        "treat": group,
                         "time": time,
                         "covariates": covariates_list,
                         "weights": weights,
@@ -2796,7 +2819,7 @@ def drdid(
                 function="sp.did.drdid",
                 params={
                     "y": y,
-                    "group": group,
+                    "treat": group,
                     "time": time,
                     "id": id,
                     "covariates": covariates,
@@ -2973,7 +2996,7 @@ def drdid(
             function="sp.did.drdid",
             params={
                 "y": y,
-                "group": group,
+                "treat": group,
                 "time": time,
                 "covariates": covariates,
                 "method": method,

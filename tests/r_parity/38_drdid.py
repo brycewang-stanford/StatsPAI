@@ -44,7 +44,7 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     res = sp.drdid(
-        data=df, y="y", group="treated", time="post",
+        data=df, y="y", treat="treated", time="post",
         covariates=["x"],
         method="imp",
         id="id",

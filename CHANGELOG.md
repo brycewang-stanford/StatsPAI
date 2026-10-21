@@ -7,11 +7,45 @@ All notable changes to StatsPAI will be documented in this file.
 ### Added
 
 - `crit_dist=` on `sp.event_study`, `sp.sun_abraham` (`'t'` / `'normal'`) and `sp.did_2x2` (`'t'` / `'residual'`): the critical-value rule for p-values and confidence intervals, named by convention rather than by program. `'t'` is t(G-1) with cluster-robust SEs and t(N-K) otherwise, the critical values of `parity='stata'` / `'r'` (castle-doctrine panel: equal to Stata `reghdfe` / `regress` to 1e-10, `tests/reference_parity/test_es_crit_default.py`). For `sp.sun_abraham` it leaves `share_variance` alone. A legacy value together with `parity=` raises `MethodIncompatibility`. Recorded in `model_info['conventions']` (`crit_dist`, `crit_df`). The MCP `sun_abraham` tool exposes it.
+- `sp.did(parity='r' | 'stata')` forwards `parity=` to the estimator the
+  method resolves to (`sp.callaway_santanna`, whose `sp.aggte` inherits it,
+  `sp.sun_abraham`, `sp.did_2x2`) and refuses it for the other methods.
+  Under `parity=`, `base_period` reaches the CS fit only when passed, and
+  under `parity='stata'` the aggregation's `n_boot` / `random_state` only
+  when passed (csdid's `estat` is analytic). `sp.did` also forwards
+  `crit_dist=` to an estimator whose signature has it, and refuses it
+  otherwise.
+- `sp.cs_report(parity=)` forwards to every `sp.callaway_santanna` fit and
+  `sp.aggte` call of the report.
 
 ### Changed
 
 - `sp.from_stata` / `sp.stata` translate `eventstudyinteract` to `sp.sun_abraham(..., parity='stata')` and `sp.from_r` translates fixest `sunab()` to `sp.sun_abraham(..., parity='r')` (was `share_variance=False`). Coefficients and SEs are unchanged; p-values and intervals now use t(G-1) with clustered SEs, as the translated command reports them.
 - Announced for 1.41 (owner decision 2026-10-21): the default becomes `crit_dist='t'`, the Stata / fixest convention. Until then the default reproduces today's numbers byte for byte (normal for the two event studies, t(N-K) also under clustering for `did_2x2`), and a call that sets neither `crit_dist` nor `parity` warns (`FutureWarning`, once per call, attributed to the caller's line) wherever the intervals or p-values would change; `sp.did_2x2` without `cluster=` does not warn. Estimates, standard errors, the pre-trend tests, `sp.uniform_bands` and `sp.honest_did` do not depend on it. Callaway-Sant'Anna keeps the normal distribution (R `did`, Stata `csdid`). Library entry points that call these estimators for the user (`sp.did_analysis`, `sp.did_summary`, `sp.auto_did`, `sp.compare_event_study_conventions`, `sp.causal_question`, `CausalWorkflow.compare_estimators`, the calibrated simulation) pass the pre-1.41 value and do not warn. Before / after on the castle-doctrine panel in MIGRATION.md ("1.40.0 → 1.41").
+- **`sp.drdid` takes `treat=`; the keyword `group=` is deprecated.** In the
+  rest of the DiD family `group` is the unit id (`sp.did_imputation`,
+  `sp.gardner_did`, `sp.stacked_did`, `sp.etwfe`, `sp.wooldridge_did`,
+  `sp.did_multiplegt`); `sp.drdid` was the one place where it was the 0/1
+  treatment group. The parameter is now named `treat`. `group=` still works,
+  gives the same result and emits a `DeprecationWarning`; it will be removed
+  no earlier than 1.42. Positional calls (`sp.drdid(df, "y", "d", "post")`)
+  and `treat=` / `dname=` are silent. Agent schemas list `treat` and no
+  longer advertise `group`. Library examples, the Stata `drdid` translation
+  and Track A module 38 use `treat=`. No number changes.
+- **Swap guards on five more DiD estimators** (`did/_arg_roles.py`).
+  `sp.gardner_did`, `sp.stacked_did`, `sp.etwfe` (panel fits) and
+  `sp.wooldridge_did` refuse a 0/1 `group` column whose cohort varies
+  within it, with a recovery hint that names `id=`; for the first three
+  the call was already refused by the cohort check, with a message that did
+  not say why. `sp.wooldridge_did` has no such check and used to return a
+  number. A 0/1 `group` with several rows per period runs and warns
+  (`ArgumentRoleWarning`), since a two-group design looks the same.
+  `sp.did_multiplegt` refuses a 0/1 `group` with several rows per period
+  when the treatment varies within those cells (its period-to-period
+  pairing would compare rows of different units) and warns when it does
+  not. Correct calls return exactly what they returned before (tested
+  against the same call with the guard switched off; Track A 16, 17, 38,
+  73, 75, 81, 84 byte-identical to main's own reruns).
 
 ## [1.40.0] — 2026-10-21
 

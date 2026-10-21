@@ -549,6 +549,10 @@ def param_spelling(func_name: str, obj: Any) -> Dict[str, Dict[str, Any]]:
     if obj is None:
         return out
     alias_map: Dict[str, str] = dict(getattr(obj, "__statspai_aliases__", {}) or {})
+    # Retired spellings still run (with a DeprecationWarning) but are not
+    # advertised to agents.
+    for old in getattr(obj, "__statspai_deprecated_aliases__", {}) or {}:
+        alias_map.pop(old, None)
     try:
         params = inspect.signature(obj).parameters
     except (TypeError, ValueError):

@@ -2731,6 +2731,21 @@ def _build_registry() -> None:
                     "replicate-weight design (sp.svrepdesign) refits the "
                     "estimator with every replicate.",
                 ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "R ('r') or Stata ('stata') conventions, forwarded to "
+                    "the estimator method resolves to: callaway_santanna "
+                    "(aggte inherits it), sun_abraham or did_2x2; any other "
+                    "method raises. Under parity, base_period reaches the "
+                    "CS fit only when passed, and under 'stata' n_boot / "
+                    "random_state reach aggte only when passed (csdid's "
+                    "estat is analytic). Otherwise identical to calling the "
+                    "estimator with parity=.",
+                    ["r", "stata"],
+                ),
             ],
             returns="CausalResult",
             example='sp.did(df, y="wage", treat="treated", time="post")',
@@ -24392,7 +24407,11 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Unit/panel-id column (needed unless treat= and fe= are given)",
+                    "Unit/panel-id column (canonical spelling id=; needed "
+                    "unless treat= and fe= are given). Not the treatment "
+                    "indicator: a 0/1 column here is refused when the cohort "
+                    "varies within it and flagged when it repeats rows "
+                    "within a period.",
                 ),
                 ParamSpec(
                     "time",
@@ -29086,7 +29105,17 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome variable"),
-                ParamSpec("group", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    description=(
+                        "Unit (group) identifier (canonical spelling id=). Not "
+                        "the treatment indicator: a 0/1 column with several rows "
+                        "per period is refused when the treatment varies within "
+                        "its (group, period) cells and flagged otherwise."
+                    ),
+                ),
                 ParamSpec("time", "str", True, description="Time period column"),
                 ParamSpec(
                     "treatment",
@@ -29359,15 +29388,16 @@ def _build_registry() -> None:
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome variable"),
                 ParamSpec(
-                    "group",
+                    "treat",
                     "str",
                     True,
                     description=(
                         "Binary 0/1 treatment-group indicator, constant within "
-                        "a unit. Canonical spelling treat=. Not the unit "
-                        "identifier (that is id=); in sp.did_imputation the "
-                        "same keyword group= is the unit id. A column without "
-                        "exactly two values is refused."
+                        "a unit. Not the unit identifier (that is id=). A "
+                        "column without exactly two values is refused. The "
+                        "old keyword group= still works with a "
+                        "DeprecationWarning (removed no earlier than 1.42); "
+                        "elsewhere in the DiD family group= is the unit id."
                     ),
                 ),
                 ParamSpec("time", "str", True, description="Time period column"),
@@ -30186,9 +30216,10 @@ def _build_registry() -> None:
                     True,
                     description=(
                         "Unit identifier. Canonical spelling id= (unit= also "
-                        "accepted). Not the treatment indicator: in sp.drdid "
-                        "the same keyword group= is the 0/1 treatment group. "
-                        "A 0/1 column here is refused when the cohort varies "
+                        "accepted). Not the treatment indicator (the old "
+                        "sp.drdid keyword group= was the 0/1 treatment group; "
+                        "it is deprecated there in favour of treat=). A 0/1 "
+                        "column here is refused when the cohort varies "
                         "within it."
                     ),
                 ),
@@ -30623,7 +30654,17 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("group", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    description=(
+                        "Unit identifier (canonical spelling id=). Not the "
+                        "treatment indicator: a 0/1 column here is refused when "
+                        "the cohort varies within it and flagged when it repeats "
+                        "rows within a period."
+                    ),
+                ),
                 ParamSpec("time", "str", True),
                 ParamSpec(
                     "first_treat",
@@ -30693,7 +30734,17 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("group", "str", True),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    description=(
+                        "Unit identifier (canonical spelling id=). Not the "
+                        "treatment indicator: a 0/1 column here is refused when "
+                        "the cohort varies within it and flagged when it repeats "
+                        "rows within a period."
+                    ),
+                ),
                 ParamSpec("time", "str", True),
                 ParamSpec("first_treat", "str", True),
                 ParamSpec("controls", "list", False, None),
@@ -31180,7 +31231,17 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("group", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    description=(
+                        "Unit identifier (canonical spelling id=). Not the "
+                        "treatment indicator: a 0/1 column here is refused when "
+                        "the cohort varies within it and flagged when it repeats "
+                        "rows within a period."
+                    ),
+                ),
                 ParamSpec("time", "str", True),
                 ParamSpec(
                     "first_treat",
@@ -40822,9 +40883,13 @@ def describe_function(name: str) -> Dict[str, Any]:
     # signature; list them so agents can use the house-style spellings.
     import statspai
 
-    aliases = getattr(getattr(statspai, name, None), "__statspai_aliases__", None)
+    _fn = getattr(statspai, name, None)
+    aliases = dict(getattr(_fn, "__statspai_aliases__", None) or {})
+    # Deprecated spellings still run but are not advertised.
+    for old in getattr(_fn, "__statspai_deprecated_aliases__", None) or {}:
+        aliases.pop(old, None)
     if aliases:
-        out["aliases"] = dict(aliases)
+        out["aliases"] = aliases
     out["support_tier"] = support_tier(name)
     out["api_contract"] = api_contract(name, spec.stability)
     return out

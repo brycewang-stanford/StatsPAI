@@ -32,6 +32,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from . import _cs_conventions as _conv
 from .aggte import aggte
 from .callaway_santanna import callaway_santanna
 from .honest_did import breakdown_m
@@ -1024,6 +1025,7 @@ def _pretrend_p_text(pt: Dict[str, Any], latex: bool = False) -> str:
 
 
 @accepts_aliases(id="i", time="t", seed="random_state", cohort="g", first_treat="g")
+@_conv.track_explicit
 def cs_report(
     data_or_result: Union[pd.DataFrame, CausalResult],
     y: Optional[str] = None,
@@ -1046,6 +1048,7 @@ def cs_report(
     functional_form: bool = True,
     verbose: bool = True,
     save_to: Optional[str] = None,
+    parity: Optional[str] = None,
 ) -> CSReport:
     """One-call staggered-DID workflow following Baker et al. (2026).
 
@@ -1107,6 +1110,19 @@ def cs_report(
           is installed; silently skipped otherwise)
 
         Missing parent directories are created on the fly.
+    parity : {'r', 'stata'}, optional
+        Fit and aggregate with the conventions of R ``did`` or Stata
+        ``csdid``: forwarded to every :func:`callaway_santanna` fit the
+        report runs (the headline fit and the estimator triangulation)
+        and to every :func:`aggte` call. With a pre-fitted result,
+        ``None`` keeps the fit's parity and a different one raises. Under
+        ``parity='stata'`` the aggregations report analytic standard
+        errors, as ``csdid``'s ``estat`` does, unless ``n_boot`` /
+        ``random_state`` are passed (which then raises, because they
+        contradict it). The functional-form test and the covariate
+        balance table do not depend on these conventions.
+
+        .. versionadded:: 1.41.0
 
     Returns
     -------
@@ -1132,6 +1148,15 @@ def cs_report(
     >>> rpt.dynamic["relative_time"].tolist()  # event study w/ uniform bands
     [-4, -3, -2, 0, 1, 2, 3]
     """
+    # parity= goes to every fit and aggregation. Stata csdid's estat reports
+    # analytic SEs, so under parity='stata' the bootstrap is requested only
+    # when n_boot / random_state were passed (aggte then refuses them).
+    _explicit = _conv.explicit_args()
+    _parity_kw: Dict[str, Any] = {} if parity is None else {"parity": parity}
+    _agg_kw: Dict[str, Any] = dict(_parity_kw)
+    for _k, _v in (("n_boot", n_boot), ("random_state", random_state)):
+        if parity != "stata" or _k in _explicit:
+            _agg_kw[_k] = _v
     if isinstance(data_or_result, CausalResult):
         cs = data_or_result
         # Warn if the caller also supplied estimation-time arguments that
@@ -1200,6 +1225,7 @@ def cs_report(
             control_group=control_group,
             anticipation=anticipation,
             alpha=alpha,
+            **_parity_kw,
         )
 
     # ------------------------------------------------------------------
@@ -1291,14 +1317,9 @@ def cs_report(
                         control_group=control_group,
                         anticipation=anticipation,
                         alpha=alpha,
+                        **_parity_kw,
                     )
-                    agg = aggte(
-                        fit,
-                        type="simple",
-                        alpha=alpha,
-                        n_boot=n_boot,
-                        random_state=random_state,
-                    )
+                    agg = aggte(fit, type="simple", alpha=alpha, **_agg_kw)
                     rows.append(
                         {
                             "estimator": est_name,
@@ -1326,24 +1347,17 @@ def cs_report(
         overlap_info["pscore_trim"] = cs.model_info.get("pscore_trim")
 
     # Four aggregations sharing the same seed for internal consistency.
-    simple = aggte(
-        cs, type="simple", alpha=alpha, n_boot=n_boot, random_state=random_state
-    )
+    simple = aggte(cs, type="simple", alpha=alpha, **_agg_kw)
     dynamic = aggte(
         cs,
         type="dynamic",
         alpha=alpha,
-        n_boot=n_boot,
-        random_state=random_state,
         min_e=min_e,
         max_e=max_e,
+        **_agg_kw,
     )
-    group = aggte(
-        cs, type="group", alpha=alpha, n_boot=n_boot, random_state=random_state
-    )
-    calendar = aggte(
-        cs, type="calendar", alpha=alpha, n_boot=n_boot, random_state=random_state
-    )
+    group = aggte(cs, type="group", alpha=alpha, **_agg_kw)
+    calendar = aggte(cs, type="calendar", alpha=alpha, **_agg_kw)
 
     simple_detail = simple.detail if simple.detail is not None else pd.DataFrame()
     dynamic_detail = dynamic.detail if dynamic.detail is not None else pd.DataFrame()

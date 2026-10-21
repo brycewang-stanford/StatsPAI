@@ -176,9 +176,10 @@ def did_imputation(
     group : str
         Unit identifier column. Spell it ``id=`` (the canonical name;
         ``unit=`` is also accepted). It is **not** the treatment
-        indicator: in ``sp.drdid`` the same keyword ``group`` means the
-        0/1 treatment group, so a 0/1 column passed here is refused when
-        the cohort varies within it and flagged with an
+        indicator (``sp.drdid`` used to call its 0/1 treatment group
+        ``group``; that keyword is deprecated there in favour of
+        ``treat=``), so a 0/1 column passed here is refused when the
+        cohort varies within it and flagged with an
         ``ArgumentRoleWarning`` when it has several rows per period.
     time : str
         Time period column.
@@ -491,7 +492,7 @@ def did_imputation(
     )
     # rows the fit can use (n_obs counted the dropped missing rows too)
     n_usable = len(df)
-    # group= is the unit id here but the treatment indicator in sp.drdid;
+    # group= is the unit id here (sp.drdid's deprecated group= is the treatment);
     # a swapped call is refused (cohort varies within it) or flagged.
     _check_unit_is_not_treatment(
         df, unit=group, time=time, cohort=first_treat, function="did_imputation"

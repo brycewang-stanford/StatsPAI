@@ -1096,7 +1096,7 @@ TIER3_ROUND_TRIPS = [
         "drdid",
         {
             "y": "y",
-            "group": "d",
+            "treat": "d",
             "time": "year",
             "covariates": ["x1", "x2"],
             "id": "id",

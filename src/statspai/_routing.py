@@ -132,7 +132,7 @@ _DID = Family(
         Route(
             when={"design": "2x2", "covariates": "yes"},
             call="drdid",
-            example="sp.drdid(df, y='y', group='d', time='post', covariates=[...])",
+            example="sp.drdid(df, y='y', treat='d', time='post', covariates=[...])",
             why=(
                 "Under conditional parallel trends the TWFE coefficient with additive "
                 "covariates is not the ATT; the doubly-robust estimator is consistent "

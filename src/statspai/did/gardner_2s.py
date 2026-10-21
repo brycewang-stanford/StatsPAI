@@ -62,6 +62,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
 from ._validate import require_constant_cohort as _require_constant_cohort
@@ -636,6 +637,11 @@ def gardner_did(
         df[weights] = pd.to_numeric(df[weights], errors="coerce")
         subset.append(weights)
     df = df.dropna(subset=subset).reset_index(drop=True)
+    # group= is the unit id: a 0/1 treatment column passed there is refused
+    # (cohort varies within it) or flagged (did/_arg_roles.py).
+    _check_unit_is_not_treatment(
+        df, unit=group, time=time, cohort=first_treat, function="gardner_did"
+    )
     _require_constant_cohort(df, unit=group, cohort=first_treat, function="gardner_did")
     _duplicate_unit_period_rows(df, unit=group, time=time, function="gardner_did")
     df, unidentified = _drop_unidentified_cells(df, group, time, first_treat)

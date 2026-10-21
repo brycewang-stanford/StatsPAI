@@ -394,7 +394,7 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
         "df = df[df.effyear.isna() | (df.effyear == 2006)].copy()\n"
         'df["post"] = (df.year == 2006).astype(int)\n'
         'df["d"] = df.effyear.notna().astype(int)\n'
-        'r = sp.drdid(df, y="l_homicide", group="d", time="post", id="sid")\n'
+        'r = sp.drdid(df, y="l_homicide", treat="d", time="post", id="sid")\n'
     ),
     "did_multiplegt": (
         "df = sp.dgp_did(staggered=True, seed=0)\n"

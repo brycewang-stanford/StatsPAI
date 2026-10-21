@@ -138,7 +138,7 @@ rpt.forward_engineering_checklist()
 | Use case                                   | Recommended call                                                        |
 |--------------------------------------------|-------------------------------------------------------------------------|
 | Standard 2-period 2-group panel            | `sp.did(df, y='y', treat='treated', time='t')`                          |
-| With covariates, doubly-robust             | `sp.drdid(df, y='y', group='d', time='post', covariates=[...])`         |
+| With covariates, doubly-robust             | `sp.drdid(df, y='y', treat='d', time='post', covariates=[...])`         |
 | Repeated cross-section (no panel match)    | `sp.did(..., panel=False)`                                              |
 | Triple differences (DDD)                   | `sp.ddd(df, y='y', treat='d', time='t', subgroup='eligible')`           |
 | DDD **with covariates**                    | `sp.ddd(..., covariates=[...], id='unit', method='dr')`                 |

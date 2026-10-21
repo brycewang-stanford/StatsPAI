@@ -53,6 +53,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound
+from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 
 # ======================================================================
 # Public API
@@ -241,6 +242,20 @@ def did_multiplegt(
         # The count is reported by the shared listwise-deletion warning
         # (output/_lineage), which compares n_obs with the input frame.
         df = df.loc[~_incomplete]
+
+    # group= is the unit id. A 0/1 column with several rows per period and
+    # a treatment that varies within them is the treatment indicator passed
+    # in its place: the period-to-period merge on group would compare rows
+    # of different units, so refuse; with a constant treatment, warn.
+    _check_unit_is_not_treatment(
+        df,
+        unit=group,
+        time=time,
+        cohort=None,
+        function="did_multiplegt",
+        cell_constant=treatment,
+        example_tail=f"treatment={treatment!r}",
+    )
 
     # ── Sort and compute main estimate ───────────────────────────── #
     df = df.sort_values([group, time]).reset_index(drop=True)

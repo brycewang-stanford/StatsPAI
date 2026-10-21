@@ -97,9 +97,9 @@ df = sp.datasets.lalonde_panel()
 df["post"] = (df.year == 1978).astype(int)
 d = df[((df["sample"] == 1) & (df.treated == 0)) | (df["sample"] == 2)]
 x = ["age", "educ", "black", "married", "nodegree", "hisp", "re74"]
-sp.drdid(d, y="re", group="experimental", time="post", id="id",
+sp.drdid(d, y="re", treat="experimental", time="post", id="id",
          covariates=x, method="trad")            # -871.33 (396.02)
-sp.drdid(d, y="re", group="experimental", time="post", id="id",
+sp.drdid(d, y="re", treat="experimental", time="post", id="id",
          covariates=x, method="imp")             # -901.27 (393.61)
 ```
 

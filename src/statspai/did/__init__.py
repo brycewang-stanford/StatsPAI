@@ -36,6 +36,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from . import _cs_conventions as _conv
 from ._absorbing import AbsorbingCheck, check_absorbing
 from ._core import require_bool as _require_bool
 from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
@@ -307,10 +308,32 @@ def _refuse_did_design(method: str, aggregation: Optional[str]) -> None:
         )
 
 
+#: sp.did methods whose estimator takes ``parity=`` (and where it goes).
+_PARITY_METHODS = frozenset(
+    {"2x2", "callaway_santanna", "cs", "sun_abraham", "sa", "sunab"}
+)
+
+#: Keywords that sp.did forwards whenever the estimator it dispatches to
+#: has a parameter of that name (checked on the estimator's signature at
+#: call time, so an estimator that gains one is reached without a change
+#: here); otherwise they are refused as unknown.
+_SIGNATURE_FORWARDED = ("crit_dist",)
+
+
+def _accepts_keyword(func: Any, name: str) -> bool:
+    import inspect
+
+    try:
+        return name in inspect.signature(func).parameters
+    except (TypeError, ValueError):  # pragma: no cover - builtins
+        return False
+
+
 @records_call("did")
 @accepts_aliases(
     _strict=True, unit="id", controls="covariates", outcome="y", treatment="treat"
 )
+@_conv.track_explicit
 def did(
     data: pd.DataFrame,
     y: str,
@@ -344,6 +367,7 @@ def did(
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
     design: Any = None,
+    parity: Optional[Literal["r", "stata"]] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -462,6 +486,28 @@ def did(
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
 
         .. versionadded:: 1.40.0
+    parity : {'r', 'stata'}, optional
+        Forwarded to the estimator ``method`` resolves to, which sets the
+        conventions of R or Stata in one argument:
+        :func:`callaway_santanna` (and :func:`aggte` when
+        ``aggregation`` is set, which inherits it), :func:`sun_abraham`
+        and :func:`did_2x2`. Any other method raises. Under ``parity=``,
+        ``base_period`` reaches :func:`callaway_santanna` only when passed,
+        so that the program's base period applies, and under
+        ``parity='stata'`` the same holds for ``n_boot`` /
+        ``random_state`` on the aggregation (``csdid``'s ``estat`` reports
+        analytic standard errors); a value that contradicts the parity
+        raises there. Otherwise ``sp.did(..., parity=p)`` is the same call
+        as the estimator's with ``parity=p``.
+
+        .. versionadded:: 1.41.0
+    **kwargs
+        Branch-specific options: ``horizon`` / ``event_window`` /
+        ``pretrends`` / ``pretrend_method`` for the BJS imputation
+        method, the synthetic-DiD options for ``'sdid'``. ``crit_dist``
+        is forwarded to whichever estimator ``method`` resolves to when
+        that estimator has a ``crit_dist`` parameter. Anything else
+        raises rather than being ignored.
 
     Returns
     -------
@@ -739,6 +785,41 @@ def did(
             time = "_post"
         method = "2x2"
 
+    # ── parity= goes to the estimators that implement it ───────────── #
+    if parity is not None and method not in _PARITY_METHODS:
+        raise MethodIncompatibility(
+            f"sp.did: parity={parity!r} is implemented by the "
+            "Callaway-Sant'Anna, Sun-Abraham and 2x2 estimators; "
+            f"method={method!r} has no R / Stata parity switch.",
+            recovery_hint=(
+                "Use method='cs', 'sun_abraham' or '2x2' with parity=, or "
+                "drop parity= and set the estimator's conventions directly."
+            ),
+            diagnostics={"method": method, "parity": parity},
+            alternative_functions=[
+                "sp.callaway_santanna",
+                "sp.sun_abraham",
+                "sp.did_2x2",
+            ],
+        )
+    _parity_kw: Dict[str, Any] = {} if parity is None else {"parity": parity}
+    _explicit = _conv.explicit_args()
+
+    # Keywords forwarded to the dispatched estimator when it takes them.
+    _targets: Dict[str, Any] = {
+        "2x2": did_2x2,
+        "callaway_santanna": callaway_santanna,
+        "cs": callaway_santanna,
+        "sun_abraham": sun_abraham,
+        "sa": sun_abraham,
+        "sunab": sun_abraham,
+    }
+    _generic_kw: Dict[str, Any] = {}
+    for _name in _SIGNATURE_FORWARDED:
+        _target = _targets.get(method)
+        if _name in kwargs and _target is not None and _accepts_keyword(_target, _name):
+            _generic_kw[_name] = kwargs.pop(_name)
+
     # ── Reject unknown keyword arguments ───────────────────────────── #
     #
     # ``**kwargs`` exists to forward branch-specific options (sdid's
@@ -804,6 +885,8 @@ def did(
             wild_weight_type=wild_weight_type,
             seed=seed,
             design=design,
+            **_parity_kw,
+            **_generic_kw,
         )
 
     # ── ω guard ────────────────────────────────────────────────────── #
@@ -871,6 +954,13 @@ def did(
                 recovery_hint="Pass id='unit_column' for method='cs'.",
                 diagnostics={"method": method},
             )
+        # Under parity= the program's base period applies unless one was
+        # passed (callaway_santanna refuses a contradicting one).
+        _base_kw: Dict[str, Any] = (
+            {"base_period": base_period}
+            if parity is None or "base_period" in _explicit
+            else {}
+        )
         cs_result = callaway_santanna(
             data,
             y=y,
@@ -881,12 +971,14 @@ def did(
             weights=weights,
             estimator=estimator,
             control_group=control_group,
-            base_period=base_period,
+            **_base_kw,
             alpha=alpha,
             anticipation=anticipation,
             panel=panel,
             allow_unbalanced_panel=allow_unbalanced_panel,
             design=design,
+            **_parity_kw,
+            **_generic_kw,
         )
         if aggregation is not None:
             if aggregation not in ("simple", "dynamic", "group", "calendar"):
@@ -900,12 +992,19 @@ def did(
                     ),
                     diagnostics={"aggregation": aggregation},
                 )
+            # Stata csdid's estat reports analytic SEs, so under
+            # parity='stata' the bootstrap is not requested unless asked for
+            # (aggte refuses an explicit one). R did bootstraps by default.
+            _boot_kw: Dict[str, Any] = {
+                k: v
+                for k, v in (("n_boot", n_boot), ("random_state", random_state))
+                if parity != "stata" or k in _explicit
+            }
             return aggte(
                 cs_result,
                 type=aggregation,
                 alpha=alpha,
-                n_boot=n_boot,
-                random_state=random_state,
+                **_boot_kw,
             )
         return cs_result
 
@@ -927,6 +1026,8 @@ def did(
             cluster=cluster,
             aggregation=aggregation,
             alpha=alpha,
+            **_parity_kw,
+            **_generic_kw,
         )
 
     if method in (

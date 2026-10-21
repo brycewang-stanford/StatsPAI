@@ -88,7 +88,7 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
             )
         all_args: Dict[str, Any] = {
             "y": y,
-            "group": treat.split()[0],
+            "treat": treat.split()[0],
             "time": time.split()[0],
         }
         if xs:
@@ -134,7 +134,7 @@ def _h_drdid(cmd: StataCommand) -> Dict[str, Any]:
     method = chosen[0] if chosen else "drimp"
     args: Dict[str, Any] = {
         "y": y,
-        "group": treat.split()[0],
+        "treat": treat.split()[0],
         "time": time.split()[0],
     }
     if xs:

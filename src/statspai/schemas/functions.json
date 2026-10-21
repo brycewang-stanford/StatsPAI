@@ -1559,6 +1559,14 @@
           "type": "boolean",
           "x-statspai-source": "signature"
         },
+        "parity": {
+          "description": "R ('r') or Stata ('stata') conventions, forwarded to the estimator method resolves to: callaway_santanna (aggte inherits it), sun_abraham or did_2x2; any other method raises. Under parity, base_period reaches the CS fit only when passed, and under 'stata' n_boot / random_state reach aggte only when passed (csdid's estat is analytic). Otherwise identical to calling the estimator with parity=.",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
         "random_state": {
           "description": "Seed for the multiplier bootstrap.",
           "type": "integer",
@@ -25437,7 +25445,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit/panel-id column (needed unless treat= and fe= are given)",
+          "description": "Unit/panel-id column (canonical spelling id=; needed unless treat= and fe= are given). Not the treatment indicator: a 0/1 column here is refused when the cohort varies within it and flagged when it repeats rows within a period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -30602,7 +30610,7 @@
           "type": "integer"
         },
         "group": {
-          "description": "Unit identifier",
+          "description": "Unit (group) identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column with several rows per period is refused when the treatment varies within its (group, period) cells and flagged otherwise.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -30829,15 +30837,6 @@
           ],
           "type": "string"
         },
-        "group": {
-          "description": "Binary 0/1 treatment-group indicator, constant within a unit. Canonical spelling treat=. Not the unit identifier (that is id=); in sp.did_imputation the same keyword group= is the unit id. A column without exactly two values is refused.",
-          "type": "string",
-          "x-aliases": [
-            "dname",
-            "treat"
-          ],
-          "x-statspai-role": "column"
-        },
         "id": {
           "description": "Unit identifier for true two-period panel DR-DID",
           "type": "string",
@@ -30889,6 +30888,14 @@
           ],
           "x-statspai-role": "column"
         },
+        "treat": {
+          "description": "Binary 0/1 treatment-group indicator, constant within a unit. Not the unit identifier (that is id=). A column without exactly two values is refused. The old keyword group= still works with a DeprecationWarning (removed no earlier than 1.42); elsewhere in the DiD family group= is the unit id.",
+          "type": "string",
+          "x-aliases": [
+            "dname"
+          ],
+          "x-statspai-role": "column"
+        },
         "trim_level": {
           "default": 0.995,
           "description": "Drop control units whose propensity score reaches this cutoff (DRDID trim.level). 1.0 disables.",
@@ -30923,7 +30930,7 @@
       "required": [
         "data",
         "y",
-        "group",
+        "treat",
         "time"
       ],
       "type": "object"
@@ -31421,7 +31428,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier. Canonical spelling id= (unit= also accepted). Not the treatment indicator: in sp.drdid the same keyword group= is the 0/1 treatment group. A 0/1 column here is refused when the cohort varies within it.",
+          "description": "Unit identifier. Canonical spelling id= (unit= also accepted). Not the treatment indicator (the old sp.drdid keyword group= was the 0/1 treatment group; it is deprecated there in favour of treat=). A 0/1 column here is refused when the cohort varies within it.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -31747,7 +31754,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier",
+          "description": "Unit identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column here is refused when the cohort varies within it and flagged when it repeats rows within a period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -31863,7 +31870,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Group or cohort identifier.",
+          "description": "Unit identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column here is refused when the cohort varies within it and flagged when it repeats rows within a period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -32273,7 +32280,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier",
+          "description": "Unit identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column here is refused when the cohort varies within it and flagged when it repeats rows within a period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -37863,7 +37870,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment",
+          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment indicator (``sp.drdid`` used to call its 0/1 treatment group ``group``; that keyword is deprecated there in favour of ``treat=``), so a 0/1 column passed here is refused when the cohort varies within it and flagged with an ``ArgumentRoleWarning`` when it has several rows per period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -38056,7 +38063,7 @@
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment",
+          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment indicator (``sp.drdid`` used to call its 0/1 treatment group ``group``; that keyword is deprecated there in favour of ``treat=``), so a 0/1 column passed here is refused when the cohort varies within it and flagged with an ``ArgumentRoleWarning`` when it has several rows per period.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -70273,6 +70280,14 @@
           "default": 1000,
           "description": "Multiplier-bootstrap replications for :func:`aggte`.",
           "type": "integer"
+        },
+        "parity": {
+          "description": "Fit and aggregate with the conventions of R ``did`` or Stata ``csdid``: forwarded to every :func:`callaway_santanna` fit the report runs (the headline fit and the estimator triangulation) and to every :func:`aggte` call. With a pre-fitted result, ``None`` keeps the fit's parity and a different one raises. Under ``parity='stata'`` the aggregations report analytic standard errors, as ``csdid``'s ``estat`` does, unless ``n_boot`` / ``random_state`` are passed (which then raises, because they contradict it). The functional-form test and the covariate balance table do not depend on these conventions. .. versionadded:: 1.41.0",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
         },
         "random_state": {
           "default": 0,

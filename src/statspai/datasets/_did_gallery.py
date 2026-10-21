@@ -325,7 +325,7 @@ def lalonde_panel(download: bool = True) -> pd.DataFrame:
     >>> d["post"] = (d["year"] == 1978).astype(int)  # doctest: +SKIP
     >>> x = ["age", "educ", "black", "married", "nodegree", "hisp", "re74"]
     >>> r = sp.drdid(  # doctest: +SKIP
-    ...     d, y="re", group="experimental", time="post", id="id", covariates=x
+    ...     d, y="re", treat="experimental", time="post", id="id", covariates=x
     ... )
     >>> round(r.estimate, 2)  # doctest: +SKIP
     -871.33

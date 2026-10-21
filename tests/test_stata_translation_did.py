@@ -51,7 +51,7 @@ def test_drdid_estimator_flags(flag, expected):
     out = sp.from_stata(f"drdid y x1 x2, ivar(id) time(t) treatment(d) {flag}")
     assert out["ok"] and out["tool"] == "drdid"
     args = out["arguments"]
-    assert args["y"] == "y" and args["group"] == "d" and args["time"] == "t"
+    assert args["y"] == "y" and args["treat"] == "d" and args["time"] == "t"
     assert args["id"] == "id" and args["covariates"] == ["x1", "x2"]
     for key, value in expected.items():
         assert args[key] == value
@@ -97,7 +97,7 @@ def test_drdid_line_is_the_direct_call(panel):
         sp.drdid,
         two,
         y="y",
-        group="d",
+        treat="d",
         time="time",
         covariates=["x"],
         id="unit",
@@ -274,7 +274,7 @@ def test_drdid_all_translation():
 def test_drdid_all_rows_are_the_single_calls(panel):
     two = panel[panel["time"].isin([2, 5]) & panel["first_treat"].isin([0, 4])].copy()
     two["d"] = (two["first_treat"] == 4).astype(int)
-    kw = dict(y="y", group="d", time="time", covariates=["x"], id="unit")
+    kw = dict(y="y", treat="d", time="time", covariates=["x"], id="unit")
     table = _quiet(sp.drdid, two, est_method="all", **kw).detail.set_index("estimator")
     single = _quiet(sp.drdid, two, est_method="reg", **kw)
     assert table.loc["reg", "att"] == single.estimate

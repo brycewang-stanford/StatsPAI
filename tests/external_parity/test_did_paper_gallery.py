@@ -131,10 +131,10 @@ def _lalonde_fit(df, sample, design, spec, estimator):
     arm = 0 if design == "evalbias" else 1
     d = df[(m & (df["treated"] == arm)) | (df["sample"] == 2)]
     if estimator == "did_nocov":
-        r = sp.drdid(d, y="re", group="experimental", time="post", id="id",
+        r = sp.drdid(d, y="re", treat="experimental", time="post", id="id",
                      covariates=None)
     else:
-        r = sp.drdid(d, y="re", group="experimental", time="post", id="id",
+        r = sp.drdid(d, y="re", treat="experimental", time="post", id="id",
                      covariates=SPECS[spec], **LALONDE_ESTIMATORS[estimator])
     return float(r.estimate), float(r.se)
 

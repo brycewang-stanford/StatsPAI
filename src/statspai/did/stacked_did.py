@@ -27,6 +27,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._validate import drop_always_treated as _drop_always_treated
 from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
@@ -307,6 +308,11 @@ def stacked_did(
         # (unit, period) rows flagged, and cohorts treated from the first
         # period (no pre-treatment row, so no reference period) left out.
         if events is None:
+            # group= is the unit id: a 0/1 treatment column passed there is
+            # refused (cohort varies within it) or flagged.
+            _check_unit_is_not_treatment(
+                df, unit=group, time=time, cohort=first_treat, function="stacked_did"
+            )
             _require_constant_cohort(
                 df, unit=group, cohort=first_treat, function="stacked_did"
             )

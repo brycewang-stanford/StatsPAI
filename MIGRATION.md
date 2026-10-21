@@ -66,6 +66,30 @@ pre-1.41 value and do not warn; they switch with the default.
 
 ---
 
+## 1.40.0 → 1.41: `sp.drdid(group=)` deprecated in favour of `treat=`; swapped `group=` in five DiD estimators
+
+No number changes.
+
+- `sp.drdid`'s treatment-group parameter is now called `treat`. Calls that
+  pass it by keyword as `group=` keep working with a `DeprecationWarning`;
+  the keyword will be removed **no earlier than 1.42**. Replace
+  `sp.drdid(df, y="y", group="d", time="post")` with
+  `sp.drdid(df, y="y", treat="d", time="post")`. Positional calls and the R
+  spelling `dname=` are unaffected. Everywhere else in the DiD family
+  `group=` is, and stays, the unit id.
+- A 0/1 column passed as the unit id (`group=` / `id=`) is caught in
+  `sp.gardner_did`, `sp.stacked_did`, `sp.etwfe` (panel), `sp.wooldridge_did`
+  and `sp.did_multiplegt`. When the cohort varies within it the call raises
+  `MethodIncompatibility` (the first three refused it before, with a less
+  specific message; `sp.wooldridge_did` used to return a number). In
+  `sp.did_multiplegt` it raises when the treatment varies within a
+  (group, period) cell. Otherwise a 0/1 column with several rows per period
+  runs and warns with `ArgumentRoleWarning`; pass the unit identifier as
+  `id=`.
+- New: `sp.did(parity=)` and `sp.cs_report(parity=)`. Defaults unchanged.
+
+---
+
 ## 1.39.6 → 1.40.0: `sp.callaway_santanna` drops always-treated units; `parity=`
 
 - Units whose cohort is at or before the first observed period plus
@@ -5977,7 +6001,7 @@ and returned an unadjusted 2×2 DID under the doubly-robust label.
 that ran, against what you meant to estimate.
 
 ```python
-r = sp.drdid(df, y="y", group="d", time="post", covariates=["x1", "x2"])
+r = sp.drdid(df, y="y", treat="d", time="post", covariates=["x1", "x2"])
 r.model_info["engine"]            # 'drdid_imp_rc'
 r.model_info["drdid_reference"]   # 'DRDID::drdid_imp_rc'
 ```
