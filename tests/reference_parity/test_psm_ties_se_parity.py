@@ -10,7 +10,6 @@ and so does ``sp.psm`` now.
 """
 
 import json
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,10 +26,22 @@ X = ["age", "educ", "black", "hispanic", "married", "nodegree", "re74", "re75"]
 
 @pytest.fixture(scope="module")
 def lalonde():
-    sys.path.insert(0, str(Path(__file__).parents[1] / "orig_parity"))
-    from _common import read_csv
+    # Load orig_parity/_common.py under its own module name: tests/r_parity
+    # and tests/perf also ship a ``_common`` module, and under xdist the one
+    # imported first would shadow this one ("cannot import name read_csv").
+    import importlib.util
+    import sys
 
-    return read_csv("04_lalonde_original")
+    name = "_orig_parity_common"
+    mod = sys.modules.get(name)
+    if mod is None:
+        path = Path(__file__).parents[1] / "orig_parity" / "_common.py"
+        spec = importlib.util.spec_from_file_location(name, path)
+        mod = importlib.util.module_from_spec(spec)
+        # dataclasses look the module up in sys.modules while executing it
+        sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+    return mod.read_csv("04_lalonde_original")
 
 
 def test_stata_ties_result_does_not_depend_on_row_order():
