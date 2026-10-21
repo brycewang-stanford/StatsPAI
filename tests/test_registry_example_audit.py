@@ -61,7 +61,16 @@ class TestAuditActuallyDetects:
             "sp.regress('y ~ x', data=df, vce='hc1')",  # registered alias
             "sp.psm(df, y='y', d='d', X=['x'], caliper=0.2)",  # kwargs delegate
             "sp.regress('y ~ x', data=df).summary()",  # method call, out of scope
+            # aliases on a closed signature (id -> group, cohort -> first_treat)
+            "sp.did_imputation(data=df, y='y', id='i', time='t', cohort='g')",
         ],
     )
     def test_accepts_valid_examples(self, example):
         assert audit_one("t", example) == []
+
+    def test_aliases_do_not_open_a_closed_signature(self):
+        findings = audit_one(
+            "t", "sp.did_imputation(data=df, y='y', id='i', time='t', cohrt='g')"
+        )
+        assert findings and findings[0][0] == "unknown-keyword"
+        assert "cohrt" in findings[0][1]

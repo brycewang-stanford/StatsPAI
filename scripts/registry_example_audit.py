@@ -67,7 +67,10 @@ def _accepted_keywords(target: Any, signature: inspect.Signature) -> Any:
         p.kind is inspect.Parameter.VAR_KEYWORD for p in signature.parameters.values()
     )
     if not has_var_keyword:
-        return names
+        # ``@accepts_aliases`` may present the wrapped function's signature
+        # (no ``**kwargs``) while still accepting its alias spellings
+        # (``sp.did_imputation(id=, cohort=)``).
+        return names | set(getattr(target, "__statspai_aliases__", None) or {})
 
     aliases = getattr(target, "__statspai_aliases__", None)
     if not aliases:
