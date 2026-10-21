@@ -5608,3 +5608,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/perf/results/perf_table.tex`
   - `tests/perf/figures/track_c_loglog.pdf`
   - `tests/perf/figures/track_c_loglog.png`
+
+### 2026-10-22 — traces 04 / 38 / 79 / orig 02 after the CS parity fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `c6c0b8c73` (fix), `f268a88ac` (traces).
+- **Reason.** `src/statspai/did/callaway_santanna.py`, `src/statspai/did/aggte.py`,
+  `src/statspai/did/_cs_conventions.py` and `src/statspai/did/_cs_rcs.py` changed
+  (`parity=` on repeated cross-sections and unbalanced panels, csdid
+  weighted counts). Default paths are unchanged: Track A 04 reproduces byte
+  for byte; 38, 79 and original-data 02 within 1.5e-11 relative, an
+  environment effect also seen with main's code, so the result files were
+  kept and only the traces re-recorded. Track C 02_csdid is now stale
+  (`trace_perf_path.py --check`), left for the next re-time.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
