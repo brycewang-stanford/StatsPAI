@@ -149,9 +149,11 @@ def _install_kind(install: Dict[str, Any], location: str) -> str:
         return "installed package"
     url = install.get("url") or ""
     if url.startswith("file://"):
-        from urllib.parse import unquote, urlparse
+        from urllib.parse import urlparse
+        from urllib.request import url2pathname
 
-        root = Path(unquote(urlparse(url).path))
+        # url2pathname maps file:///C:/x to C:\x on Windows (unquoting too)
+        root = Path(url2pathname(urlparse(url).path))
         here = Path(location).resolve()
         candidates = [root / "src" / "statspai", root / "statspai"]
         if not any(c.resolve() == here for c in candidates):

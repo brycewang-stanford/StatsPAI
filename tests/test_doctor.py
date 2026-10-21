@@ -103,6 +103,8 @@ def test_probe_reads_another_interpreter(tmp_path, monkeypatch):
 def test_probe_failures_become_fields_not_exceptions(tmp_path):
     missing = str(tmp_path / "no-such-python")
     assert "error" in _doctor._probe(missing, timeout=5)
+    if sys.platform.startswith("win"):
+        return  # the stub below is a POSIX shell script
     # An executable that prints garbage and exits non-zero.
     fake = tmp_path / "python3.99"
     fake.write_text("#!/bin/sh\necho not json\nexit 3\n")
@@ -140,7 +142,8 @@ def test_bad_timeout_is_refused():
 
 
 def test_install_kind_names_a_shadowed_editable_install(tmp_path):
-    install = {"editable": True, "url": f"file://{tmp_path / 'checkout'}"}
+    # pip writes the checkout as a file URI (file:///C:/... on Windows)
+    install = {"editable": True, "url": (tmp_path / "checkout").as_uri()}
     kind = _doctor._install_kind(install, str(tmp_path / "elsewhere" / "statspai"))
     assert kind.startswith("on sys.path ahead of the editable install")
     here = tmp_path / "checkout" / "src" / "statspai"

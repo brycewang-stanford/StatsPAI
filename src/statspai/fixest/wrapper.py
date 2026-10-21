@@ -1704,7 +1704,9 @@ def _without_fe_singletons(
     # singletons are counted among the rows the fit keeps: those with every
     # formula variable present (fixest drops missing values first)
     used = [c for c in dict.fromkeys(_IDENT_RE.findall(fml)) if c in data.columns]
-    rows = data[used].notna().all(axis=1).to_numpy()
+    # a copy: under pandas 3 copy-on-write .to_numpy() is read-only, and
+    # the loop narrows this mask in place
+    rows = data[used].notna().all(axis=1).to_numpy().copy()
     for term in (t.strip() for t in seg.split("+")):
         if not term:
             continue
