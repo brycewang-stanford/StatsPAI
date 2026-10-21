@@ -56,10 +56,17 @@ def test_intervals_are_normal_like_stata(ring, fn):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         r = getattr(sp, fn)(W, df, "y ~ x")
+    # 7 significant digits printed; the optimisers agree to ~1e-6. The
+    # standard errors come from a central-difference Hessian (step 5e-5)
+    # of a log-likelihood of size ~60, whose rounding error is about
+    # eps * 60 / (5e-5)^2 ~ 5e-6 relative per entry; for GNS (rho and
+    # lambda nearly confounded on a 40-unit ring) that moves the interval
+    # ends by up to 6.3e-6 between platforms (const lower end: -0.44824436
+    # on macOS, -0.44823810 on Windows / py3.10, Stata -0.4482438).
+    tol = 2e-5 if fn == "gns" else 5e-6
     for term, (lo, hi) in STATA[fn].items():
-        # 7 significant digits printed; the optimisers agree to ~1e-6
-        assert r.conf_int_lower[term] == pytest.approx(lo, abs=5e-6), term
-        assert r.conf_int_upper[term] == pytest.approx(hi, abs=5e-6), term
+        assert r.conf_int_lower[term] == pytest.approx(lo, abs=tol), term
+        assert r.conf_int_upper[term] == pytest.approx(hi, abs=tol), term
     # p = 2 * (1 - Phi(|b / se|))
     z = r.params / r.std_errors
     from scipy import stats

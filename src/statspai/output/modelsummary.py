@@ -337,12 +337,13 @@ def _dispatch_output(table: Any, output: str) -> Union[str, pd.DataFrame]:
         return f"Table exported to: {output}"
     if suffix in _FILE_RENDERERS:
         method = _FILE_RENDERERS[suffix]
-        text = (
-            table.to_dataframe().to_csv()
-            if method is None
-            else str(getattr(table, method)())
-        )
-        Path(output).write_text(text, encoding="utf-8")
+        if method is None:
+            # pandas writes the CSV itself: its line terminator is already
+            # os.linesep, which a text-mode write turned into "\r\r\n" on
+            # Windows.
+            table.to_dataframe().to_csv(output, encoding="utf-8")
+        else:
+            Path(output).write_text(str(getattr(table, method)()), encoding="utf-8")
         return f"Table exported to: {output}"
     raise MethodIncompatibility(
         f"output={output!r} is neither a format keyword nor a file path "

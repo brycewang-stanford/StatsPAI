@@ -4,6 +4,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### CI repairs for 1.40: mypy baseline, strict docs build, citation audit, pandas 3 / Windows failures
+
+- **Fixed**: `sp.bal_tab` and the `margins` of `sp.intreg` / `sp.heckman` / `sp.heckprobit` raised `ValueError: output array is read-only` under pandas 3 (copy-on-write makes `.to_numpy()` read-only, and the sample mask was narrowed in place). Numbers unchanged.
+- **Fixed**: `sp.modelsummary(output="table.csv")` wrote `\r\r\n` line ends on Windows (pandas' `os.linesep` passed through a text-mode write). pandas now writes the file.
+- **Fixed**: `sp.cbps(variant='exact')`: near the root the potential changes by less than its rounding error, so the line search could stop with a balance residual of 2e-11 (lalonde ATE on Windows; 1e-16 elsewhere). A full Newton step that halves the moments is now accepted. Coefficients unchanged where the search already converged.
+- **Changed**: `sp.policy_tree` on a reward matrix (multi-action, depth <= 2) compares split values up to rounding (1e-12 of the total absolute reward) and keeps the first (feature, threshold) among ties, as documented. Exactly tied splits used to be decided by the last bits of the summation, so the root threshold differed between platforms on the policytree fixture (both splits give the same reward in exact arithmetic). Policy values are unchanged; a threshold can move to the first of several exactly tied ones.
+- **Fixed**: `structural_break` refuses a segment with no admissible split (`DataInsufficient`) and `mediate_sensitivity` refuses `max_iter < 1` (`MethodIncompatibility`); both raised `TypeError` before. The MCP HTTP transport leaves its in-flight table before it answers, so a retry with the same id is no longer refused as a duplicate.
+- **Changed**: `GARCHResult` declares `vce`, `presample` and `gradient_norm` as fields (default `None`; `sp.garch` sets them as before).
+- **Internal**: the mypy count is back under the 827 baseline (1361 in CI); the 26 griffe / autorefs warnings of `mkdocs build --strict` are fixed; the citation auditor resolves DataCite DOIs (Zenodo, Dataverse, arXiv's 10.48550) at DataCite instead of logging Crossref 404s, no longer reads "CGD Working Paper 103" as NBER w103, and repairs Crossref records whose given and family names are swapped; tests reset the specification-search counter before each test.
+
 ### DiD API: swapped `group=` caught, one argument vocabulary, `result.attgt` / `.event_study` / `.aggregations`
 
 From the 2026-10-21 DiD replication report (items 5, 6, 8). No estimate or standard error changes.

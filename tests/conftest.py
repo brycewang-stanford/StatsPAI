@@ -22,11 +22,31 @@ entire process lifetime.
 """
 
 import importlib.util  # noqa: E402
+import sys  # noqa: E402
 
 import pytest  # noqa: E402
 import scipy.optimize  # noqa: F401 — stabilise PyO3 type registry
 
 _HAS_PYFIXEST = importlib.util.find_spec("pyfixest") is not None
+
+
+@pytest.fixture(autouse=True)
+def _fresh_specification_counter():  # type: ignore[no-untyped-def]
+    """Start every test with an empty specification-search count.
+
+    ``sp.regress`` / ``feols`` / ... record each fitted specification in a
+    per-process counter, and ``violations()`` reports a
+    ``specification_search`` item once an outcome has been fitted more
+    than five ways. Without a reset that count leaks from whatever tests
+    ran earlier in the same worker, so a test asserting ``violations() ==
+    []`` passed or failed with the test order (nightly 2026-10-20, all
+    platforms). Only reset when the module is already loaded, so this adds
+    no import.
+    """
+    mod = sys.modules.get("statspai.core._spec_counter")
+    if mod is not None:
+        mod.reset_specification_counter()
+    yield
 
 
 @pytest.hookimpl(hookwrapper=True)

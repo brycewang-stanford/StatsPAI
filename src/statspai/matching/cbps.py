@@ -514,12 +514,22 @@ def _solve_exact(
         slope = float(g @ step)
         if slope <= 0:  # not an ascent direction: Hessian lost definiteness
             break
+        g_max = float(np.max(np.abs(g)))
         t = 1.0
         while t > 1e-12:
             cand = gamma + t * step
             f_new = potential(cand)
             if f_new >= f + 1e-4 * t * slope:
                 break
+            # Near the root the potential changes by less than its own
+            # rounding error, so the sufficient-increase test can fail for
+            # a good Newton step and the search used to stop with a balance
+            # residual of 2e-11 (lalonde ATE on Windows, 1e-16 on macOS).
+            # A full step that halves the moments is accepted instead.
+            if t == 1.0:
+                g_new = _balance_moments(cand, Z, T, att)[0]
+                if float(np.max(np.abs(g_new))) <= 0.5 * g_max:
+                    break
             t *= 0.5
         else:
             break

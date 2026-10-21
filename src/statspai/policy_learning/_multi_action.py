@@ -15,7 +15,11 @@ axis added to the rank-indexed partial sums: a node's value is
 ``x <= threshold`` goes-left convention; ``min_leaf_size`` is the smallest
 permitted terminal node. Ties: the first action (column order) wins in a
 leaf, the first (feature, threshold) in a split search, and a split must
-strictly beat the unsplit node.
+strictly beat the unsplit node. Values are compared up to rounding
+(``_tie_tol``): candidates whose values differ only in the last bits are
+exact ties computed in a different order, and letting that noise decide
+made the chosen threshold depend on the platform's summation (the
+multi-action policytree fixture has two exactly tied root splits).
 """
 
 from __future__ import annotations
@@ -29,6 +33,12 @@ from ._exact_tree import _RankIndex
 
 TreeNode = Dict[str, Any]
 _NEG = -np.inf
+
+
+def _tie_tol(R: np.ndarray) -> float:
+    """Rounding scale of a sum of rows of ``R``: values closer than this
+    are treated as equal (``1e-12`` of the total absolute reward)."""
+    return 1e-12 * float(np.abs(R).sum())
 
 
 def _leaf(R: np.ndarray) -> TreeNode:
@@ -52,7 +62,13 @@ def _accumulate(index: _RankIndex, R: np.ndarray) -> Tuple[np.ndarray, np.ndarra
 
 
 def _depth1(
-    SA: np.ndarray, SC: np.ndarray, tot: np.ndarray, n: int, cand: np.ndarray, m: int
+    SA: np.ndarray,
+    SC: np.ndarray,
+    tot: np.ndarray,
+    n: int,
+    cand: np.ndarray,
+    m: int,
+    tol: float = 0.0,
 ) -> Tuple[float, Optional[Tuple[int, int]]]:
     if n < m:
         return _NEG, None
@@ -62,9 +78,10 @@ def _depth1(
         return leaf, None
     val = SA.max(axis=2) + (tot[None, None, :] - SA).max(axis=2)
     val = np.where(ok, val, _NEG)
-    flat = int(np.argmax(val))
+    # first (feature, threshold) among the splits tied with the maximum
+    flat = int(np.argmax(val >= val.max() - tol))
     best = float(val.flat[flat])
-    if best <= leaf:
+    if best <= leaf + tol:
         return leaf, None
     k, r = np.unravel_index(flat, val.shape)
     return best, (int(k), int(r))
@@ -106,7 +123,8 @@ def exact_multi_action_tree(
     SA_tot = np.cumsum(S_tot, axis=1)
     SC_tot = np.cumsum(C_tot, axis=1)
     tot = R.sum(axis=0)
-    best_value, root = _depth1(SA_tot, SC_tot, tot, n, index.cand, m)
+    tol = _tie_tol(R)
+    best_value, root = _depth1(SA_tot, SC_tot, tot, n, index.cand, m, tol)
     best_tree = _node(X, R, index, rows_all, root)
     if max_depth == 1:
         return best_tree
@@ -136,13 +154,13 @@ def exact_multi_action_tree(
                 continue
             SA = np.cumsum(S, axis=1)
             SC = np.cumsum(C, axis=1)
-            lv, ls = _depth1(SA, SC, tot_left, n_left, index.cand, m)
+            lv, ls = _depth1(SA, SC, tot_left, n_left, index.cand, m, tol)
             rv, rs = _depth1(
-                SA_tot - SA, SC_tot - SC, tot - tot_left, n - n_left, index.cand, m
+                SA_tot - SA, SC_tot - SC, tot - tot_left, n - n_left, index.cand, m, tol
             )
             if lv == _NEG or rv == _NEG:
                 continue
-            if lv + rv > best_value:
+            if lv + rv > best_value + tol:
                 best_value = lv + rv
                 best_root = (j, int(r), ls, rs)
     if best_root is None:

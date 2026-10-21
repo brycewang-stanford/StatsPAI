@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import pathlib
 import warnings
+from fractions import Fraction
 
 import numpy as np
 import pandas as pd
@@ -58,17 +59,56 @@ def test_actions_match_policytree(name):
     assert res["value_policy"] == pytest.approx(G[np.arange(n), want].mean(), rel=1e-12)
 
 
+def _exact_depth1(X, G, rows, m):
+    """Best depth <= 1 reward on ``rows`` in exact rational arithmetic."""
+    A = len(G[0])
+    tot = [sum((G[i][a] for i in rows), Fraction(0)) for a in range(A)]
+    best = max(tot)
+    for k in range(X.shape[1]):
+        order = sorted(rows, key=lambda i: X[i, k])
+        left = [Fraction(0)] * A
+        for pos, i in enumerate(order[:-1]):
+            left = [left[a] + G[i][a] for a in range(A)]
+            if X[order[pos + 1], k] == X[i, k]:
+                continue
+            nl = pos + 1
+            if nl < m or len(rows) - nl < m:
+                continue
+            best = max(best, max(left) + max(tot[a] - left[a] for a in range(A)))
+    return best
+
+
+def _exact_root_value(X, G, k, thr, m):
+    rows = range(X.shape[0])
+    left = [i for i in rows if X[i, k] <= thr]
+    right = [i for i in rows if X[i, k] > thr]
+    return _exact_depth1(X, G, left, m) + _exact_depth1(X, G, right, m)
+
+
 @pytest.mark.parametrize("name", CASES)
 def test_root_split_matches_policytree(name):
     case = REF[name]
-    _, _, res = _fit(case)
+    d, G, res = _fit(case)
     root = case["nodes"][0]
     tree = res["tree"]._tree
     if root["is_leaf"]:
         assert tree["type"] == "leaf"
         return
     assert X_COLS[tree["feature"]] == X_COLS[int(root["split_variable"]) - 1]
-    assert tree["threshold"] == pytest.approx(root["split_value"], abs=0, rel=1e-15)
+    if tree["threshold"] == pytest.approx(root["split_value"], abs=0, rel=1e-15):
+        return
+    # Otherwise the two root splits must be exactly tied, ours the first of
+    # them (the documented rule). In a3_d2 the thresholds -0.41061 and
+    # -0.40727 on x1 give the same reward in exact arithmetic; which one a
+    # floating-point search returns is decided by rounding (R chose the
+    # second; StatsPAI used to as well on macOS but not on Linux / Windows).
+    X = d[X_COLS].to_numpy()
+    Gq = [[Fraction(float(v)) for v in row] for row in G]
+    k = tree["feature"]
+    ours = _exact_root_value(X, Gq, k, tree["threshold"], case["mns"])
+    theirs = _exact_root_value(X, Gq, k, root["split_value"], case["mns"])
+    assert ours == theirs
+    assert tree["threshold"] < root["split_value"]
 
 
 def test_two_columns_reproduce_the_binary_search():

@@ -343,7 +343,7 @@ def bal_tab(
         focal = meta.get("focal")
     treat_type = treat_type or meta.get("treat_type")
 
-    keep = data[[treat] + covariates].notna().all(axis=1).to_numpy()
+    keep = data[[treat] + covariates].notna().all(axis=1).to_numpy(copy=True)
     if w_all is not None:
         keep &= np.isfinite(w_all)
         if (w_all[keep] < 0).any():

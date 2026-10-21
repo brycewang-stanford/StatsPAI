@@ -595,6 +595,8 @@ class _McpHandler(BaseHTTPRequestHandler):
             while not srv.slots.acquire(timeout=0.2):
                 waited = time.monotonic() - queued_at
                 if cancel.is_set():
+                    with srv.state_lock:
+                        srv.inflight.pop(key, None)
                     self._send(
                         200,
                         _srv._jsonrpc_result(
@@ -606,6 +608,8 @@ class _McpHandler(BaseHTTPRequestHandler):
                     )
                     return
                 if srv.max_wait is not None and waited > srv.max_wait:
+                    with srv.state_lock:
+                        srv.inflight.pop(key, None)
                     self._send(
                         200,
                         _srv._jsonrpc_result(
@@ -645,6 +649,13 @@ class _McpHandler(BaseHTTPRequestHandler):
                     _srv._bind_progress_sink(None)
             finally:
                 srv.slots.release()
+            # The call is over once its response exists: leave the in-flight
+            # table before answering, so a client that has its answer never
+            # sees the request still registered (a retry with the same id
+            # was refused as a duplicate, and a test reading ``inflight``
+            # right after the reply raced the cleanup).
+            with srv.state_lock:
+                srv.inflight.pop(key, None)
             if sink is not None:
                 sink.write_line(response)
             else:

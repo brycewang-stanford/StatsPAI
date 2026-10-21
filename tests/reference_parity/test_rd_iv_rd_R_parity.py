@@ -287,11 +287,22 @@ def test_rdplotdensity_matches_r(key, col, R, dens, senate):
         fig, _ = sp.rdplotdensity(data, x=col, n_grid=10)
     out = fig.rdplotdensity_data
     assert _rel(out["h"], ref["h"]) < 1e-8
+    x = data[col].dropna().to_numpy(dtype=float)
     for side, est in (("left", out["Estl"]), ("right", out["Estr"])):
         for k, col_name in enumerate(ref["cols"]):
             tol = 1e-8 if col_name in ("grid", "bw") else 1e-9
             if col_name == "nh":
-                assert list(est["nh"]) == ref[side][k]
+                # Some observations sit on a window edge, |x - grid| = h to
+                # 1e-16 relative, so whether they count is decided by the
+                # last bit of h (which matches R to 1e-8): on Windows one
+                # such row fell out (362 vs 363). Counts must agree except
+                # for rows on an edge to within that 1e-8.
+                grid = np.asarray(est["grid"], dtype=float)
+                bw = np.asarray(est["bw"], dtype=float)
+                edge = np.abs(np.abs(x[None, :] - grid[:, None]) - bw[:, None])
+                n_edge = (edge <= 1e-8 * bw[:, None]).sum(axis=1)
+                diff = np.abs(np.asarray(est["nh"], dtype=int) - ref[side][k])
+                assert np.all(diff <= n_edge), (side, list(est["nh"]))
             else:
                 # Bandwidth rel 1e-12 propagates into the density at ~1e-10.
                 assert _rel(est[col_name], ref[side][k]) < max(tol, 1e-8), (

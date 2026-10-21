@@ -164,7 +164,9 @@ class _LDVModel:
             if cols
             else np.ones(len(frame), bool)
         )
-        return np.asarray(mask, dtype=bool)
+        # a copy: under pandas copy-on-write .to_numpy() is read-only, and
+        # the subclasses narrow this mask in place
+        return np.array(mask, dtype=bool)
 
     def dependent(self) -> Optional[str]:
         dep = (getattr(self.result, "data_info", None) or {}).get("dependent_var")

@@ -49,7 +49,10 @@ def test_modelsummary_csv_is_the_dataframe(model, tmp_path):
     path = tmp_path / "table.csv"
     _quiet(sp.modelsummary, model, output=str(path))
     frame = _quiet(sp.modelsummary, model, output="dataframe")
-    assert path.read_text(encoding="utf-8") == frame.to_csv()
+    # bytes, not read_text(): the file must hold exactly what pandas writes
+    # (os.linesep line ends), with no doubled "\r" on Windows.
+    assert path.read_bytes().decode("utf-8") == frame.to_csv()
+    assert "\r\r" not in path.read_bytes().decode("utf-8")
 
 
 @pytest.mark.parametrize("bad", ["latx", "table.pdf", "word"])
