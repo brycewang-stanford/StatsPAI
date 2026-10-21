@@ -1926,7 +1926,7 @@
           "type": "boolean"
         },
         "parity": {
-          "description": "Use every convention of R did 2.5 ('r') or Stata csdid 1.8 ('stata') where StatsPAI's default differs: base_period='varying', the not-yet-treated cutoff ('period' / 'cohort'), the chi2 pre-test p-value, R's balance='full' on unbalanced panels, csdid's analytic aggregation SEs and fixed group-average shares, and each program's bootstrap defaults when bstrap=True. An explicit argument contradicting a convention raises. sp.aggte inherits it. Matches att_gt / csdid on mpdta to 1e-10 (1e-7 with covariates). Recorded in model_info['conventions'].",
+          "description": "Use every convention of R did 2.5 ('r') or Stata csdid 1.8 ('stata') where StatsPAI's default differs: base_period='varying', the not-yet-treated cutoff ('period' / 'cohort'), the chi2 pre-test p-value, R's balance='full' on unbalanced panels (parity='r' also accepts R's allow_unbalanced_panel=True), variance_convention='reference', csdid's analytic aggregation SEs and fixed group-average shares, csdid's per-cell treated counts as aggregation weights on repeated cross-sections and unbalanced panels, and each program's bootstrap defaults when bstrap=True. An explicit argument contradicting a convention raises. sp.aggte inherits it. Matches att_gt / csdid on mpdta, a repeated cross-section and an unbalanced panel of it to 1e-10 (1e-6 with covariates). Recorded in model_info['conventions'].",
           "enum": [
             "r",
             "stata"
@@ -1980,7 +1980,7 @@
         },
         "variance_convention": {
           "default": "delta",
-          "description": "estimator='dr' on repeated cross-sections / allow_unbalanced_panel only. 'delta' (default): the Sant'Anna-Zhao influence function. 'reference': R did / DRDID's SE, whose pre-period comparison-regression term has the opposite sign and under-covers when the propensity model is wrong. Same ATT(g,t).",
+          "description": "estimator='dr' on repeated cross-sections / allow_unbalanced_panel only. 'delta' (default): the Sant'Anna-Zhao influence function. 'reference': R did / DRDID's and Stata csdid's SE, whose pre-period comparison-regression term has the opposite sign and under-covers when the propensity model is wrong; parity= sets it. Same ATT(g,t).",
           "enum": [
             "delta",
             "reference"
@@ -1997,7 +1997,7 @@
           ]
         },
         "weights": {
-          "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [aweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
+          "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [iweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
           "type": "string",
           "x-aliases": [
             "weightsname"
@@ -34963,7 +34963,7 @@
       "properties": {
         "agg_weights": {
           "default": "did",
-          "description": "Aggregation-weight convention: R did's cohort shares, or Stata csdid's per-cell treated-observation counts (repeated cross-sections only; simple and group)",
+          "description": "Aggregation-weight convention: R did's cohort shares, or Stata csdid's per-cell treated counts with their estimation term in the SEs (repeated cross-sections and unbalanced balance='pair' panels; all four types). With weights= a cell's count is the weight mass of its treated observations, as in csdid",
           "enum": [
             "did",
             "csdid"
@@ -35021,7 +35021,7 @@
           "type": "boolean"
         },
         "parity": {
-          "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections.",
+          "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections and unbalanced panels.",
           "enum": [
             "r",
             "stata"

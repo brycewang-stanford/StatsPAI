@@ -6,7 +6,7 @@ configuration that was run. This script asks the same question of every
 configuration at once: for each estimator with a scope map it walks the
 full grid of its dimensions, calls ``sp.validation_scope`` on each cell,
 and counts, per output (estimate / se / coverage / diagnostic / vcov /
-joint_test), how many cells have which evidence status. The result is the
+joint_test / interval), how many cells have which evidence status. The result is the
 generated replacement for the hand-maintained point-in-time table in
 ``docs/parity_object_coverage.md``.
 
@@ -486,8 +486,8 @@ def render(inv: Dict[str, Any]) -> str:
         "## Cells with reference evidence, by output",
         "",
         "| Function | Cells | estimate | se | vcov | joint_test | diagnostic | "
-        "Fully covered |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "interval | Fully covered |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name, f in inv["functions"].items():
         cells = f["cells"]
@@ -501,7 +501,7 @@ def render(inv: Dict[str, Any]) -> str:
         lines.append(
             f"| `{name}` | {cells} | {ref('estimate')} | {ref('se')} | "
             f"{ref('vcov')} | {ref('joint_test')} | {ref('diagnostic')} | "
-            f"{_pct(f['overall'].get('covered', 0), cells)} |"
+            f"{ref('interval')} | {_pct(f['overall'].get('covered', 0), cells)} |"
         )
     lines += [
         "",

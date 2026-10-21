@@ -71,6 +71,31 @@ To get the old unadjusted placebo or dynamic numbers, drop `controls=`.
 
 ---
 
+## 1.40.0 → 1.41: `parity=` of `sp.callaway_santanna` off a balanced panel
+
+Only fits with `parity='r'` or `'stata'` on repeated cross-sections or an
+unbalanced panel change; default numbers do not.
+
+- `parity='r'` and `'stata'` set `variance_convention='reference'`. With
+  `estimator='dr'` and covariates on repeated cross-sections the SEs move
+  (up to 15% on the test data) and now equal R `did` and Stata `csdid`.
+  An explicit `variance_convention='delta'` together with `parity=` raises.
+- `parity='stata'` weights each ATT(g, t) by its treated count in every
+  aggregate (calendar, event, and all four on unbalanced panels), as csdid
+  does, and reports `estat simple` as the fit's estimate. The aggregates
+  that used R's cohort shares before move by up to 5%.
+- `parity='r'` accepts `allow_unbalanced_panel=True`; `parity='stata'`
+  still refuses it.
+- `sp.aggte(agg_weights='csdid')` no longer adds R's cohort-share term to
+  the group-average SE; pass `agg_weights='did'` for R's aggregation.
+- With sampling weights (`weights=`), `agg_weights='csdid'` (and so
+  `parity='stata'` off a balanced panel) weights each cell by the weight
+  mass of its treated observations, as csdid `[iw=]` does, instead of
+  their head count, and no longer warns. Weighted aggregates move by up
+  to 19% (single cells) and 2.6% (overall) on the test data.
+
+---
+
 ## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` with several rows per cell, and with `controls=`
 
 Two correctness fixes, both checked against Stata 18 `did_multiplegt_old`

@@ -498,6 +498,9 @@ def cs_repeated_cross_sections(
             "inference_note": _cs._inference_note(bstrap, cband),
             "crit_val_uniform": crit_val_uniform,
             "_cluster_ids": cluster_ids,
+            # Base period of every cell: csdid's cell weights count the
+            # cohort's rows at the base and the comparison period.
+            "_cell_bases": {(float(gv), float(tv)): float(bv) for gv, tv, bv in cells},
             "_row_cohorts": None if unbalanced else g_arr,
             "_row_times": None if unbalanced else t_arr,
             "_unit_ids": unit_ids,

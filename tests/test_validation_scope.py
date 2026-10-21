@@ -393,7 +393,28 @@ def test_callaway_santanna_reads_the_sample_and_estimator(kw, sample, estimator)
     scope = sp.validation_scope(fit)
     assert scope["configuration"]["sample"] == sample
     assert scope["configuration"]["estimator"] == estimator
-    assert scope["status"] == "covered"
+    if (sample, estimator) == ("rcs", "dr"):
+        # DR with covariates on repeated cross-sections: the references (R
+        # did, DRDID, csdid) run the 'reference' variance sign, so the default
+        # 'delta' fit has T2 evidence for its ATT only.
+        assert scope["configuration"]["variance_convention"] == "delta"
+        assert scope["status"] == "estimate_only"
+        ref = sp.validation_scope(
+            _quiet(
+                sp.callaway_santanna,
+                m,
+                y="lemp",
+                g="first_treat",
+                t="year",
+                i="countyreal",
+                x=["lpop"],
+                variance_convention="reference",
+                **kw,
+            )
+        )
+        assert ref["status"] == "covered"
+    else:
+        assert scope["status"] == "covered"
 
 
 @pytest.mark.parametrize(
@@ -1226,3 +1247,175 @@ def test_did_multiplegt_dyn_scope_is_read_from_the_fit():
     u = sp.validation_scope(untested)
     assert u["status"] == "not_covered"
     assert {n["differs_in"] for n in u["near_misses"]} >= {"weights", "same_switchers"}
+
+
+# --------------------------------------------------------------------------- #
+#  parity= / crit_dist= (2026-10-22)
+# --------------------------------------------------------------------------- #
+
+_PAR_FIX = ROOT / "tests/reference_parity/_fixtures"
+_CS_PAR_RU = "tests/reference_parity/test_cs_parity_rc_unbal.py"
+_CS_PAR = "tests/reference_parity/test_cs_parity_switch.py"
+_ES_CRIT = "tests/reference_parity/test_es_crit_parity.py"
+
+
+def _cs_par(design, parity, **kw):
+    if design == "rcs":
+        d = pd.read_csv(_PAR_FIX / "cs_parity_rcs.csv")
+        args = dict(i="rid", panel=False)
+    else:
+        d = pd.read_csv(_PAR_FIX / f"cs_parity_{design}.csv")
+        args = dict(i="countyreal")
+    return _quiet(
+        sp.callaway_santanna,
+        d,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        parity=parity,
+        **args,
+        **kw,
+    )
+
+
+@pytest.mark.parametrize(
+    "design, parity, kw, sample",
+    [
+        ("rcs", "stata", {"weights": "w"}, "rcs"),
+        ("rcs", "r", {"x": ["lpop"], "clustervars": "state"}, "rcs"),
+        ("unbal", "stata", {"control_group": "notyettreated"}, "unbalanced_pair"),
+        ("unbal", "r", {"allow_unbalanced_panel": True}, "unbalanced_panel"),
+        ("unbal", "r", {"weights": "w"}, "panel"),
+    ],
+)
+def test_callaway_santanna_parity_fit_is_covered_by_the_parity_rows(
+    design, parity, kw, sample
+):
+    scope = sp.validation_scope(_cs_par(design, parity, **kw))
+    assert scope["configuration"]["parity"] == parity
+    assert scope["configuration"]["sample"] == sample
+    assert scope["status"] == "covered"
+    for out in ("estimate", "se", "joint_test"):
+        assert _CS_PAR_RU in {
+            e["artifact"] for e in scope["outputs"][out]["evidence"]
+        }, out
+
+
+def test_callaway_santanna_parity_is_its_own_cell():
+    """The rows run without parity= do not vouch for a parity fit, and the
+    parity rows do not vouch for a default fit."""
+    m = pd.read_csv(_PAR_FIX / "cs_parity_mpdta.csv")
+    kw = dict(y="lemp", g="first_treat", t="year", i="countyreal")
+    default = sp.validation_scope(_quiet(sp.callaway_santanna, m, **kw))
+    stata = sp.validation_scope(_quiet(sp.callaway_santanna, m, parity="stata", **kw))
+    assert default["configuration"]["parity"] == "none"
+    arts = {e["artifact"] for e in default["outputs"]["se"]["evidence"]}
+    assert not arts & {_CS_PAR, _CS_PAR_RU}
+    assert stata["status"] == "covered"
+    assert {e["artifact"] for e in stata["outputs"]["se"]["evidence"]} == {_CS_PAR}
+    # a by-name query without parity reads as a default fit
+    q = sp.validation_scope(function="callaway_santanna", estimator="dr")
+    assert q["configuration"]["parity"] == "none"
+
+
+@pytest.fixture(scope="module")
+def castle_crit():
+    d = sp.datasets.castle_doctrine()
+    return d.assign(gvar=d.effyear.fillna(0).astype(int))
+
+
+def _crit_fits(castle_crit, parity):
+    d = castle_crit
+    es = _quiet(
+        sp.event_study,
+        d,
+        y="l_homicide",
+        treat_time="effyear",
+        time="year",
+        unit="sid",
+        window=(-5, 4),
+        ref_period=-1,
+        weights="popwt",
+        cluster="sid",
+        parity=parity,
+    )
+    sa = _quiet(
+        sp.sun_abraham,
+        d,
+        y="l_homicide",
+        g="gvar",
+        t="year",
+        i=None,
+        weights="popwt",
+        control_group="nevertreated",
+        aggregation="event_time",
+        parity=parity,
+    )
+    d2 = d[(d.effyear == 2006) | d.effyear.isna()].copy()
+    d2["tr"] = d2.effyear.notna().astype(int)
+    d2["po"] = (d2.year >= 2006).astype(int)
+    dd = _quiet(
+        sp.did_2x2,
+        d2,
+        y="l_homicide",
+        treat="tr",
+        time="po",
+        cluster="sid",
+        parity=parity,
+    )
+    return {"event_study": es, "sun_abraham": sa, "did_2x2": dd}
+
+
+def test_crit_dist_is_read_and_grades_only_the_interval(castle_crit):
+    legacy = _crit_fits(castle_crit, None)
+    stata = _crit_fits(castle_crit, "stata")
+    want = {
+        "event_study": ("normal", "t_cluster"),
+        "sun_abraham": ("normal", "t_resid"),
+        "did_2x2": ("t_resid", "t_cluster"),
+    }
+    for name, (old, new) in want.items():
+        a = sp.validation_scope(legacy[name])
+        b = sp.validation_scope(stata[name])
+        assert a["function"] == b["function"] == name
+        assert (a["configuration"]["crit_dist"], b["configuration"]["crit_dist"]) == (
+            old,
+            new,
+        )
+        # the critical value does not touch the estimate or the SE
+        for out in ("estimate", "se"):
+            assert a["outputs"][out] == b["outputs"][out], (name, out)
+        # the reference intervals are t's: the legacy default has none
+        assert a["outputs"]["interval"]["status"] == "not_covered", name
+        assert b["outputs"]["interval"]["status"] == "reference", name
+        assert {e["artifact"] for e in b["outputs"]["interval"]["evidence"]} == {
+            _ES_CRIT
+        }
+
+
+def test_did_2x2_map_reads_the_variance_and_the_design():
+    p = pd.read_csv(_PAR_FIX / "survey_did_data.csv")
+    sub = p[p.t.isin([2, 3]) & p.g.isin([0, 3])].copy()
+    sub["treat"] = (sub.g == 3).astype(int)
+    sub["post"] = (sub.t == 3).astype(int)
+    des = sp.svydesign(sub, weights="w", strata="stratum", cluster="psu", nest=True)
+    svy = sp.validation_scope(
+        sp.did_2x2(sub, y="y", treat="treat", time="post", design=des)
+    )
+    assert svy["configuration"] == {
+        "vce": "survey",
+        "weights": "none",
+        "covariates": "none",
+        "crit_dist": "t_design",
+    }
+    assert svy["status"] == "covered"
+    plain = sp.validation_scope(
+        sp.did_2x2(sub, y="y", treat="treat", time="post", robust=False)
+    )
+    assert plain["configuration"]["vce"] == "classical"
+    assert plain["status"] == "not_covered"
+    cov = sp.validation_scope(
+        sp.did_2x2(sub, y="y", treat="treat", time="post", covariates=["x"])
+    )
+    assert cov["configuration"]["covariates"] == "set"
+    assert cov["status"] == "not_covered"

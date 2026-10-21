@@ -15,6 +15,8 @@ base period               universal        varying          varying (short)
 not-yet-treated cutoff    period           period           cohort
 pre-test p-value          Hotelling F      chi2             chi2
 unbalanced panel          pair             full             pair
+DR pre-period regression  delta            reference        reference
+aggregation weights       cohort shares    cohort shares    cell counts
 aggregation SEs           follow the fit   follow the fit   analytic always
 group-overall share term  included         included         not included
 bootstrap multipliers     rademacher       rademacher       mammen
@@ -24,11 +26,26 @@ critical value            normal           normal           normal
 always-treated units      dropped          dropped          dropped
 ========================  ===============  ===============  ===============
 
-The first six are *conventions*: they change a reported number and the
+The first eight are *conventions*: they change a reported number and the
 program offers no way to get StatsPAI's choice, or offers it under another
 name. ``parity=`` fixes them, and an explicit argument that contradicts one
 raises. The bootstrap rows are *options* every program exposes with the same
 meaning, so ``parity=`` only supplies their defaults when ``bstrap=True``.
+R's ``allow_unbalanced_panel = TRUE`` is an option of the same kind:
+``parity='r'`` accepts ``allow_unbalanced_panel=True`` (or
+``balance='none'``) and then reproduces it.
+
+Two rows only bite off a balanced panel. "DR pre-period regression" is the
+sign of the comparison-group pre-period regression's estimation effect in
+the doubly robust estimator on repeated cross-sections (and on an
+unbalanced panel read as one); see ``variance_convention`` of
+``callaway_santanna``. "Aggregation weights": csdid weights each ATT(g, t)
+by its own count of treated observations (repeated cross-sections) or of
+treated units seen in both periods of the cell (unbalanced panel), in every
+aggregate, and carries the estimation of those counts into the standard
+errors; R weights by cohort shares. On a balanced panel the two coincide.
+Established on the same CSV bytes in
+``tests/reference_parity/test_cs_parity_rc_unbal.py``.
 
 This module also holds the always-treated rule (units whose cohort is at or
 before the first period plus ``anticipation``; R ``did`` and Stata
@@ -56,8 +73,16 @@ PROGRAMS = {"r": "R did 2.5", "stata": "Stata csdid 1.8"}
 
 #: Conventions of the fit that ``parity=`` fixes.
 _FIT_CONVENTIONS: Dict[str, Dict[str, Any]] = {
-    "r": {"base_period": "varying", "notyet_cutoff": "period"},
-    "stata": {"base_period": "varying", "notyet_cutoff": "cohort"},
+    "r": {
+        "base_period": "varying",
+        "notyet_cutoff": "period",
+        "variance_convention": "reference",
+    },
+    "stata": {
+        "base_period": "varying",
+        "notyet_cutoff": "cohort",
+        "variance_convention": "reference",
+    },
 }
 
 #: How each program handles a panel with missing unit-periods.
@@ -155,28 +180,45 @@ def resolve_fit_parity(
     allow_unbalanced_panel: Any,
     panel: Any,
     estimator: Any,
+    variance_convention: Any = "delta",
 ) -> Dict[str, Any]:
     """Arguments of ``callaway_santanna`` after ``parity=`` is applied."""
     out: Dict[str, Any] = {
         "base_period": base_period,
         "notyet_cutoff": notyet_cutoff,
         "balance": balance,
+        "variance_convention": variance_convention,
     }
     if parity is None:
         return out
     function = "callaway_santanna"
-    given = {"base_period": base_period, "notyet_cutoff": notyet_cutoff}
+    given = {
+        "base_period": base_period,
+        "notyet_cutoff": notyet_cutoff,
+        "variance_convention": variance_convention,
+    }
     for name, required in _FIT_CONVENTIONS[parity].items():
         if name in explicit and given[name] != required:
             raise _conflict(function, parity, name, given[name], required)
         out[name] = required
     if panel is not False:
         # Units missing some periods: R did keeps only the complete units
-        # (balance='full'); csdid 1.8 uses each cell's complete pairs.
+        # (balance='full') unless allow_unbalanced_panel = TRUE, an option R
+        # exposes (balance='none' here); csdid 1.8 uses each cell's
+        # complete pairs and has no such option.
         required_balance = _BALANCE[parity]
-        if "balance" in explicit and balance not in (None, required_balance):
+        allowed = (None, required_balance) + (("none",) if parity == "r" else ())
+        if "balance" in explicit and balance not in allowed:
             raise _conflict(function, parity, "balance", balance, required_balance)
-        if "allow_unbalanced_panel" in explicit and allow_unbalanced_panel is True:
+        r_unbalanced = parity == "r" and (
+            balance == "none"
+            or ("allow_unbalanced_panel" in explicit and allow_unbalanced_panel is True)
+        )
+        if (
+            parity == "stata"
+            and "allow_unbalanced_panel" in explicit
+            and allow_unbalanced_panel is True
+        ):
             raise _conflict(
                 function,
                 parity,
@@ -184,7 +226,8 @@ def resolve_fit_parity(
                 True,
                 f"False (balance={required_balance!r})",
             )
-        out["balance"] = required_balance if parity == "r" else balance
+        if parity == "r":
+            out["balance"] = "none" if r_unbalanced else required_balance
     if parity == "stata" and estimator in ("ipw", "stdipw") and "estimator" in explicit:
         warnings.warn(
             "callaway_santanna: estimator='ipw' is the stabilised IPW, which "
@@ -214,6 +257,7 @@ def fit_conventions(
     pretest: Optional[Dict[str, Any]],
     notyet_cutoff: str,
     balance: str,
+    variance_convention: Optional[str] = None,
 ) -> Dict[str, Any]:
     """``model_info['conventions']`` of a Callaway-Sant'Anna fit."""
     return {
@@ -231,6 +275,9 @@ def fit_conventions(
         ),
         "notyet_cutoff": notyet_cutoff,
         "balance": balance,
+        # Only the doubly robust estimator on the repeated-cross-section
+        # path reads it; None elsewhere.
+        "variance_convention": variance_convention,
     }
 
 
@@ -323,29 +370,10 @@ def resolve_aggte_parity(
         raise _conflict(
             function, parity, "share_variance", share_variance, required_share
         )
-    weights = "did"
-    if has_cell_counts:
-        if type in ("simple", "group"):
-            weights = "csdid"
-        else:
-            warnings.warn(
-                f"aggte: parity='stata' on repeated cross-sections, "
-                f"type={type!r}: csdid weights each cell by its own count of "
-                "treated observations, and that rule has been checked here "
-                "for type='simple' and 'group' only. This aggregation uses R "
-                "did's cohort shares and may differ from csdid.",
-                UserWarning,
-                stacklevel=4,
-            )
-    elif fit_info.get("unbalanced_panel"):
-        warnings.warn(
-            "aggte: parity='stata' on an unbalanced panel: csdid weights each "
-            "cell by its own count of treated units, which has not been "
-            "checked against csdid here. The aggregation uses cohort shares "
-            "and may differ from csdid.",
-            UserWarning,
-            stacklevel=4,
-        )
+    # csdid weights every cell by its own treated count in every aggregate.
+    # On a balanced panel that count is the cohort size, so the two rules
+    # coincide and the cohort-share path (bit-identical to before) is kept.
+    weights = "csdid" if has_cell_counts else "did"
     if "agg_weights" in explicit and agg_weights != weights:
         raise _conflict(function, parity, "agg_weights", agg_weights, weights)
     out.update(

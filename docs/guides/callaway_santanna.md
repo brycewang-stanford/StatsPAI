@@ -167,7 +167,9 @@ st_fit.model_info['conventions']      # what was used
 | base period | `'universal'` | `'varying'` | `'varying'` |
 | not-yet-treated cutoff | `'period'` | `'period'` | `'cohort'` |
 | pre-test p-value | Hotelling F | chi2 | chi2 |
-| unbalanced panel | `'pair'` | `'full'` | `'pair'` |
+| unbalanced panel | `'pair'` | `'full'` (`'none'` if `allow_unbalanced_panel=True`) | `'pair'` |
+| DR pre-period regression term (`variance_convention`) | `'delta'` | `'reference'` | `'reference'` |
+| aggregation weights off a balanced panel | cohort shares | cohort shares | each cell's treated count |
 | aggregation SEs after `bstrap=True` | bootstrap | bootstrap | analytic (`estat`) |
 | cohort-share term in the group average | yes | yes | no |
 | bootstrap weights / draws / band | Rademacher / 1000 / pointwise | Rademacher / 1000 / uniform | Mammen / 999 / uniform |
@@ -182,6 +184,21 @@ not-yet-treated comparisons, unit and state clustering, every ATT(g, t),
 pre-test and aggregate matches to 1e-10 (1e-7 with the covariate; each
 program's logit stops at its own tolerance).
 Evidence: `tests/reference_parity/test_cs_parity_switch.py`.
+
+Off a balanced panel the two programs part ways. On repeated
+cross-sections (`panel=False`, csdid without `ivar()`) and on an unbalanced
+panel (csdid's default pairs), csdid weights every ATT(g, t) in every
+`estat` aggregate by its own treated count, the `N_trt` of `e(gtt)`, and
+carries the estimation of those counts into the SEs; R weights by cohort
+shares. `parity='stata'` uses csdid's rule (`sp.aggte(agg_weights='csdid')`)
+and the fit's own simple ATT is then `estat simple`. Both programs use the
+`'reference'` sign of the doubly robust pre-period regression term, which
+moves the SEs with covariates on repeated cross-sections. `parity='r'`
+accepts `allow_unbalanced_panel=True`, an option R has too. On a repeated
+cross-section and an unbalanced panel built from `mpdta`, every ATT(g, t),
+pre-test and aggregate matches to 1e-10, and with `lpop` to 1e-7 (R) and
+1e-6 (Stata, whose SEs differ from R's by 3e-7 there).
+Evidence: `tests/reference_parity/test_cs_parity_rc_unbal.py`.
 
 ## Always-treated units
 

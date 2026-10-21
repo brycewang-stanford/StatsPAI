@@ -73,11 +73,17 @@ def test_counts_agree_with_direct_queries(built):
 
     sa = built["functions"]["sun_abraham"]
     # fixed shares x two summary aggregations x never-treated controls, on
-    # the saturated regression (window_rule='report').
-    assert sa["by_output"]["vcov"]["reference"] == 2
+    # the saturated regression (window_rule='report'), at every critical
+    # value (the covariance does not depend on it).
+    assert sa["by_output"]["vcov"]["reference"] == 2 * 3
     # 3 control groups (never treated, last cohort, a named cohort)
     # x 2 aggregations x 2 share conventions x 3 window rules
-    assert sa["cells"] == 36
+    # x 3 critical-value distributions (normal, t(N-K), t(G-1))
+    assert sa["cells"] == 108
+    # intervals: never-treated, event-time aggregation, 'report', both
+    # share conventions x the two t's (tests/reference_parity/
+    # test_es_crit_parity.py); the normal default has no reference.
+    assert sa["by_output"]["interval"]["reference"] == 4
 
     forest = built["functions"]["causal_forest"]
     # A forest is never a same-byte reference: T3 / S / B only.
@@ -108,11 +114,12 @@ def test_joint_covariance_evidence_is_counted_where_it_exists(built):
         # grid cells pinned to Stata e(V) by option fixture 97
         "did_multiplegt_dyn": 26,
         "etwfe": 3,
-        "event_study": 1,
+        # x 3 critical-value distributions, which the covariance ignores
+        "event_study": 1 * 3,
         "gardner_did": 1,
         # kernel and cluster covariance vs Stata qreg2 e(V), element by element
         "qreg": 2,
-        "sun_abraham": 2,
+        "sun_abraham": 2 * 3,
     }
 
 

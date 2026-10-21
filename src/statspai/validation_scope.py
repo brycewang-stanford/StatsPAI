@@ -79,7 +79,10 @@ _OUTPUT_STATUS_ORDER = (
 #: ``vcov`` -- the joint covariance of a reported vector (every entry, not
 #: only its diagonal): what joint tests, simultaneous bands and HonestDiD
 #: consume. ``joint_test`` -- a Wald / F statistic and its reference
-#: distribution. Neither is implied by an ``se`` row.
+#: distribution. Neither is implied by an ``se`` row. ``interval`` -- the
+#: p-values and confidence limits a fit reports from its SE, which pin the
+#: critical value's distribution and degrees of freedom (an ``se`` row does
+#: not; see the ``crit_dist`` dimension of the event-study maps).
 OUTPUTS: Tuple[str, ...] = (
     "estimate",
     "se",
@@ -87,6 +90,7 @@ OUTPUTS: Tuple[str, ...] = (
     "diagnostic",
     "vcov",
     "joint_test",
+    "interval",
 )
 
 
@@ -119,7 +123,9 @@ class _Scope:
     #: dimension -> value assumed when a by-name query omits it. Only for a
     #: dimension added after the map was first published, whose omitted value
     #: is what every earlier call ran; a fitted result always reports its own.
-    defaults: Mapping[str, str] = field(default_factory=dict)
+    #: A callable receives the rest of the query and returns the value (for a
+    #: dimension whose default depends on the others).
+    defaults: Mapping[str, Any] = field(default_factory=dict)
 
     @property
     def dimensions(self) -> Tuple[str, ...]:
@@ -295,7 +301,58 @@ def _x_cs(r: Any) -> Dict[str, Optional[str]]:
             None if anticipation is None else ("0" if int(anticipation) == 0 else ">0")
         ),
         "clustering": _set(mi.get("clustervars")),
+        "parity": (mi.get("conventions") or {}).get("parity") or "none",
+        "variance_convention": _cs_variance_convention(mi),
     }
+
+
+def _cs_query_variance_convention(cfg: Mapping[str, Optional[str]]) -> str:
+    """The convention a default fit of a by-name query's configuration has."""
+    relevant = (
+        cfg.get("sample") in ("rcs", "unbalanced_panel")
+        and cfg.get("estimator") == "dr"
+        and cfg.get("covariates") == "set"
+    )
+    if not relevant:
+        return "na"
+    # parity='r' / 'stata' set the reference sign; the default is 'delta'
+    return "reference" if cfg.get("parity") in ("r", "stata") else "delta"
+
+
+def _cs_variance_convention(mi: Mapping[str, Any]) -> str:
+    """``'delta'`` / ``'reference'`` where the choice changes the SE, else ``'na'``.
+
+    The two influence functions differ only for the DR estimator with
+    covariates on the repeated-cross-section path (``panel=False`` or an
+    unbalanced panel with ``allow_unbalanced_panel=True``); elsewhere both
+    give the same numbers, so evidence from either applies.
+    """
+    rcs_path = mi.get("panel") is False or bool(mi.get("allow_unbalanced_panel"))
+    dr = _cs_estimator(mi.get("estimator")) == "dr"
+    if not (rcs_path and dr and mi.get("covariates")):
+        return "na"
+    conv = mi.get("variance_convention") or (mi.get("conventions") or {}).get(
+        "variance_convention"
+    )
+    return _lower(conv) or "delta"
+
+
+def _crit_cell(mi: Mapping[str, Any]) -> Optional[str]:
+    """The distribution behind a regression event study's p-values and CIs.
+
+    ``model_info['conventions']`` records ``crit_dist`` (``'normal'`` or
+    ``'t'``) and ``crit_df``; a t with ``G - 1`` degrees of freedom (``G``
+    the recorded cluster count) is ``'t_cluster'``, any other t is
+    ``'t_resid'`` (``N - K``).
+    """
+    conv = mi.get("conventions") or {}
+    dist = conv.get("crit_dist")
+    if dist in (None, "normal", "bootstrap"):
+        return dist
+    df, g = conv.get("crit_df"), mi.get("n_clusters")
+    if df is not None and g is not None and int(df) == int(g) - 1:
+        return "t_cluster"
+    return "t_resid"
 
 
 def _x_sa(r: Any) -> Dict[str, Optional[str]]:
@@ -317,6 +374,7 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
         "aggregation": _lower(mi.get("summary_aggregation")),
         "share_variance": _SHARE_VARIANCE.get(mi.get("share_variance")),
         "window_rule": _lower(mi.get("window_rule")),
+        "crit_dist": _crit_cell(mi),
     }
 
 
@@ -364,6 +422,7 @@ def _x_twfe_es(r: Any) -> Dict[str, Optional[str]]:
         "bins": None if "bin_width" not in mi else _set(mi.get("bin_width")),
         "intensity": None if "intensity" not in mi else _set(mi.get("intensity")),
         "absorb": None if "absorb" not in mi else _set(mi.get("absorb")),
+        "crit_dist": _crit_cell(mi),
     }
 
 
@@ -649,6 +708,8 @@ _ATTACH = _RP + "test_validation_entry_points.py"
 _JOINT = _RP + "test_joint_wald_stata_parity.py"
 _REGW = _RP + "test_regress_vce_weights_stata_parity.py"
 _MENU = _RP + "test_vce_menu_parity.py"
+#: parity= / crit_dist= of the regression event studies and did_2x2
+_ES_CRIT = _RP + "test_es_crit_parity.py"
 _EST_SE = ("estimate", "se")
 _EST = ("estimate",)
 _COV = ("coverage",)
@@ -1666,6 +1727,10 @@ _CS_DOMAINS = {
     "base_period": ("universal", "varying"),
     "anticipation": ("0", ">0"),
     "clustering": ("none", "set"),
+    "parity": ("none", "r", "stata"),
+    # 'na' where the DR variance sign cannot matter (see
+    # _cs_variance_convention); R did, DRDID and csdid all use 'reference'.
+    "variance_convention": ("na", "delta", "reference"),
 }
 #: The values most CS rows run; ``_cs(...)`` overrides them per row.
 _CS_BASE = {
@@ -1679,6 +1744,8 @@ _CS_BASE = {
     "base_period": ("universal",),
     "anticipation": ("0",),
     "clustering": ("none",),
+    "parity": ("none",),
+    "variance_convention": ("na",),
 }
 
 
@@ -1690,6 +1757,12 @@ _CS_OPT = _RP + "test_cs_options_R_parity.py"
 _CS_96 = _RP + "test_csdid_options_stata_parity.py"
 _CS_GAPS = _RP + "test_cs_gaps_parity.py"
 _CS_NONEVER = _RP + "test_cs_no_never_unbalanced_parity.py"
+_CS_PAR = _RP + "test_cs_parity_switch.py"
+_CS_PAR_RU = _RP + "test_cs_parity_rc_unbal.py"
+#: parity= rows compare the fit's simple ATT and its SE, the pre-test (Wald
+#: statistic and chi-squared p-value) and, through sp.aggte, the four
+#: aggregations and every cell.
+_CS_PAR_OUT = ("estimate", "se", "joint_test")
 _add(
     _Scope(
         "callaway_santanna",
@@ -1756,6 +1829,7 @@ _add(
                     estimator=("dr", "ipw", "reg"),
                     covariates=("none", "set"),
                     base_period=("varying",),
+                    variance_convention=("na", "reference"),
                 ),
                 _EST_SE,
                 "allow_unbalanced_panel=True: every ATT(g, t) and its analytic SE "
@@ -1804,6 +1878,7 @@ _add(
                     covariates=("none", "set"),
                     base_period=("universal", "varying"),
                     anticipation=("0", ">0"),
+                    variance_convention=("na", "reference"),
                 ),
                 _EST_SE,
                 "not-yet-treated comparison set at the default notyet_cutoff: "
@@ -1821,12 +1896,30 @@ _add(
                     control_group=("nevertreated", "notyettreated"),
                     covariates=("set",),
                     base_period=("varying",),
+                    variance_convention=("na", "reference"),
                 ),
                 _EST_SE,
                 "did::mpdta as repeated cross-sections with lpop: the simple "
                 "aggregate and its SE vs did 2.5.1 (panel = FALSE) for dr / ipw "
                 "/ reg under both control groups",
                 "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_cs_rcs_parity.py",
+                _cs(
+                    sample=("rcs",),
+                    control_group=("nevertreated", "notyettreated"),
+                    covariates=("set",),
+                    base_period=("varying",),
+                    variance_convention=("delta",),
+                ),
+                ("estimate",),
+                "default variance_convention='delta': every ATT(g, t) equals the "
+                "'reference' fit's (1e-12), which matches did 2.5.1; the SE is "
+                "the paper's influence function (drdid_rc), not a cross-software "
+                "number",
+                "sp.callaway_santanna(panel=False, estimator='dr', x=...)",
             ),
             _Row(
                 "T2",
@@ -2065,6 +2158,131 @@ _add(
                 "sp.stata(",
             ),
             _Row(
+                "T2",
+                _CS_PAR,
+                _cs(
+                    parity=("r",),
+                    control_group=("nevertreated", "notyettreated"),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                    clustering=("none", "set"),
+                ),
+                _CS_PAR_OUT,
+                "parity='r' on mpdta and on mpdta with 35 always-treated "
+                "counties: every ATT(g, t) and SE, the pre-test, the fit's "
+                "simple ATT and the four sp.aggte aggregations (overall and "
+                "every cell) vs R did 2.5.1 (bstrap = FALSE), to 1e-10 "
+                "without lpop and 1e-8 with it",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR,
+                _cs(parity=("r",), base_period=("varying",), anticipation=(">0",)),
+                _CS_PAR_OUT,
+                "parity='r' with anticipation = 1 on the always-treated panel: "
+                "the same comparison vs R did 2.5.1, to 1e-10",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR,
+                _cs(
+                    parity=("stata",),
+                    control_group=("nevertreated", "notyettreated"),
+                    notyet_cutoff=("period", "cohort"),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                    clustering=("none", "set"),
+                ),
+                _CS_PAR_OUT,
+                "parity='stata' on mpdta and on mpdta with 35 always-treated "
+                "counties: every ATT(g, t) and SE, estat pretrend, the fit's "
+                "simple ATT and estat simple / group / calendar / event "
+                "(estimates, SEs, confidence limits) vs Stata csdid 1.81, to "
+                "1e-10 without lpop and 1e-7 with it",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR,
+                _cs(
+                    parity=("stata",),
+                    base_period=("varying",),
+                    inference=("bootstrap",),
+                ),
+                _EST_SE,
+                "parity='stata' with bstrap=True: the fit's simple ATT and its "
+                "SE are csdid's analytic estat simple after wboot, to 1e-10 "
+                "(the bootstrap SEs of the cells are not compared)",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR_RU,
+                _cs(
+                    parity=("r",),
+                    sample=("rcs", "panel", "unbalanced_panel"),
+                    control_group=("nevertreated", "notyettreated"),
+                    weights=("none", "weighted"),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                    clustering=("none", "set"),
+                    variance_convention=("na", "reference"),
+                ),
+                _CS_PAR_OUT,
+                "parity='r' on a repeated cross-section and an unbalanced panel "
+                "built from mpdta (R's default drop of incomplete units, and "
+                "allow_unbalanced_panel = TRUE), unweighted and with sampling "
+                "weights (and weighted on the balanced mpdta): every ATT(g, t) "
+                "and SE, the pre-test, the fit's simple ATT and the four "
+                "aggregations vs R did 2.5.1, to 1e-10 without lpop and 1e-7 "
+                "with it",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR_RU,
+                _cs(
+                    parity=("stata",),
+                    sample=("rcs", "unbalanced_pair"),
+                    control_group=("nevertreated", "notyettreated"),
+                    notyet_cutoff=("period", "cohort"),
+                    weights=("none", "weighted"),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                    clustering=("none", "set"),
+                    variance_convention=("na", "reference"),
+                ),
+                _CS_PAR_OUT,
+                "parity='stata' on the same repeated cross-section (csdid "
+                "without ivar()) and unbalanced panel (ivar()), unweighted and "
+                "with [iw=w]: every ATT(g, t) and SE, estat pretrend, the fit's "
+                "simple ATT (estat simple) and estat simple / group / calendar "
+                "/ event with csdid's per-cell treated counts (weight mass "
+                "when weighted) vs Stata csdid 1.81, to 1e-10 without lpop and "
+                "1e-6 with it",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
+                "T2",
+                _CS_PAR_RU,
+                _cs(
+                    parity=("stata",),
+                    control_group=("nevertreated", "notyettreated"),
+                    notyet_cutoff=("period", "cohort"),
+                    weights=("weighted",),
+                    covariates=("none", "set"),
+                    base_period=("varying",),
+                    clustering=("none", "set"),
+                ),
+                _CS_PAR_OUT,
+                "parity='stata' on the balanced mpdta with sampling weights: "
+                "the same comparison vs csdid [iw=w], to 1e-10 without lpop "
+                "and 1e-6 with it",
+                "sp.callaway_santanna(",
+            ),
+            _Row(
                 "S",
                 _RP + "test_cs_inference_parity.py",
                 _cs(inference=("bootstrap",), clustering=("none", "set")),
@@ -2098,13 +2316,23 @@ _add(
                 "tests/test_validation_scope.py)",
             ),
         },
-        defaults={"sample": "panel", "notyet_cutoff": "period"},
+        defaults={
+            "sample": "panel",
+            "notyet_cutoff": "period",
+            "parity": "none",
+            # what a default fit records for that configuration
+            "variance_convention": _cs_query_variance_convention,
+        },
         note="'stdipw' is read as 'ipw' (the same estimator). sample="
         "'unbalanced_pair' is an unbalanced panel fitted under the default "
         "balance='pair' (csdid 1.8x's pairwise rule); R did drops incomplete "
         "units instead (balance='full'), so its references are Stata csdid's. "
         "The headline is the simple ATT of the fit; sp.aggte results do not "
-        "carry the fit's configuration and read as unchecked.",
+        "carry the fit's configuration and read as unchecked. parity='r' / "
+        "'stata' fits are their own cells: under 'stata' off a balanced panel "
+        "the headline is csdid's count-weighted estat simple, and both set "
+        "the varying base period and the reference DR variance sign, so the "
+        "rows without parity do not vouch for them.",
     )
 )
 
@@ -2116,6 +2344,7 @@ _add(
             "aggregation": ("fixest_att", "event_time"),
             "share_variance": ("estimated", "fixed"),
             "window_rule": ("report", "bin", "reference"),
+            "crit_dist": ("normal", "t_resid", "t_cluster"),
         },
         _x_sa,
         (
@@ -2127,6 +2356,7 @@ _add(
                     "aggregation": _vals("fixest_att"),
                     "share_variance": _vals("estimated", "fixed"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and "
@@ -2141,6 +2371,7 @@ _add(
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated", "fixed"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "equal-weighted post-period event-time average and its SE vs the "
@@ -2156,6 +2387,7 @@ _add(
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 _COV,
                 "95% CI coverage of the default event-time aggregate",
@@ -2169,6 +2401,7 @@ _add(
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("fixed"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 ("vcov",),
                 "every entry of the event-study covariance (off-diagonal blocks "
@@ -2184,6 +2417,7 @@ _add(
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated"),
                     "window_rule": _vals("bin"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "event-time coefficients and SEs with both ends of the window "
@@ -2199,6 +2433,7 @@ _add(
                     "aggregation": _vals("event_time", "fixest_att"),
                     "share_variance": _vals("estimated", "fixed"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "the 2007 cohort as control on mpdta (the last cohort, and the "
@@ -2216,6 +2451,7 @@ _add(
                     "aggregation": _vals("event_time"),
                     "share_variance": _vals("estimated"),
                     "window_rule": _vals("report"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "event-time effects and SEs with the never-treated, and with "
@@ -2231,6 +2467,7 @@ _add(
                     "aggregation": _vals("event_time", "fixest_att"),
                     "share_variance": _vals("estimated", "fixed"),
                     "window_rule": _vals("reference"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "windows (-3, 2) and (-2, 1) with the relative times outside "
@@ -2240,6 +2477,24 @@ _add(
                 "aggregates vs fixest",
                 "sp.sun_abraham(window_rule='reference')",
             ),
+            _Row(
+                "T2",
+                _ES_CRIT,
+                {
+                    "control_group": _vals("nevertreated"),
+                    "aggregation": _vals("event_time"),
+                    "share_variance": _vals("estimated", "fixed"),
+                    "window_rule": _vals("report"),
+                    "crit_dist": _vals("t_resid", "t_cluster"),
+                },
+                ("estimate", "se", "interval"),
+                "parity='stata' / 'r' on the castle-doctrine panel, weighted, "
+                "clustered by state and (without a unit id) robust: every "
+                "event-time SE, p-value and confidence limit vs Stata "
+                "eventstudyinteract (share term, t(G-1) / t(N-K)) and R "
+                "fixest::sunab (fixed shares, same t), to 1e-10",
+                "sp.sun_abraham(",
+            ),
         ),
         invariant={
             "aggregation": (
@@ -2247,8 +2502,15 @@ _add(
                 "the event-time covariance is formed before the summary "
                 "aggregate is chosen",
             ),
+            "crit_dist": (
+                ("estimate", "se", "vcov"),
+                "the critical value turns an SE into a p-value and an "
+                "interval; coefficients and SEs are computed before it is "
+                "chosen (asserted equal across parity= in "
+                "tests/reference_parity/test_es_crit_parity.py)",
+            ),
         },
-        defaults={"share_variance": "estimated"},
+        defaults={"share_variance": "estimated", "crit_dist": "normal"},
         note="window_rule only matters with event_window=; 'report' fits the "
         "saturated regression and is what every row without a window runs. "
         "'reference' (the behaviour before 1.39.0) is kept to reproduce "
@@ -2569,6 +2831,7 @@ _TWFE_ES_RAN = {
     "bins": _vals("none"),
     "intensity": _vals("none"),
     "absorb": _vals("none"),
+    "crit_dist": _vals("normal"),
 }
 
 _add(
@@ -2584,6 +2847,7 @@ _add(
             "bins": ("none", "set"),
             "intensity": ("none", "set"),
             "absorb": ("none", "set"),
+            "crit_dist": ("normal", "t_resid", "t_cluster"),
         },
         _x_twfe_es,
         (
@@ -2618,6 +2882,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "the full 32-cell grid (adoption x window (-4, 4) / (-3, 5) x "
@@ -2638,6 +2903,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "staggered adoption with eight other windows (narrower, wider "
@@ -2659,6 +2925,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "staggered adoption, unweighted and with weights constant "
@@ -2679,6 +2946,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "staggered adoption with a covariate and weights, vs fixest::feols",
@@ -2697,6 +2965,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "clustered by state (coarser than the unit) and by period, "
@@ -2717,6 +2986,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "a single adoption date, weighted, clustered by state, vs "
@@ -2736,6 +3006,7 @@ _add(
                     "bins": _vals("set"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none", "set"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "bins of width 2 and 3 with a bin-aligned span and an "
@@ -2756,6 +3027,7 @@ _add(
                     "bins": _vals("set"),
                     "intensity": _vals("none"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "bins of width 2 on a single adoption date with a covariate, "
@@ -2775,6 +3047,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("set"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "intensity x period regressors from a common adoption date, "
@@ -2794,6 +3067,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("set"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "intensity from a common date, window (-6, 5), clustered by "
@@ -2813,6 +3087,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("set"),
                     "absorb": _vals("none"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "intensity on a staggered adoption column, vs fixest::feols",
@@ -2831,6 +3106,7 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("set"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "region-by-time and state-by-time effects absorbed, the "
@@ -2850,11 +3126,57 @@ _add(
                     "bins": _vals("none"),
                     "intensity": _vals("none"),
                     "absorb": _vals("set"),
+                    "crit_dist": _vals("normal"),
                 },
                 _EST_SE,
                 "a region-by-time effect absorbed on a single adoption date, "
                 "weighted, vs fixest::feols",
                 "sp.event_study(...)",
+            ),
+            _Row(
+                "T2",
+                _ES_CRIT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("other"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("set"),
+                    "cluster": _vals("unit", "other"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                    "crit_dist": _vals("t_cluster"),
+                },
+                ("estimate", "se", "interval"),
+                "parity='stata' / 'r' on the castle-doctrine panel, window "
+                "(-5, 4), weighted, clustered by state and by region, alpha "
+                "0.05 and 0.10: every lead and lag SE, p-value and confidence "
+                "limit vs Stata reghdfe and R fixest (t(G-1)), and the "
+                "headline average vs lincom, to 1e-10",
+                "sp.event_study(",
+            ),
+            _Row(
+                "T2",
+                _ES_CRIT,
+                {
+                    "adoption": _vals("staggered"),
+                    "window": _vals("other"),
+                    "ref_period": _vals("-1"),
+                    "covariates": _vals("none"),
+                    "weights": _vals("none"),
+                    "cluster": _vals("unit"),
+                    "bins": _vals("none"),
+                    "intensity": _vals("none"),
+                    "absorb": _vals("none"),
+                    "crit_dist": _vals("t_cluster"),
+                },
+                ("estimate", "se", "interval"),
+                "parity='stata' / 'r' on the no-fault divorce panel, window "
+                "(-10, 15), clustered by state: every lead and lag SE, "
+                "p-value and confidence limit vs Stata reghdfe and R fixest "
+                "(t(40)), to 1e-10",
+                "sp.event_study(",
             ),
         ),
         note="On a staggered panel this saturated dynamic TWFE regression is "
@@ -2871,7 +3193,21 @@ _add(
         "(same coefficients, exact K). Before 2026-10-15 unbalanced panels "
         "and weights varying within a unit were demeaned by one pass of "
         "unit and time means, which is not the two-way projection; the "
-        "option fixture pins the corrected fit.",
+        "option fixture pins the corrected fit. crit_dist is the "
+        "distribution of the p-values and intervals: 'normal' is the default "
+        "before 1.41, 't_cluster' / 't_resid' are t(G-1) / t(N-K) "
+        "(parity='stata' / 'r' or crit_dist='t'); rows that compare only "
+        "coefficients and SEs ran the default.",
+        invariant={
+            "crit_dist": (
+                ("estimate", "se", "vcov", "joint_test"),
+                "the critical value turns an SE into a p-value and an "
+                "interval; coefficients, SEs and the pre-trend test are "
+                "computed before it is chosen (asserted equal across parity= "
+                "in tests/reference_parity/test_es_crit_parity.py)",
+            ),
+        },
+        defaults={"crit_dist": "normal"},
     )
 )
 
@@ -5941,6 +6277,7 @@ def _register_satellite_maps() -> None:
     import sys
 
     from . import (
+        _validation_scope_did2x2,
         _validation_scope_dynpanel,
         _validation_scope_fe,
         _validation_scope_ldv,
@@ -5951,6 +6288,7 @@ def _register_satellite_maps() -> None:
     _validation_scope_fe.register(_add, sys.modules[__name__])
     _validation_scope_te.register(_add, sys.modules[__name__])
     _validation_scope_dynpanel.register(_add, sys.modules[__name__])
+    _validation_scope_did2x2.register(_add, sys.modules[__name__])
 
 
 _register_satellite_maps()
@@ -6123,7 +6461,7 @@ def validation_scope(
     if result is not None:
         cfg.update(scope.extract(result))
     else:
-        cfg.update(scope.defaults)
+        cfg.update({k: v for k, v in scope.defaults.items() if not callable(v)})
     for key, value in configuration.items():
         if key not in scope.domains:
             raise MethodIncompatibility(
@@ -6139,6 +6477,10 @@ def validation_scope(
                 diagnostics={"function": name, "dimension": key, "value": repr(value)},
             )
         cfg[key] = val
+    if result is None:
+        for key, value in scope.defaults.items():
+            if callable(value) and key not in configuration:
+                cfg[key] = value(cfg)
 
     outputs: Dict[str, Dict[str, Any]] = {}
     matched: Dict[Tuple[str, str, str], Dict[str, Any]] = {}

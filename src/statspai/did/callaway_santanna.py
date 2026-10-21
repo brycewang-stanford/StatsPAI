@@ -335,7 +335,9 @@ def callaway_santanna(
            The formula spelling.
     weights : str, optional
         Column holding **unit-level sampling / population weights** ω
-        (R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``).
+        (R ``did::att_gt(weightsname=)``, Stata ``csdid [iweight=]``;
+        csdid refuses ``aweight`` and ``pweight`` and treats the iweight
+        as a sampling weight).
 
         Weights are *not* a precision knob. They enter the definition of
         the target parameter itself: the unweighted ATT answers "what was
@@ -618,7 +620,8 @@ def callaway_santanna(
         with the opposite sign; its standard errors are too small when the
         propensity model is misspecified (95% intervals covered 81% of the
         time in a Monte Carlo where ``'delta'`` covered 95%). The ATT(g, t)
-        are the same under both.
+        are the same under both. Stata ``csdid`` uses the reference sign
+        too, and ``parity='r'`` / ``'stata'`` set it.
 
         .. versionchanged:: 1.40.0
            ⚠️ The default was the R convention (``'reference'``).
@@ -651,11 +654,20 @@ def callaway_santanna(
           always reported);
         - an unbalanced panel is first balanced (``balance='full'``) under
           ``'r'``, as R ``did`` does; csdid 1.8 uses each cell's complete
-          pairs, the StatsPAI default;
+          pairs, the StatsPAI default. ``allow_unbalanced_panel=True`` (or
+          ``balance='none'``) is an option R exposes too, so ``'r'`` accepts
+          it and reproduces ``att_gt(allow_unbalanced_panel = TRUE)``;
+        - ``variance_convention='reference'`` (both), which only matters for
+          ``estimator='dr'`` with covariates on repeated cross-sections;
         - under ``'stata'`` this fit's simple ATT and event study, and
           every ``sp.aggte`` of it, use analytic standard errors even when
           ``bstrap=True`` (csdid's ``estat`` does), and the group average
-          holds the cohort shares fixed;
+          holds the cohort shares fixed. On repeated cross-sections and on
+          an unbalanced panel every aggregate weights each ATT(g, t) by its
+          own treated count, or by their weight mass with ``weights=``, as
+          csdid does (``agg_weights='csdid'`` of
+          ``sp.aggte``); the fit's simple ATT is then csdid's
+          ``estat simple``;
         - with ``bstrap=True``, the bootstrap options default to the
           program's: Rademacher weights and 1000 draws (R), Mammen weights
           and 999 draws (Stata), and uniform bands in both. These stay
@@ -670,11 +682,20 @@ def callaway_santanna(
         ``att_gt(bstrap = FALSE)`` and ``csdid`` without ``wboot``; on
         ``mpdta`` they agree to 1e-10, and to 1e-7 with a covariate,
         where each program's logit stops at its own tolerance
-        (``tests/reference_parity/test_cs_parity_switch.py``). The
+        (``tests/reference_parity/test_cs_parity_switch.py``). On a
+        repeated cross-section and an unbalanced panel built from
+        ``mpdta`` every ATT(g, t), pre-test and aggregate agrees to 1e-10
+        without covariates, and with ``lpop`` to 1e-7 (R) and 1e-6 (Stata),
+        unweighted and with sampling weights
+        (``tests/reference_parity/test_cs_parity_rc_unbal.py``). The
         conventions a fit used are in ``model_info['conventions']``,
         whether or not ``parity=`` was passed.
 
         .. versionadded:: 1.40.0
+        .. versionchanged:: 1.41.0
+           Repeated cross-sections and unbalanced panels: csdid's
+           cell-count weights in every aggregate, the reference DR variance
+           convention, and R's ``allow_unbalanced_panel=True``.
 
     References
     ----------
@@ -757,10 +778,12 @@ def callaway_santanna(
         allow_unbalanced_panel=allow_unbalanced_panel,
         panel=panel,
         estimator=estimator,
+        variance_convention=variance_convention,
     )
     base_period = _resolved_conv["base_period"]
     notyet_cutoff = _resolved_conv["notyet_cutoff"]
     balance = _resolved_conv["balance"]
+    variance_convention = _resolved_conv["variance_convention"]
     pretest_pvalue = _conv.pretest_pvalue_method(parity)
     estimator = _require_string_option(
         estimator,
@@ -1047,7 +1070,10 @@ def callaway_santanna(
                 UserWarning,
                 stacklevel=2,
             )
-            if data.empty:
+            # Unreachable since always_treated= (813786577): a cohort with
+            # g - anticipation <= first period is dropped (or refused) before
+            # this point, so the latest remaining cohort leaves a period.
+            if data.empty:  # pragma: no cover - defensive
                 raise DataInsufficient(
                     "No periods remain before the last cohort is treated.",
                     recovery_hint="Add never-treated units or earlier periods.",
@@ -1113,7 +1139,7 @@ def callaway_santanna(
             balance="none" if use_unbalanced else None,
             always_info=always_info,
         )
-        return _rcs_result
+        return _csdid_headline(_rcs_result, parity)
 
     # A panel has one row per unit and period. Repeated (unit, period) rows
     # used to be collapsed to the first one by the reshape below, so the
@@ -1454,6 +1480,18 @@ def callaway_santanna(
         model_info["balance_n_units_dropped"] = balance_info["n_units_dropped"]
         model_info["balance_n_obs_dropped"] = balance_info["n_obs_dropped"]
     model_info["unbalanced_panel"] = unbalanced_panel
+    # Base period of every reported cell, and on an unbalanced panel which
+    # periods each unit is observed in: Stata csdid weights a cell by its
+    # treated units seen in both of its periods (sp.aggte's
+    # agg_weights='csdid', set by parity='stata').
+    model_info["_cell_bases"] = {
+        (float(gv), float(tv)): float(bv) for gv, tv, bv in gt_pairs
+    }
+    if unbalanced_panel:
+        model_info["_unit_observed"] = (
+            y_wide.reindex(columns=time_periods).notna().to_numpy()
+        )
+        model_info["_time_periods"] = list(time_periods)
     _record_conventions(
         model_info,
         parity=parity,
@@ -1510,7 +1548,7 @@ def callaway_santanna(
         )
     except Exception:  # pragma: no cover — provenance must never break fit
         pass
-    return _result
+    return _csdid_headline(_result, parity)
 
 
 # ======================================================================
@@ -1539,6 +1577,7 @@ def _record_conventions(
         pretest=model_info.get("pretrend_test"),
         notyet_cutoff=notyet_cutoff,
         balance=balance,
+        variance_convention=model_info.get("variance_convention"),
     )
     model_info["convention_notes"] = _conv.fit_notes(
         parity, base_period=base_period, explicit=base_period_explicit
@@ -1546,6 +1585,37 @@ def _record_conventions(
     model_info["n_always_treated_dropped"] = int(always_info.get("n_units", 0))
     model_info["always_treated"] = _conv.always_treated_record(always_info)
     model_info["_always_treated_ids"] = always_info.get("_ids")
+
+
+def _csdid_headline(result: CausalResult, parity: Optional[str]) -> CausalResult:
+    """Under ``parity='stata'``, report csdid's simple ATT and event study.
+
+    Off a balanced panel (repeated cross-sections, or an unbalanced panel
+    with ``balance='pair'``) Stata ``csdid`` weights every ATT(g, t) by its
+    own treated count, where R ``did`` and the fit's own aggregation use
+    cohort shares. The fit's headline estimate and ``event_study`` are then
+    ``sp.aggte``'s ``'simple'`` and ``'dynamic'`` under the fit's parity, so
+    ``result.estimate`` is ``estat simple``. Every other fit is returned
+    unchanged.
+    """
+    if parity != "stata" or result._influence_funcs is None:
+        return result
+    from .aggte import _has_csdid_cells, aggte
+
+    mi = result.model_info
+    if mi.get("survey_design") is not None or not _has_csdid_cells(result.detail, mi):
+        return result
+    simple = aggte(result, type="simple")
+    result.estimate = simple.estimate
+    result.se = simple.se
+    result.pvalue = simple.pvalue
+    result.ci = simple.ci
+    dynamic = aggte(result, type="dynamic").detail
+    old = mi.get("event_study")
+    if isinstance(old, pd.DataFrame):
+        dynamic = dynamic[[c for c in old.columns if c in dynamic.columns]]
+    mi["event_study"] = dynamic.reset_index(drop=True)
+    return result
 
 
 def _never_treated_beyond_horizon(data: pd.DataFrame, g: str, t: str) -> pd.DataFrame:

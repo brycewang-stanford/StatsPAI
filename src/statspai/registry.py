@@ -2990,7 +2990,7 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Unit-level sampling/population weights omega (R "
-                    "did::att_gt(weightsname=), Stata csdid [aweight=]). "
+                    "did::att_gt(weightsname=), Stata csdid [iweight=]). "
                     "NOT a precision knob: omega enters the definition of "
                     "the target parameter. Unweighted answers 'the average "
                     "effect across treated units'; weighted answers 'across "
@@ -3177,10 +3177,10 @@ def _build_registry() -> None:
                     "estimator='dr' on repeated cross-sections / "
                     "allow_unbalanced_panel only. 'delta' (default): the "
                     "Sant'Anna-Zhao influence function. 'reference': R "
-                    "did / DRDID's SE, whose pre-period comparison-"
-                    "regression term has the opposite sign and "
-                    "under-covers when the propensity model is wrong. Same "
-                    "ATT(g,t).",
+                    "did / DRDID's and Stata csdid's SE, whose pre-period "
+                    "comparison-regression term has the opposite sign and "
+                    "under-covers when the propensity model is wrong; "
+                    "parity= sets it. Same ATT(g,t).",
                     ["delta", "reference"],
                 ),
                 ParamSpec(
@@ -3205,13 +3205,18 @@ def _build_registry() -> None:
                     "1.8 ('stata') where StatsPAI's default differs: "
                     "base_period='varying', the not-yet-treated cutoff "
                     "('period' / 'cohort'), the chi2 pre-test p-value, R's "
-                    "balance='full' on unbalanced panels, csdid's analytic "
-                    "aggregation SEs and fixed group-average shares, and "
+                    "balance='full' on unbalanced panels (parity='r' also "
+                    "accepts R's allow_unbalanced_panel=True), "
+                    "variance_convention='reference', csdid's analytic "
+                    "aggregation SEs and fixed group-average shares, "
+                    "csdid's per-cell treated counts as aggregation weights "
+                    "on repeated cross-sections and unbalanced panels, and "
                     "each program's bootstrap defaults when bstrap=True. "
                     "An explicit argument contradicting a convention "
                     "raises. sp.aggte inherits it. Matches att_gt / csdid "
-                    "on mpdta to 1e-10 (1e-7 with covariates). Recorded in "
-                    "model_info['conventions'].",
+                    "on mpdta, a repeated cross-section and an unbalanced "
+                    "panel of it to 1e-10 (1e-6 with covariates). Recorded "
+                    "in model_info['conventions'].",
                     ["r", "stata"],
                 ),
             ],
@@ -34014,8 +34019,11 @@ def _build_registry() -> None:
                     False,
                     "did",
                     "Aggregation-weight convention: R did's cohort shares, "
-                    "or Stata csdid's per-cell treated-observation counts "
-                    "(repeated cross-sections only; simple and group)",
+                    "or Stata csdid's per-cell treated counts with their "
+                    "estimation term in the SEs (repeated cross-sections "
+                    "and unbalanced balance='pair' panels; all four types). "
+                    "With weights= a cell's count is the weight mass of its "
+                    "treated observations, as in csdid",
                     ["did", "csdid"],
                 ),
                 ParamSpec(
@@ -34028,7 +34036,8 @@ def _build_registry() -> None:
                     "parity; one that differs from the fit's raises. "
                     "'stata': analytic SEs even after a bootstrap fit, "
                     "cohort-share term everywhere except the group average, "
-                    "csdid cell counts on repeated cross-sections.",
+                    "csdid cell counts on repeated cross-sections and "
+                    "unbalanced panels.",
                     ["r", "stata"],
                 ),
             ],

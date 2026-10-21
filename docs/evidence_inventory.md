@@ -9,47 +9,48 @@ Functions without a scope map are not listed. That is not a claim that they lack
 
 ## Cells with reference evidence, by output
 
-| Function | Cells | estimate | se | vcov | joint_test | diagnostic | Fully covered |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `aipw` | 512 | 32 / 512 | 17 / 512 | -- | -- | -- | 17 / 512 |
-| `callaway_santanna` | 7680 | 268 / 7680 | 132 / 7680 | 1 / 7680 | -- | -- | 132 / 7680 |
-| `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
-| `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | 12 / 240 |
-| `did_multiplegt_dyn` | 18432 | 136 / 18432 | 37 / 18432 | 26 / 18432 | 36 / 18432 | -- | 37 / 18432 |
-| `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | 30 / 9120 |
-| `ebalance` | 16 | 10 / 16 | 3 / 16 | -- | -- | -- | 3 / 16 |
-| `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | 16 / 128 |
-| `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | 36 / 2880 |
-| `event_study` | 512 | 45 / 512 | 45 / 512 | 1 / 512 | -- | -- | 45 / 512 |
-| `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
-| `feols` | 144 | 72 / 144 | 29 / 144 | -- | -- | -- | 27 / 144 |
-| `g_computation` | 48 | 16 / 48 | 5 / 48 | -- | -- | -- | 5 / 48 |
-| `gardner_did` | 64 | 24 / 64 | 7 / 64 | 1 / 64 | -- | -- | 7 / 64 |
-| `glm` | 320 | 144 / 320 | 32 / 320 | -- | -- | -- | 32 / 320 |
-| `heckman` | 12 | 9 / 12 | 6 / 12 | -- | -- | -- | 6 / 12 |
-| `honest_did` | 116640 | -- | -- | -- | -- | 159 / 116640 | 159 / 116640 |
-| `ipw` | 480 | 28 / 480 | 12 / 480 | -- | -- | -- | 12 / 480 |
-| `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
-| `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | 63 / 448 |
-| `logit` | 20 | 10 / 20 | 10 / 20 | -- | 3 / 20 | -- | 10 / 20 |
-| `nbreg` | 12 | 9 / 12 | 7 / 12 | -- | -- | -- | 7 / 12 |
-| `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | 17 / 1920 |
-| `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | 46 / 144 |
-| `poisson` | 20 | 15 / 20 | 12 / 20 | -- | 2 / 20 | -- | 12 / 20 |
-| `ppmlhdfe` | 72 | 54 / 72 | 9 / 72 | -- | -- | -- | 9 / 72 |
-| `probit` | 20 | 10 / 20 | 6 / 20 | -- | 2 / 20 | -- | 6 / 20 |
-| `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | 29 / 3200 |
-| `qreg` | 14 | 14 / 14 | 9 / 14 | 2 / 14 | -- | -- | 9 / 14 |
-| `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | 1 / 2 |
-| `rdrobust` | 25920 | 159 / 25920 | 159 / 25920 | -- | -- | -- | 159 / 25920 |
-| `regress` | 28 | 28 / 28 | 26 / 28 | -- | 5 / 28 | 1 / 28 | 26 / 28 |
-| `sdid` | 288 | 60 / 288 | 27 / 288 | -- | -- | -- | 27 / 288 |
-| `sun_abraham` | 36 | 21 / 36 | 21 / 36 | 2 / 36 | -- | -- | 21 / 36 |
-| `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | 3 / 12 |
-| `tmle` | 672 | 41 / 672 | 37 / 672 | -- | -- | -- | 37 / 672 |
-| `tobit` | 36 | 18 / 36 | 13 / 36 | -- | -- | -- | 13 / 36 |
-| `xtabond` | 88704 | 74 / 88704 | 42 / 88704 | -- | -- | 20 / 88704 | 42 / 88704 |
-| `xtdpdsys` | 72576 | 30 / 72576 | 18 / 72576 | -- | -- | 8 / 72576 | 18 / 72576 |
+| Function | Cells | estimate | se | vcov | joint_test | diagnostic | interval | Fully covered |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `aipw` | 512 | 32 / 512 | 17 / 512 | -- | -- | -- | -- | 17 / 512 |
+| `callaway_santanna` | 69120 | 1380 / 69120 | 686 / 69120 | 1 / 69120 | 257 / 69120 | -- | -- | 686 / 69120 |
+| `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | -- | 0 / 96 |
+| `did_2x2` | 80 | 20 / 80 | 20 / 80 | -- | -- | -- | 3 / 80 | 20 / 80 |
+| `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | -- | 12 / 240 |
+| `did_multiplegt_dyn` | 18432 | 136 / 18432 | 37 / 18432 | 26 / 18432 | 36 / 18432 | -- | -- | 37 / 18432 |
+| `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | -- | 30 / 9120 |
+| `ebalance` | 16 | 10 / 16 | 3 / 16 | -- | -- | -- | -- | 3 / 16 |
+| `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | -- | 16 / 128 |
+| `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | -- | 36 / 2880 |
+| `event_study` | 1536 | 138 / 1536 | 138 / 1536 | 3 / 1536 | -- | -- | 3 / 1536 | 138 / 1536 |
+| `fast.feols` | 12 | 12 / 12 | 6 / 12 | -- | -- | -- | -- | 6 / 12 |
+| `feols` | 144 | 72 / 144 | 29 / 144 | -- | -- | -- | -- | 27 / 144 |
+| `g_computation` | 48 | 16 / 48 | 5 / 48 | -- | -- | -- | -- | 5 / 48 |
+| `gardner_did` | 64 | 24 / 64 | 7 / 64 | 1 / 64 | -- | -- | -- | 7 / 64 |
+| `glm` | 320 | 144 / 320 | 32 / 320 | -- | -- | -- | -- | 32 / 320 |
+| `heckman` | 12 | 9 / 12 | 6 / 12 | -- | -- | -- | -- | 6 / 12 |
+| `honest_did` | 116640 | -- | -- | -- | -- | 159 / 116640 | -- | 159 / 116640 |
+| `ipw` | 480 | 28 / 480 | 12 / 480 | -- | -- | -- | -- | 12 / 480 |
+| `iv` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | -- | 63 / 448 |
+| `ivreg` | 448 | 224 / 448 | 63 / 448 | -- | 3 / 448 | 3 / 448 | -- | 63 / 448 |
+| `logit` | 20 | 10 / 20 | 10 / 20 | -- | 3 / 20 | -- | -- | 10 / 20 |
+| `nbreg` | 12 | 9 / 12 | 7 / 12 | -- | -- | -- | -- | 7 / 12 |
+| `nnmatch` | 1920 | 17 / 1920 | 17 / 1920 | -- | -- | -- | -- | 17 / 1920 |
+| `panel` | 144 | 99 / 144 | 46 / 144 | -- | 5 / 144 | -- | -- | 46 / 144 |
+| `poisson` | 20 | 15 / 20 | 12 / 20 | -- | 2 / 20 | -- | -- | 12 / 20 |
+| `ppmlhdfe` | 72 | 54 / 72 | 9 / 72 | -- | -- | -- | -- | 9 / 72 |
+| `probit` | 20 | 10 / 20 | 6 / 20 | -- | 2 / 20 | -- | -- | 6 / 20 |
+| `psm` | 3200 | 100 / 3200 | 29 / 3200 | -- | -- | -- | -- | 29 / 3200 |
+| `qreg` | 14 | 14 / 14 | 9 / 14 | 2 / 14 | -- | -- | -- | 9 / 14 |
+| `rddensity` | 2 | 1 / 2 | 1 / 2 | -- | -- | 1 / 2 | -- | 1 / 2 |
+| `rdrobust` | 25920 | 159 / 25920 | 159 / 25920 | -- | -- | -- | -- | 159 / 25920 |
+| `regress` | 28 | 28 / 28 | 26 / 28 | -- | 5 / 28 | 1 / 28 | -- | 26 / 28 |
+| `sdid` | 288 | 60 / 288 | 27 / 288 | -- | -- | -- | -- | 27 / 288 |
+| `sun_abraham` | 108 | 63 / 108 | 63 / 108 | 6 / 108 | -- | -- | 4 / 108 | 63 / 108 |
+| `synth` | 12 | 3 / 12 | 1 / 12 | -- | -- | -- | -- | 3 / 12 |
+| `tmle` | 672 | 41 / 672 | 37 / 672 | -- | -- | -- | -- | 37 / 672 |
+| `tobit` | 36 | 18 / 36 | 13 / 36 | -- | -- | -- | -- | 13 / 36 |
+| `xtabond` | 88704 | 74 / 88704 | 42 / 88704 | -- | -- | 20 / 88704 | -- | 42 / 88704 |
+| `xtdpdsys` | 72576 | 30 / 72576 | 18 / 72576 | -- | -- | 8 / 72576 | -- | 18 / 72576 |
 
 `--` means no artifact compares that output for the function at all. `Fully covered` counts cells whose primary outputs all have reference evidence.
 
@@ -61,13 +62,17 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | `aipw` | estimate | 0 | 0 | 0 | 0 | 480 |
 | `aipw` | se | 0 | 0 | 0 | 0 | 495 |
-| `callaway_santanna` | estimate | 0 | 0 | 0 | 0 | 7412 |
-| `callaway_santanna` | se | 0 | 4 | 0 | 0 | 7544 |
-| `callaway_santanna` | coverage | 0 | 0 | 1 | 0 | 7679 |
-| `callaway_santanna` | vcov | 0 | 0 | 0 | 0 | 7679 |
+| `callaway_santanna` | estimate | 0 | 0 | 0 | 0 | 67740 |
+| `callaway_santanna` | se | 0 | 4 | 0 | 0 | 68430 |
+| `callaway_santanna` | coverage | 0 | 0 | 1 | 0 | 69119 |
+| `callaway_santanna` | vcov | 0 | 0 | 0 | 0 | 69119 |
+| `callaway_santanna` | joint_test | 0 | 0 | 0 | 0 | 68863 |
 | `causal_forest` | estimate | 3 | 0 | 0 | 0 | 93 |
 | `causal_forest` | se | 0 | 1 | 0 | 0 | 95 |
 | `causal_forest` | coverage | 0 | 0 | 1 | 0 | 95 |
+| `did_2x2` | estimate | 0 | 0 | 0 | 0 | 60 |
+| `did_2x2` | se | 0 | 0 | 0 | 0 | 60 |
+| `did_2x2` | interval | 0 | 0 | 0 | 0 | 77 |
 | `did_imputation` | estimate | 0 | 0 | 0 | 3 | 201 |
 | `did_imputation` | se | 0 | 0 | 0 | 0 | 227 |
 | `did_imputation` | vcov | 0 | 0 | 0 | 0 | 239 |
@@ -85,9 +90,10 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
 | `etwfe_glm` | estimate | 0 | 0 | 0 | 0 | 2829 |
 | `etwfe_glm` | se | 0 | 0 | 0 | 4 | 2840 |
-| `event_study` | estimate | 0 | 0 | 0 | 0 | 467 |
-| `event_study` | se | 0 | 0 | 0 | 0 | 467 |
-| `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
+| `event_study` | estimate | 0 | 0 | 0 | 0 | 1398 |
+| `event_study` | se | 0 | 0 | 0 | 0 | 1398 |
+| `event_study` | vcov | 0 | 0 | 0 | 0 | 1533 |
+| `event_study` | interval | 0 | 0 | 0 | 0 | 1533 |
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 0 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
@@ -152,10 +158,11 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `sdid` | estimate | 0 | 0 | 0 | 0 | 228 |
 | `sdid` | se | 0 | 11 | 0 | 0 | 250 |
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
-| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 15 |
-| `sun_abraham` | se | 0 | 0 | 0 | 0 | 15 |
-| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 35 |
-| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 34 |
+| `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 45 |
+| `sun_abraham` | se | 0 | 0 | 0 | 0 | 45 |
+| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 107 |
+| `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 102 |
+| `sun_abraham` | interval | 0 | 0 | 0 | 0 | 104 |
 | `synth` | estimate | 0 | 0 | 0 | 1 | 8 |
 | `synth` | se | 0 | 0 | 0 | 0 | 11 |
 | `tmle` | estimate | 0 | 0 | 0 | 0 | 631 |
@@ -189,41 +196,49 @@ Dimensions: `estimand` in {ate, att}; `cross_fit` in {true, false}; `se_method` 
 
 ### `callaway_santanna`
 
-Dimensions: `sample` in {panel, unbalanced_panel, rcs, unbalanced_pair}; `estimator` in {dr, drimp, reg, ipw, ipw_abadie}; `control_group` in {nevertreated, notyettreated}; `notyet_cutoff` in {period, asinr, cohort}; `weights` in {none, weighted}; `covariates` in {none, set}; `inference` in {analytic, bootstrap}; `base_period` in {universal, varying}; `anticipation` in {0, >0}; `clustering` in {none, set}.
+Dimensions: `sample` in {panel, unbalanced_panel, rcs, unbalanced_pair}; `estimator` in {dr, drimp, reg, ipw, ipw_abadie}; `control_group` in {nevertreated, notyettreated}; `notyet_cutoff` in {period, asinr, cohort}; `weights` in {none, weighted}; `covariates` in {none, set}; `inference` in {analytic, bootstrap}; `base_period` in {universal, varying}; `anticipation` in {0, >0}; `clustering` in {none, set}; `parity` in {none, r, stata}; `variance_convention` in {na, delta, reference}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | sample=panel; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/r_parity/04_csdid.py` | `sp.callaway_santanna(estimator='reg') + sp.aggte(bstrap=False)` |
-| T2 | estimate, se | sample=panel; estimator=dr/ipw/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none/weighted; covariates=none/set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_cs_weighted_parity.py` | `sp.callaway_santanna(...)` |
-| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=0; clustering=none | `tests/reference_parity/test_aggte_mpdta_parity.py` | `sp.aggte(cs_result, type=agg_type, bstrap=False)` |
-| T2 | vcov | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_aggte_vcov_r_parity.py` | `sp.aggte(type='dynamic')` |
-| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none | `tests/reference_parity/test_cs_gaps_parity.py` | `sp.callaway_santanna(panel, ...)` |
-| T2 | estimate, se | sample=unbalanced_panel; estimator=dr/ipw/reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none | `tests/reference_parity/test_cs_gaps_parity.py` | `sp.callaway_santanna(unbalanced, ...)` |
-| T2 | estimate, se | sample=panel/rcs; estimator=dr/reg; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none | `tests/reference_parity/test_cs_no_never_unbalanced_parity.py` | `sp.callaway_santanna(df, **kw)` |
-| T2 | estimate, se | sample=unbalanced_panel; estimator=dr/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=0; clustering=none | `tests/reference_parity/test_cs_no_never_unbalanced_parity.py` | `sp.callaway_santanna(df, **kw)` |
-| T2 | estimate, se | sample=panel/rcs; estimator=dr; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none/set; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none | `tests/reference_parity/test_cs_notyet_cutoff_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=rcs; estimator=dr/ipw/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=varying; anticipation=0; clustering=none | `tests/reference_parity/test_cs_rcs_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate | sample=rcs; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_rcs_aggregation_conventions.py` | `sp.callaway_santanna(` |
-| T2 | estimate | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=asinr/cohort/period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate | sample=panel; estimator=ipw/ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=asinr/cohort; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=unbalanced_pair; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=unbalanced_pair; estimator=reg; control_group=notyettreated; notyet_cutoff=cohort; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel/rcs; estimator=drimp/ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=drimp; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=varying; anticipation=0; clustering=none | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=ipw; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=set | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=rcs; estimator=ipw; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=weighted; covariates=set; inference=analytic; base_period=universal; anticipation=>0; clustering=none | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=>0; clustering=set | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
-| T2 | estimate, se | sample=panel/rcs; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=set | `tests/reference_parity/test_cs_rc_cluster_csdid_parity.py` | `sp.callaway_santanna(clustervars=...)` |
-| T2 | estimate, se | sample=rcs; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=weighted; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none/set | `tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py` | `sp.callaway_santanna(panel=False, weights=...) + sp.aggte` |
-| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/reference_parity/test_cs_balance_full_did_parity.py` | `sp.callaway_santanna(balance='full')` |
-| T2 | estimate, se | sample=panel/unbalanced_panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0; clustering=set | `tests/reference_parity/test_cs_cluster_analytic_parity.py` | `sp.callaway_santanna(clustervars=...)` |
-| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal/varying; anticipation=0; clustering=none | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.callaway_santanna(` |
-| T4 | estimate, se | sample=panel; estimator=dr/drimp; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal/varying; anticipation=0; clustering=none | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.stata(` |
-| S | se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=bootstrap; base_period=universal; anticipation=0; clustering=none/set | `tests/reference_parity/test_cs_inference_parity.py` | `sp.callaway_santanna(bstrap=True)` |
-| B | coverage | sample=panel; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.callaway_santanna(estimator='reg')` |
+| T2 | estimate, se | sample=panel; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/r_parity/04_csdid.py` | `sp.callaway_santanna(estimator='reg') + sp.aggte(bstrap=False)` |
+| T2 | estimate, se | sample=panel; estimator=dr/ipw/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none/weighted; covariates=none/set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_weighted_parity.py` | `sp.callaway_santanna(...)` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_aggte_mpdta_parity.py` | `sp.aggte(cs_result, type=agg_type, bstrap=False)` |
+| T2 | vcov | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_aggte_vcov_r_parity.py` | `sp.aggte(type='dynamic')` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_gaps_parity.py` | `sp.callaway_santanna(panel, ...)` |
+| T2 | estimate, se | sample=unbalanced_panel; estimator=dr/ipw/reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=na/reference | `tests/reference_parity/test_cs_gaps_parity.py` | `sp.callaway_santanna(unbalanced, ...)` |
+| T2 | estimate, se | sample=panel/rcs; estimator=dr/reg; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_no_never_unbalanced_parity.py` | `sp.callaway_santanna(df, **kw)` |
+| T2 | estimate, se | sample=unbalanced_panel; estimator=dr/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_no_never_unbalanced_parity.py` | `sp.callaway_santanna(df, **kw)` |
+| T2 | estimate, se | sample=panel/rcs; estimator=dr; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none/set; inference=analytic; base_period=universal/varying; anticipation=0/>0; clustering=none; parity=none; variance_convention=na/reference | `tests/reference_parity/test_cs_notyet_cutoff_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=rcs; estimator=dr/ipw/reg; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=na/reference | `tests/reference_parity/test_cs_rcs_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate | sample=rcs; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=delta | `tests/reference_parity/test_cs_rcs_parity.py` | `sp.callaway_santanna(panel=False, estimator='dr', x=...)` |
+| T2 | estimate | sample=rcs; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_rcs_aggregation_conventions.py` | `sp.callaway_santanna(` |
+| T2 | estimate | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=asinr/cohort/period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate | sample=panel; estimator=ipw/ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=asinr/cohort; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=unbalanced_pair; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=unbalanced_pair; estimator=reg; control_group=notyettreated; notyet_cutoff=cohort; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_csdid_options_stata_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel/rcs; estimator=drimp/ipw_abadie; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=drimp; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=varying; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=ipw; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=rcs; estimator=ipw; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=weighted; covariates=set; inference=analytic; base_period=universal; anticipation=>0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=reg; control_group=notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=>0; clustering=set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_options_R_parity.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel/rcs; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_rc_cluster_csdid_parity.py` | `sp.callaway_santanna(clustervars=...)` |
+| T2 | estimate, se | sample=rcs; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=weighted; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none/set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_rc_weighted_aggte_did_parity.py` | `sp.callaway_santanna(panel=False, weights=...) + sp.aggte` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_cs_balance_full_did_parity.py` | `sp.callaway_santanna(balance='full')` |
+| T2 | estimate, se | sample=panel/unbalanced_panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal/varying; anticipation=0; clustering=set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_cluster_analytic_parity.py` | `sp.callaway_santanna(clustervars=...)` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal/varying; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.callaway_santanna(` |
+| T4 | estimate, se | sample=panel; estimator=dr/drimp; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=set; inference=analytic; base_period=universal/varying; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/reference_parity/test_stata_did_commands_parity.py` | `sp.stata(` |
+| T2 | estimate, se, joint_test | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none/set; parity=r; variance_convention=na | `tests/reference_parity/test_cs_parity_switch.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se, joint_test | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=varying; anticipation=>0; clustering=none; parity=r; variance_convention=na | `tests/reference_parity/test_cs_parity_switch.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se, joint_test | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=cohort/period; weights=none; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none/set; parity=stata; variance_convention=na | `tests/reference_parity/test_cs_parity_switch.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=bootstrap; base_period=varying; anticipation=0; clustering=none; parity=stata; variance_convention=na | `tests/reference_parity/test_cs_parity_switch.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se, joint_test | sample=panel/rcs/unbalanced_panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=period; weights=none/weighted; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none/set; parity=r; variance_convention=na/reference | `tests/reference_parity/test_cs_parity_rc_unbal.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se, joint_test | sample=rcs/unbalanced_pair; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=cohort/period; weights=none/weighted; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none/set; parity=stata; variance_convention=na/reference | `tests/reference_parity/test_cs_parity_rc_unbal.py` | `sp.callaway_santanna(` |
+| T2 | estimate, se, joint_test | sample=panel; estimator=dr; control_group=nevertreated/notyettreated; notyet_cutoff=cohort/period; weights=weighted; covariates=none/set; inference=analytic; base_period=varying; anticipation=0; clustering=none/set; parity=stata; variance_convention=na | `tests/reference_parity/test_cs_parity_rc_unbal.py` | `sp.callaway_santanna(` |
+| S | se | sample=panel; estimator=dr; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=bootstrap; base_period=universal; anticipation=0; clustering=none/set; parity=none; variance_convention=na | `tests/reference_parity/test_cs_inference_parity.py` | `sp.callaway_santanna(bstrap=True)` |
+| B | coverage | sample=panel; estimator=reg; control_group=nevertreated; notyet_cutoff=period; weights=none; covariates=none; inference=analytic; base_period=universal; anticipation=0; clustering=none; parity=none; variance_convention=na | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.callaway_santanna(estimator='reg')` |
 
 `inference` is ignored for estimate: the multiplier bootstrap resamples influence functions for SEs and bands; the ATT(g,t) and their aggregates are unchanged
 
@@ -238,6 +253,20 @@ Dimensions: `treatment` in {binary, continuous}; `trees` in {100, 200, 300, 500,
 | T3 | estimate | treatment=binary; trees=2000/500/8000; tuning=grf_defaults; design=iid | `tests/reference_parity/test_grf_seed_mc_equivalence.py` | `sp.causal_forest(...).average_treatment_effect()` |
 | S | estimate, se | treatment=binary; trees=2000; tuning=grf_defaults; design=iid | `tests/r_parity/13_causal_forest.py` | `sp.causal_forest(n_estimators=2000)` |
 | B | coverage | treatment=binary; trees=2000; tuning=grf_defaults; design=iid | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='causal_forest')` |
+
+### `did_2x2`
+
+Dimensions: `vce` in {classical, hc1, cluster, wild, survey}; `weights` in {none, set}; `covariates` in {none, set}; `crit_dist` in {t_resid, t_cluster, t_design, bootstrap}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=hc1; weights=set; covariates=none; crit_dist=t_resid | `tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py` | `sp.did_2x2(` |
+| T2 | estimate, se | vce=survey; weights=none; covariates=none; crit_dist=t_design | `tests/reference_parity/test_survey_did_parity.py` | `sp.did_2x2(` |
+| T2 | estimate, se | vce=survey; weights=none; covariates=none; crit_dist=t_design | `tests/reference_parity/test_survey_replicate_parity.py` | `sp.did_2x2(` |
+| T2 | estimate, se, interval | vce=cluster; weights=none/set; covariates=none; crit_dist=t_cluster | `tests/reference_parity/test_es_crit_parity.py` | `sp.did_2x2(` |
+| T2 | estimate, se, interval | vce=hc1; weights=none; covariates=none; crit_dist=t_resid | `tests/reference_parity/test_es_crit_parity.py` | `sp.did_2x2(` |
+
+`crit_dist` is ignored for estimate, se: the critical value turns the SE into a p-value and an interval; the ATT and its SE are computed before it is chosen (asserted equal across parity= / crit_dist= in tests/reference_parity/test_es_crit_default.py; crit_dist='t' there is the same fit as parity='stata')
 
 ### `did_imputation`
 
@@ -405,25 +434,29 @@ Dimensions: `family` in {poisson, logit, gaussian}; `cgroup` in {notyet, nevertr
 
 ### `event_study`
 
-Dimensions: `adoption` in {single_date, staggered}; `window` in {-4_4, other}; `ref_period` in {-1, other}; `covariates` in {none, set}; `weights` in {none, set}; `cluster` in {unit, other}; `bins` in {none, set}; `intensity` in {none, set}; `absorb` in {none, set}.
+Dimensions: `adoption` in {single_date, staggered}; `window` in {-4_4, other}; `ref_period` in {-1, other}; `covariates` in {none, set}; `weights` in {none, set}; `cluster` in {unit, other}; `bins` in {none, set}; `intensity` in {none, set}; `absorb` in {none, set}; `crit_dist` in {normal, t_resid, t_cluster}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/r_parity/85_twfe_event_study.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
-| T2 | vcov | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
-| T2 | estimate, se | adoption=single_date/staggered; window=-4_4/other; ref_period=-1/other; covariates=none/set; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_grid_R_parity.py` | `sp.event_study(covariates=..., weights=...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4/other; ref_period=-1/other; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=set; weights=set; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=other; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=other; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=other; ref_period=other; covariates=none; weights=none; cluster=unit; bins=set; intensity=none; absorb=none/set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=single_date; window=other; ref_period=other; covariates=set; weights=none; cluster=unit; bins=set; intensity=none; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=single_date; window=other; ref_period=-1; covariates=none; weights=none; cluster=other; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=set; absorb=none | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=unit; bins=none; intensity=none; absorb=set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
-| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=unit; bins=none; intensity=none; absorb=set | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/r_parity/85_twfe_event_study.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
+| T2 | vcov | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
+| T2 | estimate, se | adoption=single_date/staggered; window=-4_4/other; ref_period=-1/other; covariates=none/set; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_grid_R_parity.py` | `sp.event_study(covariates=..., weights=...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4/other; ref_period=-1/other; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=set; weights=set; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=other; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=other; bins=none; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=other; ref_period=other; covariates=none; weights=none; cluster=unit; bins=set; intensity=none; absorb=none/set; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=other; ref_period=other; covariates=set; weights=none; cluster=unit; bins=set; intensity=none; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none/set; cluster=unit; bins=none; intensity=set; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=other; ref_period=-1; covariates=none; weights=none; cluster=other; bins=none; intensity=set; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=set; absorb=none; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=staggered; window=-4_4; ref_period=-1; covariates=none/set; weights=none; cluster=unit; bins=none; intensity=none; absorb=set; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=set; cluster=unit; bins=none; intensity=none; absorb=set; crit_dist=normal | `tests/reference_parity/test_event_study_options_R_parity.py` | `sp.event_study(...)` |
+| T2 | estimate, se, interval | adoption=staggered; window=other; ref_period=-1; covariates=none; weights=set; cluster=other/unit; bins=none; intensity=none; absorb=none; crit_dist=t_cluster | `tests/reference_parity/test_es_crit_parity.py` | `sp.event_study(` |
+| T2 | estimate, se, interval | adoption=staggered; window=other; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none; crit_dist=t_cluster | `tests/reference_parity/test_es_crit_parity.py` | `sp.event_study(` |
+
+`crit_dist` is ignored for estimate, se, vcov, joint_test: the critical value turns an SE into a p-value and an interval; coefficients, SEs and the pre-trend test are computed before it is chosen (asserted equal across parity= in tests/reference_parity/test_es_crit_parity.py)
 
 ### `fast.feols`
 
@@ -893,20 +926,23 @@ Dimensions: `method` in {sdid, sc, did}; `se_method` in {placebo, bootstrap, jac
 
 ### `sun_abraham`
 
-Dimensions: `control_group` in {nevertreated, lastcohort, control_cohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}; `window_rule` in {report, bin, reference}.
+Dimensions: `control_group` in {nevertreated, lastcohort, control_cohort}; `aggregation` in {fixest_att, event_time}; `share_variance` in {estimated, fixed}; `window_rule` in {report, bin, reference}; `crit_dist` in {normal, t_resid, t_cluster}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
-| T2 | estimate, se | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated/fixed; window_rule=report | `tests/r_parity/05_sunab.py` | `sp.sun_abraham(aggregation='fixest_att')` |
-| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed; window_rule=report | `tests/reference_parity/test_sunab_event_time_aggregate_parity.py` | `sp.sun_abraham()` |
-| B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
-| T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed; window_rule=report | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
-| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=bin | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.sun_abraham(window_rule='bin')` |
-| T2 | estimate, se | control_group=control_cohort/lastcohort; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=report | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(control_group='lastcohort')` |
-| T2 | estimate, se | control_group=control_cohort/nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report | `tests/reference_parity/test_sunab_control_cohort_parity.py` | `sp.sun_abraham(control_cohort=2007)` |
-| T2 | estimate, se | control_group=lastcohort/nevertreated; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=reference | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(window_rule='reference')` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/r_parity/05_sunab.py` | `sp.sun_abraham(aggregation='fixest_att')` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_sunab_event_time_aggregate_parity.py` | `sp.sun_abraham()` |
+| B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report; crit_dist=normal | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
+| T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
+| T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=bin; crit_dist=normal | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.sun_abraham(window_rule='bin')` |
+| T2 | estimate, se | control_group=control_cohort/lastcohort; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(control_group='lastcohort')` |
+| T2 | estimate, se | control_group=control_cohort/nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report; crit_dist=normal | `tests/reference_parity/test_sunab_control_cohort_parity.py` | `sp.sun_abraham(control_cohort=2007)` |
+| T2 | estimate, se | control_group=lastcohort/nevertreated; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=reference; crit_dist=normal | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(window_rule='reference')` |
+| T2 | estimate, se, interval | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed; window_rule=report; crit_dist=t_cluster/t_resid | `tests/reference_parity/test_es_crit_parity.py` | `sp.sun_abraham(` |
 
 `aggregation` is ignored for vcov: the event-time covariance is formed before the summary aggregate is chosen
+
+`crit_dist` is ignored for estimate, se, vcov: the critical value turns an SE into a p-value and an interval; coefficients and SEs are computed before it is chosen (asserted equal across parity= in tests/reference_parity/test_es_crit_parity.py)
 
 ### `synth`
 

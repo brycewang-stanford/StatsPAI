@@ -192,9 +192,23 @@ def test_agg_weights_csdid_reproduces_stata_directly(fit):
 
 
 @pytest.mark.parametrize("kind", ["dynamic", "calendar"])
-def test_agg_weights_csdid_refuses_the_aggregates_it_was_not_read_off(fit, kind):
-    with pytest.raises(sp.MethodIncompatibility, match="type='simple'"):
-        sp.aggte(fit, type=kind, bstrap=False, cband=False, agg_weights="csdid")
+def test_agg_weights_csdid_weights_every_aggregate_by_cell_counts(fit, kind):
+    """Event-time and calendar cells are treated-count-weighted means too.
+
+    csdid 1.81 applies the same rule to estat event / calendar; the numbers
+    against csdid are in test_cs_parity_rc_unbal.py. Here the identity: each
+    reported cell is sum(n_trt * ATT) / sum(n_trt) over the ATT(g, t) it
+    covers, n_trt = the cohort's rows in the cell's two periods.
+    """
+    agg = sp.aggte(fit, type=kind, bstrap=False, cband=False, agg_weights="csdid")
+    d = fit.detail
+    key = "relative_time" if kind == "dynamic" else "time"
+    cells = d if kind == "dynamic" else d[d["relative_time"] >= 0]
+    for label, sub in cells.groupby(key):
+        n = sub["n_treated_obs"].to_numpy(dtype=float)
+        expected = float((n * sub["att"]).sum() / n.sum())
+        got = agg.detail.loc[agg.detail[key] == label, "att"].iloc[0]
+        assert got == pytest.approx(expected, rel=1e-13), label
 
 
 def test_agg_weights_csdid_needs_the_cell_counts():

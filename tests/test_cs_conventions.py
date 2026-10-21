@@ -73,8 +73,11 @@ def test_parity_stata_is_the_conventions_passed_one_by_one():
         ("r", dict(notyet_cutoff="cohort", control_group="notyettreated")),
         ("stata", dict(notyet_cutoff="period", control_group="notyettreated")),
         ("r", dict(balance="pair")),
-        ("r", dict(allow_unbalanced_panel=True)),
+        ("stata", dict(allow_unbalanced_panel=True)),
+        ("stata", dict(balance="none")),
         ("stata", dict(balance="full")),
+        ("r", dict(variance_convention="delta")),
+        ("stata", dict(variance_convention="delta")),
     ],
 )
 def test_parity_refuses_a_contradicting_convention(parity, kwargs):
@@ -151,6 +154,70 @@ def test_parity_r_balances_an_unbalanced_panel_like_r():
     assert r.model_info["balance_n_units_dropped"] > 0
 
 
+def test_parity_r_accepts_rs_allow_unbalanced_panel_option():
+    """R exposes allow_unbalanced_panel = TRUE, so parity='r' accepts it.
+
+    The numbers against R are in
+    tests/reference_parity/test_cs_parity_rc_unbal.py; here the identity
+    with the conventions passed one by one.
+    """
+    holes = MPDTA.drop(MPDTA.sample(60, random_state=0).index)
+    by_hand = _cs(
+        holes,
+        base_period="varying",
+        allow_unbalanced_panel=True,
+        variance_convention="reference",
+    )
+    for kw in (dict(allow_unbalanced_panel=True), dict(balance="none")):
+        r = _cs(holes, parity="r", **kw)
+        _same_detail(r, by_hand)
+        assert (r.estimate, r.se) == (by_hand.estimate, by_hand.se)
+        assert r.model_info["conventions"]["balance"] == "none"
+
+
+def test_parity_sets_the_reference_dr_variance_convention():
+    rcs = MPDTA.drop(columns="countyreal").assign(countyreal=np.arange(len(MPDTA)))
+    by_hand = _cs(
+        rcs,
+        panel=False,
+        base_period="varying",
+        x=["lpop"],
+        variance_convention="reference",
+    )
+    r = _cs(rcs, panel=False, parity="r", x=["lpop"])
+    _same_detail(r, by_hand)
+    delta = _cs(rcs, panel=False, base_period="varying", x=["lpop"])
+    # the ATT(g, t) agree; only the SEs carry the convention
+    np.testing.assert_array_equal(r.detail["att"], delta.detail["att"])
+    assert not np.allclose(r.detail["se"], delta.detail["se"], rtol=1e-6)
+    assert r.model_info["conventions"]["variance_convention"] == "reference"
+    assert delta.model_info["conventions"]["variance_convention"] == "delta"
+
+
+def test_parity_stata_headline_is_estat_simple_off_a_balanced_panel():
+    """fit.estimate under parity='stata' is aggte's csdid-weighted simple ATT."""
+    holes = MPDTA.drop(MPDTA.sample(200, random_state=1).index)
+    rcs = MPDTA.sample(1500, random_state=2).drop(columns="countyreal")
+    rcs = rcs.assign(countyreal=np.arange(len(rcs)))
+    for data, kw in ((holes, {}), (rcs, dict(panel=False))):
+        s = _cs(data, parity="stata", **kw)
+        simple = sp.aggte(s, type="simple")
+        assert simple.model_info["conventions"]["agg_weights"] == "csdid"
+        assert (s.estimate, s.se, s.ci) == (simple.estimate, simple.se, simple.ci)
+        dyn = sp.aggte(s, type="dynamic").detail
+        pd.testing.assert_frame_equal(
+            s.model_info["event_study"], dyn[s.model_info["event_study"].columns]
+        )
+        # and differs from the cohort-share (R did) aggregate of the same cells
+        by_hand = _cs(
+            data,
+            base_period="varying",
+            variance_convention="reference",
+            **kw,
+        )
+        assert abs(s.estimate / by_hand.estimate - 1) > 1e-4
+
+
 def test_parity_stata_warns_on_csdid_ipw_name():
     with pytest.warns(UserWarning, match="ipw_abadie"):
         sp.callaway_santanna(MPDTA, **KW, parity="stata", estimator="ipw")
@@ -158,7 +225,9 @@ def test_parity_stata_warns_on_csdid_ipw_name():
 
 def test_parity_on_repeated_cross_sections():
     rcs = MPDTA.drop(columns="countyreal").assign(countyreal=np.arange(len(MPDTA)))
-    by_hand = _cs(rcs, panel=False, base_period="varying")
+    by_hand = _cs(
+        rcs, panel=False, base_period="varying", variance_convention="reference"
+    )
     r = _cs(rcs, panel=False, parity="r")
     _same_detail(r, by_hand)
     conv = r.model_info["conventions"]

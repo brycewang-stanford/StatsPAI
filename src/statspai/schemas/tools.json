@@ -313,7 +313,7 @@
       "properties": {
         "agg_weights": {
           "default": "did",
-          "description": "Aggregation-weight convention: R did's cohort shares, or Stata csdid's per-cell treated-observation counts (repeated cross-sections only; simple and group)",
+          "description": "Aggregation-weight convention: R did's cohort shares, or Stata csdid's per-cell treated counts with their estimation term in the SEs (repeated cross-sections and unbalanced balance='pair' panels; all four types). With weights= a cell's count is the weight mass of its treated observations, as in csdid",
           "enum": [
             "did",
             "csdid"
@@ -371,7 +371,7 @@
           "type": "boolean"
         },
         "parity": {
-          "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections.",
+          "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections and unbalanced panels.",
           "enum": [
             "r",
             "stata"

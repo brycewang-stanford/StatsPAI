@@ -379,6 +379,16 @@
         "clustering": [
           "none",
           "set"
+        ],
+        "parity": [
+          "none",
+          "r",
+          "stata"
+        ],
+        "variance_convention": [
+          "na",
+          "delta",
+          "reference"
         ]
       },
       "primary_outputs": [
@@ -400,29 +410,33 @@
           "reason": "the headline is the simple aggregate of the post-treatment cells, whose base period is g - 1 - anticipation under both schemes; only the pre-treatment placebos (and so the event-study covariance) differ (asserted equal in tests/test_validation_scope.py)"
         }
       },
-      "cells": 7680,
+      "cells": 69120,
       "overall": {
-        "covered": 132,
-        "estimate_only": 136,
-        "not_covered": 7412
+        "covered": 686,
+        "estimate_only": 694,
+        "not_covered": 67740
       },
       "by_output": {
         "estimate": {
-          "reference": 268,
-          "not_covered": 7412
+          "reference": 1380,
+          "not_covered": 67740
         },
         "se": {
-          "reference": 132,
+          "reference": 686,
           "stochastic_screen": 4,
-          "not_covered": 7544
+          "not_covered": 68430
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 7679
+          "not_covered": 69119
         },
         "vcov": {
           "reference": 1,
-          "not_covered": 7679
+          "not_covered": 69119
+        },
+        "joint_test": {
+          "reference": 257,
+          "not_covered": 68863
         }
       },
       "rows": [
@@ -464,6 +478,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "simple / dynamic / group ATT and analytic SEs vs did and csdid"
@@ -511,6 +531,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "simple / dynamic / group ATT and analytic SE vs did::att_gt over dr/reg/ipw x never/not-yet x weights x covariates (72 cells)"
@@ -553,6 +579,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "did::mpdta: the simple, dynamic, group and calendar aggregates and their analytic SEs vs did::aggte at its default varying base period, to 1e-9 absolute"
@@ -594,6 +626,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "every entry of the dynamic event-study covariance (off-diagonal blocks included) vs did::aggte influence functions; the matrix sp.honest_did and sp.uniform_bands consume"
@@ -638,6 +676,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "every ATT(g, t) and its analytic SE at anticipation 0, 1 and 2 under both base periods vs did::att_gt, to 1e-7 (the (g, t) grid itself is compared)"
@@ -683,6 +727,13 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na",
+              "reference"
             ]
           },
           "compares": "allow_unbalanced_panel=True: every ATT(g, t) and its analytic SE vs did::att_gt(allow_unbalanced_panel = TRUE) for dr / ipw / reg with and without a covariate, to 1e-7"
@@ -729,6 +780,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "a design without never-treated units: every ATT(g, t), the simple aggregate and their analytic SEs vs did 2.5.1 on panel and repeated cross-section data, both base periods, anticipation 0 and 1, to 1e-8"
@@ -773,6 +830,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "allow_unbalanced_panel=True under both control groups: every ATT(g, t), the simple aggregate and their SEs vs did 2.5.1, to 1e-8"
@@ -819,6 +882,13 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na",
+              "reference"
             ]
           },
           "compares": "not-yet-treated comparison set at the default notyet_cutoff: every ATT(g, t) and its SE vs did 2.5.1 on panel and repeated cross-section data, both base periods, anticipation 0 and 1, with and without a covariate, to 1e-8"
@@ -864,9 +934,64 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na",
+              "reference"
             ]
           },
           "compares": "did::mpdta as repeated cross-sections with lpop: the simple aggregate and its SE vs did 2.5.1 (panel = FALSE) for dr / ipw / reg under both control groups"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_rcs_parity.py",
+          "entry_point": "sp.callaway_santanna(panel=False, estimator='dr', x=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "sample": [
+              "rcs"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "period"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "delta"
+            ]
+          },
+          "compares": "default variance_convention='delta': every ATT(g, t) equals the 'reference' fit's (1e-12), which matches did 2.5.1; the SE is the paper's influence function (drdid_rc), not a cross-software number"
         },
         {
           "kind": "T2",
@@ -905,6 +1030,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "repeated cross-sections: the four overall aggregates and the cohort cells vs did::aggte, and agg_weights='csdid' vs Stata csdid, to 1e-12 (point estimates only)"
@@ -948,6 +1079,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "every ATT(g, t) vs Stata csdid method(reg) notyet long2 under notyet_cutoff 'asinr', 'cohort' and the default, to 1e-9 (fixture 82; point estimates only)"
@@ -990,6 +1127,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "every ATT(g, t) vs Stata csdid method(stdipw) and method(ipw) (Abadie) with lpop, to 1e-9 (fixture 82; point estimates only)"
@@ -1033,6 +1176,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "notyet_cutoff 'asinr' and 'cohort': every ATT(g, t) and its SE vs Stata csdid notyet long2 [asinr] method(reg), to 1e-8 (fixture 96; R did has only the 'period' rule)"
@@ -1075,6 +1224,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "every ATT(g, t) and its SE vs Stata csdid method(ipw) with lpop, to 1e-7 (fixture 96)"
@@ -1117,6 +1272,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "the default balance='pair' on an unbalanced panel (each cell uses the units seen in both of its periods): every ATT(g, t) and its SE vs Stata csdid 1.81 method(dripw) with lpop, to 1e-7 (fixture 96)"
@@ -1159,6 +1320,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "the default balance='pair' on an unbalanced panel: every ATT(g, t) and its SE vs Stata csdid 1.81 notyet long2 method(reg), to 1e-8 (fixture 96)"
@@ -1203,6 +1370,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "the improved doubly robust and the Abadie IPW estimators (DRDID::drdid_imp_* / ipw_did_* as att_gt's est_method) on panel and repeated cross-section data: every ATT(g, t), the four aggregates, their per-cell rows and SEs vs did 2.5.1, to 1e-7"
@@ -1245,6 +1418,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "drimp under the not-yet-treated comparison and the varying base: cells, four aggregates and SEs vs did 2.5.1, to 1e-7"
@@ -1287,6 +1466,12 @@
             ],
             "clustering": [
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "'ipw' and 'stdipw' with lpop and a 29-state cluster: cells, four aggregates and analytic clustered SEs vs did 2.5.1, to 1e-7"
@@ -1329,6 +1514,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "'ipw' and 'stdipw' on repeated cross-sections: cells, four aggregates and SEs vs did 2.5.1 (std_ipw_did_rc), to 1e-7"
@@ -1371,6 +1562,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "anticipation = 1 with unit weights and lpop: cells, four aggregates, per-cell rows and SEs vs did 2.5.1, to 1e-7"
@@ -1413,6 +1610,12 @@
             ],
             "clustering": [
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "anticipation = 1, not-yet-treated, varying base, 29-state cluster: cells, four aggregates and clustered SEs vs did 2.5.1, to 1e-7"
@@ -1456,6 +1659,12 @@
             ],
             "clustering": [
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: every ATT(g,t), group and simple aggregates, on a panel with a time-invariant cluster (mpdta) and on repeated cross-sections clustered on a row-level city x year"
@@ -1499,6 +1708,12 @@
             "clustering": [
               "none",
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "weighted repeated cross-sections (panel=False): simple, dynamic, group and calendar aggregates and their analytic SEs vs did::aggte, with and without a row-level cluster"
@@ -1542,6 +1757,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "unbalanced panel under balance='full' (drop units not observed in every period): every ATT(g,t) and the four aggregates vs did::att_gt at its default allow_unbalanced_panel = FALSE"
@@ -1587,6 +1808,12 @@
             ],
             "clustering": [
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "clustered analytic SEs vs R did (>= 2.5.0) clustervars= to 1e-8 on nine clusters of unequal size: every ATT(g,t) and the simple / dynamic / group / calendar aggregates, on a balanced and an unbalanced panel"
@@ -1631,6 +1858,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "a covariate that varies over time, read in the earlier period of each cell: every ATT(g, t) and its SE vs R did::att_gt, to 1e-7"
@@ -1676,9 +1909,382 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "csdid lines run through sp.stata vs Stata csdid method(dripw) / method(drimp): cells and estat aggregates agree to 2e-6, held to 1e-5 because Stata's logit stops at its default tolerance (a documented optimiser difference, not a 1e-6 parity row)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_switch.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "period"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ],
+            "parity": [
+              "r"
+            ],
+            "variance_convention": [
+              "na"
+            ]
+          },
+          "compares": "parity='r' on mpdta and on mpdta with 35 always-treated counties: every ATT(g, t) and SE, the pre-test, the fit's simple ATT and the four sp.aggte aggregations (overall and every cell) vs R did 2.5.1 (bstrap = FALSE), to 1e-10 without lpop and 1e-8 with it"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_switch.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "notyet_cutoff": [
+              "period"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              ">0"
+            ],
+            "clustering": [
+              "none"
+            ],
+            "parity": [
+              "r"
+            ],
+            "variance_convention": [
+              "na"
+            ]
+          },
+          "compares": "parity='r' with anticipation = 1 on the always-treated panel: the same comparison vs R did 2.5.1, to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_switch.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "cohort",
+              "period"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ],
+            "parity": [
+              "stata"
+            ],
+            "variance_convention": [
+              "na"
+            ]
+          },
+          "compares": "parity='stata' on mpdta and on mpdta with 35 always-treated counties: every ATT(g, t) and SE, estat pretrend, the fit's simple ATT and estat simple / group / calendar / event (estimates, SEs, confidence limits) vs Stata csdid 1.81, to 1e-10 without lpop and 1e-7 with it"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_switch.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "sample": [
+              "panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "notyet_cutoff": [
+              "period"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "bootstrap"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ],
+            "parity": [
+              "stata"
+            ],
+            "variance_convention": [
+              "na"
+            ]
+          },
+          "compares": "parity='stata' with bstrap=True: the fit's simple ATT and its SE are csdid's analytic estat simple after wboot, to 1e-10 (the bootstrap SEs of the cells are not compared)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_rc_unbal.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "panel",
+              "rcs",
+              "unbalanced_panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "period"
+            ],
+            "weights": [
+              "none",
+              "weighted"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ],
+            "parity": [
+              "r"
+            ],
+            "variance_convention": [
+              "na",
+              "reference"
+            ]
+          },
+          "compares": "parity='r' on a repeated cross-section and an unbalanced panel built from mpdta (R's default drop of incomplete units, and allow_unbalanced_panel = TRUE), unweighted and with sampling weights (and weighted on the balanced mpdta): every ATT(g, t) and SE, the pre-test, the fit's simple ATT and the four aggregations vs R did 2.5.1, to 1e-10 without lpop and 1e-7 with it"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_rc_unbal.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "rcs",
+              "unbalanced_pair"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "cohort",
+              "period"
+            ],
+            "weights": [
+              "none",
+              "weighted"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ],
+            "parity": [
+              "stata"
+            ],
+            "variance_convention": [
+              "na",
+              "reference"
+            ]
+          },
+          "compares": "parity='stata' on the same repeated cross-section (csdid without ivar()) and unbalanced panel (ivar()), unweighted and with [iw=w]: every ATT(g, t) and SE, estat pretrend, the fit's simple ATT (estat simple) and estat simple / group / calendar / event with csdid's per-cell treated counts (weight mass when weighted) vs Stata csdid 1.81, to 1e-10 without lpop and 1e-6 with it"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_parity_rc_unbal.py",
+          "entry_point": "sp.callaway_santanna(",
+          "outputs": [
+            "estimate",
+            "se",
+            "joint_test"
+          ],
+          "configuration": {
+            "sample": [
+              "panel"
+            ],
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "notyet_cutoff": [
+              "cohort",
+              "period"
+            ],
+            "weights": [
+              "weighted"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "varying"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ],
+            "parity": [
+              "stata"
+            ],
+            "variance_convention": [
+              "na"
+            ]
+          },
+          "compares": "parity='stata' on the balanced mpdta with sampling weights: the same comparison vs csdid [iw=w], to 1e-10 without lpop and 1e-6 with it"
         },
         {
           "kind": "S",
@@ -1718,6 +2324,12 @@
             "clustering": [
               "none",
               "set"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "multiplier-bootstrap SEs within 8-10% and uniform critical values within 5% of did at 9,999 draws (one seed per side; a tolerance screen, not an equivalence test)"
@@ -1759,6 +2371,12 @@
             ],
             "clustering": [
               "none"
+            ],
+            "parity": [
+              "none"
+            ],
+            "variance_convention": [
+              "na"
             ]
           },
           "compares": "95% CI coverage of the simple ATT on a staggered DGP"
@@ -1887,6 +2505,188 @@
             ]
           },
           "compares": "coverage of the forest's own AIPW interval (2,000 trees)"
+        }
+      ]
+    },
+    "did_2x2": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "hc1",
+          "cluster",
+          "wild",
+          "survey"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "covariates": [
+          "none",
+          "set"
+        ],
+        "crit_dist": [
+          "t_resid",
+          "t_cluster",
+          "t_design",
+          "bootstrap"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "crit_dist": {
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "reason": "the critical value turns the SE into a p-value and an interval; the ATT and its SE are computed before it is chosen (asserted equal across parity= / crit_dist= in tests/reference_parity/test_es_crit_default.py; crit_dist='t' there is the same fit as parity='stata')"
+        }
+      },
+      "cells": 80,
+      "overall": {
+        "covered": 20,
+        "not_covered": 60
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 20,
+          "not_covered": 60
+        },
+        "se": {
+          "reference": 20,
+          "not_covered": 60
+        },
+        "interval": {
+          "reference": 3,
+          "not_covered": 77
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
+          "entry_point": "sp.did_2x2(",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc1"
+            ],
+            "weights": [
+              "set"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_resid"
+            ]
+          },
+          "compares": "analytic weights with robust=True: the ATT and its HC1 SE vs Stata 18 regress [aw=w], robust, to 1e-12"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_survey_did_parity.py",
+          "entry_point": "sp.did_2x2(",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "survey"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_design"
+            ]
+          },
+          "compares": "design= (strata, clusters, survey weights): the ATT and its linearization SE vs R survey::svyglm(y ~ treat * post) on the long design"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_survey_replicate_parity.py",
+          "entry_point": "sp.did_2x2(",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "survey"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_design"
+            ]
+          },
+          "compares": "a replicate-weight design=: the ATT and its replicate SE vs R survey::svrepdesign + svyglm, to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_es_crit_parity.py",
+          "entry_point": "sp.did_2x2(",
+          "outputs": [
+            "estimate",
+            "se",
+            "interval"
+          ],
+          "configuration": {
+            "vce": [
+              "cluster"
+            ],
+            "weights": [
+              "none",
+              "set"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_cluster"
+            ]
+          },
+          "compares": "parity='stata' / 'r' on the castle-doctrine 2006 cohort against the never treated, clustered by state, unweighted and weighted: the ATT's SE, p-value and confidence limits vs Stata regress, cluster() and R fixest (t(G-1)), to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_es_crit_parity.py",
+          "entry_point": "sp.did_2x2(",
+          "outputs": [
+            "estimate",
+            "se",
+            "interval"
+          ],
+          "configuration": {
+            "vce": [
+              "hc1"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_resid"
+            ]
+          },
+          "compares": "the same 2x2 with robust SEs: SE, p-value and confidence limits vs Stata regress, robust and R fixest (t(N-K), which is also the default), to 1e-10"
         }
       ]
     },
@@ -6813,30 +7613,49 @@
         "absorb": [
           "none",
           "set"
+        ],
+        "crit_dist": [
+          "normal",
+          "t_resid",
+          "t_cluster"
         ]
       },
       "primary_outputs": [
         "estimate",
         "se"
       ],
-      "invariant": {},
-      "cells": 512,
+      "invariant": {
+        "crit_dist": {
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov",
+            "joint_test"
+          ],
+          "reason": "the critical value turns an SE into a p-value and an interval; coefficients, SEs and the pre-trend test are computed before it is chosen (asserted equal across parity= in tests/reference_parity/test_es_crit_parity.py)"
+        }
+      },
+      "cells": 1536,
       "overall": {
-        "covered": 45,
-        "not_covered": 467
+        "covered": 138,
+        "not_covered": 1398
       },
       "by_output": {
         "estimate": {
-          "reference": 45,
-          "not_covered": 467
+          "reference": 138,
+          "not_covered": 1398
         },
         "se": {
-          "reference": 45,
-          "not_covered": 467
+          "reference": 138,
+          "not_covered": 1398
         },
         "vcov": {
-          "reference": 1,
-          "not_covered": 511
+          "reference": 3,
+          "not_covered": 1533
+        },
+        "interval": {
+          "reference": 3,
+          "not_covered": 1533
         }
       },
       "rows": [
@@ -6875,6 +7694,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "every lead and lag coefficient and its unit-clustered SE vs fixest::feols(i(rel, ref=-1)) and Stata reghdfe"
@@ -6913,6 +7735,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "every entry of the event-time covariance (off-diagonal blocks included) vs fixest::feols"
@@ -6957,6 +7782,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "the full 32-cell grid (adoption x window (-4, 4) / (-3, 5) x reference -1 / -2 x a time-varying covariate x unit-level weights) vs fixest::feols: every coefficient and SE to 1e-10"
@@ -6998,6 +7826,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "staggered adoption with eight other windows (narrower, wider than the data, asymmetric, no leads) and five other references (-2, the clipped endpoint -4, a span, both interval forms), vs fixest::feols"
@@ -7038,6 +7869,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "staggered adoption, unweighted and with weights constant within a unit or varying over time, on the balanced and an unbalanced panel, vs fixest::feols"
@@ -7077,6 +7911,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "staggered adoption with a covariate and weights, vs fixest::feols"
@@ -7117,6 +7954,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "clustered by state (coarser than the unit) and by period, and by state with a covariate on an unbalanced panel, vs fixest::feols"
@@ -7156,6 +7996,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "a single adoption date, weighted, clustered by state, vs fixest::feols"
@@ -7196,6 +8039,9 @@
             "absorb": [
               "none",
               "set"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "bins of width 2 and 3 with a bin-aligned span and an interval reference, and with a region-by-time effect absorbed, vs fixest::feols"
@@ -7235,6 +8081,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "bins of width 2 on a single adoption date with a covariate, vs fixest::feols"
@@ -7275,6 +8124,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "intensity x period regressors from a common adoption date, unweighted and weighted, vs fixest::feols"
@@ -7314,6 +8166,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "intensity from a common date, window (-6, 5), clustered by state, vs fixest::feols"
@@ -7353,6 +8208,9 @@
             ],
             "absorb": [
               "none"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "intensity on a staggered adoption column, vs fixest::feols"
@@ -7393,6 +8251,9 @@
             ],
             "absorb": [
               "set"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "region-by-time and state-by-time effects absorbed, the latter with a covariate, vs fixest::feols"
@@ -7432,9 +8293,99 @@
             ],
             "absorb": [
               "set"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "a region-by-time effect absorbed on a single adoption date, weighted, vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_es_crit_parity.py",
+          "entry_point": "sp.event_study(",
+          "outputs": [
+            "estimate",
+            "se",
+            "interval"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "other"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "set"
+            ],
+            "cluster": [
+              "other",
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_cluster"
+            ]
+          },
+          "compares": "parity='stata' / 'r' on the castle-doctrine panel, window (-5, 4), weighted, clustered by state and by region, alpha 0.05 and 0.10: every lead and lag SE, p-value and confidence limit vs Stata reghdfe and R fixest (t(G-1)), and the headline average vs lincom, to 1e-10"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_es_crit_parity.py",
+          "entry_point": "sp.event_study(",
+          "outputs": [
+            "estimate",
+            "se",
+            "interval"
+          ],
+          "configuration": {
+            "adoption": [
+              "staggered"
+            ],
+            "window": [
+              "other"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ],
+            "crit_dist": [
+              "t_cluster"
+            ]
+          },
+          "compares": "parity='stata' / 'r' on the no-fault divorce panel, window (-10, 15), clustered by state: every lead and lag SE, p-value and confidence limit vs Stata reghdfe and R fixest (t(40)), to 1e-10"
         }
       ]
     },
@@ -16408,6 +17359,11 @@
           "report",
           "bin",
           "reference"
+        ],
+        "crit_dist": [
+          "normal",
+          "t_resid",
+          "t_cluster"
         ]
       },
       "primary_outputs": [
@@ -16420,29 +17376,41 @@
             "vcov"
           ],
           "reason": "the event-time covariance is formed before the summary aggregate is chosen"
+        },
+        "crit_dist": {
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov"
+          ],
+          "reason": "the critical value turns an SE into a p-value and an interval; coefficients and SEs are computed before it is chosen (asserted equal across parity= in tests/reference_parity/test_es_crit_parity.py)"
         }
       },
-      "cells": 36,
+      "cells": 108,
       "overall": {
-        "covered": 21,
-        "not_covered": 15
+        "covered": 63,
+        "not_covered": 45
       },
       "by_output": {
         "estimate": {
-          "reference": 21,
-          "not_covered": 15
+          "reference": 63,
+          "not_covered": 45
         },
         "se": {
-          "reference": 21,
-          "not_covered": 15
+          "reference": 63,
+          "not_covered": 45
         },
         "coverage": {
           "coverage_simulation": 1,
-          "not_covered": 35
+          "not_covered": 107
         },
         "vcov": {
-          "reference": 2,
-          "not_covered": 34
+          "reference": 6,
+          "not_covered": 102
+        },
+        "interval": {
+          "reference": 4,
+          "not_covered": 104
         }
       },
       "rows": [
@@ -16467,6 +17435,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and eventstudyinteract"
@@ -16492,6 +17463,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "equal-weighted post-period event-time average and its SE vs the same linear combination of fixest::sunab coefficients, on both share_variance settings"
@@ -16515,6 +17489,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "95% CI coverage of the default event-time aggregate"
@@ -16538,6 +17515,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "every entry of the event-study covariance (off-diagonal blocks included) vs fixest::sunab's A V A'; the matrix sp.uniform_bands and sp.honest_did consume"
@@ -16562,6 +17542,9 @@
             ],
             "window_rule": [
               "bin"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "event-time coefficients and SEs with both ends of the window pooled, on an unbalanced panel, unweighted and with weights that vary over time, vs Stata eventstudyinteract"
@@ -16589,6 +17572,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "the 2007 cohort as control on mpdta (the last cohort, and the same cohort named by control_cohort=): event-time effects and SEs vs eventstudyinteract control_cohort(c2007) with the share term and vs fixest::sunab(ref.c=2007) without it; both summary aggregates vs fixest"
@@ -16614,6 +17600,9 @@
             ],
             "window_rule": [
               "report"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "event-time effects and SEs with the never-treated, and with control_cohort= naming the 2007 cohort (as a value and as a 0/1 column), vs eventstudyinteract control_cohort()"
@@ -16641,9 +17630,42 @@
             ],
             "window_rule": [
               "reference"
+            ],
+            "crit_dist": [
+              "normal"
             ]
           },
           "compares": "windows (-3, 2) and (-2, 1) with the relative times outside them in the omitted category: event-time effects and SEs vs eventstudyinteract run on the in-window dummies only and vs fixest::sunab(ref.p=c(-1, <outside>)); both summary aggregates vs fixest"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_es_crit_parity.py",
+          "entry_point": "sp.sun_abraham(",
+          "outputs": [
+            "estimate",
+            "se",
+            "interval"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "estimated",
+              "fixed"
+            ],
+            "window_rule": [
+              "report"
+            ],
+            "crit_dist": [
+              "t_cluster",
+              "t_resid"
+            ]
+          },
+          "compares": "parity='stata' / 'r' on the castle-doctrine panel, weighted, clustered by state and (without a unit id) robust: every event-time SE, p-value and confidence limit vs Stata eventstudyinteract (share term, t(G-1) / t(N-K)) and R fixest::sunab (fixed shares, same t), to 1e-10"
         }
       ]
     },
@@ -19787,20 +20809,20 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 2143,
+      "reference": 3410,
       "seed_equivalence": 3,
       "disclosure": 4,
-      "not_covered": 233138
+      "not_covered": 294487
     },
     "se": {
-      "reference": 1042,
+      "reference": 1751,
       "stochastic_screen": 17,
       "disclosure": 32,
-      "not_covered": 234197
+      "not_covered": 296104
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 44065
+      "not_covered": 105577
     },
     "diagnostic": {
       "reference": 195,
@@ -19809,13 +20831,17 @@
       "not_covered": 278516
     },
     "vcov": {
-      "reference": 37,
-      "not_covered": 27069
+      "reference": 43,
+      "not_covered": 89599
     },
     "joint_test": {
-      "reference": 59,
+      "reference": 316,
       "disclosure": 1,
-      "not_covered": 19500
+      "not_covered": 88363
+    },
+    "interval": {
+      "reference": 10,
+      "not_covered": 1714
     }
   },
   "option_fixtures": [
