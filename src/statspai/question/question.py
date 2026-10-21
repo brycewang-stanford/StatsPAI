@@ -1351,13 +1351,18 @@ def _dispatch_estimator(
         _require_columns_present(
             data, [q.outcome, treat_time, q.time, q.id], "event_study"
         )
+        es_kwargs = dict(kwargs)
+        if "crit_dist" not in es_kwargs and "parity" not in es_kwargs:
+            # Pin today's critical values: no FutureWarning users cannot
+            # act on. Switch with the crit_dist default (planned 1.41).
+            es_kwargs["crit_dist"] = "normal"
         res = sp.event_study(
             data=data,
             y=q.outcome,
             treat_time=treat_time,
             time=q.time,
             unit=q.id,
-            **kwargs,
+            **es_kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(

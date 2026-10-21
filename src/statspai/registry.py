@@ -29296,6 +29296,19 @@ def _build_registry() -> None:
                     "model_info['conventions'].",
                     ["r", "stata"],
                 ),
+                ParamSpec(
+                    "crit_dist",
+                    "str",
+                    False,
+                    None,
+                    "Critical-value rule; estimates and SEs unchanged. 't': "
+                    "t(G-1) with cluster=, t(N-K) otherwise (= parity's). "
+                    "'residual': t(N-K) always (the pre-1.41 default). None "
+                    "= 'residual' and a FutureWarning when cluster= is given; "
+                    "the default becomes 't' in 1.41. Contradicting parity= "
+                    "raises.",
+                    ["t", "residual"],
+                ),
             ],
             returns="CausalResult",
             example=('sp.did_2x2(df, y="earnings", treat="treated", time="year")'),
@@ -29583,6 +29596,19 @@ def _build_registry() -> None:
                     "share_variance=False. Recorded in "
                     "model_info['conventions'].",
                     ["r", "stata"],
+                ),
+                ParamSpec(
+                    "crit_dist",
+                    "str",
+                    False,
+                    None,
+                    "Critical-value rule alone (share_variance untouched). "
+                    "'t': t(G-1) for cluster SEs, t(N-K) for i=None (= "
+                    "parity='stata' with the default share term). 'normal': "
+                    "the pre-1.41 default. None = 'normal' with a "
+                    "FutureWarning; the default becomes 't' in 1.41. "
+                    "'normal' with parity= raises.",
+                    ["t", "normal"],
                 ),
                 ParamSpec(
                     "pretest",
@@ -31391,6 +31417,18 @@ def _build_registry() -> None:
                     "cluster=): Student t with G-1 df. Recorded in "
                     "model_info['conventions'].",
                     ["r", "stata"],
+                ),
+                ParamSpec(
+                    "crit_dist",
+                    "str",
+                    False,
+                    None,
+                    "Critical-value rule for p-values and CIs; estimates, "
+                    "SEs and the pre-trend F test unchanged. 't': t(G-1) "
+                    "(= parity's). 'normal': the pre-1.41 default. None = "
+                    "'normal' with a FutureWarning; the default becomes 't' "
+                    "in 1.41. 'normal' with parity= raises.",
+                    ["t", "normal"],
                 ),
             ],
             returns="CausalResult with event_study DataFrame",

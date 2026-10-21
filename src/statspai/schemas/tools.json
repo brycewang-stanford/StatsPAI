@@ -9377,6 +9377,14 @@
           ],
           "x-statspai-role": "columns"
         },
+        "crit_dist": {
+          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1) with cluster=, t(N-K) otherwise (= parity's). 'residual': t(N-K) always (the pre-1.41 default). None = 'residual' and a FutureWarning when cluster= is given; the default becomes 't' in 1.41. Contradicting parity= raises.",
+          "enum": [
+            "t",
+            "residual"
+          ],
+          "type": "string"
+        },
         "design": {
           "description": "A complex survey design from :func:`sp.svydesign` declared on ``data`` (same rows). The DID regression is fitted with the design weights and its covariance is the survey linearisation sandwich over strata, PSUs and the finite population correction (R ``svyglm`` on ``y ~ treat * time``, Stata ``svy: regress``), with t inference on the design degrees of freedom. With panel rows, the unit (or a coarser unit containing it) must be the design's PSU so that a unit's two periods fall in one PSU. Not with ``weights=``, ``cluster=``, ``vce=`` or ``engine='bayes'``. A replicate-weight design (:func:`sp.svrepdesign`) is accepted",
           "type": "string",
@@ -14002,6 +14010,14 @@
             "controls"
           ],
           "x-statspai-role": "columns"
+        },
+        "crit_dist": {
+          "description": "Critical-value rule for p-values and CIs; estimates, SEs and the pre-trend F test unchanged. 't': t(G-1) (= parity's). 'normal': the pre-1.41 default. None = 'normal' with a FutureWarning; the default becomes 't' in 1.41. 'normal' with parity= raises.",
+          "enum": [
+            "t",
+            "normal"
+          ],
+          "type": "string"
         },
         "expose_pre_vcov": {
           "default": true,
@@ -40937,6 +40953,14 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "crit_dist": {
+          "description": "Critical values: 't' = t(G-1) as Stata and fixest; omitted = normal (FutureWarning: 't' in 1.41).",
+          "enum": [
+            "t",
+            "normal"
+          ],
+          "type": "string"
         },
         "g": {
           "description": "First-treatment cohort.",

@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "12f09ed52d7611749b4addff845c890d48634dfc7cbfae9497e7f616c10a9350",
+  "aggregate_sha256": "99c3ff11094de6e17c766497cc91e0a80b3d436a38a1c22cd4ceaa0d4dee84bb",
   "counts": {
     "files": 637,
     "input_csvs": 88,
@@ -68,9 +68,9 @@
       "sha256": "0e4c1995625568b3357ffe9f67146cffcda72d5e192930b31ffb06e196317251"
     },
     {
-      "bytes": 4871,
+      "bytes": 5119,
       "path": "tests/r_parity/05_sunab.py",
-      "sha256": "11c33b06924bff81b09225379206969bc572f3f50262acb7445aedb130a4cf4f"
+      "sha256": "29932d65d6a85726238380603a57bfefda5bd7f2746fa0c867c6fc067bb6d64a"
     },
     {
       "bytes": 3414,
@@ -868,9 +868,9 @@
       "sha256": "af029a2247abba26bb0ba4101b526396096b79566b1e043d4eee6fd4e31bf031"
     },
     {
-      "bytes": 4254,
+      "bytes": 4274,
       "path": "tests/r_parity/85_twfe_event_study.py",
-      "sha256": "ef24b2792a81ca3ca376d878d73246ff3e4582ef5e87ccaae1dfe4b8e3471c29"
+      "sha256": "6a445a783c8001d4d1d8da65f73846a100a786e57f1965d839e9489e3063290e"
     },
     {
       "bytes": 2766,

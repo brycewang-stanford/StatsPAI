@@ -876,7 +876,14 @@ class CausalWorkflow:
             _safe_call(
                 "Sun–Abraham",
                 lambda: sp.sun_abraham(
-                    self.data, y=self.y, g=cohort_col, t=time_col, i=id_col
+                    self.data,
+                    y=self.y,
+                    g=cohort_col,
+                    t=time_col,
+                    i=id_col,
+                    # Pin today's critical values: no FutureWarning users
+                    # cannot act on. Switch with the default (planned 1.41).
+                    crit_dist="normal",
                 ),
             )
             _safe_call(

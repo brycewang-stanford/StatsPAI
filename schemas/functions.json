@@ -30698,6 +30698,14 @@
           ],
           "x-statspai-role": "columns"
         },
+        "crit_dist": {
+          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1) with cluster=, t(N-K) otherwise (= parity's). 'residual': t(N-K) always (the pre-1.41 default). None = 'residual' and a FutureWarning when cluster= is given; the default becomes 't' in 1.41. Contradicting parity= raises.",
+          "enum": [
+            "t",
+            "residual"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Input dataset.",
           "type": "object",
@@ -30972,6 +30980,14 @@
             "controls"
           ],
           "x-statspai-role": "columns"
+        },
+        "crit_dist": {
+          "description": "Critical-value rule alone (share_variance untouched). 't': t(G-1) for cluster SEs, t(N-K) for i=None (= parity='stata' with the default share term). 'normal': the pre-1.41 default. None = 'normal' with a FutureWarning; the default becomes 't' in 1.41. 'normal' with parity= raises.",
+          "enum": [
+            "t",
+            "normal"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "Long-format panel data.",
@@ -32373,6 +32389,14 @@
             "controls"
           ],
           "x-statspai-role": "columns"
+        },
+        "crit_dist": {
+          "description": "Critical-value rule for p-values and CIs; estimates, SEs and the pre-trend F test unchanged. 't': t(G-1) (= parity's). 'normal': the pre-1.41 default. None = 'normal' with a FutureWarning; the default becomes 't' in 1.41. 'normal' with parity= raises.",
+          "enum": [
+            "t",
+            "normal"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "Panel data in long format.",

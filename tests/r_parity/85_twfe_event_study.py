@@ -72,7 +72,7 @@ def main() -> None:
 
     fit = sp.event_study(
         frame, y="y", treat_time="g_nan", time="time", unit="unit",
-        window=WINDOW, cluster="unit",
+        window=WINDOW, cluster="unit", crit_dist="normal",
     )
     es = pd.DataFrame(fit.model_info["event_study"])
     es = es[~es["is_reference"]] if "is_reference" in es.columns else es

@@ -90,7 +90,8 @@ def staggered():
 
 
 def test_sun_abraham_without_aggregation_warns_and_is_event_time(staggered):
-    kw = dict(y="y", g="first_treat", t="time", i="unit")
+    # crit_dist is named so that only the aggregation default is under test
+    kw = dict(y="y", g="first_treat", t="time", i="unit", crit_dist="normal")
     with pytest.warns(FutureWarning, match="aggregation="):
         implicit = sp.sun_abraham(staggered, **kw)
     with warnings.catch_warnings():

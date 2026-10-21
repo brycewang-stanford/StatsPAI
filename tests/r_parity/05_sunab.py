@@ -34,9 +34,12 @@ def main() -> None:
     df = sp.datasets.mpdta()
     dump_csv(df, MODULE)
 
+    # crit_dist="normal": the committed CI columns use the normal critical
+    # values (the pre-1.41 default); naming it keeps them and the
+    # FutureWarning away. compare.py gates estimates and SEs only.
     fit = sp.sun_abraham(
         df, y="lemp", g="first_treat", t="year", i="countyreal",
-        aggregation="fixest_att",
+        aggregation="fixest_att", crit_dist="normal",
     )
 
     rows: list[ParityRecord] = [
@@ -78,7 +81,7 @@ def main() -> None:
     # fixest convention: cohort shares treated as fixed in the variance.
     fit_fs = sp.sun_abraham(
         df, y="lemp", g="first_treat", t="year", i="countyreal",
-        aggregation="fixest_att", share_variance=False,
+        aggregation="fixest_att", share_variance=False, crit_dist="normal",
     )
     es_fs = fit_fs.model_info.get("event_study")
     if es_fs is not None:

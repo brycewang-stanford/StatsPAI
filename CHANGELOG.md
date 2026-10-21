@@ -2,6 +2,16 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `crit_dist=` on `sp.event_study`, `sp.sun_abraham` (`'t'` / `'normal'`) and `sp.did_2x2` (`'t'` / `'residual'`): the critical-value rule for p-values and confidence intervals, named by convention rather than by program. `'t'` is t(G-1) with cluster-robust SEs and t(N-K) otherwise, the critical values of `parity='stata'` / `'r'` (castle-doctrine panel: equal to Stata `reghdfe` / `regress` to 1e-10, `tests/reference_parity/test_es_crit_default.py`). For `sp.sun_abraham` it leaves `share_variance` alone. A legacy value together with `parity=` raises `MethodIncompatibility`. Recorded in `model_info['conventions']` (`crit_dist`, `crit_df`). The MCP `sun_abraham` tool exposes it.
+
+### Changed
+
+- Announced for 1.41 (owner decision 2026-10-21): the default becomes `crit_dist='t'`, the Stata / fixest convention. Until then the default reproduces today's numbers byte for byte (normal for the two event studies, t(N-K) also under clustering for `did_2x2`), and a call that sets neither `crit_dist` nor `parity` warns (`FutureWarning`, once per call, attributed to the caller's line) wherever the intervals or p-values would change; `sp.did_2x2` without `cluster=` does not warn. Estimates, standard errors, the pre-trend tests, `sp.uniform_bands` and `sp.honest_did` do not depend on it. Callaway-Sant'Anna keeps the normal distribution (R `did`, Stata `csdid`). Library entry points that call these estimators for the user (`sp.did_analysis`, `sp.did_summary`, `sp.auto_did`, `sp.compare_event_study_conventions`, `sp.causal_question`, `CausalWorkflow.compare_estimators`, the calibrated simulation) pass the pre-1.41 value and do not warn. Before / after on the castle-doctrine panel in MIGRATION.md ("1.40.0 → 1.41").
+
 ## [1.40.0] — 2026-10-21
 
 A minor release. Read the ⚠️ entries before upgrading: several of them change

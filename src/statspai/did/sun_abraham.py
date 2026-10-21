@@ -323,6 +323,7 @@ def sun_abraham(
     anticipation: int = 0,
     ref_p: Optional[Any] = None,
     parity: Optional[Literal["r", "stata"]] = None,
+    crit_dist: Optional[Literal["t", "normal"]] = None,
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -457,6 +458,18 @@ def sun_abraham(
         panel both reproduce the reference intervals to 1e-12. The
         pre-trend test is unchanged (Wald chi-squared). The convention
         used is in ``model_info['conventions']``.
+    crit_dist : {'t', 'normal'}, optional
+        The critical-value choice alone, named by convention rather than
+        by program; ``share_variance`` is not touched. ``'t'``: t with
+        ``G - 1`` degrees of freedom for cluster-robust SEs and ``N - K``
+        for the HC1 SEs of ``i=None`` (the critical values of
+        ``parity='stata'`` / ``'r'``; with the default share term this is
+        exactly ``parity='stata'``). ``'normal'``: the normal
+        distribution. ``None`` (default) is ``'normal'`` in this release
+        and warns (``FutureWarning``): the default becomes ``'t'`` in
+        1.41, as in Stata ``eventstudyinteract`` and fixest. Pass either
+        value to silence the warning. ``'normal'`` together with
+        ``parity=`` raises. See MIGRATION.md.
     alpha : float, default 0.05
         Significance level.
     pretest : {'joint', 'none'}, default 'joint'
@@ -529,6 +542,9 @@ def sun_abraham(
     Econometrics*. [@sun2021estimating]
     """
     parity = _crit.check_parity(parity, "sun_abraham")
+    crit_arg = _crit.check_crit_dist(
+        crit_dist, parity, function="sun_abraham", legacy="normal"
+    )
     if share_variance is None:
         share_variance = parity != "r"
     elif parity is not None and bool(share_variance) != (parity == "stata"):
@@ -884,15 +900,27 @@ def sun_abraham(
         .sum()
         .items()
     }
-    # Critical values: normal by default; under parity='stata' / 'r' the
-    # t(G - 1) (cluster) or t(N - K) (HC1, i=None) that eventstudyinteract
-    # and fixest display.
+    # Critical values: normal by default (t from 1.41); under
+    # parity='stata' / 'r' or crit_dist='t' the t(G - 1) (cluster) or
+    # t(N - K) (HC1, i=None) that eventstudyinteract and fixest display.
     crit_dist, crit_df = _crit.crit_spec(
         parity,
         clustered=cluster_col != "_sa_row",
         n_clusters=n_clust,
         df_resid=float(n - K),
+        crit_dist=crit_arg,
     )
+    if parity is None and crit_arg is None:
+        _crit.warn_default_change(
+            "sp.sun_abraham",
+            old=(crit_dist, crit_df),
+            new=_crit.t_spec_or_none(
+                clustered=cluster_col != "_sa_row",
+                n_clusters=n_clust,
+                df_resid=float(n - K),
+            ),
+            legacy="normal",
+        )
     z_crit = _crit.crit_value(alpha, crit_dist, crit_df)
 
     # Observation counts per relative time over the *estimated* cohorts
@@ -1186,6 +1214,7 @@ def sun_abraham(
                 "aggregation": aggregation,
                 "share_variance": share_variance,
                 **({"parity": parity} if parity is not None else {}),
+                **({"crit_dist": crit_arg} if crit_arg is not None else {}),
                 "alpha": alpha,
                 "anticipation": anticipation,
                 "ref_p": list(ref_periods),

@@ -213,6 +213,7 @@ def _run_sa(
         # Pin today's default: no FutureWarning users cannot act on.
         # Switch with sun_abraham's default (planned 1.41).
         aggregation="event_time",
+        crit_dist="normal",
     )
 
 

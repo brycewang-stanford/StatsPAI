@@ -249,6 +249,7 @@ def event_study(
     intensity: Optional[str] = None,
     absorb: Optional[Union[str, List[str]]] = None,
     parity: Optional[Literal["r", "stata"]] = None,
+    crit_dist: Optional[Literal["t", "normal"]] = None,
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -343,6 +344,16 @@ def event_study(
         ATT interval follows the same rule. The pre-trend test is a
         cluster F(q, G-1) test under every setting, as Stata's ``test``.
         The convention used is in ``model_info['conventions']``.
+    crit_dist : {'t', 'normal'}, optional
+        The same choice named by convention rather than by program.
+        ``'t'``: Student t with ``G - 1`` degrees of freedom (every fit
+        here is cluster-robust), the critical values of ``parity='stata'``
+        / ``'r'``. ``'normal'``: the normal distribution. ``None``
+        (default) is ``'normal'`` in this release and warns
+        (``FutureWarning``): the default becomes ``'t'`` in 1.41, as in
+        Stata and fixest. Pass either value to silence the warning.
+        Coefficients, SEs and the pre-trend F test do not depend on it.
+        ``'normal'`` together with ``parity=`` raises. See MIGRATION.md.
 
     Returns
     -------
@@ -381,6 +392,9 @@ def event_study(
     True
     """
     parity = _crit.check_parity(parity, "event_study")
+    crit_arg = _crit.check_crit_dist(
+        crit_dist, parity, function="event_study", legacy="normal"
+    )
     check_columns(
         data,
         {
@@ -613,13 +627,27 @@ def event_study(
         """Unambiguous bin label: a point period prints as-is."""
         return str(start) if start == end else f"[{start}, {end}]"
 
-    # Critical values: normal by default; under parity='stata' / 'r' the
-    # t(G - 1) of reghdfe and fixest with cluster-robust SEs (every fit
-    # here clusters, on ``cluster`` or on the unit).
+    # Critical values: normal by default (t from 1.41); under
+    # parity='stata' / 'r' or crit_dist='t' the t(G - 1) of reghdfe and
+    # fixest with cluster-robust SEs (every fit here clusters, on
+    # ``cluster`` or on the unit).
     n_clusters = len(np.unique(cluster_ids))
     crit_dist, crit_df = _crit.crit_spec(
-        parity, clustered=True, n_clusters=n_clusters, df_resid=None
+        parity,
+        clustered=True,
+        n_clusters=n_clusters,
+        df_resid=None,
+        crit_dist=crit_arg,
     )
+    if parity is None and crit_arg is None:
+        _crit.warn_default_change(
+            "sp.event_study",
+            old=(crit_dist, crit_df),
+            new=_crit.t_spec_or_none(
+                clustered=True, n_clusters=n_clusters, df_resid=None
+            ),
+            legacy="normal",
+        )
     t_crit = _crit.crit_value(alpha, crit_dist, crit_df)
 
     es_rows = []
@@ -814,6 +842,7 @@ def event_study(
                 "intensity": intensity,
                 "absorb": absorb_terms or None,
                 **({"parity": parity} if parity is not None else {}),
+                **({"crit_dist": crit_arg} if crit_arg is not None else {}),
             },
             data=data,
             overwrite=False,

@@ -98,6 +98,7 @@ def did_2x2(
     d: Optional[str] = None,
     design: Optional[Any] = None,
     parity: Optional[Literal["r", "stata"]] = None,
+    crit_dist: Optional[Literal["t", "residual"]] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -163,6 +164,22 @@ def did_2x2(
         design degrees of freedom are used under every setting (Stata
         ``svy``, R ``survey``). The convention used is in
         ``model_info['conventions']``.
+    crit_dist : {'t', 'residual'}, optional
+        The same choice named by convention rather than by program.
+        ``'t'``: t with ``G - 1`` degrees of freedom when ``cluster`` is
+        given and ``N - K`` otherwise (the critical values of
+        ``parity='stata'`` / ``'r'``). ``'residual'``: t with the residual
+        degrees of freedom ``N - K`` in every case, also under clustering,
+        which is what this function has always reported (R ``lm`` with
+        ``lmtest::coeftest(vcov = vcovCL)`` does the same; the two values
+        agree without ``cluster``). ``None`` (default) is ``'residual'`` in this
+        release and warns (``FutureWarning``) when ``cluster`` is given,
+        the one case where the numbers differ: the default becomes ``'t'``
+        in 1.41, as Stata ``regress, vce(cluster)`` and fixest. The
+        p-values of the full coefficient table in ``detail`` follow the
+        same rule. ``design=`` uses the design degrees of freedom under
+        every setting. ``'residual'`` together with ``parity=`` raises.
+        See MIGRATION.md.
     engine : {'ols', 'bayes'}, default 'ols'
         Inference backend for the same 2×2 design. ``'ols'`` (default) is the
         frequentist OLS estimator above. ``'bayes'`` routes to
@@ -209,6 +226,9 @@ def did_2x2(
         return replicate_refit(did_2x2, _args, design, function="sp.did_2x2")
     vce, cluster = cluster_from_vce(vce, cluster, function="did_2x2", native=None)
     parity = _crit.check_parity(parity, "did_2x2")
+    crit_arg = _crit.check_crit_dist(
+        crit_dist, parity, function="did_2x2", legacy="residual"
+    )
     from ..core._param_aliases import resolve_alias
 
     treat = resolve_alias("treat", treat, "d", d)
@@ -235,11 +255,11 @@ def did_2x2(
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
     if engine == "bayes":
-        if parity is not None:
+        if parity is not None or crit_arg is not None:
             raise MethodIncompatibility(
-                "did_2x2: parity= sets frequentist critical values and does "
-                "not apply to engine='bayes'.",
-                recovery_hint="Drop parity= or use engine='ols'.",
+                "did_2x2: parity= / crit_dist= set frequentist critical "
+                "values and do not apply to engine='bayes'.",
+                recovery_hint="Drop parity= / crit_dist= or use engine='ols'.",
             )
         return _did2x2_bayes_engine(
             data,
@@ -448,10 +468,18 @@ def did_2x2(
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
     df_resid = n - k if svy_df is None else svy_df
-    if parity is not None and cluster is not None and svy_df is None:
-        # Stata ``regress, vce(cluster)`` and fixest both refer the
-        # cluster-robust t statistic to t(G - 1), not t(N - K).
-        df_resid = n_cl - 1
+    if cluster is not None and svy_df is None:
+        if parity is not None or crit_arg == "t":
+            # Stata ``regress, vce(cluster)`` and fixest both refer the
+            # cluster-robust t statistic to t(G - 1), not t(N - K).
+            df_resid = n_cl - 1
+        elif crit_arg is None:
+            _crit.warn_default_change(
+                "sp.did_2x2",
+                old=("t", float(n - k)),
+                new=("t", float(n_cl - 1)) if n_cl >= 2 else None,
+                legacy="residual",
+            )
     pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att - t_crit * att_se, att + t_crit * att_se)
@@ -586,6 +614,7 @@ def did_2x2(
                 "alpha": alpha,
                 "weights": weights,
                 **({"parity": parity} if parity is not None else {}),
+                **({"crit_dist": crit_arg} if crit_arg is not None else {}),
             },
             data=data,
             overwrite=False,

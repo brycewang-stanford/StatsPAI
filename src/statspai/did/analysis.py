@@ -371,6 +371,9 @@ def did_analysis(
             cluster=cluster,
             robust=robust,
             alpha=alpha,
+            # Pin today's critical values: no FutureWarning users cannot act on.
+            # Switch with the crit_dist default (planned 1.41).
+            crit_dist="residual",
         )
         method_label = "DID 2×2 (OLS)"
     elif method in ("cs", "callaway_santanna"):
@@ -423,6 +426,7 @@ def did_analysis(
             # Pin today's default: no FutureWarning users cannot act on.
             # Switch with sun_abraham's default (planned 1.41).
             aggregation="event_time",
+            crit_dist="normal",
         )
         method_label = "Sun-Abraham (IW)"
     elif method in ("bjs", "did_imputation", "borusyak_jaravel_spiess"):
@@ -533,6 +537,9 @@ def did_analysis(
                 window=window,
                 cluster=cluster,
                 alpha=alpha,
+                # Pin today's critical values: no FutureWarning users cannot act on.
+                # Switch with the crit_dist default (planned 1.41).
+                crit_dist="normal",
             )
             raw_mi = es_result.model_info
             mi = raw_mi if isinstance(raw_mi, dict) else {}

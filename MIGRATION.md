@@ -5,6 +5,67 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.0 → 1.41: announced, t critical values in `sp.event_study`, `sp.sun_abraham`, `sp.did_2x2`
+
+From 1.41 the three regression-based event-study estimators turn their
+standard errors into p-values and confidence intervals the way Stata
+(`reghdfe`, `regress`, `eventstudyinteract`) and R `fixest` do: Student t
+with `G - 1` degrees of freedom under cluster-robust SEs (`G` clusters) and
+t with `N - K` otherwise. Point estimates and standard errors do not change.
+The pre-trend tests do not change either (`sp.event_study` already uses the
+cluster F(q, G-1) test, `sp.sun_abraham` its Wald chi-squared), and neither
+do `sp.uniform_bands`, `sp.honest_did` or `sp.pretrends_test`, which read
+the coefficients and their covariance.
+
+Until then the new argument `crit_dist=` picks the rule, and a call that
+leaves both `crit_dist` and `parity` unset warns (`FutureWarning`) wherever
+its numbers would change:
+
+| function | today (`crit_dist=None`) | from 1.41 | keep today's numbers |
+| --- | --- | --- | --- |
+| `sp.event_study` | normal | t(G-1) | `crit_dist="normal"` |
+| `sp.sun_abraham` | normal | t(G-1); t(N-K) with `i=None` | `crit_dist="normal"` |
+| `sp.did_2x2` | t(N-K), also with `cluster=` | t(G-1) with `cluster=`, else t(N-K) | `crit_dist="residual"` |
+
+`crit_dist="t"` adopts the 1.41 rule now. Its critical values are those of
+`parity="stata"` / `parity="r"`; for `sp.sun_abraham` it leaves
+`share_variance` alone, so `crit_dist="t"` equals `parity="stata"` and
+`crit_dist="t", share_variance=False` equals `parity="r"`. `sp.did_2x2`
+without `cluster=` already uses t(N-K) and does not warn. A `crit_dist`
+other than `"t"` together with `parity=` raises `MethodIncompatibility`.
+Callaway-Sant'Anna (`sp.callaway_santanna`, `sp.aggte`) keeps the normal
+distribution, as R `did` and Stata `csdid` do.
+
+Castle-doctrine panel (`sp.datasets.castle_doctrine()`, outcome
+`l_homicide`, `window=(-5, 4)`, `weights="popwt"`, clustered on 50 states;
+the 1.41 numbers are Stata `reghdfe` / `lincom`'s, from
+`tests/reference_parity/_fixtures/es_crit_Stata.csv`):
+
+| | estimate (SE) | today: 95% CI, p | 1.41: 95% CI, p |
+| --- | --- | --- | --- |
+| `sp.event_study`, lead -3 | 0.05072 (0.02550) | [0.00074, 0.10070], p = 0.0467 | [-0.00053, 0.10196], p = 0.0523 |
+| `sp.event_study`, headline ATT | 0.09770 (0.02400) | [0.05067, 0.14474], p = 4.7e-5 | [0.04948, 0.14593], p = 1.7e-4 |
+| `sp.did_2x2`, 2006 cohort, `cluster="sid"` (42 states) | 0.06824 (0.08417) | [-0.09716, 0.23364], p = 0.418 | [-0.10174, 0.23821], p = 0.422 |
+
+The lead at -3 is significant at 5% under the normal and not under t(49),
+as in Stata.
+
+```python
+import statspai as sp
+r = sp.event_study(df, y="l_homicide", treat_time="effyear", time="year",
+                   unit="sid", window=(-5, 4), weights="popwt",
+                   crit_dist="t")          # the 1.41 numbers now
+r = sp.event_study(..., crit_dist="normal")   # today's numbers, no warning
+r.model_info["conventions"]                   # {'parity': None, 'crit_dist': 't', 'crit_df': 49}
+```
+
+Library entry points that call these estimators for you (`sp.did_analysis`,
+`sp.did_summary`, `sp.auto_did`, `sp.compare_event_study_conventions`,
+`sp.causal_question`, `CausalWorkflow.compare_estimators`) pass the
+pre-1.41 value and do not warn; they switch with the default.
+
+---
+
 ## 1.39.6 → 1.40.0: `sp.callaway_santanna` drops always-treated units; `parity=`
 
 - Units whose cohort is at or before the first observed period plus

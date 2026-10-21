@@ -140,6 +140,18 @@ sp.enhanced_event_study_plot(sa)
 Pre-period coefficients should cluster around zero; post-period
 coefficients should show the dynamic path of the treatment.
 
+The plotted intervals depend on the critical values. Stata
+(`eventstudyinteract`, `reghdfe`) and R `fixest` use Student t with
+`G - 1` degrees of freedom when the SEs are clustered on `G` units;
+`sp.sun_abraham` and `sp.event_study` use the normal distribution in this
+release and switch to t(G-1) in 1.41 (MIGRATION.md, "1.40.0 → 1.41").
+Pass `crit_dist="t"` for the Stata / fixest intervals now, or
+`crit_dist="normal"` to keep the current ones; either silences the
+`FutureWarning`. With few clusters the difference matters: on the
+castle-doctrine panel (50 states) the `sp.event_study` lead at -3 has p = 0.047 under the
+normal and p = 0.052 under t(49). The coefficients and SEs are the same
+either way.
+
 ---
 
 ## 4. Honesty: Rambachan-Roth (2023) sensitivity

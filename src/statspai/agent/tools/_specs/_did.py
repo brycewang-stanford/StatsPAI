@@ -142,6 +142,13 @@ SPECS: List[Dict[str, Any]] = [
                     "description": "Headline ATT; omitted = event_time "
                     "(FutureWarning: fixest_att later).",
                 },
+                "crit_dist": {
+                    "type": "string",
+                    "enum": ["t", "normal"],
+                    "description": "Critical values: 't' = t(G-1) as Stata "
+                    "and fixest; omitted = normal (FutureWarning: 't' in "
+                    "1.41).",
+                },
             },
             "required": ["y", "g", "t", "i"],
         },
