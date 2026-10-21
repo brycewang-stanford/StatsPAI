@@ -5334,3 +5334,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces 24, 65 and 66 after the strict-docs docstring fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `7bc4e4e78` (docstrings), `ce26425f4` (traces).
+- **Reason.** `mkdocs build --strict` failed on free paragraphs inside the
+  Parameters sections of `CoxResult.ph_test` and `gwr_bandwidth` and on
+  `CoxResult.plot` documenting `type=`; the text moved to Notes /
+  `**kwargs`. `src/statspai/survival/models.py` is on the traced path of
+  Track A module 24, `src/statspai/spatial/gwr/bandwidth.py` on 65 and 66.
+  All three were re-run on the no-Rust path first: 65 and 66 reproduce
+  their committed results byte for byte, 24 within 1.4e-15 relative, so
+  the result files were kept and only the traces re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
