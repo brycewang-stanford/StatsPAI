@@ -119,6 +119,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- `pip install statspai[io]` on Python 3.10 tried to build pyreadstat 1.3.7 from source (it ships no cp310 wheels; the build fails on Windows). The `io` extra keeps Python 3.10 on `pyreadstat<1.3.7`.
+
 - `sp.feols` / `sp.fepois` with `vce='wild'`, `'CR2'` / `'CR3'` or `'conley'` raised `ValueError: output array is read-only` under pandas 3 (copy-on-write): the singleton removal of 1.40.0 narrowed a `.to_numpy()` mask in place. Numbers are unchanged.
 - `sp.doctor()` read an editable install's `file:///C:/...` URL as a POSIX path on Windows and reported the checkout as shadowed.
 
