@@ -38,7 +38,7 @@ from .did_imputation import did_imputation
 
 
 @records_call("bjs_pretrend_joint")
-@accepts_aliases(covariates="controls")
+@accepts_aliases(covariates="controls", cohort="first_treat", g="first_treat")
 @accepts_vce(default=None)
 def bjs_pretrend_joint(
     result: CausalResult,

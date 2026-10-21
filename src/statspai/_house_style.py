@@ -142,10 +142,30 @@ THEMES: Dict[str, Dict[str, object]] = {
     # accepts ``seed=`` through ``@accepts_aliases``.
     "seed": {
         "canonical": "seed",
-        "aliases": ("random_state", "random_seed", "rng_seed"),
+        "aliases": ("random_state", "random_seed", "rng_seed", "boot_seed"),
         "note": (
             "Random-number seed.  ``random_state`` stays the signature name "
-            "where it mirrors scikit-learn / EconML and is forwarded there."
+            "where it mirrors scikit-learn / EconML and is forwarded there. "
+            "``boot_seed`` (the BJS / Gardner cluster bootstrap) added "
+            "2026-10-21."
+        ),
+    },
+    # Added 2026-10-21 (DiD replication report, item 6). Counts on the
+    # public surface that day: ``first_treat`` 15 signatures, ``cohort`` 13,
+    # ``g`` 11 (plus ``bma``'s unrelated Zellner g). ``cohort`` is chosen
+    # over the slightly more common ``first_treat`` for the same reason
+    # ``id`` was chosen over ``unit``: it names the concept, not one coding
+    # of it (``first_treat`` reads as a period, while the column may hold
+    # dates, Periods or 0/NaN for never treated). It is also fixest
+    # ``sunab(cohort, period)``'s word. Every legacy site accepts
+    # ``cohort=`` through ``@accepts_aliases``; nothing was renamed.
+    "cohort": {
+        "canonical": "cohort",
+        "aliases": ("first_treat", "g", "gname"),
+        "note": (
+            "Cohort column of a staggered design: the first treated period "
+            "of each unit, 0 / NaN / inf for never treated.  Not the unit id "
+            "and not the treatment dummy."
         ),
     },
     "covariates": {
@@ -225,6 +245,11 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
     "t": ("esttab",),
     # The two nodes of a dyad, not a panel unit.
     "i": ("dyadic_regression",),
+    # Zellner's g-prior in Bayesian model averaging, not a cohort column.
+    # did_balance's ``g`` is a cohort column, but its ``cohort=`` already
+    # selects one cohort *value*, so ``cohort`` cannot be an alias there.
+    "g": ("bma", "did_balance"),
+    "cohort": ("did_balance",),
     # The length of the seasonal cycle (4 quarterly, 12 monthly), not the
     # column that identifies time in a panel. `time=` here would read as a
     # column name; R's forecast/fable and statsforecast call it the period

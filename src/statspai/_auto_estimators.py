@@ -279,7 +279,7 @@ class AutoDIDResult(ResultProtocolMixin):
         )
 
 
-@accepts_aliases(id="i", time="t")
+@accepts_aliases(id="i", time="t", cohort="g", first_treat="g")
 def auto_did(
     data: pd.DataFrame,
     y: str,

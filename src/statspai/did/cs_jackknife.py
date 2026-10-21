@@ -43,7 +43,7 @@ _FORBIDDEN_KWARGS = ("bstrap", "cband", "se_method", "biters", "clustervars")
 
 
 @records_call("cs_jackknife")
-@accepts_aliases(_strict=True, t="time", i="id")
+@accepts_aliases(_strict=True, t="time", i="id", cohort="g", first_treat="g")
 @accepts_vce(default="cluster")
 def cs_jackknife(
     data: pd.DataFrame,

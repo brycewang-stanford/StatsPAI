@@ -29304,7 +29304,13 @@ def _build_registry() -> None:
                     "group",
                     "str",
                     True,
-                    description="Unit-level treatment indicator (0/1)",
+                    description=(
+                        "Binary 0/1 treatment-group indicator, constant within "
+                        "a unit. Canonical spelling treat=. Not the unit "
+                        "identifier (that is id=); in sp.did_imputation the "
+                        "same keyword group= is the unit id. A column without "
+                        "exactly two values is refused."
+                    ),
                 ),
                 ParamSpec("time", "str", True, description="Time period column"),
                 ParamSpec("covariates", "list", False, None, "Covariates X"),
@@ -29411,19 +29417,20 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Inert: no step draws random numbers (recorded in the "
-                    "provenance only)",
+                    "provenance only). Setting it warns.",
                 ),
                 ParamSpec(
                     "random_state",
                     "int",
                     False,
                     None,
-                    "Inert alias of seed: no step draws random numbers",
+                    "Inert alias of seed: no step draws random numbers. "
+                    "A value different from seed= raises.",
                 ),
             ],
             returns="CausalResult",
             example=(
-                'sp.drdid(df, y="y", group="d", time="t", ' 'covariates=["age","edu"])'
+                'sp.drdid(df, y="y", treat="d", time="t", ' 'covariates=["age","edu"])'
             ),
             tags=["did", "dr", "doubly_robust", "causal", "2x2", "ipw"],
             reference="Sant'Anna & Zhao (2020) J. Econometrics 219(1) "
@@ -30098,16 +30105,32 @@ def _build_registry() -> None:
                     "int",
                     False,
                     0,
-                    "Seed for the cluster bootstrap (deterministic results).",
+                    "Seed for the cluster bootstrap (deterministic results). "
+                    "Canonical spelling seed=.",
                 ),
                 ParamSpec("y", "str", True),
-                ParamSpec("group", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    description=(
+                        "Unit identifier. Canonical spelling id= (unit= also "
+                        "accepted). Not the treatment indicator: in sp.drdid "
+                        "the same keyword group= is the 0/1 treatment group. "
+                        "A 0/1 column here is refused when the cohort varies "
+                        "within it."
+                    ),
+                ),
                 ParamSpec("time", "str", True, description="Time period column"),
                 ParamSpec(
                     "first_treat",
                     "str",
                     True,
-                    description="First-treatment period; 0 = never-treated",
+                    description=(
+                        "Cohort column: first-treatment period; 0 / NaN = "
+                        "never-treated. Canonical spelling cohort= (g= also "
+                        "accepted)."
+                    ),
                 ),
                 ParamSpec("controls", "list", False, None),
                 ParamSpec(
@@ -30202,8 +30225,7 @@ def _build_registry() -> None:
             ],
             returns="CausalResult",
             example=(
-                'sp.did_imputation(df, y="y", group="i", time="t", '
-                'first_treat="g_first")'
+                'sp.did_imputation(df, y="y", id="i", time="t", ' 'cohort="g_first")'
             ),
             tags=["did", "imputation", "bjs", "efficient", "event_study", "causal"],
             reference="Borusyak, Jaravel & Spiess (2024) RES "

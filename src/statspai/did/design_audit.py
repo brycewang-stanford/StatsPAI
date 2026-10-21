@@ -145,7 +145,7 @@ class DiDClusterDiagnostics:
         }
 
 
-@accepts_aliases(id="unit")
+@accepts_aliases(id="unit", cohort="first_treat", g="first_treat")
 def did_cluster_diagnostics(
     data: pd.DataFrame,
     unit: str,

@@ -504,7 +504,7 @@ def _cut(y_all: np.ndarray, edges: np.ndarray) -> _Binning:
     return _Binning(codes=codes, lower=edges[:-1], upper=edges[1:], discrete=False)
 
 
-@accepts_aliases(id="i", time="t", seed="random_state")
+@accepts_aliases(id="i", time="t", seed="random_state", cohort="g", first_treat="g")
 def functional_form_test(
     data: pd.DataFrame,
     y: str,
@@ -864,7 +864,7 @@ class DistributionalDiDResult(ResultProtocolMixin):
         return ax
 
 
-@accepts_aliases(id="i", time="t")
+@accepts_aliases(id="i", time="t", cohort="g", first_treat="g")
 def distributional_did(
     data: pd.DataFrame,
     y: str,

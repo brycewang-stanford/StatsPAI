@@ -35,7 +35,14 @@ from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
 
 
 @records_call("stacked_did")
-@accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    covariates="controls",
+    cohort="first_treat",
+    g="first_treat",
+)
 @accepts_vce(default="cluster")
 @_expands_categorical("controls")
 @_calendar_time_aware(time="time", cohort="first_treat", numeric_gaps=True)

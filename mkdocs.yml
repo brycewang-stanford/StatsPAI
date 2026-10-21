@@ -216,6 +216,7 @@ nav:
   - Reference:
       - "Overview": reference/index.md
       - "Difference-in-differences": reference/did.md
+      - "DiD result objects": reference/did_result_contents.md
       - "Instrumental variables": reference/iv.md
       - "Matching / balancing": reference/matching.md
       - "Panel data": reference/panel.md

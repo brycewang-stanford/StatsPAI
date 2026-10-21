@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import MethodIncompatibility
+from ._result_access import DiDAccessorsMixin
 
 if TYPE_CHECKING:
     from ..dml.oof import OOFBundle
@@ -2405,7 +2406,7 @@ def _format_pvalue(value: Any) -> str:
 _AUTO = "auto"
 
 
-class CausalResult:
+class CausalResult(DiDAccessorsMixin):
     """
     Unified result object for all causal inference methods in StatsPAI.
 

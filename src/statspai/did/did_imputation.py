@@ -30,6 +30,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import cluster_from_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
+from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._bjs_pretrends import EVENT_STUDY_CONVENTION as _EVENT_STUDY_CONVENTION
 from ._bjs_pretrends import (
     PRETREND_METHODS,
@@ -120,7 +121,15 @@ def _raise_missing(df: pd.DataFrame, columns: Dict[str, Any], what: str) -> None
 
 
 @records_call("did_imputation")
-@accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    covariates="controls",
+    cohort="first_treat",
+    g="first_treat",
+    seed="boot_seed",
+)
 @_calendar_time_aware(time="time", cohort="first_treat")
 @_expands_categorical("controls")
 def did_imputation(
@@ -165,11 +174,17 @@ def did_imputation(
     y : str
         Outcome variable name.
     group : str
-        Unit identifier column.
+        Unit identifier column. Spell it ``id=`` (the canonical name;
+        ``unit=`` is also accepted). It is **not** the treatment
+        indicator: in ``sp.drdid`` the same keyword ``group`` means the
+        0/1 treatment group, so a 0/1 column passed here is refused when
+        the cohort varies within it and flagged with an
+        ``ArgumentRoleWarning`` when it has several rows per period.
     time : str
         Time period column.
     first_treat : str
-        Column indicating the period of first treatment.
+        Cohort column: the period of first treatment. Spell it
+        ``cohort=`` (canonical; ``g=`` is also accepted).
         Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.
     controls : list of str, optional
         Continuous time-varying controls, entering the Y(0) model
@@ -260,7 +275,8 @@ def did_imputation(
     n_boot : int, default 199
         Number of cluster-bootstrap replications when ``vce='bootstrap'``.
     boot_seed : int, default 0
-        Seed for the cluster bootstrap (deterministic results).
+        Seed for the cluster bootstrap (deterministic results). Also
+        accepted as ``seed=``.
     pretrends : int, optional
         Stata ``did_imputation, pretrends(k)``: estimate the ``k``
         pre-treatment placebo coefficients (horizons ``-k .. -1``, added
@@ -383,8 +399,8 @@ def did_imputation(
     ...                      'first_treat': first})
     >>> df = pd.DataFrame(rows)
     >>> result = sp.did_imputation(
-    ...     data=df, y='wage', group='county', time='year',
-    ...     first_treat='first_treat', horizon=list(range(-5, 6)),
+    ...     data=df, y='wage', id='county', time='year',
+    ...     cohort='first_treat', horizon=list(range(-5, 6)),
     ... )
     >>> bool(result.estimate > 0)
     True
@@ -475,6 +491,11 @@ def did_imputation(
     )
     # rows the fit can use (n_obs counted the dropped missing rows too)
     n_usable = len(df)
+    # group= is the unit id here but the treatment indicator in sp.drdid;
+    # a swapped call is refused (cohort varies within it) or flagged.
+    _check_unit_is_not_treatment(
+        df, unit=group, time=time, cohort=first_treat, function="did_imputation"
+    )
     _require_constant_cohort(
         df, unit=group, cohort=first_treat, function="did_imputation"
     )

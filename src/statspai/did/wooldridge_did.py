@@ -55,6 +55,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from ._arg_roles import check_binary_treatment as _check_binary_treatment
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
@@ -353,7 +354,14 @@ def _cohort_atts_from_cells(
 
 
 @records_call("wooldridge_did")
-@accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    covariates="controls",
+    cohort="first_treat",
+    g="first_treat",
+)
 @accepts_vce(default="cluster")
 @_expands_categorical("controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
@@ -742,7 +750,14 @@ def _etwfe_glm(
 
 
 @records_call("etwfe")
-@accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    covariates="controls",
+    cohort="first_treat",
+    g="first_treat",
+)
 @accepts_vce(default="cluster")
 @_calendar_time_aware(time="time", cohort="first_treat")
 @_expands_categorical("controls")
@@ -2325,7 +2340,14 @@ def drdid(
     y : str
         Outcome variable.
     group : str
-        Binary treatment-group indicator (1 = treated, 0 = control).
+        Binary treatment-group indicator (1 = treated, 0 = control),
+        constant within a unit. Spell it ``treat=`` (the canonical name).
+        It is **not** the unit identifier, which goes in ``id=``: in
+        ``sp.did_imputation`` the same keyword ``group`` means the unit
+        id. A column that does not take exactly two values is refused; a
+        two-valued column not coded 0/1 runs with an
+        ``ArgumentRoleWarning`` naming the value taken as treated (the
+        larger one).
     time : str
         Binary time indicator (1 = post, 0 = pre).
     covariates : list of str, optional
@@ -2418,9 +2440,13 @@ def drdid(
     alpha : float, default 0.05
         Significance level.
     n_boot : int, default 500
-        Number of bootstrap replications for inference.
-    random_state : int, optional
-        Seed for bootstrap reproducibility.
+        Not used. Standard errors come from the Sant'Anna-Zhao influence
+        function on every path; nothing is resampled. A value other than
+        the default triggers a warning.
+    random_state, seed : int, optional
+        Not used (no step draws random numbers); recorded in the
+        provenance only. ``seed`` is the canonical spelling. Passing both
+        with different values raises.
     id : str, optional
         Unit identifier for a true two-period panel. When supplied, the
         improved estimator uses the Sant'Anna-Zhao panel formula with
@@ -2444,7 +2470,7 @@ def drdid(
     >>> x = rng.normal(0, 1, n)
     >>> y_val = 1 + 0.5*x + 2*G + 3*T + 4*G*T + rng.normal(0, 1, n)
     >>> df = pd.DataFrame({'y': y_val, 'treated': G, 'post': T, 'x': x})
-    >>> result = sp.drdid(df, y='y', group='treated', time='post',
+    >>> result = sp.drdid(df, y='y', treat='treated', time='post',
     ...                   covariates=['x'])
     >>> abs(result.estimate - 4.0) < 1.0
     True
@@ -2456,6 +2482,19 @@ def drdid(
             recovery_hint="Use 'delta' (the paper's influence function) or "
             "'reference' (R DRDID's standard error).",
             diagnostics={"variance_convention": variance_convention},
+        )
+    if seed is not None and random_state is not None and seed != random_state:
+        raise MethodIncompatibility(
+            f"drdid: seed={seed!r} and random_state={random_state!r} disagree.",
+            recovery_hint="Pass only seed= (the canonical spelling).",
+            diagnostics={"seed": seed, "random_state": random_state},
+        )
+    if n_boot != 500 or seed is not None or random_state is not None:
+        warnings.warn(
+            "drdid: n_boot, seed and random_state have no effect. Standard "
+            "errors come from the influence function; nothing is resampled.",
+            UserWarning,
+            stacklevel=2,
         )
     if est_method == "all":
         return _drdid_all(
@@ -2558,10 +2597,10 @@ def drdid(
             )
 
     # ── Validate 2×2 design ─────────────────────────────────────────
-    g_vals = sorted(df[group].dropna().unique())
+    # group= is the 0/1 treatment group here but the unit id in
+    # sp.did_imputation: refuse a non-binary column, flag odd codings.
+    g_vals = _check_binary_treatment(df, group, function="sp.drdid", id=id)
     t_vals = sorted(df[time].dropna().unique())
-    if len(g_vals) != 2:
-        raise MethodIncompatibility(f"'{group}' must be binary, got values: {g_vals}")
     if len(t_vals) != 2:
         raise MethodIncompatibility(f"'{time}' must be binary, got values: {t_vals}")
 
@@ -3010,6 +3049,13 @@ def _pscore_diagnostic(
     return np.asarray(p, dtype=float)
 
 
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    cohort="first_treat",
+    g="first_treat",
+)
 @_calendar_time_aware(time="time", cohort="first_treat")
 def twfe_decomposition(
     data: pd.DataFrame,

@@ -1866,6 +1866,7 @@
             "first_treat",
             "gname"
           ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -25365,7 +25366,11 @@
         },
         "boot_seed": {
           "description": "Seed for the cluster bootstrap",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "cluster": {
           "description": "Cluster variable for the two-stage clustered SEs (defaults to group)",
@@ -25404,6 +25409,11 @@
         "first_treat": {
           "description": "First-treatment-period column; 0/NaN/inf = never treated. Either this or treat= is required",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -30792,7 +30802,7 @@
           "type": "string"
         },
         "group": {
-          "description": "Unit-level treatment indicator (0/1)",
+          "description": "Binary 0/1 treatment-group indicator, constant within a unit. Canonical spelling treat=. Not the unit identifier (that is id=); in sp.did_imputation the same keyword group= is the unit id. A column without exactly two values is refused.",
           "type": "string",
           "x-aliases": [
             "dname",
@@ -30836,11 +30846,11 @@
           "type": "boolean"
         },
         "random_state": {
-          "description": "Inert alias of seed: no step draws random numbers",
+          "description": "Inert alias of seed: no step draws random numbers. A value different from seed= raises.",
           "type": "integer"
         },
         "seed": {
-          "description": "Inert: no step draws random numbers (recorded in the provenance only)",
+          "description": "Inert: no step draws random numbers (recorded in the provenance only). Setting it warns.",
           "type": "integer"
         },
         "time": {
@@ -30962,6 +30972,7 @@
             "cohort",
             "first_treat"
           ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -31327,8 +31338,12 @@
         },
         "boot_seed": {
           "default": 0,
-          "description": "Seed for the cluster bootstrap (deterministic results).",
-          "type": "integer"
+          "description": "Seed for the cluster bootstrap (deterministic results). Canonical spelling seed=.",
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "cluster": {
           "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
@@ -31360,12 +31375,17 @@
           "type": "array"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "Cohort column: first-treatment period; 0 / NaN = never-treated. Canonical spelling cohort= (g= also accepted).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier",
+          "description": "Unit identifier. Canonical spelling id= (unit= also accepted). Not the treatment indicator: in sp.drdid the same keyword group= is the 0/1 treatment group. A 0/1 column here is refused when the cohort varies within it.",
           "type": "string",
           "x-aliases": [
             "id",
@@ -31507,6 +31527,11 @@
         "first_treat": {
           "description": "First-treatment period; 0 = never-treated",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "unit": {
@@ -31587,6 +31612,11 @@
         "first_treat": {
           "description": "First-treatment period; 0 = never-treated",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "time": {
@@ -31673,6 +31703,11 @@
         "first_treat": {
           "description": "First-treatment period; 0 = never-treated",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -31784,6 +31819,11 @@
         "first_treat": {
           "description": "first_treat parameter (str).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -31995,6 +32035,9 @@
             "type": "string"
           },
           "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
           "x-statspai-role": "columns"
         },
         "data": {
@@ -32005,6 +32048,10 @@
         "id": {
           "description": "Unit identifier.",
           "type": "string",
+          "x-aliases": [
+            "i",
+            "unit"
+          ],
           "x-statspai-role": "column"
         },
         "time": {
@@ -32177,6 +32224,11 @@
         "first_treat": {
           "description": "First treatment period; not needed when event_id is given",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -35223,6 +35275,11 @@
         "g": {
           "description": "First-treatment period (0 = never treated)",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "id": {
@@ -35373,6 +35430,11 @@
         "g": {
           "description": "First-treatment period; never-treated may be 0, NaN or inf",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -35490,6 +35552,7 @@
             "cohort",
             "first_treat"
           ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -35598,6 +35661,7 @@
             "cohort",
             "first_treat"
           ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -36074,6 +36138,11 @@
         "g": {
           "description": "First-treatment period (0 = never treated)",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -36212,6 +36281,11 @@
         "g": {
           "description": "First-treatment period (0 = never treated)",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -37651,8 +37725,12 @@
         },
         "boot_seed": {
           "default": 0,
-          "description": "Seed for the cluster bootstrap (deterministic results).",
-          "type": "integer"
+          "description": "Seed for the cluster bootstrap (deterministic results). Also accepted as ``seed=``.",
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "cluster": {
           "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
@@ -37684,12 +37762,17 @@
           "type": "array"
         },
         "first_treat": {
-          "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
+          "description": "Cohort column: the period of first treatment. Spell it ``cohort=`` (canonical; ``g=`` is also accepted). Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier column.",
+          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment",
           "type": "string",
           "x-aliases": [
             "id",
@@ -37835,8 +37918,12 @@
         },
         "boot_seed": {
           "default": 0,
-          "description": "Seed for the cluster bootstrap (deterministic results).",
-          "type": "integer"
+          "description": "Seed for the cluster bootstrap (deterministic results). Also accepted as ``seed=``.",
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "cluster": {
           "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
@@ -37868,12 +37955,17 @@
           "type": "array"
         },
         "first_treat": {
-          "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
+          "description": "Cohort column: the period of first treatment. Spell it ``cohort=`` (canonical; ``g=`` is also accepted). Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
-          "description": "Unit identifier column.",
+          "description": "Unit identifier column. Spell it ``id=`` (the canonical name; ``unit=`` is also accepted). It is **not** the treatment",
           "type": "string",
           "x-aliases": [
             "id",
@@ -38010,7 +38102,11 @@
         "boot_seed": {
           "default": 0,
           "description": "Seed for the cluster bootstrap (deterministic results).",
-          "type": "integer"
+          "type": "integer",
+          "x-aliases": [
+            "seed"
+          ],
+          "x-canonical": "seed"
         },
         "cluster": {
           "description": "Cluster variable for the standard errors. Defaults to ``group``. At least two clusters are required.",
@@ -38049,6 +38145,11 @@
         "first_treat": {
           "description": "First-treatment-period column. Never-treated units should be encoded as ``0``, ``NaN``, or ``+inf``.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -39220,6 +39321,11 @@
         "first_treat": {
           "description": "First-treatment period per unit; NaN (or 0) for never-treated.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -39388,6 +39494,11 @@
         "first_treat": {
           "description": "Same as :func:`did_summary`.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -39477,11 +39588,20 @@
         "first_treat": {
           "description": "Treatment timing column (NaN or 0 for never-treated).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
           "description": "Unit identifier.",
           "type": "string",
+          "x-aliases": [
+            "id",
+            "unit"
+          ],
           "x-statspai-role": "column"
         },
         "time": {
@@ -69919,6 +70039,11 @@
         "first_treat": {
           "description": "Same arguments you passed to the original :func:`did_imputation` call. Needed to re-run BJS on each cluster-bootstrap resample.",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "group": {
@@ -70027,6 +70152,11 @@
         "g": {
           "description": "Outcome / cohort / time / unit id columns (required when ``data_or_result`` is a DataFrame).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -71581,6 +71711,11 @@
         "g": {
           "description": "First-treatment-period column (0 or NaN for never-treated).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "first_treat"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "i": {
@@ -74253,6 +74388,11 @@
         "first_treat": {
           "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated).",
           "type": "string",
+          "x-aliases": [
+            "cohort",
+            "g"
+          ],
+          "x-canonical": "cohort",
           "x-statspai-role": "column"
         },
         "lags": {

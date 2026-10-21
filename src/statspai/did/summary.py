@@ -310,7 +310,7 @@ def _extract(res: CausalResult) -> dict:
 
 
 @records_call("did_summary")
-@accepts_aliases(covariates="controls")
+@accepts_aliases(covariates="controls", cohort="first_treat", g="first_treat")
 @accepts_vce(default="cluster")
 def did_summary(
     data: pd.DataFrame,
@@ -807,7 +807,7 @@ def did_summary_to_latex(
 
 
 @records_call("did_report")
-@accepts_aliases(covariates="controls")
+@accepts_aliases(covariates="controls", cohort="first_treat", g="first_treat")
 @accepts_vce(default="cluster")
 def did_report(
     data: pd.DataFrame,

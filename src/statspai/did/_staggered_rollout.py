@@ -801,7 +801,7 @@ def _event_study_vcv(
     return vcv_neyman, vcv
 
 
-@accepts_aliases(id="i", time="t", seed="random_state")
+@accepts_aliases(id="i", time="t", seed="random_state", cohort="g", first_treat="g")
 def staggered_rollout(
     data: pd.DataFrame,
     y: str,

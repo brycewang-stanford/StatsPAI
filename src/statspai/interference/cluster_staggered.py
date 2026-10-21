@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -76,6 +77,7 @@ class StaggeredClusterRCTResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(_strict=True, cohort="first_treat", g="first_treat")
 def cluster_staggered_rollout(
     data: pd.DataFrame,
     y: str,

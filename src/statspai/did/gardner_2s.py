@@ -411,7 +411,15 @@ def _sparse_normal_solve(
 
 
 @records_call("gardner_did")
-@accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
+@accepts_aliases(
+    _strict=True,
+    id="group",
+    unit="group",
+    covariates="controls",
+    cohort="first_treat",
+    g="first_treat",
+    seed="boot_seed",
+)
 @_expands_categorical("controls")
 @_calendar_time_aware(time="time", cohort="first_treat")
 def gardner_did(

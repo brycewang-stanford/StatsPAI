@@ -2,6 +2,7 @@
   "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.",
   "by_theme": {
     "cluster": 0,
+    "cohort": 0,
     "covariates": 0,
     "data": 0,
     "outcome": 0,
@@ -19,6 +20,13 @@
       "canonical_pct": 100.0,
       "legacy": 0,
       "total": 165
+    },
+    "cohort": {
+      "aliased": 25,
+      "canonical": 12,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 37
     },
     "covariates": {
       "aliased": 54,

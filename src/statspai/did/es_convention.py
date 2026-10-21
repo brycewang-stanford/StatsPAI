@@ -443,7 +443,7 @@ def _default_runners(
 
 
 @records_call("compare_event_study_conventions")
-@accepts_aliases(id="unit")
+@accepts_aliases(id="unit", cohort="first_treat", g="first_treat")
 @accepts_vce(default="cluster")
 def compare_event_study_conventions(
     data: pd.DataFrame,

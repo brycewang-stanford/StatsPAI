@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: swapped `group=` in `sp.did_imputation` / `sp.drdid`; `sp.drdid(seed=, random_state=)`
+
+No number changes. What can now stop or warn a call that used to run:
+
+- `sp.drdid(seed=a, random_state=b)` with `a != b` raises
+  `MethodIncompatibility`. Pass only `seed=`. Any of `seed=`,
+  `random_state=` or a non-default `n_boot=` now warns that it has no
+  effect (the standard errors come from the influence function).
+- `sp.drdid` with a two-valued `group` column not coded 0/1 (say 1/2)
+  warns with `ArgumentRoleWarning` and still takes the larger value as
+  treated. Recode to 0/1 to silence it. A column without exactly two
+  values was already refused; the error now names `treat=` and `id=`.
+- `sp.did_imputation` with a 0/1 `group` column (the treatment indicator
+  where the unit id belongs): when the cohort varies within it the call
+  was already refused by the cohort check and the message now names the
+  swap; when it does not (one cohort), the call runs and warns with
+  `ArgumentRoleWarning`. Pass the unit id as `id=`, or pass `cluster=` if
+  two group fixed effects are intended.
+
+The canonical spellings `id=`, `cohort=`, `treat=`, `seed=` are accepted
+next to the existing parameter names; nothing was renamed.
+
+---
+
 ## 1.39.x → 1.40: ⚠️ three announced default changes take effect
 
 The three defaults that 1.39 announced with a `FutureWarning` or

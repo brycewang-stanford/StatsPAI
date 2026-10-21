@@ -25,6 +25,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._dict_result import DictResult
 from .._input_validation import check_columns
 from ..core.results import CausalResult
@@ -62,6 +63,7 @@ def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+@accepts_aliases(_strict=True, unit="id", i="id", controls="covariates")
 @_calendar_time_aware(time="time")
 def bacon_decomposition(
     data: pd.DataFrame,
