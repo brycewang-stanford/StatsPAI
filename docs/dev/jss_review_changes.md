@@ -5451,3 +5451,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-10-21 — traces re-recorded after `crit_dist=` on the regression event studies
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `6685fc5da`.
+- **Reason.** `did/_crit.py`, `did/event_study.py` and `did/sun_abraham.py`
+  (new `crit_dist=` argument and the FutureWarning announcing the 1.41
+  t(G-1) default) are on the traced paths of Track A modules 05, 83 and 85;
+  the entry scripts 05 and 85 now pass `crit_dist="normal"`. All three
+  modules were re-run first: `05_sunab_py.json`, `83_lpdid_py.json`,
+  `85_twfe_event_study_py.json` and their CSVs are byte-identical; only the
+  traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
