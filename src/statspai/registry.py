@@ -32618,11 +32618,13 @@ def _build_registry() -> None:
                     "se_method",
                     "str",
                     False,
-                    "bootstrap",
+                    None,
                     description=(
-                        "'bootstrap' resamples clusters; 'analytic' uses the "
-                        "influence functions (~100x faster, but NOT pinned to "
-                        "DIDmultiplegtDYN -- about 1% below its reported SEs)"
+                        "'bootstrap' resamples clusters; 'analytic' is the "
+                        "authors' influence-function variance, ~100x faster "
+                        "and pinned to DIDmultiplegtDYN / Stata to 1e-6. "
+                        "None (default) is 'bootstrap' and warns "
+                        "(FutureWarning): 'analytic' from 1.42. Pass it."
                     ),
                     enum=["bootstrap", "analytic"],
                 ),
@@ -32630,23 +32632,30 @@ def _build_registry() -> None:
                     "aggregation",
                     "str",
                     False,
-                    "simple",
+                    None,
                     description=(
                         "Headline weighting over dynamic horizons: 'simple' "
                         "(equal weight) or 'switchers' (weight by switchers "
-                        "per horizon -- reproduces DIDmultiplegtDYN's "
-                        "Av_tot_eff)"
+                        "per horizon -- DIDmultiplegtDYN / Stata's "
+                        "Av_tot_eff). None (default) is 'simple' and warns "
+                        "(FutureWarning): 'switchers' from 1.42. The two "
+                        "differ whenever later horizons rest on fewer "
+                        "cohorts. Pass it."
                     ),
                     enum=["simple", "switchers"],
                 ),
             ],
             returns=(
                 "CausalResult with event_study in model_info + joint placebo "
-                "and overall Wald tests + [formulas unverified] MVP warning"
+                "and overall Wald tests. event_study and detail carry "
+                "twfe_relative_time: effect l at l, placebo l at -(l+1), the "
+                "axis of a base-(-1) event study (relative_time puts placebo "
+                "1 at -1); detail['se'] is the requested se_method's SE"
             ),
             example=(
                 'sp.did_multiplegt_dyn(df, y="y", group="i", time="t", '
-                'treatment="d", placebo=2, dynamic=4)'
+                'treatment="d", placebo=2, dynamic=4, aggregation="switchers", '
+                'se_method="analytic")'
             ),
             tags=[
                 "did",

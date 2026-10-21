@@ -347,7 +347,16 @@ def did_imputation(
         Stata ``did_imputation, minn(#)``: drop event-study horizons
         with fewer than ``min_n`` treated observations (they are noisy
         and dominated by a single cohort).  Dropped horizons are listed
-        in a warning and excluded from the pre-trend test.
+        in a warning and excluded from the pre-trend test.  ``0`` keeps
+        every horizon, as Stata's ``minn(0)`` does, and is the same as
+        ``None``; unlike Stata, whose default is ``minn(30)``, nothing is
+        dropped unless ``min_n`` is given.  Stata counts the *effective*
+        number of treated observations (the inverse Herfindahl index of
+        the coefficient's weights), which equals the count used here for
+        an unweighted horizon and is smaller with ``weights=``.
+
+        .. versionchanged:: 1.41.0
+           ``min_n=0`` used to raise.
     hetby : str, optional
         Stata ``did_imputation, hetby(varname)``: report heterogeneous
         overall ATTs by the levels of a **time-invariant** unit-level
@@ -567,9 +576,25 @@ def did_imputation(
         # Placebo horizons -k..-1 join whatever the caller asked for.
         horizon = sorted(set(horizon or []) | set(range(-pretrends, 0)))
     if min_n is not None:
-        if isinstance(min_n, bool) or int(min_n) < 1:
-            raise ValueError(f"min_n must be a positive integer, got {min_n!r}")
-        min_n = int(min_n)
+        if (
+            isinstance(min_n, bool)
+            or not isinstance(min_n, (int, np.integer, float, np.floating))
+            or not float(min_n).is_integer()
+            or min_n < 0
+        ):
+            raise MethodIncompatibility(
+                f"did_imputation: min_n must be a non-negative integer, got "
+                f"{min_n!r}.",
+                recovery_hint=(
+                    "Pass the minimum number of treated observations a "
+                    "horizon needs (Stata minn(#)); min_n=0 or None keeps "
+                    "every horizon."
+                ),
+                diagnostics={"min_n": repr(min_n)},
+            )
+        # minn(0) suppresses nothing: the same fit as no threshold at all.
+        min_n = int(min_n) or None
+    if min_n is not None:
         if horizon is None:
             raise ValueError(
                 "min_n filters event-study horizons — pass horizon= (or "

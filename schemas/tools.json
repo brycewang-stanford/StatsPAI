@@ -3532,7 +3532,7 @@
           "type": "array"
         },
         "min_n": {
-          "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test.",
+          "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.41.0 ``min_n=0`` used to raise.",
           "type": "integer"
         },
         "n_boot": {
@@ -10404,8 +10404,7 @@
     "input_schema": {
       "properties": {
         "aggregation": {
-          "default": "simple",
-          "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- reproduces DIDmultiplegtDYN's Av_tot_eff)",
+          "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- DIDmultiplegtDYN / Stata's Av_tot_eff). None (default) is 'simple' and warns (FutureWarning): 'switchers' from 1.42. The two differ whenever later horizons rest on fewer cohorts. Pass it.",
           "enum": [
             "simple",
             "switchers"
@@ -10500,8 +10499,7 @@
           "type": "boolean"
         },
         "se_method": {
-          "default": "bootstrap",
-          "description": "'bootstrap' resamples clusters; 'analytic' uses the influence functions (~100x faster, but NOT pinned to DIDmultiplegtDYN -- about 1% below its reported SEs)",
+          "description": "'bootstrap' resamples clusters; 'analytic' is the authors' influence-function variance, ~100x faster and pinned to DIDmultiplegtDYN / Stata to 1e-6. None (default) is 'bootstrap' and warns (FutureWarning): 'analytic' from 1.42. Pass it.",
           "enum": [
             "bootstrap",
             "analytic"

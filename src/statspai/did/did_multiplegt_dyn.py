@@ -244,8 +244,8 @@ def did_multiplegt_dyn(
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: Optional[int] = None,
-    aggregation: str = "simple",
-    se_method: str = "bootstrap",
+    aggregation: Optional[str] = None,
+    se_method: Optional[str] = None,
     switchers: Optional[str] = None,
     same_switchers: bool = False,
     effects_equal: Any = False,
@@ -316,15 +316,17 @@ def did_multiplegt_dyn(
         Bootstrap replications.
     alpha : float, default 0.05
     seed : int, optional
-    se_method : {"bootstrap", "analytic"}, default "bootstrap"
+    se_method : {"bootstrap", "analytic"}, optional
         ``"bootstrap"`` resamples clusters; ``"analytic"`` is the authors'
         influence-function variance and needs no draws, which makes it
         roughly a hundred times faster. It is pinned against
         ``DIDmultiplegtDYN`` and Stata ``did_multiplegt_dyn`` to 1e-6
         relative on every horizon and on the switcher-weighted aggregate
-        (module docstring, item 5). The default stays on the bootstrap so
-        existing callers' numbers do not move; ``model_info["se_method"]``
-        records the choice.
+        (module docstring, item 5), and it is what both report.
+        ``None`` (the default) is ``"bootstrap"`` in this release and
+        warns (``FutureWarning``): from 1.42 it is ``"analytic"``. Pass the
+        value to silence the warning; ``model_info["se_method"]`` records
+        the choice.
 
         With ``"analytic"`` the joint tests (``joint_placebo_test``,
         ``joint_effects_test``, ``joint_overall_test``,
@@ -338,7 +340,7 @@ def did_multiplegt_dyn(
            The joint tests of an analytic fit used to come from ``n_boot``
            bootstrap replicates, which were drawn even though the standard
            errors did not use them.
-    aggregation : {"simple", "switchers"}, default "simple"
+    aggregation : {"simple", "switchers"}, optional
         How the dynamic horizons are combined into the headline
         ``estimate``. ``"simple"`` gives each horizon equal weight;
         ``"switchers"`` is ``DIDmultiplegtDYN``'s ``Av_tot_eff`` and its
@@ -349,9 +351,13 @@ def did_multiplegt_dyn(
         of the effects; when the treatment can come back, or is not
         binary, it is an effect per unit of treatment. The two differ
         whenever later horizons rest on fewer cohorts, which is the normal
-        case in staggered designs. The default is left on ``"simple"``
-        because changing it would move the number existing callers get
-        back; ``model_info["aggregation"]`` records which was used.
+        case in staggered designs: on a 267-city panel whose last horizon
+        rests on 4 cities, ``"simple"`` gave 0.0168 and ``"switchers"``
+        (Stata's ``Av_tot_eff``) 0.0119. ``None`` (the default) is
+        ``"simple"`` in this release and warns (``FutureWarning``): from
+        1.42 it is ``"switchers"``, the number Stata and R print. Pass the
+        value to silence the warning; ``model_info["aggregation"]``
+        records which was used.
 
         .. versionchanged:: 1.39.0
            ⚠️ ``"switchers"`` did not divide by the treatment change, so
@@ -505,6 +511,21 @@ def did_multiplegt_dyn(
     ``model_info['event_study']`` = horizon-level DataFrame matching the
     canonical event-study schema (so ``sp.did_plot`` works).
 
+    Both carry the horizon twice. ``relative_time`` (``horizon`` in
+    ``detail``) is this estimator's own index: effect ``l`` (``0..dynamic``)
+    and placebo ``-l`` (``-1..-placebo``), i.e. Stata's ``Effect_{l+1}`` and
+    ``Placebo_l``. ``twfe_relative_time`` places the same numbers on the
+    axis of an event-study regression with base period ``-1``: an effect
+    keeps ``l``, and placebo ``l``, which contrasts ``Y_{F-1-l}`` with
+    ``Y_{F-1}``, is the coefficient at ``-(l + 1)``. Use it to plot or
+    compare against ``sp.event_study``, ``sp.sun_abraham``,
+    ``sp.callaway_santanna`` or a TWFE regression: on ``relative_time``
+    placebo 1 sits at ``-1``, the period those estimators normalise to 0.
+    ``detail['se']`` is the standard error of the requested ``se_method``.
+
+    .. versionadded:: 1.41.0
+       ``twfe_relative_time`` and ``detail['se']``.
+
     Examples
     --------
     >>> import statspai as sp
@@ -520,11 +541,11 @@ def did_multiplegt_dyn(
     >>> df = pd.DataFrame(rows)
     >>> r = sp.did_multiplegt_dyn(
     ...     df, y='y', group='i', time='t', treatment='d',
-    ...     placebo=2, dynamic=4, n_boot=50, seed=0,
+    ...     placebo=2, dynamic=4, aggregation='switchers', se_method='analytic',
     ... )
     >>> es = r.model_info['event_study']  # horizon-level event study
-    >>> bool(len(es) > 0)
-    True
+    >>> es['twfe_relative_time'].tolist()  # placebo l sits at -(l + 1)
+    [-3, -2, 0, 1, 2, 3, 4]
     >>> sens = sp.honest_did(r, m_grid=[0.5])  # Rambachan-Roth sensitivity
     """
     if switchers not in (None, "in", "out"):
@@ -558,6 +579,31 @@ def did_multiplegt_dyn(
         raise MethodIncompatibility(
             "normalized_weights=True describes the normalized effects: pass "
             "normalized=True as well."
+        )
+    _default_notes = []
+    if aggregation is None:
+        aggregation = "simple"
+        _default_notes.append(
+            "the headline .estimate is the equal-weight mean of the dynamic "
+            "effects (aggregation='simple'), not the switcher-weighted "
+            "Av_tot_eff that Stata and R print (aggregation='switchers')"
+        )
+    if se_method is None:
+        se_method = "bootstrap"
+        _default_notes.append(
+            "the standard errors are a cluster bootstrap "
+            "(se_method='bootstrap'), not the analytic influence-function "
+            "variance Stata and R report (se_method='analytic')"
+        )
+    if _default_notes:
+        warnings.warn(
+            "did_multiplegt_dyn: " + "; ".join(_default_notes) + ". From 1.42 "
+            "the defaults are aggregation='switchers' and se_method="
+            "'analytic'. Pass aggregation= and se_method= explicitly: "
+            "'simple' / 'bootstrap' keeps this number, 'switchers' / "
+            "'analytic' adopts the reference's now. See MIGRATION.md.",
+            FutureWarning,
+            stacklevel=2,
         )
     if aggregation not in {"simple", "switchers"}:
         raise ValueError(
@@ -898,6 +944,7 @@ def did_multiplegt_dyn(
                     "ci_upper": np.nan,
                     "type": "placebo" if h < 0 else "dynamic",
                     "n_switchers": 0,
+                    "twfe_relative_time": _twfe_relative_time(h),
                 }
             )
             continue
@@ -923,6 +970,7 @@ def did_multiplegt_dyn(
                 "ci_upper": float(ci_hi) if np.isfinite(ci_hi) else np.nan,
                 "type": "placebo" if h < 0 else "dynamic",
                 "n_switchers": int(row["n_switchers"]),
+                "twfe_relative_time": _twfe_relative_time(h),
             }
         )
 
@@ -1214,7 +1262,7 @@ def did_multiplegt_dyn(
         ci=ci_h,
         alpha=alpha,
         n_obs=int(len(df)),
-        detail=pd.DataFrame(main["cell_estimates"]),
+        detail=_detail_frame(main["cell_estimates"], es_rows),
         model_info={
             "event_study": es_df,
             "event_study_vcov": es_vcov,
@@ -1380,6 +1428,37 @@ def _treatment_paths(
             continue
         out[uid] = tuple(float(v) for v in values)
     return pd.Series(out, dtype=object)
+
+
+def _twfe_relative_time(h: int) -> int:
+    """Horizon ``h`` on the axis of an event study with base period -1.
+
+    Effect ``h >= 0`` contrasts ``Y_{F+h}`` with ``Y_{F-1}``: coefficient
+    ``h``. Placebo ``h = -l`` contrasts ``Y_{F-1-l}`` with ``Y_{F-1}``:
+    coefficient ``-(l + 1)``.
+    """
+    return int(h) if h >= 0 else int(h) - 1
+
+
+def _detail_frame(
+    cells: List[Dict[str, Any]], es_rows: List[Dict[str, Any]]
+) -> pd.DataFrame:
+    """``detail`` with the reported ``se`` and ``twfe_relative_time`` added."""
+    out = pd.DataFrame(cells)
+    if out.empty or "horizon" not in out.columns:
+        return out
+    se_by_h = {int(r["relative_time"]): r["se"] for r in es_rows}
+    out.insert(
+        out.columns.get_loc("horizon") + 1,
+        "twfe_relative_time",
+        [_twfe_relative_time(int(h)) for h in out["horizon"]],
+    )
+    out.insert(
+        out.columns.get_loc("delta_l") + 1,
+        "se",
+        [float(se_by_h.get(int(h), np.nan)) for h in out["horizon"]],
+    )
+    return out
 
 
 def _path_result(

@@ -26,7 +26,8 @@ stk = sp.stacked_did(df, y="y", group="id", time="year",
                      first_treat="first_treat", window=(-3, 3))
 lp  = sp.lp_did(df, y="y", unit="id", time="year", treatment="d", horizons=(-3, 3))
 dch = sp.did_multiplegt_dyn(df, "y", group="id", time="year", treatment="d",
-                            dynamic=3, placebo=2, seed=0)             # de Chaisemartin-D'Haultfoeuille
+                            dynamic=3, placebo=2, aggregation="switchers",
+                            se_method="analytic")     # de Chaisemartin-D'Haultfoeuille; Stata's Av_tot_eff
 ```
 
 - `sp.did_multiplegt_dyn` is the one to use when treatment switches **on and

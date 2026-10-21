@@ -260,16 +260,20 @@ def test_translations_to_mirrored_functions():
         "group": "g",
         "time": "t",
         "treatment": "d",
-        "dynamic": 3,
+        "dynamic": 2,  # effects = 3 is horizons 0, 1, 2
         "placebo": 2,
+        "aggregation": "switchers",  # the package's Av_tot_eff
         "se_method": "analytic",
         "cluster": "g",
     }
-    # R's effects defaults to 1, sp's dynamic to 3: written out
+    # R's effects defaults to 1 (horizon 0 only), sp's dynamic to 3:
+    # written out
     assert (
         sp.from_r('did_multiplegt_dyn(df, "y", "g", "t", "d")')["arguments"]["dynamic"]
-        == 1
+        == 0
     )
+    bad = sp.from_r('did_multiplegt_dyn(df, "y", "g", "t", "d", effects = 0)')
+    assert bad["ok"] is False and "at least 1" in bad["error"]
     out = sp.from_r('modelsummary(list("A" = m1, "B" = m2))')
     assert out["python_code"] == "sp.modelsummary(m1, m2, model_names=['A', 'B'])"
 

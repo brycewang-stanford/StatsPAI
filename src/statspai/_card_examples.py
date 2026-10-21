@@ -327,7 +327,7 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
         "df = sp.dgp_did(staggered=True, seed=0)\n"
         "r = sp.did_multiplegt_dyn(\n"
         '    df, y="y", group="unit", time="time", treatment="treated",\n'
-        "    placebo=2, dynamic=2,\n"
+        '    placebo=2, dynamic=2, aggregation="switchers", se_method="analytic",\n'
         ")\n"
     ),
     "fect": (

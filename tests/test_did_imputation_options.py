@@ -19,6 +19,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import MethodIncompatibility
 
 
 def _panel(n_units=60, n_periods=9, het=False, missing_tail_unit=None, seed=0):
@@ -185,10 +186,39 @@ class TestMinN:
         with pytest.raises(ValueError, match="min_n"):
             _fit(panel, min_n=10)
 
-    @pytest.mark.parametrize("bad", [0, -1, True])
+    @pytest.mark.parametrize("bad", [-1, True, 2.5, "5"])
     def test_invalid_min_n_raises(self, panel, bad):
-        with pytest.raises(ValueError, match="min_n"):
+        with pytest.raises(MethodIncompatibility, match="min_n") as info:
             _fit(panel, horizon=[0, 1], min_n=bad)
+        assert "min_n=0" in info.value.recovery_hint
+
+    def test_min_n_zero_keeps_every_horizon(self):
+        # Stata minn(0): nothing is suppressed. On the panel where
+        # min_n=21 drops horizons 3-5, min_n=0 must return the same event
+        # study as no threshold, all six horizons included, and not warn.
+        df = _panel()
+        kw = dict(
+            y="wage",
+            group="county",
+            time="year",
+            first_treat="first_treat",
+            horizon=list(range(0, 6)),
+        )
+        r_plain = sp.did_imputation(df, **kw)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            r_zero = sp.did_imputation(df, min_n=0, **kw)
+        es = r_zero.model_info["event_study"]
+        assert set(es["relative_time"]) == set(range(0, 6))
+        assert (es["n_obs"] < 21).any()
+        pd.testing.assert_frame_equal(r_plain.model_info["event_study"], es)
+        assert r_zero.estimate == r_plain.estimate
+        assert r_zero.se == r_plain.se
+
+    def test_min_n_zero_needs_no_horizon(self, panel):
+        # minn(0) filters nothing, so it does not need an event study.
+        r = _fit(panel, min_n=0)
+        assert r.estimate == _fit(panel).estimate
 
 
 # ----------------------------------------------------------------------

@@ -610,9 +610,11 @@ def _h_did_multiplegt_dyn(
     pos: List[str], kw: Dict[str, str], _: List[str]
 ) -> Dict[str, Any]:
     """``did_multiplegt_dyn(df, "y", "g", "t", "d", effects = 3, placebo = 2)``
-    -> ``sp.did_multiplegt_dyn(..., se_method='analytic')``: the analytic
-    variance is the package's, pinned to 1e-6; ``effects`` defaults to 1
-    in R and to 3 in sp, so it is written out."""
+    -> ``sp.did_multiplegt_dyn(..., dynamic=2, aggregation='switchers',
+    se_method='analytic')``: R's ``effects = k`` estimates horizons
+    ``0..k-1``, which is ``dynamic=k-1``; the headline is the package's
+    ``Av_tot_eff`` and its analytic variance, pinned to 1e-6. ``effects``
+    defaults to 1 in R and sp's ``dynamic`` to 3, so it is written out."""
     names = ("df", "outcome", "group", "time", "treatment")
     vals = dict(zip(names, pos))
     for k in names[1:]:
@@ -632,13 +634,19 @@ def _h_did_multiplegt_dyn(
             "did_multiplegt_dyn: effects / placebo must be numbers",
             command="did_multiplegt_dyn",
         )
+    if int(effects) < 1:
+        return _emit_error(
+            "did_multiplegt_dyn: effects must be at least 1",
+            command="did_multiplegt_dyn",
+        )
     args: Dict[str, Any] = {
         "y": cols["outcome"],
         "group": cols["group"],
         "time": cols["time"],
         "treatment": cols["treatment"],
-        "dynamic": int(effects),
+        "dynamic": int(effects) - 1,
         "placebo": int(placebo),
+        "aggregation": "switchers",
         "se_method": "analytic",
     }
     read = ["outcome", "group", "time", "treatment", "effects", "placebo"]
