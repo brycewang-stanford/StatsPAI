@@ -31,7 +31,7 @@ Example
 ['cs', 'sa', 'bjs', 'etwfe', 'stacked']
 """
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -73,6 +73,24 @@ class DIDSummaryResult(CausalResult):
     """
 
     _DID_SUMMARY_MARKER: bool = True
+
+    @property
+    def event_study_paths(self) -> pd.DataFrame:
+        """Event-study paths of every method, one row per (method, k).
+
+        Columns ``method, relative_time, att, se, ci_lower, ci_upper,
+        pvalue, lead_definition, reference``. Present when the summary was
+        fitted with ``event_study=True``; see :func:`did_summary`.
+        """
+        paths = (self.model_info or {}).get("event_study_paths")
+        if not isinstance(paths, pd.DataFrame):
+            from ..core._result_access import ResultAccessorUnavailable
+
+            raise ResultAccessorUnavailable(
+                "This did_summary result holds no event-study paths.",
+                recovery_hint="Refit with sp.did_summary(..., event_study=True).",
+            )
+        return paths
 
     # Own layout without the base class's digits= / fmt= precision options;
     # passing them raises TypeError rather than being ignored.
@@ -125,6 +143,31 @@ _METHOD_LABELS = {
     "bjs": "Borusyak, Jaravel & Spiess (2024)",
     "etwfe": "Wooldridge (2021) ETWFE",
     "stacked": "Stacked DID (Cengiz et al. 2019)",
+}
+
+#: What each row's overall estimate averages. All five are ATTs over the
+#: treated post-treatment observations; they differ in how the cells are
+#: estimated, not in what is averaged.
+_ESTIMANDS = {
+    "cs": "ATT, treated-obs weighted (aggte simple)",
+    "sa": "ATT, treated-obs weighted (fixest agg='att')",
+    "bjs": "ATT, equal weight per treated obs",
+    "etwfe": "ATT, treated-obs weighted",
+    "stacked": "ATT, treated-obs weighted over the window",
+}
+
+#: How each method's pre-treatment coefficients are defined.
+#: ``reference_period``: relative to k = -1, which is 0 by construction.
+#: ``untreated_regression``: BJS leads from a TWFE regression on the
+#: untreated observations, relative to the periods before the earliest
+#: lead (Stata ``did_imputation, pretrends()``); k = -1 is estimated.
+#: ``post_only``: no leads reported.
+_LEAD_DEFINITIONS = {
+    "cs": "reference_period",
+    "sa": "reference_period",
+    "stacked": "reference_period",
+    "bjs": "untreated_regression",
+    "etwfe": "post_only",
 }
 
 
@@ -210,9 +253,9 @@ def _run_sa(
         covariates=controls,
         cluster=cluster,
         alpha=alpha,
-        # Pin today's default: no FutureWarning users cannot act on.
-        # Switch with sun_abraham's default (planned 1.41).
-        aggregation="event_time",
+        # The cell-weighted ATT (fixest summary(agg = 'att')), the estimand
+        # of the other rows; 'event_time' averages the event times equally.
+        aggregation="fixest_att",
         crit_dist="normal",
     )
 
@@ -286,6 +329,7 @@ def _run_stacked(
         controls=controls,
         cluster=cluster,
         alpha=alpha,
+        aggregation="treated_obs",
     )
 
 
@@ -310,6 +354,89 @@ def _extract(res: CausalResult) -> dict:
     return dict(estimate=est, se=se, pvalue=p, ci_low=ci_lo, ci_high=ci_hi, n_obs=n)
 
 
+_PATH_COLUMNS = [
+    "method",
+    "relative_time",
+    "att",
+    "se",
+    "ci_lower",
+    "ci_upper",
+    "pvalue",
+    "lead_definition",
+    "reference",
+]
+
+
+def _bjs_path(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    controls: Optional[List[str]],
+    cluster: Optional[str],
+    alpha: float,
+    window: Any,
+) -> CausalResult:
+    """BJS refitted with horizons and Stata ``pretrends()`` leads.
+
+    The leads need an omitted category of earlier untreated periods, so at
+    most ``max_pre - 1`` of them, ``max_pre`` being the longest
+    pre-treatment span of any cohort.
+    """
+    from .did_imputation import did_imputation
+
+    t = pd.to_numeric(data[time], errors="coerce")
+    g = pd.to_numeric(data[first_treat], errors="coerce")
+    treated = g.notna() & np.isfinite(g) & (g > 0)
+    max_pre = int((g[treated] - t.min()).max()) if treated.any() else 0
+    max_post = int((t.max() - g[treated]).max()) if treated.any() else 0
+    lo, hi = int(window[0]), int(window[1])
+    pre = min(-lo, max_pre - 1) if lo < 0 else 0
+    return did_imputation(
+        data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
+        horizon=list(range(0, min(hi, max_post) + 1)),
+        pretrends=pre if pre >= 1 else None,
+    )
+
+
+def _event_study_path(name: str, res: CausalResult, window: Any) -> pd.DataFrame:
+    """One method's event study on the common layout, inside ``window``."""
+    if name == "etwfe":
+        from .wooldridge_did import etwfe_emfx
+
+        res = etwfe_emfx(res, type="event", alpha=res.alpha)
+    es = res.event_study
+    lead = _LEAD_DEFINITIONS[name]
+    lo, hi = int(window[0]), int(window[1])
+    rt = pd.to_numeric(es["relative_time"], errors="coerce")
+    out = es.loc[(rt >= lo) & (rt <= hi)].copy()
+    out["relative_time"] = rt.loc[out.index].astype(int)
+    if lead == "post_only":
+        out = out.loc[out["relative_time"] >= 0]
+    out["reference"] = False
+    if lead == "reference_period" and lo <= -1 <= hi:
+        # k = -1 is the normalisation: one explicit zero row, so every
+        # reference-period path is drawn through the same point.
+        out = out.loc[out["relative_time"] != -1]
+        ref = pd.DataFrame(
+            [dict(relative_time=-1, att=0.0, se=0.0, ci_lower=0.0, ci_upper=0.0)]
+        )
+        ref["pvalue"] = np.nan
+        ref["reference"] = True
+        out = pd.concat([out, ref], ignore_index=True)
+    out["method"] = name
+    out["lead_definition"] = lead
+    return out[_PATH_COLUMNS].sort_values("relative_time").reset_index(drop=True)
+
+
 @records_call("did_summary")
 @accepts_aliases(covariates="controls", cohort="first_treat", g="first_treat")
 @accepts_vce(default="cluster")
@@ -325,14 +452,16 @@ def did_summary(
     alpha: float = 0.05,
     include_sensitivity: bool = False,
     verbose: bool = False,
+    event_study: bool = False,
+    event_window: Tuple[int, int] = (-5, 5),
 ) -> CausalResult:
     """
     One-call method-robustness comparison for staggered DID.
 
     Fits every requested estimator to the same data and returns a single
     :class:`CausalResult` whose ``detail`` attribute is a tidy comparison
-    table — one row per method, columns ``(method, estimator, estimate,
-    se, pvalue, ci_low, ci_high, n_obs, note)``.
+    table — one row per method, columns ``(method, estimator, estimand,
+    estimate, se, pvalue, ci_low, ci_high, n_obs, breakdown_m, note)``.
 
     Parameters
     ----------
@@ -364,6 +493,26 @@ def did_summary(
         column of ``detail`` (CS row only; other methods leave ``NaN``).
     verbose : bool, default False
         Print progress for each method.
+    event_study : bool, default False
+        Also collect every method's event-study path into
+        ``result.event_study_paths`` (also ``model_info
+        ['event_study_paths']``): columns ``method, relative_time, att,
+        se, ci_lower, ci_upper, pvalue, lead_definition, reference``, and
+        draw them with ``sp.did_summary_plot(result, kind='event_study')``.
+        Post-treatment coefficients are comparable across methods; leads
+        are not. ``lead_definition`` says how each method defines them:
+        ``'reference_period'`` (CS with its universal base, SA, stacked:
+        relative to k = -1, stored as an explicit zero row with
+        ``reference=True``), ``'untreated_regression'`` (BJS: Stata
+        ``did_imputation, pretrends()`` leads from a regression on the
+        untreated observations, relative to the periods before the
+        earliest lead, so k = -1 is estimated) and ``'post_only'`` (ETWFE).
+        A dCDH placebo ``l`` (not among these methods) would sit at
+        ``k = -(l + 1)`` on this axis. BJS is refitted with horizons for
+        this, so the option costs one more imputation fit; the other paths
+        are read from the fits already made.
+    event_window : (int, int), default (-5, 5)
+        Relative times kept in ``event_study_paths``.
 
     Returns
     -------
@@ -377,19 +526,31 @@ def did_summary(
 
     Notes
     -----
-    Each method's overall ATT has slightly different interpretation:
+    Every row is an ATT averaged over the treated post-treatment
+    observations (the ``estimand`` column), so the rows answer one
+    question and differ only in how the cells are estimated:
 
-    - CS ``aggte(type='simple')`` averages ATT(g, t) for post-treatment
-      :math:`t \\geq g`, weighted by cohort size × exposure length.
-    - ETWFE reports the R/Stata treated-observation-weighted simple ATT.
-    - SA / BJS / Stacked report their estimator-specific overall ATT
-      aggregations.
+    - CS ``aggte(type='simple')`` weights ATT(g, t) by cohort size, i.e.
+      by treated observations on a balanced panel.
+    - SA is fitted with ``aggregation='fixest_att'`` (fixest
+      ``summary(agg = 'att')``), BJS gives each treated observation equal
+      weight, ETWFE reports the treated-observation-weighted simple ATT.
+    - Stacked is fitted with ``aggregation='treated_obs'`` and averages
+      over its event window (``stacked_did``'s default ``(-5, 5)``).
 
-    Differences across methods are informative about heterogeneity,
-    model specification, and the sensitivity of conclusions to the
-    estimator choice. Large disagreement is a red flag that deserves
-    further investigation (e.g., via ``sp.bacon_decomposition`` or
-    ``sp.honest_did``).
+    Up to StatsPAI 1.40.0 the SA and stacked rows averaged the event times with
+    equal weight instead. That puts a large weight on late event times
+    carried by a few early cohorts, so those rows could differ from the
+    others because they targeted a different average, not because the
+    estimators disagreed.
+
+    With a common estimand, differences across rows come from the
+    comparisons each estimator makes (never- vs not-yet-treated controls,
+    imputation vs 2x2 cells) and from sampling noise; ``se`` is the
+    dispersion of the point estimates, not a test of their equality. A
+    large spread is worth following up (e.g. with
+    ``sp.bacon_decomposition`` or ``sp.honest_did``); agreement says
+    nothing about parallel trends, which every row assumes.
 
     Examples
     --------
@@ -448,6 +609,7 @@ def did_summary(
     failed: dict = {}
     fit: List[str] = []
     cs_raw = None  # raw CS result for sensitivity analysis
+    fits: Dict[str, CausalResult] = {}
 
     # Narrow exceptions that represent "the estimator couldn't fit this
     # data" rather than a bug in user input. Other exceptions propagate.
@@ -463,7 +625,7 @@ def did_summary(
         if verbose:
             print(f"  running {name} ({label})...", flush=True)
         try:
-            if name == "cs" and include_sensitivity:
+            if name == "cs" and (include_sensitivity or event_study):
                 cs_raw = _fit_cs(
                     data, y, group, time, first_treat, controls, cluster, alpha
                 )
@@ -480,14 +642,24 @@ def did_summary(
                     alpha,
                 )
             vals = _extract(res)
-            rows.append(dict(method=name, estimator=label, note="", **vals))
+            rows.append(
+                dict(
+                    method=name,
+                    estimator=label,
+                    estimand=_ESTIMANDS[name],
+                    note="",
+                    **vals,
+                )
+            )
             fit.append(name)
+            fits[name] = cs_raw if name == "cs" and cs_raw is not None else res
         except _expected_exc as exc:
             failed[name] = type(exc).__name__ + ": " + str(exc)[:160]
             rows.append(
                 dict(
                     method=name,
                     estimator=label,
+                    estimand=_ESTIMANDS[name],
                     estimate=np.nan,
                     se=np.nan,
                     pvalue=np.nan,
@@ -521,11 +693,42 @@ def did_summary(
     for i, r in enumerate(rows):
         r["breakdown_m"] = breakdown_m_col[i]
 
+    # Optional event-study paths on one relative-time axis
+    paths: Optional[pd.DataFrame] = None
+    if event_study:
+        frames: List[pd.DataFrame] = []
+        for name in fit:
+            try:
+                res_es = fits[name]
+                if name == "bjs":
+                    res_es = _bjs_path(
+                        data,
+                        y,
+                        group,
+                        time,
+                        first_treat,
+                        controls,
+                        cluster,
+                        alpha,
+                        event_window,
+                    )
+                frames.append(_event_study_path(name, res_es, event_window))
+            except _expected_exc + (AttributeError, KeyError) as exc:
+                failed[f"__event_study__{name}"] = (
+                    f"{type(exc).__name__}: {str(exc)[:120]}"
+                )
+        paths = (
+            pd.concat(frames, ignore_index=True)
+            if frames
+            else pd.DataFrame(columns=_PATH_COLUMNS)
+        )
+
     detail = pd.DataFrame(
         rows,
         columns=[
             "method",
             "estimator",
+            "estimand",
             "estimate",
             "se",
             "pvalue",
@@ -560,6 +763,8 @@ def did_summary(
             "methods_failed": failed,
             "dispersion": disp,
             "breakdown_m": breakdown_m_value,
+            "estimands": {m: _ESTIMANDS[m] for m in methods_list},
+            "event_study_paths": paths,
             # H5: stable sentinel — export helpers and plots match on this
             "_did_summary_marker": True,
         },

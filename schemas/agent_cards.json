@@ -70903,6 +70903,15 @@
             "type": "string",
             "x-statspai-role": "columns"
           },
+          "aggregation": {
+            "default": "event_time",
+            "description": "Headline ATT of spec='event_study': 'event_time' averages the post event times equally; 'treated_obs' weights each by its treated rows (the ATT of CS / BJS / ETWFE / SA fixest_att)",
+            "enum": [
+              "event_time",
+              "treated_obs"
+            ],
+            "type": "string"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals.",
@@ -70912,6 +70921,11 @@
             "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "cluster_stack": {
+            "default": false,
+            "description": "Cluster on cluster x sub-experiment, Stata stackedev's clustering; understates SEs of time-varying controls since control units repeat across stacks. Default: the cluster",
+            "type": "boolean"
           },
           "control_group": {
             "description": "'nevertreated', 'notyettreated' (units untreated through the window) or 'notyettreated_rows' (later-treated units before their own treatment); overrides never_treated_only",
@@ -71059,7 +71073,7 @@
       "tests/reference_parity/test_stacked_did_events_Stata_parity.py",
       "tests/reference_parity/test_stacked_did_parity.py",
       "tests/reference_parity/test_stacked_did_prebuilt_weights_Stata_parity.py",
-      "tests/reference_parity/test_stacked_ppml_Stata_parity.py",
+      "tests/reference_parity/test_stacked_did_stackedev_Stata_parity.py",
       "API/unit contract evidence: tests/test_cov95_did_r3_stacked.py",
       "API/unit contract evidence: tests/test_cov95_did_estimators_extra.py"
     ],
@@ -84576,6 +84590,22 @@
             "description": "Panel dataset (long format).",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "event_study": {
+            "default": false,
+            "description": "Also collect every method's event-study path into ``result.event_study_paths`` (also ``model_info ['event_study_paths']``): columns ``method, relative_time, att, se, ci_lower, ci_upper, pvalue, lead_definition, reference``, and draw them with ``sp.did_summary_plot(result, kind='event_study')``. Post-treatment coefficients are comparable across methods; leads are not. ``lead_definition`` says how each method defines them: ``'reference_period'`` (CS with its universal base, SA, stacked: relative to k = -1, stored as an explicit zero row with ``reference=True``), ``'untreated_regression'`` (BJS: Stata ``did_imputation, pretrends()`` leads from a regression on the untreated observations, relative to the periods before the earliest lead, so k = -1 is estimated) and ``'post_only'`` (ETWFE). A dCDH placebo ``l`` (not among these methods) would sit at ``k = -(l + 1)`` on this axis. BJS is refitted with horizons for this, so the option costs one more imputation fit; the other paths are read from the fits already made.",
+            "type": "boolean"
+          },
+          "event_window": {
+            "default": [
+              -5,
+              5
+            ],
+            "description": "Relative times kept in ``event_study_paths``.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
           },
           "first_treat": {
             "description": "First-treatment period per unit; NaN (or 0) for never-treated.",

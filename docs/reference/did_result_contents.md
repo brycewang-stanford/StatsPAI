@@ -190,7 +190,9 @@ the repeated cross-section path adds `variance_convention`.
   `result.event_study` turns it into the standard table.
 - `stacked_did`: `event_study` (DataFrame), `event_study_vcov`,
   `event_study_betas`, `event_study_se`, `cohorts`, `skipped_cohorts`,
-  `window`, `cluster_var`.
+  `window`, `cluster_var`, `cluster_stack`, `n_clusters`, `aggregation`
+  and `aggregation_weights` (the weight of each post event time in the
+  headline ATT under `aggregation='treated_obs'`, else `None`).
 - `etwfe`: `event_study` holds cohort-by-relative-time cells (`cohort,
   rel_time, period, estimate, se, ...`), read through `result.attgt`;
   `event_vcov` is their covariance, `cohort_vcov` that of the per-cohort

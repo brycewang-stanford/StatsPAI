@@ -68,6 +68,8 @@ def stacked_did(
     control_group: Optional[str] = None,
     events: Optional[str] = None,
     own_overlap: str = "drop",
+    aggregation: str = "event_time",
+    cluster_stack: bool = False,
 ) -> CausalResult:
     """
     Stacked DID estimator (Cengiz, Dube, Lindner & Zipperer, 2019).
@@ -151,6 +153,34 @@ def stacked_did(
         its window has a contaminated comparison; ``'drop'`` leaves it out
         (counted in ``model_info['n_events_dropped_overlap']``), ``'keep'``
         keeps it.
+    aggregation : {'event_time', 'treated_obs'}, default 'event_time'
+        How ``spec='event_study'`` averages the post-treatment coefficients
+        into the headline ATT. ``'event_time'`` gives each event time
+        ``k >= 0`` in the window the same weight. ``'treated_obs'`` weights
+        ``beta_k`` by the number of treated rows of the stack at ``k`` (the
+        sum of their weights when ``weights=`` is given), the
+        treated-observation-weighted ATT that ``sp.callaway_santanna`` +
+        ``aggte(type='simple')``, ``sp.did_imputation``, ``sp.etwfe`` and
+        ``sp.sun_abraham(aggregation='fixest_att')`` report. The two
+        coincide when every cohort is observed at every post event time;
+        when late event times are carried by a few early cohorts,
+        ``'event_time'`` gives those few cohorts a large share of the
+        average. Stata ``stackedev`` reports only the event-time
+        coefficients. Both use the delta method on the event-time
+        covariance with the weights held fixed.
+    cluster_stack : bool, default False
+        Cluster on ``cluster`` x sub-experiment instead of ``cluster``.
+        This is Stata ``stackedev``'s clustering (``clust_unit()`` builds
+        ``stack * clust_unit``), offered to reproduce it. A control unit
+        appears once in every sub-experiment, so its errors are correlated
+        across them; clustering within a sub-experiment ignores that and
+        understates the standard errors of time-varying controls (by about
+        half on a 267-city panel with four cohorts and 228 never-treated
+        cities, where each control city enters four stacks). The event-time
+        coefficients are identified by treated units, each of which sits in
+        one sub-experiment, so their standard errors move much less. The
+        default clusters on the original ``cluster``, which nests the
+        sub-experiments.
 
     Notes
     -----
@@ -217,6 +247,22 @@ def stacked_did(
     if spec not in ("event_study", "pooled"):
         raise MethodIncompatibility(
             f"spec must be 'event_study' or 'pooled', got {spec!r}."
+        )
+    aggregation = str(aggregation).lower()
+    if aggregation not in ("event_time", "treated_obs"):
+        raise MethodIncompatibility(
+            "aggregation must be 'event_time' or 'treated_obs', "
+            f"got {aggregation!r}.",
+            recovery_hint="Use aggregation='event_time' (equal weight per post "
+            "event time) or 'treated_obs' (weight by treated rows).",
+            diagnostics={"aggregation": aggregation},
+        )
+    if spec == "pooled" and aggregation != "event_time":
+        raise MethodIncompatibility(
+            "aggregation= averages event-time coefficients; spec='pooled' "
+            "estimates a single treated x post coefficient instead.",
+            recovery_hint="Drop aggregation= or use spec='event_study'.",
+            diagnostics={"spec": spec, "aggregation": aggregation},
         )
     if control_group is None:
         control_group = "nevertreated" if never_treated_only else "notyettreated"
@@ -392,6 +438,21 @@ def stacked_did(
     n_cohorts = len(stacked["_cohort"].unique())
     n_units = stacked[group].nunique()
     n_stacked = len(stacked)
+    cluster_var = cluster
+    if cluster_stack:
+        if cluster not in stacked.columns:
+            raise ColumnNotFound.from_missing(
+                {"cluster": cluster},
+                list(stacked.columns),
+                message=f"Cluster column '{cluster}' not found in data.",
+            )
+        # stackedev's unit_stack; a missing cluster value stays missing so
+        # the complete-case rule below treats it as before.
+        cl = stacked[cluster]
+        stacked["_cluster_stack"] = (
+            cl.astype(str) + "_" + stacked["_cohort"].astype(str)
+        ).where(cl.notna())
+        cluster = "_cluster_stack"
     if cluster in stacked.columns:
         _warn_few_treated_clusters(
             stacked,
@@ -578,14 +639,37 @@ def stacked_did(
             "Widen the window's upper end.",
             diagnostics={"window": list(window)},
         )
+    att_weights: Optional[dict] = None
     if spec != "pooled" and len(post_ks) > 0:
-        att = np.mean([es_betas[k] for k in post_ks])
-        # Delta method: ATT = mean of post betas → se = sqrt(w' V w)
-        post_indices = [rel_times_est.index(k) for k in post_ks]
-        n_post = len(post_indices)
         w = np.zeros(len(rel_times_est))
-        for pi in post_indices:
-            w[pi] = 1.0 / n_post
+        if aggregation == "treated_obs":
+            # beta_k weighted by the treated rows of the fitted stack at k
+            # (their weight sum under weights=); event times the fit could
+            # not identify carry no weight.
+            treated_k = stacked["_rel_time"].where(stacked["_treated_unit"] == 1)
+            row_w = np.ones(len(stacked)) if w_arr is None else w_arr
+            mass = pd.Series(row_w, index=stacked.index).groupby(treated_k).sum()
+            for k in post_ks:
+                if k not in dropped_terms:
+                    w[rel_times_est.index(k)] = float(mass.get(k, 0.0))
+            if w.sum() <= 0:
+                raise DataInsufficient(
+                    "stacked_did(aggregation='treated_obs'): no treated row "
+                    "at an identified post-treatment event time.",
+                    recovery_hint="Widen the window or use "
+                    "aggregation='event_time'.",
+                    diagnostics={"window": list(window)},
+                )
+            w = w / w.sum()
+            att_weights = {int(k): float(w[rel_times_est.index(k)]) for k in post_ks}
+            att = float(w @ beta[: len(rel_times_est)])
+        else:
+            att = np.mean([es_betas[k] for k in post_ks])
+            # Delta method: ATT = mean of post betas → se = sqrt(w' V w)
+            post_indices = [rel_times_est.index(k) for k in post_ks]
+            n_post = len(post_indices)
+            for pi in post_indices:
+                w[pi] = 1.0 / n_post
         # Event-time block only: V also carries the controls.
         k_es = len(rel_times_est)
         att_var = w @ V[:k_es, :k_es] @ w
@@ -653,7 +737,11 @@ def stacked_did(
         "prebuilt_stack": prebuilt,
         "weights": weights,
         "omitted_event_times": dropped_terms,
-        "cluster_var": cluster,
+        "cluster_var": cluster_var,
+        "cluster_stack": bool(cluster_stack),
+        "n_clusters": int(pd.Series(stacked[cluster]).nunique()),
+        "aggregation": aggregation if spec != "pooled" else None,
+        "aggregation_weights": att_weights,
         "event_study": detail,
         "event_study_betas": es_betas,
         "event_study_se": es_se,
@@ -695,6 +783,8 @@ def stacked_did(
                 "spec": spec,
                 "absorb": absorb,
                 "control_group": control_group,
+                "aggregation": aggregation,
+                "cluster_stack": cluster_stack,
             },
             data=data,
             overwrite=False,

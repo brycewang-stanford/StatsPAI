@@ -31418,6 +31418,26 @@ def _build_registry() -> None:
                     "event inside the window",
                     ["drop", "keep"],
                 ),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    "event_time",
+                    "Headline ATT of spec='event_study': 'event_time' averages "
+                    "the post event times equally; 'treated_obs' weights each by "
+                    "its treated rows (the ATT of CS / BJS / ETWFE / SA "
+                    "fixest_att)",
+                    ["event_time", "treated_obs"],
+                ),
+                ParamSpec(
+                    "cluster_stack",
+                    "bool",
+                    False,
+                    False,
+                    "Cluster on cluster x sub-experiment, Stata stackedev's "
+                    "clustering; understates SEs of time-varying controls since "
+                    "control units repeat across stacks. Default: the cluster",
+                ),
             ],
             returns="CausalResult with event-study coefficients",
             example=(

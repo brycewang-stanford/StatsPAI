@@ -22109,6 +22109,7 @@
         "tests/reference_parity/test_stacked_did_events_Stata_parity.py",
         "tests/reference_parity/test_stacked_did_parity.py",
         "tests/reference_parity/test_stacked_did_prebuilt_weights_Stata_parity.py",
+        "tests/reference_parity/test_stacked_did_stackedev_Stata_parity.py",
         "tests/reference_parity/test_stacked_ppml_Stata_parity.py"
       ],
       "also_verified_by": [

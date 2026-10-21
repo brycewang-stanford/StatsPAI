@@ -219,8 +219,9 @@ def bacon_plot(
     Scatter plot of Goodman-Bacon decomposition.
 
     Each point is a 2×2 sub-comparison: x = weight, y = DD estimate.
-    Color distinguishes comparison types (Treated vs Never-treated,
-    Earlier vs Later, Later vs Already-treated).
+    Color distinguishes comparison types (treated vs untreated, earlier
+    vs later treated, and the comparisons that use already-treated units
+    as controls).
 
     Parameters
     ----------
@@ -231,7 +232,11 @@ def bacon_plot(
     figsize : tuple, default (10, 6)
     title : str, optional
     colors : dict, optional
-        Map comparison type → color. Defaults provided.
+        Map comparison type (``decomposition['type']``: ``'Treated vs
+        Untreated'``, ``'Earlier vs Later Treated'``, ``'Later vs Earlier
+        Treated'``, ``'Later vs Always Treated'``, ``'Both Treated'``) to a
+        color. Entries given here override the defaults; types not covered
+        by either are grey.
 
     Returns
     -------
@@ -259,12 +264,16 @@ def bacon_plot(
 
     beta_twfe = bacon_result.get("beta_twfe", None)
 
+    # Keys are the ``type`` values bacon_decomposition writes (with and
+    # without covariates); comparisons against already-treated units red.
     default_colors = {
-        "Treated vs Never-treated": "#2C3E50",
-        "Earlier vs Later treated": "#27AE60",
-        "Later vs Already-treated": "#E74C3C",
+        "Treated vs Untreated": "#2C3E50",
+        "Earlier vs Later Treated": "#27AE60",
+        "Later vs Earlier Treated": "#E74C3C",
+        "Later vs Always Treated": "#C0392B",
+        "Both Treated": "#8E44AD",
     }
-    colors = colors or default_colors
+    colors = {**default_colors, **(colors or {})}
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -1713,6 +1722,7 @@ def did_summary_plot(
     reference: Optional[float] = None,
     title: Optional[str] = None,
     sort_by: Optional[str] = None,
+    kind: str = "overall",
 ) -> Tuple[Any, Any]:
     """
     Forest plot of DID method-robustness summary.
@@ -1743,6 +1753,13 @@ def did_summary_plot(
     sort_by : {'estimate', None}, optional
         If ``'estimate'``, sort methods by point estimate ascending.
         Otherwise keep the order in ``result.detail``.
+    kind : {'overall', 'event_study'}, default 'overall'
+        ``'overall'`` is the forest plot of the overall ATTs.
+        ``'event_study'`` overlays every method's event-study path from a
+        summary fitted with ``event_study=True``: methods are offset along
+        the relative-time axis, and leads not defined relative to k = -1
+        (BJS's ``'untreated_regression'`` leads) are drawn hollow, since
+        they are not comparable with the reference-period leads.
 
     Returns
     -------
@@ -1767,6 +1784,10 @@ def did_summary_plot(
             "did_summary_plot requires a CausalResult produced by "
             "sp.did_summary() (missing '_did_summary_marker' in model_info)."
         )
+    if kind == "event_study":
+        return _did_summary_paths_plot(result, ax, figsize, reference, title)
+    if kind != "overall":
+        raise ValueError(f"kind must be 'overall' or 'event_study', got {kind!r}.")
     detail = getattr(result, "detail", None)
     if not isinstance(detail, pd.DataFrame) or "estimate" not in detail.columns:
         raise ValueError(
@@ -1835,6 +1856,76 @@ def did_summary_plot(
     ax.set_xlabel("Overall ATT estimate (95% CI)")
     ax.set_title(title or "DID Method-Robustness Summary")
 
+    _style_ax(ax)
+    fig.tight_layout()
+    return fig, ax
+
+
+_SUMMARY_PATH_COLORS = {
+    "cs": "#2166AC",
+    "sa": "#1B7837",
+    "bjs": "#E08214",
+    "etwfe": "#762A83",
+    "stacked": "#B2182B",
+}
+
+
+def _did_summary_paths_plot(
+    result: Any,
+    ax: Any,
+    figsize: Tuple[float, float],
+    reference: Optional[float],
+    title: Optional[str],
+) -> Tuple[Any, Any]:
+    """Overlay of ``result.event_study_paths`` (``did_summary_plot``)."""
+    plt, _ = _ensure_mpl()
+    paths = (getattr(result, "model_info", None) or {}).get("event_study_paths")
+    if not isinstance(paths, pd.DataFrame) or paths.empty:
+        raise ValueError(
+            "kind='event_study' needs a summary fitted with "
+            "sp.did_summary(..., event_study=True)."
+        )
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+    methods = list(dict.fromkeys(paths["method"]))
+    step = 0.6 / max(len(methods), 1)
+    for i, m in enumerate(methods):
+        d = paths.loc[paths["method"] == m]
+        x = (
+            d["relative_time"].to_numpy(dtype=float)
+            + (i - (len(methods) - 1) / 2) * step
+        )
+        att = d["att"].to_numpy(dtype=float)
+        lo = att - d["ci_lower"].to_numpy(dtype=float)
+        hi = d["ci_upper"].to_numpy(dtype=float) - att
+        color = _SUMMARY_PATH_COLORS.get(m, "#7F8C8D")
+        lead = str(d["lead_definition"].iloc[0])
+        label = (
+            m if lead in ("reference_period", "post_only") else f"{m} ({lead} leads)"
+        )
+        hollow = (d["relative_time"] < 0).to_numpy() & (lead != "reference_period")
+        for mask, face in ((~hollow, color), (hollow, "none")):
+            if mask.any():
+                ax.errorbar(
+                    x[mask],
+                    att[mask],
+                    yerr=[lo[mask], hi[mask]],
+                    fmt="o",
+                    color=color,
+                    mfc=face,
+                    ms=5,
+                    capsize=2,
+                    lw=1,
+                    label=label if face == color or not (~hollow).any() else None,
+                )
+    ax.axhline(0.0 if reference is None else reference, color="grey", ls=":", lw=1)
+    ax.axvline(-0.5, color="grey", ls="--", lw=0.8)
+    ax.set_xlabel("Relative time k (k = -1 is the reference period)")
+    ax.set_ylabel("Effect (95% CI)")
+    ax.set_title(title or "DID Method-Robustness Summary: event studies")
+    ax.legend(loc="best", frameon=False, fontsize=9)
     _style_ax(ax)
     fig.tight_layout()
     return fig, ax
