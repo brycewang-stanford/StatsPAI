@@ -67564,7 +67564,7 @@
     ],
     "category": "causal",
     "cost_profile": "n_boot cluster-bootstrap replications of the full DID_M rollup.",
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). robust_dynamic=True gives Stata did_multiplegt_old's first-time-switcher DID_l estimators. For the dCDH (2024) intertemporal event study with analytic SEs (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -67661,7 +67661,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). For the dCDH (2024) intertemporal event study (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
+      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The treatment may be binary or discrete (an effect per unit of treatment). robust_dynamic=True gives Stata did_multiplegt_old's first-time-switcher DID_l estimators. For the dCDH (2024) intertemporal event study with analytic SEs (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
       "name": "did_multiplegt",
       "parameters": {
         "properties": {
@@ -67676,7 +67676,7 @@
             "x-statspai-role": "column"
           },
           "controls": {
-            "description": "Controls residualised via first differences",
+            "description": "Controls: each estimate nets out dX @ theta_d, theta_d fitted per baseline on that estimate's control cells (main, placebo and dynamic effects)",
             "items": {
               "type": "string"
             },
@@ -67716,6 +67716,14 @@
             "description": "Number of pre-treatment placebo lags",
             "type": "integer"
           },
+          "placebo_controls": {
+            "description": "With controls and placebos on the default path: 'refit' (when omitted) fits the slopes on each placebo's own stayers (R DIDmultiplegt 0.1.4); 'main' reuses the DID_M slopes (Stata did_multiplegt_old). Not allowed with robust_dynamic=True",
+            "enum": [
+              "refit",
+              "main"
+            ],
+            "type": "string"
+          },
           "placebo_sign": {
             "default": "stata",
             "description": "Placebo sign convention. 'r' is the forward difference, reported by R DIDmultiplegt and by Stata did_multiplegt_old without robust_dynamic; 'stata' is its negative, the convention of did_multiplegt_old, robust_dynamic. Same magnitude",
@@ -67724,6 +67732,11 @@
               "r"
             ],
             "type": "string"
+          },
+          "robust_dynamic": {
+            "default": false,
+            "description": "True: Stata did_multiplegt_old, robust_dynamic. The estimate is DID_0 and dynamic / placebo effects use first-time switchers against not-yet-switched groups with the same initial treatment. False (default): DID_M with R DIDmultiplegt 0.1.4's pair-by-pair dynamic effects. They differ when treatment switches on and off",
+            "type": "boolean"
           },
           "seed": {
             "description": "Random seed for reproducibility.",

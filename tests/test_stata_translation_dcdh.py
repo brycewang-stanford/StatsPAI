@@ -142,11 +142,36 @@ def test_did_multiplegt_old_is_the_pairwise_estimator():
     assert out["tool"] == "did_multiplegt"
     assert out["arguments"]["placebo_sign"] == "r"
     assert out["arguments"]["n_boot"] == 0
+    assert "robust_dynamic" not in out["arguments"]
+    # the command refuses dynamic() without robust_dynamic; so does this
+    refused = sp.from_stata("did_multiplegt_old y g t d, dynamic(2) breps(0)")
+    assert not refused["ok"]
+    assert "robust_dynamic" in refused["error"]
+
+
+def test_did_multiplegt_old_robust_dynamic_translates():
+    """Numbers: tests/reference_parity/test_did_multiplegt_dynamic_conventions.py."""
+    out = _ok(
+        "did_multiplegt_old y g t d, robust_dynamic dynamic(2) placebo(1) "
+        "controls(x) breps(0)"
+    )
+    a = out["arguments"]
+    assert a["robust_dynamic"] is True
+    assert a["dynamic"] == 2 and a["placebo"] == 1
+    assert a["controls"] == ["x"]
+    assert "placebo_sign" not in a and "placebo_controls" not in a
     refused = sp.from_stata(
-        "did_multiplegt_old y g t d, robust_dynamic dynamic(2) breps(0)"
+        "did_multiplegt_old y g t d, robust_dynamic dynamic(2) placebo(2) "
+        "firstdiff_placebo"
     )
     assert not refused["ok"]
-    assert "did_multiplegt_dyn" in refused["error"]
+    assert "firstdiff_placebo" in refused["error"]
+
+
+def test_did_multiplegt_old_controls_with_placebos_reuse_main_slopes():
+    out = _ok("did_multiplegt_old y g t d, placebo(2) controls(x) breps(0)")
+    assert out["arguments"]["placebo_controls"] == "main"
+    assert out["arguments"]["placebo_sign"] == "r"
 
 
 @pytest.mark.parametrize(

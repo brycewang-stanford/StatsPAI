@@ -14,13 +14,12 @@ pair ``(t-1, t)`` it computes a cell-level DID comparing "switchers"
 did not change), then aggregates to an overall estimate using the
 switcher count per cell as the weight.
 
-**Scope note** — the ``dynamic=`` argument here is the pair-rollup
+**Scope note** — by default the ``dynamic=`` argument is the pair-rollup
 event-study extension (long differences relative to stayers at each
-pair). It is **not** the dCDH (2024) ``did_multiplegt_dyn`` estimator,
-which is a separate long-difference event-study with its own influence
-function and a "not-yet-treated-at-horizon-l" control construction.
-That estimator is tracked in ``docs/rfc/multiplegt_dyn.md`` and will
-land as a separate ``sp.did_multiplegt_dyn`` function.
+pair) of R ``DIDmultiplegt`` 0.1.4. ``robust_dynamic=True`` switches to
+the first-time-switcher DID_l estimators of Stata ``did_multiplegt_old,
+robust_dynamic`` (``_dcdh_first_switch.py``). The dCDH (2024) event study
+with its influence-function variance is ``sp.did_multiplegt_dyn``.
 
 References
 ----------
@@ -40,7 +39,7 @@ and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -54,6 +53,7 @@ from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
+from ._dcdh_first_switch import first_switch_effect, period_fe_slopes
 
 # ======================================================================
 # Public API
@@ -80,6 +80,8 @@ def did_multiplegt(
     seed: Optional[int] = None,
     alpha: float = 0.05,
     placebo_sign: str = "stata",
+    robust_dynamic: bool = False,
+    placebo_controls: Optional[Literal["refit", "main"]] = None,
 ) -> CausalResult:
     """
     de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
@@ -88,11 +90,14 @@ def did_multiplegt(
     both directions, robust to heterogeneous treatment effects across groups
     and time.
 
-    **Note** — ``dynamic=H`` here extends the DID_M pair rollup to H
-    horizons; it is not equivalent to the dCDH (2024) ``_dyn``
-    event-study estimator. For the 2024 long-difference event-study with
-    not-yet-treated controls per horizon, see ``sp.did_multiplegt_dyn``
-    (tracked in ``docs/rfc/multiplegt_dyn.md``).
+    **Note** — by default ``dynamic=H`` extends the DID_M pair rollup to H
+    horizons, as R ``DIDmultiplegt`` 0.1.4 does. ``robust_dynamic=True``
+    computes the first-time-switcher DID_l estimators of Stata
+    ``did_multiplegt_old, robust_dynamic`` instead. The two coincide on a
+    binary staggered (absorbing) treatment with one row per group and
+    period, and differ when treatment switches on and off. For the dCDH
+    (2024) event study with its analytic variance and full option set, see
+    ``sp.did_multiplegt_dyn``.
 
     Parameters
     ----------
@@ -135,17 +140,23 @@ def did_multiplegt(
            ``did_multiplegt_old`` returns 0.0057791. Binary treatments
            are unaffected.
     controls : list of str, optional
-        Control variables. The first difference of the outcome becomes
-        ``dY - dX @ theta_d``, with ``theta_d`` from a regression of dY on dX
-        and period effects over the stayer cells of baseline treatment
-        ``d`` (Stata ``did_multiplegt_old``). Adjusts the main DID_M
-        estimate only; placebo and dynamic effects are unadjusted (a
-        warning says so). ``sp.did_multiplegt_dyn(controls=)`` adjusts
-        its event-study effects.
+        Control variables. The outcome difference of every estimate
+        becomes ``dY - dX @ theta_d``, with ``theta_d`` from a regression of
+        dY on dX and period effects, per baseline treatment ``d``, over the
+        estimate's control cells (weighted like the cells). For DID_M the
+        sample is the stayer cells (Stata ``did_multiplegt_old`` and R
+        ``DIDmultiplegt``). For a dynamic effect it is that horizon's robust
+        stayers with long differences, for a placebo its stayers with
+        lagged differences (R; see ``placebo_controls``). With
+        ``robust_dynamic=True`` it is the cells not yet switched, with first
+        differences, for every estimate (Stata). A control with no
+        variation net of the period effects gets a slope of 0, as in both
+        references.
 
         .. versionchanged:: 1.41.0
            ⚠️ Correctness fix: the slope used to be fitted within each
-           period's switchers and stayers.
+           period's switchers and stayers, and the placebo and dynamic
+           effects ignored the controls.
     placebo : int, default 0
         Number of placebo (pre-treatment) tests.  Placebo *l* checks
         whether switchers at *t* already differed from stayers between
@@ -153,7 +164,17 @@ def did_multiplegt(
     dynamic : int, default 0
         Number of dynamic (post-treatment) effect horizons to estimate.
         Dynamic effect *l* measures the long difference Y_{t+l} - Y_{t-1}
-        for switchers at *t* relative to stayers.
+        for switchers at *t* that keep their new treatment through *t+l*,
+        relative to groups that keep the baseline through *t+l* (R
+        ``DIDmultiplegt`` 0.1.4, which documents the option for binary
+        staggered designs; Stata ``did_multiplegt_old`` computes dynamic
+        effects only with ``robust_dynamic``). With several rows per cell a
+        cell weighs its size in period *t*.
+
+        .. versionchanged:: 1.41.0
+           With several rows per cell the weight is the size at *t* (R).
+           The unreleased 2026-10-21 change weighed it at *t+l*, which is
+           Stata's first-time-switcher rule, now ``robust_dynamic=True``.
     cluster : str, optional
         Variable for cluster bootstrap.  Defaults to ``group``.
     n_boot : int, default 100
@@ -171,7 +192,32 @@ def did_multiplegt(
         ``did::mpdta``: ``+0.024269`` there, ``-0.024269`` in R). The
         magnitude and the inference are the same either way; pass ``"r"``
         to reproduce a plain ``did_multiplegt_old Y G T D, placebo()`` run.
-        The default is what this function has always returned.
+        The default is what this function has always returned. Must stay
+        ``"stata"`` with ``robust_dynamic=True``, whose long-difference
+        placebos have their own fixed sign.
+    robust_dynamic : bool, default False
+        Compute the first-time-switcher estimators of Stata
+        ``did_multiplegt_old, robust_dynamic`` (the DID_l of dCDH, REStat
+        2024 [@dechaisemartin2024difference]). A group's baseline is its
+        first observed treatment; DID_l compares the outcome change from the
+        period before its first switch to *l* periods after it with groups
+        of the same baseline that have not switched yet, without dividing
+        by the size of the change. The estimate becomes DID_0 (Stata's
+        ``e(effect_0)``), ``dynamic`` gives DID_1..DID_L, and placebo *l* is
+        the long difference ``Y_{F-1-l} - Y_{F-1}`` over DID_{l-1}'s groups.
+        A group enters only if observed in every period of the effect's
+        window. Matches Stata 18 to 1e-10 on balanced and unbalanced
+        panels, binary and count treatments, with and without controls and
+        with several rows per cell. Stata's ``firstdiff_placebo`` and its
+        ``effect_average`` ratio are not implemented.
+    placebo_controls : {"refit", "main"}, optional
+        How ``controls`` enter the placebos of the default (pair-by-pair)
+        estimator, where the two references differ. ``"refit"`` (used when
+        omitted) fits the slopes on the placebo's own stayers and lagged
+        differences, as R ``DIDmultiplegt`` 0.1.4 does. ``"main"`` reuses
+        the slopes of the main DID_M estimate, as Stata
+        ``did_multiplegt_old`` does without ``robust_dynamic``. Not allowed
+        with ``robust_dynamic=True``.
 
     Returns
     -------
@@ -224,6 +270,28 @@ def did_multiplegt(
     # ── Validate inputs ──────────────────────────────────────────── #
     if placebo_sign not in {"stata", "r"}:
         raise ValueError(f"placebo_sign must be 'stata' or 'r', got {placebo_sign!r}")
+    if placebo_controls not in (None, "refit", "main"):
+        raise ValueError(
+            "placebo_controls must be 'refit' or 'main', got " f"{placebo_controls!r}"
+        )
+    if robust_dynamic and (placebo_sign != "stata" or placebo_controls is not None):
+        raise MethodIncompatibility(
+            "sp.did_multiplegt: robust_dynamic=True computes Stata "
+            "did_multiplegt_old's first-time-switcher estimators, whose "
+            "placebos are long differences with a fixed sign and whose "
+            "controls are fitted on the not-yet-switched cells; "
+            "placebo_sign='r' and placebo_controls= apply to the pair-by-pair "
+            "estimators only.",
+            recovery_hint=(
+                "Drop placebo_sign / placebo_controls, or set "
+                "robust_dynamic=False to use them."
+            ),
+            diagnostics={
+                "placebo_sign": placebo_sign,
+                "placebo_controls": placebo_controls,
+            },
+        )
+    placebo_controls_used = placebo_controls or "refit"
     df = data.copy()
     check_columns(
         df,
@@ -290,51 +358,61 @@ def did_multiplegt(
     # ── Sort and compute main estimate ───────────────────────────── #
     df = df.sort_values([group, time]).reset_index(drop=True)
 
-    main = _estimate_did_m(df, y, group, time, treatment, controls, w=wcol)
-
-    if controls and (placebo > 0 or dynamic > 0):
-        warnings.warn(
-            "sp.did_multiplegt: controls= adjusts the main DID_M estimate "
-            "only; the placebo and dynamic effects are computed without the "
-            "controls. Stata's did_multiplegt_old adjusts them in a different "
-            "sample (cells not yet switched), which this function does not "
-            "implement. For controlled event-study effects use "
-            "sp.did_multiplegt_dyn(controls=...), which matches Stata's "
-            "did_multiplegt_dyn.",
-            UserWarning,
-            stacklevel=2,
+    def _main(frame: pd.DataFrame) -> Dict[str, Any]:
+        if not robust_dynamic:
+            return _estimate_did_m(frame, y, group, time, treatment, controls, w=wcol)
+        # Stata's e(effect_0) under robust_dynamic is DID_0 of the
+        # first-time switchers, not DID_M.
+        first = first_switch_effect(
+            frame, y, group, time, treatment, controls, "dynamic", 0, w=wcol
         )
+        return {
+            "did_m": first["estimate"],
+            "n_switching_cells": first["n_cells"],
+            "n_switchers": first["n_switchers"],
+            "cell_estimates": first["cells"],
+        }
 
-    # ── Placebo effects ──────────────────────────────────────────── #
-    placebo_results = []
-    for lag_idx in range(1, placebo + 1):
-        plac = _estimate_placebo(
-            df,
+    def _placebo(frame: pd.DataFrame, lag: int) -> Dict[str, Any]:
+        if robust_dynamic:
+            return first_switch_effect(
+                frame, y, group, time, treatment, controls, "placebo", lag, w=wcol
+            )
+        main_slopes = (
+            _stayer_slopes(frame, y, group, time, treatment, controls, wcol)
+            if controls and placebo_controls_used == "main"
+            else None
+        )
+        return _estimate_placebo(
+            frame,
             y,
             group,
             time,
             treatment,
             controls,
-            lag=lag_idx,
+            lag=lag,
             placebo_sign=placebo_sign,
             w=wcol,
+            placebo_controls=placebo_controls_used,
+            main_slopes=main_slopes,
         )
-        placebo_results.append(plac)
+
+    def _dynamic(frame: pd.DataFrame, horizon: int) -> Dict[str, Any]:
+        if robust_dynamic:
+            return first_switch_effect(
+                frame, y, group, time, treatment, controls, "dynamic", horizon, w=wcol
+            )
+        return _estimate_dynamic(
+            frame, y, group, time, treatment, controls, horizon=horizon, w=wcol
+        )
+
+    main = _main(df)
+
+    # ── Placebo effects ──────────────────────────────────────────── #
+    placebo_results = [_placebo(df, lag_idx) for lag_idx in range(1, placebo + 1)]
 
     # ── Dynamic effects ──────────────────────────────────────────── #
-    dynamic_results = []
-    for horizon_idx in range(0, dynamic + 1):
-        dyn = _estimate_dynamic(
-            df,
-            y,
-            group,
-            time,
-            treatment,
-            controls,
-            horizon=horizon_idx,
-            w=wcol,
-        )
-        dynamic_results.append(dyn)
+    dynamic_results = [_dynamic(df, h) for h in range(0, dynamic + 1)]
 
     # ── Bootstrap standard errors ────────────────────────────────── #
     rng = np.random.default_rng(seed)
@@ -356,39 +434,17 @@ def did_multiplegt(
             frames.append(chunk)
         bdf = pd.concat(frames, ignore_index=True)
 
-        b_main = _estimate_did_m(bdf, y, group, time, treatment, controls, w=wcol)
-        boot_main[b] = b_main["did_m"]
+        boot_main[b] = _main(bdf)["did_m"]
 
         if placebo > 0:
             assert boot_placebo is not None
             for lag_idx in range(1, placebo + 1):
-                plac = _estimate_placebo(
-                    bdf,
-                    y,
-                    group,
-                    time,
-                    treatment,
-                    controls,
-                    lag=lag_idx,
-                    placebo_sign=placebo_sign,
-                    w=wcol,
-                )
-                boot_placebo[b, lag_idx - 1] = plac["estimate"]
+                boot_placebo[b, lag_idx - 1] = _placebo(bdf, lag_idx)["estimate"]
 
         if dynamic >= 0:
             assert boot_dynamic is not None
             for horizon_idx in range(0, dynamic + 1):
-                dyn = _estimate_dynamic(
-                    bdf,
-                    y,
-                    group,
-                    time,
-                    treatment,
-                    controls,
-                    horizon=horizon_idx,
-                    w=wcol,
-                )
-                boot_dynamic[b, horizon_idx] = dyn["estimate"]
+                boot_dynamic[b, horizon_idx] = _dynamic(bdf, horizon_idx)["estimate"]
 
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -404,10 +460,21 @@ def did_multiplegt(
         se_main = p_main = float("nan")
         ci_main = (float("nan"), float("nan"))
         warnings.warn(
-            "did_multiplegt: no group changes treatment between two "
-            "consecutive periods while another group with the same previous "
-            "treatment stays put, so DID_M is not estimable; reported as "
-            "missing.",
+            (
+                (
+                    "did_multiplegt: no group switches treatment for the first "
+                    "time while another group with the same initial treatment has "
+                    "not switched yet, so DID_0 is not estimable; reported as "
+                    "missing."
+                )
+                if robust_dynamic
+                else (
+                    "did_multiplegt: no group changes treatment between two "
+                    "consecutive periods while another group with the same "
+                    "previous treatment stays put, so DID_M is not estimable; "
+                    "reported as missing."
+                )
+            ),
             UserWarning,
             stacklevel=2,
         )
@@ -449,6 +516,12 @@ def did_multiplegt(
             **_inference_row(
                 dynamic_results[horizon_idx]["estimate"],
                 boot_dynamic[:, horizon_idx] if boot_dynamic is not None else None,
+            ),
+            # first-time switchers (rows) behind DID_l; robust_dynamic only
+            **(
+                {"n_switchers": dynamic_results[horizon_idx]["n_switchers"]}
+                if robust_dynamic
+                else {}
             ),
         }
         for horizon_idx in range(dynamic + 1)
@@ -512,8 +585,13 @@ def did_multiplegt(
     )
 
     # ── Assemble model_info ──────────────────────────────────────── #
+    _method = (
+        "de Chaisemartin-D'Haultfoeuille DID_l (first-time switchers)"
+        if robust_dynamic
+        else "de Chaisemartin-D'Haultfoeuille (2020)"
+    )
     model_info: Dict[str, Any] = {
-        "estimator": "de Chaisemartin-D'Haultfoeuille (2020)",
+        "estimator": _method,
         "n_switching_cells": main["n_switching_cells"],
         "n_switchers": main["n_switchers"],
         "n_boot": n_boot,
@@ -521,9 +599,14 @@ def did_multiplegt(
         "n_rows_dropped_missing": n_incomplete,
         "cluster_var": cluster_var,
         "controls": controls,
-        # controls= adjusts DID_M only (see the warning above)
-        "controls_scope": (
-            None if not controls else ("main" if placebo or dynamic else "all")
+        # the main, placebo and dynamic estimates are all adjusted
+        "controls_scope": "all" if controls else None,
+        "robust_dynamic": bool(robust_dynamic),
+        # how the placebos' control slopes are fitted (pair-by-pair path)
+        "placebo_controls": (
+            placebo_controls_used
+            if controls and placebo and not robust_dynamic
+            else None
         ),
         # rows below the group level are averaged to (group, period) cells,
         # each weighted by its row count (Stata did_multiplegt_old)
@@ -537,7 +620,7 @@ def did_multiplegt(
     }
 
     _result = CausalResult(
-        method="de Chaisemartin-D'Haultfoeuille (2020)",
+        method=_method,
         estimand="ATT",
         estimate=float(main["did_m"]),
         se=float(se_main),
@@ -567,6 +650,9 @@ def did_multiplegt(
                 "n_boot": n_boot,
                 "seed": seed,
                 "alpha": alpha,
+                "placebo_sign": placebo_sign,
+                "robust_dynamic": robust_dynamic,
+                "placebo_controls": placebo_controls,
             },
             data=data,
             overwrite=False,
@@ -685,13 +771,12 @@ def _stayer_slopes(
     stay = fd[fd["_d"] == fd["_d_prev"]]
     slopes: Dict[float, np.ndarray] = {}
     for base, sub in stay.groupby("_d_prev", sort=True):
-        dummies = pd.get_dummies(sub["_t"]).to_numpy(dtype=float)
-        X = np.hstack([sub[dx_cols].to_numpy(dtype=float), dummies])
-        sw = np.sqrt(sub["_w"].to_numpy(dtype=float))
-        beta = np.linalg.lstsq(
-            X * sw[:, None], sub["_dy"].to_numpy(dtype=float) * sw, rcond=None
-        )[0]
-        slopes[float(base)] = beta[: len(controls)]
+        slopes[float(base)] = period_fe_slopes(
+            sub[dx_cols].to_numpy(dtype=float),
+            sub["_t"],
+            sub["_dy"].to_numpy(dtype=float),
+            sub["_w"].to_numpy(dtype=float),
+        )
     return slopes
 
 
@@ -866,6 +951,62 @@ def _estimate_did_m(
     }
 
 
+def _control_diffs(
+    xpivs: List[pd.DataFrame], idx: Any, t_a: Any, t_b: Any
+) -> np.ndarray:
+    """``X_{t_a} - X_{t_b}`` for the groups ``idx``, one column per control."""
+    return np.column_stack(
+        [(xp.loc[idx, t_a] - xp.loc[idx, t_b]).to_numpy(dtype=float) for xp in xpivs]
+    )
+
+
+def _refit_slopes(
+    stayer_sets: List[Tuple[Any, float, Any, Any, Any]],
+    ypiv: pd.DataFrame,
+    xpivs: List[pd.DataFrame],
+    wpiv: Optional[pd.DataFrame],
+) -> Dict[float, np.ndarray]:
+    """Slopes refitted on one placebo's or dynamic effect's own stayers.
+
+    ``stayer_sets`` holds ``(t, baseline, stayers, t_a, t_b)`` for every
+    switching period ``t``: the regression is of ``Y_{t_a} - Y_{t_b}`` on
+    ``X_{t_a} - X_{t_b}`` and period effects over all of them, per baseline,
+    each cell weighted by its size at ``t`` (R ``DIDmultiplegt`` 0.1.4, black
+    box: it runs the DID_M machinery, controls included, on the lagged or
+    long differences).
+    """
+    by_base: Dict[float, List[Tuple[np.ndarray, np.ndarray, np.ndarray, Any]]] = {}
+    for t_c, base, st, t_a, t_b in stayer_sets:
+        if len(st) == 0:
+            continue
+        dy = (ypiv.loc[st, t_a] - ypiv.loc[st, t_b]).to_numpy(dtype=float)
+        dx = _control_diffs(xpivs, st, t_a, t_b)
+        w = (
+            wpiv.loc[st, t_c].to_numpy(dtype=float)
+            if wpiv is not None
+            else np.ones(len(st))
+        )
+        by_base.setdefault(float(base), []).append((dy, dx, w, t_c))
+    slopes: Dict[float, np.ndarray] = {}
+    for base, parts in by_base.items():
+        period = np.concatenate([np.full(len(p[0]), i) for i, p in enumerate(parts)])
+        slopes[base] = period_fe_slopes(
+            np.vstack([p[1] for p in parts]),
+            period,
+            np.concatenate([p[0] for p in parts]),
+            np.concatenate([p[2] for p in parts]),
+        )
+    return slopes
+
+
+def _controls_complete(xpivs: List[pd.DataFrame], idx: Any, t_a: Any, t_b: Any) -> Any:
+    """The groups of ``idx`` whose controls are observed at both dates."""
+    keep = np.ones(len(idx), dtype=bool)
+    for xp in xpivs:
+        keep &= (xp.loc[idx, t_a].notna() & xp.loc[idx, t_b].notna()).to_numpy()
+    return idx[keep]
+
+
 def _estimate_placebo(
     df: pd.DataFrame,
     y: str,
@@ -876,6 +1017,8 @@ def _estimate_placebo(
     lag: int,
     placebo_sign: str = "stata",
     w: Optional[str] = None,
+    placebo_controls: str = "refit",
+    main_slopes: Optional[Dict[float, np.ndarray]] = None,
 ) -> Dict[str, Any]:
     """
     Placebo test at lag *l* (de Chaisemartin--D'Haultfoeuille 2020).
@@ -898,6 +1041,12 @@ def _estimate_placebo(
     and R's ``DIDmultiplegt`` 0.1.4 reports ``-0.024269``. ``placebo_sign``
     selects between them; the default preserves the Stata convention this
     function has always used. See MIGRATION.md.
+
+    With ``controls`` the placebo differences become ``dY - dX @ theta_d``.
+    ``placebo_controls="refit"`` (R ``DIDmultiplegt`` 0.1.4) fits
+    ``theta_d`` on this placebo's own stayers and lagged differences;
+    ``"main"`` (Stata ``did_multiplegt_old``) reuses ``main_slopes``, the
+    slopes of the main DID_M estimate.
     """
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
@@ -907,9 +1056,14 @@ def _estimate_placebo(
         if w
         else None
     )
+    xpivs = [
+        df.pivot_table(index=group, columns=time, values=c, aggfunc="first")
+        for c in (controls or [])
+    ]
 
     estimates: List[float] = []
     weights: List[float] = []
+    cells: List[Tuple[Any, float, Any, Any, Any, Any]] = []
 
     for i in range(1, len(periods)):
         t_prev, t_curr = periods[i - 1], periods[i]  # switching step (t-1 -> t)
@@ -939,33 +1093,53 @@ def _estimate_placebo(
                 ]
             sw = sw[ypiv.loc[sw, t_end].notna() & ypiv.loc[sw, t_base].notna()]
             st = st[ypiv.loc[st, t_end].notna() & ypiv.loc[st, t_base].notna()]
-            if len(sw) == 0 or len(st) == 0:
+            if xpivs:
+                sw = _controls_complete(xpivs, sw, t_end, t_base)
+                st = _controls_complete(xpivs, st, t_end, t_base)
+            cells.append((t_curr, base, sw, st, t_end, t_base))
+
+    theta: Dict[float, np.ndarray] = {}
+    if xpivs:
+        theta = (
+            dict(main_slopes or {})
+            if placebo_controls == "main"
+            else _refit_slopes(
+                [(c[0], c[1], c[3], c[4], c[5]) for c in cells], ypiv, xpivs, wpiv
+            )
+        )
+
+    for t_curr, base, sw, st, t_end, t_base in cells:
+        if len(sw) == 0 or len(st) == 0:
+            continue
+        dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
+        pdiff = (ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).to_numpy(dtype=float)
+        st_diff = ypiv.loc[st, t_end] - ypiv.loc[st, t_base]
+        if xpivs:
+            th = theta.get(float(base))
+            if th is None:
                 continue
-            dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
-            pdiff = (ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).to_numpy(dtype=float)
-            if wpiv is None:
-                pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
-                abs_change = float(np.abs(dd).sum())
-                signed = float(np.sum(np.sign(dd) * (pdiff - pt))) / abs_change
-            else:
-                # cells weigh their size in the switching period (Stata)
-                w_sw = wpiv.loc[sw, t_curr].to_numpy(dtype=float)
-                w_st = wpiv.loc[st, t_curr].to_numpy(dtype=float)
-                st_diff = (ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).to_numpy(
-                    dtype=float
-                )
-                pt = _wmean(st_diff, w_st)
-                abs_change = float(np.sum(w_sw * np.abs(dd)))
-                signed = float(np.sum(w_sw * np.sign(dd) * (pdiff - pt))) / abs_change
-            # ⚠️ dCDH's own Stata and R implementations disagree here. On
-            # did::mpdta both return |placebo_1| = 0.024269, and the three
-            # effects agree to six decimals, but Stata reports +0.024269 and
-            # DIDmultiplegt 0.1.4 reports -0.024269. Neither is "the" answer,
-            # so the convention is a parameter and the default preserves what
-            # this function has always reported.
-            flip = -1.0 if placebo_sign == "stata" else 1.0
-            estimates.append(flip * signed)
-            weights.append(abs_change)
+            pdiff = pdiff - _control_diffs(xpivs, sw, t_end, t_base) @ th
+            st_diff = st_diff - _control_diffs(xpivs, st, t_end, t_base) @ th
+        if wpiv is None:
+            pt = float(st_diff.mean())
+            abs_change = float(np.abs(dd).sum())
+            signed = float(np.sum(np.sign(dd) * (pdiff - pt))) / abs_change
+        else:
+            # cells weigh their size in the switching period (Stata and R)
+            w_sw = wpiv.loc[sw, t_curr].to_numpy(dtype=float)
+            w_st = wpiv.loc[st, t_curr].to_numpy(dtype=float)
+            pt = _wmean(st_diff.to_numpy(dtype=float), w_st)
+            abs_change = float(np.sum(w_sw * np.abs(dd)))
+            signed = float(np.sum(w_sw * np.sign(dd) * (pdiff - pt))) / abs_change
+        # ⚠️ dCDH's own Stata and R implementations disagree here. On
+        # did::mpdta both return |placebo_1| = 0.024269, and the three
+        # effects agree to six decimals, but Stata reports +0.024269 and
+        # DIDmultiplegt 0.1.4 reports -0.024269. Neither is "the" answer,
+        # so the convention is a parameter and the default preserves what
+        # this function has always reported.
+        flip = -1.0 if placebo_sign == "stata" else 1.0
+        estimates.append(flip * signed)
+        weights.append(abs_change)
 
     if not estimates:
         # No switching cell with a comparison cell: not estimable. Zero
@@ -989,8 +1163,7 @@ def _estimate_dynamic(
     w: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Dynamic effect at horizon *l* (de Chaisemartin--D'Haultfoeuille 2020,
-    dynamic-robust).
+    Dynamic effect at horizon *l*, pair by pair (R ``DIDmultiplegt`` 0.1.4).
 
     For switchers at time t (relative to baseline d_{t-1}), the long-difference
     Y_{t+l} - Y_{t-1} is compared to that of ROBUST stayers: units that share the
@@ -1003,6 +1176,12 @@ def _estimate_dynamic(
     having switched l periods ago", and the reference implementation excludes
     it (``dynamic_cond``). Including such units is what this used to do; see
     MIGRATION.md.
+
+    Cells of several rows weigh their size at the switching period ``t``, and
+    ``controls`` are netted out with slopes refitted on the long differences
+    of these robust stayers (both R, black box). The first-time-switcher
+    estimator of Stata ``did_multiplegt_old, robust_dynamic`` is
+    :func:`._dcdh_first_switch.first_switch_effect`.
     """
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
@@ -1012,9 +1191,14 @@ def _estimate_dynamic(
         if w
         else None
     )
+    xpivs = [
+        df.pivot_table(index=group, columns=time, values=c, aggfunc="first")
+        for c in (controls or [])
+    ]
 
     estimates: List[float] = []
     weights: List[float] = []
+    cells: List[Tuple[Any, float, Any, Any, Any, Any]] = []
 
     for i in range(1, len(periods)):
         t_prev, t_curr = periods[i - 1], periods[i]
@@ -1041,32 +1225,44 @@ def _estimate_dynamic(
             st = in_base[stable]
             sw = sw[ypiv.loc[sw, t_future].notna() & ypiv.loc[sw, t_prev].notna()]
             st = st[ypiv.loc[st, t_future].notna() & ypiv.loc[st, t_prev].notna()]
-            if len(sw) == 0 or len(st) == 0:
+            if xpivs:
+                sw = _controls_complete(xpivs, sw, t_future, t_prev)
+                st = _controls_complete(xpivs, st, t_future, t_prev)
+            cells.append((t_curr, base, sw, st, t_future, t_prev))
+
+    theta: Dict[float, np.ndarray] = {}
+    if xpivs:
+        theta = _refit_slopes(
+            [(c[0], c[1], c[3], c[4], c[5]) for c in cells], ypiv, xpivs, wpiv
+        )
+
+    for t_curr, base, sw, st, t_future, t_prev in cells:
+        if len(sw) == 0 or len(st) == 0:
+            continue
+        dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
+        ldiff = (ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).to_numpy(dtype=float)
+        st_diff = ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]
+        if xpivs:
+            th = theta.get(float(base))
+            if th is None:
                 continue
-            dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
-            ldiff = (ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).to_numpy(
-                dtype=float
+            ldiff = ldiff - _control_diffs(xpivs, sw, t_future, t_prev) @ th
+            st_diff = st_diff - _control_diffs(xpivs, st, t_future, t_prev) @ th
+        if wpiv is None:
+            ldt = float(st_diff.mean())
+            abs_change = float(np.abs(dd).sum())
+            estimates.append(float(np.sum(np.sign(dd) * (ldiff - ldt))) / abs_change)
+        else:
+            # cells weigh their size in the switching period t (R, black
+            # box; Stata's first-time-switcher DID_l weighs t + l instead)
+            w_sw = wpiv.loc[sw, t_curr].to_numpy(dtype=float)
+            w_st = wpiv.loc[st, t_curr].to_numpy(dtype=float)
+            ldt = _wmean(st_diff.to_numpy(dtype=float), w_st)
+            abs_change = float(np.sum(w_sw * np.abs(dd)))
+            estimates.append(
+                float(np.sum(w_sw * np.sign(dd) * (ldiff - ldt))) / abs_change
             )
-            if wpiv is None:
-                ldt = float((ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).mean())
-                abs_change = float(np.abs(dd).sum())
-                estimates.append(
-                    float(np.sum(np.sign(dd) * (ldiff - ldt))) / abs_change
-                )
-            else:
-                # cells weigh their size at t + l, the end of the long
-                # difference (Stata did_multiplegt_old)
-                w_sw = wpiv.loc[sw, t_future].to_numpy(dtype=float)
-                w_st = wpiv.loc[st, t_future].to_numpy(dtype=float)
-                st_diff = (ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).to_numpy(
-                    dtype=float
-                )
-                ldt = _wmean(st_diff, w_st)
-                abs_change = float(np.sum(w_sw * np.abs(dd)))
-                estimates.append(
-                    float(np.sum(w_sw * np.sign(dd) * (ldiff - ldt))) / abs_change
-                )
-            weights.append(abs_change)
+        weights.append(abs_change)
 
     if not estimates:
         # No switching cell with a comparison cell: not estimable. Zero

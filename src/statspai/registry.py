@@ -29114,8 +29114,10 @@ def _build_registry() -> None:
                 "dynamic horizons, cluster bootstrap SE, joint placebo test "
                 "and average-cumulative-effect summary from dCDH (2024). The "
                 "treatment may be binary or discrete (an effect per unit of "
-                "treatment). For the dCDH (2024) intertemporal event study "
-                "(Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn."
+                "treatment). robust_dynamic=True gives Stata "
+                "did_multiplegt_old's first-time-switcher DID_l estimators. "
+                "For the dCDH (2024) intertemporal event study with analytic "
+                "SEs (Stata did_multiplegt_dyn) use sp.did_multiplegt_dyn."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -29144,7 +29146,9 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Controls residualised via first differences",
+                    "Controls: each estimate nets out dX @ theta_d, theta_d "
+                    "fitted per baseline on that estimate's control cells "
+                    "(main, placebo and dynamic effects)",
                 ),
                 ParamSpec(
                     "placebo", "int", False, 0, "Number of pre-treatment placebo lags"
@@ -29181,6 +29185,35 @@ def _build_registry() -> None:
                         "did_multiplegt_old, robust_dynamic. Same magnitude"
                     ),
                     enum=["stata", "r"],
+                ),
+                ParamSpec(
+                    "robust_dynamic",
+                    "bool",
+                    False,
+                    False,
+                    description=(
+                        "True: Stata did_multiplegt_old, robust_dynamic. The "
+                        "estimate is DID_0 and dynamic / placebo effects use "
+                        "first-time switchers against not-yet-switched groups "
+                        "with the same initial treatment. False (default): "
+                        "DID_M with R DIDmultiplegt 0.1.4's pair-by-pair "
+                        "dynamic effects. They differ when treatment switches "
+                        "on and off"
+                    ),
+                ),
+                ParamSpec(
+                    "placebo_controls",
+                    "str",
+                    False,
+                    None,
+                    description=(
+                        "With controls and placebos on the default path: "
+                        "'refit' (when omitted) fits the slopes on each "
+                        "placebo's own stayers (R DIDmultiplegt 0.1.4); 'main' "
+                        "reuses the DID_M slopes (Stata did_multiplegt_old). "
+                        "Not allowed with robust_dynamic=True"
+                    ),
+                    enum=["refit", "main"],
                 ),
             ],
             returns=(

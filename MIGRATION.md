@@ -5,6 +5,32 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` placebo and dynamic effects with `controls=`; `robust_dynamic=`
+
+Checked against Stata 18 `did_multiplegt_old` and R `DIDmultiplegt` 0.1.4 on
+the same CSV (`tests/reference_parity/test_did_multiplegt_dynamic_conventions.py`).
+
+- **`controls=` with `placebo=` or `dynamic=`.** These effects ignored the
+  controls (1.40.0 silently, the 1.41 development line with a warning). They
+  are now adjusted like DID_M, with slopes fitted on each estimate's own
+  control cells, as R does. On the 2026-10-21 test panel (cell means)
+  `dynamic_1` moves from 0.59200 to 0.57119 (R 0.57119) and `placebo_1`
+  (`placebo_sign='r'`) from -0.16141 to -0.11499 (R -0.11499). Stata's
+  placebos reuse the DID_M slopes instead: pass `placebo_controls='main'`
+  (-0.11457 there, Stata -0.11457).
+- **Dynamic effects with several rows per cell** weigh a cell by its size in
+  the switching period, as R does (0.66028 on the individual-level test
+  panel, R 0.66028). 1.40.0 used the first row of each cell.
+- **Stata's `robust_dynamic` estimators** are new, under
+  `robust_dynamic=True`. The default does not change. On treatments that
+  switch on and off they are a different estimator (first-time switchers
+  against groups not yet switched), and `result.estimate` is then DID_0,
+  not DID_M.
+
+To get the old unadjusted placebo or dynamic numbers, drop `controls=`.
+
+---
+
 ## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` with several rows per cell, and with `controls=`
 
 Two correctness fixes, both checked against Stata 18 `did_multiplegt_old`
@@ -19,8 +45,7 @@ on the same CSV (`tests/reference_parity/test_did_multiplegt_disaggregated_stata
 - **`controls=`.** The adjustment now uses Stata's regression (stayer cells,
   period effects, one slope per baseline treatment value). On the
   group-level test panel DID_M moves from 0.7015 to 0.6425 (Stata 0.6425).
-  Placebo and dynamic effects still ignore the controls and now say so in a
-  warning; `sp.did_multiplegt_dyn(controls=)` adjusts them.
+  Placebo and dynamic effects use the controls too, see the next section.
 
 To reproduce an old number there is no switch: both old results were
 computed with rules that no reference implementation uses.

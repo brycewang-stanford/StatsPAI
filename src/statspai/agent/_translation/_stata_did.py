@@ -661,25 +661,37 @@ def _h_did_had(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
-    """``did_multiplegt_old Y G T D [, placebo() breps() cluster() controls()
-    seed()]`` -> ``sp.did_multiplegt``, the DID_M estimator.
+    """``did_multiplegt_old Y G T D [, robust_dynamic dynamic() placebo()
+    breps() cluster() controls() seed()]`` -> ``sp.did_multiplegt``.
 
-    ``robust_dynamic`` and ``dynamic()`` switch the command to the
-    intertemporal estimators, which are ``sp.did_multiplegt_dyn``'s: refused
-    here so that the pair-by-pair estimator is not returned in their place.
+    Without ``robust_dynamic`` this is DID_M with the command's forward-
+    difference placebos and, with ``controls()``, the main estimate's slopes
+    in the placebos (``placebo_controls='main'``). ``robust_dynamic`` maps to
+    ``robust_dynamic=True``, the first-time-switcher DID_l estimators; the
+    command itself refuses ``dynamic()`` without it, and so does this
+    translation. ``firstdiff_placebo`` is not implemented and is refused.
     """
     name = cmd.command
     bad = _positional(cmd, name, "Y G T D", 4, 4)
     if bad:
         return bad
     opts = cmd.options
-    if "robust_dynamic" in opts or opts.get("dynamic") not in (None, "0"):
+    robust = "robust_dynamic" in opts
+    if not robust and opts.get("dynamic") not in (None, "0"):
         return _emit_error(
-            f"{name}, robust_dynamic / dynamic() are the intertemporal "
-            "estimators; use `did_multiplegt_dyn Y G T D, effects() "
-            "placebo()`, which translates to sp.did_multiplegt_dyn.",
+            f"{name}, dynamic() requires robust_dynamic (the command refuses "
+            "it otherwise). Add robust_dynamic, or use `did_multiplegt_dyn Y "
+            "G T D, effects() placebo()`, which translates to "
+            "sp.did_multiplegt_dyn.",
             command=name,
             suggestions=["did_multiplegt_dyn"],
+        )
+    if "firstdiff_placebo" in opts:
+        return _emit_error(
+            f"{name}, firstdiff_placebo is not implemented in "
+            "sp.did_multiplegt; without it the command's robust_dynamic "
+            "placebos are the long-difference ones, which are.",
+            command=name,
         )
     y, group, time, treat = cmd.varlist
     args: Dict[str, Any] = {
@@ -687,13 +699,17 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
         "group": group,
         "time": time,
         "treatment": treat,
-        # the command's placebos are forward differences
-        "placebo_sign": "r",
     }
+    if robust:
+        args["robust_dynamic"] = True
+    else:
+        # the command's placebos are forward differences
+        args["placebo_sign"] = "r"
     notes: List[str] = []
     lost: List[str] = []
     for option, argument, default in (
         ("placebo", "placebo", None),
+        ("dynamic", "dynamic", None),
         ("breps", "n_boot", 50),
         ("seed", "seed", None),
     ):
@@ -712,6 +728,9 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
         return bad
     if names:
         args["controls"] = names
+        if not robust and args.get("placebo"):
+            # the command's placebos reuse the main estimate's slopes
+            args["placebo_controls"] = "main"
     if opts.get("cluster"):
         args["cluster"] = (opts.get("cluster") or "").split()[0]
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
