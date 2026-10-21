@@ -5431,3 +5431,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces after the feols integer-term fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `b1df36198` (fix), `0c0cc702b` (traces and fixture lock).
+- **Reason.** `sp.feols` / `fepois` / `feglm` now cast integer columns read
+  by `I(...)` terms to float64 (`fixest/wrapper.py`, new helper in
+  `src/statspai/core/_formula_dtypes.py`). Those files are on the traced
+  paths of Track A modules 01 14 48 51 53 54 55 56 57 67 and original-data
+  modules 01 04 04b 09. All were re-run on the no-Rust path first: the
+  committed results reproduce within 2e-11 relative, so the result files
+  were kept and only the traces re-recorded. The same commit refreshes
+  the Tier A fixture lock, stale since `82fc04d7d` edited
+  `tests/r_parity/67_panel_glm.py`.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
