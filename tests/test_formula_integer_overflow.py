@@ -161,3 +161,53 @@ def test_unwrapped_narrow_integer_column_is_silent():
     with warnings.catch_warnings():
         warnings.simplefilter("error", StatsPAIWarning)
         sp.regress("y ~ age + educ", data=ints)
+
+
+# ---- sp.feols / sp.fepois (fixest grammar) ----------------------------------
+
+
+def _fixest_panel():
+    rng = np.random.default_rng(0)
+    n = 400
+    pop = rng.integers(2_100_000, 2_600_000, n)  # pop**3 > 2**63
+    df = pd.DataFrame(
+        {
+            "pop": pop.astype("int64"),
+            "g": rng.integers(0, 10, n),
+            "rel": rng.integers(-2, 3, n),
+        }
+    )
+    df["y"] = (df["pop"].astype(float) / 1e6) ** 3 + rng.normal(size=n)
+    return df
+
+
+@pytest.mark.parametrize(
+    "fml",
+    [
+        "y ~ I(pop**3)",
+        "y ~ I(pop**3 / 1e18) | g",
+        "y ~ I(pop**3 / 1e18) + i(rel, ref=0) | g",
+    ],
+)
+@pytest.mark.parametrize("fit", ["feols", "fepois"])
+def test_fixest_generated_term_equals_float64(fml, fit):
+    df = _fixest_panel()
+    fn = getattr(sp, fit)
+    got = fn(fml, data=df).params
+    want = fn(fml, data=df.assign(pop=df["pop"].astype(float))).params
+    # i(rel) keeps its integer level names (rel::-2, not rel::-2.0)
+    assert list(got.index) == list(want.index)
+    np.testing.assert_allclose(got.to_numpy(), want.to_numpy(), rtol=1e-10, atol=0)
+
+
+def test_fixest_stepwise_arguments_are_read():
+    df = _fixest_panel()
+    got = sp.feols("y ~ csw(I(pop**3 / 1e18), rel) | g", data=df)
+    want = sp.feols(
+        "y ~ csw(I(pop**3 / 1e18), rel) | g",
+        data=df.assign(pop=df["pop"].astype(float)),
+    )
+    for a, b in zip(got, want):
+        np.testing.assert_allclose(
+            a.params.to_numpy(), b.params.to_numpy(), rtol=1e-10, atol=0
+        )

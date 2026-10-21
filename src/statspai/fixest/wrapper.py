@@ -44,6 +44,57 @@ _VARYING_SLOPE_RE = re.compile(r"([A-Za-z_]\w*)\s*\[\[?\s*([^\]]+?)\s*\]\]?")
 _STATA_SLOPE_RE = re.compile(r"i\.\s*([A-Za-z_]\w*)\s*#\s*c\.\s*([A-Za-z_]\w*)")
 
 
+_FIXEST_FACTOR = re.compile(r"(?<![\w.])i\s*\(")
+_FIXEST_STEPWISE = re.compile(r"^\s*(?:c?sw0?|mvsw)\s*\((.*)\)\s*$", re.S)
+
+
+def _split_top_level(text: str, sep: str) -> List[str]:
+    """Split ``text`` on ``sep`` outside parentheses and brackets."""
+    parts, depth, start = [], 0, 0
+    for k, ch in enumerate(text):
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == sep and depth == 0:
+            parts.append(text[start:k])
+            start = k + 1
+    parts.append(text[start:])
+    return parts
+
+
+def _float_generated_fixest(data: Any, fml: Any) -> Any:
+    """Cast integer columns read by ``I(...)``-type terms to float64.
+
+    The fixest grammar is not patsy's, so the formula is cut at the
+    top-level ``|`` and each ``~`` part (the main equation and an IV first
+    stage) is parsed on its own; fixed-effect parts are left alone.
+    fixest's ``i(f, ...)`` is a factor, so it is read as ``C(...)`` and its
+    columns keep their integer level names, and the arguments of the
+    stepwise wrappers ``sw()`` / ``csw()`` are read one by one. Without
+    the cast ``I(pop**3)`` wraps around in int64 once ``pop`` passes about
+    two million and the coefficient is garbage with no error.
+    """
+    if not isinstance(fml, str) or not isinstance(data, pd.DataFrame):
+        return data
+    from ..core._formula_dtypes import (
+        float_generated_code_columns,
+        formula_factor_codes,
+    )
+
+    codes: List[str] = []
+    for part in _split_top_level(fml, "|"):
+        if "~" not in part:
+            continue
+        for code in formula_factor_codes(_FIXEST_FACTOR.sub("C(", part)):
+            inner = _FIXEST_STEPWISE.match(code)
+            if inner:
+                codes.extend(a.strip() for a in _split_top_level(inner.group(1), ","))
+            else:
+                codes.append(code)
+    return float_generated_code_columns(data, codes)
+
+
 def _require_frame_columns(
     data: pd.DataFrame,
     terms: List[str],
@@ -1913,6 +1964,7 @@ def feols(
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
     # column (what pd.read_stata returns for a Stata int) is garbage.
     data = _widen_narrow_integers(data)
+    data = _float_generated_fixest(data, fml)
     # ``i(rel, ref=[-1, -5])``: several reference levels (fixest's
     # ``ref = c(-1, -5)``); pyfixest takes one, so rewrite and map back.
     if isinstance(fml, str) and isinstance(data, pd.DataFrame):
@@ -2385,6 +2437,7 @@ def fepois(
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml, fixest_fe=True)
     data = _widen_narrow_integers(data)
+    data = _float_generated_fixest(data, fml)
     _reject_silent_varying_slopes(fml)
     if backend not in ("auto", "pyfixest", "native"):
         raise MethodIncompatibility(
@@ -2662,6 +2715,7 @@ def feglm(
     # column (what pd.read_stata returns for a Stata int) is garbage.
     fml = r_formula_idioms(fml, fixest_fe=True)
     data = _widen_narrow_integers(data)
+    data = _float_generated_fixest(data, fml)
     _reject_silent_varying_slopes(fml)
     if backend not in ("auto", "pyfixest", "native"):
         raise MethodIncompatibility(

@@ -33,6 +33,7 @@ import pandas as pd
 
 __all__ = [
     "float_generated_term_columns",
+    "float_generated_code_columns",
     "warn_wrapped_integer_columns",
     "formula_factor_codes",
 ]
@@ -112,7 +113,23 @@ def float_generated_term_columns(data: pd.DataFrame, formula: Any) -> pd.DataFra
         return data
     if not any(_is_int(t) for t in data.dtypes):
         return data
-    generated, categorical = _split_codes(formula_factor_codes(formula))
+    return float_generated_code_columns(data, formula_factor_codes(formula))
+
+
+def float_generated_code_columns(
+    data: pd.DataFrame, codes: Iterable[str]
+) -> pd.DataFrame:
+    """:func:`float_generated_term_columns` on factor codes already parsed.
+
+    For callers whose formula grammar is not patsy's (the fixest wrapper
+    hands over the codes of each ``~`` part, with ``i(...)`` written as
+    ``C(...)`` so that its levels keep their integer names).
+    """
+    if not isinstance(data, pd.DataFrame) or not data.columns.is_unique:
+        return data
+    if not any(_is_int(t) for t in data.dtypes):
+        return data
+    generated, categorical = _split_codes(codes)
     if not generated:
         return data
     cast = {}
