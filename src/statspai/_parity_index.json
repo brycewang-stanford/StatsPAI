@@ -5707,6 +5707,7 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_absorbing_reference.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
+        "tests/reference_parity/test_did_multiplegt_disaggregated_stata.py",
         "tests/reference_parity/test_did_multiplegt_parity.py"
       ],
       "also_verified_by": [

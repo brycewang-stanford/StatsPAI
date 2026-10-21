@@ -67688,7 +67688,7 @@
             "x-statspai-role": "columns"
           },
           "data": {
-            "description": "Panel data in long format (one row per unit-period).",
+            "description": "Panel data in long format: one row per group and period, or several (individuals within groups). Several rows are averaged to the (group, period) cell and the cell is weighted by its row count, as Stata ``did_multiplegt_old`` does. .. versionchanged:: 1.41.0 WARNING Correctness fix: several rows per cell used to be paired across periods (main estimate) or reduced to the first row (placebo and dynamic effects).",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -67777,7 +67777,7 @@
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/reference_parity/test_absorbing_reference.py",
       "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
-      "tests/reference_parity/test_did_multiplegt_parity.py"
+      "tests/reference_parity/test_did_multiplegt_disaggregated_stata.py"
     ],
     "validation_status": "certified"
   },
