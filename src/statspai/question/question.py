@@ -1227,13 +1227,18 @@ def _dispatch_estimator(
         if q.id is not None:
             did_columns.append(q.id)
         _require_columns_present(data, did_columns, "did")
+        did_kwargs = dict(kwargs)
+        if "crit_dist" not in did_kwargs and "parity" not in did_kwargs:
+            # Pin today's critical values: no FutureWarning users cannot
+            # act on. Switch with the crit_dist default (planned 1.41).
+            did_kwargs["crit_dist"] = "legacy"
         res = sp.did(
             data=data,
             y=q.outcome,
             treat=q.treatment,
             time=q.time,
             id=q.id,
-            **kwargs,
+            **did_kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(

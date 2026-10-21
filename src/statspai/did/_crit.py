@@ -92,9 +92,17 @@ def _external_stacklevel() -> int:
     level = 2  # the caller of this helper's caller issues warnings.warn
     frame: Optional[FrameType] = sys._getframe(2)
     prefix = _STATSPAI_DIR + os.sep
-    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(
-        prefix
-    ):
+    while frame is not None:
+        filename = frame.f_code.co_filename
+        if "importlib" in filename and "_bootstrap" in filename:
+            # warnings skips these frames without counting a level (the
+            # frame-input shim of every sp.* function is named so); walk
+            # past them, so a call nested in another sp.* function (e.g.
+            # sp.did -> sp.did_2x2) still reaches the user's frame.
+            frame = frame.f_back
+            continue
+        if not os.path.abspath(filename).startswith(prefix):
+            break
         level += 1
         frame = frame.f_back
     return level

@@ -86,7 +86,11 @@ No number changes.
   (group, period) cell. Otherwise a 0/1 column with several rows per period
   runs and warns with `ArgumentRoleWarning`; pass the unit identifier as
   `id=`.
-- New: `sp.did(parity=)` and `sp.cs_report(parity=)`. Defaults unchanged.
+- New: `sp.did(parity=)`, `sp.did(crit_dist=)` and `sp.cs_report(parity=)`.
+  Defaults unchanged. `sp.did(method='2x2' | 'sun_abraham')` without
+  `crit_dist=` shows the 1.41 `FutureWarning` of the estimator it runs;
+  pass `crit_dist='t'` to adopt the new rule or `crit_dist='legacy'` to
+  keep the current one whatever method `sp.did` picks.
 
 ---
 

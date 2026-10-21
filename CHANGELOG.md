@@ -12,9 +12,16 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.sun_abraham`, `sp.did_2x2`) and refuses it for the other methods.
   Under `parity=`, `base_period` reaches the CS fit only when passed, and
   under `parity='stata'` the aggregation's `n_boot` / `random_state` only
-  when passed (csdid's `estat` is analytic). `sp.did` also forwards
-  `crit_dist=` to an estimator whose signature has it, and refuses it
-  otherwise.
+  when passed (csdid's `estat` is analytic).
+- `sp.did(crit_dist=)` forwards to `sp.did_2x2` (`'t'` / `'residual'`) and
+  `sp.sun_abraham` (`'t'` / `'normal'`), so the 1.41 `FutureWarning` those
+  emit through `sp.did` can be acted on there; other methods refuse it.
+  `crit_dist='legacy'` keeps whichever estimator's pre-1.41 rule and is a
+  no-op where there is none, so library callers that go through `sp.did`
+  (`sp.causal_question`, `sp.compare_estimators`, `CausalWorkflow`) pin it
+  and do not warn. The warning now points at the user's line when the
+  estimator is reached through another `sp.*` function (`did/_crit.py`
+  walked past only one frame-input shim).
 - `sp.cs_report(parity=)` forwards to every `sp.callaway_santanna` fit and
   `sp.aggte` call of the report.
 

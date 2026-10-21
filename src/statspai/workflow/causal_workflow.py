@@ -404,7 +404,14 @@ class CausalWorkflow:
                 raise RuntimeError(
                     "2x2 DiD fallback requires treatment=... and time=...."
                 )
-            return sp.did(self.data, y=self.y, treat=self.treatment, time=self.time)
+            # crit_dist pinned until the default switch (planned 1.41).
+            return sp.did(
+                self.data,
+                y=self.y,
+                treat=self.treatment,
+                time=self.time,
+                crit_dist="legacy",
+            )
         if d == "rd" and self.running_var:
             return sp.rdrobust(
                 self.data, y=self.y, x=self.running_var, c=self.cutoff or 0.0
@@ -912,7 +919,14 @@ class CausalWorkflow:
                 time_col = self.time
                 _safe_call(
                     "2x2 DiD",
-                    lambda: sp.did(self.data, y=self.y, treat=treat_col, time=time_col),
+                    lambda: sp.did(
+                        self.data,
+                        y=self.y,
+                        treat=treat_col,
+                        time=time_col,
+                        # pinned until the crit_dist default switch (1.41)
+                        crit_dist="legacy",
+                    ),
                 )
             else:
                 _row(

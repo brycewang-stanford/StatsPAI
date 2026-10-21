@@ -9289,7 +9289,7 @@
     "name": "diagnose_result"
   },
   {
-    "description": "Difference-in-differences dispatcher. 2x2 (two periods, 0/1 treat) when id is omitted; with id, a 0/1 indicator on a multi-period panel is converted to first-treatment cohorts and Callaway-Sant'Anna runs (method='auto'). Pass method= to force '2x2', 'cs', 'sa', 'bjs', 'sdid' or 'ddd'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Difference-in-differences dispatcher. 2x2 (two periods, 0/1 treat) when id is omitted; with id, a 0/1 indicator on a multi-period panel is converted to first-treatment cohorts and Callaway-Sant'Anna runs. Pass method= to force '2x2', 'cs', 'sa', 'bjs', 'sdid' or 'ddd'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "aggregation": {
@@ -9313,6 +9313,13 @@
           },
           "type": "array"
         },
+        "crit_dist": {
+          "enum": [
+            "t",
+            "legacy"
+          ],
+          "type": "string"
+        },
         "id": {
           "description": "Unit identifier; required for staggered designs (method='cs'/'sa'/'bjs') and SDID",
           "type": "string"
@@ -9331,6 +9338,13 @@
             "bjs",
             "sdid",
             "staggered_rollout"
+          ],
+          "type": "string"
+        },
+        "parity": {
+          "enum": [
+            "r",
+            "stata"
           ],
           "type": "string"
         },

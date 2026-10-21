@@ -313,20 +313,14 @@ _PARITY_METHODS = frozenset(
     {"2x2", "callaway_santanna", "cs", "sun_abraham", "sa", "sunab"}
 )
 
-#: Keywords that sp.did forwards whenever the estimator it dispatches to
-#: has a parameter of that name (checked on the estimator's signature at
-#: call time, so an estimator that gains one is reached without a change
-#: here); otherwise they are refused as unknown.
-_SIGNATURE_FORWARDED = ("crit_dist",)
-
-
-def _accepts_keyword(func: Any, name: str) -> bool:
-    import inspect
-
-    try:
-        return name in inspect.signature(func).parameters
-    except (TypeError, ValueError):  # pragma: no cover - builtins
-        return False
+#: sp.did methods whose estimator takes ``crit_dist=``, with the value that
+#: ``crit_dist='legacy'`` stands for there (the pre-1.41 default).
+_CRIT_LEGACY = {
+    "2x2": "residual",
+    "sun_abraham": "normal",
+    "sa": "normal",
+    "sunab": "normal",
+}
 
 
 @records_call("did")
@@ -368,6 +362,7 @@ def did(
     seed: Optional[int] = None,
     design: Any = None,
     parity: Optional[Literal["r", "stata"]] = None,
+    crit_dist: Optional[str] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -501,12 +496,25 @@ def did(
         as the estimator's with ``parity=p``.
 
         .. versionadded:: 1.41.0
+    crit_dist : {'t', 'residual', 'normal', 'legacy'}, optional
+        Critical-value rule, forwarded to :func:`did_2x2` (``'t'`` /
+        ``'residual'``) or :func:`sun_abraham` (``'t'`` / ``'normal'``)
+        when ``method`` resolves to one of them; ``sp.did(...,
+        crit_dist=c)`` is then the same call as the estimator's. Both
+        warn (``FutureWarning``) when it is left unset and their default
+        would change in 1.41; pass ``'t'`` to adopt the Stata / fixest
+        rule now. ``'legacy'`` keeps the pre-1.41 rule of whichever
+        estimator runs (``'residual'`` / ``'normal'``) and is a no-op for
+        the methods without the option and under ``parity=``, so it can be
+        passed before the method is known. Any other value with a method that has no
+        ``crit_dist`` raises (Callaway-Sant'Anna uses normal critical
+        values).
+
+        .. versionadded:: 1.41.0
     **kwargs
         Branch-specific options: ``horizon`` / ``event_window`` /
         ``pretrends`` / ``pretrend_method`` for the BJS imputation
-        method, the synthetic-DiD options for ``'sdid'``. ``crit_dist``
-        is forwarded to whichever estimator ``method`` resolves to when
-        that estimator has a ``crit_dist`` parameter. Anything else
+        method, the synthetic-DiD options for ``'sdid'``. Anything else
         raises rather than being ignored.
 
     Returns
@@ -805,20 +813,30 @@ def did(
     _parity_kw: Dict[str, Any] = {} if parity is None else {"parity": parity}
     _explicit = _conv.explicit_args()
 
-    # Keywords forwarded to the dispatched estimator when it takes them.
-    _targets: Dict[str, Any] = {
-        "2x2": did_2x2,
-        "callaway_santanna": callaway_santanna,
-        "cs": callaway_santanna,
-        "sun_abraham": sun_abraham,
-        "sa": sun_abraham,
-        "sunab": sun_abraham,
-    }
-    _generic_kw: Dict[str, Any] = {}
-    for _name in _SIGNATURE_FORWARDED:
-        _target = _targets.get(method)
-        if _name in kwargs and _target is not None and _accepts_keyword(_target, _name):
-            _generic_kw[_name] = kwargs.pop(_name)
+    # ── crit_dist= goes to the 2x2 and Sun-Abraham estimators ─────── #
+    _crit_kw: Dict[str, Any] = {}
+    if crit_dist is not None:
+        _crit = crit_dist.strip().lower() if isinstance(crit_dist, str) else crit_dist
+        if _crit == "legacy":
+            # Each estimator's pre-1.41 rule; parity= sets its own.
+            if method in _CRIT_LEGACY and parity is None:
+                _crit_kw["crit_dist"] = _CRIT_LEGACY[method]
+        elif method in _CRIT_LEGACY:
+            _crit_kw["crit_dist"] = crit_dist
+        else:
+            raise MethodIncompatibility(
+                f"sp.did: crit_dist={crit_dist!r} is implemented by the 2x2 "
+                f"and Sun-Abraham estimators; method={method!r} has no "
+                "crit_dist option (Callaway-Sant'Anna uses normal critical "
+                "values).",
+                recovery_hint=(
+                    "Use method='2x2' or 'sun_abraham' with crit_dist=, drop "
+                    "crit_dist=, or pass crit_dist='legacy' to keep each "
+                    "estimator's current rule whatever the method."
+                ),
+                diagnostics={"method": method, "crit_dist": crit_dist},
+                alternative_functions=["sp.did_2x2", "sp.sun_abraham"],
+            )
 
     # ── Reject unknown keyword arguments ───────────────────────────── #
     #
@@ -886,7 +904,7 @@ def did(
             seed=seed,
             design=design,
             **_parity_kw,
-            **_generic_kw,
+            **_crit_kw,
         )
 
     # ── ω guard ────────────────────────────────────────────────────── #
@@ -978,7 +996,6 @@ def did(
             allow_unbalanced_panel=allow_unbalanced_panel,
             design=design,
             **_parity_kw,
-            **_generic_kw,
         )
         if aggregation is not None:
             if aggregation not in ("simple", "dynamic", "group", "calendar"):
@@ -1027,7 +1044,7 @@ def did(
             aggregation=aggregation,
             alpha=alpha,
             **_parity_kw,
-            **_generic_kw,
+            **_crit_kw,
         )
 
     if method in (

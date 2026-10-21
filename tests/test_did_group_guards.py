@@ -399,34 +399,132 @@ def test_did_without_parity_is_unchanged(staggered):
     _same(a, _quiet(sp.aggte, fit, type="simple", n_boot=1000, random_state=4))
 
 
-def test_did_forwards_crit_dist_when_the_estimator_takes_it(two_by_two, monkeypatch):
-    did_mod = importlib.import_module("statspai.did")
+def test_did_crit_dist_2x2_equals_direct_call(two_by_two):
+    kw = dict(y="y", treat="treated", time="post", cluster="unit")
+    for crit in ("t", "residual"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            a = sp.did(two_by_two, method="2x2", crit_dist=crit, **kw)
+            b = sp.did_2x2(two_by_two, crit_dist=crit, **kw)
+        _same(a, b)
+        assert (a.ci, a.pvalue) == (b.ci, b.pvalue)
+    # 't' is the critical value parity='stata' uses.
+    t = _quiet(sp.did, two_by_two, method="2x2", crit_dist="t", **kw)
+    st = _quiet(sp.did, two_by_two, method="2x2", parity="stata", **kw)
+    assert t.ci == st.ci
 
-    seen = {}
 
-    def fake_2x2(data, *, crit_dist=None, **kw):
-        seen["crit_dist"] = crit_dist
-        return "ok"
+def test_did_crit_dist_sun_abraham_equals_direct_call(staggered):
+    for crit in ("t", "normal"):
+        a = _quiet(
+            sp.did,
+            staggered,
+            y="y",
+            treat="g",
+            time="time",
+            id="unit",
+            method="sun_abraham",
+            crit_dist=crit,
+            aggregation="event_time",
+        )
+        b = _quiet(
+            sp.sun_abraham,
+            staggered,
+            y="y",
+            g="g",
+            t="time",
+            i="unit",
+            crit_dist=crit,
+            aggregation="event_time",
+        )
+        _same(a, b)
+        assert (a.ci, a.pvalue) == (b.ci, b.pvalue)
 
-    monkeypatch.setattr(did_mod, "did_2x2", fake_2x2)
-    out = sp.did(
-        two_by_two, y="y", treat="treated", time="post", method="2x2", crit_dist="t"
+
+def test_did_without_crit_dist_warns_at_the_caller(two_by_two):
+    with pytest.warns(FutureWarning, match="crit_dist") as rec:
+        sp.did(
+            two_by_two,
+            y="y",
+            treat="treated",
+            time="post",
+            method="2x2",
+            cluster="unit",
+        )
+    assert any(
+        w.filename == __file__ for w in rec if issubclass(w.category, FutureWarning)
     )
-    assert out == "ok" and seen == {"crit_dist": "t"}
 
 
-def test_did_refuses_crit_dist_when_the_estimator_lacks_it(staggered):
-    # did_imputation has no crit_dist: refused as unknown, never dropped.
-    with pytest.raises(sp.MethodIncompatibility, match="crit_dist"):
+def test_did_crit_dist_legacy_is_the_pre_141_rule_for_any_method(two_by_two, staggered):
+    kw = dict(y="y", treat="treated", time="post", cluster="unit")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        a = sp.did(two_by_two, method="2x2", crit_dist="legacy", **kw)
+        b = sp.did_2x2(two_by_two, crit_dist="residual", **kw)
+        sa = sp.did(
+            staggered,
+            y="y",
+            treat="g",
+            time="time",
+            id="unit",
+            method="sun_abraham",
+            crit_dist="legacy",
+            aggregation="event_time",
+        )
+        sa_ref = sp.sun_abraham(
+            staggered,
+            y="y",
+            g="g",
+            t="time",
+            i="unit",
+            crit_dist="normal",
+            aggregation="event_time",
+        )
+    _same(a, b)
+    assert a.ci == b.ci
+    _same(sa, sa_ref)
+    # No option on Callaway-Sant'Anna: 'legacy' is a no-op there...
+    cs = _quiet(
+        sp.did, staggered, y="y", treat="g", time="time", id="unit", crit_dist="legacy"
+    )
+    _same(cs, _quiet(sp.did, staggered, y="y", treat="g", time="time", id="unit"))
+    # ... and under parity= (which sets the t rule itself).
+    par = _quiet(
+        sp.did, two_by_two, method="2x2", parity="stata", crit_dist="legacy", **kw
+    )
+    assert par.ci == _quiet(sp.did, two_by_two, method="2x2", parity="stata", **kw).ci
+
+
+@pytest.mark.parametrize("method", ["cs", "bjs"])
+def test_did_refuses_crit_dist_where_not_implemented(staggered, method):
+    with pytest.raises(sp.MethodIncompatibility, match="crit_dist") as e:
         sp.did(
             staggered,
             y="y",
             treat="g",
             time="time",
             id="unit",
-            method="bjs",
+            method=method,
             crit_dist="t",
         )
+    assert "legacy" in e.value.recovery_hint
+
+
+def test_library_callers_through_sp_did_do_not_warn(two_by_two):
+    # sp.compare / causal_question reach sp.did's auto 2x2 branch (0/1
+    # flag, 0/1 time, repeated rows per unit and period -> clustered 2x2).
+    rep = pd.concat([two_by_two, two_by_two], ignore_index=True)
+    q = sp.causal_question(
+        treatment="treated", outcome="y", design="did", time="post", id="unit", data=rep
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        r = q.estimate()
+        direct = sp.did(
+            rep, y="y", treat="treated", time="post", id="unit", crit_dist="residual"
+        )
+    assert r.estimate == direct.estimate
 
 
 @pytest.mark.parametrize("parity", ["r", "stata"])

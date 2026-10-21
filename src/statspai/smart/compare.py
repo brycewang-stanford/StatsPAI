@@ -443,7 +443,11 @@ def compare_estimators(
                 name = "Panel Fixed Effects"
 
             elif method == "did" and id and time:
-                r = sp.did(df, y=y, treat=treatment, time=time, id=id)
+                # Pin today's critical values: no FutureWarning users cannot
+                # act on. Switch with the crit_dist default (planned 1.41).
+                r = sp.did(
+                    df, y=y, treat=treatment, time=time, id=id, crit_dist="legacy"
+                )
                 est = r.estimate
                 se = r.se
                 results["DID"] = r

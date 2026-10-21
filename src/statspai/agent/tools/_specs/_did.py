@@ -15,7 +15,7 @@ SPECS: List[Dict[str, Any]] = [
             "Difference-in-differences dispatcher. 2x2 (two periods, "
             "0/1 treat) when id is omitted; with id, a 0/1 indicator on a "
             "multi-period panel is converted to first-treatment cohorts "
-            "and Callaway-Sant'Anna runs (method='auto'). Pass method= "
+            "and Callaway-Sant'Anna runs. Pass method= "
             "to force '2x2', 'cs', 'sa', 'bjs', 'sdid' or 'ddd'."
         ),
         "input_schema": {
@@ -72,6 +72,8 @@ SPECS: List[Dict[str, Any]] = [
                     "enum": ["simple", "dynamic", "group", "calendar"],
                     "description": "Callaway-Sant'Anna aggregation of ATT(g,t)",
                 },
+                "parity": {"type": "string", "enum": ["r", "stata"]},
+                "crit_dist": {"type": "string", "enum": ["t", "legacy"]},
             },
             "required": ["y", "treat", "time"],
         },

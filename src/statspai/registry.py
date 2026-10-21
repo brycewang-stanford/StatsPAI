@@ -2746,6 +2746,21 @@ def _build_registry() -> None:
                     "estimator with parity=.",
                     ["r", "stata"],
                 ),
+                ParamSpec(
+                    "crit_dist",
+                    "str",
+                    False,
+                    None,
+                    "Critical-value rule, forwarded to did_2x2 ('t' / "
+                    "'residual') or sun_abraham ('t' / 'normal') when method "
+                    "resolves to one of them; both warn (FutureWarning) when "
+                    "it is unset and their default changes in 1.41. 't' is "
+                    "t(G-1) clustered / t(N-K) otherwise (Stata, fixest). "
+                    "'legacy' keeps the pre-1.41 rule of whichever estimator "
+                    "runs and is a no-op for methods without the option; any "
+                    "other value with such a method raises.",
+                    ["t", "residual", "normal", "legacy"],
+                ),
             ],
             returns="CausalResult",
             example='sp.did(df, y="wage", treat="treated", time="post")',
