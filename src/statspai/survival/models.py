@@ -672,7 +672,7 @@ def kaplan_meier(
     event: str,
     group: Optional[str] = None,
     alpha: float = 0.05,
-    conf_type: Optional[str] = None,
+    conf_type: Optional[str] = "log-log",
     weights: Optional[str] = None,
     start: Optional[str] = None,
     cluster: Optional[str] = None,
@@ -694,7 +694,7 @@ def kaplan_meier(
         Column name for group variable (stratification).
     alpha : float
         Significance level for confidence intervals (Greenwood formula).
-    conf_type : {"plain", "log", "log-log"}, optional
+    conf_type : {"log-log", "log", "plain"}, default "log-log"
         Scale on which the interval is symmetric. ``"plain"`` is ``S(t)
         +/- z se`` truncated to [0, 1]; ``"log"`` is symmetric for ``log
         S(t)`` (the default of R ``survival::survfit``); ``"log-log"`` for
@@ -703,12 +703,12 @@ def kaplan_meier(
         tails. The estimate and its standard error are the same under all
         three.
 
-        .. deprecated:: 1.39
-            Leaving it out still gives ``"plain"`` and warns. From 1.40
-            the default is ``"log-log"``: the plain interval is the one of
-            the three that leaves [0, 1] and has to be truncated, and it
-            is neither reference package's default. Pass
-            ``conf_type="plain"`` to keep today's numbers.
+        .. versionchanged:: 1.40.0
+            The default is ``"log-log"`` (it was ``"plain"``): the plain
+            interval is the one of the three that leaves [0, 1] and has to
+            be truncated, and it is neither reference package's default.
+            Pass ``conf_type="plain"`` for the interval of 1.39 and
+            earlier.
     weights : str, optional
         Column of non-negative case weights (inverse-probability-of-
         treatment weights give the IPTW-adjusted curve of each ``group``).
@@ -770,18 +770,8 @@ def kaplan_meier(
     >>> bool(isinstance(km.median_survival, float))
     True
     """
-    if conf_type is None:
-        import warnings
-
-        warnings.warn(
-            "sp.kaplan_meier: the default confidence interval changes from "
-            "conf_type='plain' to conf_type='log-log' in StatsPAI 1.40. Pass "
-            "conf_type='log-log' to adopt it now (Stata's sts default), "
-            "'log' for R survfit's, or 'plain' to keep the current interval.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        conf_type = "plain"
+    if conf_type is None:  # explicit None: the default
+        conf_type = "log-log"
     conf_type = str(conf_type).lower().replace("loglog", "log-log")
     if conf_type not in ("plain", "log", "log-log"):
         raise ValueError(

@@ -214,7 +214,7 @@ def test_default_prior_that_is_not_vague_is_flagged(df):
     with pytest.warns(
         sp.exceptions.StatsPAIWarning, match="default prior is not vague"
     ):
-        fit = sp.bayes_regress("y ~ big + x2", d, **FAST)
+        fit = sp.bayes_regress("y ~ big + x2", d, prior="vague", **FAST)
     assert any("big" in w for w in fit.diagnostics_info["warnings"])
     with warnings.catch_warnings():
         warnings.simplefilter("error")

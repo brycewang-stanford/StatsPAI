@@ -122,7 +122,7 @@ ours by the stated rule.
 | GEE scale for binomial and Poisson | estimated | estimated | Stata fixes it at 1, `scale=1` |
 | AIC of a linear model | counts the error variance | does not (Stata) | add 2 |
 | negative binomial standard errors | theta held fixed (`glm.nb`) | joint observed information (Stata `nbreg`) | differ by 2 to 4% |
-| Kaplan-Meier interval | symmetric for log S | symmetric for S until 1.40, then for log(-log S) as in Stata | `conf_type='log'` |
+| Kaplan-Meier interval | symmetric for log S | symmetric for log(-log S) as in Stata (since 1.40; symmetric for S before) | `conf_type='log'` |
 
 One difference is not a convention: `KernSmooth::locpoly` bins the data
 before smoothing and is an approximation; `sp.lpoly` is exact.

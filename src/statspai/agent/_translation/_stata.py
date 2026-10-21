@@ -701,7 +701,7 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
 
     ``sp.hdfe_ols`` is StatsPAI's reghdfe: same singleton pruning, absorbed
     degrees of freedom, cluster small-sample factor and ``t(G - 1)``
-    reference; ``sp.feols`` (pyfixest) keeps singletons by default.
+    reference. (``sp.feols`` also drops singletons by default since 1.40.)
     """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:

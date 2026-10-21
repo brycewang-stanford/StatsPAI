@@ -83,7 +83,11 @@ def weakly_informative_prior(
         flat = [xnames[j] for j in slopes if s_x[j] <= 0]
         raise MethodIncompatibility(
             f"The regressors {flat} do not vary; a prior scaled by their "
-            "standard deviation is undefined."
+            "standard deviation is undefined.",
+            recovery_hint=(
+                "Drop the constant regressors, or pass prior='vague' (with "
+                "prior_mean= / prior_var= if needed) for a fixed prior."
+            ),
         )
     sd = np.zeros(k)
     sd[slopes] = scale * s_y / s_x[slopes]

@@ -14646,10 +14646,11 @@
           "type": "string"
         },
         "fixef_rm": {
-          "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` does by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
+          "default": "singleton",
+          "description": "Singleton fixed-effect groups: ``\"singleton\"`` drops the observations in a fixed-effect group of one, as R ``fixest`` and pyfixest do by default; ``\"none\"`` keeps them. .. versionchanged:: 1.40.0 The default was ``\"none\"`` (singletons kept) before 1.40.",
           "enum": [
-            "none",
-            "singleton"
+            "singleton",
+            "none"
           ],
           "type": "string"
         },
@@ -21078,11 +21079,12 @@
           "x-statspai-role": "column"
         },
         "conf_type": {
-          "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. deprecated:: 1.39 Leaving it out still gives ``\"plain\"`` and warns. From 1.40 the default is ``\"log-log\"``: the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` to keep today's numbers.",
+          "default": "log-log",
+          "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. versionchanged:: 1.40.0 The default is ``\"log-log\"`` (it was ``\"plain\"``): the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` for the interval of 1.39 and earlier.",
           "enum": [
-            "plain",
+            "log-log",
             "log",
-            "log-log"
+            "plain"
           ],
           "type": "string"
         },

@@ -89,7 +89,9 @@ def main() -> None:
     res_logit = sp.feglm("y ~ x1 + x2 | id", data=df_logit, family="logit")
     rows += _coef_rows("feglm_logit", res_logit, ["x1", "x2"], n_logit)
 
-    res_pois = sp.fepois("y ~ x1 + x2 | id", data=df_pois)
+    # fixest::fepois drops fixed-effect singletons by default
+    # (fixef.rm = "perfect_fit"); say so rather than lean on our default.
+    res_pois = sp.fepois("y ~ x1 + x2 | id", data=df_pois, fixef_rm="singleton")
     rows += _coef_rows("fepois", res_pois, ["x1", "x2"], n_pois)
 
     write_results(

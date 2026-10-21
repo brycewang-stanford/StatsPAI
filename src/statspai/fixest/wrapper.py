@@ -14,7 +14,7 @@ import inspect
 import re
 import threading
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -1624,91 +1624,79 @@ def _feglm_conley(
     return base
 
 
-def _count_kept_singletons(out: Any, fml: Any, data: Any) -> int:
-    """Observations in a fixed-effect group of one that a fit kept."""
-    first = out[0] if isinstance(out, list) and out else out
-    info = getattr(first, "model_info", None) or {}
-    if "fe_singleton_obs" in info:
-        return int(info["fe_singleton_obs"] or 0)
-    if not isinstance(fml, str) or not isinstance(data, pd.DataFrame):
-        return 0
-    terms = [t.strip() for t in _fe_part(fml).split("+") if t.strip()]
-    if not terms or any(t not in data.columns for t in terms):
-        return 0  # interacted or sloped effects: not counted
-    single = np.zeros(len(data), dtype=bool)
-    for t in terms:
-        counts = data[t].value_counts()
-        single |= data[t].isin(counts.index[counts == 1]).to_numpy()
-    return int(single.sum())
+_IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
 
 
-def _user_stacklevel() -> int:
-    """``stacklevel`` that attributes a warning issued by the caller to the
-    first frame outside ``statspai``. Frames named like ``importlib``'s
-    bootstrap (the frame-input shim) are skipped by ``warnings`` itself and
-    so are not counted."""
-    import os
-    import sys
+def _without_fe_singletons(
+    fml: str, data: pd.DataFrame, fixef_rm: Optional[str]
+) -> Tuple[pd.DataFrame, str, int]:
+    """Drop fixed-effect singletons from ``data`` up front.
 
-    package = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep
-    level = 1
-    frame = sys._getframe(1)
-    while frame is not None:
-        name = frame.f_code.co_filename
-        internal = "importlib" in name and "_bootstrap" in name
-        if not internal and not os.path.abspath(name).startswith(package):
-            return level
-        if not internal:
-            level += 1
-        frame = frame.f_back
-    return 1
-
-
-def _singleton_default_notice(entry: str) -> Any:
-    """Announce the change of the ``fixef_rm`` default (StatsPAI 1.40).
-
-    Without ``fixef_rm=`` the fit keeps singletons, as before; when it kept
-    some, a ``FutureWarning`` says that R ``fixest`` and Stata ``reghdfe``
-    drop them by default and that StatsPAI will from 1.40. Passing
-    ``fixef_rm`` (either value) silences it.
+    The extended ``vce=`` menu (wild bootstrap, CR2 / CR3 / jackknife,
+    Conley) refits on ``data`` and aligns cluster codes or coordinates with
+    its rows, so the sample must already be the estimation sample. With
+    ``fixef_rm='singleton'`` the rows in a fixed-effect group of one are
+    removed here, repeatedly until none is left (fixest and reghdfe drop
+    them iteratively), and the fit then runs with ``fixef_rm='none'`` on
+    the remaining rows: the same estimator on the same sample. Returns the
+    frame, the ``fixef_rm`` to fit with and the number of rows removed.
+    Formulas whose effects are not plain columns (or ``a^b`` of columns)
+    are passed through unchanged.
     """
+    if fixef_rm != "singleton" or not isinstance(data, pd.DataFrame):
+        return data, fixef_rm or "none", 0
+    seg = _fe_part(fml) if isinstance(fml, str) else ""
+    if not seg.strip() or "~" in seg:
+        return data, fixef_rm, 0
+    codes: List[np.ndarray] = []
+    # singletons are counted among the rows the fit keeps: those with every
+    # formula variable present (fixest drops missing values first)
+    used = [c for c in dict.fromkeys(_IDENT_RE.findall(fml)) if c in data.columns]
+    rows = data[used].notna().all(axis=1).to_numpy()
+    for term in (t.strip() for t in seg.split("+")):
+        if not term:
+            continue
+        cols = [c.strip() for c in term.split("^")]
+        if any(c not in data.columns for c in cols):
+            return data, fixef_rm, 0
+        rows &= data[cols].notna().all(axis=1).to_numpy()
+        if len(cols) == 1:
+            codes.append(pd.factorize(data[cols[0]])[0])
+        else:
+            codes.append(
+                data[cols].groupby(cols, dropna=False, sort=False).ngroup().to_numpy()
+            )
+    if not codes:
+        return data, fixef_rm, 0
+    from ..fast.demean import _detect_singletons_numpy
 
-    def deco(fn: Any) -> Any:
-        @functools.wraps(fn)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if kwargs.get("fixef_rm") is not None:
-                return fn(*args, **kwargs)
-            kwargs["fixef_rm"] = "none"
-            out = fn(*args, **kwargs)
-            fml = args[0] if args else kwargs.get("fml")
-            data = args[1] if len(args) > 1 else kwargs.get("data")
-            n = _count_kept_singletons(out, fml, data)
-            if n:
-                warnings.warn(
-                    f"{entry}: {n} observation{'s' if n > 1 else ''} sit in "
-                    "fixed-effect groups of one (singletons) and were kept. "
-                    "R fixest and Stata reghdfe drop them by default, and so "
-                    "will StatsPAI from 1.40 (fixef_rm='singleton'). "
-                    "Coefficients do not change; the number of observations "
-                    "and the degrees of freedom behind the standard errors "
-                    "do. Pass fixef_rm='singleton' to adopt the new default "
-                    "now, or fixef_rm='none' to keep singletons; either "
-                    "silences this.",
-                    FutureWarning,
-                    stacklevel=_user_stacklevel(),
-                )
-            return out
+    idx = np.flatnonzero(rows)
+    keep_sub = _detect_singletons_numpy([c[idx] for c in codes], len(idx))
+    drop = np.zeros(len(data), dtype=bool)
+    drop[idx[~keep_sub]] = True
+    n_drop = int(drop.sum())
+    if n_drop == 0:
+        return data, "none", 0
+    return data.loc[~drop], "none", n_drop
 
-        return wrapper
 
-    return deco
+_Fit = TypeVar("_Fit")
+
+
+def _note_dropped_singletons(out: _Fit, n_drop: int) -> _Fit:
+    """Record the singletons :func:`_without_fe_singletons` removed."""
+    if n_drop:
+        fits: List[Any] = list(out) if isinstance(out, list) else [out]
+        for r in fits:
+            r.model_info = dict(r.model_info or {})
+            r.model_info["n_dropped_singletons"] = int(n_drop)
+    return out
 
 
 @records_call("feols")
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.feols")
 @markout_clusters
-@_singleton_default_notice("sp.feols")
 def feols(
     fml: str,
     data: pd.DataFrame,
@@ -1716,7 +1704,7 @@ def feols(
     *,
     weights: Optional[str] = None,
     ssc: Optional[Any] = None,
-    fixef_rm: Optional[str] = None,
+    fixef_rm: Optional[str] = "singleton",
     collin_tol: float = 1e-6,
     lean: bool = False,
     cluster: Optional[str] = None,
@@ -1784,11 +1772,16 @@ def feols(
         ``'frequency'`` is refused.
     ssc : optional
         Small-sample correction via ``pyfixest.ssc()``.
-    fixef_rm : {'none', 'singleton'}, optional
-        Singleton fixed-effect groups: ``"none"`` keeps them,
-        ``"singleton"`` drops them (R ``fixest`` and Stata ``reghdfe`` do by
-        default). Unset, they are kept, with a ``FutureWarning`` when there
-        are any: the default becomes ``"singleton"`` in StatsPAI 1.40.
+    fixef_rm : {'singleton', 'none'}, default 'singleton'
+        Singleton fixed-effect groups: ``"singleton"`` drops the
+        observations in a fixed-effect group of one, repeatedly until none
+        is left, as R ``fixest``, Stata ``reghdfe`` and pyfixest do by
+        default; ``"none"`` keeps them. Coefficients are the same either
+        way; the number of observations and the degrees of freedom behind
+        the standard errors are not.
+
+        .. versionchanged:: 1.40.0
+            The default was ``"none"`` (singletons kept) before 1.40.
     collin_tol : float, default 1e-6
         Collinearity tolerance.
     lean : bool, default False
@@ -1862,6 +1855,8 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    if fixef_rm is None:  # explicit None: the default
+        fixef_rm = "singleton"
     vcov = stata_vce_to_fixest(vcov, function="feols")
     _require_hac_ids(vcov, kwargs, data, "feols")
     if weights_as is not None:
@@ -1998,19 +1993,23 @@ def feols(
                 "bootstrap resamples residuals within clusters."
             )
         _require_frame_columns(data, [], {"cluster": cluster}, "feols(vce='wild')")
-        return _feols_wild(
-            fml,
-            data,
-            cluster,
-            reps=wild_reps,
-            weight_type=wild_weight_type,
-            seed=seed,
-            weights=weights,
-            ssc=ssc,
-            fixef_rm=fixef_rm,
-            collin_tol=collin_tol,
-            lean=lean,
-            extra=kwargs,
+        data_w, fixef_rm_w, n_single = _without_fe_singletons(fml, data, fixef_rm)
+        return _note_dropped_singletons(
+            _feols_wild(
+                fml,
+                data_w,
+                cluster,
+                reps=wild_reps,
+                weight_type=wild_weight_type,
+                seed=seed,
+                weights=weights,
+                ssc=ssc,
+                fixef_rm=fixef_rm_w,
+                collin_tol=collin_tol,
+                lean=lean,
+                extra=kwargs,
+            ),
+            n_single,
         )
 
     # Bias-reduced / spatial SEs on the FE-absorbed (within) design. feols stores
@@ -2024,20 +2023,24 @@ def feols(
         "jackknife",
         "conley",
     ):
-        return _feols_bias_reduced(
-            fml,
-            data,
-            vcov.lower(),
-            cluster=cluster,
-            conley_lat=conley_lat,
-            conley_lon=conley_lon,
-            conley_cutoff=conley_cutoff,
-            weights=weights,
-            ssc=ssc,
-            fixef_rm=fixef_rm,
-            collin_tol=collin_tol,
-            lean=lean,
-            extra=kwargs,
+        data_b, fixef_rm_b, n_single = _without_fe_singletons(fml, data, fixef_rm)
+        return _note_dropped_singletons(
+            _feols_bias_reduced(
+                fml,
+                data_b,
+                vcov.lower(),
+                cluster=cluster,
+                conley_lat=conley_lat,
+                conley_lon=conley_lon,
+                conley_cutoff=conley_cutoff,
+                weights=weights,
+                ssc=ssc,
+                fixef_rm=fixef_rm_b,
+                collin_tol=collin_tol,
+                lean=lean,
+                extra=kwargs,
+            ),
+            n_single,
         )
 
     # Grammar convenience: `cluster="firm"` is shorthand for one-way CRV1, so the
@@ -2253,7 +2256,6 @@ def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
 @accepts_aliases(vce="vcov")
 @records_provenance("sp.fepois")
 @markout_clusters
-@_singleton_default_notice("sp.fepois")
 def fepois(
     fml: str,
     data: pd.DataFrame,
@@ -2261,7 +2263,7 @@ def fepois(
     *,
     weights: Optional[str] = None,
     ssc: Optional[Any] = None,
-    fixef_rm: Optional[str] = None,
+    fixef_rm: Optional[str] = "singleton",
     collin_tol: float = 1e-6,
     iwls_tol: float = 1e-8,
     iwls_maxiter: int = 25,
@@ -2300,11 +2302,13 @@ def fepois(
         ``vce=`` menu).
     ssc : optional
         Small-sample correction.
-    fixef_rm : {'none', 'singleton'}, optional
-        Singleton fixed-effect groups: ``"none"`` keeps them,
-        ``"singleton"`` drops them (R ``fixest`` does by default). Unset,
-        they are kept, with a ``FutureWarning`` when there are any: the
-        default becomes ``"singleton"`` in StatsPAI 1.40.
+    fixef_rm : {'singleton', 'none'}, default 'singleton'
+        Singleton fixed-effect groups: ``"singleton"`` drops the
+        observations in a fixed-effect group of one, as R ``fixest`` and
+        pyfixest do by default; ``"none"`` keeps them.
+
+        .. versionchanged:: 1.40.0
+            The default was ``"none"`` (singletons kept) before 1.40.
     collin_tol : float, default 1e-6
         Collinearity tolerance.
     iwls_tol : float, default 1e-8
@@ -2330,7 +2334,7 @@ def fepois(
         pyfixest keyword, and through pyfixest otherwise. Both follow
         fixest: observations in a fixed-effect group whose outcomes are
         all zero are dropped, rows with missing values are dropped,
-        singletons are kept unless ``fixef_rm='singleton'``.
+        singletons are dropped unless ``fixef_rm='none'``.
         ``model_info['backend']`` says which
         ran. ``'pyfixest'`` always delegates; ``'native'`` refuses calls
         the native engine cannot fit.
@@ -2363,6 +2367,8 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
     ...                 cluster="firm")
     """
+    if fixef_rm is None:  # explicit None: the default
+        fixef_rm = "singleton"
     vcov = stata_vce_to_fixest(vcov, function="fepois")
     _require_hac_ids(vcov, kwargs, data, "fepois")
     # numpy integer arithmetic wraps around silently: I(x**2) on an int16
@@ -2391,6 +2397,14 @@ def fepois(
         if native is not None:
             return native
 
+    # The extended menu aligns cluster codes / coordinates with the rows of
+    # ``data``: remove singletons first so ``data`` is the estimation sample.
+    n_single = 0
+    if isinstance(vcov, str) and vcov.lower() in (
+        {"conley"} | _WILD_VCOV | _GLM_BR_VCOV
+    ):
+        data, fixef_rm, n_single = _without_fe_singletons(fml, data, fixef_rm)
+
     # Conley spatial HAC (conleyreg spherical convention).
     if isinstance(vcov, str) and vcov.lower() == "conley":
         if weights is not None:
@@ -2398,18 +2412,21 @@ def fepois(
                 "fepois(vce='conley') does not support weights=.",
                 recovery_hint="Drop weights= or use cluster= (CRV1).",
             )
-        return _feglm_conley(
-            fml,
-            data,
-            family_str="poisson",
-            is_pois=True,
-            conley_lat=conley_lat,
-            conley_lon=conley_lon,
-            conley_cutoff=conley_cutoff,
-            ssc=ssc,
-            fixef_rm=fixef_rm,
-            collin_tol=collin_tol,
-            extra=kwargs,
+        return _note_dropped_singletons(
+            _feglm_conley(
+                fml,
+                data,
+                family_str="poisson",
+                is_pois=True,
+                conley_lat=conley_lat,
+                conley_lon=conley_lon,
+                conley_cutoff=conley_cutoff,
+                ssc=ssc,
+                fixef_rm=fixef_rm,
+                collin_tol=collin_tol,
+                extra=kwargs,
+            ),
+            n_single,
         )
 
     # Score wild cluster bootstrap p-values (Kline-Santos 2012, boottest-style).
@@ -2421,35 +2438,41 @@ def fepois(
                 recovery_hint="Drop weights= or use cluster= (CRV1).",
             )
     if isinstance(vcov, str) and vcov.lower() in _WILD_VCOV:
-        return _feglm_wild(
-            fml,
-            data,
-            family_str="poisson",
-            cluster=cluster,
-            is_pois=True,
-            n_boot=wild_reps,
-            weight_type=wild_weight_type,
-            seed=seed,
-            ssc=ssc,
-            fixef_rm=fixef_rm,
-            collin_tol=collin_tol,
-            extra=kwargs,
+        return _note_dropped_singletons(
+            _feglm_wild(
+                fml,
+                data,
+                family_str="poisson",
+                cluster=cluster,
+                is_pois=True,
+                n_boot=wild_reps,
+                weight_type=wild_weight_type,
+                seed=seed,
+                ssc=ssc,
+                fixef_rm=fixef_rm,
+                collin_tol=collin_tol,
+                extra=kwargs,
+            ),
+            n_single,
         )
 
     # Bias-reduced cluster SEs (CR2 / CR3 / jackknife) via the clubSandwich glm
     # adjustment on the FE-as-dummies design — matches R clubSandwich exactly.
     if isinstance(vcov, str) and vcov.lower() in _GLM_BR_VCOV:
-        return _feglm_bias_reduced(
-            fml,
-            data,
-            vcov.lower(),
-            family_str="poisson",
-            cluster=cluster,
-            is_pois=True,
-            ssc=ssc,
-            fixef_rm=fixef_rm,
-            collin_tol=collin_tol,
-            extra=kwargs,
+        return _note_dropped_singletons(
+            _feglm_bias_reduced(
+                fml,
+                data,
+                vcov.lower(),
+                family_str="poisson",
+                cluster=cluster,
+                is_pois=True,
+                ssc=ssc,
+                fixef_rm=fixef_rm,
+                collin_tol=collin_tol,
+                extra=kwargs,
+            ),
+            n_single,
         )
 
     # Grammar convenience: cluster="firm" is one-way CRV1 (reads like sp.regress).

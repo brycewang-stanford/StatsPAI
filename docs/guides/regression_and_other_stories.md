@@ -95,17 +95,15 @@ residual standard deviation gets an exponential prior with rate
 `1 / sd(y)`. For logit, probit, Poisson and negative binomial models
 `sd(y)` is replaced by 1 and `mean(y)` by 0.
 
-Under the fixed prior of `sp.bayes_regress` (variance 1000 on every
-coefficient) the same fit puts the intercept at 46.1 and says so in a
+Under the fixed prior of `sp.bayes_regress` (`prior='vague'`, variance
+1000 on every coefficient) the same fit puts the intercept at 46.1 and says so in a
 warning. A prior of fixed scale is tight for a coefficient measured in
 large units. The weakly informative prior does not depend on units.
 
-The fixed prior is still what an unnamed `prior` gives, for one more
-release. From StatsPAI 1.40 the weakly informative prior becomes the
-default for the models that have one, and a `DeprecationWarning` says so
-until then. Write `prior='vague'` to keep the old numbers or
-`prior='weakly_informative'` to move now. A fit that sets `prior_mean` or
-`prior_var` is not affected.
+Since StatsPAI 1.40 the weakly informative prior is what an unnamed
+`prior` gives for the models that have one (it was the fixed prior
+before). Write `prior='vague'` for the fixed prior. A fit that sets
+`prior_mean` or `prior_var` uses the prior it sets.
 
 The prior scales are checked against `prior_summary()` of `rstanarm`
 to nine digits. The sampler is checked against the exact posterior on a

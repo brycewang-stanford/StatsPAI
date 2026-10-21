@@ -254,6 +254,11 @@
      "default": "None",
      "name": "design",
      "positional": true
+    },
+    {
+     "default": "'delta'",
+     "name": "variance_convention",
+     "positional": true
     }
    ]
   },
@@ -854,7 +859,7 @@
      "positional": false
     },
     {
-     "default": "None",
+     "default": "'singleton'",
      "name": "fixef_rm",
      "positional": false
     },
@@ -2796,6 +2801,13 @@
    "function": "causal_forest",
    "migration": "`sp.causal_forest(n_jobs=)` now defaults to `-1` (all cores) instead of `1`; estimates are byte-identical for any thread count.",
    "param": "n_jobs"
+  },
+  {
+   "change": "default changed from None to 'singleton'",
+   "date": "2026-10-21",
+   "function": "feols",
+   "migration": "`sp.feols(fixef_rm=)` and `sp.fepois(fixef_rm=)` default to `\"singleton\"`",
+   "param": "fixef_rm"
   }
  ]
 }

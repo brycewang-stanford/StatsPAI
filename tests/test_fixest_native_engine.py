@@ -107,7 +107,7 @@ def test_fepois_native_standard_errors_sit_at_the_optimum(panel, fml, vcov, weig
         tol=1e-16,
         fe_tol=1e-14,
         maxiter=300,
-        drop_singletons=False,
+        drop_singletons=True,  # the fixef_rm default (1.40)
         note_weights=False,
     )
     se_exact = np.sqrt(np.diag(exact.vcov_matrix))
@@ -121,10 +121,10 @@ def test_fepois_warns_on_separation(panel):
 
 
 def test_missing_rows_are_dropped_as_fixest_does(panel):
-    fit = _quiet(sp.feols, "y ~ x1 + x2 | firm", data=panel)
+    fit = _quiet(sp.feols, "y ~ x1 + x2 | firm", data=panel, fixef_rm="none")
     assert fit.data_info["nobs"] == len(panel) - 1
     assert fit.model_info["n_missing_dropped"] == 1
-    clean = _quiet(sp.feols, "y ~ x1 + x2 | firm", data=panel.dropna())
+    clean = _quiet(sp.feols, "y ~ x1 + x2 | firm", data=panel.dropna(), fixef_rm="none")
     np.testing.assert_array_equal(fit.params, clean.params)
 
 
@@ -297,29 +297,74 @@ def test_multiple_estimation_is_all_or_nothing(panel):
 
 
 # --------------------------------------------------------------------------- #
-#  The fixef_rm default (singletons) changes in 1.40
+#  fixef_rm defaults to 'singleton' (1.40), as in R fixest
 # --------------------------------------------------------------------------- #
 
 
+def _singletons_iterated(df, fes):
+    """Rows left after dropping fixed-effect groups of one until none is left."""
+    keep = np.ones(len(df), dtype=bool)
+    while True:
+        drop = np.zeros(len(df), dtype=bool)
+        for fe in fes:
+            col = df[fe][keep]
+            counts = col.map(col.value_counts())
+            drop[np.flatnonzero(keep)[(counts == 1).to_numpy()]] = True
+        if not drop.any():
+            return keep
+        keep &= ~drop
+
+
 @pytest.mark.parametrize("backend", ["auto", "pyfixest"])
-def test_kept_singletons_announce_the_default_change(panel, backend):
+def test_default_drops_singletons_like_fixest(panel, backend):
+    """Unset ``fixef_rm`` is ``'singleton'``: the fit equals the explicit
+    one, equals ``'none'`` on the data with the singletons removed by hand,
+    and no warning is issued."""
     if backend == "pyfixest":
         pytest.importorskip("pyfixest")
     df = panel.dropna()
-    n_single = int(
-        (df.firm.map(df.firm.value_counts()) == 1).sum()
-    )  # firm-only model: singletons of the one effect
-    assert n_single > 0
-    with pytest.warns(
-        FutureWarning, match=rf"{n_single} observations .* singletons"
-    ) as rec:
-        sp.feols("y ~ x1 | firm", data=df, backend=backend)
-    assert rec[0].filename == __file__  # points at the caller, not statspai
-
-
-@pytest.mark.parametrize("fixef_rm", ["none", "singleton"])
-def test_an_explicit_fixef_rm_is_silent(panel, fixef_rm):
+    keep = _singletons_iterated(df, ["firm"])
+    assert (~keep).sum() > 0
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
-        sp.feols("y ~ x1 | firm", data=panel.dropna(), fixef_rm=fixef_rm)
-        sp.fepois("c ~ x1 | firm", data=panel.dropna(), fixef_rm=fixef_rm)
+        default = sp.feols("y ~ x1 | firm", data=df, backend=backend)
+    explicit = sp.feols("y ~ x1 | firm", data=df, backend=backend, fixef_rm="singleton")
+    by_hand = sp.feols("y ~ x1 | firm", data=df[keep], backend=backend, fixef_rm="none")
+    assert default.data_info["nobs"] == int(keep.sum())
+    for other in (explicit, by_hand):
+        np.testing.assert_allclose(default.params, other.params, rtol=1e-10)
+        np.testing.assert_allclose(default.std_errors, other.std_errors, rtol=1e-10)
+    pois = sp.fepois("c ~ x1 | firm", data=df, backend=backend)
+    pois_hand = sp.fepois(
+        "c ~ x1 | firm", data=df[keep], backend=backend, fixef_rm="none"
+    )
+    np.testing.assert_allclose(pois.params, pois_hand.params, rtol=1e-8)
+    np.testing.assert_allclose(pois.std_errors, pois_hand.std_errors, rtol=1e-6)
+
+
+def test_singletons_kept_on_request(panel):
+    df = panel.dropna()
+    kept = sp.feols("y ~ x1 | firm", data=df, fixef_rm="none")
+    assert kept.data_info["nobs"] == len(df)
+
+
+@pytest.mark.parametrize(
+    "kw",
+    [
+        dict(vce="CR2", cluster="firm"),
+        dict(vce="wild", cluster="firm", wild_reps=99, seed=3),
+    ],
+)
+def test_extended_vce_menu_runs_on_the_singleton_free_sample(panel, kw):
+    """The extended ``vce=`` paths align cluster codes with ``data``; with
+    the default they run on the rows left after the singletons go, and
+    agree with ``fixef_rm='none'`` on those rows."""
+    pytest.importorskip("pyfixest")
+    df = panel.dropna()
+    keep = _singletons_iterated(df, ["firm", "year"])
+    assert (~keep).sum() > 0
+    fit = sp.feols("y ~ x1 | firm + year", data=df, **kw)
+    hand = sp.feols("y ~ x1 | firm + year", data=df[keep], fixef_rm="none", **kw)
+    assert fit.model_info["n_dropped_singletons"] == int((~keep).sum())
+    np.testing.assert_allclose(fit.params, hand.params, rtol=1e-10)
+    np.testing.assert_allclose(fit.std_errors, hand.std_errors, rtol=1e-10)

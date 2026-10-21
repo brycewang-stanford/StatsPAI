@@ -18893,8 +18893,9 @@ def _build_registry() -> None:
                     "prior_mean",
                     "float | list",
                     False,
-                    0.0,
-                    "Prior mean of the coefficients (scalar or one per column)",
+                    None,
+                    "Prior mean of the coefficients (scalar or one per "
+                    "column); 0 when not given. Giving it selects prior='vague'",
                 ),
                 ParamSpec(
                     "prior_var",
@@ -18902,7 +18903,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Prior variance: scalar, vector or covariance matrix. "
-                    "Default 1000 (100 for logit / probit / oprobit)",
+                    "Under prior='vague' the default is 1000 (100 for logit / "
+                    "probit / oprobit); giving it selects prior='vague'",
                 ),
                 ParamSpec(
                     "sigma2_prior",
@@ -18918,9 +18920,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Omitted: 'vague' today, 'weakly_informative' from 1.40 "
-                    "(a DeprecationWarning says so); name it to be unaffected. "
-                    "'weakly_informative': independent normal priors scaled "
+                    "Omitted: 'weakly_informative' for models normal, logit, "
+                    "probit, poisson, negbin when prior_mean / prior_var are "
+                    "not given and inference='mcmc' (since 1.40), else "
+                    "'vague'. 'weakly_informative': independent normal priors scaled "
                     "to the data (sd 2.5 sd(y)/sd(x) per slope, intercept "
                     "centred at mean(y) with the regressors centred), the "
                     "defaults of R rstanarm; results then do not depend on "

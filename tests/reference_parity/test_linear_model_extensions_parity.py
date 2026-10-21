@@ -593,13 +593,17 @@ def test_kaplan_meier_loglog_interval_matches_stata_sts(df, stata):
         )
 
 
-def test_kaplan_meier_default_interval_is_unchanged_and_announced(df):
-    with pytest.warns(DeprecationWarning, match="log-log"):
-        default = sp.kaplan_meier(df, "time", "event").survival_table
+def test_kaplan_meier_default_interval_is_stata_log_log(df):
+    """Since 1.40 the default interval is the log-log one of Stata ``sts``;
+    ``conf_type='plain'`` keeps the interval of 1.39 and earlier."""
     with warnings.catch_warnings():
         warnings.simplefilter("error")
+        default = sp.kaplan_meier(df, "time", "event").survival_table
+        loglog = sp.kaplan_meier(
+            df, "time", "event", conf_type="log-log"
+        ).survival_table
         plain = sp.kaplan_meier(df, "time", "event", conf_type="plain").survival_table
-    pd.testing.assert_frame_equal(default, plain)
+    pd.testing.assert_frame_equal(default, loglog)
     row = _km_at(plain, 30)
     half = 1.959963984540054 * row["std_err"]
     assert row["ci_lower"] == pytest.approx(row["survival"] - half)

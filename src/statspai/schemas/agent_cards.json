@@ -41652,7 +41652,7 @@
             "type": "number"
           },
           "data": {
-            "description": "standard deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)`` for the intercept, centred at ``mean(y)``, with the regressors centred; ``sd(y)`` is replaced by 1 and ``mean(y)`` by 0 outside the Gaussian model. These are the defaults of R ``rstanarm``. They rule out effects that are absurd on the scale of the data and little else, so the result does not depend on the units of the regressors, as it does under a fixed ``prior_var``. ``prior_mean`` and ``prior_var`` must be left at their defaults.",
+            "description": "standard deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)`` for the intercept, centred at ``mean(y)``, with the regressors centred; ``sd(y)`` is replaced by 1 and ``mean(y)`` by 0 outside the Gaussian model. These are the defaults of R ``rstanarm``. They rule out effects that are absurd on the scale of the data and little else, so the result does not depend on the units of the regressors, as it does under a fixed ``prior_var``. ``prior_mean`` and ``prior_var`` must be left at their defaults. .. versionchanged:: 1.40.0 Omitted, it was ``'vague'`` (a fixed ``N(0, 1000)``, ``N(0, 100)`` for logit and probit) before 1.40. Pass ``prior='vague'`` for the earlier numbers.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -41719,7 +41719,7 @@
             "x-statspai-role": "column"
           },
           "prior": {
-            "description": "Omitted: 'vague' today, 'weakly_informative' from 1.40 (a DeprecationWarning says so); name it to be unaffected. 'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
+            "description": "Omitted: 'weakly_informative' for models normal, logit, probit, poisson, negbin when prior_mean / prior_var are not given and inference='mcmc' (since 1.40), else 'vague'. 'weakly_informative': independent normal priors scaled to the data (sd 2.5 sd(y)/sd(x) per slope, intercept centred at mean(y) with the regressors centred), the defaults of R rstanarm; results then do not depend on the units of the regressors. Models normal, logit, probit, poisson, negbin",
             "enum": [
               "vague",
               "weakly_informative"
@@ -41738,8 +41738,7 @@
                 "type": "array"
               }
             ],
-            "default": 0.0,
-            "description": "Prior mean of the coefficients (scalar or one per column)"
+            "description": "Prior mean of the coefficients (scalar or one per column); 0 when not given. Giving it selects prior='vague'"
           },
           "prior_var": {
             "anyOf": [
@@ -41753,7 +41752,7 @@
                 "type": "array"
               }
             ],
-            "description": "Prior variance: scalar, vector or covariance matrix. Default 1000 (100 for logit / probit / oprobit)"
+            "description": "Prior variance: scalar, vector or covariance matrix. Under prior='vague' the default is 1000 (100 for logit / probit / oprobit); giving it selects prior='vague'"
           },
           "quantile": {
             "default": 0.5,
@@ -120234,10 +120233,11 @@
             "x-statspai-role": "dataframe"
           },
           "fixef_rm": {
-            "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` and Stata ``reghdfe`` do by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
+            "default": "singleton",
+            "description": "Singleton fixed-effect groups: ``\"singleton\"`` drops the observations in a fixed-effect group of one, repeatedly until none is left, as R ``fixest``, Stata ``reghdfe`` and pyfixest do by default; ``\"none\"`` keeps them. Coefficients are the same either way; the number of observations and the degrees of freedom behind the standard errors are not. .. versionchanged:: 1.40.0 The default was ``\"none\"`` (singletons kept) before 1.40.",
             "enum": [
-              "none",
-              "singleton"
+              "singleton",
+              "none"
             ],
             "type": "string"
           },
@@ -120439,10 +120439,11 @@
             "x-statspai-role": "dataframe"
           },
           "fixef_rm": {
-            "description": "Singleton fixed-effect groups: ``\"none\"`` keeps them, ``\"singleton\"`` drops them (R ``fixest`` does by default). Unset, they are kept, with a ``FutureWarning`` when there are any: the default becomes ``\"singleton\"`` in StatsPAI 1.40.",
+            "default": "singleton",
+            "description": "Singleton fixed-effect groups: ``\"singleton\"`` drops the observations in a fixed-effect group of one, as R ``fixest`` and pyfixest do by default; ``\"none\"`` keeps them. .. versionchanged:: 1.40.0 The default was ``\"none\"`` (singletons kept) before 1.40.",
             "enum": [
-              "none",
-              "singleton"
+              "singleton",
+              "none"
             ],
             "type": "string"
           },
@@ -120984,11 +120985,12 @@
             "x-statspai-role": "column"
           },
           "conf_type": {
-            "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. deprecated:: 1.39 Leaving it out still gives ``\"plain\"`` and warns. From 1.40 the default is ``\"log-log\"``: the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` to keep today's numbers.",
+            "default": "log-log",
+            "description": "Scale on which the interval is symmetric. ``\"plain\"`` is ``S(t) +/- z se`` truncated to [0, 1]; ``\"log\"`` is symmetric for ``log S(t)`` (the default of R ``survival::survfit``); ``\"log-log\"`` for ``log(-log S(t))`` (the default of Stata ``sts list``), which always stays inside (0, 1) and has the best coverage in the tails. The estimate and its standard error are the same under all three. .. versionchanged:: 1.40.0 The default is ``\"log-log\"`` (it was ``\"plain\"``): the plain interval is the one of the three that leaves [0, 1] and has to be truncated, and it is neither reference package's default. Pass ``conf_type=\"plain\"`` for the interval of 1.39 and earlier.",
             "enum": [
-              "plain",
+              "log-log",
               "log",
-              "log-log"
+              "plain"
             ],
             "type": "string"
           },

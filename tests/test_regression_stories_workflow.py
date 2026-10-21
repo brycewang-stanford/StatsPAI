@@ -295,10 +295,15 @@ def test_weak_prior_does_not_depend_on_units(df):
     assert scaled.table.loc["x", "sd"] * 1000 == pytest.approx(
         base.table.loc["x", "sd"], rel=0.05
     )
-    # while the fixed default prior pulls the shifted intercept toward zero
+    # while the fixed (pre-1.40 default) prior pulls the shifted intercept
+    # toward zero
     with pytest.warns(StatsPAIWarning, match="prior='weakly_informative'"):
         vague = sp.bayes_regress(
-            "yc ~ x", df.assign(x=df["x"] * 1000 + 5e4), draws=2000, seed=1
+            "yc ~ x",
+            df.assign(x=df["x"] * 1000 + 5e4),
+            draws=2000,
+            seed=1,
+            prior="vague",
         )
     assert abs(vague.params["Intercept"]) < abs(scaled.params["Intercept"])
 
@@ -788,37 +793,34 @@ def test_shrinkage_argument_checks(df):
 # ---------------------------------------------------------------------
 
 
-def test_default_prior_change_is_announced_only_where_it_applies(df):
-    with pytest.warns(DeprecationWarning, match="will change in StatsPAI 1.40"):
-        sp.bayes_regress("yc ~ x", df, draws=300, seed=1)
-    with pytest.warns(DeprecationWarning):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", StatsPAIWarning)
-            warnings.simplefilter("always", DeprecationWarning)
-            sp.bayes_regress("y ~ x", df, model="logit", draws=300, burnin=200, seed=1)
-    quiet = [
-        dict(prior="vague"),
-        dict(prior="weakly_informative"),
-        dict(prior_var=50.0),
-        dict(prior_mean=[0.5, 0.0]),
-        dict(model="conjugate"),
-        dict(model="t"),
-        dict(model="quantile"),
-    ]
-    for kw in quiet:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            warnings.simplefilter("ignore", StatsPAIWarning)
-            sp.bayes_regress("yc ~ x", df, draws=200, burnin=100, seed=1, **kw)
-    # naming the prior reproduces the unnamed fit exactly, and a refit for
-    # cross-validation does not repeat the announcement
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        a = sp.bayes_regress("yc ~ x", df, draws=300, seed=1)
-    b = sp.bayes_regress("yc ~ x", df, draws=300, seed=1, prior="vague")
-    np.testing.assert_array_equal(a.draws.to_numpy(), b.draws.to_numpy())
+def test_default_prior_is_weakly_informative_where_it_applies(df):
+    """Since 1.40 an omitted ``prior`` is ``'weakly_informative'`` for the
+    models that have one when the coefficient prior is not set by hand,
+    and ``'vague'`` otherwise; naming either reproduces the unnamed fit."""
+    kw = dict(draws=300, burnin=200, seed=1)
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
+        warnings.simplefilter("ignore", StatsPAIWarning)
+        a = sp.bayes_regress("yc ~ x", df, **kw)
+        b = sp.bayes_regress("yc ~ x", df, prior="weakly_informative", **kw)
+        lg = sp.bayes_regress("y ~ x", df, model="logit", **kw)
+        lg_w = sp.bayes_regress(
+            "y ~ x", df, model="logit", prior="weakly_informative", **kw
+        )
+        hand = sp.bayes_regress("yc ~ x", df, prior_var=50.0, **kw)
+        hand_v = sp.bayes_regress("yc ~ x", df, prior_var=50.0, prior="vague", **kw)
+        t = sp.bayes_regress("yc ~ x", df, model="t", **kw)
+        t_v = sp.bayes_regress("yc ~ x", df, model="t", prior="vague", **kw)
+    np.testing.assert_array_equal(a.draws.to_numpy(), b.draws.to_numpy())
+    np.testing.assert_array_equal(lg.draws.to_numpy(), lg_w.draws.to_numpy())
+    np.testing.assert_array_equal(hand.draws.to_numpy(), hand_v.draws.to_numpy())
+    np.testing.assert_array_equal(t.draws.to_numpy(), t_v.draws.to_numpy())
+    assert a.prior.get("kind") == "weakly_informative"
+    assert hand.prior.get("kind") is None
+    # a refit for cross-validation repeats the prior that was used
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        warnings.simplefilter("ignore", StatsPAIWarning)
         sp.kfold(a, k=3, seed=1)
 
 

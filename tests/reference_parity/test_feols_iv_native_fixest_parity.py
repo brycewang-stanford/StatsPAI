@@ -3,7 +3,8 @@
 24 cells: formula {just-identified, over-identified, two endogenous
 regressors} x vcov {iid, hetero, cluster g, cluster g + year} x weights
 {none, w}, with firm and year effects and 1% singleton firms kept
-(``fixef.rm = "none"``, ``sp.feols``'s default). Reference:
+(``fixef.rm = "none"``, passed as ``fixef_rm="none"``; the default
+drops singletons since 1.40). Reference:
 ``_fixtures/_generate_feols_iv_native_R.R`` (fixest 0.14) on
 ``feols_iv_native_data.csv``. The first-stage F of a single endogenous
 regressor is fixest's ``ivwald1`` (Wald statistic under the model's
@@ -57,7 +58,7 @@ def test_native_iv_matches_fixest(data, fml, vcov, weighted):
     kw = {"weights": "w"} if weighted else {}
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        fit = sp.feols(FMLS[fml], data=data, vcov=VCOV[vcov], **kw)
+        fit = sp.feols(FMLS[fml], data=data, vcov=VCOV[vcov], fixef_rm="none", **kw)
     assert fit.model_info["backend"] == "statspai-native"
     ref = R[f"{fml}_{vcov}_{'w' if weighted else 'none'}"]
     assert fit.data_info["nobs"] == ref["nobs"]

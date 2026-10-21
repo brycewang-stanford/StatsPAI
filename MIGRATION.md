@@ -5,6 +5,35 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.x → 1.40: ⚠️ three announced default changes take effect
+
+The three defaults that 1.39 announced with a `FutureWarning` or
+`DeprecationWarning` change now, and the warnings are gone. Code that named
+the argument is unaffected.
+
+- `sp.feols(fixef_rm=)` and `sp.fepois(fixef_rm=)` default to `"singleton"`
+  (was `"none"`): observations in a fixed-effect group of one are dropped,
+  repeatedly until none is left, as R `fixest`, Stata `reghdfe` and
+  pyfixest do. Coefficients do not change; the number of observations and
+  the degrees of freedom behind the standard errors do, so standard errors
+  with a small-sample factor move slightly. The extended `vce=` menu (wild
+  bootstrap, CR2 / CR3, Conley) runs on the rows left after the
+  singletons go. Pass `fixef_rm="none"` for the 1.39 numbers. `sp.feglm` has no `fixef_rm` and
+  already dropped singletons.
+- `sp.bayes_regress` without `prior` uses `prior="weakly_informative"`
+  (normal priors scaled to the data, as R `rstanarm`) for the models
+  normal, logit, probit, poisson and negbin when `prior_mean` and
+  `prior_var` are left at their defaults and `inference="mcmc"`; every
+  other call still uses the fixed prior (`"vague"`). Posterior summaries
+  change most where a regressor or the intercept is in large units. Pass
+  `prior="vague"` for the 1.39 numbers.
+- `sp.kaplan_meier` without `conf_type` gives the log-log interval
+  (`conf_type="log-log"`, Stata's `sts list`), which never leaves (0, 1).
+  `ci_lower` / `ci_upper` change; the survival estimate, its standard error
+  and the median do not. Pass `conf_type="plain"` for the 1.39 interval.
+
+---
+
 ## 1.39.6 → unreleased: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
 
 - `sp.rlasso_iv(select_Z=True, select_X=False)` now keeps an intercept in
@@ -595,6 +624,10 @@ coefficient-scale numbers after `sp.fepois`, read `result.params`.
 ---
 
 ## 1.39.6 → 1.40: `sp.feols` / `sp.fepois` will drop fixed-effect singletons by default
+
+**Done in 1.40.** The default is now `fixef_rm="singleton"` and the
+`FutureWarning` is gone; pass `fixef_rm="none"` to keep singletons. The
+text below is the 1.39.6 announcement.
 
 **What changes.** `fixef_rm` of `sp.feols` and `sp.fepois` defaults to
 `None` (was `"none"`), which still keeps observations in fixed-effect
@@ -1272,6 +1305,12 @@ marginal likelihood of the new fit is at least as high.
 
 ## 1.38.0 → 1.39.0: the default prior of `sp.bayes_regress` will change in 1.40
 
+**Done in 1.40.** An omitted `prior` now means `prior="weakly_informative"`
+for the five models named below (when `prior_mean` and `prior_var` are not
+given and `inference="mcmc"`), and the `DeprecationWarning` is gone. Pass
+`prior="vague"` to keep the fixed prior. The text below is the 1.39
+announcement.
+
 **What changes, and when.** Today an omitted `prior` means a fixed
 `N(0, 1000)` on every coefficient (`N(0, 100)` for logit and probit). In
 1.40 it will mean `prior='weakly_informative'` for the models that have
@@ -1939,6 +1978,10 @@ return those keys. Scalars (`ll`, `aic`, `bic`, `vuong_stat`, ...) are
 unchanged, and `Log-Likelihood`, `AIC`, `BIC` are added.
 
 ## 1.38.0 → 1.39.0: `sp.kaplan_meier` asks for `conf_type`; the default changes in 1.40
+
+**Done in 1.40.** The default is now `conf_type="log-log"` and the
+`DeprecationWarning` is gone; pass `conf_type="plain"` for the earlier
+interval. The text below is the 1.39 announcement.
 
 `sp.kaplan_meier` builds its confidence interval as `S(t) +/- z se`, cut
 off at 0 and 1. From 1.40 the default is the log-log interval, the one

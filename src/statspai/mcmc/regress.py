@@ -1074,7 +1074,7 @@ def bayes_regress(
     formula: str,
     data: pd.DataFrame,
     model: str = "normal",
-    prior_mean: Any = 0.0,
+    prior_mean: Any = None,
     prior_var: Any = None,
     sigma2_prior: Optional[Tuple[float, float]] = None,
     draws: int = 10000,
@@ -1137,15 +1137,17 @@ def bayes_regress(
         ``'mlogit'``    multinomial logit, first level of the outcome as
         the base; coefficients are named ``<level>:<term>``; random-walk
         Metropolis.
-    prior_mean : float or array, default 0
+    prior_mean : float or array, optional
         Prior mean of the coefficients (scalar or one per coefficient,
-        in the order of the design matrix).
+        in the order of the design matrix). 0 when not given; giving it
+        selects ``prior='vague'``.
     prior_var : float, array or matrix, optional
         Prior variance: a scalar, a vector of variances or a full
-        covariance matrix. Default 1000 (1 for ``'conjugate'``, where it
-        multiplies ``sigma2``, and for the scale-free binary and ordered
-        models 100). The default is vague only for regressors on a
-        moderate scale; a note is attached to the result when it is not.
+        covariance matrix. Under ``prior='vague'`` the default is 1000 (1
+        for ``'conjugate'``, where it multiplies ``sigma2``, and for the
+        scale-free binary and ordered models 100). That default is vague
+        only for regressors on a moderate scale; a note is attached to
+        the result when it is not.
     sigma2_prior : (alpha0, delta0), optional
         ``sigma2 ~ InvGamma(alpha0 / 2, delta0 / 2)`` for the normal,
         conjugate, t and tobit models. Default ``(0.001, 0.001)``; with
@@ -1197,12 +1199,11 @@ def bayes_regress(
         from the approximation and ``model_info['elbo']`` is the evidence
         lower bound.
     prior : {'vague', 'weakly_informative'}, optional
-        Omitted, it is ``'vague'`` today and will be
-        ``'weakly_informative'`` from StatsPAI 1.40 for the models that
-        have one, unless ``prior_mean`` or ``prior_var`` is given; a
-        ``DeprecationWarning`` says so. Name it to be unaffected.
-        ``'vague'`` uses ``prior_mean`` and ``prior_var`` as given.
-        ``'weakly_informative'`` scales independent normal priors to the
+        Omitted, it is ``'weakly_informative'`` for the models that have
+        one (normal, logit, probit, poisson, negbin) when ``prior_mean`` and
+        ``prior_var`` are left at their defaults and ``inference='mcmc'``,
+        and ``'vague'`` otherwise. ``'vague'`` uses ``prior_mean`` and
+        ``prior_var`` as given. ``'weakly_informative'`` scales independent normal priors to the
         data (models normal, logit, probit, poisson, negbin): standard
         deviation ``2.5 sd(y) / sd(x)`` for each slope and ``2.5 sd(y)``
         for the intercept, centred at ``mean(y)``, with the regressors
@@ -1212,6 +1213,11 @@ def bayes_regress(
         and little else, so the result does not depend on the units of
         the regressors, as it does under a fixed ``prior_var``.
         ``prior_mean`` and ``prior_var`` must be left at their defaults.
+
+        .. versionchanged:: 1.40.0
+            Omitted, it was ``'vague'`` (a fixed ``N(0, 1000)``, ``N(0,
+            100)`` for logit and probit) before 1.40. Pass
+            ``prior='vague'`` for the earlier numbers.
     offset : str or array, optional
         A term added to the linear index with coefficient one (logit,
         Poisson and negative binomial models): a column of ``data`` or
@@ -1302,10 +1308,23 @@ def bayes_regress(
         "exposure": exposure,
         "trials": trials,
     }
-    prior_unset = prior is None
-    prior_kind = "vague" if prior is None else str(prior).lower().replace("-", "_")
-    # a refit (cross-validation) repeats the prior that was used, silently
-    call["prior"] = "vague" if prior is None else prior
+    mean_given = prior_mean is not None
+    if prior_mean is None:
+        prior_mean = 0.0
+    if prior is None:
+        # The default (since 1.40): the data-scaled prior for the models that
+        # have one, unless the coefficient prior is set by hand.
+        prior = (
+            "weakly_informative"
+            if model_key in W.WEAK_PRIOR_MODELS
+            and prior_var is None
+            and not mean_given
+            and str(inference).lower() == "mcmc"
+            else "vague"
+        )
+    prior_kind = str(prior).lower().replace("-", "_")
+    # a refit (cross-validation) repeats the prior that was used
+    call["prior"] = prior
     if prior_kind in ("weakly_informative", "weak", "auto", "rstanarm"):
         prior_kind = "weakly_informative"
     elif prior_kind not in ("vague", "default"):
@@ -1433,23 +1452,6 @@ def bayes_regress(
                 else trials
             ),
         )
-    if prior_unset and (
-        model_key in W.WEAK_PRIOR_MODELS
-        and prior_var is None
-        and not np.any(np.asarray(prior_mean) != 0.0)
-        and str(inference).lower() == "mcmc"
-    ):
-        warnings.warn(
-            "sp.bayes_regress: the default prior of this model will change in "
-            "StatsPAI 1.40 from a fixed N(0, 1000) (N(0, 100) for logit and "
-            "probit) on every coefficient to prior='weakly_informative', "
-            "which is scaled to the data. Pass prior='vague' to keep the "
-            "current prior, or prior='weakly_informative' to adopt the new "
-            "one now. Fits that set prior_mean or prior_var are not affected.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
     default_prior = prior_var is None and prior_kind == "vague"
     weak_info: Dict[str, Any] = {}
     exp_sigma_rate: Optional[float] = None
