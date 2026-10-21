@@ -358,7 +358,8 @@ def randomize(
             return out
         if cluster is not None:
             codes, uniq = pd.factorize(df[cluster], sort=True)
-            return _complete_ra(len(uniq), prob_arr, rng)[codes]
+            _ret: np.ndarray = _complete_ra(len(uniq), prob_arr, rng)[codes]
+            return _ret
         if method == "simple":
             return rng.choice(n_arms, size=n, p=prob_arr)
         return _complete_ra(n, prob_arr, rng)

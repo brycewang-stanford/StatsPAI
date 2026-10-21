@@ -1584,7 +1584,8 @@ def _rdrbounds_rows(
             else:
                 out = (D @ yv) / n1 - ((1 - D) @ yv) / n0
         out[(n1 == 0) | (n0 == 0)] = np.nan
-        return out
+        _ret: np.ndarray = out
+        return _ret
 
     obs = float(_stats(z[None, :])[0])
 

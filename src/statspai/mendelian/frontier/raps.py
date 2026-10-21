@@ -36,13 +36,16 @@ import math
 import warnings
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, Optional, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 from scipy import integrate, optimize, stats
 
 from ..._result_serialize import ResultProtocolMixin
 from ._common import as_float_arrays
+
+_Arr = np.ndarray
+_Psi = Callable[[np.ndarray], np.ndarray]
 
 _EPS_HALF = float(np.finfo(float).eps ** 0.5)
 _SQRT_2PI = math.sqrt(2.0 * math.pi)
@@ -183,7 +186,8 @@ def _rho(loss: str, k: float) -> Callable[..., np.ndarray]:
                 return np.where(inside, 0.5 * r**2, k * (np.abs(r) - 0.5 * k))
             if deriv == 1:
                 return np.clip(r, -k, k)
-            return inside.astype(float)
+            d2: np.ndarray = inside.astype(float)
+            return d2
 
     elif loss == "tukey":
 
@@ -202,7 +206,7 @@ def _rho(loss: str, k: float) -> Callable[..., np.ndarray]:
     return rho
 
 
-def _gauss_moment(f: Callable[[float], float]) -> float:
+def _gauss_moment(f: Callable[[float], Any]) -> float:
     """``E[f(Z)]`` for ``Z ~ N(0, 1)`` by adaptive quadrature."""
 
     def integrand(x: float) -> float:
@@ -252,7 +256,9 @@ def _standardized_residuals(
     return resid, var, resid / np.sqrt(var)
 
 
-def _beta_score(bx, by, sx, sy, beta, tau2, psi) -> float:
+def _beta_score(
+    bx: _Arr, by: _Arr, sx: _Arr, sy: _Arr, beta: float, tau2: float, psi: _Psi
+) -> float:
     """Eq. (5.2): ``sum_j psi(t_j) u_j`` with ``u_j = -dt_j / dbeta``.
 
     With ``psi(t) = t`` this is the adjusted profile score (4.2), i.e. the
@@ -263,19 +269,30 @@ def _beta_score(bx, by, sx, sy, beta, tau2, psi) -> float:
     return float(np.sum(psi(t) * u))
 
 
-def _tau2_score(bx, by, sx, sy, beta, tau2, psi, delta) -> float:
+def _tau2_score(
+    bx: _Arr,
+    by: _Arr,
+    sx: _Arr,
+    sy: _Arr,
+    beta: float,
+    tau2: float,
+    psi: _Psi,
+    delta: float,
+) -> float:
     """Eq. (5.3): ``sum_j sx_j^2 (t_j psi(t_j) - delta) / v_j``; (4.3) for L2."""
     _, var, t = _standardized_residuals(bx, by, sx, sy, beta, tau2)
     return float(np.sum(sx**2 * (t * psi(t) - delta) / var))
 
 
-def _objective(bx, by, sx, sy, beta, tau2, rho) -> float:
+def _objective(
+    bx: _Arr, by: _Arr, sx: _Arr, sy: _Arr, beta: float, tau2: float, rho: _Psi
+) -> float:
     """Eq. (5.1) at ``(beta, tau2)``: ``-sum_j rho(t_j)``."""
     _, _, t = _standardized_residuals(bx, by, sx, sy, beta, tau2)
     return -float(np.sum(rho(t)))
 
 
-def _global_profile_max(bx, by, sx, sy) -> float:
+def _global_profile_max(bx: _Arr, by: _Arr, sx: _Arr, sy: _Arr) -> float:
     """Maximiser of the profile log-likelihood (3.2) over the whole real line.
 
     ``l(beta)`` tends to a finite limit as ``|beta| -> inf`` and may have
@@ -346,7 +363,15 @@ def _tau2_root(g: Callable[[float], float], scale: float) -> Optional[float]:
 
 
 def _fit_overdispersed(
-    bx, by, sx, sy, loss: str, k: float, beta_start: float, niter: int, tol: float
+    bx: _Arr,
+    by: _Arr,
+    sx: _Arr,
+    sy: _Arr,
+    loss: str,
+    k: float,
+    beta_start: float,
+    niter: int,
+    tol: float,
 ) -> Tuple[float, float, bool, bool]:
     """Solve the (R)APS equations by alternating ``tau2`` and ``beta`` steps.
 
@@ -374,7 +399,7 @@ def _fit_overdispersed(
             lambda s: _tau2_score(bx, by, sx, sy, beta, s, psi, delta), tau_scale
         )
         at_zero = root is None
-        tau2_new = 0.0 if at_zero else root
+        tau2_new = 0.0 if root is None else root
         beta_new = _local_beta_root(
             lambda b: _beta_score(bx, by, sx, sy, b, tau2_new, psi), beta, beta_scale
         )
@@ -411,7 +436,7 @@ def _fit_overdispersed(
 # --------------------------------------------------------------------------- #
 
 
-def _simple_se(bx, by, sx, sy, beta: float) -> float:
+def _simple_se(bx: _Arr, by: _Arr, sx: _Arr, sy: _Arr, beta: float) -> float:
     """Theorem 3.3: ``sqrt(V1_hat) / V2_hat`` with the unbiased plug-ins."""
     var = sx**2 * beta**2 + sy**2
     v2 = np.sum(((bx**2 - sx**2) * sy**2 + (by**2 - sy**2) * sx**2) / var**2)
@@ -455,7 +480,8 @@ def _robust_vcov(
         [[delta * v2_11, delta * v2_12], [0.0, 0.5 * (delta + c3) * v2_22]]
     )
     inv = np.linalg.inv(bread)
-    return inv @ meat @ inv.T
+    cov: np.ndarray = inv @ meat @ inv.T
+    return cov
 
 
 # --------------------------------------------------------------------------- #

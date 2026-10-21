@@ -21,7 +21,7 @@ bootstraps).
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import _emit, _emit_error
 from ._stata_lexer import StataCommand
@@ -192,7 +192,7 @@ def _h_wyoung(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {"wyoung": _h_wyoung}
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {"wyoung": _h_wyoung}
 
 #: cmd() holds a whole Stata command; the handler reads it itself.
 LITERAL = frozenset({_h_wyoung})

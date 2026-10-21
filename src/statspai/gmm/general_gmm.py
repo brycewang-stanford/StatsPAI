@@ -113,7 +113,8 @@ def _omega(
         for code in np.unique(codes):
             gc = M[codes == code].sum(axis=0)
             S += np.outer(gc, gc)
-        return S / n
+        S_mean: np.ndarray = S / n
+        return S_mean
 
     if vcov == "hac":
         bw = int(hac_bandwidth) if hac_bandwidth else 1
@@ -128,13 +129,15 @@ def _omega(
             w = 1.0 - lag / bw
             gamma = M[lag:].T @ M[:-lag] / n
             S += w * (gamma + gamma.T)
-        return S
+        S_hac: np.ndarray = S
+        return S_hac
 
     # 'mds' and 'iid' both estimate S by the moment outer product. For
     # cross-sectional moments the two assumptions coincide; they part
     # company only through the serial-correlation term, which is what the
     # 'hac' branch adds.
-    return M.T @ M / n
+    S_outer: np.ndarray = M.T @ M / n
+    return S_outer
 
 
 def _safe_inv(A: np.ndarray) -> np.ndarray:
@@ -291,7 +294,8 @@ def gmm(
         return _as_moments(moment_fn, theta, data)
 
     def g_bar(theta: np.ndarray) -> np.ndarray:
-        return G_mat(theta).mean(axis=0)
+        gb: np.ndarray = G_mat(theta).mean(axis=0)
+        return gb
 
     def S_at(theta: np.ndarray) -> np.ndarray:
         return _omega(

@@ -147,7 +147,8 @@ def _lsq(X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None) -> np.nda
         sw = np.sqrt(w)
         X = X * sw[:, None]
         y = y * sw if y.ndim == 1 else y * sw[:, None]
-    return np.linalg.lstsq(X, y, rcond=None)[0]
+    coef: np.ndarray = np.linalg.lstsq(X, y, rcond=None)[0]
+    return coef
 
 
 def _pair(value: Any, name: str) -> Tuple[Any, Any]:
@@ -204,11 +205,13 @@ def _selector_constants(
     dcoef = beta1[1:] * np.arange(1, order + 1)
 
     def slope(t: np.ndarray) -> np.ndarray:
-        return _powers(t, order - 1) @ dcoef
+        d: np.ndarray = _powers(t, order - 1) @ dcoef
+        return d
 
     def cond_var(t: np.ndarray) -> np.ndarray:
         P = _powers(t, order)
-        return P @ beta2 - (P @ beta1) ** 2
+        v: np.ndarray = P @ beta2 - (P @ beta1) ** 2
+        return v
 
     var_y = float(np.var(ys, ddof=1)) if N > 1 else float("nan")
 
@@ -268,7 +271,8 @@ def _even_edges(lo: float, hi: float, J: int) -> np.ndarray:
     """``lo, lo + d, lo + 2d, ...`` with ``d = (hi - lo) / J``, capped at ``hi``."""
     step = (hi - lo) / J
     edges = lo + np.arange(J + 1) * step
-    return np.minimum(edges, hi)
+    capped: np.ndarray = np.minimum(edges, hi)
+    return capped
 
 
 def _quantile_edges(values: np.ndarray, J: int) -> np.ndarray:
@@ -568,7 +572,7 @@ def rdplot_numbers(
                     method = method + "pr"
 
     # ---- number of bins ------------------------------------------------ #
-    sides = []
+    sides: List[Dict[str, Any]] = []
     for m, length, scl, label in (
         (left, c - x_min, scale_l, "below"),
         (~left, x_max - c, scale_r, "above"),

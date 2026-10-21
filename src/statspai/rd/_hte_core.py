@@ -224,7 +224,10 @@ def evaluation_grid(Z: np.ndarray, n_eval: int) -> np.ndarray:
     """
     d = Z.shape[1]
     if d == 1:
-        return np.percentile(Z[:, 0], np.linspace(10.0, 90.0, n_eval))[:, None]
+        _ret: np.ndarray = np.percentile(Z[:, 0], np.linspace(10.0, 90.0, n_eval))[
+            :, None
+        ]
+        return _ret
     k = max(3, int(n_eval ** (1.0 / d)))
     probs = np.linspace(0.1, 0.9, k)
     axes = [np.quantile(Z[:, j], probs) for j in range(d)]

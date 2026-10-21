@@ -180,4 +180,5 @@ def _threshold_tied(y: np.ndarray, share: float, top: bool) -> bool:
 
 def cell_codes(data: pd.DataFrame, covariates: List[str]) -> np.ndarray:
     """Integer codes 0, 1, ... of the covariate combinations, in sorted order."""
-    return data.groupby(list(covariates), sort=True).ngroup().to_numpy()
+    _ret: np.ndarray = data.groupby(list(covariates), sort=True).ngroup().to_numpy()
+    return _ret

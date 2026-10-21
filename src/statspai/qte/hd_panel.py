@@ -234,7 +234,8 @@ def _group_mean(v: np.ndarray, codes: np.ndarray, k: int) -> np.ndarray:
     out = np.bincount(codes, weights=v, minlength=k)
     cnt = np.bincount(codes, minlength=k).astype(float)
     cnt[cnt == 0] = 1.0
-    return out / cnt
+    mean: np.ndarray = out / cnt
+    return mean
 
 
 def _group_mean_2d(M: np.ndarray, codes: np.ndarray, k: int) -> np.ndarray:
@@ -429,9 +430,9 @@ def qte_hd_panel(
     qte_arr = _fit_once(Y, D, Xs, unit_codes, time_dummies, n_units, taus, method)
 
     if se == "none":
-        se_arr = np.full(len(taus), np.nan)
-        ci_low = np.full(len(taus), np.nan)
-        ci_high = np.full(len(taus), np.nan)
+        se_arr: np.ndarray = np.full(len(taus), np.nan)
+        ci_low: np.ndarray = np.full(len(taus), np.nan)
+        ci_high: np.ndarray = np.full(len(taus), np.nan)
     else:
         rng = np.random.default_rng(seed)
         rows_by_unit = [np.where(unit_codes == u)[0] for u in range(n_units)]

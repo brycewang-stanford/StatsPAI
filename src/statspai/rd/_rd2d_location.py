@@ -29,13 +29,14 @@ side) is a three-step plug-in:
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from ..exceptions import DataInsufficient
 from ._rd2d_common import (
     RADIAL_MOMENTS,
+    WindowFit,
     cer_rate,
     fit_window,
     kernel_1d,
@@ -64,7 +65,9 @@ class BoundaryData:
     fuzzy).
     """
 
-    def __init__(self, x1, x2, side, Y, cluster=None) -> None:
+    def __init__(
+        self, x1: Any, x2: Any, side: Any, Y: Any, cluster: Any = None
+    ) -> None:
         self.x1 = np.asarray(x1, dtype=float)
         self.x2 = np.asarray(x2, dtype=float)
         self.side = np.asarray(side).astype(int)
@@ -83,16 +86,18 @@ class BoundaryData:
 
     @property
     def fuzzy(self) -> bool:
-        return self.Y.shape[1] == 2
+        return bool(self.Y.shape[1] == 2)
 
     def n_unique(self) -> int:
         return int(np.unique(np.column_stack([self.x1, self.x2]), axis=0).shape[0])
 
-    def side_cluster(self, t: int):
+    def side_cluster(self, t: int) -> Optional[np.ndarray]:
         return None if self.cluster is None else self.cluster[self.pos[t]]
 
 
-def selection_vector(order: int, deriv: Sequence[int], tangvec=None) -> np.ndarray:
+def selection_vector(
+    order: int, deriv: Sequence[int], tangvec: Any = None
+) -> np.ndarray:
     """Coefficient combination of the target on the order-``order`` basis.
 
     Level: the intercept. Partial derivative ``d^(n1+n2)``: ``n1! n2!`` times
@@ -110,7 +115,7 @@ def selection_vector(order: int, deriv: Sequence[int], tangvec=None) -> np.ndarr
     return s
 
 
-def _target_order(deriv: Sequence[int], tangvec) -> int:
+def _target_order(deriv: Sequence[int], tangvec: Any) -> int:
     return 1 if tangvec is not None else int(deriv[0]) + int(deriv[1])
 
 
@@ -119,7 +124,7 @@ def _target_order(deriv: Sequence[int], tangvec) -> int:
 # --------------------------------------------------------------------------
 
 
-def _snap(u):
+def _snap(u: np.ndarray) -> np.ndarray:
     # Observations on the window edge up to rounding are on the edge: the
     # enlarged (bwcheck) window is built from an observed distance, so its
     # edge passes through observations exactly (black box: lattice data).
@@ -127,22 +132,28 @@ def _snap(u):
     return np.where(np.abs(a - 1.0) < 1e-12, np.sign(u), u)
 
 
-def _weights(d1, d2, h1, h2, kernel, kernel_type):
+def _weights(
+    d1: np.ndarray, d2: np.ndarray, h1: float, h2: float, kernel: str, kernel_type: str
+) -> np.ndarray:
     if kernel_type == "prod":
-        return (
+        wp: np.ndarray = (
             kernel_1d(_snap(d1 / h1), kernel)
             * kernel_1d(_snap(d2 / h2), kernel)
             / (h1 * h2)
         )
+        return wp
     # Radial kernel at radius sqrt(h1^2 + h2^2) (the reference's fit; see
     # the clean-room record for its variance scaling, not reproduced).
     r = math.hypot(h1, h2)
     return kernel_1d(_snap(np.hypot(d1, d2) / r), kernel) / (r * r)
 
 
-def _scalar_weights(d1, d2, h, kernel, kernel_type):
+def _scalar_weights(
+    d1: np.ndarray, d2: np.ndarray, h: float, kernel: str, kernel_type: str
+) -> np.ndarray:
     if kernel_type == "prod":
-        return kernel_1d(d1 / h, kernel) * kernel_1d(d2 / h, kernel)
+        wp: np.ndarray = kernel_1d(d1 / h, kernel) * kernel_1d(d2 / h, kernel)
+        return wp
     return kernel_1d(np.hypot(d1, d2) / h, kernel)
 
 
@@ -168,7 +179,7 @@ def pilot_bandwidth(X: np.ndarray, kernel: str, m: int) -> float:
     """
     mu2, R = RADIAL_MOMENTS[kernel]
     S = np.cov(X.T)
-    return (2.0 * R / (mu2 * m * _normal_roughness(S))) ** (1.0 / 6.0)
+    return float((2.0 * R / (mu2 * m * _normal_roughness(S))) ** (1.0 / 6.0))
 
 
 # --------------------------------------------------------------------------
@@ -176,7 +187,16 @@ def pilot_bandwidth(X: np.ndarray, kernel: str, m: int) -> float:
 # --------------------------------------------------------------------------
 
 
-def _bias_factors(d1, d2, h, kernel, kernel_type, order, degree, sel):
+def _bias_factors(
+    d1: np.ndarray,
+    d2: np.ndarray,
+    h: float,
+    kernel: str,
+    kernel_type: str,
+    order: int,
+    degree: int,
+    sel: np.ndarray,
+) -> np.ndarray:
     """``sel' Gamma^-1 E[r(U) U^k K]`` for every monomial k of ``degree``.
 
     Computed with the scaled design ``U = (x - b) / h``; the raw-scale bias
@@ -198,26 +218,35 @@ def _degree_index(order: int, degree: int) -> List[int]:
     return [mono.index((i, j)) for i, j in mono if i + j == degree]
 
 
-def _side_fit(data_side, Ycol, h, kernel, kernel_type, order, cluster, what):
+def _side_fit(
+    data_side: Tuple[np.ndarray, np.ndarray],
+    Ycol: np.ndarray,
+    h: float,
+    kernel: str,
+    kernel_type: str,
+    order: int,
+    cluster: Optional[np.ndarray],
+    what: str,
+) -> WindowFit:
     d1, d2 = data_side
     w = _scalar_weights(d1, d2, h, kernel, kernel_type)
     return fit_window(poly_basis(d1, d2, order), Ycol, w, cluster, what)
 
 
 def _point_constants(
-    sides,
-    ycols,
-    clusters,
-    A,
-    kernel,
-    kernel_type,
-    p,
-    vce,
-    method,
-    scaleregul,
-    joint,
-    sel,
-):
+    sides: Sequence[Tuple[np.ndarray, np.ndarray]],
+    ycols: Any,
+    clusters: Any,
+    A: Any,
+    kernel: str,
+    kernel_type: str,
+    p: int,
+    vce: str,
+    method: str,
+    scaleregul: float,
+    joint: bool,
+    sel: np.ndarray,
+) -> Dict[str, Any]:
     """Variance, bias, higher-order bias and regularisation constants at one
     evaluation point, per side (and the cross-side covariances)."""
     q = p + 1
@@ -226,7 +255,7 @@ def _point_constants(
     idx_q = _degree_index(q, q)
     idx_r = _degree_index(p + 2, p + 2)
 
-    def pad(v, idx, K):
+    def pad(v: np.ndarray, idx: List[int], K: int) -> np.ndarray:
         z = np.zeros(K)
         z[idx] = v
         return z
@@ -330,7 +359,7 @@ def location_bandwidths(
     eval_pts: np.ndarray,
     p: int,
     deriv: Sequence[int],
-    tangvec,
+    tangvec: Any,
     kernel: str,
     kernel_type: str,
     bwselect: str,
@@ -343,7 +372,7 @@ def location_bandwidths(
     scalebiascrct: float,
     stdvars: bool,
     bwparam: str = "main",
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """MSE- or CER-optimal bandwidths at each evaluation point.
 
     Returns ``h`` (J x 4: control x1, control x2, treated x1, treated x2) and
@@ -365,7 +394,7 @@ def location_bandwidths(
     consts = []
     floors = []
     for j in range(J):
-        sides = []
+        sides: List[Tuple[np.ndarray, np.ndarray]] = []
         for t in (0, 1):
             pos = data.pos[t]
             sides.append((Xs[pos, 0] - bs[j, 0], Xs[pos, 1] - bs[j, 1]))
@@ -405,12 +434,12 @@ def location_bandwidths(
             )
         )
 
-    def mse(var, bias2):
+    def mse(var: Any, bias2: Any) -> Any:
         return ((2.0 + 2.0 * nu) * var / (2.0 * (p + 1 - nu) * bias2)) ** (
             1.0 / (2 * p + 4)
         )
 
-    def pieces(c, t=None):
+    def pieces(c: Dict[str, Any], t: Optional[int] = None) -> Tuple[Any, Any]:
         bt = [c["bias"][s] + scalebiascrct * c["bias_hi"][s] for s in (0, 1)]
         if t is None:
             V = c["var"][0] + c["var"][1] - 2.0 * c["var01"]
@@ -422,14 +451,15 @@ def location_bandwidths(
 
     H = np.empty((J, 2))
     if integrated:
-        for t in (0, 1) if two else (None,):
-            Vs = sum(pieces(c, t)[0] for c in consts)
-            Bs = sum(pieces(c, t)[1] for c in consts)
+        side_set: Tuple[Optional[int], ...] = (0, 1) if two else (None,)
+        for side in side_set:
+            Vs = sum(pieces(c, side)[0] for c in consts)
+            Bs = sum(pieces(c, side)[1] for c in consts)
             h = mse(Vs, Bs)
-            if t is None:
+            if side is None:
                 H[:, :] = h
             else:
-                H[:, t] = h
+                H[:, side] = h
     else:
         for j, c in enumerate(consts):
             if two:
@@ -457,7 +487,15 @@ def location_bandwidths(
     return {"h": out, "constants": consts, "scale": scale, "pilot": a0}
 
 
-def _selector_outcomes(data, sides, A, kernel, kernel_type, p, bwparam):
+def _selector_outcomes(
+    data: BoundaryData,
+    sides: Any,
+    A: Any,
+    kernel: str,
+    kernel_type: str,
+    p: int,
+    bwparam: str,
+) -> List[np.ndarray]:
     """Outcome used by the selector on each side.
 
     Sharp: ``Y``. Fuzzy with ``bwparam='main'``: the linearised Wald ratio
@@ -491,7 +529,16 @@ def _selector_outcomes(data, sides, A, kernel, kernel_type, p, bwparam):
 # --------------------------------------------------------------------------
 
 
-def _effective_bandwidth(d1, d2, h1, h2, kernel_type, bwcheck, unique, scale):
+def _effective_bandwidth(
+    d1: np.ndarray,
+    d2: np.ndarray,
+    h1: float,
+    h2: float,
+    kernel_type: str,
+    bwcheck: Optional[int],
+    unique: bool,
+    scale: Tuple[float, float],
+) -> Tuple[float, float]:
     """Enlarge ``(h1, h2)`` so that at least ``bwcheck`` locations are used.
 
     Product kernels: ``lam`` is the ``bwcheck``-th smallest
@@ -521,7 +568,7 @@ def location_estimates(
     p: int,
     q: int,
     deriv: Sequence[int],
-    tangvec,
+    tangvec: Any,
     kernel: str,
     kernel_type: str,
     vce: str,
@@ -529,22 +576,22 @@ def location_estimates(
     bwcheck: Optional[int],
     masspoints: str,
     scale: Tuple[float, float] = (1.0, 1.0),
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Side estimates and influences at every point (orders p and q)."""
     J = eval_pts.shape[0]
-    out: Dict[str, object] = {}
+    out: Dict[str, Any] = {}
     used = np.empty((J, 4))
     for order, tag in ((p, "p"), (q, "q")):
         cols = data.Y.shape[1]
         est = np.empty((J, cols, 2))
-        pts = [[] for _ in range(cols)]
+        pts: List[List[Dict[str, Any]]] = [[] for _ in range(cols)]
         n_side = np.zeros((J, 2), dtype=int)
         for j in range(J):
             sel = selection_vector(
                 order, deriv, None if tangvec is None else tangvec[j]
             )
-            fits_by_col = [[None, None] for _ in range(cols)]
-            infl_by_col = [[None, None] for _ in range(cols)]
+            fits_by_col: List[List[Any]] = [[None, None] for _ in range(cols)]
+            infl_by_col: List[List[Any]] = [[None, None] for _ in range(cols)]
             for t in (0, 1):
                 pos = data.pos[t]
                 d1 = data.x1[pos] - eval_pts[j, 0]
@@ -575,13 +622,13 @@ def location_estimates(
 
 def assemble(
     data: BoundaryData,
-    raw: Dict[str, object],
+    raw: Dict[str, Any],
     vce: str,
     fitmethod: str,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Jumps, side and jump standard errors, covariances (sharp or fuzzy)."""
     joint = fitmethod == "joint"
-    res: Dict[str, object] = {}
+    res: Dict[str, Any] = {}
     for tag in ("p", "q"):
         est = raw[f"est_{tag}"]
         pts = raw[f"points_{tag}"]
@@ -603,7 +650,7 @@ def assemble(
                 jse[j] = math.sqrt(max(v0 + v1 - 2.0 * v01, 0.0))
             side_se[c] = se
             jump_se[c] = jse
-        main_pts = []
+        main_pts: List[Optional[Dict[str, Any]]] = []
         if fuzzy:
             ty, tt = jump[0], jump[1]
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -629,7 +676,7 @@ def assemble(
         else:
             res[f"tau_{tag}"] = jump[0]
             res[f"se_{tag}"] = jump_se[0]
-            main_pts = pts[0]
+            main_pts = list(pts[0])
             res[f"mu0_{tag}"], res[f"mu1_{tag}"] = est[:, 0, 0], est[:, 0, 1]
             res[f"se0_{tag}"], res[f"se1_{tag}"] = side_se[0][:, 0], side_se[0][:, 1]
         res[f"cov_{tag}"] = _covariance(data, main_pts, vce, joint)
@@ -639,12 +686,15 @@ def assemble(
     return res
 
 
-def _covariance(data, pts, vce, joint):
+def _covariance(
+    data: BoundaryData, pts: List[Optional[Dict[str, Any]]], vce: str, joint: bool
+) -> np.ndarray:
     J = len(pts)
-    if any(pt is None for pt in pts):
+    present = [pt for pt in pts if pt is not None]
+    if len(present) < J:
         return np.full((J, J), np.nan)
     payload = []
-    for pt in pts:
+    for pt in present:
         d = {
             "fits": pt["fits"],
             "infl": pt["infl"],

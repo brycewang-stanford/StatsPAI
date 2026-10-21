@@ -7,7 +7,7 @@ a black box only. Specification: ``docs/dev/cleanroom/lprobust.md``.
 from __future__ import annotations
 
 from math import factorial
-from typing import Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
@@ -21,13 +21,15 @@ from . import _lprobust_bw as _bw
 IMSE_ROT_PROBS = np.linspace(0.05, 0.95, 37)
 
 
-def selector_inputs(x, y, kernel, p, deriv, n_neighbors, name):
+def selector_inputs(
+    x: Any, y: Any, kernel: str, p: int, deriv: int, n_neighbors: int, name: str
+) -> Tuple[np.ndarray, np.ndarray]:
     xs, ys = _bw.check_point_inputs(x, y, kernel, p, deriv, n_neighbors)
     _bw.check_orders(p, deriv, odd_only=name)
     return xs, ys
 
 
-def run_plug_in(xs, ys, x0, **kw):
+def run_plug_in(xs: np.ndarray, ys: np.ndarray, x0: float, **kw: Any) -> Dict[str, Any]:
     try:
         return _bw.plug_in_point(xs, ys, x0, **kw)
     except np.linalg.LinAlgError as exc:
@@ -75,7 +77,9 @@ def kernel_moment_constants(p: int, deriv: int, kernel: str) -> Dict[str, float]
     return {"bias": c_bias, "variance": c_var}
 
 
-def rot_inputs(x, y, kernel, p, deriv, name):
+def rot_inputs(
+    x: Any, y: Any, kernel: str, p: int, deriv: int, name: str
+) -> Tuple[np.ndarray, np.ndarray, Tuple[float, float], float]:
     _bw.check_kernel(kernel)
     xs, ys = _bw.clean_xy(x, y)
     _bw.check_orders(p, deriv, odd_only=name)
@@ -112,7 +116,18 @@ def ce_rescale(order: int, deriv: int, n: int) -> float:
     return float(n ** (-(order + 2) / ((2 * order + 5) * (order + 3))))
 
 
-def imse_dpi(xs, ys, *, p, deriv, kernel, imsegrid, n_neighbors, bwcheck, bwregul):
+def imse_dpi(
+    xs: np.ndarray,
+    ys: np.ndarray,
+    *,
+    p: int,
+    deriv: int,
+    kernel: str,
+    imsegrid: int,
+    n_neighbors: int,
+    bwcheck: int,
+    bwregul: float,
+) -> Dict[str, float]:
     """Grid averages of the plug-in stages; see :func:`lpbwselect_imse_dpi`."""
     n, q = xs.size, p + 1
     stages_b, stages_h = [], []
@@ -151,7 +166,7 @@ def imse_dpi(xs, ys, *, p, deriv, kernel, imsegrid, n_neighbors, bwcheck, bwregu
                 recovery_hint="Raise bwcheck or lower imsegrid.",
             ) from exc
 
-    def _average(stages, order, d):
+    def _average(stages: List[Dict[str, Any]], order: int, d: int) -> float:
         return _bw.closed_form_bandwidth(
             float(np.mean([s["variance"] for s in stages])),
             float(np.mean([s["bias_sq"] for s in stages])),

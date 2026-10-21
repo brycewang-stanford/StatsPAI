@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
-from typing import Dict, FrozenSet, List, Tuple, Union
+from typing import Dict, FrozenSet, Iterator, List, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -75,8 +75,10 @@ def _adjacent(g: np.ndarray, a: int, b: int) -> bool:
 
 
 def _is_clique(g: np.ndarray, nodes: set) -> bool:
-    nodes = sorted(nodes)
-    return all(_adjacent(g, a, b) for i, a in enumerate(nodes) for b in nodes[i + 1 :])
+    ordered = sorted(nodes)
+    return all(
+        _adjacent(g, a, b) for i, a in enumerate(ordered) for b in ordered[i + 1 :]
+    )
 
 
 def _semi_directed_path_blocked(
@@ -180,10 +182,11 @@ def _dag_to_cpdag(dag: np.ndarray) -> np.ndarray:
                 if r1 or r2 or r3:
                     g[b, a] = 0
                     changed = True
-    return g
+    out: np.ndarray = g
+    return out
 
 
-def _subsets(items: List[int]):
+def _subsets(items: List[int]) -> Iterator[Set[int]]:
     for k in range(len(items) + 1):
         yield from (set(c) for c in combinations(items, k))
 

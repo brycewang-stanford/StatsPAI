@@ -233,7 +233,8 @@ def _comparison_odds(
 
 
 def _cell(s: _Sample, dd: int, tt: int) -> np.ndarray:
-    return (s.d == dd) & (s.post == tt)
+    _ret: np.ndarray = (s.d == dd) & (s.post == tt)
+    return _ret
 
 
 class _CellFit(NamedTuple):
@@ -246,11 +247,13 @@ class _CellFit(NamedTuple):
 
     @property
     def fitted(self) -> np.ndarray:
-        return self.x @ self.coef
+        _ret: np.ndarray = self.x @ self.coef
+        return _ret
 
     def effect(self, y: np.ndarray, grad: np.ndarray) -> np.ndarray:
         """Estimation effect ``l_i' grad`` of this fit's coefficients."""
-        return wls_influence(self.x, y, self.w, self.rows, self.coef) @ grad
+        _ret: np.ndarray = wls_influence(self.x, y, self.w, self.rows, self.coef) @ grad
+        return _ret
 
 
 def _require_identified(

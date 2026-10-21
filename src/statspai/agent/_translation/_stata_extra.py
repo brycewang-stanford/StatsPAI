@@ -34,7 +34,7 @@ and delta-method SEs agree to 1e-7
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -455,7 +455,7 @@ def _h_med4way(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "eventstudyinteract": _h_eventstudyinteract,
     "power": _h_power,
     "leebounds": _h_leebounds,

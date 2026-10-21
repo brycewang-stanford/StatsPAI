@@ -13,13 +13,16 @@ from __future__ import annotations
 
 import inspect
 import warnings
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy.special import ndtr, ndtri
 
 from ..exceptions import MethodIncompatibility, NumericalInstability
+
+if TYPE_CHECKING:
+    from .power import PowerResult
 
 __all__ = ["power_simulation"]
 
@@ -69,18 +72,20 @@ def _extract(
     )
 
 
-def _finish(est, se, p, ci, alpha):
-    est = float(est)
-    se = float("nan") if se is None else float(se)
+def _finish(
+    est: Any, se: Any, p: Any, ci: Any, alpha: float
+) -> Tuple[float, float, float, float, float]:
+    est_f = float(est)
+    se_f = float("nan") if se is None else float(se)
     z = ndtri(1.0 - alpha / 2.0)
     if p is None:
-        p = 2.0 * ndtr(-abs(est / se)) if se > 0 else float("nan")
+        p = 2.0 * ndtr(-abs(est_f / se_f)) if se_f > 0 else float("nan")
     if ci is None:
-        ci = (est - z * se, est + z * se)
-    return est, se, float(p), float(ci[0]), float(ci[1])
+        ci = (est_f - z * se_f, est_f + z * se_f)
+    return est_f, se_f, float(p), float(ci[0]), float(ci[1])
 
 
-def _call_dgp(dgp: Callable, n: Any, rng: np.random.Generator, effect: Any):
+def _call_dgp(dgp: Callable, n: Any, rng: np.random.Generator, effect: Any) -> Any:
     params = inspect.signature(dgp).parameters
     kwargs: Dict[str, Any] = {}
     if "effect_size" in params and effect is not None:
@@ -99,7 +104,7 @@ def power_simulation(
     seed: Optional[int] = None,
     term: Optional[str] = None,
     true_value: Optional[float] = None,
-):
+) -> "PowerResult":
     """Monte Carlo power, bias, RMSE and coverage of an estimator.
 
     Parameters

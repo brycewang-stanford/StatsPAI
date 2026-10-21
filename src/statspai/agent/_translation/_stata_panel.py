@@ -13,7 +13,7 @@ pointer to ``sp.mmqreg``.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import (
     _build_formula,
@@ -541,7 +541,7 @@ def _h_xtqreg(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "mmqreg": _h_mmqreg,
     "xtqreg": _h_xtqreg,
     "xtsum": _h_xtsum,

@@ -22,7 +22,7 @@ bounds the bandwidth near it by the distance to the kink.
 from __future__ import annotations
 
 import math
-from typing import Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -51,10 +51,10 @@ def _pilot(Dj: np.ndarray, kernel: str, n: int) -> float:
     ``sigma^2 = mean(D^2) / 2``."""
     mu2, R = RADIAL_MOMENTS[kernel]
     sigma = math.sqrt(float(np.mean(Dj * Dj)) / 2.0)
-    return sigma * (4.0 * math.pi * R / (mu2 * n)) ** (1.0 / 6.0)
+    return float(sigma * (4.0 * math.pi * R / (mu2 * n)) ** (1.0 / 6.0))
 
 
-def _bwcheck_limits(dist: np.ndarray, bwcheck: int):
+def _bwcheck_limits(dist: np.ndarray, bwcheck: int) -> Tuple[float, float]:
     """``(k-th smallest, largest)`` of ``dist`` (NaN, NaN when empty)."""
     d = np.sort(np.asarray(dist, dtype=float))
     if d.size == 0:
@@ -62,7 +62,9 @@ def _bwcheck_limits(dist: np.ndarray, bwcheck: int):
     return float(d[min(int(bwcheck), d.size) - 1]), float(d[-1])
 
 
-def _quantile_poly_fit(y: np.ndarray, x: np.ndarray, degree: int):
+def _quantile_poly_fit(
+    y: np.ndarray, x: np.ndarray, degree: int
+) -> Tuple[np.ndarray, np.ndarray]:
     """OLS of ``y`` on ``1, x, ..., x^degree`` with its homoskedastic
     covariance; refuses a sample too small for the polynomial."""
     n = y.size
@@ -81,7 +83,14 @@ def _quantile_poly_fit(y: np.ndarray, x: np.ndarray, degree: int):
     return beta, XtX_inv * sigma2
 
 
-def _side_jumps(y, f, dist, h, p, kernel):
+def _side_jumps(
+    y: np.ndarray,
+    f: Optional[np.ndarray],
+    dist: np.ndarray,
+    h: Any,
+    p: int,
+    kernel: str,
+) -> Tuple[float, float]:
     """Jumps of the order-``p`` local intercepts of ``y`` and of ``f`` at
     bandwidth ``h`` (a scalar or one per side; ``f`` may be None); NaN when a
     side lacks data."""
@@ -119,15 +128,27 @@ def _kink_distance(eval_pts: np.ndarray, kink: np.ndarray) -> np.ndarray:
     if not kink.any():
         return np.full(eval_pts.shape[0], np.inf)
     K = eval_pts[kink]
-    return np.min(
+    dmin: np.ndarray = np.min(
         np.hypot(
             eval_pts[:, None, 0] - K[None, :, 0], eval_pts[:, None, 1] - K[None, :, 1]
         ),
         axis=1,
     )
+    return dmin
 
 
-def _point_constants(Dj, y, kernel, p, cqt, vce, joint, n_pilot, cluster, floors):
+def _point_constants(
+    Dj: np.ndarray,
+    y: np.ndarray,
+    kernel: str,
+    p: int,
+    cqt: float,
+    vce: str,
+    joint: bool,
+    n_pilot: int,
+    cluster: Optional[np.ndarray],
+    floors: Any,
+) -> Dict[str, Any]:
     c = _pilot(Dj, kernel, n_pilot)
     A = [max(c, floors[0]), max(c, floors[1])]
     fits, infl, bias, reg = [], [], [], []
@@ -185,7 +206,7 @@ def distance_bandwidths(
     fitmethod: str,
     fuzzy: Optional[np.ndarray] = None,
     bwparam: str = "main",
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Bandwidths ``h0``, ``h1`` (and inference bandwidths) per point."""
     n, J = D.shape
     joint = fitmethod == "joint"
@@ -219,10 +240,10 @@ def distance_bandwidths(
             _point_constants(Dj, yy, kernel, p, cqt, vce, joint, n, cluster, fl)
         )
 
-    def mse(var, b2):
+    def mse(var: Any, b2: Any) -> Any:
         return (2.0 * var / ((2 * p + 2) * b2)) ** (1.0 / (2 * p + 4))
 
-    def pieces(c, t):
+    def pieces(c: Dict[str, Any], t: Optional[int]) -> Tuple[Any, Any]:
         if t is None:
             V = c["var"][0] + c["var"][1] - 2.0 * c["var01"]
             B = c["bias"][1] - c["bias"][0]
@@ -233,21 +254,22 @@ def distance_bandwidths(
 
     H = np.empty((J, 2))
     if integrated:
-        for t in (0, 1) if two else (None,):
+        side_set: Tuple[Optional[int], ...] = (0, 1) if two else (None,)
+        for side in side_set:
             h = mse(
-                sum(pieces(c, t)[0] for c in consts),
-                sum(pieces(c, t)[1] for c in consts),
+                sum(pieces(c, side)[0] for c in consts),
+                sum(pieces(c, side)[1] for c in consts),
             )
-            if t is None:
+            if side is None:
                 H[:, :] = h
             else:
-                H[:, t] = h
+                H[:, side] = h
     else:
-        for j, c in enumerate(consts):
+        for j, cst in enumerate(consts):
             H[j] = (
-                [mse(*pieces(c, 0)), mse(*pieces(c, 1))]
+                [mse(*pieces(cst, 0)), mse(*pieces(cst, 1))]
                 if two
-                else mse(*pieces(c, None))
+                else mse(*pieces(cst, None))
             )
     # bwcheck floor on the MSE bandwidth, then the CER rate, then the kink
     # rates (floor first: black box for the CER case of the location
@@ -272,7 +294,9 @@ def distance_bandwidths(
     if kink_unknown[0]:
         H = H * rate
     elif np.asarray(kink_position, dtype=bool).any():
-        dk = _kink_distance(eval_pts, kink_position)
+        dk = _kink_distance(
+            np.asarray(eval_pts, dtype=float), np.asarray(kink_position, dtype=bool)
+        )
         H = np.minimum(H, np.maximum(H * rate, dk[:, None]))
     H_rbc = H.copy()
     if kink_unknown[1]:
@@ -297,21 +321,21 @@ def distance_estimates(
     masspoints: str,
     cluster: Optional[np.ndarray],
     vce: str,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Side intercepts and their influences for orders ``p`` and ``q``."""
     Y = Y[:, None] if Y.ndim == 1 else Y
     n, J = D.shape
-    out: Dict[str, object] = {}
+    out: Dict[str, Any] = {}
     for order, tag, HH in ((p, "p", H), (q, "q", H_rbc)):
         cols = Y.shape[1]
         est = np.empty((J, cols, 2))
-        pts = [[] for _ in range(cols)]
+        pts: List[List[Dict[str, Any]]] = [[] for _ in range(cols)]
         n_side = np.zeros((J, 2), dtype=int)
         pos_all = []
         for j in range(J):
             Dj = D[:, j]
-            fits_c = [[None, None] for _ in range(cols)]
-            infl_c = [[None, None] for _ in range(cols)]
+            fits_c: List[List[Any]] = [[None, None] for _ in range(cols)]
+            infl_c: List[List[Any]] = [[None, None] for _ in range(cols)]
             pos_j = []
             for t, mask in enumerate((Dj < 0, Dj >= 0)):
                 pos = np.flatnonzero(mask)
@@ -340,12 +364,18 @@ def distance_estimates(
     return out
 
 
-def distance_assemble(raw, n, cluster, vce, fitmethod):
+def distance_assemble(
+    raw: Dict[str, Any],
+    n: int,
+    cluster: Optional[np.ndarray],
+    vce: str,
+    fitmethod: str,
+) -> Dict[str, Any]:
     """Jumps, standard errors and covariances (sharp or fuzzy)."""
     joint = fitmethod == "joint"
     if cluster is not None:
         codes, inv = np.unique(cluster, return_inverse=True)
-    res: Dict[str, object] = {}
+    res: Dict[str, Any] = {}
     for tag in ("p", "q"):
         est = raw[f"est_{tag}"]
         pts = raw[f"points_{tag}"]
@@ -368,7 +398,7 @@ def distance_assemble(raw, n, cluster, vce, fitmethod):
             with np.errstate(divide="ignore", invalid="ignore"):
                 tau = np.where(np.abs(tt) < FIRST_STAGE_TOL, np.nan, ty / tt)
             main_se = np.empty(J)
-            main_pts = []
+            main_pts: List[Optional[Dict[str, Any]]] = []
             for j in range(J):
                 fy, fw = pts[0][j], pts[1][j]
                 if not np.isfinite(tau[j]):
@@ -390,11 +420,12 @@ def distance_assemble(raw, n, cluster, vce, fitmethod):
             main_pts = pts[0]
             res[f"mu0_{tag}"], res[f"mu1_{tag}"] = est[:, 0, 0], est[:, 0, 1]
             res[f"se0_{tag}"], res[f"se1_{tag}"] = side_se[0][:, 0], side_se[0][:, 1]
-        if any(pt is None for pt in main_pts):
+        present = [pt for pt in main_pts if pt is not None]
+        if len(present) < len(main_pts):
             res[f"cov_{tag}"] = np.full((J, J), np.nan)
         else:
             payload = []
-            for pt in main_pts:
+            for pt in present:
                 d = {
                     "fits": pt["fits"],
                     "infl": pt["infl"],

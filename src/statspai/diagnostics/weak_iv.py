@@ -202,8 +202,9 @@ def _mop_bias_bounds(
         S12 = W12 - beta * W2
         lam = np.linalg.eigvalsh(0.5 * (S12 + S12.T))
         t = float(np.trace(S12))
-        return max(abs(t - 2.0 * lam[0]), abs(t - 2.0 * lam[-1])) / np.sqrt(
-            float(np.trace(S1)) * tr2
+        return float(
+            max(abs(t - 2.0 * lam[0]), abs(t - 2.0 * lam[-1]))
+            / np.sqrt(float(np.trace(S1)) * tr2)
         )
 
     def liml(beta: float) -> float:
@@ -213,8 +214,8 @@ def _mop_bias_bounds(
         r = (omega[0, 1] - beta * omega[1, 1]) / s1
         lam = np.linalg.eigvalsh((S12 + S12.T) - r * S1)
         a = float(np.trace(S12)) - r * float(np.trace(S1))
-        return max(abs(a - lam[0]), abs(a - lam[-1])) / np.sqrt(
-            float(np.trace(S1)) * tr2
+        return float(
+            max(abs(a - lam[0]), abs(a - lam[-1])) / np.sqrt(float(np.trace(S1)) * tr2)
         )
 
     return {"tsls": _mop_sup(tsls), "liml": _mop_sup(liml)}
@@ -355,8 +356,7 @@ def effective_f_test(
     cols = ([y] if y is not None else []) + [endog]
     cols += list(instruments) + list(exog or [])
     cols += absorb_terms + cluster_names
-    seen: set = set()
-    cols = [c for c in cols if not (c in seen or seen.add(c))]
+    cols = list(dict.fromkeys(cols))
     df = data[cols].dropna()
     n = len(df)
     D = df[endog].values.astype(float)
@@ -783,8 +783,7 @@ def _prep_matrices_absorbed(
     endog_cols = [endog] if isinstance(endog, str) else list(endog)
     cols = [y] + endog_cols + list(instruments) + list(exog or [])
     cols += list(absorb_terms) + list(cluster_names)
-    seen: set = set()
-    cols = [c for c in cols if not (c in seen or seen.add(c))]
+    cols = list(dict.fromkeys(cols))
     df = data[cols].dropna()
     n = len(df)
     Y = df[y].to_numpy(dtype=float)
@@ -1045,7 +1044,7 @@ def anderson_rubin_test(
     # ── AR statistic at h0 ──────────────────────────────────────────
     df1 = k_z
     df2 = n - k_w - k_z - fe_dof
-    g_min = None
+    g_min = 0  # number of clusters in the smallest dimension (clustered only)
     if cluster_frame is not None:
         g_min = min(
             int(cluster_frame.iloc[:, j].nunique())
@@ -1079,7 +1078,7 @@ def anderson_rubin_test(
                 stat = float(moment @ np.linalg.solve(omega, moment))
             except np.linalg.LinAlgError:  # pragma: no cover - defensive
                 return np.nan
-            return stat / df1
+            return float(stat / df1)
         if cluster_frame is not None:
             # Wald form, as ivreg2 / ivreghdfe: the cluster meat is built
             # from the unrestricted reduced-form residual. Using Y_adj itself
@@ -1096,7 +1095,7 @@ def anderson_rubin_test(
                 stat = float(moment @ np.linalg.solve(omega, moment))
             except np.linalg.LinAlgError:  # pragma: no cover - defensive
                 return np.nan
-            return stat / df1
+            return float(stat / df1)
         # Regress Y_adj on Z_t; F test coefficients = 0
         # Numerator SS: Y_adj' P_Z_t Y_adj
         proj = Z_t @ (ZtZt_inv @ (Z_t.T @ Y_adj))
@@ -1107,7 +1106,7 @@ def anderson_rubin_test(
             return np.nan
         return float((num_ss / df1) / (rss / df2))
 
-    ar_f = _ar_f(h0)
+    ar_f = _ar_f(float(np.asarray(h0, dtype=float).reshape(-1)[0]))
     ar_p = float(stats.f.sf(ar_f, df1, df2)) if not np.isnan(ar_f) else np.nan
 
     # ── AR confidence set via grid inversion ────────────────────────
@@ -1694,6 +1693,7 @@ def weakrobust(
     endog = endog_list[0]
     if np.ndim(h0) > 0:
         h0 = float(np.asarray(h0, dtype=float).reshape(-1)[0])
+    h0_val = float(np.asarray(h0, dtype=float).reshape(-1)[0])
 
     ar = anderson_rubin_test(
         data=data,
@@ -1769,7 +1769,7 @@ def weakrobust(
                 instruments=list(instruments),
                 exog=list(exog) if exog else None,
                 data=data,
-                beta0=h0,
+                beta0=h0_val,
                 n_simulations=clr_simulations,
                 random_state=random_state,
                 method=clr_method,
@@ -1828,7 +1828,7 @@ def weakrobust(
                     exog=exog_arg,
                     data=data,
                     level=level,
-                    beta_grid=np.array([float(h0)]),
+                    beta_grid=np.array([h0_val]),
                 )
                 _k_stat = float(k_at_h0.statistic[0])
                 out["k_stat"] = _k_stat

@@ -273,7 +273,10 @@ def _logit_fit_predict(
         kw = {"sample_weight": sw[rows]} if (weighted and sw is not None) else {}
         m.fit(X[rows][:, 1:], y[rows], **kw)
         return positive_class_proba(m, X[:, 1:], context="ltmle g_learner")
-    return expit(X @ _logit_fit(X[rows], y[rows], None if sw is None else sw[rows]))
+    _ret: np.ndarray = expit(
+        X @ _logit_fit(X[rows], y[rows], None if sw is None else sw[rows])
+    )
+    return _ret
 
 
 def _clone_learner(learner: Any) -> Any:

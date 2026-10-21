@@ -8,7 +8,7 @@ into the data in memory under the names the command gave.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from ._stata import _emit, _emit_error
 from ._stata_basics import _bad, _kw, _level, _number
@@ -335,7 +335,7 @@ def _h_pstest(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "pscore": _h_pscore,
     "attnd": _h_attnd,
     "attk": _h_attk,

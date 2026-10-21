@@ -13,7 +13,7 @@ out: ``arima`` always has a constant and reports OPG standard errors,
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import _emit, _emit_error, _opt_matches, _split_varlist_y_x, _vce_cluster
 from ._stata_lexer import StataCommand
@@ -221,8 +221,9 @@ def _h_prtesti(cmd: StataCommand) -> Dict[str, Any]:
     """``prtesti 50 0.52 0.4`` -> ``sp.prtest(n=50, proportion=0.52, p=0.4)``;
     four numbers are two samples. ``count`` gives successes instead of
     proportions."""
-    values = [_number(tok) for tok in cmd.varlist]
-    if len(values) not in (3, 4) or any(v is None for v in values):
+    parsed = [_number(tok) for tok in cmd.varlist]
+    values = [v for v in parsed if v is not None]
+    if len(parsed) not in (3, 4) or len(values) != len(parsed):
         return _bad(cmd, "expected `#obs #p #p0` or `#obs1 #p1 #obs2 #p2`")
     count = "count" in cmd.options
     args: Dict[str, Any]
@@ -669,7 +670,7 @@ def _h_oneway(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("oneway", args, f"sp.oneway(df, {_kw(args)})")
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "ranksum": _h_by_test("ranksum", "ranksum"),
     "kwallis": _h_by_test("kwallis", "kwallis"),
     "ksmirnov": _h_by_test("ksmirnov", "ksmirnov"),

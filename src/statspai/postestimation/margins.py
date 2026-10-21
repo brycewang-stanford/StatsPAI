@@ -753,7 +753,10 @@ def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
     # Absorbed fixed effects (sp.feols / fepois / feglm) enter at their
     # estimates; for standard errors that count them as parameters see
     # _fe_delta.py.
-    return _offset_without_fe(result, frame) + fe_offset(result, frame, unseen="raise")
+    _ret: np.ndarray = _offset_without_fe(result, frame) + fe_offset(
+        result, frame, unseen="raise"
+    )
+    return _ret
 
 
 def _offset_without_fe(result: Any, frame: pd.DataFrame) -> np.ndarray:

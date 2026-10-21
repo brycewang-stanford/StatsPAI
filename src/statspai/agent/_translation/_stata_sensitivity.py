@@ -4,7 +4,7 @@ command for omitted-variable-bias sensitivity) to ``sp.sensemakr``.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import _emit, _emit_error, _expand_abbreviations
 from ._stata_lexer import StataCommand
@@ -77,4 +77,4 @@ def _h_sensemakr(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
-HANDLERS = {"sensemakr": _h_sensemakr}
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {"sensemakr": _h_sensemakr}

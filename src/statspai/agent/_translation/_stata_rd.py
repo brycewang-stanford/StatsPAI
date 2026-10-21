@@ -10,7 +10,7 @@ unread and so reported as untranslated.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import _emit, _emit_error
 from ._stata_lexer import StataCommand
@@ -344,7 +344,7 @@ def _h_rdmcplot(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "rdrandinf": _h_rdrandinf,
     "rdwinselect": _h_rdwinselect,
     "rdmc": _h_rdmc,

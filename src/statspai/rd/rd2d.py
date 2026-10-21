@@ -283,7 +283,7 @@ def rd2d(
         )
     b = _eval_points(eval_points, arrs["x1"], arrs["x2"], boundary, n_eval)
     J = b.shape[0]
-    bwcheck = _bwcheck_value(bwcheck, 50 + p + 1)
+    bwc = _bwcheck_value(bwcheck, 50 + p + 1)
     if q is None:
         q_val = None
     else:
@@ -296,8 +296,8 @@ def rd2d(
         sreg = float(scaleregul)
     else:
         sreg = 3.0 if approach == "location" else 1.0
-    _check_bwcheck_size(bwcheck, arrs["t"])
-    bwcheck = _mass_points(arrs, masspoints, bwcheck, p)
+    _check_bwcheck_size(bwc, arrs["t"])
+    bwc = _mass_points(arrs, masspoints, bwc, p)
     Y = arrs["y"] if fuzzy is None else np.column_stack([arrs["y"], arrs["fuzzy"]])
     cl = arrs.get("cluster")
     if approach == "location":
@@ -318,7 +318,7 @@ def rd2d(
                     bwselect,
                     method,
                     vce,
-                    bwcheck,
+                    bwc,
                     masspoints,
                     fitmethod,
                     sreg,
@@ -348,7 +348,7 @@ def rd2d(
             kernel_type,
             vce,
             fitmethod,
-            bwcheck,
+            bwc,
             masspoints,
             scale,
         )
@@ -384,10 +384,11 @@ def rd2d(
         D = _distance_matrix(
             arrs["x1"], arrs["x2"], arrs["t"], b, distance, data, valid
         )
-        H = _distance_h(h, J)
-        H_rbc = H
+        H_user = _distance_h(h, J)
         bws = "user provided"
-        if H is None:
+        if H_user is not None:
+            H = H_rbc = H_user
+        else:
             sel = _with_first_stage_guard(
                 lambda bp: distance_bandwidths(
                     arrs["y"],
@@ -399,7 +400,7 @@ def rd2d(
                     kernel,
                     bwselect,
                     vce,
-                    bwcheck,
+                    bwc,
                     masspoints,
                     cl,
                     sreg,
@@ -414,7 +415,7 @@ def rd2d(
             H, H_rbc = sel["h"], sel["h_rbc"]
             bws = bwselect
         raw = distance_estimates(
-            Y, D, H, H_rbc, p, q_val, kernel, bwcheck, masspoints, cl, vce
+            Y, D, H, H_rbc, p, q_val, kernel, bwc, masspoints, cl, vce
         )
         res = distance_assemble(raw, D.shape[0], cl, vce, fitmethod)
         bw_cols = {
@@ -445,14 +446,24 @@ def rd2d(
         extra_cols,
         info_extra,
         reference,
-        bwcheck,
+        bwc,
         bws,
     )
 
 
 def _rd2d_pooled(
-    data, arrs, valid, boundary, p, kernel, h, bwselect, alpha, fuzzy, cluster
-) -> Any:
+    data: Any,
+    arrs: Dict[str, np.ndarray],
+    valid: np.ndarray,
+    boundary: Any,
+    p: int,
+    kernel: str,
+    h: Any,
+    bwselect: str,
+    alpha: float,
+    fuzzy: Optional[str],
+    cluster: Optional[str],
+) -> CausalResult:
     from .rdrobust import rdrobust
 
     dist = _signed_boundary_distance(arrs["x1"], arrs["x2"], arrs["t"], boundary)
@@ -486,26 +497,26 @@ def _rd2d_pooled(
 
 
 def _build_result(
-    res,
-    b,
-    approach,
-    p,
-    kernel,
-    vce,
-    fitmethod,
-    alpha,
-    side,
-    n,
-    is_fuzzy,
-    cluster,
-    masspoints,
-    w,
-    bw_cols,
-    extra_cols,
-    info_extra,
-    reference,
-    bwcheck,
-    bwselect,
+    res: Dict[str, Any],
+    b: np.ndarray,
+    approach: str,
+    p: int,
+    kernel: str,
+    vce: str,
+    fitmethod: str,
+    alpha: float,
+    side: str,
+    n: int,
+    is_fuzzy: bool,
+    cluster: Optional[str],
+    masspoints: str,
+    w: np.ndarray,
+    bw_cols: Dict[str, Any],
+    extra_cols: Dict[str, Any],
+    info_extra: Dict[str, Any],
+    reference: Any,
+    bwcheck: Optional[int],
+    bwselect: str,
 ) -> CausalResult:
     t_q, pv_q, lo_q, hi_q = _inference(res["tau_q"], res["se_q"], alpha, side)
     detail = pd.DataFrame(
@@ -724,10 +735,10 @@ def rd2d_bw(
     arrs, valid = _prepare(data, y, x1, x2, treatment, cluster, fuzzy, "sp.rd2d_bw")
     b = _eval_points(eval_points, arrs["x1"], arrs["x2"], boundary, n_eval)
     J = b.shape[0]
-    bwcheck = _bwcheck_value(bwcheck, 20 if approach == "location" else 20 + p + 1)
+    bwc = _bwcheck_value(bwcheck, 20 if approach == "location" else 20 + p + 1)
     deriv_t, tv = _deriv_options(deriv, tangvec, p, J)
-    _check_bwcheck_size(bwcheck, arrs["t"])
-    bwcheck = _mass_points(arrs, masspoints, bwcheck, p)
+    _check_bwcheck_size(bwc, arrs["t"])
+    bwc = _mass_points(arrs, masspoints, bwc, p)
     cl = arrs.get("cluster")
     if approach == "location":
         Y = arrs["y"] if fuzzy is None else np.column_stack([arrs["y"], arrs["fuzzy"]])
@@ -744,7 +755,7 @@ def rd2d_bw(
                 bwselect,
                 method,
                 vce,
-                bwcheck,
+                bwc,
                 masspoints,
                 fitmethod,
                 float(scaleregul),
@@ -785,7 +796,7 @@ def rd2d_bw(
             kernel,
             bwselect,
             vce,
-            bwcheck,
+            bwc,
             masspoints,
             cl,
             float(scaleregul),

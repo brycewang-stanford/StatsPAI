@@ -128,7 +128,8 @@ def _sym_inv(A: np.ndarray, what: str) -> np.ndarray:
             diagnostics={"matrix": what},
         ) from exc
     inv = linalg.cho_solve(c, np.eye(A.shape[0]))
-    return 0.5 * (inv + inv.T)
+    _ret: np.ndarray = 0.5 * (inv + inv.T)
+    return _ret
 
 
 def _rk_kp(D: np.ndarray, G: np.ndarray, W: np.ndarray, q: int) -> float:
@@ -234,7 +235,8 @@ def clr_pvalue(clr: float, rk: float, k: int, p: int) -> float:
             ratio = inv_gamma * (1.0 - a * z / (a + 1.0))
         else:
             ratio = float(special.gammainc(a, z)) / z**a
-        return float(np.exp(log_norm + log_scale - 0.5 * x)) * ratio
+        _ret: float = float(np.exp(log_norm + log_scale - 0.5 * x)) * ratio
+        return _ret
 
     mass, _ = integrate.quad(
         smooth_part,

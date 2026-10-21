@@ -253,6 +253,11 @@ class DoseResponse:
     [@hirano2004propensity], [@kennedy2017parametric]
     """
 
+    # Set by :func:`dose_response` before ``fit`` (declared for the checker).
+    method: str
+    bandwidth: Optional[float]
+    n_folds: int
+
     def __init__(
         self,
         data: pd.DataFrame,

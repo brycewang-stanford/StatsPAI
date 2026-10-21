@@ -280,7 +280,8 @@ def xtevent(
 
         def shift(s: int) -> np.ndarray:
             idx = pd.MultiIndex.from_arrays([df[panel], tt.astype(np.int64) - s])
-            return zs.reindex(idx).to_numpy()
+            shifted: np.ndarray = zs.reindex(idx).to_numpy()
+            return shifted
 
         ks = list(range(lo - 1, hi + 2))
         for k in range(lo, hi + 1):
@@ -417,7 +418,7 @@ def xtevent(
     )
     coef_table.index = [str(i) for i in coef_table.index]
     n = int(len(use))
-    common = dict(alpha=alpha, n_obs=n, _citation_key="xtevent")
+    common: Dict[str, Any] = dict(alpha=alpha, n_obs=n, _citation_key="xtevent")
     if static:
         b, se = float(params[policy]), float(ses[policy])
         p = _two_sided_p(b / se, df_inf)
@@ -532,7 +533,9 @@ def xtevent(
     )
 
 
-def _restore_omitted(params, ses, V_all, regs):
+def _restore_omitted(
+    params: pd.Series, ses: pd.Series, V_all: Any, regs: List[str]
+) -> Tuple[pd.Series, pd.Series, np.ndarray, List[str]]:
     """Put regressors dropped as collinear back at 0 with zero variance.
 
     Stata ``xtevent`` keeps an omitted regressor in ``e(b)`` / ``e(V)`` as
@@ -578,7 +581,7 @@ def _fit_proxy_iv(
     time: str,
     cluster: Optional[str],
     vce: Optional[str],
-):
+) -> Tuple[pd.Series, pd.Series, np.ndarray]:
     """2SLS with unit effects and period dummies (Stata ``xtivreg, fe``)."""
     T = pd.get_dummies(use[time], prefix="__t", dtype=float)
     T = T.loc[:, T.std() > 0].iloc[:, 1:]

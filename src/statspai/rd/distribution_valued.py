@@ -104,8 +104,10 @@ def _boundary_weights(r: np.ndarray, w: np.ndarray) -> np.ndarray:
     s0, s1, s2 = w.sum(), (w * r).sum(), (w * r * r).sum()
     det = s0 * s2 - s1 * s1
     if not np.isfinite(det) or abs(det) < 1e-12 * max(s0 * s2, 1e-300):
-        return w / s0
-    return w * (s2 - s1 * r) / det
+        _ret: np.ndarray = w / s0
+        return _ret
+    _ret = w * (s2 - s1 * r) / det
+    return _ret
 
 
 def _side_quantiles(
@@ -264,7 +266,8 @@ def rd_distribution(
             return np.full(len(quantiles), np.nan)
         right = _side_quantiles(yy[tt], rr[tt], ww[tt], quantiles)
         left = _side_quantiles(yy[~tt], rr[~tt], ww[~tt], quantiles)
-        return right - left
+        _ret: np.ndarray = right - left
+        return _ret
 
     m = len(Ym)
     qte = _qte(np.arange(m))

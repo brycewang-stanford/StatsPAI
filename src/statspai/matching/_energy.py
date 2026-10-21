@@ -59,7 +59,8 @@ def distance_matrix(X: np.ndarray, dist: str) -> np.ndarray:
             f"weightit: dist must be one of {DISTANCES}; got {dist!r}.",
             recovery_hint="Use 'scaled_euclidean' (the default).",
         )
-    return cdist(Z, Z)
+    _ret: np.ndarray = cdist(Z, Z)
+    return _ret
 
 
 def energy_weights(

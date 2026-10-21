@@ -147,11 +147,13 @@ def _wilcoxon_ranks(diffs: np.ndarray, zero_method: str) -> np.ndarray:
     """
     ad = np.abs(diffs)
     if zero_method == "pratt":
-        return stats.rankdata(ad, method="average") * (ad > 0)
+        _ret: np.ndarray = stats.rankdata(ad, method="average") * (ad > 0)
+        return _ret
     ranks = np.zeros_like(ad)
     nz = ad > 0
     ranks[nz] = stats.rankdata(ad[nz], method="average")
-    return ranks
+    _ret = ranks
+    return _ret
 
 
 def _shift_solving(

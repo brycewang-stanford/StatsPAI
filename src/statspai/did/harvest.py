@@ -260,7 +260,8 @@ def _share_wif(
     sp_ = p.sum()
     if1 = (ind - p) / sp_
     if2 = np.sum(ind - p, axis=1, keepdims=True) * (p / sp_**2)[None, :]
-    return if1 - if2
+    infl: np.ndarray = if1 - if2
+    return infl
 
 
 # ---------------------------------------------------------------------------
@@ -415,7 +416,7 @@ def harvest_did(
     from scipy.stats import norm as _norm
 
     event_rows = []
-    horizon_if = []
+    horizon_if_cols: List[np.ndarray] = []
     for e in sorted(tbl["horizon"].unique()):
         idx = np.flatnonzero(tbl["horizon"].to_numpy() == e)
         sub = tbl.iloc[idx]
@@ -440,9 +441,9 @@ def harvest_did(
                 n_comparisons=int(len(sub)),
             )
         )
-        horizon_if.append(if_e)
+        horizon_if_cols.append(if_e)
     event_study = pd.DataFrame(event_rows)
-    horizon_if = np.column_stack(horizon_if)
+    horizon_if = np.column_stack(horizon_if_cols)
 
     # --- Aggregate ATT over non-negative horizons -------------------------
     # Inverse-variance weights across horizons (treated as fixed); the

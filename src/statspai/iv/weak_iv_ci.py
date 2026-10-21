@@ -447,7 +447,7 @@ def anderson_rubin_ci(
             wald = float(pi @ np.linalg.solve(V, pi))
         except np.linalg.LinAlgError:  # pragma: no cover - degenerate
             return float("inf")
-        return wald / k * scale
+        return float(wald / k * scale)
 
     def _ar_stat(b0: float) -> float:
         if cl_codes is not None:
@@ -459,7 +459,7 @@ def anderson_rubin_ci(
         rss_red = float(u0 @ u0)
         if rss_full <= 0:  # pragma: no cover - degenerate
             return float("inf")
-        return ((rss_red - rss_full) / k) / (rss_full / dfd)
+        return float(((rss_red - rss_full) / k) / (rss_full / dfd))
 
     stats_arr = np.array([_ar_stat(b0) for b0 in beta_grid], dtype=float)
     in_set = stats_arr <= crit

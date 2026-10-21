@@ -23,7 +23,7 @@ This module provides:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -89,6 +89,10 @@ class GARCHResult(ResultProtocolMixin):
     archm: Any = None
     in_mean: Optional[str] = None  # 'variance', 'sd' or 'log'
     in_mean_lags: tuple = ()
+    # Set by ``sp.garch`` after the fit.
+    vce: Optional[str] = None
+    presample: Optional[str] = None
+    gradient_norm: Optional[float] = None
 
     # ------------------------------------------------------------------
     # Agent-native accessors (params / std_errors / t / p), so GARCH
@@ -344,7 +348,9 @@ def _garch_filter(
     if mean:
         dm[0] = -2.0 * float(eps.mean())
     s2 = np.empty(T)
-    ds2 = np.zeros((T, K)) if want_grad else None
+    # Without gradients the derivative arrays are empty placeholders.
+    ds2 = np.zeros((T, K)) if want_grad else np.empty((0, K))
+    no_grad = np.empty(0)
     r0 = max(p, q) if presample == "rugarch" else 0
     for t in range(T):
         if t < r0:
@@ -353,7 +359,7 @@ def _garch_filter(
                 ds2[t] = dm
             continue
         v = omega
-        g = np.zeros(K) if want_grad else None
+        g = np.zeros(K) if want_grad else no_grad
         if want_grad:
             g[j0] = 1.0
         for i in range(q):
@@ -1158,18 +1164,23 @@ def garch(
             mid = a
         return np.asarray(head + [omega] + mid + b + tail, float)
 
-    wide = [(None, None)]
+    wide: List[Tuple[Optional[float], Optional[float]]] = [(None, None)]
+    var_bounds: List[Tuple[Optional[float], Optional[float]]]
+    omega_bound: Tuple[Optional[float], Optional[float]] = (
+        1e-12 * max(var0, 1e-300),
+        None,
+    )
     if model == "egarch":
         var_bounds = wide * (1 + 2 * q) + [(-0.9999, 0.9999)] * p
     elif model == "gjr":
         var_bounds = (
-            [(1e-12 * max(var0, 1e-300), None)]
+            [omega_bound]
             + [(0.0, 0.9999)] * q
             + [(-0.9999, 1.9999)] * n_g
             + [(0.0, 0.9999)] * p
         )
     else:
-        var_bounds = [(1e-12 * max(var0, 1e-300), None)] + [(0.0, 0.9999)] * (q + p)
+        var_bounds = [omega_bound] + [(0.0, 0.9999)] * (q + p)
     bounds = wide * jv + var_bounds + ([(2.01, 1e4)] if dist == "t" else [])
     grid = [(0.1, 0.8), (0.05, 0.9), (0.2, 0.6), (0.3, 0.3)]
     shapes = ["equal"] if max(p, q) <= 1 else ["equal", "first", "decay"]

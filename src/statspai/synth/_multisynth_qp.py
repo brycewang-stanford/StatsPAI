@@ -276,7 +276,8 @@ def _reduced_cost(
             out += lam * zF
         else:
             out[F] += lam * zF
-    return out
+    _ret: np.ndarray = out
+    return _ret
 
 
 def _dense_kkt(

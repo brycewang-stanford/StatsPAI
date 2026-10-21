@@ -77,11 +77,15 @@ def _simplex_qp(quadratic: np.ndarray, linear: np.ndarray) -> np.ndarray:
             gradient = Q @ exact + c + solved[s]
             enter = np.flatnonzero(~support & (gradient < -1e-10))
             if enter.size == 0:
-                return np.clip(exact, 0.0, None) / np.clip(exact, 0.0, None).sum()
+                _ret: np.ndarray = (
+                    np.clip(exact, 0.0, None) / np.clip(exact, 0.0, None).sum()
+                )
+                return _ret
             support[enter[np.argmin(gradient[enter])]] = True
         else:
             support[idx[np.argmin(exact[idx])]] = False
-    return w / w.sum()
+    _ret = w / w.sum()
+    return _ret
 
 
 class ModelAverageResult(ResultProtocolMixin):

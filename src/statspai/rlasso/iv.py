@@ -388,7 +388,7 @@ def _select_x(
         z = z.reshape(-1, 1)
     num_iv = z.shape[1]
 
-    kw = dict(
+    kw: Dict[str, Any] = dict(
         post=post,
         intercept=intercept,
         penalty=penalty,
@@ -443,7 +443,7 @@ def _select_both(
     d = np.asarray(d, dtype=float).ravel()
     Zmat = np.column_stack([z, x])
 
-    kw = dict(
+    kw: Dict[str, Any] = dict(
         post=post,
         intercept=intercept,
         penalty=penalty,

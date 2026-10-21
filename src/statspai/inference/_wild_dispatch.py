@@ -72,7 +72,8 @@ def _cluster_codes(
             recovery_hint="Pass the DataFrame the model was fitted on, after "
             "dropping incomplete rows before fitting.",
         )
-    return pd.factorize(col.to_numpy())[0].astype(np.int64)
+    codes: np.ndarray = pd.factorize(col.to_numpy())[0].astype(np.int64)
+    return codes
 
 
 def _require_plain(who: str, h0: float, confidence_set: bool, method: str) -> None:
@@ -324,7 +325,7 @@ def dispatch(
 ) -> Optional[Dict[str, Any]]:
     """The bootstrap for a non-least-squares result, or None for least squares."""
     di = getattr(result, "data_info", None) or {}
-    common = dict(n_boot=n_boot, weight_type=weight_type, seed=seed)
+    common: Dict[str, Any] = dict(n_boot=n_boot, weight_type=weight_type, seed=seed)
     # sp.did (a CausalResult): replay the estimator's own vce='wild'
     from ..core._call_record import get_call_record
 

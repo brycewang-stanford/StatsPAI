@@ -787,7 +787,12 @@ def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
     weighted = cmd.weight is not None
-    if weighted and cmd.weight[0] == "pw" and not cluster and robust == "nonrobust":
+    if (
+        cmd.weight is not None
+        and cmd.weight[0] == "pw"
+        and not cluster
+        and robust == "nonrobust"
+    ):
         robust = "hc1"  # pweights imply vce(robust)
     absorbing = bool(xs) and (
         cluster is not None
@@ -3601,10 +3606,11 @@ def _h_margins(cmd: StataCommand) -> Dict[str, Any]:
         args["variables"] = dydx
     if "atmeans" in cmd.options:
         args["method"] = "mem"
-    if cmd.options.get("at"):
+    at_opt = cmd.options.get("at")
+    if at_opt:
         at: Dict[str, Any] = {}
         # `at(x = 100)` and `at(x=100)` are the same specification
-        for part in re.sub(r"\s*=\s*", "=", cmd.options["at"]).split():
+        for part in re.sub(r"\s*=\s*", "=", at_opt).split():
             name, sep, value = part.partition("=")
             if not (sep and name and value) or "(" in value:
                 return _emit_error(

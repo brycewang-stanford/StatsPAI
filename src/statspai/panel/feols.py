@@ -1395,7 +1395,8 @@ def feols(
         cl_w = df_sub[cluster_names[0]].to_numpy()
 
         def _demean(v: np.ndarray) -> np.ndarray:
-            return ab.demean(v, copy=True, already_masked=True)
+            _ret: np.ndarray = ab.demean(v, copy=True, already_masked=True)
+            return _ret
 
         p_wild: Dict[str, float] = {}
         ci_wild: Dict[str, tuple] = {}

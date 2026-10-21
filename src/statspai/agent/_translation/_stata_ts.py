@@ -8,7 +8,7 @@ read the series in the row order of the data; ``sp.stata`` sorts by the
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 from ._stata import _build_formula, _emit, _emit_error, _split_varlist_y_x
 from ._stata_lexer import StataCommand
@@ -420,7 +420,7 @@ def _h_lpirf(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "prais": _h_prais,
     "corrgram": _h_corrgram,
     "wntestq": _h_corrgram,
@@ -437,4 +437,4 @@ HANDLERS = {
     "vec": _h_vec,
     "lpirf": _h_lpirf,
 }
-POSTEST = frozenset({_h_var_postest})
+POSTEST: FrozenSet[Callable[..., Dict[str, Any]]] = frozenset({_h_var_postest})

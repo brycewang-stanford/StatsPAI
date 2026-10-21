@@ -70,7 +70,8 @@ def hhn_vcov(
     )
     Hinv = np.linalg.inv(H)
     V: np.ndarray = Hinv @ (S + A + A.T + B) @ Hinv
-    return (V + V.T) / 2.0
+    _ret: np.ndarray = (V + V.T) / 2.0
+    return _ret
 
 
 __all__ = ["hhn_vcov"]

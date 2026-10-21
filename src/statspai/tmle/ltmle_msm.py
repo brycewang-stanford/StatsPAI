@@ -136,7 +136,7 @@ def _regime_matrix(
     K: int,
     df: pd.DataFrame,
     baseline: List[str],
-    covariates_time: List[List[str]],
+    covariates_time: Sequence[Sequence[str]],
 ) -> np.ndarray:
     """``n x K`` 0/1 matrix of a static, callable or per-unit regime."""
     if callable(regime):
@@ -187,7 +187,8 @@ def _weighted_logit(
         step = np.linalg.lstsq(H, g, rcond=None)[0]
         b = b + step
         if np.max(np.abs(step)) < 1e-13:
-            return b
+            b_out: np.ndarray = b
+            return b_out
     raise NumericalInstability(
         "ltmle_msm: a logistic fit did not converge in 100 Newton steps.",
         recovery_hint="Check the working model for separation or collinear "
@@ -381,8 +382,8 @@ def ltmle_msm(
     def hist_cols(k: int) -> List[str]:
         h = list(baseline)
         for j in range(k):
-            h += covariates_time[j] + [treatments[j]]
-        return h + covariates_time[k]
+            h += list(covariates_time[j]) + [treatments[j]]
+        return h + list(covariates_time[k])
 
     if censoring:
         C_obs = np.column_stack([df[c].to_numpy(dtype=float) == 1 for c in censoring])

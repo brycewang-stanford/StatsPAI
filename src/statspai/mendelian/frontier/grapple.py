@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 from scipy import integrate, optimize, stats
@@ -37,6 +37,8 @@ from scipy import integrate, optimize, stats
 from ..._result_serialize import ResultProtocolMixin
 from ...exceptions import MethodIncompatibility
 from ._common import as_float_arrays
+
+_Arr = np.ndarray
 
 __all__ = ["GrappleResult", "grapple"]
 
@@ -211,7 +213,9 @@ def _t_values(beta: Any, tau2: Any, bx: Any, by: Any, vx: Any, vy: Any) -> Any:
     return (by - beta * bx) / np.sqrt(vy + beta**2 * vx + tau2)
 
 
-def _dt_dbeta(beta, tau2, bx, by, vx, vy):
+def _dt_dbeta(
+    beta: float, tau2: float, bx: _Arr, by: _Arr, vx: _Arr, vy: _Arr
+) -> Tuple[_Arr, _Arr]:
     """First and second derivatives of ``t_j`` in ``beta``."""
     v = vy + beta**2 * vx + tau2
     resid = by - beta * bx
@@ -224,14 +228,30 @@ def _dt_dbeta(beta, tau2, bx, by, vx, vy):
     return d1, d2
 
 
-def _beta_score(beta, tau2, bx, by, vx, vy, rho):
+def _beta_score(
+    beta: float,
+    tau2: float,
+    bx: _Arr,
+    by: _Arr,
+    vx: _Arr,
+    vy: _Arr,
+    rho: Callable[..., Any],
+) -> float:
     """``phi_1``: derivative of ``sum_j rho(t_j)`` in ``beta``."""
     t = _t_values(beta, tau2, bx, by, vx, vy)
     d1, _ = _dt_dbeta(beta, tau2, bx, by, vx, vy)
     return float(np.sum(rho(t, deriv=1) * d1))
 
 
-def _solve_tau2(beta, bx, by, vx, vy, rho, eta) -> float:
+def _solve_tau2(
+    beta: float,
+    bx: _Arr,
+    by: _Arr,
+    vx: _Arr,
+    vy: _Arr,
+    rho: Callable[..., Any],
+    eta: float,
+) -> float:
     """Root in ``tau2 >= 0`` of ``sum_j rho(t_j) - (p - 1) * eta``.
 
     Equation 12 with one degree of freedom spent on ``beta`` (the
@@ -241,7 +261,7 @@ def _solve_tau2(beta, bx, by, vx, vy, rho, eta) -> float:
     """
     target = (bx.size - 1) * eta
 
-    def excess(tau2):
+    def excess(tau2: float) -> float:
         return float(np.sum(rho(_t_values(beta, tau2, bx, by, vx, vy)))) - target
 
     if excess(0.0) <= 0.0:
@@ -254,14 +274,23 @@ def _solve_tau2(beta, bx, by, vx, vy, rho, eta) -> float:
     return float(optimize.brentq(excess, 0.0, hi, xtol=1e-300, rtol=1e-15, maxiter=500))
 
 
-def _solve_beta(beta0, tau2, bx, by, vx, vy, rho, scale) -> float:
+def _solve_beta(
+    beta0: float,
+    tau2: float,
+    bx: _Arr,
+    by: _Arr,
+    vx: _Arr,
+    vy: _Arr,
+    rho: Callable[..., Any],
+    scale: float,
+) -> float:
     """Local minimiser of ``sum_j rho(t_j(beta, tau2))`` nearest ``beta0``.
 
     A bracketing step search downhill from ``beta0`` followed by Brent's
     root finder on the score ``phi_1`` inside the bracket.
     """
 
-    def score(b):
+    def score(b: float) -> float:
         return _beta_score(b, tau2, bx, by, vx, vy, rho)
 
     s0 = score(beta0)
@@ -336,7 +365,8 @@ def _grapple_vcov(
     A = np.array([[a11, a12], [0.0, a22]])
     B = np.diag([score_sq * np.sum(d1**2), p * rho_var])
     A_inv = np.linalg.inv(A)
-    return A_inv @ B @ A_inv.T
+    cov: np.ndarray = A_inv @ B @ A_inv.T
+    return cov
 
 
 # --------------------------------------------------------------------------
@@ -463,7 +493,13 @@ def grapple(
     # Step scale for the beta bracket search: one inverse-variance SE.
     scale = float(1.0 / np.sqrt(np.sum(bx**2 / vy)))
 
-    def fit(rho_fn, eta_fn, beta_start, tau2_start, iters):
+    def fit(
+        rho_fn: Callable[..., Any],
+        eta_fn: float,
+        beta_start: float,
+        tau2_start: float,
+        iters: int,
+    ) -> Tuple[float, float, bool]:
         beta, tau2 = beta_start, max(float(tau2_start), 0.0)
         beta = _solve_beta(beta, tau2, bx, by, vx, vy, rho_fn, scale)
         for it in range(iters):

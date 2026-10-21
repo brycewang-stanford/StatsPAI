@@ -54,7 +54,8 @@ def _studentized(draws: np.ndarray, q: np.ndarray, share: np.ndarray) -> np.ndar
     numer = draws @ q
     recentred = draws * q[None, :] - numer[:, None] * share[None, :]
     with np.errstate(divide="ignore", invalid="ignore"):
-        return numer / np.sqrt(np.sum(recentred**2, axis=1))
+        _ret: np.ndarray = numer / np.sqrt(np.sum(recentred**2, axis=1))
+        return _ret
 
 
 def _multipliers(

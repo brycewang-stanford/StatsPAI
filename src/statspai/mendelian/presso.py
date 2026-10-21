@@ -128,7 +128,8 @@ def _loo_slopes(bx: np.ndarray, by: np.ndarray, w: np.ndarray) -> np.ndarray:
     """Leave-one-out IVW slopes along the last axis (works row-wise on 2-D)."""
     sxy = np.sum(w * bx * by, axis=-1, keepdims=True)
     sxx = np.sum(w * bx**2, axis=-1, keepdims=True)
-    return (sxy - w * bx * by) / (sxx - w * bx**2)
+    _ret: np.ndarray = (sxy - w * bx * by) / (sxx - w * bx**2)
+    return _ret
 
 
 def _presso_rss(bx: np.ndarray, by: np.ndarray, sy: np.ndarray) -> tuple:

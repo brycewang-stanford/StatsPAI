@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -501,7 +501,7 @@ def _panel_of(
 def _operate(
     data: pd.DataFrame,
     var: Union[str, Sequence[str]],
-    ops_of,
+    ops_of: Callable[[int, str], Tuple[str, List[Tuple[str, int]]]],
     orders: Union[int, Sequence[int]],
     id: Optional[str],
     time: Optional[str],
@@ -603,7 +603,7 @@ def lag(
     """
     _check_order(n, "lag", 0)
 
-    def ops_of(k: int, v: str):
+    def ops_of(k: int, v: str) -> Tuple[str, List[Tuple[str, int]]]:
         return (f"L{'' if k == 1 else k}.{v}" if k else v), ([("L", k)] if k else [])
 
     return _operate(data, var, ops_of, n, id, time, delta, "lag")
@@ -653,7 +653,7 @@ def lead(
     """
     _check_order(n, "lead", 0)
 
-    def ops_of(k: int, v: str):
+    def ops_of(k: int, v: str) -> Tuple[str, List[Tuple[str, int]]]:
         return (f"F{'' if k == 1 else k}.{v}" if k else v), ([("F", k)] if k else [])
 
     return _operate(data, var, ops_of, n, id, time, delta, "lead")
@@ -704,7 +704,7 @@ def diff(
     """
     _check_order(n, "diff", 0)
 
-    def ops_of(k: int, v: str):
+    def ops_of(k: int, v: str) -> Tuple[str, List[Tuple[str, int]]]:
         return (f"D{'' if k == 1 else k}.{v}" if k else v), ([("D", k)] if k else [])
 
     return _operate(data, var, ops_of, n, id, time, delta, "diff")

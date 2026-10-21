@@ -24,7 +24,7 @@ finite-sample distribution of the OLS t statistic under normal errors has
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -37,12 +37,16 @@ AGGREGATE_METHODS = ("standard", "dlang", "dlang_varying")
 
 
 def _cell_codes(clean: pd.DataFrame, group: str, time: str) -> np.ndarray:
-    return pd.factorize(pd.MultiIndex.from_frame(clean[[group, time]]))[0]
+    codes: np.ndarray = pd.factorize(pd.MultiIndex.from_frame(clean[[group, time]]))[0]
+    return codes
 
 
-def _split_covariates(clean: pd.DataFrame, covariates: List[str], cells: np.ndarray):
+def _split_covariates(
+    clean: pd.DataFrame, covariates: List[str], cells: np.ndarray
+) -> Tuple[List[str], List[str]]:
     """Covariates varying within at least one cell (stage 1) or none (stage 2)."""
-    within, between = [], []
+    within: List[str] = []
+    between: List[str] = []
     for c in covariates:
         nuniq = clean[c].groupby(cells).nunique()
         (within if (nuniq > 1).any() else between).append(c)

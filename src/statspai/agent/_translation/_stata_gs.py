@@ -16,7 +16,7 @@ from the exact solution, which is what ``sp.group_sequential`` returns.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from ._stata import _emit, _emit_error
 from ._stata_lexer import StataCommand
@@ -207,7 +207,10 @@ def _h_gsdesign(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {"gsbounds": _h_gsbounds, "gsdesign": _h_gsdesign}
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
+    "gsbounds": _h_gsbounds,
+    "gsdesign": _h_gsdesign,
+}
 
 #: Arguments are numbers and keywords, not variables.
 LITERAL = frozenset({_h_gsbounds, _h_gsdesign})

@@ -27,7 +27,7 @@ the type I error is controlled whether or not futility stops are honoured.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -210,7 +210,7 @@ class GroupSequentialResult(ResultProtocolMixin):
                 break
         return pd.DataFrame(rows)
 
-    def plot(self, ax=None):  # pragma: no cover - plotting
+    def plot(self, ax: Any = None) -> Any:  # pragma: no cover - plotting
         """Plot the boundaries against the information fraction."""
         import matplotlib.pyplot as plt
 
@@ -253,7 +253,8 @@ def _info_fractions(n_looks: Optional[int], information: Any) -> np.ndarray:
                 f"n_looks={n_looks} disagrees with {info.size} information levels.",
                 recovery_hint="Pass one of n_looks= or information=.",
             )
-        return info / info[-1]
+        frac: np.ndarray = info / info[-1]
+        return frac
     k = 2 if n_looks is None else int(n_looks)
     if k < 1 or k != n_looks and n_looks is not None:
         raise MethodIncompatibility(
@@ -545,12 +546,14 @@ def group_sequential(
             f"n_fixed must be a positive number; got {n_fixed!r}.",
             recovery_hint="E.g. n_fixed=sp.power_ttest(delta=0.5, power=0.8).n",
         )
-    classical = (eff or fut)[1] == "classical"
+    spec = eff if eff is not None else fut
+    classical = spec is not None and spec[1] == "classical"
+    fut_shape = fut[2] if fut is not None else 0.5
     z_alpha = float(ndtri(1.0 - alpha / sides))
     info_fixed = (z_alpha + float(ndtri(power))) ** 2  # drift 1 per unit info
     eff_delta = eff[2] if (eff is not None and classical) else None
 
-    def solve_bounds(r: float):
+    def solve_bounds(r: float) -> Tuple[np.ndarray, Any]:
         """Bounds and the H1 walk at maximum information ``r * info_fixed``."""
         info_max = r * info_fixed
         if fut is None or not binding:
@@ -567,7 +570,7 @@ def group_sequential(
     def classical_fut(info_max: float, b_final: float) -> np.ndarray:
         drift = np.sqrt(t * info_max)
         c2 = drift[-1] - b_final
-        a = drift - c2 * t ** (fut[2] - 0.5)
+        a: np.ndarray = drift - c2 * t ** (fut_shape - 0.5)
         if sides == 2:
             a = np.maximum(a, 0.0)
         return a
@@ -637,7 +640,15 @@ def group_sequential(
     )
 
 
-def _binding_spending(t, alpha, sides, eff, fut, beta, info_max) -> np.ndarray:
+def _binding_spending(
+    t: np.ndarray,
+    alpha: float,
+    sides: int,
+    eff: Optional[Tuple[str, str, float]],
+    fut: Tuple[str, str, float],
+    beta: float,
+    info_max: float,
+) -> np.ndarray:
     """Efficacy bounds that honour binding spending futility bounds.
 
     The null and alternative walks advance together: the efficacy bound at a
@@ -666,7 +677,19 @@ def _binding_spending(t, alpha, sides, eff, fut, beta, info_max) -> np.ndarray:
     return b
 
 
-def _boundary_frame(t, sides, side_key, a, b, eff, fut, h0_eff, h0_fut, h1, cum_beta):
+def _boundary_frame(
+    t: np.ndarray,
+    sides: int,
+    side_key: str,
+    a: Any,
+    b: np.ndarray,
+    eff: Any,
+    fut: Any,
+    h0_eff: Dict[str, Any],
+    h0_fut: Dict[str, Any],
+    h1: Dict[str, Any],
+    cum_beta: Any,
+) -> pd.DataFrame:
     k = len(t)
     nan = np.full(k, np.nan)
     b_show = np.where(np.isfinite(b), b, np.nan)

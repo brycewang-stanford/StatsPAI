@@ -76,7 +76,8 @@ def _partial_out(W: np.ndarray, fe: pd.DataFrame) -> np.ndarray:
         from .hdfe import demean
 
         dem, _ = demean(W, fe, drop_singletons=False, tol=1e-14, maxiter=100000)
-    return dem + means
+    _ret: np.ndarray = dem + means
+    return _ret
 
 
 def _drop_singletons(frame: pd.DataFrame, fes: List[str]) -> Any:

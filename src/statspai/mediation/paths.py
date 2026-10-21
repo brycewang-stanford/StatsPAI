@@ -44,6 +44,7 @@ __all__ = ["mediate_paths"]
 
 
 def _ols(X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None) -> np.ndarray:
+    coef: np.ndarray
     if w is None:
         coef, *_ = np.linalg.lstsq(X, y, rcond=None)
         return coef
@@ -56,11 +57,13 @@ def _logit(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """Logit coefficients for a design whose first column is the constant."""
     from ..matching._binary_fit import fit_binary_index  # shared logit fit
 
-    return fit_binary_index(X[:, 1:], y, "logit")["beta"]
+    beta: np.ndarray = fit_binary_index(X[:, 1:], y, "logit")["beta"]
+    return beta
 
 
 def _expit(z: np.ndarray) -> np.ndarray:
-    return 1.0 / (1.0 + np.exp(-z))
+    p: np.ndarray = 1.0 / (1.0 + np.exp(-z))
+    return p
 
 
 def _estimate(
@@ -109,7 +112,7 @@ def _estimate(
             return float(predict(0, a).mean())
         yhat = predict(j, a)
         g = A == a_med
-        if ps:
+        if e is not None:
             w = 1.0 / (e[g] if a_med == 1 else 1.0 - e[g])
             return float(np.sum(w * yhat[g]) / np.sum(w))
         if outcome_model == "logistic":

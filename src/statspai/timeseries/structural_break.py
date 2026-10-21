@@ -215,7 +215,7 @@ def hansen_supf_pvalue(stat: float, k: int, lam: float) -> float:
 
     if pi0 >= 0.49:
         w = (pi0 - 0.49) / 0.01
-        return (1.0 - w) * row_p(0) + w * float(stats.chi2.sf(stat, k))
+        return float((1.0 - w) * row_p(0) + w * float(stats.chi2.sf(stat, k)))
     if pi0 <= 0.01:
         return row_p(nodes.size - 1)
     hi = int(np.flatnonzero(nodes >= pi0 - 1e-12)[-1])  # node at or above pi0
@@ -223,7 +223,7 @@ def hansen_supf_pvalue(stat: float, k: int, lam: float) -> float:
         return row_p(hi)
     lo = hi + 1  # the next node below pi0
     w = (pi0 - nodes[lo]) / (nodes[hi] - nodes[lo])
-    return (1.0 - w) * row_p(lo) + w * row_p(hi)
+    return float((1.0 - w) * row_p(lo) + w * row_p(hi))
 
 
 class StructuralBreakResult(ResultProtocolMixin):
@@ -252,6 +252,19 @@ class StructuralBreakResult(ResultProtocolMixin):
     >>> res.n_breaks >= 1
     True
     """
+
+    # Attributes set by individual tests after construction (declared here
+    # for the type checker only; they exist when the test sets them).
+    sup_wald: float
+    sup_break: Any
+    f_path: np.ndarray
+    candidate_breaks: np.ndarray
+    critical_values: Optional[List[float]]
+    sequential_tests: List[Dict[str, Any]]
+    min_segment_size: int
+    rss_by_breaks: np.ndarray
+    bic_by_breaks: np.ndarray
+    breaks_by_m: Any
 
     def __init__(
         self,
@@ -768,11 +781,17 @@ def _bai_perron_sequential(
             v = seg(a, a + d) + seg(a + d, b)
             if v < best:
                 best, date = v, d
+        if date is None:
+            raise DataInsufficient(
+                f"structural_break: a segment of {L} observations has no "
+                f"split leaving {h} on each side.",
+                recovery_hint="Use a smaller min_segment or a longer series.",
+            )
         ssr0 = seg(a, b)
         if not best > _EXACT_FIT**2 * float(y @ y):
             raise DataInsufficient(
                 "structural_break: the two regimes split at observation "
-                f"{a + (date or 0)} fit the outcome exactly, so sup F has a "
+                f"{a + date} fit the outcome exactly, so sup F has a "
                 "zero denominator.",
                 recovery_hint="The series has no residual variation within "
                 "regimes; a break test needs noise to compare against.",
@@ -907,7 +926,7 @@ def _breakpoints_global(
     rss = _segment_rss_table(y, X, h)
 
     def seg(a: int, b: int) -> float:  # 1-based inclusive a..b
-        return rss[a - 1, b - 1]
+        return float(rss[a - 1, b - 1])
 
     # table[m][i]: optimal RSS of observations 1..i with m breaks, and the
     # position of the last of those breaks (1-based end of regime m).

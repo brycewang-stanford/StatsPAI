@@ -323,7 +323,8 @@ def ridge(
     uty = U.T @ yc
 
     def slopes_at(lam: float) -> np.ndarray:
-        return Vt.T @ ((d / (d**2 + lam)) * uty)
+        _ret: np.ndarray = Vt.T @ ((d / (d**2 + lam)) * uty)
+        return _ret
 
     def rss_of(b: np.ndarray) -> float:
         r = yc - Z @ b

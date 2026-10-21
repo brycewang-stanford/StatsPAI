@@ -479,11 +479,14 @@ def _egen_row(
     )
     present = ~np.isnan(block)
     k = present.sum(axis=1)
+    out: np.ndarray
     with np.errstate(invalid="ignore", divide="ignore"):
         if fcn == "rownonmiss":
-            return k.astype(float)
+            out = k.astype(float)
+            return out
         if fcn == "rowmiss":
-            return (block.shape[1] - k).astype(float)
+            out = (block.shape[1] - k).astype(float)
+            return out
         if fcn in ("rowfirst", "rowlast"):
             order = block if fcn == "rowfirst" else block[:, ::-1]
             seen = ~np.isnan(order)
@@ -499,14 +502,16 @@ def _egen_row(
                     "Give values(), e.g. values(1 3/5).",
                 )
             hits = np.isin(block, wanted).sum(axis=1).astype(float)
-            return hits if fcn == "anycount" else (hits > 0).astype(float)
+            out = hits if fcn == "anycount" else (hits > 0).astype(float)
+            return out
         if fcn == "cut":
             return _egen_cut(block, present, mask, options)
         if fcn == "rowtotal":
             value = np.where(present, block, 0.0).sum(axis=1)
             if options.get("missing"):
                 value = np.where(k > 0, value, np.nan)
-            return value
+            out = value
+            return out
         if fcn == "rowmean":
             return np.where(
                 k > 0, np.where(present, block, 0.0).sum(axis=1) / k, np.nan
@@ -727,6 +732,7 @@ def egen(
         )
     check_columns(data, {"by": by_cols or None}, function="sp.egen")
 
+    mask: np.ndarray
     if where is None:
         mask = np.ones(n, dtype=bool)
     else:

@@ -81,7 +81,8 @@ def _refit_effects(
         r = _resid((z - offset)[:, None], codes, w)[:, 0]
         new = (z - offset) - r
         if np.max(np.abs(new - fe)) <= 1e-12 * (1.0 + np.max(np.abs(new))):
-            return new
+            _ret: np.ndarray = new
+            return _ret
         fe = new
     raise NumericalInstability(  # pragma: no cover - IRLS converges here
         "feglm(bias_correction=True): the effects at the corrected slopes "

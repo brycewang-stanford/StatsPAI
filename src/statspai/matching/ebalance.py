@@ -608,7 +608,8 @@ def _solve_ebalance(
         z = log_q - A @ lam
         z -= z.max()  # log-sum-exp stabilisation
         w = np.exp(z)
-        return w / w.sum()
+        _ret: np.ndarray = w / w.sum()
+        return _ret
 
     def _objective(lam: np.ndarray) -> float:
         z = log_q - A @ lam

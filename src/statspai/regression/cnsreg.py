@@ -40,7 +40,8 @@ def _null_space(R: np.ndarray) -> np.ndarray:
     """Orthonormal basis of ``{b : R b = 0}`` (columns)."""
     _, s, vt = np.linalg.svd(R)
     rank = int((s > s.max() * max(R.shape) * np.finfo(float).eps).sum())
-    return vt[rank:].T
+    _ret: np.ndarray = vt[rank:].T
+    return _ret
 
 
 def _robust_cov(
@@ -55,7 +56,8 @@ def _robust_cov(
     n = X.shape[0]
     bread = np.linalg.inv(X.T @ X)
     if vce == "ols":
-        return bread * float(resid @ resid) / (n - n_params)
+        _ret: np.ndarray = bread * float(resid @ resid) / (n - n_params)
+        return _ret
     if vce == "cluster":
         return sandwich_vcov(
             bread,
@@ -70,7 +72,8 @@ def _robust_cov(
         h = np.einsum("ij,jk,ik->i", X, bread, X)
         weight = 1.0 / (1.0 - h) if vce == "hc2" else 1.0 / (1.0 - h) ** 2
     meat = (X * (resid**2 * weight)[:, None]).T @ X
-    return bread @ meat @ bread
+    _ret = bread @ meat @ bread
+    return _ret
 
 
 @records_call("cnsreg")

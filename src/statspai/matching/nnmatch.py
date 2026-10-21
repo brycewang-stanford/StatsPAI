@@ -87,7 +87,8 @@ def _metric_transform(X: np.ndarray, metric: str) -> np.ndarray:
                 recovery_hint="Drop the constant covariate.",
                 diagnostics={"constant_columns": np.flatnonzero(sd <= 0).tolist()},
             )
-        return X / sd
+        _ret: np.ndarray = X / sd
+        return _ret
     try:
         L = np.linalg.cholesky(np.linalg.inv(S))
     except np.linalg.LinAlgError as exc:

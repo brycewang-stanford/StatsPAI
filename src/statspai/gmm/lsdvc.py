@@ -447,7 +447,8 @@ def _bootstrap_se(
             stacklevel=3,
         )
         return np.full(len(beta), np.nan)
-    return np.asarray(draws).std(axis=0, ddof=1)
+    _ret: np.ndarray = np.asarray(draws).std(axis=0, ddof=1)
+    return _ret
 
 
 def _base_vars(x: Any) -> List[str]:

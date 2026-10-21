@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -192,7 +192,15 @@ class MediateSensitivityResult(ResultProtocolMixin):
 _FIXED_POINT_TOL = 1e-13
 
 
-def _gls_fixed_correlation(Xm, m, Xy, y, rho, sd_m, sd_y):
+def _gls_fixed_correlation(
+    Xm: np.ndarray,
+    m: np.ndarray,
+    Xy: np.ndarray,
+    y: np.ndarray,
+    rho: float,
+    sd_m: float,
+    sd_y: float,
+) -> Tuple[np.ndarray, np.ndarray]:
     """One GLS step for the two-equation system with error covariance
     ``[[sd_m^2, rho sd_m sd_y], [rho sd_m sd_y, sd_y^2]] (x) I_n``.
 
@@ -212,7 +220,15 @@ def _gls_fixed_correlation(Xm, m, Xy, y, rho, sd_m, sd_y):
     return np.linalg.solve(info, rhs), info
 
 
-def _fixed_correlation_sur(Xm, m, Xy, y, rho, eps, max_iter):
+def _fixed_correlation_sur(
+    Xm: np.ndarray,
+    m: np.ndarray,
+    Xy: np.ndarray,
+    y: np.ndarray,
+    rho: float,
+    eps: Optional[float],
+    max_iter: int,
+) -> Tuple[np.ndarray, np.ndarray, bool, int]:
     """Iterated feasible GLS with the error correlation held at ``rho``.
 
     Starts from equation-by-equation least squares; each step re-estimates
@@ -231,7 +247,7 @@ def _fixed_correlation_sur(Xm, m, Xy, y, rho, eps, max_iter):
             np.linalg.lstsq(Xy, y, rcond=None)[0],
         ]
     )
-    info = None
+    info: Optional[np.ndarray] = None
     converged = False
     steps = 0
     for steps in range(1, max_iter + 1):
@@ -244,20 +260,26 @@ def _fixed_correlation_sur(Xm, m, Xy, y, rho, eps, max_iter):
         if change < tol:
             converged = True
             break
+    if info is None:
+        raise MethodIncompatibility(
+            f"mediate_sensitivity: max_iter={max_iter} allows no GLS step.",
+            recovery_hint="Pass max_iter >= 1 (the default is 10000).",
+        )
     return coef, np.linalg.inv(info), converged, steps
 
 
-def _ols_resid(X, v):
-    return v - X @ np.linalg.lstsq(X, v, rcond=None)[0]
+def _ols_resid(X: np.ndarray, v: np.ndarray) -> np.ndarray:
+    r: np.ndarray = v - X @ np.linalg.lstsq(X, v, rcond=None)[0]
+    return r
 
 
-def _r_squared(X, v):
+def _r_squared(X: np.ndarray, v: np.ndarray) -> float:
     e = _ols_resid(X, v)
     c = v - v.mean()
     return float(1 - (e @ e) / (c @ c))
 
 
-def _require_full_rank(X, label):
+def _require_full_rank(X: np.ndarray, label: str) -> None:
     sv = np.linalg.svd(X, compute_uv=False)
     if sv[-1] <= 1e-10 * sv[0]:
         raise MethodIncompatibility(

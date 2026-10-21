@@ -244,7 +244,8 @@ class _WooldridgeGMM:
             factor = n_cl / (n_cl - 1)
         S = scores.T @ scores
         A_inv = np.linalg.inv(G.T @ W @ G)
-        return factor * A_inv @ (G.T @ W @ S @ W @ G) @ A_inv
+        _ret: np.ndarray = factor * A_inv @ (G.T @ W @ S @ W @ G) @ A_inv
+        return _ret
 
 
 def _gmm_start(design: Dict[str, Any], degree: int) -> np.ndarray:

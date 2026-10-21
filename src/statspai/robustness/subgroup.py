@@ -350,7 +350,8 @@ def _ols_vcov(
     """OLS covariance for a canonical SE kind; ``robust`` is HC1, as in Stata."""
     n, k = X.shape
     if kind == "nonrobust":
-        return XtX_inv * (resid @ resid) / (n - k)
+        _ret: np.ndarray = XtX_inv * (resid @ resid) / (n - k)
+        return _ret
     from ..core._vcov import hc_vcov
 
     return hc_vcov(

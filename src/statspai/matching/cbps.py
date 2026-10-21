@@ -50,7 +50,7 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -364,8 +364,10 @@ class _Standardiser:
                     / self.scale[~self.const]
                 )
             )
-            beta[j] = (gamma[j] * self.const_value[0] - shift) / self.const_value[0]
-        return beta
+            cv = float(np.asarray(self.const_value)[0])
+            beta[j] = (gamma[j] * cv - shift) / cv
+        out: np.ndarray = beta
+        return out
 
 
 # ======================================================================
@@ -377,7 +379,9 @@ def _expit(eta: np.ndarray) -> np.ndarray:
     return 0.5 * (1.0 + np.tanh(0.5 * np.clip(eta, -_ETA_CLIP, _ETA_CLIP)))
 
 
-def _score_moments(gamma, Z, T):
+def _score_moments(
+    gamma: np.ndarray, Z: np.ndarray, T: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
     """Logit score ``Z'(T - pi)/n`` and its Jacobian."""
     n = T.size
     p = _expit(Z @ gamma)
@@ -385,7 +389,9 @@ def _score_moments(gamma, Z, T):
     return Z.T @ (T - p) / n, jac
 
 
-def _balance_moments(gamma, Z, T, att):
+def _balance_moments(
+    gamma: np.ndarray, Z: np.ndarray, T: np.ndarray, att: bool
+) -> Tuple[np.ndarray, np.ndarray]:
     """Balance moments ``Z'w/n`` (eq. 10 or 11) and their Jacobian."""
     n = T.size
     eta = np.clip(Z @ gamma, -_ETA_CLIP, _ETA_CLIP)
@@ -401,14 +407,17 @@ def _balance_moments(gamma, Z, T, att):
     return Z.T @ w / n, (Z * dw[:, None]).T @ Z / n
 
 
-def _moment_covariance(gamma, Z, T, att):
+def _moment_covariance(
+    gamma: np.ndarray, Z: np.ndarray, T: np.ndarray, att: bool
+) -> np.ndarray:
     """Model-implied covariance of ``[score; balance]`` (eq. 16 / 17)."""
     n = T.size
     p = _expit(Z @ gamma)
     v = p * (1 - p)
 
-    def cross(a):
-        return (Z * a[:, None]).T @ Z / n
+    def cross(a: np.ndarray) -> np.ndarray:
+        out: np.ndarray = (Z * a[:, None]).T @ Z / n
+        return out
 
     if att:
         r = n / T.sum()
@@ -422,16 +431,19 @@ def _whitener(S: np.ndarray) -> np.ndarray:
     """``W`` with ``W'W = S^+`` (pseudo-inverse on the positive eigenspace)."""
     lam, vec = np.linalg.eigh(0.5 * (S + S.T))
     keep = lam > 1e-12 * max(lam.max(), 1e-300)
-    return (vec[:, keep] / np.sqrt(lam[keep])).T
+    W: np.ndarray = (vec[:, keep] / np.sqrt(lam[keep])).T
+    return W
 
 
-def _stacked(gamma, Z, T, att):
+def _stacked(
+    gamma: np.ndarray, Z: np.ndarray, T: np.ndarray, att: bool
+) -> Tuple[np.ndarray, np.ndarray]:
     s, ds = _score_moments(gamma, Z, T)
     b, db = _balance_moments(gamma, Z, T, att)
     return np.concatenate([s, b]), np.vstack([ds, db])
 
 
-def _cue_criterion(gamma, Z, T, att):
+def _cue_criterion(gamma: np.ndarray, Z: np.ndarray, T: np.ndarray, att: bool) -> float:
     """Continuously-updated criterion ``g' Sigma(gamma)^+ g``."""
     g, _ = _stacked(gamma, Z, T, att)
     r = _whitener(_moment_covariance(gamma, Z, T, att)) @ g
@@ -443,11 +455,11 @@ def _cue_criterion(gamma, Z, T, att):
 # ======================================================================
 
 
-def _logit_mle(Z, T, max_iter=100):
+def _logit_mle(Z: np.ndarray, T: np.ndarray, max_iter: int = 100) -> np.ndarray:
     """Logit maximum likelihood by Newton's method with step halving."""
     gamma = np.zeros(Z.shape[1])
 
-    def loglik(g):
+    def loglik(g: np.ndarray) -> float:
         eta = np.clip(Z @ g, -_ETA_CLIP, _ETA_CLIP)
         return float(T @ eta - np.logaddexp(0.0, eta).sum())
 
@@ -471,13 +483,15 @@ def _logit_mle(Z, T, max_iter=100):
     return gamma
 
 
-def _solve_exact(Z, T, att, start, max_iter=200):
+def _solve_exact(
+    Z: np.ndarray, T: np.ndarray, att: bool, start: np.ndarray, max_iter: int = 200
+) -> Tuple[np.ndarray, bool]:
     """Just-identified CBPS: maximise the concave potential whose gradient
     is the balance moment vector. Returns ``(gamma, converged)``."""
     n = T.size
     weight = n / T.sum() if att else 1.0
 
-    def potential(g):
+    def potential(g: np.ndarray) -> float:
         eta = np.clip(Z @ g, -_ETA_CLIP, _ETA_CLIP)
         if att:
             val = eta[T == 1].sum() - np.exp(eta[T == 0]).sum()
@@ -485,7 +499,7 @@ def _solve_exact(Z, T, att, start, max_iter=200):
             val = np.sum(eta[T == 1] - np.exp(-eta[T == 1])) - np.sum(
                 eta[T == 0] + np.exp(eta[T == 0])
             )
-        return weight * val / n
+        return float(weight * val / n)
 
     gamma = np.asarray(start, dtype=float).copy()
     f = potential(gamma)
@@ -517,7 +531,9 @@ def _solve_exact(Z, T, att, start, max_iter=200):
     return gamma, converged
 
 
-def _two_step_scale(Z, T, att, gamma_mle):
+def _two_step_scale(
+    Z: np.ndarray, T: np.ndarray, att: bool, gamma_mle: np.ndarray
+) -> float:
     """Scale ``a`` in ``[0.8, 1.1]`` minimising the CUE criterion at
     ``a * gamma_mle``; ``Sigma`` of the two-step fit is evaluated there."""
     res = optimize.minimize_scalar(
@@ -529,18 +545,26 @@ def _two_step_scale(Z, T, att, gamma_mle):
     return float(res.x)
 
 
-def _solve_over(Z, T, att, starts, weight_point):
+def _solve_over(
+    Z: np.ndarray,
+    T: np.ndarray,
+    att: bool,
+    starts: List[np.ndarray],
+    weight_point: np.ndarray,
+) -> Tuple[np.ndarray, float, bool]:
     """Two-step over-identified CBPS: minimise ``||W g(gamma)||^2`` with
     ``W'W = Sigma(weight_point)^+`` from each start; keep the best."""
     W = _whitener(_moment_covariance(weight_point, Z, T, att))
 
-    def resid(g):
-        return W @ _stacked(g, Z, T, att)[0]
+    def resid(g: np.ndarray) -> np.ndarray:
+        r: np.ndarray = W @ _stacked(g, Z, T, att)[0]
+        return r
 
-    def jac(g):
-        return W @ _stacked(g, Z, T, att)[1]
+    def jac(g: np.ndarray) -> np.ndarray:
+        J: np.ndarray = W @ _stacked(g, Z, T, att)[1]
+        return J
 
-    best = None
+    best: Optional[Tuple[np.ndarray, float, bool]] = None
     for s in starts:
         try:
             r = optimize.least_squares(
@@ -563,7 +587,7 @@ def _solve_over(Z, T, att, starts, weight_point):
     return best
 
 
-def _fit_cbps(X, T, att, variant):
+def _fit_cbps(X: np.ndarray, T: np.ndarray, att: bool, variant: str) -> Dict[str, Any]:
     """CBPS coefficients (original basis), objective and convergence."""
     std = _Standardiser(X)
     Z = std.Z
@@ -597,12 +621,14 @@ def _fit_cbps(X, T, att, variant):
 # ======================================================================
 
 
-def _scores(eta, trim):
+def _scores(eta: np.ndarray, trim: float) -> np.ndarray:
     lo = max(_PS_FLOOR, float(trim))
     return np.clip(_expit(eta), lo, 1 - lo)
 
 
-def _arm_weights(T, ps, att):
+def _arm_weights(
+    T: np.ndarray, ps: np.ndarray, att: bool
+) -> Tuple[np.ndarray, np.ndarray]:
     """Unnormalised arm weights: ATE ``T/pi`` and ``(1-T)/(1-pi)``; ATT
     ``T`` and ``(1-T) pi/(1-pi)``."""
     if att:
@@ -610,11 +636,13 @@ def _arm_weights(T, ps, att):
     return T / ps, (1 - T) / (1 - ps)
 
 
-def _hajek(Y, w1, w0):
+def _hajek(Y: np.ndarray, w1: np.ndarray, w0: np.ndarray) -> float:
     return float(w1 @ Y / w1.sum() - w0 @ Y / w0.sum())
 
 
-def _std_mean_diff(x, T, w1, w0):
+def _std_mean_diff(
+    x: np.ndarray, T: np.ndarray, w1: np.ndarray, w0: np.ndarray
+) -> float:
     """Weighted treated-minus-control mean over the pooled (unweighted,
     divisor n) within-arm standard deviation; 0 for a constant column."""
     if np.ptp(x) == 0:
@@ -624,7 +652,16 @@ def _std_mean_diff(x, T, w1, w0):
     return float(diff / pooled) if pooled > 0 else float("nan")
 
 
-def _bootstrap(Y, T, X, att, variant, trim, n_bootstrap, seed):
+def _bootstrap(
+    Y: np.ndarray,
+    T: np.ndarray,
+    X: np.ndarray,
+    att: bool,
+    variant: str,
+    trim: float,
+    n_bootstrap: int,
+    seed: Optional[int],
+) -> Dict[str, Any]:
     """Refit CBPS on ``n_bootstrap`` resamples of the rows.
 
     A resample that cannot be fitted (one arm empty, rank-deficient design)

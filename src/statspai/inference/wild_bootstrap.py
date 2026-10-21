@@ -411,7 +411,8 @@ def absorb_columns(M: np.ndarray, fe_codes: List[np.ndarray]) -> np.ndarray:
     def sweep(A: np.ndarray, c: np.ndarray, cnt: np.ndarray) -> np.ndarray:
         sums = np.zeros((cnt.size, A.shape[1]))
         np.add.at(sums, c, A)
-        return A - (sums / cnt[:, None])[c]
+        _ret: np.ndarray = A - (sums / cnt[:, None])[c]
+        return _ret
 
     if len(codes) == 1:
         return sweep(M, codes[0], counts[0])

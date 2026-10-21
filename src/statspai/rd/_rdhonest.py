@@ -45,7 +45,7 @@ Bandwidth and smoothness choices
 
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 from scipy import optimize, stats
@@ -78,12 +78,16 @@ def _kern(u: np.ndarray, kernel: str) -> np.ndarray:
     kernel an observation exactly at distance ``h`` is inside the window.
     """
     a = np.abs(np.asarray(u, dtype=float))
+    k: np.ndarray
     if kernel == "triangular":
-        return np.clip(1.0 - a, 0.0, None)
+        k = np.clip(1.0 - a, 0.0, None)
+        return k
     if kernel == "uniform":
-        return (a <= 1.0).astype(float)
+        k = (a <= 1.0).astype(float)
+        return k
     if kernel == "epanechnikov":
-        return np.clip(1.0 - a * a, 0.0, None)
+        k = np.clip(1.0 - a * a, 0.0, None)
+        return k
     raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
 
 
@@ -173,7 +177,7 @@ def cv_bias(t: float, alpha: float = 0.05) -> float:
 
     def tail(cv: float) -> float:
         # P(|N(t,1)| > cv) - alpha, written with upper tails for accuracy
-        return stats.norm.sf(cv - t) + stats.norm.cdf(-cv - t) - alpha
+        return float(stats.norm.sf(cv - t) + stats.norm.cdf(-cv - t) - alpha)
 
     if not 0.0 < alpha < 1.0:
         raise ValueError(f"alpha must lie in (0, 1), got {alpha!r}")
@@ -323,7 +327,7 @@ def _edge_kernel_constant() -> float:
     den = nu0 * nu2 - nu1**2
     B = (nu2**2 - nu1 * nu3) / den
     V = (nu2**2 * pi0 - 2 * nu1 * nu2 * pi1 + nu1**2 * pi2) / den**2
-    return (V / B**2) ** 0.2
+    return float((V / B**2) ** 0.2)
 
 
 def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
@@ -527,13 +531,13 @@ def _criterion_value(
         return cv_bias(bias / sd, alpha) * sd
     if opt_criterion == "OCI":
         # beta quantile of the worst-case excess length of the one-sided CI
-        return 2.0 * bias + (stats.norm.isf(alpha) + stats.norm.ppf(beta)) * sd
+        return float(2.0 * bias + (stats.norm.isf(alpha) + stats.norm.ppf(beta)) * sd)
     raise ValueError(
         f"opt_criterion must be 'MSE', 'FLCI' or 'OCI', got {opt_criterion!r}"
     )
 
 
-def _optimal_h(objective, h_lo: float, h_hi: float) -> float:
+def _optimal_h(objective: Callable[[float], float], h_lo: float, h_hi: float) -> float:
     """Minimise ``objective`` over ``(h_lo, h_hi)`` with Brent's bounded
     golden-section/parabolic search (Forsythe, Malcolm and Moler's ``fmin``).
 

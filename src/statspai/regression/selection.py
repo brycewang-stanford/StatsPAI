@@ -142,7 +142,8 @@ def biprobit(
         probs = _bvn_cdf(
             q1 * (X1 @ theta[:k1]), q2 * (X2 @ theta[k1 : k1 + k2]), q1 * q2 * rho
         )
-        return np.log(probs)
+        _ret: np.ndarray = np.log(probs)
+        return _ret
 
     def neg_ll(theta: np.ndarray) -> float:
         with np.errstate(all="ignore"):
@@ -252,7 +253,8 @@ def _probit_coefficients(Z: np.ndarray, D: np.ndarray) -> np.ndarray:
     res = minimize(
         _neg, start, jac=True, method="BFGS", options={"gtol": 1e-12, "maxiter": 500}
     )
-    return res.x
+    _ret: np.ndarray = res.x
+    return _ret
 
 
 def _etregress_scores(

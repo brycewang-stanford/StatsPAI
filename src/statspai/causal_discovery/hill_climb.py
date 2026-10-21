@@ -160,7 +160,8 @@ def _dag_to_cpdag(dag: np.ndarray) -> np.ndarray:
                 if r1 or r2 or r3:
                     g[b, a] = 0
                     changed = True
-    return g
+    _ret: np.ndarray = g
+    return _ret
 
 
 def hill_climb(

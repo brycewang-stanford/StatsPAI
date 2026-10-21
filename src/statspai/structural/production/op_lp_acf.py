@@ -463,7 +463,8 @@ class _OPLPStage2:
 
         def gradient(th: np.ndarray) -> np.ndarray:
             xi, _, _, J = self._residual(th)
-            return J.T @ xi
+            _ret: np.ndarray = J.T @ xi
+            return _ret
 
         polish = optimize.root(gradient, fit.x, method="hybr", options={"xtol": 1e-15})
         sse = lambda th: float(np.sum(self._residual(th)[0] ** 2))  # noqa: E731
@@ -665,10 +666,12 @@ class _ACFStage2:
         return xi, omega, gamma
 
     def scaled_moments(self, theta: np.ndarray) -> np.ndarray:
-        return self.L.T @ (self.Z.T @ self._residual(theta)[0])
+        _ret: np.ndarray = self.L.T @ (self.Z.T @ self._residual(theta)[0])
+        return _ret
 
     def scaled_jacobian(self, theta: np.ndarray) -> np.ndarray:
-        return self.L.T @ (self.Z.T @ self._residual(theta)[3])
+        _ret: np.ndarray = self.L.T @ (self.Z.T @ self._residual(theta)[3])
+        return _ret
 
     def crit(self, theta: np.ndarray) -> float:
         r = self.scaled_moments(theta)

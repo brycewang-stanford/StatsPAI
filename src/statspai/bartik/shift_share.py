@@ -437,7 +437,8 @@ class BartikIV:
                 recovery_hint="Drop or fix rows with missing / negative weights.",
                 diagnostics={"weights": self.weights},
             )
-        return w * (n / w.sum())
+        _ret: np.ndarray = w * (n / w.sum())
+        return _ret
 
     def fit(self) -> EconometricResults:
         """Fit Bartik IV via 2SLS."""

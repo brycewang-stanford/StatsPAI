@@ -36,9 +36,11 @@ from ..exceptions import MethodIncompatibility
 
 def _codes(columns: Sequence[np.ndarray]) -> np.ndarray:
     if len(columns) == 1:
-        return pd.factorize(np.asarray(columns[0]))[0].astype(np.int64)
+        _ret: np.ndarray = pd.factorize(np.asarray(columns[0]))[0].astype(np.int64)
+        return _ret
     frame = pd.DataFrame({i: np.asarray(c) for i, c in enumerate(columns)})
-    return frame.groupby(list(frame.columns), sort=False).ngroup().to_numpy(np.int64)
+    _ret = frame.groupby(list(frame.columns), sort=False).ngroup().to_numpy(np.int64)
+    return _ret
 
 
 def _nested(inner: np.ndarray, outer: np.ndarray) -> bool:

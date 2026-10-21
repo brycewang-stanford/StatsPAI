@@ -74,7 +74,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -203,7 +203,9 @@ def run_egen(
         raise StataExprError(f"egen: cannot read the qualifiers ({exc})") from exc
     if tail.varlist != ["_x"]:
         raise StataExprError("egen: text after the function is not understood")
-    options = {str(k).lower(): v for k, v in dict(tail.options).items()}
+    # Parsed option values: strings from the command line, then flags,
+    # number lists and numbers once interpreted below.
+    options: Dict[str, Any] = {str(k).lower(): v for k, v in dict(tail.options).items()}
     by_option = str(options.pop("by", "") or "").split()
     data = steps.data
     n = len(data)

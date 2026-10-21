@@ -173,7 +173,8 @@ def cluster_staggered_rollout(
                     if t in pos:
                         out[i, j] = (m_trt[pos[t]] - m_ctrl[pos[t]]) - base
             # Simple mean across cohorts at each relative time.
-            return np.nanmean(out, axis=0)
+            _ret: np.ndarray = np.nanmean(out, axis=0)
+            return _ret
 
     def _overall(es_vec: np.ndarray) -> float:
         post = es_vec[[j for j, k in enumerate(rel_times) if k >= 0]]

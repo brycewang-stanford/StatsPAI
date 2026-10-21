@@ -211,12 +211,16 @@ class _Context:
         for s, c in _STENCIL:
             shifted = [i + (s * t) * d for i, d in zip(idx, dirs)]
             acc = acc + c * np.asarray(self.model.predict(theta, shifted, self.opt))
-        return np.asarray(acc)[:, self.cols] / t[:, None]
+        _ret: np.ndarray = np.asarray(acc)[:, self.cols] / t[:, None]
+        return _ret
 
     def step(self, Ds: List[np.ndarray]) -> np.ndarray:
         dirs = [np.abs(D @ self.model.theta[p]) for D, p in zip(Ds, self.model.eq_pos)]
         size = np.max(np.column_stack(dirs), axis=1)
-        return _INDEX_STEP * self.model.scale(self.model.theta) / np.maximum(size, 1.0)
+        _ret: np.ndarray = (
+            _INDEX_STEP * self.model.scale(self.model.theta) / np.maximum(size, 1.0)
+        )
+        return _ret
 
     def inference(
         self, f: Callable[[np.ndarray], np.ndarray]

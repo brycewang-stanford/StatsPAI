@@ -115,7 +115,8 @@ def _mbe_bandwidth(ratios: np.ndarray, phi: float) -> float:
     r = np.asarray(ratios, dtype=float).reshape(-1)
     sd = float(np.std(r, ddof=1))
     mad = 1.4826 * float(np.median(np.abs(r - np.median(r))))
-    return float(phi) * 0.9 * min(sd, mad) / r.size**0.2
+    _ret: float = float(phi) * 0.9 * min(sd, mad) / r.size**0.2
+    return _ret
 
 
 def _mbe_estimate(

@@ -644,7 +644,8 @@ class CausalImpactEstimator:
         first = np.minimum(idx[:, None], idx[None, :])
         cov = (rho**lag) * P[first]
         cov[idx, idx] += sigma_obs**2
-        return cov
+        _ret: np.ndarray = cov
+        return _ret
 
     def _predict(
         self,

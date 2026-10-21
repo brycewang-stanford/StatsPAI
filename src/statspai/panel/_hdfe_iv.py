@@ -54,7 +54,8 @@ def _meat(A: np.ndarray, e: np.ndarray, groups: Optional[np.ndarray]) -> np.ndar
     """``Σ_g (A_g'e_g)(A_g'e_g)'`` (``groups=None``: one row per group)."""
     U = A * e[:, None]
     if groups is None:
-        return U.T @ U
+        M: np.ndarray = U.T @ U
+        return M
     codes = pd.factorize(groups)[0]
     S = np.zeros((codes.max() + 1, A.shape[1]))
     np.add.at(S, codes, U)
@@ -64,7 +65,8 @@ def _meat(A: np.ndarray, e: np.ndarray, groups: Optional[np.ndarray]) -> np.ndar
 def _partial(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     if B.shape[1] == 0:
         return A
-    return A - B @ np.linalg.lstsq(B, A, rcond=None)[0]
+    resid: np.ndarray = A - B @ np.linalg.lstsq(B, A, rcond=None)[0]
+    return resid
 
 
 def _wald(b: np.ndarray, V: np.ndarray) -> float:
@@ -91,7 +93,9 @@ def _rank_statistics(
     from ..iv.weak_identification import kleibergen_paap_rk
 
     nan = float("nan")
-    common = dict(add_const=False, n_absorbed=int(n_partialled), small=True)
+    common: Dict[str, Any] = dict(
+        add_const=False, n_absorbed=int(n_partialled), small=True
+    )
     cd = kleibergen_paap_rk(Dt, Zt, cov_type="nonrobust", **common)
     cd_f = float(cd.rk_f)
     if groups is None and not robust:
@@ -197,7 +201,8 @@ def hdfe_iv(
         sdof = dof_fe_cl - 1 if any(nested) else dof_fe_cl
     else:
         sdof = dof_fe
-    G = int(pd.Series(groups).nunique()) if groups is not None else None
+    n_clusters = int(pd.Series(groups).nunique()) if groups is not None else None
+    G = n_clusters if n_clusters is not None else 0  # used only when clustered
 
     # --- 2SLS ------------------------------------------------------------
     ZtZ = Zf.T @ Zf
@@ -219,7 +224,7 @@ def hdfe_iv(
     se = np.sqrt(np.maximum(np.diag(V), 0.0))
     names = list(endog_names) + list(exog_names)
 
-    df_default = float(min(G - 1, dfr)) if G is not None else float(dfr)
+    df_default = float(min(G - 1, dfr)) if n_clusters is not None else float(dfr)
     df_t = _resolve_df_inference(df_inference, df_default, float(dfr))
     t_crit = stats.t.ppf(1 - alpha / 2, df_t)
     tvals = beta / np.where(se > 0, se, np.nan)
@@ -335,7 +340,7 @@ def hdfe_iv(
     if groups is not None:
         cluster_info = {
             "cluster": cluster_names,
-            "n_clusters": [G],
+            "n_clusters": [n_clusters],
             "dof_fe_cluster": int(sdof),
             "nested_fe": [n for n, is_n in zip(fe_names, nested) if is_n],
         }

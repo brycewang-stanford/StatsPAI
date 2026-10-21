@@ -26,7 +26,7 @@ References
 from __future__ import annotations
 
 from math import factorial
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
@@ -64,7 +64,8 @@ def kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
     if kernel == "uniform":
         return np.where(a <= 1.0, 0.5, 0.0)
     if kernel == "gaussian":
-        return np.exp(-0.5 * u * u) / np.sqrt(2.0 * np.pi)
+        g: np.ndarray = np.exp(-0.5 * u * u) / np.sqrt(2.0 * np.pi)
+        return g
     raise ValueError(f"kernel must be one of {KERNELS}; got {kernel!r}")
 
 
@@ -86,7 +87,8 @@ def wls_operator(u: np.ndarray, w: np.ndarray, order: int) -> np.ndarray:
     diag = np.abs(np.diag(r_mat))
     if diag.size == 0 or diag.min() <= 1e-13 * max(diag.max(), 1e-300):
         raise np.linalg.LinAlgError("rank-deficient local polynomial design")
-    return np.linalg.solve(r_mat, q_mat.T) * sw[None, :]
+    rows: np.ndarray = np.linalg.solve(r_mat, q_mat.T) * sw[None, :]
+    return rows
 
 
 def nn_variance(x: np.ndarray, y: np.ndarray, n_neighbors: int) -> np.ndarray:
@@ -128,7 +130,7 @@ def pilot_bandwidth(x: np.ndarray, kernel: str) -> float:
     sd = float(np.std(x, ddof=1))
     q75, q25 = np.quantile(x, [0.75, 0.25])
     spread = min(sd, float(q75 - q25) / 1.349)
-    return NORMAL_REFERENCE_CONSTANT[kernel] * spread * n ** (-0.2)
+    return float(NORMAL_REFERENCE_CONSTANT[kernel] * spread * n ** (-0.2))
 
 
 def kth_distance(x: np.ndarray, x0: float, k: int) -> float:
@@ -300,7 +302,7 @@ def plug_in_point(
     bwcheck: int,
     bwregul: float,
     with_h: bool = True,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """The three-stage MSE direct plug-in at one evaluation point.
 
     ``x`` must be sorted. Each selected bandwidth is capped at the largest
@@ -318,7 +320,7 @@ def plug_in_point(
     cap = float(np.max(np.abs(x - x0)))
     floor = kth_distance(x, x0, bwcheck) if bwcheck > 0 else 0.0
     pilot = max(pilot_bandwidth(x, kernel), floor)
-    common = dict(pilot=pilot, kernel=kernel, n_neighbors=n_neighbors)
+    common: Dict[str, Any] = dict(pilot=pilot, kernel=kernel, n_neighbors=n_neighbors)
 
     stage1 = stage_terms(
         x,
@@ -398,7 +400,7 @@ def one_sided_kernel_constants(p: int, deriv: int, kernel: str) -> Tuple[float, 
     (black-box: the reference's rule-of-thumb bandwidths are reproduced at
     interior points only with these).
     """
-    idx = np.arange(p + 1)
+    idx = range(p + 1)
     s_mat = np.array(
         [[_one_sided_moment(i + j, kernel, False) for j in idx] for i in idx]
     )
@@ -456,7 +458,7 @@ def rot_point_terms(
 # ----------------------------------------------------------------------
 
 
-def clean_xy(x, y) -> Tuple[np.ndarray, np.ndarray]:
+def clean_xy(x: Any, y: Any) -> Tuple[np.ndarray, np.ndarray]:
     """Float arrays sorted by ``x``, rows with a non-finite value dropped."""
     xa = np.asarray(x, dtype=float).ravel()
     ya = np.asarray(y, dtype=float).ravel()
@@ -513,7 +515,7 @@ def check_bwcheck(n: int, bwcheck: int) -> None:
 
 
 def check_point_inputs(
-    x, y, kernel, p, deriv, n_neighbors
+    x: Any, y: Any, kernel: str, p: int, deriv: int, n_neighbors: int
 ) -> Tuple[np.ndarray, np.ndarray]:
     check_kernel(kernel)
     check_orders(p, deriv)

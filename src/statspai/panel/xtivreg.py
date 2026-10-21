@@ -51,7 +51,8 @@ def _gmean(values: np.ndarray, codes: np.ndarray, n: int) -> np.ndarray:
     total = np.zeros((n,) + values.shape[1:])
     np.add.at(total, codes, values)
     cnt = np.bincount(codes, minlength=n).astype(float)
-    return total / cnt.reshape((-1,) + (1,) * (values.ndim - 1))
+    _ret: np.ndarray = total / cnt.reshape((-1,) + (1,) * (values.ndim - 1))
+    return _ret
 
 
 def _span(A: np.ndarray, tol: float = 1e-10) -> np.ndarray:

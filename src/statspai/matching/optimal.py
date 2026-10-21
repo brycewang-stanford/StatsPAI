@@ -172,7 +172,8 @@ def _distance_matrix(
     if metric == "propensity":
         if ps_treat is None or ps_ctrl is None:  # pragma: no cover - internal
             raise ValueError("metric='propensity' requires fitted scores")
-        return np.abs(ps_treat[:, None] - ps_ctrl[None, :])
+        _ret: np.ndarray = np.abs(ps_treat[:, None] - ps_ctrl[None, :])
+        return _ret
     raise ValueError(
         f"unknown metric {metric!r}; expected 'mahalanobis', 'euclidean' "
         "or 'propensity'"

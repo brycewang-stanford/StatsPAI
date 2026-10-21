@@ -30,7 +30,7 @@ treated (``docs/dev/modules/survival.md``).
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from ._stata import _emit, _emit_error, _vce_cluster
 from ._stata_lexer import StataCommand
@@ -391,4 +391,8 @@ def _h_stteffects(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
-HANDLERS = {"stcox": _h_stcox, "stcrreg": _h_stcrreg, "stteffects": _h_stteffects}
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
+    "stcox": _h_stcox,
+    "stcrreg": _h_stcrreg,
+    "stteffects": _h_stteffects,
+}

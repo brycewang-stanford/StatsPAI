@@ -27,7 +27,8 @@ def _cluster_sandwich(
         ]
     )
     meat = S.T @ S
-    return factor * (bread_inv @ meat @ bread_inv)
+    _ret: np.ndarray = factor * (bread_inv @ meat @ bread_inv)
+    return _ret
 
 
 def _independent_columns(

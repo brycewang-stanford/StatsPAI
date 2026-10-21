@@ -544,8 +544,7 @@ def _prep_inputs(
     if cluster_col is not None:
         cols = cols + [cluster_col]
     cols = cols + list(absorb or [])
-    seen: set = set()
-    cols = [c for c in cols if not (c in seen or seen.add(c))]
+    cols = list(dict.fromkeys(cols))
     # Complete cases as a positional mask: an external cluster array is
     # aligned with the rows of ``data`` by position, whatever its index.
     # (Indexing the array with the surviving index *labels* gave rows other

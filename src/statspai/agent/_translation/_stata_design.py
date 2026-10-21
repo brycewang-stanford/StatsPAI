@@ -8,7 +8,7 @@ the same reports. The panel declaration comes from ``xtset``.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from ._stata import (
     _PANEL_NOTE,
@@ -224,4 +224,7 @@ def _h_synth2(cmd: StataCommand) -> Dict[str, Any]:
     return result
 
 
-HANDLERS = {"rcm": _h_rcm, "synth2": _h_synth2}
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
+    "rcm": _h_rcm,
+    "synth2": _h_synth2,
+}

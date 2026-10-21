@@ -51,17 +51,21 @@ _GH_NODES, _GH_WEIGHTS = np.polynomial.hermite.hermgauss(40)
 def _outcome_mean(eta: np.ndarray, family: str) -> np.ndarray:
     if family == "linear":
         return eta
+    mu: np.ndarray
     if family == "logit":
-        return 1.0 / (1.0 + np.exp(-eta))
+        mu = 1.0 / (1.0 + np.exp(-eta))
+        return mu
     if family == "probit":
         return np.asarray(stats.norm.cdf(eta))
-    return np.exp(eta)
+    mu = np.exp(eta)
+    return mu
 
 
 def _outcome_score_weight(Y: np.ndarray, eta: np.ndarray, family: str) -> np.ndarray:
     """``s`` such that the score of the outcome model is ``W' s``."""
     if family in ("linear", "logit", "poisson"):
-        return Y - _outcome_mean(eta, family)
+        s: np.ndarray = Y - _outcome_mean(eta, family)
+        return s
     q = 2.0 * Y - 1.0
     return np.asarray(q * stats.norm.pdf(q * eta) / stats.norm.cdf(q * eta))
 
@@ -283,7 +287,8 @@ def potential_outcome_mediation_nonlinear(
             psi_s = np.empty((n, 0))
         psi_mu = po_matrix(b, al, var) - m_[None, :]
         # each unit's estimating functions carry its (mean-one) weight
-        return np.column_stack([psi_b, psi_a, psi_s, psi_mu]) * wt[:, None]
+        psi: np.ndarray = np.column_stack([psi_b, psi_a, psi_s, psi_mu]) * wt[:, None]
+        return psi
 
     psi = moments(theta)
     # A = - d mean(psi) / d theta, by central differences. The moment

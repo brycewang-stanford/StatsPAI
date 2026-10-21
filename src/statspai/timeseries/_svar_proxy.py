@@ -32,7 +32,7 @@ and the Wald-type and bootstrap bands both undercover [@olea2021inference].
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,9 @@ from ..exceptions import (
     IdentificationFailure,
     MethodIncompatibility,
 )
+
+if TYPE_CHECKING:
+    from .svar import SVARResult
 
 PROXY_SCALES = ("unit", "std")
 
@@ -108,7 +111,8 @@ def proxy_impact(
     b = gamma / gamma[target]
     if scale == "std":
         b = b / np.sqrt(b @ np.linalg.solve(sigma, b))
-    return b
+    out: np.ndarray = b
+    return out
 
 
 def default_block_length(T: int) -> int:
@@ -189,7 +193,7 @@ def proxy_svar(
     alpha: float,
     shock_name: Optional[str] = None,
     block_length: Optional[int] = None,
-):
+) -> "SVARResult":
     """Identify the shock; returns an ``SVARResult`` with one shock."""
     from .svar import SVARResult, _lag_matrices
 
@@ -256,7 +260,9 @@ def proxy_svar(
     }
     result.shock_series = pd.Series(shock_series, name=label)
 
-    def identify(lag_b, sigma_b, u_b, m_b) -> np.ndarray:
+    def identify(
+        lag_b: Any, sigma_b: np.ndarray, u_b: np.ndarray, m_b: np.ndarray
+    ) -> np.ndarray:
         return proxy_impact(u_b, m_b, sigma_b, ti, scale).reshape(k, 1)
 
     result._proxy = m
@@ -301,7 +307,9 @@ def proxy_bootstrap(
     return np.stack(draws), failed
 
 
-def proxy_fevd(theta: np.ndarray, lag_matrices: List[np.ndarray], sigma: np.ndarray):
+def proxy_fevd(
+    theta: np.ndarray, lag_matrices: List[np.ndarray], sigma: np.ndarray
+) -> np.ndarray:
     """Share of the ``h``-step forecast-error variance due to the shock.
 
     The denominator is the full reduced-form forecast-error variance

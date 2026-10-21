@@ -96,7 +96,8 @@ class _Solver:
     def __call__(self, g: np.ndarray) -> np.ndarray:
         n1 = self.n1
         if not n1:
-            return self.s * self._solve(self.s * g)
+            _ret: np.ndarray = self.s * self._solve(self.s * g)
+            return _ret
         g1, g2 = g[:n1], g[n1:]
         a2 = self.s * self._solve(self.s * (g2 - self.B.T @ (self.a_inv * g1)))
         a1 = self.a_inv * (g1 - self.B @ a2)

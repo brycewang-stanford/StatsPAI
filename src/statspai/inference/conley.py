@@ -234,7 +234,8 @@ def _symmetrise_planar(V: np.ndarray) -> np.ndarray:
     the off-diagonal covariances differ, and only by the size of ``acreg``'s
     own order-dependence.
     """
-    return 0.5 * (V + V.T)
+    V_sym: np.ndarray = 0.5 * (V + V.T)
+    return V_sym
 
 
 def _spatiotemporal_meat(

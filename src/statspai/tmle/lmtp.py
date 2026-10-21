@@ -85,7 +85,8 @@ class _Linear:
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return X @ self.b
+        fitted: np.ndarray = X @ self.b
+        return fitted
 
 
 class _Logistic:
@@ -94,7 +95,8 @@ class _Logistic:
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        return expit(X @ self.b)
+        prob: np.ndarray = expit(X @ self.b)
+        return prob
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         p = self.predict(X)
@@ -238,8 +240,8 @@ def _fit_policy(
                 pseudo += np.prod(ratios[:, t + 1 : k + 1], axis=1) * (
                     Qp[:, k + 1] - Qn[:, k]
                 )
-        qn = np.zeros(n)
-        qp = np.zeros(n)
+        qn: np.ndarray = np.zeros(n)
+        qp: np.ndarray = np.zeros(n)
         binary_t = last_binary and t == K - 1
         for tr, te in splits:
             fit = tr[observed[t][tr]]
@@ -429,8 +431,8 @@ def lmtp(
     def history(t: int) -> List[str]:
         h = list(baseline)
         for s in range(t):
-            h += covariates_time[s] + [treatments[s]]
-        return h + covariates_time[t]
+            h += list(covariates_time[s]) + [treatments[s]]
+        return h + list(covariates_time[t])
 
     if cens is None:
         df = data[list(dict.fromkeys(cols))].dropna()

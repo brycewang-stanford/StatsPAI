@@ -216,7 +216,8 @@ def xthtaylor(
 
     def unit_mean(a: np.ndarray) -> np.ndarray:
         if a.ndim == 1:
-            return np.bincount(codes, weights=a)[codes] / T
+            _ret: np.ndarray = np.bincount(codes, weights=a)[codes] / T
+            return _ret
         out = [np.bincount(codes, weights=a[:, j]) / sizes for j in range(a.shape[1])]
         return np.column_stack(out)[codes] if out else np.zeros((n_obs, 0))
 

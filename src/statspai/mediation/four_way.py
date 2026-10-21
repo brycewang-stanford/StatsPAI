@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import Any, Dict, Mapping, Optional, Sequence
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -249,7 +249,9 @@ def four_way_decomposition(
     X_out = np.column_stack([np.ones(n), A, M, A * M, Xc])
     X_med = np.column_stack([np.ones(n), A, Xc])
 
-    def _linear(X: np.ndarray, v: np.ndarray):
+    def _linear(
+        X: np.ndarray, v: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, float, int]:
         coef, *_ = np.linalg.lstsq(X, v, rcond=None)
         resid = v - X @ coef
         dof = X.shape[0] if vce == "ml" else X.shape[0] - X.shape[1]

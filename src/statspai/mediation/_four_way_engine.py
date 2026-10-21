@@ -31,7 +31,7 @@ coefficients and, for a normal mediator, its variance.
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 
@@ -72,7 +72,8 @@ def fit_glm(X: np.ndarray, y: np.ndarray, family: str) -> Tuple[np.ndarray, np.n
         beta[0] = np.log(p0 / (1 - p0))
 
         def mean(eta: np.ndarray) -> np.ndarray:
-            return 1.0 / (1.0 + np.exp(-eta))
+            mu: np.ndarray = 1.0 / (1.0 + np.exp(-eta))
+            return mu
 
         def loglik(eta: np.ndarray) -> float:
             return float(np.sum(y * eta - np.logaddexp(0.0, eta)))
@@ -85,7 +86,8 @@ def fit_glm(X: np.ndarray, y: np.ndarray, family: str) -> Tuple[np.ndarray, np.n
         beta[0] = np.log(max(y.mean(), 1e-8))
 
         def mean(eta: np.ndarray) -> np.ndarray:
-            return np.exp(eta)
+            mu: np.ndarray = np.exp(eta)
+            return mu
 
         def loglik(eta: np.ndarray) -> float:
             return float(np.sum(y * eta - np.exp(eta)))
@@ -150,16 +152,16 @@ def components(
         be = p[k_theta : k_theta + k_beta]
         s2 = p[k_theta + k_beta] if mreg == "linear" else None
 
-        def base(a: float):
+        def base(a: float) -> Any:
             return th[0] + th[1] * a + th[4:] @ cvals
 
-        def slope(a: float):
+        def slope(a: float) -> Any:
             return th[2] + th[3] * a
 
-        def med_index(a: float):
+        def med_index(a: float) -> Any:
             return be[0] + be[1] * a + be[2:] @ cvals
 
-        def g(a: float, ap: float):
+        def g(a: float, ap: float) -> Any:
             s = slope(a)
             if mreg == "linear":
                 if not log_linear:
@@ -170,7 +172,7 @@ def components(
                 return base(a) + s * pr
             return np.exp(base(a)) * (1.0 - pr + pr * np.exp(s))
 
-        def g_m(a: float):
+        def g_m(a: float) -> Any:
             lin = base(a) + slope(a) * m_star
             return np.exp(lin) if log_linear else lin
 

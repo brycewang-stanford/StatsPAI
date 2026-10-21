@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -77,7 +77,8 @@ def canonical_kernel(kernel: str) -> str:
 def kernel_1d(u: np.ndarray, kernel: str) -> np.ndarray:
     """Univariate kernel profile at ``u`` (zero outside ``|u| <= 1``)."""
     if kernel == "gaussian":
-        return np.exp(-0.5 * u * u) / math.sqrt(2.0 * math.pi)
+        g: np.ndarray = np.exp(-0.5 * u * u) / math.sqrt(2.0 * math.pi)
+        return g
     a = np.abs(u)
     inside = a <= 1.0
     if kernel == "triangular":
@@ -115,7 +116,7 @@ class WindowFit:
     n: int
     k: int
     cluster: Optional[np.ndarray] = None
-    extra: Dict[str, object] = field(default_factory=dict)
+    extra: Dict[str, Any] = field(default_factory=dict)
 
     def influence(self, vec: np.ndarray, vce: str) -> np.ndarray:
         """Per-observation influence of ``vec' beta`` (window rows only).
@@ -128,7 +129,8 @@ class WindowFit:
             s = s / np.sqrt(1.0 - self.leverage)[:, None]
         elif vce == "hc3":
             s = s / (1.0 - self.leverage)[:, None]
-        return s @ (self.a_inv @ vec)
+        out: np.ndarray = s @ (self.a_inv @ vec)
+        return out
 
 
 def fit_window(
@@ -215,7 +217,7 @@ def side_variances(
     if not joint:
         out = []
         for f, r in zip(fits, infl):
-            codes, inv = np.unique(f.cluster, return_inverse=True)
+            codes, inv = np.unique(np.asarray(f.cluster), return_inverse=True)
             s = np.bincount(inv, weights=r)
             out.append(_cluster_factor(len(codes), f.n, f.k, vce) * float(s @ s))
         return out[0], out[1], 0.0
@@ -230,7 +232,7 @@ def side_variances(
 
 
 def point_covariance(
-    points: Sequence[Dict[str, object]], vce: str, joint: bool
+    points: Sequence[Dict[str, Any]], vce: str, joint: bool
 ) -> np.ndarray:
     """Covariance of the jumps at several evaluation points.
 
@@ -245,7 +247,7 @@ def point_covariance(
         return np.zeros((0, 0))
     n = int(points[0]["n_total"])
     cluster = points[0]["cluster"]
-    vecs = []
+    vecs: List[Tuple[str, np.ndarray]] = []
     for pt in points:
         f0, f1 = pt["fits"]
         r0, r1 = pt["infl"]
@@ -291,7 +293,8 @@ def point_covariance(
             vecs.append(("cl2", np.concatenate(parts)))
     M = np.vstack([v for _, v in vecs])
     cov = M @ M.T
-    return 0.5 * (cov + cov.T)
+    sym: np.ndarray = 0.5 * (cov + cov.T)
+    return sym
 
 
 def cer_rate(n: float, p: int) -> float:
@@ -299,4 +302,4 @@ def cer_rate(n: float, p: int) -> float:
 
     ``n^(1/(2p+4) - 1/(p+4))`` (two-dimensional rates; black box).
     """
-    return float(n) ** (1.0 / (2 * p + 4) - 1.0 / (p + 4))
+    return float(float(n) ** (1.0 / (2 * p + 4) - 1.0 / (p + 4)))

@@ -9,7 +9,7 @@ out, so the call gives Stata's number.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, FrozenSet, List, Optional, Tuple
 
 from ._stata import _emit, _emit_error
 from ._stata_lexer import StataCommand
@@ -234,5 +234,5 @@ def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
     )
 
 
-HANDLERS = {"estat": _h_estat}
-POSTEST = frozenset({_h_estat})
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {"estat": _h_estat}
+POSTEST: FrozenSet[Callable[..., Dict[str, Any]]] = frozenset({_h_estat})

@@ -388,7 +388,7 @@ def did_had(
     # evolution) pair -- exactly as Stata re-runs lprobust for each
     # effect and placebo, which is why its BW column varies down the table.
     auto_bw = isinstance(bandwidth, str)
-    if auto_bw:
+    if isinstance(bandwidth, str):
         if bandwidth in _BW_UNPORTED:
             raise MethodIncompatibility(_BW_UNPORTED[bandwidth])
         if bandwidth not in _BW_SELECTORS:
@@ -527,10 +527,10 @@ def _resolve_bandwidths(
     bandwidth: Union[float, Sequence[float]], n: int
 ) -> List[float]:
     """One bandwidth per horizon, from a scalar or a sequence."""
-    if np.isscalar(bandwidth):
+    if isinstance(bandwidth, (int, float, np.number, np.bool_)):
         vals = [float(bandwidth)] * n
     else:
-        vals = [float(v) for v in bandwidth]  # type: ignore[union-attr]
+        vals = [float(v) for v in bandwidth]
         if len(vals) != n:
             raise ValueError(
                 f"bandwidth has {len(vals)} entries but {n} horizons are "
@@ -602,13 +602,15 @@ def yatchew_linearity_test(
     ----------
     yatchew1999elementary, dechaisemartin2024nounit
     """
-    x = np.asarray(x, dtype=float).ravel()
-    y = np.asarray(y, dtype=float).ravel()
-    if x.shape != y.shape:
-        raise ValueError(f"x and y must have the same length, got {x.shape}, {y.shape}")
-    ok = np.isfinite(x) & np.isfinite(y)
-    x, y = x[ok], y[ok]
-    n = x.size
+    xa = np.asarray(x, dtype=float).ravel()
+    ya = np.asarray(y, dtype=float).ravel()
+    if xa.shape != ya.shape:
+        raise ValueError(
+            f"x and y must have the same length, got {xa.shape}, {ya.shape}"
+        )
+    ok = np.isfinite(xa) & np.isfinite(ya)
+    xa, ya = xa[ok], ya[ok]
+    n = xa.size
     if n < 3:
         raise ValueError(
             f"the differencing test needs at least 3 observations, got {n}"
@@ -618,10 +620,10 @@ def yatchew_linearity_test(
 
     # Parametric fit. order=0 leaves the intercept alone, which makes the
     # null "y is mean-independent of x" rather than "linear in x".
-    cols = [np.ones(n)] + [x**j for j in range(1, order + 1)]
+    cols = [np.ones(n)] + [xa**j for j in range(1, order + 1)]
     design = np.column_stack(cols)
-    beta, *_ = np.linalg.lstsq(design, y, rcond=None)
-    resid = y - design @ beta
+    beta, *_ = np.linalg.lstsq(design, ya, rcond=None)
+    resid = ya - design @ beta
     s2_lin = float(np.var(resid, ddof=1))
 
     # Nonparametric benchmark: first differences along sorted x, with
@@ -630,8 +632,8 @@ def yatchew_linearity_test(
     # ADJACENT rows, so the order within a tie group changes s2_diff.
     # With 25 tied zero doses on the did_had fixture, sorting by x alone
     # moved s2_diff by 3.7e-3 and the statistic by 0.36.
-    srt = np.lexsort((y, x))
-    dy = np.diff(y[srt])
+    srt = np.lexsort((ya, xa))
+    dy = np.diff(ya[srt])
     s2_diff = float(0.5 * np.mean(dy**2))
 
     if het_robust:

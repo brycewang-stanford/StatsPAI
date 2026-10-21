@@ -22,7 +22,18 @@ module only adds the identification step.
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import pandas as pd
@@ -129,6 +140,15 @@ class SVARResult(ResultProtocolMixin):
     """
 
     _citation_keys: ClassVar[Tuple[str, ...]] = ("lutkepohl2005new",)
+
+    # Set by the proxy (external-instrument) identification only; declared
+    # here for the type checker.
+    _sigma: np.ndarray
+    proxy_diagnostics: Dict[str, Any]
+    shock_series: pd.Series
+    _proxy: np.ndarray
+    _identify_proxy: Callable[..., np.ndarray]
+    _proxy_block_length: Optional[int]
 
     def __init__(
         self,

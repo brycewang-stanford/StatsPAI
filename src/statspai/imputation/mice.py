@@ -98,7 +98,9 @@ class MICEResult(ResultProtocolMixin):
         return _rubins_rules(estimates)
 
 
-def _barnard_rubin_df(m: int, b: np.ndarray, t: np.ndarray, dfcom: float) -> np.ndarray:
+def _barnard_rubin_df(
+    m: int, b: np.ndarray, t: np.ndarray, dfcom: float
+) -> Union[float, np.ndarray]:
     """Barnard & Rubin (1999) small-sample degrees of freedom.
 
     Clean-room implementation from the published formula; R sensemakr /
@@ -153,7 +155,8 @@ def _barnard_rubin_df(m: int, b: np.ndarray, t: np.ndarray, dfcom: float) -> np.
         nu = 1.0 / (inv_old + inv_obs)
     if nu.ndim == 0:
         return float(nu)
-    return nu
+    nu_arr: np.ndarray = nu
+    return nu_arr
 
 
 def _rubins_rules(
@@ -210,15 +213,16 @@ def _rubins_rules(
     vcov_list = np.asarray([np.asarray(e["var_cov"], dtype=float) for e in estimates])
 
     if dfcom is None:
-        dfs = [e.get("df_resid") for e in estimates]
-        if all(d is not None for d in dfs):
-            if len(set(float(d) for d in dfs)) != 1:
+        dfs_raw = [e.get("df_resid") for e in estimates]
+        dfs = [float(d) for d in dfs_raw if d is not None]
+        if len(dfs) == len(dfs_raw):
+            if len(set(dfs)) != 1:
                 raise MethodIncompatibility(
                     f"complete-data df differ across imputations ({sorted(set(dfs))}); "
                     "pass dfcom= explicitly",
                     recovery_hint="Pass dfcom= explicitly.",
                 )
-            dfcom = float(dfs[0])
+            dfcom = dfs[0]
         else:
             dfcom = float("inf")
     dfcom = float(dfcom)
@@ -811,7 +815,7 @@ def mi_estimate(
     from ..postestimation._covariance import inference_df
 
     estimates = []
-    var_names: Optional[List[str]] = None
+    var_names: Optional[List[Any]] = None
     n_obs = None
     for i in range(mice_result.n_imputations):
         df_i = mice_result.complete(i)
@@ -823,7 +827,10 @@ def mi_estimate(
         if V is None or np.shape(V) != (k, k):
             # No full covariance exposed: pool the variances only.
             V = np.diag(np.asarray(result.std_errors, dtype=float) ** 2)
-        est = {"params": np.asarray(params, dtype=float), "var_cov": np.asarray(V)}
+        est: Dict[str, Any] = {
+            "params": np.asarray(params, dtype=float),
+            "var_cov": np.asarray(V),
+        }
         # The complete-data df is the df of the fit's own t reference:
         # G - 1 for a clustered fit, none (large sample) for a z-based
         # likelihood fit -- what Stata's mi estimate reads from e(df_r).

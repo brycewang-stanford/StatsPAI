@@ -47,7 +47,8 @@ def _same_history(H: np.ndarray, h: np.ndarray, match_missing: bool) -> np.ndarr
     eq = (H == h) | (Hn & hn)
     if not match_missing:
         eq &= ~Hn
-    return eq.all(axis=1)
+    same: np.ndarray = eq.all(axis=1)
+    return same
 
 
 def build_sets(
@@ -118,10 +119,10 @@ def build_sets(
             if not np.all(D[i, t : t + max_lead + 1] == now_state):
                 continue
         ctrl = s.controls
-        keep = ~np.isnan(Y[np.ix_(ctrl, need)]).any(axis=1)
+        keep = ~np.isnan(Y[np.ix_(ctrl, np.asarray(need))]).any(axis=1)
         if forbid_treatment_reversal:
             keep &= np.all(
-                D[np.ix_(ctrl, range(t, t + max_lead + 1))] == ctrl_state, axis=1
+                D[np.ix_(ctrl, np.arange(t, t + max_lead + 1))] == ctrl_state, axis=1
             )
         ctrl = ctrl[keep]
         if ctrl.size == 0:

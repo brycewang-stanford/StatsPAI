@@ -334,8 +334,7 @@ def zero_first_stage(
         )
 
     needed = [y, endog, instrument] + exog_l + absorb_l + cluster_l
-    seen: set = set()
-    needed = [c for c in needed if not (c in seen or seen.add(c))]
+    needed = list(dict.fromkeys(needed))
     work = data.loc[:, needed].copy()
     work["__zfs"] = mask
     work = work.dropna()

@@ -955,7 +955,8 @@ def _minimum_eigenvalue(design: Dict[str, Any]) -> Optional[Tuple[float, int, in
     def residual(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         if b.shape[1] == 0:
             return a
-        return a - b @ np.linalg.lstsq(b, a, rcond=None)[0]
+        _ret: np.ndarray = a - b @ np.linalg.lstsq(b, a, rcond=None)[0]
+        return _ret
 
     Y = residual(X[:, columns], exog)
     # the excluded instruments: what W adds to the exogenous regressors

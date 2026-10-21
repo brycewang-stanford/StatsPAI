@@ -562,7 +562,8 @@ def mediation_decompose(
 
         def _ols_vcov(X: np.ndarray, r: np.ndarray) -> np.ndarray:
             s2 = float(r @ r) / (X.shape[0] - X.shape[1])
-            return s2 * np.linalg.inv(X.T @ X)
+            _ret: np.ndarray = s2 * np.linalg.inv(X.T @ X)
+            return _ret
 
         V_y = _ols_vcov(Xy, resid_y)
         V_m = _ols_vcov(Xm, resid_m)

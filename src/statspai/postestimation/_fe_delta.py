@@ -137,15 +137,20 @@ class FEDelta:
                 if info != 0 or np.linalg.norm(self.M @ x - b) > 1e-9 * nb:
                     raise _refuse(fn, "the fixed-effect system did not converge")
                 out[:, j] = x
-        return out[:, 0] if squeeze else out
+        res: np.ndarray = out[:, 0] if squeeze else out
+        return res
 
     def _raw_cov(self, H: np.ndarray) -> np.ndarray:
         """Raw covariance ``Cov(h_r, h_s)`` of the columns of ``H`` (n x m)."""
+        C: np.ndarray
         if self.kind == "iid":
-            return H.T @ (self.omega[:, None] * H)
+            C = H.T @ (self.omega[:, None] * H)
+            return C
         Phi = self.score[:, None] * H
         if self.kind == "hetero":
-            return Phi.T @ Phi
+            C = Phi.T @ Phi
+            return C
+        assert self.clusters is not None  # kind == "cluster" carries clusters
         _, inv = np.unique(self.clusters, return_inverse=True)
         Sums = np.zeros((int(inv.max()) + 1, H.shape[1]))
         np.add.at(Sums, inv, Phi)
@@ -276,7 +281,8 @@ def build_fe_delta(
 def factor(cov: np.ndarray) -> np.ndarray:
     """``L`` with ``L L' = cov`` (symmetric PSD), for the ``hypotheses`` attrs."""
     vals, vecs = np.linalg.eigh((cov + cov.T) / 2.0)
-    return vecs * np.sqrt(np.clip(vals, 0.0, None))
+    L: np.ndarray = vecs * np.sqrt(np.clip(vals, 0.0, None))
+    return L
 
 
 def eval_weights(w: Optional[np.ndarray], n: int) -> np.ndarray:
@@ -284,4 +290,5 @@ def eval_weights(w: Optional[np.ndarray], n: int) -> np.ndarray:
     if w is None:
         return np.full(n, 1.0 / n)
     w = np.asarray(w, dtype=float)
-    return w / w.sum()
+    wn: np.ndarray = w / w.sum()
+    return wn

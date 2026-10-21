@@ -41,7 +41,8 @@ def _numeric(steps: "DataSteps", name: str, command: str) -> np.ndarray:
     col = steps.data[name]
     if not (pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col)):
         raise StataExprError(f"{command}: {name!r} is not numeric")
-    return col.to_numpy(dtype=float, na_value=np.nan)
+    _ret: np.ndarray = col.to_numpy(dtype=float, na_value=np.nan)
+    return _ret
 
 
 def _store(steps: "DataSteps", name: str, values: np.ndarray, replace: bool) -> None:
@@ -193,7 +194,8 @@ def _cem_cells(x: np.ndarray, edges: np.ndarray) -> np.ndarray:
     cell = (x >= edges[0]).astype(float)
     for edge in edges[1:]:
         cell += x > edge
-    return cell
+    _ret: np.ndarray = cell
+    return _ret
 
 
 def _cem(steps: "DataSteps", varlist: List[str], options: Dict[str, Any]) -> None:

@@ -13,7 +13,7 @@ Pipeline: ``_pmatch_prep`` (balanced arrays, covariate terms) ->
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -58,7 +58,9 @@ def _normalise_refinement(refinement: str) -> str:
 
 
 def _normalise_leads(lead: Union[int, Sequence[int]]) -> List[int]:
-    leads = [lead] if np.isscalar(lead) else list(lead)
+    leads: List[Any] = (
+        [lead] if isinstance(lead, (int, float, np.number)) else list(lead)
+    )
     if not leads:
         raise _refusal("lead is empty", "Pass a lead such as 0 or range(4).")
     out = []
@@ -75,7 +77,7 @@ def _normalise_leads(lead: Union[int, Sequence[int]]) -> List[int]:
 def _validate(
     qoi: str,
     refinement: str,
-    covariates,
+    covariates: Any,
     lag: int,
     size_match: int,
     se_method: str,
@@ -129,7 +131,9 @@ def _validate(
         )
 
 
-def _sets_frame(families: Dict[str, List[MatchedSet]], units, times) -> pd.DataFrame:
+def _sets_frame(
+    families: Dict[str, List[MatchedSet]], units: Any, times: Any
+) -> pd.DataFrame:
     rows = []
     for name, sets in families.items():
         for s in sets:
@@ -341,7 +345,9 @@ def panel_match(
 
     kinds = ["att", "atc"] if qoi == "ate" else [qoi]
 
-    def matched(outcome_history: bool):
+    def matched(
+        outcome_history: bool,
+    ) -> Tuple[Dict[str, List[MatchedSet]], Dict[str, dict]]:
         fams: Dict[str, List[MatchedSet]] = {}
         info: Dict[str, dict] = {}
         for k in kinds:
@@ -398,7 +404,7 @@ def panel_match(
     else:
         est, se, ci, pval = inf.pooled_summary(A, B, n_star, se_method, alpha, draws)
 
-    model_info: Dict[str, object] = {
+    model_info: Dict[str, Any] = {
         "qoi": qoi,
         "refinement": ref_method,
         "lag": lag,

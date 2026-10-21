@@ -231,11 +231,13 @@ def _user_pair(h: Any, name: str) -> Tuple[float, float]:
     return pair
 
 
-def _per_obs(prep: Dict[str, Any], pairs: Dict[Any, Tuple[float, float]]):
+def _per_obs(
+    prep: Dict[str, Any], pairs: Dict[Any, Tuple[float, float]]
+) -> Tuple[np.ndarray, np.ndarray]:
     n = prep["n"]
     if not prep["subgroups"]:
-        hl, hr = pairs[None]
-        return np.full(n, hl), np.full(n, hr)
+        h_left, h_right = pairs[None]
+        return np.full(n, h_left), np.full(n, h_right)
     hl = np.empty(n)
     hr = np.empty(n)
     for g, lv in enumerate(prep["levels"]):
@@ -373,6 +375,7 @@ def rdhte(
     )
 
     k = len(fit_p.treat_index)
+    L_coef: np.ndarray
     if prep["subgroups"]:
         G = len(prep["levels"])
         L_coef = np.zeros((G, k))
@@ -708,6 +711,11 @@ def _rdhte_plot(
     if ax is None:
         _, ax = plt.subplots(figsize=figsize)
     det = result.detail
+    if det is None:
+        raise _bad(
+            "rdhte plot needs result.detail, which this result does not carry.",
+            "Plot a result returned by sp.rdhte.",
+        )
     zcol = mi["z_covariates"][0]
     if mi.get("mode") == "subgroups":
         pos = np.arange(len(det))

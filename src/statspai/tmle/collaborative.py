@@ -159,7 +159,8 @@ def _influence(
 ) -> np.ndarray:
     """Efficient influence function of the ATE at a targeted fit."""
     hA, _, _ = _clever(a, g)
-    return hA * (y - fit.at(a)) + fit.q1 - fit.q0 - psi
+    _ret: np.ndarray = hA * (y - fit.at(a)) + fit.q1 - fit.q0 - psi
+    return _ret
 
 
 class _Sequence:

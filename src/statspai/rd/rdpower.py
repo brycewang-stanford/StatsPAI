@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Tuple
 
 import numpy as np
 from scipy import stats as sp_stats
@@ -230,13 +230,13 @@ def _data_columns(
     return True
 
 
-def _fit_rdrobust(data, y, x, c, kwargs):
+def _fit_rdrobust(data: Any, y: str, x: str, c: float, kwargs: Dict[str, Any]) -> Any:
     from .rdrobust import rdrobust
 
     return rdrobust(data, y=y, x=x, c=c, **kwargs)
 
 
-def _as_pair(v) -> Tuple[float, float]:
+def _as_pair(v: Any) -> Tuple[float, float]:
     if isinstance(v, (tuple, list, np.ndarray)):
         return float(v[0]), float(v[1])
     return float(v), float(v)
@@ -323,6 +323,7 @@ def rdpower(
         raise _bad(f"tau must be finite; got {tau!r}.", "Pass a numeric effect size.")
 
     if _data_columns(data, y, x, "rdpower"):
+        assert y is not None and x is not None  # _data_columns checked them
         fit = _fit_rdrobust(data, y, x, c, rdrobust_kwargs)
         se = float(fit.se)
         mi = fit.model_info
@@ -441,6 +442,7 @@ def rdsampsi(
         )
 
     if _data_columns(data, y, x, "rdsampsi"):
+        assert y is not None and x is not None  # _data_columns checked them
         return _sampsi_data(data, y, x, c, tau, alpha, target, rdrobust_kwargs)
 
     _check_positive(
@@ -465,7 +467,14 @@ def rdsampsi(
     )
 
 
-def _side_variances(data, y, x, c, fit, kwargs) -> Dict[str, float]:
+def _side_variances(
+    data: Any,
+    y: str,
+    x: str,
+    c: float,
+    fit: Any,
+    kwargs: Dict[str, Any],
+) -> Dict[str, float]:
     """Robust bias-corrected variance of each side's contribution.
 
     Recomputed with the shared CCT primitive at the fit's bandwidths and
@@ -486,7 +495,7 @@ def _side_variances(data, y, x, c, fit, kwargs) -> Dict[str, float]:
     h_l, h_r = _as_pair(mi["bandwidth_h"])
     b_l, b_r = _as_pair(mi["bandwidth_b"])
 
-    def col(name):
+    def col(name: Optional[str]) -> Optional[np.ndarray]:
         if name is None:
             return None
         return np.asarray(data[name], dtype=float)
@@ -530,7 +539,16 @@ def _side_variances(data, y, x, c, fit, kwargs) -> Dict[str, float]:
     return comp
 
 
-def _sampsi_data(data, y, x, c, tau, alpha, target, kwargs) -> RDSampSiResult:
+def _sampsi_data(
+    data: Any,
+    y: str,
+    x: str,
+    c: float,
+    tau: float,
+    alpha: float,
+    target: float,
+    kwargs: Dict[str, Any],
+) -> RDSampSiResult:
     if float(kwargs.get("scalepar", 1.0)) != 1.0:
         raise _bad(
             "rdsampsi(data=...) does not support scalepar.",

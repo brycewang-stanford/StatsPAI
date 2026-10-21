@@ -18,7 +18,7 @@ the caller.
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy.optimize import brentq
@@ -52,7 +52,7 @@ def _nodes(lo: float, hi: float) -> Tuple[np.ndarray, np.ndarray]:
 class _Path:
     """Sub-density of ``Z_k`` on the continuation region, look by look."""
 
-    def __init__(self, info: Sequence[float], theta: float) -> None:
+    def __init__(self, info: Union[Sequence[float], np.ndarray], theta: float) -> None:
         self.info = np.asarray(info, dtype=float)
         self.theta = float(theta)
         self.k = 0
@@ -224,15 +224,15 @@ def spent(name: str, param: float, total: float, t: float, sides: int) -> float:
         return 0.0
     if name == "errobfleming":
         a = total / sides
-        return sides * 2.0 * ndtr(ndtri(a / 2.0) / np.sqrt(t))
+        return float(sides * 2.0 * ndtr(ndtri(a / 2.0) / np.sqrt(t)))
     if name == "errpocock":
-        return total * np.log1p((np.e - 1.0) * t)
+        return float(total * np.log1p((np.e - 1.0) * t))
     if name == "kdemets":
-        return total * t**param
+        return float(total * t**param)
     if name == "hsdecani":
         if param == 0.0:
             return total * t
-        return total * (-np.expm1(-param * t)) / (-np.expm1(-param))
+        return float(total * (-np.expm1(-param * t)) / (-np.expm1(-param)))
     raise AssertionError(name)  # pragma: no cover
 
 

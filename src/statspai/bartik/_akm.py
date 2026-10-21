@@ -50,13 +50,15 @@ _SHARE_CONDITION_LIMIT = 1e8
 def _resid(v: np.ndarray, M: np.ndarray) -> np.ndarray:
     """Residual of ``v`` (vector or matrix) from least squares on ``M``."""
     coef = np.linalg.lstsq(M, v, rcond=None)[0]
-    return v - M @ coef
+    r: np.ndarray = v - M @ coef
+    return r
 
 
 def _weighted_resid(v: np.ndarray, Z: np.ndarray, sw: np.ndarray) -> np.ndarray:
     """Residual of ``v`` from weighted least squares on ``Z`` (weights ``sw**2``)."""
     coef = np.linalg.lstsq(Z * sw[:, None], v * sw, rcond=None)[0]
-    return v - Z @ coef
+    r: np.ndarray = v - Z @ coef
+    return r
 
 
 def _limited_pivot_rank_columns(x: np.ndarray, tol: float = 1e-7) -> np.ndarray:
@@ -177,7 +179,7 @@ def _akm_fit(
     beta0: float = 0.0,
     alpha: float = 0.05,
     w: Optional[np.ndarray] = None,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """AKM / AKM0 inference for OLS (``y2 is None``) or just-identified IV.
 
     Parameters
@@ -275,7 +277,8 @@ def _akm_fit(
     Wt = shares.T * wv  # (S, n): column i scaled by w_i
 
     def _share_sums(u: np.ndarray) -> np.ndarray:
-        return shock_adj * (Wt @ u)
+        s: np.ndarray = shock_adj * (Wt @ u)
+        return s
 
     akm_terms = _share_sums(e)
     se["AKM"] = float(np.sqrt(akm_terms @ akm_terms) / abs(den))
@@ -325,7 +328,7 @@ def _bhj_aggregate(
     y_name: str,
     x_name: str,
     w: Optional[np.ndarray] = None,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Shock-level aggregation of Borusyak, Hull and Jaravel, plus its IV.
 
     ``y`` and ``x`` are residualised on the controls (weighted least squares

@@ -42,7 +42,7 @@ of the bin selection is not implemented (a warning says so).
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -57,7 +57,7 @@ _Z975 = norm.ppf(0.975)
 
 def binsreg_knots(x: np.ndarray, n_bins: int) -> np.ndarray:
     """Quantile-spaced knots: min, the ``j / J`` quantiles, max."""
-    knots = np.quantile(
+    knots: np.ndarray = np.quantile(
         x, np.linspace(0.0, 1.0, n_bins + 1), method="averaged_inverted_cdf"
     )
     knots[0], knots[-1] = float(np.min(x)), float(np.max(x))
@@ -85,11 +85,13 @@ def _hc1(X: np.ndarray, e: np.ndarray) -> np.ndarray:
     n, k = X.shape
     bread = np.linalg.pinv(X.T @ X)
     meat = (X * (e**2)[:, None]).T @ X
-    return bread @ meat @ bread * n / (n - k)
+    V: np.ndarray = bread @ meat @ bread * n / (n - k)
+    return V
 
 
 def _lstsq(X: np.ndarray, y: np.ndarray) -> np.ndarray:
-    return np.linalg.lstsq(X, y, rcond=None)[0]
+    coef: np.ndarray = np.linalg.lstsq(X, y, rcond=None)[0]
+    return coef
 
 
 def _w_matrix(w: Optional[np.ndarray]) -> Optional[np.ndarray]:
@@ -246,7 +248,7 @@ def binsreg_series(
         bs = _lstsq(Xs, y)
         Vs = _hc1(Xs, y - Xs @ bs)
 
-        def evaluate(points: np.ndarray):
+        def evaluate(points: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
             L = _spline_basis(points, knots)
             if wbar is not None:
                 L = np.column_stack([L, np.tile(wbar, (len(points), 1))])
@@ -260,13 +262,13 @@ def binsreg_series(
             out["ci_lower"] = fit - z * se
             out["ci_upper"] = fit + z * se
         if cb:
-            grid = []
+            grid_pts: List[float] = []
             for j in range(J):
                 inner = np.linspace(knots[j], knots[j + 1], simsgrid + 2)[1:-1]
-                grid.extend(inner)
+                grid_pts.extend(inner)
                 if j < J - 1:
-                    grid.append(knots[j + 1])
-            grid = np.asarray(grid)
+                    grid_pts.append(knots[j + 1])
+            grid = np.asarray(grid_pts)
             L, fit, se = evaluate(grid)
             rng = np.random.default_rng(seed)
             # sup_x |L(x)'Z| / se(x), Z ~ N(0, V): the Gaussian process the

@@ -134,7 +134,8 @@ def _behaviour_ratio(pi_t: np.ndarray, pi_b: Any, n: int, clip: float) -> np.nda
                 "a positive, finite logging propensity."
             ),
         )
-    return np.minimum(pi_t / pb, clip)
+    _ret: np.ndarray = np.minimum(pi_t / pb, clip)
+    return _ret
 
 
 def _policy_matrix(pi_target: Any, X: np.ndarray, n: int, n_actions: int) -> np.ndarray:

@@ -31,7 +31,8 @@ def _within(sorted_scores: np.ndarray, at: np.ndarray, radius: float) -> np.ndar
     entry of ``at``."""
     lo = np.searchsorted(sorted_scores, at - radius, side="right")
     hi = np.searchsorted(sorted_scores, at + radius, side="left")
-    return np.maximum(hi - lo, 0)
+    _ret: np.ndarray = np.maximum(hi - lo, 0)
+    return _ret
 
 
 def radius_pairs(

@@ -45,13 +45,14 @@ def observation_weights(
         a, b = s.t + post, s.t + pre
         W[s.unit, a] += sign
         W[s.unit, b] -= sign
-        np.add.at(W, (s.controls, a), -sign * s.weights)
-        np.add.at(W, (s.controls, b), sign * s.weights)
+        np.add.at(W[:, a], s.controls, -sign * s.weights)
+        np.add.at(W[:, b], s.controls, sign * s.weights)
     return W
 
 
 def unit_sums(W: np.ndarray, Y: np.ndarray) -> np.ndarray:
-    return np.where(W != 0, W * np.nan_to_num(Y), 0.0).sum(axis=1)
+    sums: np.ndarray = np.where(W != 0, W * np.nan_to_num(Y), 0.0).sum(axis=1)
+    return sums
 
 
 def set_counts(sets: List[MatchedSet], n_units: int) -> np.ndarray:
@@ -96,7 +97,8 @@ def bootstrap_draws(
     with np.errstate(invalid="ignore", divide="ignore"):
         draws = (counts @ A) / den[:, None]
     draws[den == 0] = np.nan
-    return draws
+    out: np.ndarray = draws
+    return out
 
 
 class Family:
@@ -143,6 +145,7 @@ def inference_table(
     rows = []
     for j, lab in enumerate(labels):
         if se_method == "bootstrap":
+            assert draws is not None  # se_method='bootstrap' always passes draws
             d = draws[:, j]
             d = d[np.isfinite(d)]
             se = float(np.std(d, ddof=1))
@@ -169,11 +172,14 @@ def pooled_summary(
     averaged observation weights."""
     a = A.mean(axis=1)
     est = float(a.sum() / B.sum())
+    ci: Tuple[float, float]
     if se_method == "bootstrap":
+        assert draws is not None  # se_method='bootstrap' always passes draws
         d = np.nanmean(draws, axis=1) if draws.shape[1] > 1 else draws[:, 0]
         d = d[np.isfinite(d)]
         se = float(np.std(d, ddof=1))
-        ci = tuple(float(v) for v in np.quantile(d, [alpha / 2, 1 - alpha / 2]))
+        q_lo, q_hi = np.quantile(d, [alpha / 2, 1 - alpha / 2])
+        ci = (float(q_lo), float(q_hi))
     else:
         se = analytic_se(a, B, n_star, se_method)
         z = stats.norm.ppf(1 - alpha / 2)
@@ -231,7 +237,7 @@ def balance_table(
                 w = s.weights if refined else np.full(vc.size, 1.0 / vc.size)
                 ctrl = np.where(np.isnan(vc), 0.0, vc) @ w
                 diffs[k] = (tv[k] - ctrl) / sd if sd and np.isfinite(sd) else np.nan
-            col.append(np.nanmean(diffs) if np.isfinite(diffs).any() else np.nan)
+            col.append(float(np.nanmean(diffs)) if np.isfinite(diffs).any() else np.nan)
         rows[name] = col
     index = [f"t-{ell}" for ell in range(lag, -1, -1)]
     return pd.DataFrame(rows, index=index)

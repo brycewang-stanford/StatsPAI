@@ -298,13 +298,13 @@ def _bme(x: np.ndarray, y: np.ndarray, h: float, alpha: float, order: int) -> di
 
     z1 = float(stats.norm.ppf(1 - alpha))
     z2 = float(stats.norm.ppf(1 - alpha / 2))
-    bs, ss = [], []
+    bs_list, ss_list = [], []
     for gm, gp, sm, sp in itertools.product(left, right, (-1.0, 1.0), (-1.0, 1.0)):
         a = np.zeros(G + 1)
         a[gm], a[gp], a[G] = sm, sp, 1.0
-        bs.append(sm * delta[gm] + sp * delta[gp])
-        ss.append(float(np.sqrt(a @ Sig @ a)))
-    bs, ss = np.asarray(bs), np.asarray(ss)
+        bs_list.append(sm * delta[gm] + sp * delta[gp])
+        ss_list.append(float(np.sqrt(a @ Sig @ a)))
+    bs, ss = np.asarray(bs_list), np.asarray(ss_list)
     up2, lo2 = bs + z2 * ss, bs - z2 * ss
     iu, il = int(np.argmax(up2)), int(np.argmin(lo2))
     # the bias reported is the one at the binding end of the two-sided set

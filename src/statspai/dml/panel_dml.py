@@ -241,10 +241,12 @@ def _default_treatment_learner() -> Any:
 
 def _group_mean(v: np.ndarray, idx: np.ndarray, w: Optional[np.ndarray]) -> np.ndarray:
     if w is None:
-        return pd.Series(v).groupby(idx).transform("mean").to_numpy()
+        _ret: np.ndarray = pd.Series(v).groupby(idx).transform("mean").to_numpy()
+        return _ret
     num = pd.Series(v * w).groupby(idx).transform("sum").to_numpy()
     den = pd.Series(w).groupby(idx).transform("sum").to_numpy()
-    return num / den
+    _ret = num / den
+    return _ret
 
 
 def _within_transform(

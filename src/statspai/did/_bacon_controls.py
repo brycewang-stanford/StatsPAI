@@ -42,11 +42,13 @@ def _dd(M: np.ndarray, unit: np.ndarray, time: np.ndarray) -> np.ndarray:
         - df.groupby(time).transform("mean").to_numpy()
         + M.mean(axis=0, keepdims=True)
     )
-    return out[:, 0] if two_d else out
+    _ret: np.ndarray = out[:, 0] if two_d else out
+    return _ret
 
 
 def _cell_mean(v: np.ndarray, *keys: np.ndarray) -> np.ndarray:
-    return pd.Series(v).groupby(list(keys)).transform("mean").to_numpy()
+    _ret: np.ndarray = pd.Series(v).groupby(list(keys)).transform("mean").to_numpy()
+    return _ret
 
 
 def _slope(y: np.ndarray, x: np.ndarray) -> float:

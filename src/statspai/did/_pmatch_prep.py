@@ -38,11 +38,11 @@ class PMPanel:
 
     @property
     def n_units(self) -> int:
-        return self.D.shape[0]
+        return int(self.D.shape[0])
 
     @property
     def n_periods(self) -> int:
-        return self.D.shape[1]
+        return int(self.D.shape[1])
 
 
 @dataclass(frozen=True)

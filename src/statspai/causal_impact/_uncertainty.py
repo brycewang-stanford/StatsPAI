@@ -150,7 +150,8 @@ def predictor_map(X_aug: np.ndarray, pre: np.ndarray, model: Dict) -> np.ndarray
     Xo, Xp = X_aug[pre], X_aug[~pre]
     B = np.linalg.pinv(Xo)
     K = np.linalg.solve(S[np.ix_(pre, pre)], S[np.ix_(pre, ~pre)]).T
-    return Xp @ B + K @ (np.eye(int(pre.sum())) - Xo @ B)
+    _ret: np.ndarray = Xp @ B + K @ (np.eye(int(pre.sum())) - Xo @ B)
+    return _ret
 
 
 def forecast_error_cov(L: np.ndarray, T: np.ndarray, pre: np.ndarray) -> np.ndarray:
@@ -159,7 +160,8 @@ def forecast_error_cov(L: np.ndarray, T: np.ndarray, pre: np.ndarray) -> np.ndar
     Tpp = T[np.ix_(~pre, ~pre)]
     Tpo = T[np.ix_(~pre, pre)]
     LTop = L @ Tpo.T
-    return Tpp - LTop - LTop.T + L @ Too @ L.T
+    _ret: np.ndarray = Tpp - LTop - LTop.T + L @ Too @ L.T
+    return _ret
 
 
 _BOOT_RHO = np.linspace(-0.975, 0.975, 79)

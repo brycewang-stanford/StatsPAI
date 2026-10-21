@@ -135,7 +135,7 @@ def replicate_refit(
             res_r = run(design.repweights[:, r], quiet=True)
         except (ValueError, RuntimeError, np.linalg.LinAlgError) as exc:
             failed.append(r)
-            last_exc: Exception = exc
+            last_exc = exc
             continue
         names_r, theta_r = _extract(res_r)
         reps[r] = _align(names, names_r, theta_r)
@@ -150,7 +150,7 @@ def replicate_refit(
             diagnostics={"failed_replicates": failed[:20]},
         )
     head = _headline_count(base)
-    ok_rows = np.isfinite(reps).all(axis=0)
+    ok_rows = np.asarray(np.isfinite(reps).all(axis=0))
     if not ok_rows[:head].all():
         design.variance(theta[:head], reps[:, :head])  # raises with details
     V = np.full((len(theta), len(theta)), np.nan)
@@ -318,8 +318,8 @@ def _patch(
         result.data_info = dinfo
         result._compute_statistics()
         mi = dict(result.model_info)
-        for k in ("weights_as", "robust", "n_effective_weights"):
-            mi.pop(k, None)
+        for key in ("weights_as", "robust", "n_effective_weights"):
+            mi.pop(key, None)
         mi["vcov_type"] = label
         mi["se_type"] = label
         mi["survey_design"] = info

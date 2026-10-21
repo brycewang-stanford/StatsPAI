@@ -147,7 +147,8 @@ class SpilloverRingResult(ResultProtocolMixin):
 
 def _pairwise_distances(coords: np.ndarray) -> np.ndarray:
     diff = coords[:, None, :] - coords[None, :, :]
-    return np.sqrt((diff**2).sum(axis=-1))
+    _ret: np.ndarray = np.sqrt((diff**2).sum(axis=-1))
+    return _ret
 
 
 @accepts_aliases(id="unit")

@@ -329,7 +329,8 @@ def _null_residuals(
     y0 = np.array(y, dtype=np.float64, copy=True)
     y0[n_pre:] -= tau0
     w = _solve_weights(y0, X, penalization)
-    return y0 - X @ w
+    _ret: np.ndarray = y0 - X @ w
+    return _ret
 
 
 def _pointwise_pvalue(

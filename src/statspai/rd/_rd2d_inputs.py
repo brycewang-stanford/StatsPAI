@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from typing import Any, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -208,7 +208,15 @@ def _kink_unknown(kink_unknown: Any) -> Tuple[bool, bool]:
     return bool(ku[0]), bool(ku[1])
 
 
-def _distance_matrix(X1, X2, T, b, distance, data, valid) -> np.ndarray:
+def _distance_matrix(
+    X1: np.ndarray,
+    X2: np.ndarray,
+    T: np.ndarray,
+    b: np.ndarray,
+    distance: Any,
+    data: Any,
+    valid: np.ndarray,
+) -> np.ndarray:
     """Signed distances: user-supplied, or Euclidean to each boundary point."""
     J = b.shape[0]
     if distance is None:
@@ -222,7 +230,7 @@ def _distance_matrix(X1, X2, T, b, distance, data, valid) -> np.ndarray:
         and all(isinstance(c, str) for c in distance)
     ):
         check_columns(data, {"distance": list(distance)}, function="sp.rd2d")
-        D = data[list(distance)].to_numpy(dtype=float)[valid]
+        D: np.ndarray = data[list(distance)].to_numpy(dtype=float)[valid]
     else:
         D = np.asarray(distance, dtype=float)
         if D.ndim == 1:
@@ -252,7 +260,8 @@ def _signed_boundary_distance(X1: Any, X2: Any, T: Any, boundary: Any) -> np.nda
     X2 = np.asarray(X2, dtype=float)
     sign = 2.0 * np.asarray(T, dtype=float) - 1.0
     if boundary is None:
-        return np.abs(X1) * sign
+        signed: np.ndarray = np.abs(X1) * sign
+        return signed
     lo, hi = X1.min(), X1.max()
     span = hi - lo if hi > lo else 1.0
     grid = np.linspace(lo - span, hi + span, 2001)
@@ -268,8 +277,9 @@ def _signed_boundary_distance(X1: Any, X2: Any, T: Any, boundary: Any) -> np.nda
     a, c = s0 - step, s0 + step
     f = np.vectorize(lambda v: float(boundary(v)))
 
-    def dist2(s):
-        return (X1 - s) ** 2 + (X2 - f(s)) ** 2
+    def dist2(s: np.ndarray) -> np.ndarray:
+        d2s: np.ndarray = (X1 - s) ** 2 + (X2 - f(s)) ** 2
+        return d2s
 
     g = (math.sqrt(5.0) - 1.0) / 2.0
     x_lo, x_hi = c - g * (c - a), a + g * (c - a)
@@ -283,7 +293,8 @@ def _signed_boundary_distance(X1: Any, X2: Any, T: Any, boundary: Any) -> np.nda
         x_lo, x_hi = x_new_lo, x_new_hi
         f_lo, f_hi = dist2(x_lo), dist2(x_hi)
     best = np.minimum(np.sqrt(dist2((a + c) / 2.0)), np.sqrt(d2.min(axis=1)))
-    return best * sign
+    out: np.ndarray = best * sign
+    return out
 
 
 def _inference(est: np.ndarray, se: np.ndarray, alpha: float, side: str) -> Any:
@@ -307,7 +318,16 @@ def _inference(est: np.ndarray, se: np.ndarray, alpha: float, side: str) -> Any:
 # --------------------------------------------------------------------------
 
 
-def _prepare(data, y, x1, x2, treatment, cluster, fuzzy, function):
+def _prepare(
+    data: Any,
+    y: str,
+    x1: str,
+    x2: str,
+    treatment: str,
+    cluster: Optional[str],
+    fuzzy: Optional[str],
+    function: str,
+) -> Tuple[Dict[str, np.ndarray], np.ndarray]:
     cols = [("y", y), ("x1", x1), ("x2", x2), ("treatment", treatment)]
     _require_frame(data, cols, function)
     extra = {}
@@ -354,7 +374,9 @@ def _cluster_vce(vce: str, cluster: Any) -> str:
     return vce
 
 
-def _mass_points(arrs, masspoints, bwcheck, p):
+def _mass_points(
+    arrs: Dict[str, np.ndarray], masspoints: str, bwcheck: Optional[int], p: int
+) -> Optional[int]:
     """Warn on mass points (distinct score locations < 80% of n); with mass
     points and no ``bwcheck``, the floor ``50 + p + 1`` is switched on."""
     if masspoints == "off":
@@ -376,7 +398,7 @@ def _mass_points(arrs, masspoints, bwcheck, p):
     return bwcheck
 
 
-def _check_bwcheck_size(bwcheck, t):
+def _check_bwcheck_size(bwcheck: Optional[int], t: np.ndarray) -> None:
     if bwcheck is None:
         return
     n0, n1 = int((t == 0).sum()), int((t == 1).sum())
@@ -391,18 +413,18 @@ def _check_bwcheck_size(bwcheck, t):
 
 
 def _common_options(
-    kernel,
-    kernel_type,
-    vce,
-    bwselect,
-    method,
-    masspoints,
-    fitmethod,
-    bwparam,
-    p,
-    cqt,
-    scaleregul,
-):
+    kernel: Any,
+    kernel_type: Any,
+    vce: Any,
+    bwselect: Any,
+    method: Any,
+    masspoints: Any,
+    fitmethod: Any,
+    bwparam: Any,
+    p: Any,
+    cqt: Any,
+    scaleregul: Any,
+) -> Tuple[str, str, str, str, str, str, str, str, int]:
     kernel = _kernel(kernel)
     kernel_type = _choice(kernel_type, _KERNEL_TYPES, "kernel_type")
     vce = _choice(vce, _VCES, "vce")
@@ -426,7 +448,9 @@ def _common_options(
     return kernel, kernel_type, vce, bwselect, method, masspoints, fitmethod, bwparam, p
 
 
-def _deriv_options(deriv, tangvec, p, J):
+def _deriv_options(
+    deriv: Any, tangvec: Any, p: int, J: int
+) -> Tuple[Tuple[int, int], Optional[np.ndarray]]:
     d = tuple(deriv) if isinstance(deriv, (tuple, list, np.ndarray)) else None
     if (
         d is None
@@ -459,7 +483,9 @@ def _deriv_options(deriv, tangvec, p, J):
     return (int(d[0]), int(d[1])), tv
 
 
-def _with_first_stage_guard(run, bwparam, is_fuzzy):
+def _with_first_stage_guard(
+    run: Callable[[str], Any], bwparam: str, is_fuzzy: bool
+) -> Any:
     if not is_fuzzy:
         return run(bwparam)
     try:
@@ -476,7 +502,7 @@ def _with_first_stage_guard(run, bwparam, is_fuzzy):
         return run("itt")
 
 
-def _wbate_weights(weights, J):
+def _wbate_weights(weights: Any, J: int) -> np.ndarray:
     if weights is None:
         return np.full(J, 1.0 / J)
     w = np.asarray(weights, dtype=float).ravel()
@@ -485,10 +511,11 @@ def _wbate_weights(weights, J):
             "weights must be finite, one per evaluation point, with a nonzero sum",
             "Pass one weight per evaluation point.",
         )
-    return w / w.sum()
+    wn: np.ndarray = w / w.sum()
+    return wn
 
 
-def _location_h(h, J):
+def _location_h(h: Any, J: int) -> Optional[np.ndarray]:
     if h is None:
         return None
     a = np.asarray(h, dtype=float)
@@ -504,7 +531,7 @@ def _location_h(h, J):
     return a
 
 
-def _distance_h(h, J):
+def _distance_h(h: Any, J: int) -> Optional[np.ndarray]:
     if h is None:
         return None
     a = np.asarray(h, dtype=float)

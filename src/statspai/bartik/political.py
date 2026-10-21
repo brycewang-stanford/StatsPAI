@@ -1103,7 +1103,8 @@ def shift_share_political_panel(
             sums = np.zeros((n_groups, A.shape[1]))
             np.add.at(sums, codes, A)
             cnt = np.bincount(codes, minlength=n_groups)[:, None]
-            return A - (sums / cnt)[codes]
+            within: np.ndarray = A - (sums / cnt)[codes]
+            return within
 
         if fe == "unit":
             return by(unit_codes, n_u, M)
@@ -1186,7 +1187,14 @@ def shift_share_political_panel(
             block = np.zeros((len(df_iv), len(industries)))
             block[mask] = S_t
             W_blocks.append(block)
-        W = sum(W_blocks) if shocks_constant else np.hstack(W_blocks)
+        W: np.ndarray
+        if shocks_constant:
+            # 0 + block_1 + block_2 + ..., in order, as sum() adds them
+            W = np.zeros_like(W_blocks[0])
+            for blk in W_blocks:
+                W = W + blk
+        else:
+            W = np.hstack(W_blocks)
         akm = _akm_fit(
             Y,
             Z,

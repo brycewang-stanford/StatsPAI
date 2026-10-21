@@ -159,17 +159,18 @@ def group_weights(
 ) -> np.ndarray:
     """IPW weights from generalized propensity scores."""
     pa = P[np.arange(len(G)), G]
+    w: np.ndarray
     if estimand == "ATE":
-        return 1.0 / pa
-    if estimand == "ATT":
-        return P[:, focal] / pa
-    if estimand == "ATC":  # binary only: focal is the control level
-        return P[:, focal] / pa
-    if estimand == "ATO":
-        return (1.0 / pa) / (1.0 / P).sum(axis=1)
-    if estimand == "ATM":
-        return P.min(axis=1) / pa
-    raise ValueError(estimand)  # pragma: no cover - validated upstream
+        w = 1.0 / pa
+    elif estimand in ("ATT", "ATC"):  # ATC: binary only, focal is the control
+        w = P[:, focal] / pa
+    elif estimand == "ATO":
+        w = (1.0 / pa) / (1.0 / P).sum(axis=1)
+    elif estimand == "ATM":
+        w = P.min(axis=1) / pa
+    else:
+        raise ValueError(estimand)  # pragma: no cover - validated upstream
+    return w
 
 
 def cbps_fit(
@@ -265,7 +266,7 @@ def ebal_groups(
     n = len(G)
     w = np.ones(n)
     if estimand == "ATE":
-        target, total, groups = M.mean(axis=0), float(n), range(K)
+        target, total, groups = M.mean(axis=0), float(n), list(range(K))
     else:
         sel = G == focal
         target, total = M[sel].mean(axis=0), float(sel.sum())
@@ -352,7 +353,8 @@ def continuous_ebal(
             recovery_hint="Lower moments / d_moments, or drop a covariate "
             "that is nearly a function of the treatment.",
         )
-    return w * n / w.sum()
+    w_out: np.ndarray = w * n / w.sum()
+    return w_out
 
 
 def describe_weights(w: np.ndarray, G: Optional[np.ndarray], labels: Sequence) -> Dict:

@@ -270,7 +270,8 @@ def _aggregate_variance(
     errors), so a single-cell aggregate reproduces the cell's own SE.
     """
     if unit_cluster is None:
-        return contributions.T @ contributions
+        _ret: np.ndarray = contributions.T @ contributions
+        return _ret
     G = int(unit_cluster.max()) + 1
     summed = np.zeros((G, contributions.shape[1]))
     np.add.at(summed, unit_cluster, contributions)

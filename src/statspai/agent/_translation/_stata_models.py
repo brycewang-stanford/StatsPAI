@@ -10,7 +10,7 @@ reported as needing them.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ._stata import _build_formula, _emit, _emit_error, _split_varlist_y_x
 from ._stata_expr import StataExprError
@@ -536,7 +536,7 @@ def rotate_line(session: Any, line: str) -> Optional[bool]:
     return True
 
 
-HANDLERS = {
+HANDLERS: Dict[str, Callable[..., Dict[str, Any]]] = {
     "threshold": _h_threshold,
     "xtdpd": _h_xtdpd,
     "xthtaylor": _h_xthtaylor,

@@ -147,7 +147,10 @@ def fit(
         return float(-(wu * val).sum())
 
     def grad(th: np.ndarray) -> np.ndarray:
-        return -score_rows(th, Xu, lu, du, wu, dist, censored_term).sum(axis=0)
+        _ret: np.ndarray = -score_rows(th, Xu, lu, du, wu, dist, censored_term).sum(
+            axis=0
+        )
+        return _ret
 
     ev = du == 1
     beta0 = np.linalg.lstsq(
@@ -224,7 +227,8 @@ def fit_binary(Z: np.ndarray, tr: np.ndarray, link: str) -> np.ndarray:
         )
 
     def grad(a: np.ndarray) -> np.ndarray:
-        return -binary_choice(a, Z, link)[1](tr).sum(axis=0)
+        _ret: np.ndarray = -binary_choice(a, Z, link)[1](tr).sum(axis=0)
+        return _ret
 
     a = np.zeros(Z.shape[1])
     res = optimize.minimize(

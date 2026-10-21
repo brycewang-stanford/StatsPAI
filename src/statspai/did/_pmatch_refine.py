@@ -24,7 +24,7 @@ Clean-room module: no PanelMatch source was consulted.
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -49,7 +49,8 @@ def _keep_closest(dist: np.ndarray, size: int) -> np.ndarray:
     """Equal weights over the ``size`` smallest distances, ties kept."""
     cut = np.sort(dist)[size - 1]
     keep = dist <= cut
-    return keep / keep.sum()
+    w: np.ndarray = keep / keep.sum()
+    return w
 
 
 def _inverse(S: np.ndarray) -> np.ndarray:
@@ -97,7 +98,8 @@ def _period_distance(X: np.ndarray, x0: np.ndarray, diagonal: bool) -> np.ndarra
     diff = X - x0
     Si = _inverse(S)
     q = np.einsum("ij,jk,ik->i", diff, Si, diff) if Si.size else np.zeros(X.shape[0])
-    return np.sqrt(np.maximum(q, 0.0))
+    dist: np.ndarray = np.sqrt(np.maximum(q, 0.0))
+    return dist
 
 
 def mahalanobis_weights(
@@ -119,7 +121,7 @@ def mahalanobis_weights(
             ],
             axis=0,
         )
-        s.weights = _keep_closest(np.round(d, 5), size)
+        s.weights = _keep_closest(np.round(np.asarray(d), 5), size)
 
 
 # ----------------------------------------------------------------------
@@ -164,7 +166,8 @@ def _logit_irls(
         mu = 1 / (1 + np.exp(-eta))
         dev = deviance(mu)
         if abs(dev - dev_old) / (abs(dev) + 0.1) < tol:
-            return beta
+            out: np.ndarray = beta
+            return out
         dev_old = dev
     raise ConvergenceFailure(
         "panel_match: the propensity-score logit did not converge",
@@ -203,6 +206,7 @@ def propensity_index(
     if 0 not in cols:  # keep the intercept first
         cols = np.concatenate([[0], cols])
     Xk = X[:, cols]
+    info: Dict[str, Any]
     if method == "ps":
         beta = _logit_irls(Xk, r)
         info = {"model": "logit"}
@@ -261,8 +265,10 @@ def refine(
     if method == "none" or not any(not s.empty for s in sets):
         equal_weights(sets)
     elif method == "mahalanobis":
+        assert Z is not None  # refinement methods are validated with covariates
         mahalanobis_weights(sets, Z, lag, size, diagonal)
     else:
+        assert Z is not None  # refinement methods are validated with covariates
         family, how = method.split("_")
         index, info = propensity_index(sets, Z, family)
         if how == "weight":

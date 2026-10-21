@@ -18,7 +18,7 @@ it, as the experiments chapter of Chernozhukov et al. does
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -205,6 +205,7 @@ def lm_lin(
             f"{len(levels)}.",
             recovery_hint="Compare two arms at a time.",
         )
+    allowed: Tuple[str, ...]
     if cluster is None:
         vce_key = "hc2" if vce is None else str(vce).lower()
         allowed = _VCE_INDEPENDENT
@@ -279,7 +280,7 @@ def lm_lin(
     ses = np.asarray(fit.std_errors, dtype=float)
     est, var = float(coef[1]), float(ses[1] ** 2)
 
-    model_info: Dict[str, object] = {
+    model_info: Dict[str, Any] = {
         "vce": vce_key,
         "n_coefficients": int(k),
         "treatment_levels": [levels[0], levels[1]],
