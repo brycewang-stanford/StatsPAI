@@ -5541,3 +5541,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number in Track A changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+### 2026-10-22 — traces after the personal-bankruptcy replication fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `4dfa504e8` (guardrail), `5ef4583a9` (dCDH / did_imputation),
+  `eefa02aa3` (did_summary / stacked_did), `26e30e845` (breakdown and
+  pre-test from moments, ddtiming-style Bacon), `4eb836f75` (traces).
+- **Reason.** Estimation-path sources changed:
+  `src/statspai/core/_design_guardrails.py` (event-time dummies are no
+  longer flagged as cohort-level assignment; warnings only),
+  `did/did_imputation.py`, `did/did_multiplegt_dyn.py`, `did/stacked_did.py`,
+  `did/bacon.py`, `did/pretrends.py`, `did/_honest_breakdown.py` (new
+  options and columns, defaults unchanged). Track A 01 10 14 16 20 35 51 53
+  54 55 56 67 75 76 78 84 were re-run on the no-Rust path and reproduce the
+  committed results (worst relative 7.8e-16); original-data 01 04 04b 09
+  are affected only through the guardrail. Only the traces are re-recorded.
+- **Effect on the paper.** None; no number in Track A or the original-data
+  ledger changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
