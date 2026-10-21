@@ -5351,3 +5351,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+### 2026-10-21 — traces after the weighted Bacon, honest_did seed / breakdown and formula-integer changes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ab6433bf9` (feature), `a600a87da` (traces).
+- **Reason.** `core/utils.py` and the new `core/_formula_dtypes.py`
+  (integer columns read by generated formula terms are cast to float64),
+  `did/_core.py`, `regression/ols.py`, `regression/iv.py`,
+  `regression/multinomial.py`, `panel/panel_reg.py`,
+  `survey/estimators.py`, `postestimation/_design.py`, `did/bacon.py`,
+  `did/honest_did.py`, `did/_honest_sets.py` and
+  `did/_honest_breakdown.py` are on the traced paths of Track A modules 01
+  02 04 05 10 14 16 17 20 21 35 37 42 44 45 46 47 48 49 51 53 54 55 56 57
+  58 59 63 64 67 69 73 75 78 79 83 84 85 and of the original-data modules
+  01 02 04 04b 09. All were re-run first on the no-Rust path into a
+  staging directory: every committed result reproduces within 1e-9 (25
+  modules bit for bit, among them 04, 05, 10, 17, 20, 21 and 85; 01
+  2e-13, 02 5e-12, 73 2e-12, the rest below 1e-14; original-data 01 / 02
+  / 09 in the last digits, 1e-11 at most), so the
+  committed files were kept and only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
