@@ -5562,3 +5562,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-22 — trace 67 after the feols singleton-mask fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `fdd595c30` (fix), `447cc2872` (trace).
+- **Reason.** `src/statspai/fixest/wrapper.py` copies the singleton mask
+  (pandas 3 read-only arrays). Track A 67 executes that file; it was re-run
+  on the no-Rust path and reproduces its committed result byte for byte,
+  so only the trace changes.
+- **Effect on the paper.** None.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
