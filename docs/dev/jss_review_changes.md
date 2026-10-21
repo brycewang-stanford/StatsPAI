@@ -5545,9 +5545,9 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `4dfa504e8` (guardrail), `5ef4583a9` (dCDH / did_imputation),
-  `eefa02aa3` (did_summary / stacked_did), `26e30e845` (breakdown and
-  pre-test from moments, ddtiming-style Bacon), `4eb836f75` (traces).
+- **Commits.** `a8749a5a3` (guardrail), `1352dda7c` (dCDH / did_imputation),
+  `366de8723` (did_summary / stacked_did), `3c6764a35` (breakdown and
+  pre-test from moments, ddtiming-style Bacon), `66651bf91` (traces).
 - **Reason.** Estimation-path sources changed:
   `src/statspai/core/_design_guardrails.py` (event-time dummies are no
   longer flagged as cohort-level assignment; warnings only),
