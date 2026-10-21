@@ -70559,8 +70559,7 @@
       "tests/external_parity/test_did_paper_gallery.py",
       "tests/reference_parity/test_bacon_controls_R_parity.py",
       "tests/reference_parity/test_bacon_weights_Stata_parity.py",
-      "tests/reference_parity/test_castle_stata_parity.py",
-      "tests/reference_parity/test_did_parity.py"
+      "tests/reference_parity/test_castle_stata_parity.py"
     ],
     "validation_status": "certified"
   },
