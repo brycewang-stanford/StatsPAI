@@ -85,11 +85,40 @@ def test_staggered_design_still_routes_to_did():
     ],
 )
 def test_real_data_design_routing(dataset, kwargs, expected):
-    """Real bundled data: Prop 99 → synth, mpdta (staggered) → did."""
+    """Bundled data: Prop 99 → synth, mpdta (staggered) → did.
+
+    Only data shipped in the wheel: ``sp.datasets.mpdta(simulated=False)``
+    downloads the original panel, so mpdta uses the bundled replica, whose
+    ``treat`` is the time-varying indicator D_it.
+    """
     loader = getattr(sp.datasets, dataset)
-    try:
-        df = loader(simulated=False)
-    except TypeError:
+    if dataset == "mpdta":
         df = loader()
+    else:
+        try:
+            df = loader(simulated=False)
+        except TypeError:
+            df = loader()
     rec = sp.recommend(df, **kwargs)
     assert rec.design == expected, f"{dataset}: expected {expected}, got {rec.design}"
+
+
+def test_ever_treated_dummy_is_not_a_did_treatment():
+    """In the original mpdta ``treat`` is the ever-treated group dummy (constant
+    within a county). recommend() needs the time-varying D_it for a DiD; with
+    the dummy it sees a time-invariant regressor in a panel."""
+    df = sp.datasets.mpdta()
+    ever = df.groupby("countyreal")["first_treat"].transform("max").gt(0)
+    df = df.assign(ever=ever.astype(int))
+    assert (
+        sp.recommend(
+            df, y="lemp", treatment="ever", id="countyreal", time="year"
+        ).design
+        == "panel"
+    )
+    assert (
+        sp.recommend(
+            df, y="lemp", treatment="treat", id="countyreal", time="year"
+        ).design
+        == "did"
+    )

@@ -29751,7 +29751,10 @@ def _build_registry() -> None:
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="CausalResult with event-study in model_info['event_study']",
-            example=('sp.sun_abraham(df, y="y", g="first_treat", t="year", i="unit")'),
+            example=(
+                'sp.sun_abraham(df, y="y", g="first_treat", t="year", i="unit", '
+                'aggregation="fixest_att", crit_dist="t")'
+            ),
             tags=["did", "event_study", "sun_abraham", "iw", "staggered", "causal"],
             reference="Sun & Abraham (2021) J. Econometrics 225(2) "
             "[@sun2021estimating]",
@@ -31510,7 +31513,7 @@ def _build_registry() -> None:
             returns="CausalResult with event_study DataFrame",
             example=(
                 'sp.event_study(df, y="y", treat_time="g", time="t", unit="i", '
-                "window=(-3, 3))"
+                'window=(-3, 3), crit_dist="t")'
             ),
             tags=["did", "event_study", "twfe", "ols", "lead_lag"],
             reference="Standard event-study; Roth (2022) on pre-test bias; "

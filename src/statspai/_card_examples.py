@@ -83,7 +83,10 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
     ),
     "sun_abraham": (
         "df = sp.datasets.castle_doctrine()\n"
-        'r = sp.sun_abraham(df, y="l_homicide", g="effyear", t="year", i="sid")\n'
+        "r = sp.sun_abraham(\n"
+        '    df, y="l_homicide", g="effyear", t="year", i="sid",\n'
+        '    aggregation="fixest_att", crit_dist="t",\n'
+        ")\n"
     ),
     "did_imputation": (
         "df = sp.datasets.castle_doctrine()\n"
@@ -117,7 +120,7 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
         "df = sp.datasets.castle_doctrine()\n"
         "r = sp.event_study(\n"
         '    df, y="l_homicide", treat_time="effyear", time="year", unit="sid",\n'
-        "    window=(-3, 3),\n"
+        '    window=(-3, 3), crit_dist="t",\n'
         ")\n"
     ),
     "bacon_decomposition": (

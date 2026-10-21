@@ -359,6 +359,7 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 | [`agent_mcp.md`](docs/dev/modules/agent_mcp.md) | MCP 服务器与随包 skill | `agent/mcp_server.py`（`statspai-mcp`，2026-10-14 一轮）；随包 skill（`agent/_skill/`，`statspai skill install`） |
 | [`evidence.md`](docs/dev/modules/evidence.md) | 证据映射（validation_scope） | `sp.validation_scope`（`validation_scope.py`）是按配置 × 输出的证据映射 |
 | [`plots.md`](docs/dev/modules/plots.md) | 图形编辑器 | `plots/` 的图形编辑器（`sp.interactive` / `FigureEditor`，2026-10-16 重建） |
+| [`datasets.md`](docs/dev/modules/datasets.md) | 数据集 | 随包与按需下载（`datasets/_fetch.py`）；mpdta 模拟副本与原始数据；测试的联网规则 |
 
 跨领域的通用约定留在这里：
 

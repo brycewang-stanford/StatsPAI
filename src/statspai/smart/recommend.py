@@ -1058,14 +1058,19 @@ def recommend(
                     "method": "Sun-Abraham (2021) — interaction-weighted",
                     "function": "sun_abraham",
                     "reason": "Alternative heterogeneity-robust DID estimator.",
+                    # the announced defaults (fixest's headline ATT, t(G-1)
+                    # inference) written out, so the call does not warn
                     "code": f"sp.sun_abraham(df, y='{y}', g='{cohort_col}', "
-                    f"t='{time}', i='{id}')",
+                    f"t='{time}', i='{id}', aggregation='fixest_att', "
+                    "crit_dist='t')",
                     "params": {
                         "data": did_data,
                         "y": y,
                         "g": cohort_col,
                         "t": time,
                         "i": id,
+                        "aggregation": "fixest_att",
+                        "crit_dist": "t",
                     },
                     "prep": _derive_cohort,
                     "raw_treat": treatment,
@@ -1124,13 +1129,14 @@ def recommend(
                     "robustness": "Joint pre-trend test; honest-DiD bands on the "
                     "event-study path (sp.honest_did).",
                     "code": f"sp.event_study(df, y='{y}', treat_time='{cohort_col}', "
-                    f"time='{time}', unit='{id}')",
+                    f"time='{time}', unit='{id}', crit_dist='t')",
                     "params": {
                         "data": did_data,
                         "y": y,
                         "treat_time": cohort_col,
                         "time": time,
                         "unit": id,
+                        "crit_dist": "t",
                     },
                     "prep": _derive_cohort,
                 }

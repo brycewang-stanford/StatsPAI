@@ -68333,7 +68333,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=0.03"
     },
-    "example": "df = sp.datasets.castle_doctrine()\nr = sp.sun_abraham(df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\")",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.sun_abraham(\n df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\",\n aggregation=\"fixest_att\", crit_dist=\"t\",\n)",
     "failure_modes": [
       {
         "alternative": "callaway_santanna",
@@ -71087,7 +71087,7 @@
       ],
       "tolerance": "rel_est<=1e-09, rel_se<=1e-09"
     },
-    "example": "df = sp.datasets.castle_doctrine()\nr = sp.event_study(\n df, y=\"l_homicide\", treat_time=\"effyear\", time=\"year\", unit=\"sid\",\n window=(-3, 3),\n)",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.event_study(\n df, y=\"l_homicide\", treat_time=\"effyear\", time=\"year\", unit=\"sid\",\n window=(-3, 3), crit_dist=\"t\",\n)",
     "failure_modes": [
       {
         "alternative": "sun_abraham",
