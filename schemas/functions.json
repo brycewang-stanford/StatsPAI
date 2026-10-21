@@ -30619,6 +30619,11 @@
           "description": "Number of post-treatment dynamic horizons",
           "type": "integer"
         },
+        "firstdiff_placebo": {
+          "default": false,
+          "description": "With robust_dynamic=True: first-difference placebos (Stata firstdiff_placebo), Y_{F-l} - Y_{F-l-1} against DID_0's not-yet-switched groups, instead of long differences. Tests anticipation; independent of dynamic. Refused without robust_dynamic, whose placebos already are first differences",
+          "type": "boolean"
+        },
         "group": {
           "description": "Unit (group) identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column with several rows per period is refused when the treatment varies within its (group, period) cells and flagged otherwise.",
           "type": "string",

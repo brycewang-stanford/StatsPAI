@@ -669,7 +669,10 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
     in the placebos (``placebo_controls='main'``). ``robust_dynamic`` maps to
     ``robust_dynamic=True``, the first-time-switcher DID_l estimators; the
     command itself refuses ``dynamic()`` without it, and so does this
-    translation. ``firstdiff_placebo`` is not implemented and is refused.
+    translation. ``firstdiff_placebo`` maps to ``firstdiff_placebo=True``
+    with ``robust_dynamic``; without it the command ignores the option (its
+    placebos are first differences already), and so does the translation.
+    ``e(effect_average)`` is ``model_info['effect_average']``.
     """
     name = cmd.command
     bad = _positional(cmd, name, "Y G T D", 4, 4)
@@ -686,13 +689,6 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
             command=name,
             suggestions=["did_multiplegt_dyn"],
         )
-    if "firstdiff_placebo" in opts:
-        return _emit_error(
-            f"{name}, firstdiff_placebo is not implemented in "
-            "sp.did_multiplegt; without it the command's robust_dynamic "
-            "placebos are the long-difference ones, which are.",
-            command=name,
-        )
     y, group, time, treat = cmd.varlist
     args: Dict[str, Any] = {
         "y": y,
@@ -700,12 +696,20 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
         "time": time,
         "treatment": treat,
     }
+    notes: List[str] = []
     if robust:
         args["robust_dynamic"] = True
+        if "firstdiff_placebo" in opts:
+            args["firstdiff_placebo"] = True
     else:
         # the command's placebos are forward differences
         args["placebo_sign"] = "r"
-    notes: List[str] = []
+        if "firstdiff_placebo" in opts:
+            notes.append(
+                "firstdiff_placebo without robust_dynamic changes nothing in "
+                "the command (checked in Stata 18: identical placebos); the "
+                "placebos are first differences already, so it is dropped."
+            )
     lost: List[str] = []
     for option, argument, default in (
         ("placebo", "placebo", None),
@@ -740,6 +744,10 @@ def _h_did_multiplegt_old(cmd: StataCommand) -> Dict[str, Any]:
         "Standard errors are from a cluster bootstrap, as the command's: "
         "they agree with Stata's up to the draws, not digit by digit."
     ]
+    if robust and args.get("dynamic"):
+        out["semantics"].append(
+            "e(effect_average) is result.model_info['effect_average']."
+        )
     return out
 
 

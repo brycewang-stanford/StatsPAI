@@ -67645,7 +67645,7 @@
     "reference": "de Chaisemartin & D'Haultfuille (2020) [@dechaisemartin2020two]; 2022 survey [@dechaisemartin2022fixed]; 2024 joint placebo + avg cumulative [@dechaisemartin2024difference].",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult with placebo / dynamic event-study in model_info['event_study'], joint placebo Wald test, and avg_cumulative_effect summary.",
+      "description": "CausalResult with placebo / dynamic event-study in model_info['event_study'], joint placebo Wald test, avg_cumulative_effect (unweighted mean of the dynamic effects) and, with robust_dynamic and dynamic >= 1, effect_average (Stata e(effect_average): switcher-weighted DID_l over the first stage).",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -67696,6 +67696,11 @@
             "default": 0,
             "description": "Number of post-treatment dynamic horizons",
             "type": "integer"
+          },
+          "firstdiff_placebo": {
+            "default": false,
+            "description": "With robust_dynamic=True: first-difference placebos (Stata firstdiff_placebo), Y_{F-l} - Y_{F-l-1} against DID_0's not-yet-switched groups, instead of long differences. Tests anticipation; independent of dynamic. Refused without robust_dynamic, whose placebos already are first differences",
+            "type": "boolean"
           },
           "group": {
             "description": "Unit (group) identifier (canonical spelling id=). Not the treatment indicator: a 0/1 column with several rows per period is refused when the treatment varies within its (group, period) cells and flagged otherwise.",

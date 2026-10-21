@@ -29215,11 +29215,28 @@ def _build_registry() -> None:
                     ),
                     enum=["refit", "main"],
                 ),
+                ParamSpec(
+                    "firstdiff_placebo",
+                    "bool",
+                    False,
+                    False,
+                    description=(
+                        "With robust_dynamic=True: first-difference placebos "
+                        "(Stata firstdiff_placebo), Y_{F-l} - Y_{F-l-1} "
+                        "against DID_0's not-yet-switched groups, instead of "
+                        "long differences. Tests anticipation; independent of "
+                        "dynamic. Refused without robust_dynamic, whose "
+                        "placebos already are first differences"
+                    ),
+                ),
             ],
             returns=(
                 "CausalResult with placebo / dynamic event-study in "
-                "model_info['event_study'], joint placebo Wald test, and "
-                "avg_cumulative_effect summary."
+                "model_info['event_study'], joint placebo Wald test, "
+                "avg_cumulative_effect (unweighted mean of the dynamic "
+                "effects) and, with robust_dynamic and dynamic >= 1, "
+                "effect_average (Stata e(effect_average): switcher-weighted "
+                "DID_l over the first stage)."
             ),
             example=(
                 'sp.did_multiplegt(df, y="wage", group="county", time="year", '

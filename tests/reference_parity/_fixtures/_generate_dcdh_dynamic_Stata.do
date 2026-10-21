@@ -5,10 +5,12 @@
 * (breps(0)). Tags: <layout>_<treatment>_<controls>_<balance>_<mode>, with
 * layout indiv (rows) or cell (collapsed, unweighted), treatment db / dc,
 * controls none / x, balance bal / unb (keep == 1), mode nr (no
-* robust_dynamic, placebo(2)) or rd (robust_dynamic dynamic(3) placebo(3)).
+* robust_dynamic, placebo(2)), rd (robust_dynamic dynamic(3) placebo(3), with
+* effect_average) or fd (rd plus firstdiff_placebo). Single-threaded.
 version 18
 clear all
 set type double
+set processors 1
 local here "`c(pwd)'"
 tempname fh
 file open `fh' using "`here'/dcdh_dynamic_Stata.csv", write replace
@@ -36,6 +38,13 @@ program define runone
     }
     forvalues l = 1/3 {
         put `fh' `tag'_rd placebo_`l' e(placebo_`l')
+    }
+    put `fh' `tag'_rd effect_average e(effect_average)
+    put `fh' `tag'_rd N_switchers_effect_average e(N_switchers_effect_average)
+    did_multiplegt_old `yv' g t `dv', breps(0) robust_dynamic dynamic(3) placebo(3) firstdiff_placebo `copt'
+    forvalues l = 1/3 {
+        put `fh' `tag'_fd placebo_`l' e(placebo_`l')
+        put `fh' `tag'_fd N_switchers_placebo_`l' e(N_switchers_placebo_`l')
     }
 end
 

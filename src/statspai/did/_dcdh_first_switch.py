@@ -23,10 +23,19 @@ bytes (``tests/reference_parity/_fixtures/_generate_dcdh_dynamic_Stata.do``):
   regression of the first difference of the outcome on the first
   differences of the controls and period effects, over the (group, period)
   cells of baseline ``d`` that have not switched by that period (weighted
-  like the cells).
+  like the cells);
+* with ``firstdiff_placebo``, placebo l is the forward difference
+  ``Y_{F-l} - Y_{F-l-1}`` over DID_0's switchers and controls (controls not
+  switched by ``F``, cells weighted at ``F``, every group observed in
+  every period from ``F-l-1`` to ``F``), whatever ``dynamic`` is;
+* ``effect_average`` is ``sum_l N_l DID_l / sum_l N_l DID^D_l`` over
+  l = 0..L, with ``N_l`` the switchers DID_l applies to and ``DID^D_l`` the
+  same estimator with the treatment as outcome (the first stage). As
+  ``N_l DID_l`` is the numerator of DID_l, it is the ratio of the summed
+  numerators (``num`` / ``num_d`` below).
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -135,17 +144,21 @@ def first_switch_effect(
     time: str,
     treatment: str,
     controls: Optional[List[str]],
-    kind: str,
+    kind: Literal["dynamic", "placebo", "placebo_fd"],
     lag: int,
     w: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """DID_l (``kind='dynamic'``, ``lag=l >= 0``) or the long-difference
-    placebo l (``kind='placebo'``, ``lag=l >= 1``) of Stata
-    ``did_multiplegt_old, robust_dynamic``.
+    """DID_l (``kind='dynamic'``, ``lag=l >= 0``), the long-difference
+    placebo l (``kind='placebo'``, ``lag=l >= 1``) or the first-difference
+    placebo l (``kind='placebo_fd'``, Stata's ``firstdiff_placebo``) of
+    Stata ``did_multiplegt_old, robust_dynamic``.
 
     Returns the estimate (NaN when no switcher has a control), the number of
     switchers (rows, i.e. summed cell weights) and one record per
-    (baseline, first-switch period) cell.
+    (baseline, first-switch period) cell. ``num`` and ``den`` are the
+    estimate's numerator and switcher weight; for ``kind='dynamic'``,
+    ``num_d`` is the numerator with the treatment as outcome, the first
+    stage of ``effect_average``.
     """
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
     periods = list(dpiv.columns)
@@ -175,17 +188,24 @@ def first_switch_effect(
     num = 0.0
     den = 0.0
     cells: List[Dict[str, Any]] = []
+    dvals = dpiv.to_numpy(dtype=float) if kind == "dynamic" else None
+    num_d = 0.0
     for i in range(1, len(periods)):
         if kind == "dynamic":
             end = i + lag  # last period of the long difference and weight
             if end >= len(periods):
                 continue
             a, b = periods[end], periods[i - 1]
-        else:
+        elif kind == "placebo":
             end = i + lag - 1  # DID_{l-1}'s window: controls and weights
             if i - 1 - lag < 0 or end >= len(periods):
                 continue
             a, b = periods[i - 1 - lag], periods[i - 1]
+        else:  # placebo_fd: DID_0's window, whatever the lag
+            end = i
+            if i - 1 - lag < 0:
+                continue
+            a, b = periods[i - lag], periods[i - 1 - lag]
         t_w = periods[end]
         ya = ypiv[a].to_numpy(dtype=float)
         yb = ypiv[b].to_numpy(dtype=float)
@@ -193,8 +213,11 @@ def first_switch_effect(
         # A group enters only if it is observed in every period of the
         # effect's window, from F-1 to its end (for placebo l: DID_{l-1}'s
         # window), not only at the two ends of the difference. Gaps inside
-        # a placebo's own pre-period window are allowed (Stata, black box).
-        observed = np.isfinite(diff) & obs[:, i - 1 : end + 1].all(axis=1)
+        # a long-difference placebo's own pre-period window are allowed, but
+        # a first-difference placebo needs every period from F-l-1 to F
+        # (Stata, black box).
+        start = i - 1 - lag if kind == "placebo_fd" else i - 1
+        observed = np.isfinite(diff) & obs[:, start : end + 1].all(axis=1)
         if xpivs:
             dx = np.column_stack(
                 [(xp[a] - xp[b]).to_numpy(dtype=float) for xp in xpivs]
@@ -222,6 +245,10 @@ def first_switch_effect(
             n_sw = float(np.sum(w_sw))
             num += contrib
             den += n_sw
+            if dvals is not None:
+                # the controls keep their baseline through the window: dD = 0
+                dd_sw = dvals[sw, end] - dvals[sw, i - 1]
+                num_d += float(np.sum(w_sw * S_all[sw] * dd_sw))
             cells.append(
                 {
                     "time": periods[i],
@@ -232,10 +259,21 @@ def first_switch_effect(
                 }
             )
     if den == 0:
-        return {"estimate": float("nan"), "n_cells": 0, "n_switchers": 0, "cells": []}
+        return {
+            "estimate": float("nan"),
+            "n_cells": 0,
+            "n_switchers": 0,
+            "cells": [],
+            "num": 0.0,
+            "den": 0.0,
+            "num_d": 0.0,
+        }
     return {
         "estimate": num / den,
         "n_cells": len(cells),
         "n_switchers": int(round(den)),
         "cells": cells,
+        "num": num,
+        "den": den,
+        "num_d": num_d,
     }

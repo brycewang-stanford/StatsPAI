@@ -55,7 +55,11 @@ from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._dcdh_cells import _collapse_to_cells, _stayer_slopes
 from ._dcdh_first_switch import first_switch_effect
-from ._dcdh_inference import _avg_cumulative_effect, _joint_placebo_test
+from ._dcdh_inference import (
+    _avg_cumulative_effect,
+    _effect_average,
+    _joint_placebo_test,
+)
 from ._dcdh_pairwise import _estimate_did_m, _estimate_dynamic, _estimate_placebo
 
 # ======================================================================
@@ -85,6 +89,7 @@ def did_multiplegt(
     placebo_sign: str = "stata",
     robust_dynamic: bool = False,
     placebo_controls: Optional[Literal["refit", "main"]] = None,
+    firstdiff_placebo: bool = False,
 ) -> CausalResult:
     """
     de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
@@ -211,8 +216,14 @@ def did_multiplegt(
         A group enters only if observed in every period of the effect's
         window. Matches Stata 18 to 1e-10 on balanced and unbalanced
         panels, binary and count treatments, with and without controls and
-        with several rows per cell. Stata's ``firstdiff_placebo`` and its
-        ``effect_average`` ratio are not implemented.
+        with several rows per cell.
+
+        With ``dynamic >= 1``, ``model_info['effect_average']`` holds Stata's
+        ``e(effect_average)``: the DID_0..DID_L weighted by the number of
+        switchers each applies to, divided by the same average with the
+        treatment as outcome (the first stage). It estimates an effect per
+        unit of treatment of the first switches; its SE is the bootstrap
+        standard deviation of the ratio.
     placebo_controls : {"refit", "main"}, optional
         How ``controls`` enter the placebos of the default (pair-by-pair)
         estimator, where the two references differ. ``"refit"`` (used when
@@ -221,6 +232,17 @@ def did_multiplegt(
         the slopes of the main DID_M estimate, as Stata
         ``did_multiplegt_old`` does without ``robust_dynamic``. Not allowed
         with ``robust_dynamic=True``.
+    firstdiff_placebo : bool, default False
+        With ``robust_dynamic=True``, compute first-difference placebos
+        (Stata ``firstdiff_placebo``): placebo *l* compares the outcome
+        change ``Y_{F-l} - Y_{F-l-1}`` of the first-time switchers with that
+        of the groups not yet switched at *F*, the comparison of DID_0, so
+        it tests parallel trends over two consecutive periods *l* periods
+        before the switch (useful for anticipation) and does not depend on
+        ``dynamic``. Placebo 1 is minus the long-difference placebo 1.
+        Requires ``robust_dynamic=True``: the default placebos already are
+        first differences (Stata ignores the option without
+        ``robust_dynamic``).
 
     Returns
     -------
@@ -293,6 +315,19 @@ def did_multiplegt(
                 "placebo_sign": placebo_sign,
                 "placebo_controls": placebo_controls,
             },
+        )
+    if firstdiff_placebo and not robust_dynamic:
+        raise MethodIncompatibility(
+            "sp.did_multiplegt: firstdiff_placebo=True selects the "
+            "first-difference placebos of the first-time-switcher estimators "
+            "(robust_dynamic=True). The default pair-by-pair placebos already "
+            "are first differences.",
+            recovery_hint=(
+                "Set robust_dynamic=True, or drop firstdiff_placebo: without "
+                "robust_dynamic the placebos are first differences already "
+                "(Stata did_multiplegt_old ignores the option there)."
+            ),
+            diagnostics={"firstdiff_placebo": True, "robust_dynamic": False},
         )
     placebo_controls_used = placebo_controls or "refit"
     df = data.copy()
@@ -378,8 +413,9 @@ def did_multiplegt(
 
     def _placebo(frame: pd.DataFrame, lag: int) -> Dict[str, Any]:
         if robust_dynamic:
+            kind = "placebo_fd" if firstdiff_placebo else "placebo"
             return first_switch_effect(
-                frame, y, group, time, treatment, controls, "placebo", lag, w=wcol
+                frame, y, group, time, treatment, controls, kind, lag, w=wcol
             )
         main_slopes = (
             _stayer_slopes(frame, y, group, time, treatment, controls, wcol)
@@ -425,6 +461,9 @@ def did_multiplegt(
     boot_main = np.full(n_boot, np.nan)
     boot_placebo = np.full((n_boot, max(placebo, 0)), np.nan) if placebo > 0 else None
     boot_dynamic = np.full((n_boot, dynamic + 1), np.nan) if dynamic >= 0 else None
+    # Stata reports e(effect_average) with robust_dynamic and dynamic >= 1
+    want_effect_average = robust_dynamic and dynamic >= 1
+    boot_effect_average = np.full(n_boot, np.nan)
 
     for b in range(n_boot):
         sampled = rng.choice(clusters, size=n_clusters, replace=True)
@@ -446,8 +485,12 @@ def did_multiplegt(
 
         if dynamic >= 0:
             assert boot_dynamic is not None
-            for horizon_idx in range(0, dynamic + 1):
-                boot_dynamic[b, horizon_idx] = _dynamic(bdf, horizon_idx)["estimate"]
+            boot_dyn = [_dynamic(bdf, h) for h in range(0, dynamic + 1)]
+            boot_dynamic[b] = [r["estimate"] for r in boot_dyn]
+            if want_effect_average:
+                boot_effect_average[b] = _effect_average(boot_dyn, None, alpha)[
+                    "estimate"
+                ]
 
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -510,6 +553,12 @@ def did_multiplegt(
                 placebo_results[lag_idx]["estimate"],
                 boot_placebo[:, lag_idx] if boot_placebo is not None else None,
             ),
+            # first-time switchers (rows) behind placebo l; robust_dynamic only
+            **(
+                {"n_switchers": placebo_results[lag_idx]["n_switchers"]}
+                if robust_dynamic
+                else {}
+            ),
         }
         for lag_idx in range(placebo)
     ]
@@ -541,6 +590,25 @@ def did_multiplegt(
             "did_multiplegt: no switching cell with a comparison cell for "
             f"{', '.join(not_estimable)}; reported as missing. The panel has "
             "too few periods before or after the switches for these.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    effect_average = (
+        _effect_average(dynamic_results, boot_effect_average, alpha)
+        if want_effect_average
+        else None
+    )
+    if (
+        effect_average is not None
+        and effect_average["n_horizons"]
+        and not np.isfinite(effect_average["estimate"])
+    ):
+        warnings.warn(
+            "did_multiplegt: the first-time switchers' treatment changes sum "
+            "to zero over the dynamic effects, so effect_average (the "
+            "switcher-weighted DID_l over the same average with the treatment "
+            "as outcome) is not defined; reported as missing.",
             UserWarning,
             stacklevel=2,
         )
@@ -620,6 +688,8 @@ def did_multiplegt(
         "event_study": es_df,
         "joint_placebo_test": joint_placebo,
         "avg_cumulative_effect": avg_cumulative,
+        "effect_average": effect_average,
+        "firstdiff_placebo": bool(firstdiff_placebo),
     }
 
     _result = CausalResult(
@@ -656,6 +726,7 @@ def did_multiplegt(
                 "placebo_sign": placebo_sign,
                 "robust_dynamic": robust_dynamic,
                 "placebo_controls": placebo_controls,
+                "firstdiff_placebo": firstdiff_placebo,
             },
             data=data,
             overwrite=False,

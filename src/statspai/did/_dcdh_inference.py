@@ -56,10 +56,15 @@ def _avg_cumulative_effect(
     boot_dynamic: Optional[np.ndarray],
     alpha: float,
 ) -> Optional[Dict[str, Any]]:
-    """Average cumulative dynamic effect: mean of dynamic[0..L].
+    """Unweighted mean of the dynamic estimates DID_0..DID_L.
 
     Bootstrap SE is computed over the per-draw average across horizons,
-    preserving the cross-horizon covariance (dCDH 2024 §3.4).
+    preserving the cross-horizon covariance.
+
+    Every horizon counts equally and nothing is divided by the change in
+    treatment, so this is not Stata's ``e(effect_average)`` (switcher-
+    weighted and scaled by the first stage, see :func:`_effect_average`)
+    nor ``sp.did_multiplegt_dyn``'s average total effect.
     """
     if not dynamic_results or boot_dynamic is None:
         return None
@@ -90,4 +95,55 @@ def _avg_cumulative_effect(
         "ci_upper": avg_est + z_crit * se,
         "pvalue": float(2 * stats.norm.sf(abs(z))),
         "n_horizons": int(np.isfinite(est_vec).sum()),
+    }
+
+
+def _effect_average(
+    dynamic_results: List[Dict[str, Any]],
+    boot_draws: Optional[np.ndarray],
+    alpha: float,
+) -> Optional[Dict[str, Any]]:
+    """Stata ``did_multiplegt_old, robust_dynamic``'s ``e(effect_average)``.
+
+    ``sum_l N_l DID_l / sum_l N_l DID^D_l`` over the first-time-switcher
+    estimates l = 0..L, where ``N_l`` is the number of switchers DID_l
+    applies to and ``DID^D_l`` is DID_l with the treatment as outcome. Since
+    ``N_l DID_l`` is DID_l's numerator, this is the ratio of the summed
+    numerators (``num`` over ``num_d``, from
+    :func:`._dcdh_first_switch.first_switch_effect`): the effect of the
+    first switches on the outcome per unit of treatment they cause.
+
+    ``boot_draws`` holds the ratio in each bootstrap replication; the SE is
+    their standard deviation, as for every other estimate of the function.
+    """
+    if not dynamic_results:
+        return None
+    num = float(sum(r["num"] for r in dynamic_results))
+    num_d = float(sum(r["num_d"] for r in dynamic_results))
+    den = float(sum(r["den"] for r in dynamic_results))
+    nan = float("nan")
+    est = num / num_d if num_d != 0 else nan
+    draws = (
+        np.asarray(boot_draws, dtype=float) if boot_draws is not None else np.empty(0)
+    )
+    draws = draws[np.isfinite(draws)]
+    se = float(np.std(draws, ddof=1)) if np.isfinite(est) and draws.size >= 2 else nan
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    if np.isfinite(se):
+        z = est / se if se > 0 else 0.0
+        pvalue = float(2 * stats.norm.sf(abs(z)))
+        ci = (est - z_crit * se, est + z_crit * se)
+    else:
+        pvalue, ci = nan, (nan, nan)
+    return {
+        "estimate": est,
+        "se": se,
+        "ci_lower": ci[0],
+        "ci_upper": ci[1],
+        "pvalue": pvalue,
+        # sum_l N_l DID_l / sum_l N_l and sum_l N_l DID^D_l / sum_l N_l
+        "itt": num / den if den else nan,
+        "first_stage": num_d / den if den else nan,
+        "n_switchers": int(round(den)),
+        "n_horizons": int(sum(r["den"] > 0 for r in dynamic_results)),
     }

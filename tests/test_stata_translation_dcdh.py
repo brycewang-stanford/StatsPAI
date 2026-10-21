@@ -160,12 +160,33 @@ def test_did_multiplegt_old_robust_dynamic_translates():
     assert a["dynamic"] == 2 and a["placebo"] == 1
     assert a["controls"] == ["x"]
     assert "placebo_sign" not in a and "placebo_controls" not in a
-    refused = sp.from_stata(
-        "did_multiplegt_old y g t d, robust_dynamic dynamic(2) placebo(2) "
-        "firstdiff_placebo"
+    assert "firstdiff_placebo" not in a
+    assert any("effect_average" in x for x in out["semantics"])
+
+
+def test_did_multiplegt_old_firstdiff_placebo_translates():
+    """With robust_dynamic the option selects first-difference placebos;
+    the translated call reproduces Stata's number on the dynamic fixture."""
+    out = _ok(
+        "did_multiplegt_old yb g t db, robust_dynamic dynamic(3) placebo(3) "
+        "firstdiff_placebo breps(0)"
     )
-    assert not refused["ok"]
-    assert "firstdiff_placebo" in refused["error"]
+    a = out["arguments"]
+    assert a["robust_dynamic"] is True and a["firstdiff_placebo"] is True
+    raw = pd.read_csv(FIX / "dcdh_dynamic_panel.csv")
+    cells = raw.groupby(["g", "t"], as_index=False)[["yb", "db"]].mean()
+    ref = pd.read_csv(FIX / "dcdh_dynamic_Stata.csv", skipinitialspace=True)
+    ref = ref[ref["tag"] == "cell_db_none_bal_fd"].set_index("name")["value"]
+    r = sp.did_multiplegt(cells, **a)
+    got = [row["estimate"] for row in r.model_info["placebo"]]
+    want = [float(ref[f"placebo_{lag}"]) for lag in (1, 2, 3)]
+    assert got == pytest.approx(want, rel=1e-10)
+    # without robust_dynamic the command ignores the option (Stata 18 gives
+    # identical placebos), so the translation drops it with a note
+    plain = _ok("did_multiplegt_old y g t d, placebo(2) firstdiff_placebo breps(0)")
+    assert "firstdiff_placebo" not in plain["arguments"]
+    assert plain["arguments"]["placebo_sign"] == "r"
+    assert any("firstdiff_placebo" in n for n in plain["notes"])
 
 
 def test_did_multiplegt_old_controls_with_placebos_reuse_main_slopes():

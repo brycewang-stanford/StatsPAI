@@ -8,8 +8,10 @@ marks the cells dropped in the unbalanced variant), from
 ``_generate_dcdh_dynamic_data.py``. References:
 
 * ``dcdh_dynamic_Stata.csv``: Stata 18 ``did_multiplegt_old``, without
-  ``robust_dynamic`` (tag ``_nr``, ``placebo(2)``) and with it (``_rd``,
-  ``dynamic(3) placebo(3)``), from ``_generate_dcdh_dynamic_Stata.do``;
+  ``robust_dynamic`` (tag ``_nr``, ``placebo(2)``), with it (``_rd``,
+  ``dynamic(3) placebo(3)``, including ``e(effect_average)``) and with
+  ``firstdiff_placebo`` added (``_fd``), from
+  ``_generate_dcdh_dynamic_Stata.do``;
 * ``dcdh_dynamic_R.csv``: R ``DIDmultiplegt`` 0.1.4 (``_r``, ``placebo = 2,
   dynamic = 3``), from ``_generate_dcdh_dynamic_R.R``.
 
@@ -120,6 +122,132 @@ def test_robust_dynamic_matches_stata(raw, stata, layout, d, ctrl, bal):
         assert row["n_switchers"] == stata[(tag, f"N_switchers_effect_{h}")]
     for lag, est in enumerate(_est(r, "placebo"), start=1):
         _close(est, stata[(tag, f"placebo_{lag}")])
+    ea = r.model_info["effect_average"]
+    _close(ea["estimate"], stata[(tag, "effect_average")])
+    assert ea["n_switchers"] == stata[(tag, "N_switchers_effect_average")]
+
+
+@pytest.mark.parametrize("layout, d, ctrl, bal", COMBOS)
+def test_firstdiff_placebo_matches_stata(raw, stata, layout, d, ctrl, bal):
+    """Stata's firstdiff_placebo: Y_{F-l} - Y_{F-l-1} against DID_0's
+    controls, groups observed from F-l-1 to F (the unbalanced rows pin the
+    window: requiring only F-1 and F gives 30 switchers for placebo 3 on
+    cell_db_none_unb where Stata has 28)."""
+    tag = f"{layout}_{d}_{ctrl}_{bal}_fd"
+    df = _data(raw, layout, bal)
+    kw = dict(robust_dynamic=True, firstdiff_placebo=True, placebo=3)
+    r = _fit(df, d, ctrl, dynamic=3, **kw)
+    for row in r.model_info["placebo"]:
+        lag = -row["lag"]
+        _close(row["estimate"], stata[(tag, f"placebo_{lag}")])
+        assert row["n_switchers"] == stata[(tag, f"N_switchers_placebo_{lag}")]
+    assert r.model_info["firstdiff_placebo"] is True
+    # Stata gives the same first-difference placebos without dynamic(); so
+    # does StatsPAI (they use DID_0's comparison whatever the horizon)
+    r0 = _fit(df, d, ctrl, **kw)
+    assert _est(r0, "placebo") == _est(r, "placebo")
+    # placebo 1 is the long-difference placebo 1 with the sign flipped
+    long1 = _est(_fit(df, d, ctrl, robust_dynamic=True, placebo=1), "placebo")[0]
+    _close(_est(r, "placebo")[0], -long1)
+
+
+def test_effect_average_on_absorbing_binary_is_switcher_weighted_mean():
+    """Identity: a binary staggered treatment keeps every first-time
+    switcher treated, so each first stage DID^D_l is 1 and effect_average is
+    sum_l N_l DID_l / sum_l N_l."""
+    rng = np.random.default_rng(11)
+    rows = []
+    for g in range(40):
+        first = int(rng.integers(3, 9)) if g >= 8 else 99
+        for t in range(1, 9):
+            d = int(t >= first)
+            rows.append({"g": g, "t": t, "d": d, "y": 0.2 * t + 1.3 * d + rng.normal()})
+    df = pd.DataFrame(rows)
+    r = sp.did_multiplegt(
+        df,
+        y="y",
+        group="g",
+        time="t",
+        treatment="d",
+        n_boot=0,
+        dynamic=3,
+        robust_dynamic=True,
+    )
+    dyn = r.model_info["dynamic"]
+    n = np.array([x["n_switchers"] for x in dyn], dtype=float)
+    est = np.array([x["estimate"] for x in dyn])
+    ea = r.model_info["effect_average"]
+    _close(ea["first_stage"], 1.0)
+    _close(ea["estimate"], float(np.sum(n * est) / np.sum(n)))
+    assert ea["n_switchers"] == int(n.sum())
+    # the unweighted mean is a different number here (horizons differ in N)
+    avg = r.model_info["avg_cumulative_effect"]["estimate"]
+    _close(avg, float(est.mean()))
+    assert abs(avg - ea["estimate"]) > 1e-6
+
+
+def test_effect_average_only_with_robust_dynamic_and_horizons(raw):
+    df = _data(raw, "cell", "bal")
+    assert _fit(df, "db", "none", dynamic=2).model_info["effect_average"] is None
+    rd0 = _fit(df, "db", "none", robust_dynamic=True)
+    assert rd0.model_info["effect_average"] is None
+    a = sp.did_multiplegt(
+        df,
+        y="yb",
+        group="g",
+        time="t",
+        treatment="db",
+        dynamic=2,
+        robust_dynamic=True,
+        n_boot=30,
+        seed=4,
+    )
+    b = sp.did_multiplegt(
+        df,
+        y="yb",
+        group="g",
+        time="t",
+        treatment="db",
+        dynamic=2,
+        robust_dynamic=True,
+        n_boot=30,
+        seed=4,
+    )
+    ea = a.model_info["effect_average"]
+    assert np.isfinite(ea["se"]) and ea["se"] > 0
+    assert ea["se"] == b.model_info["effect_average"]["se"]
+    assert ea["ci_lower"] < ea["estimate"] < ea["ci_upper"]
+
+
+def test_effect_average_with_zero_first_stage_is_missing_and_warns():
+    """A group going 1 -> 2 -> 0 has sign -1 (summed deviation -2), so its
+    first stage is -1 at l = 0 and +1 at l = 1: the sum is zero and the
+    ratio is undefined, not infinite."""
+    rows = []
+    for g in range(6):
+        path = [1, 1, 2, 0, 0, 0] if g == 0 else [1] * 6
+        for t, d in enumerate(path, start=1):
+            rows.append({"g": g, "t": t, "d": d, "y": 0.1 * t + 0.5 * d + 0.01 * g})
+    df = pd.DataFrame(rows)
+    with pytest.warns(UserWarning, match="effect_average"):
+        r = sp.did_multiplegt(
+            df,
+            y="y",
+            group="g",
+            time="t",
+            treatment="d",
+            n_boot=0,
+            dynamic=1,
+            robust_dynamic=True,
+        )
+    ea = r.model_info["effect_average"]
+    assert ea["first_stage"] == 0.0 and np.isnan(ea["estimate"])
+    assert np.isfinite(r.estimate)
+
+
+def test_firstdiff_placebo_requires_robust_dynamic(raw):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="firstdiff"):
+        _fit(_data(raw, "cell", "bal"), "db", "none", placebo=1, firstdiff_placebo=True)
 
 
 @pytest.mark.parametrize("layout, d, ctrl, bal", COMBOS)
