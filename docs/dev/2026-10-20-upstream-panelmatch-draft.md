@@ -1,12 +1,14 @@
-# Draft issue for R PanelMatch on three behaviours
+# Draft issue for R PanelMatch on four behaviours
 
 Status: draft, not sent. Bryce posts it himself on PanelMatch's GitHub
-issue tracker, as one issue or as three.
+issue tracker, as one issue or as four.
 
 The evidence in this repository is
 `tests/reference_parity/test_panel_match_R_parity.py`
 (`test_forbid_reversal_drops_the_set_r_keeps`,
-`test_placebo_r_truncation_at_panel_end`), fixture
+`test_placebo_r_truncation_at_panel_end`,
+`test_atc_ps_weight_uses_the_odds_of_the_target_r_uses_the_reciprocal`
+for item 4, case `atc_ps`), fixture
 `tests/reference_parity/_fixtures/panel_match_data.csv`, R output
 `_fixtures/panel_match_R.json` from `_fixtures/_generate_panel_match_R.R`,
 and the note on `sp.panel_match` in `docs/dev/modules/did.md` (item 3 of
@@ -18,19 +20,25 @@ snippets rest on its documentation and outputs only. Nobody preparing it
 read the package source. Keep it that way when following up.
 
 The snippets were run on 2026-10-20 with PanelMatch 3.1.5 on R 4.5.2. The
-third one is new for this draft and was checked once.
+third one is new for this draft and was checked once. Item 4 (ATC
+propensity weights, found by the clean-room rewrite `ec626fdd9`) was added
+on 2026-10-21; its snippet was run that day with PanelMatch 3.1.5 (CBPS
+0.24) on R 4.5.2, installed from CRAN into a scratch library, and printed
+the numbers quoted under it. The same run with `CBPS.weight` gave -1.275957
+(R's weights) and -0.360662 (inverted); the ATC half of `qoi = "ate"` with
+`ps.weight` has the same weights as `qoi = "atc"` (max difference 0).
 
 ---
 
-Title: Three behaviours in PanelMatch 3.1.5 (forbid.treatment.reversal, placebo_test near the panel end, ps.match ties)
+Title: Four behaviours in PanelMatch 3.1.5 (forbid.treatment.reversal, placebo_test near the panel end, ps.match ties, ATC propensity weights)
 
 Thank you for PanelMatch. We compared an independent implementation with
 it on a synthetic panel. Matched sets, refinement weights, estimates,
 analytic standard errors and balance tables agree to 1e-10 in 15 settings.
-Three behaviours remain that we could not match to the method as we
+Four behaviours remain that we could not match to the method as we
 understand it. Each may be intended. We would be grateful to know.
 
-All three use this public CSV. It is a balanced panel of 60 units over 16
+All four use this public CSV. It is a balanced panel of 60 units over 16
 periods with no missing values, and treatment switches on and off.
 
 ```r
@@ -136,3 +144,66 @@ it first (distance 0). `ps.match` leaves it out of the five and gives the
 weight to five other controls. With continuous covariates exact ties are
 rare, but with discrete covariates they are common, and the closest
 control would be the one excluded.
+
+### 4. ATC propensity weights move the controls away from the matched observations
+
+With `qoi = "atc"` the matched observation is untreated at t and its
+controls are treated at t. Balance with `ps.weight` is worse than without
+refinement, and it improves when R's weights are inverted within each set.
+
+```r
+X1 <- with(full, tapply(x1, list(id, t), function(v) v[1]))
+fit <- function(method) {
+  PanelMatch(pd, lag = 3, refinement.method = method, qoi = "atc", lead = 0:2,
+             covs.formula = ~ I(lag(y, 1:2)) + x1)
+}
+bal_t0 <- function(pm) {
+  b <- get_covariate_balance(pm, panel.data = pd, covariates = "x1")
+  b[[1]][["atc"]]["t_0", "x1"]
+}
+# standardised gap in x1 at t: mean over sets of (x_i - sum_c w_c x_c),
+# divided by the SD of x_i across the matched (untreated) observations
+gap_t0 <- function(sets, reweight) {
+  d <- xi <- numeric(0)
+  for (key in names(sets)[lengths(sets) > 0]) {
+    s <- sets[[key]]; w <- reweight(attr(s, "weights"))
+    it <- strsplit(key, ".", fixed = TRUE)[[1]]
+    xi <- c(xi, X1[it[1], it[2]])
+    d  <- c(d, X1[it[1], it[2]] - sum(w * X1[as.character(s), it[2]]))
+  }
+  mean(d) / sd(xi)
+}
+as_is    <- function(w) w
+inverted <- function(w) (1 / w) / sum(1 / w)
+
+pm <- fit("ps.weight")
+round(c(none            = bal_t0(fit("none")),
+        ps.weight       = bal_t0(pm),
+        recomputed      = gap_t0(pm$atc, as_is),
+        inverted        = gap_t0(pm$atc, inverted)), 6)
+```
+
+Output on our machine.
+
+```
+      none  ps.weight recomputed   inverted
+ -0.822679  -1.282965  -1.282965  -0.353649
+```
+
+The first two numbers are `get_covariate_balance` for x1 at t, without
+refinement and with `ps.weight`. The third rebuilds the second from the
+weights in `pm$atc`, which checks that `gap_t0` measures what the balance
+table reports. The fourth uses the same sets with each set's weights
+replaced by their reciprocals, renormalised to sum to one. All weights are
+positive.
+
+So the refinement widens the standardised gap in x1 at t from -0.82 to
+-1.28, while the inverted weights narrow it to -0.35. Our independent
+implementation weights each control by the odds that an observation with
+its covariates is a matched (untreated) observation. On this fixture R's
+weights equal those inverted and renormalised within each set, to 1e-10.
+The weights look like the odds of the treated state, the form that balances
+controls for the ATT, reused for the ATC, where controls and matched
+observations swap roles. `CBPS.weight` shows the same pattern (-1.28 with
+R's weights, -0.36 inverted), and the ATC half of `qoi = "ate"` uses the
+same weights as `qoi = "atc"`.
