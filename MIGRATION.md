@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` with several rows per cell, and with `controls=`
+
+Two correctness fixes, both checked against Stata 18 `did_multiplegt_old`
+on the same CSV (`tests/reference_parity/test_did_multiplegt_disaggregated_stata.py`).
+
+- **Several rows per (group, period).** The rows are now averaged to the
+  cell and the cell is weighted by its row count, which is what Stata does.
+  Before, the main estimate paired rows across periods and the placebo and
+  dynamic estimates used the first row of each cell. On the test panel
+  DID_M moves from 0.6149 to 0.5600 (Stata 0.5600). Data with one row per
+  (group, period) gives the same numbers as before.
+- **`controls=`.** The adjustment now uses Stata's regression (stayer cells,
+  period effects, one slope per baseline treatment value). On the
+  group-level test panel DID_M moves from 0.7015 to 0.6425 (Stata 0.6425).
+  Placebo and dynamic effects still ignore the controls and now say so in a
+  warning; `sp.did_multiplegt_dyn(controls=)` adjusts them.
+
+To reproduce an old number there is no switch: both old results were
+computed with rules that no reference implementation uses.
+
+---
+
 ## 1.40.0 → 1.41: announced, t critical values in `sp.event_study`, `sp.sun_abraham`, `sp.did_2x2`
 
 From 1.41 the three regression-based event-study estimators turn their

@@ -40,7 +40,7 @@ and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
-from ..exceptions import ColumnNotFound
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 
 # ======================================================================
@@ -97,7 +97,15 @@ def did_multiplegt(
     Parameters
     ----------
     data : pd.DataFrame
-        Panel data in long format (one row per unit-period).
+        Panel data in long format: one row per group and period, or several
+        (individuals within groups). Several rows are averaged to the
+        (group, period) cell and the cell is weighted by its row count, as
+        Stata ``did_multiplegt_old`` does.
+
+        .. versionchanged:: 1.41.0
+           ⚠️ Correctness fix: several rows per cell used to be paired
+           across periods (main estimate) or reduced to the first row
+           (placebo and dynamic effects).
     y : str
         Outcome variable name.
     group : str
@@ -127,8 +135,17 @@ def did_multiplegt(
            ``did_multiplegt_old`` returns 0.0057791. Binary treatments
            are unaffected.
     controls : list of str, optional
-        Control variables. When provided, first-differences of the outcome
-        are residualized on first-differences of the controls.
+        Control variables. The first difference of the outcome becomes
+        ``dY - dX @ theta_d``, with ``theta_d`` from a regression of dY on dX
+        and period effects over the stayer cells of baseline treatment
+        ``d`` (Stata ``did_multiplegt_old``). Adjusts the main DID_M
+        estimate only; placebo and dynamic effects are unadjusted (a
+        warning says so). ``sp.did_multiplegt_dyn(controls=)`` adjusts
+        its event-study effects.
+
+        .. versionchanged:: 1.41.0
+           ⚠️ Correctness fix: the slope used to be fitted within each
+           period's switchers and stayers.
     placebo : int, default 0
         Number of placebo (pre-treatment) tests.  Placebo *l* checks
         whether switchers at *t* already differed from stayers between
@@ -257,10 +274,36 @@ def did_multiplegt(
         example_tail=f"treatment={treatment!r}",
     )
 
+    # Data below the group level (individuals within groups): Stata's
+    # did_multiplegt_old averages every variable to (group, period) cells
+    # and weights each cell by its number of observations, which equals
+    # running it on the collapsed data with weight(n). Pairing the rows of
+    # a group across periods instead weighted a cell by n_t * n_{t-1}, and
+    # the placebo / dynamic paths kept only the first row of each cell.
+    wcol: Optional[str] = None
+    n_rows_input = len(df)
+    if df.duplicated([group, time]).any():
+        df, wcol = _collapse_to_cells(
+            df, y, group, time, treatment, controls, cluster_var
+        )
+
     # ── Sort and compute main estimate ───────────────────────────── #
     df = df.sort_values([group, time]).reset_index(drop=True)
 
-    main = _estimate_did_m(df, y, group, time, treatment, controls)
+    main = _estimate_did_m(df, y, group, time, treatment, controls, w=wcol)
+
+    if controls and (placebo > 0 or dynamic > 0):
+        warnings.warn(
+            "sp.did_multiplegt: controls= adjusts the main DID_M estimate "
+            "only; the placebo and dynamic effects are computed without the "
+            "controls. Stata's did_multiplegt_old adjusts them in a different "
+            "sample (cells not yet switched), which this function does not "
+            "implement. For controlled event-study effects use "
+            "sp.did_multiplegt_dyn(controls=...), which matches Stata's "
+            "did_multiplegt_dyn.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # ── Placebo effects ──────────────────────────────────────────── #
     placebo_results = []
@@ -274,6 +317,7 @@ def did_multiplegt(
             controls,
             lag=lag_idx,
             placebo_sign=placebo_sign,
+            w=wcol,
         )
         placebo_results.append(plac)
 
@@ -288,6 +332,7 @@ def did_multiplegt(
             treatment,
             controls,
             horizon=horizon_idx,
+            w=wcol,
         )
         dynamic_results.append(dyn)
 
@@ -311,7 +356,7 @@ def did_multiplegt(
             frames.append(chunk)
         bdf = pd.concat(frames, ignore_index=True)
 
-        b_main = _estimate_did_m(bdf, y, group, time, treatment, controls)
+        b_main = _estimate_did_m(bdf, y, group, time, treatment, controls, w=wcol)
         boot_main[b] = b_main["did_m"]
 
         if placebo > 0:
@@ -326,6 +371,7 @@ def did_multiplegt(
                     controls,
                     lag=lag_idx,
                     placebo_sign=placebo_sign,
+                    w=wcol,
                 )
                 boot_placebo[b, lag_idx - 1] = plac["estimate"]
 
@@ -340,6 +386,7 @@ def did_multiplegt(
                     treatment,
                     controls,
                     horizon=horizon_idx,
+                    w=wcol,
                 )
                 boot_dynamic[b, horizon_idx] = dyn["estimate"]
 
@@ -406,9 +453,12 @@ def did_multiplegt(
         }
         for horizon_idx in range(dynamic + 1)
     ]
-    not_estimable = [f"placebo {r['lag']}" for r in placebo_out if np.isnan(r["se"])]
+    # missing estimate, not missing SE: with n_boot=0 every SE is NaN
+    not_estimable = [
+        f"placebo {r['lag']}" for r in placebo_out if np.isnan(r["estimate"])
+    ]
     not_estimable += [
-        f"dynamic {r['horizon']}" for r in dynamic_out if np.isnan(r["se"])
+        f"dynamic {r['horizon']}" for r in dynamic_out if np.isnan(r["estimate"])
     ]
     if not_estimable:
         warnings.warn(
@@ -471,6 +521,14 @@ def did_multiplegt(
         "n_rows_dropped_missing": n_incomplete,
         "cluster_var": cluster_var,
         "controls": controls,
+        # controls= adjusts DID_M only (see the warning above)
+        "controls_scope": (
+            None if not controls else ("main" if placebo or dynamic else "all")
+        ),
+        # rows below the group level are averaged to (group, period) cells,
+        # each weighted by its row count (Stata did_multiplegt_old)
+        "collapsed_to_cells": wcol is not None,
+        "n_cells": len(df),
         "placebo": placebo_out,
         "dynamic": dynamic_out,
         "event_study": es_df,
@@ -486,7 +544,7 @@ def did_multiplegt(
         pvalue=float(p_main),
         ci=ci_main,
         alpha=alpha,
-        n_obs=len(df),
+        n_obs=n_rows_input,
         detail=detail_df,
         model_info=model_info,
         _citation_key="did_multiplegt",
@@ -523,18 +581,125 @@ def did_multiplegt(
 # ======================================================================
 
 
-def _residualize(dy: np.ndarray, dX: np.ndarray) -> np.ndarray:
-    """Residualize dy on dX via OLS."""
-    if dX.shape[1] == 0:
-        return dy
-    # Add intercept
-    ones = np.ones((dX.shape[0], 1))
-    X = np.hstack([ones, dX])
-    try:
-        beta = np.linalg.lstsq(X, dy, rcond=None)[0]
-        return np.asarray(dy - X @ beta, dtype=float)
-    except np.linalg.LinAlgError:
-        return dy
+_CELL_N = "_dcdh_cell_n"
+
+
+def _collapse_to_cells(
+    df: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    treatment: str,
+    controls: Optional[List[str]],
+    cluster_var: str,
+) -> Tuple[pd.DataFrame, str]:
+    """Average rows below the group level to (group, period) cells.
+
+    Every analysis variable becomes its cell mean and the cell keeps its
+    row count in ``_CELL_N``, the weight Stata ``did_multiplegt_old``
+    gives it. A treatment that varies within a cell is averaged too, as
+    Stata does. A clustering variable must be constant within a cell.
+    """
+    keys = [group, time]
+    if cluster_var not in keys:
+        varies = df.groupby(keys, sort=False)[cluster_var].nunique(dropna=False)
+        if (varies > 1).any():
+            raise MethodIncompatibility(
+                f"sp.did_multiplegt: cluster variable {cluster_var!r} varies "
+                f"within ({group}, {time}) cells. The estimator works on "
+                "(group, period) cell means, so the bootstrap clusters must "
+                "contain whole cells.",
+                recovery_hint=(
+                    f"Cluster on {group!r} or on a variable coarser than the "
+                    "(group, period) cell, e.g. a region that contains whole "
+                    "groups."
+                ),
+                diagnostics={"cluster": cluster_var},
+                alternative_functions=["sp.did_multiplegt_dyn"],
+            )
+    cols = list(dict.fromkeys([y, treatment, *(controls or [])]))
+    grouped = df.groupby(keys, sort=False)
+    out = grouped[cols].mean()
+    out[_CELL_N] = grouped.size().astype(float)
+    if cluster_var not in keys:
+        out[cluster_var] = grouped[cluster_var].first()
+    return out.reset_index(), _CELL_N
+
+
+def _first_differences(
+    df: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    treatment: str,
+    controls: List[str],
+    w: Optional[str],
+) -> pd.DataFrame:
+    """(group, period) first differences between consecutive periods."""
+    periods = sorted(df[time].unique())
+    frames = []
+    cols = [group, y, treatment, *controls]
+    for t_prev, t_curr in zip(periods[:-1], periods[1:]):
+        cur = df.loc[df[time] == t_curr, cols + ([w] if w else [])]
+        prev = df.loc[df[time] == t_prev, cols]
+        m = cur.merge(prev, on=group, how="inner", suffixes=("", "_prev"))
+        if m.empty:
+            continue
+        out = pd.DataFrame(
+            {
+                "_t": t_curr,
+                "_d": m[treatment].to_numpy(dtype=float),
+                "_d_prev": m[f"{treatment}_prev"].to_numpy(dtype=float),
+                "_dy": m[y].to_numpy(dtype=float)
+                - m[f"{y}_prev"].to_numpy(dtype=float),
+                "_w": m[w].to_numpy(dtype=float) if w else 1.0,
+            }
+        )
+        for c in controls:
+            out[f"_dx_{c}"] = m[c].to_numpy(dtype=float) - m[f"{c}_prev"].to_numpy(
+                dtype=float
+            )
+        frames.append(out)
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def _stayer_slopes(
+    df: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    treatment: str,
+    controls: List[str],
+    w: Optional[str],
+) -> Dict[float, np.ndarray]:
+    """Slopes of dY on dX with period effects, over stayers, per baseline.
+
+    The sample for baseline ``d`` is every (group, period) cell whose
+    treatment is ``d`` in both periods. A baseline with no stayer gets no
+    slope (its switchers have no comparison cell anyway).
+    """
+    fd = _first_differences(df, y, group, time, treatment, controls, w)
+    if fd.empty:
+        return {}
+    dx_cols = [f"_dx_{c}" for c in controls]
+    stay = fd[fd["_d"] == fd["_d_prev"]]
+    slopes: Dict[float, np.ndarray] = {}
+    for base, sub in stay.groupby("_d_prev", sort=True):
+        dummies = pd.get_dummies(sub["_t"]).to_numpy(dtype=float)
+        X = np.hstack([sub[dx_cols].to_numpy(dtype=float), dummies])
+        sw = np.sqrt(sub["_w"].to_numpy(dtype=float))
+        beta = np.linalg.lstsq(
+            X * sw[:, None], sub["_dy"].to_numpy(dtype=float) * sw, rcond=None
+        )[0]
+        slopes[float(base)] = beta[: len(controls)]
+    return slopes
+
+
+def _wmean(x: np.ndarray, w: Optional[np.ndarray]) -> float:
+    """Mean of ``x``, weighted by ``w`` when given."""
+    if w is None:
+        return float(np.mean(x))
+    return float(np.sum(w * x) / np.sum(w))
 
 
 def _estimate_did_m(
@@ -544,15 +709,28 @@ def _estimate_did_m(
     time: str,
     treatment: str,
     controls: Optional[List[str]],
+    w: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Core DID_M estimator: weighted average of cell-level DID estimates.
 
+    ``w`` names a column of (group, period) cell sizes (data collapsed by
+    :func:`_collapse_to_cells`); each cell then counts that many times.
+
     For each period t, identify switchers and stayers, compute DID_gt.
+
+    With ``controls`` the first difference of the outcome is replaced by
+    ``dY - dX @ theta_d``, where ``theta_d`` comes from a regression of dY
+    on dX and period effects over the stayer cells whose treatment is
+    ``d`` in both periods (Stata ``did_multiplegt_old``, one regression per
+    baseline value, weighted like the cells).
     """
     periods = sorted(df[time].unique())
     cell_estimates = []
     total_switchers = 0
+    slopes = (
+        _stayer_slopes(df, y, group, time, treatment, controls, w) if controls else {}
+    )
 
     for idx in range(1, len(periods)):
         t_prev, t_curr = periods[idx - 1], periods[idx]
@@ -561,7 +739,7 @@ def _estimate_did_m(
             [group, y, treatment] + (controls or [])
         ].copy()
         df_curr = df[df[time] == t_curr][
-            [group, y, treatment] + (controls or [])
+            [group, y, treatment] + (controls or []) + ([w] if w else [])
         ].copy()
 
         df_prev = df_prev.rename(
@@ -593,26 +771,33 @@ def _estimate_did_m(
             n_switch = len(switchers)
             if n_switch == 0 or len(stayers) == 0:
                 continue
+            w_sw = switchers[w].to_numpy(dtype=float) if w else None
+            w_st = stayers[w].to_numpy(dtype=float) if w else None
 
             dy_switch = switchers["_dy"].values.copy()
             dy_stay = stayers["_dy"].values.copy()
 
-            # Residualize on controls within the baseline cell
+            # Net out the controls with the stayer-sample slopes of this
+            # baseline value (Stata did_multiplegt_old's controls()).
             if controls:
-                dX_switch = np.column_stack(
-                    [
-                        switchers[c].values - switchers[f"{c}_prev"].values
-                        for c in controls
-                    ]
-                )
-                dX_stay = np.column_stack(
-                    [stayers[c].values - stayers[f"{c}_prev"].values for c in controls]
-                )
-                dX_all = np.vstack([dX_switch, dX_stay])
-                dy_all = np.concatenate([dy_switch, dy_stay])
-                resid = _residualize(dy_all, dX_all)
-                dy_switch = resid[:n_switch]
-                dy_stay = resid[n_switch:]
+                theta = slopes.get(float(base))
+                if theta is not None:
+                    dX_switch = np.column_stack(
+                        [
+                            switchers[c].to_numpy(dtype=float)
+                            - switchers[f"{c}_prev"].to_numpy(dtype=float)
+                            for c in controls
+                        ]
+                    )
+                    dX_stay = np.column_stack(
+                        [
+                            stayers[c].to_numpy(dtype=float)
+                            - stayers[f"{c}_prev"].to_numpy(dtype=float)
+                            for c in controls
+                        ]
+                    )
+                    dy_switch = dy_switch - dX_switch @ theta
+                    dy_stay = dy_stay - dX_stay @ theta
 
             # Each switcher enters with the sign of its own treatment change
             # and the cell is weighted by the total absolute change, so that
@@ -622,8 +807,15 @@ def _estimate_did_m(
             # count-weighted average of signed cell DIDs it has always been.
             dd_switch = switchers[treatment].to_numpy(dtype=float) - float(base)
             sgn = np.sign(dd_switch)
-            abs_change = float(np.abs(dd_switch).sum())
-            numerator = float(np.sum(sgn * (dy_switch - np.mean(dy_stay))))
+            if w_sw is None:
+                abs_change = float(np.abs(dd_switch).sum())
+                numerator = float(np.sum(sgn * (dy_switch - np.mean(dy_stay))))
+            else:
+                abs_change = float(np.sum(w_sw * np.abs(dd_switch)))
+                numerator = float(
+                    np.sum(w_sw * sgn * (dy_switch - _wmean(dy_stay, w_st)))
+                )
+                n_switch = int(round(w_sw.sum()))
             did_gt = numerator / abs_change
             if np.all(sgn > 0):
                 direction = "on"
@@ -638,10 +830,12 @@ def _estimate_did_m(
                     "time_prev": t_prev,
                     "baseline_treatment": float(base),
                     "n_switchers": n_switch,
-                    "n_stayers": len(stayers),
+                    "n_stayers": (
+                        len(stayers) if w_st is None else int(round(w_st.sum()))
+                    ),
                     "did_gt": did_gt,
-                    "mean_dy_switch": float(np.mean(dy_switch)),
-                    "mean_dy_stay": float(np.mean(dy_stay)),
+                    "mean_dy_switch": _wmean(dy_switch, w_sw),
+                    "mean_dy_stay": _wmean(dy_stay, w_st),
                     "direction": direction,
                     "treatment_change": abs_change,
                 }
@@ -681,6 +875,7 @@ def _estimate_placebo(
     controls: Optional[List[str]],
     lag: int,
     placebo_sign: str = "stata",
+    w: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Placebo test at lag *l* (de Chaisemartin--D'Haultfoeuille 2020).
@@ -707,6 +902,11 @@ def _estimate_placebo(
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
     ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
+    wpiv = (
+        df.pivot_table(index=group, columns=time, values=w, aggfunc="first")
+        if w
+        else None
+    )
 
     estimates: List[float] = []
     weights: List[float] = []
@@ -741,11 +941,22 @@ def _estimate_placebo(
             st = st[ypiv.loc[st, t_end].notna() & ypiv.loc[st, t_base].notna()]
             if len(sw) == 0 or len(st) == 0:
                 continue
-            pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
             dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
-            abs_change = float(np.abs(dd).sum())
             pdiff = (ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).to_numpy(dtype=float)
-            signed = float(np.sum(np.sign(dd) * (pdiff - pt))) / abs_change
+            if wpiv is None:
+                pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
+                abs_change = float(np.abs(dd).sum())
+                signed = float(np.sum(np.sign(dd) * (pdiff - pt))) / abs_change
+            else:
+                # cells weigh their size in the switching period (Stata)
+                w_sw = wpiv.loc[sw, t_curr].to_numpy(dtype=float)
+                w_st = wpiv.loc[st, t_curr].to_numpy(dtype=float)
+                st_diff = (ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).to_numpy(
+                    dtype=float
+                )
+                pt = _wmean(st_diff, w_st)
+                abs_change = float(np.sum(w_sw * np.abs(dd)))
+                signed = float(np.sum(w_sw * np.sign(dd) * (pdiff - pt))) / abs_change
             # ⚠️ dCDH's own Stata and R implementations disagree here. On
             # did::mpdta both return |placebo_1| = 0.024269, and the three
             # effects agree to six decimals, but Stata reports +0.024269 and
@@ -775,6 +986,7 @@ def _estimate_dynamic(
     treatment: str,
     controls: Optional[List[str]],
     horizon: int,
+    w: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Dynamic effect at horizon *l* (de Chaisemartin--D'Haultfoeuille 2020,
@@ -795,6 +1007,11 @@ def _estimate_dynamic(
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
     ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
+    wpiv = (
+        df.pivot_table(index=group, columns=time, values=w, aggfunc="first")
+        if w
+        else None
+    )
 
     estimates: List[float] = []
     weights: List[float] = []
@@ -826,13 +1043,29 @@ def _estimate_dynamic(
             st = st[ypiv.loc[st, t_future].notna() & ypiv.loc[st, t_prev].notna()]
             if len(sw) == 0 or len(st) == 0:
                 continue
-            ldt = float((ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).mean())
             dd = dpiv.loc[sw, t_curr].to_numpy(dtype=float) - float(base)
-            abs_change = float(np.abs(dd).sum())
             ldiff = (ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).to_numpy(
                 dtype=float
             )
-            estimates.append(float(np.sum(np.sign(dd) * (ldiff - ldt))) / abs_change)
+            if wpiv is None:
+                ldt = float((ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).mean())
+                abs_change = float(np.abs(dd).sum())
+                estimates.append(
+                    float(np.sum(np.sign(dd) * (ldiff - ldt))) / abs_change
+                )
+            else:
+                # cells weigh their size at t + l, the end of the long
+                # difference (Stata did_multiplegt_old)
+                w_sw = wpiv.loc[sw, t_future].to_numpy(dtype=float)
+                w_st = wpiv.loc[st, t_future].to_numpy(dtype=float)
+                st_diff = (ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).to_numpy(
+                    dtype=float
+                )
+                ldt = _wmean(st_diff, w_st)
+                abs_change = float(np.sum(w_sw * np.abs(dd)))
+                estimates.append(
+                    float(np.sum(w_sw * np.sign(dd) * (ldiff - ldt))) / abs_change
+                )
             weights.append(abs_change)
 
     if not estimates:

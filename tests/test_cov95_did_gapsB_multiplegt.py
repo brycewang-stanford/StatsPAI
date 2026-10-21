@@ -73,13 +73,24 @@ def test_dcdh_placebo_sign_is_validated(panel):
         sp.did_multiplegt(panel, **K, placebo_sign="python")
 
 
-def test_dcdh_residualize_without_controls_is_identity():
-    dy = np.array([1.0, -2.0, 0.5])
-    assert M._residualize(dy, np.empty((3, 0))) is dy
-    # with a control, the residual is orthogonal to it and to the constant
-    x = np.array([[0.0], [1.0], [3.0]])
-    res = M._residualize(dy, x)
-    assert abs(res.sum()) < 1e-12 and abs(float(res @ x[:, 0])) < 1e-12
+def test_dcdh_stayer_slopes_recover_a_known_slope():
+    """dY = 0.7 dX + period effect on stayers: the slope is 0.7 exactly,
+    one slope per baseline value (Stata did_multiplegt_old's controls())."""
+    rng = np.random.default_rng(0)
+    rows = []
+    for g in range(30):
+        d = int(g < 10)  # never switches: every cell is a stayer
+        y = x = 0.0
+        for t in range(1, 6):
+            dx = rng.normal()
+            x += dx
+            y += 0.7 * dx + 0.3 * t + (2.0 if d else 0.0) * t
+            rows.append({"g": g, "t": t, "d": d, "y": y, "x": x})
+    df = pd.DataFrame(rows)
+    slopes = M._stayer_slopes(df, "y", "g", "t", "d", ["x"], None)
+    assert set(slopes) == {0.0, 1.0}
+    for theta in slopes.values():
+        assert abs(theta[0] - 0.7) < 1e-12
 
 
 def test_dcdh_period_pair_without_common_units_is_skipped(panel):

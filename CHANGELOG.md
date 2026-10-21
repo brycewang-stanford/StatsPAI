@@ -54,6 +54,12 @@ All notable changes to StatsPAI will be documented in this file.
   against the same call with the guard switched off; Track A 16, 17, 38,
   73, 75, 81, 84 byte-identical to main's own reruns).
 
+### Fixed
+
+- **⚠️ Correctness**: `sp.did_multiplegt` on data below the group level (individuals within groups, several rows per group and period). Stata `did_multiplegt_old` averages such data to (group, period) cells and weights each cell by its row count; its results on the rows equal its results on the collapsed cells with `weight(n)`. StatsPAI paired the rows of a group across periods, so a cell weighed n_t x n_{t-1} in DID_M (0.6149 against Stata's 0.5600 on the test panel), and the placebo and dynamic paths kept only the first row of each cell. It now collapses to cells and weights them as Stata does (placebo cells by their size in the switching period, dynamic cells by their size at t + l), matching Stata to 3e-16 on DID_M, placebos and absorbing dynamic effects, with binary and count treatments. A cluster variable that varies within a cell is refused. `n_obs` is the row count; `model_info` gains `collapsed_to_cells` and `n_cells`. One row per (group, period), the usual layout, is unchanged.
+- **⚠️ Correctness**: `sp.did_multiplegt(controls=)` now nets out the controls as Stata `did_multiplegt_old` does: `dY - dX @ theta_d`, with `theta_d` from a regression of dY on dX and period effects over the stayer cells of baseline value d (weighted like the cells). The old code fitted dY on dX within each period's switchers and stayers and returned 0.7015 where Stata returns 0.6425 (group-level test panel); both layouts now match Stata to 2e-16. The placebo and dynamic effects were, and still are, computed without the controls; that is now a warning and `model_info['controls_scope'] == 'main'`. Use `sp.did_multiplegt_dyn(controls=)` for controlled event-study effects.
+- `sp.did_multiplegt(n_boot=0)` no longer warns that placebo / dynamic effects are not estimable when they were estimated (the check read the missing bootstrap SE).
+
 ## [1.40.0] — 2026-10-21
 
 A minor release. Read the ⚠️ entries before upgrading: several of them change
