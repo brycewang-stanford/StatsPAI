@@ -64,7 +64,9 @@ def test_single_cohort_treated_from_the_first_period_leaves_no_periods(panel):
     df = panel[panel["g"] == 4].assign(g=1)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        with pytest.raises(DataInsufficient, match="No periods remain before"):
+        # Since always_treated='drop' (813786577) the cohort is recognised as
+        # treated at or before the first period and the error says so.
+        with pytest.raises(DataInsufficient, match="at or before the first period"):
             sp.callaway_santanna(df, **K, control_group="notyettreated")
 
 

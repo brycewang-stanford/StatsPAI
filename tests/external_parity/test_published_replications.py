@@ -539,6 +539,12 @@ def test_list_datasets_returns_dataframe():
         # The same as a boolean, and each frame's column names.
         "simulated",
         "columns",
+        # How the data arrive (shipped in the wheel or fetched on first call),
+        # whether a call works offline, and the name of the real variant of a
+        # simulated replica (sp.datasets._fetch, 2026-10-21).
+        "delivery",
+        "available_offline",
+        "real_variant",
     }
     assert (registry["simulated"] == (registry["source"] == "simulated")).all()
 
