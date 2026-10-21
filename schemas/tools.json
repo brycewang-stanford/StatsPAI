@@ -370,6 +370,14 @@
           "description": "Drop ATT(g,t) cells with missing / infinite SE before aggregating",
           "type": "boolean"
         },
+        "parity": {
+          "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections.",
+          "enum": [
+            "r",
+            "stata"
+          ],
+          "type": "string"
+        },
         "random_state": {
           "description": "Seed for the multiplier bootstrap. When the bootstrap runs without one, a seed is drawn and recorded in ``model_info['random_state']`` so the reported SE can be reproduced exactly.",
           "type": "integer",

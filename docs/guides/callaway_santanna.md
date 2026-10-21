@@ -23,8 +23,17 @@ cs = sp.callaway_santanna(
 print(cs.summary())
 cs.detail              # one row per (group, time) with ATT + pointwise CI
 cs.model_info['event_study']   # event-study aggregation
-cs.model_info['pretrend_test'] # joint Wald pre-trend test
+cs.model_info['pretrend_test'] # joint Wald pre-trend test (both p-values)
+cs.model_info['conventions']   # base period, SE method, p-value convention
 ```
+
+Two defaults differ from R `did` and Stata `csdid`, and `summary()` says
+so. The base period is `'universal'` (both programs use `'varying'`): the
+post-period ATT(g, t) are the same, the pre-period ones are not. The
+pre-test p-value in `pretrend_test['pvalue']` carries a Hotelling-F
+small-sample correction; the chi2 p-value the two programs print is
+`pretrend_test['pvalue_chi2']` (0.1740 and 0.1681 on `mpdta`). To get
+their numbers in one argument, see [One-argument parity](#one-argument-parity-parityr-stata).
 
 ## Aggregation with uniform bands
 
@@ -138,6 +147,50 @@ through. If deleting some cluster leaves the aggregate unidentified (the only
 never-treated unit, a cohort carried by one cluster), the call raises and names
 that cluster instead of quietly dropping the replicate.
 
+## One-argument parity (`parity='r' | 'stata'`)
+
+`parity=` sets every convention on which StatsPAI's default differs from
+R `did` 2.5 or Stata `csdid` 1.8, so the numbers of either program come
+from one argument. `sp.aggte` inherits it from the fit.
+
+```python
+r_fit = sp.callaway_santanna(df, y='lemp', g='first_treat', t='year',
+                             i='countyreal', parity='r')
+st_fit = sp.callaway_santanna(df, y='lemp', g='first_treat', t='year',
+                              i='countyreal', parity='stata')
+sp.aggte(st_fit, type='group')        # csdid's estat group, to 1e-10
+st_fit.model_info['conventions']      # what was used
+```
+
+| convention | StatsPAI default | `parity='r'` | `parity='stata'` |
+| --- | --- | --- | --- |
+| base period | `'universal'` | `'varying'` | `'varying'` |
+| not-yet-treated cutoff | `'period'` | `'period'` | `'cohort'` |
+| pre-test p-value | Hotelling F | chi2 | chi2 |
+| unbalanced panel | `'pair'` | `'full'` | `'pair'` |
+| aggregation SEs after `bstrap=True` | bootstrap | bootstrap | analytic (`estat`) |
+| cohort-share term in the group average | yes | yes | no |
+| bootstrap weights / draws / band | Rademacher / 1000 / pointwise | Rademacher / 1000 / uniform | Mammen / 999 / uniform |
+
+The critical value is normal in both programs, clustered or not.
+Always-treated units are dropped by all three. An explicit argument that
+contradicts a convention raises (`parity='stata', base_period='universal'`);
+the bootstrap options stay options and an explicit value is used as
+given. Without `bstrap` the SEs are those of `att_gt(bstrap = FALSE)` and
+of `csdid` without `wboot`. On `mpdta`, with and without `lpop`, never- and
+not-yet-treated comparisons, unit and state clustering, every ATT(g, t),
+pre-test and aggregate matches to 1e-10 (1e-7 with the covariate; each
+program's logit stops at its own tolerance).
+Evidence: `tests/reference_parity/test_cs_parity_switch.py`.
+
+## Always-treated units
+
+Units first treated at or before the first period (plus `anticipation`)
+have no untreated period. R `did` and `csdid` drop them, and so does
+`sp.callaway_santanna` by default (`always_treated='drop'`), with one
+warning and the count in `model_info['n_always_treated_dropped']`. Pass
+`always_treated='error'` to stop instead.
+
 ## Migrating from Stata `csdid`
 
 The option names do **not** line up, and two of the mismatches change
@@ -154,7 +207,7 @@ your numbers silently. This table is the mapping.
 | `wboot(reps(999))` | `biters=999` | |
 | `wboot(wtype(mammen))` | `boot_weight_type='mammen'` | csdid defaults to mammen, StatsPAI to rademacher — R `did` draws rademacher despite citing Mammen |
 | `pointwise` | `cband=False` | csdid's default is *uniform*; StatsPAI's is pointwise |
-| `long2` | `base_period='universal'` | StatsPAI's default |
+| `long2` | `base_period='universal'` | StatsPAI's default (`summary()` notes it when left unset) |
 | (csdid default gaps) | `base_period='varying'` | |
 | `asinr` | `notyet_cutoff='asinr'` | |
 | (csdid default) | `notyet_cutoff='cohort'` | |
@@ -163,10 +216,11 @@ your numbers silently. This table is the mapping.
 | `pscoretrim(#)` | `pscore_trim=#` | ⚠️ the defaults differ: `csdid` 1.0 (no trimming), StatsPAI 0.995 as R `did`. Pass `pscore_trim=1.0` to reproduce `csdid` when a control's propensity score exceeds 0.995 |
 | `saverif(f)` | `sp.influence_functions(res, path=f)` | |
 | `estat simple` / `event` / `calendar` | `sp.estat(res, 'simple' \| 'event' \| 'calendar')` | same numbers as `sp.aggte` |
-| `estat group` | `sp.estat(res, 'group')` | `sp.aggte(res, type='group', share_variance=False)`: csdid holds the cohort shares fixed in `GAverage` |
+| `estat group` | `sp.estat(res, 'group')` | `sp.aggte(res, type='group', share_variance=False)`: csdid holds the cohort shares fixed in `GAverage` (automatic under `parity='stata'`) |
+| `estat pretrend` | `res.model_info['pretrend_test']['pvalue_chi2']` | the headline `pvalue` is Hotelling F unless `parity=` |
 | `estat event, window(a b)` | `sp.estat(res, 'event', window=(a, b))` | `sp.aggte(..., min_e=a, max_e=b)` |
 | `csdid ..., ipw` (a bare estimator name) | the default, `estimator='dr'` | csdid's syntax ends in `*`, so the word is accepted and ignored; only `method()` selects an estimator |
-| `cluster(v)` | `clustervars=['v']` | requires `bstrap=True` |
+| `cluster(v)` | `clustervars=['v']` | analytic and bootstrap SEs both honour it |
 
 ### Covariates that change over time
 

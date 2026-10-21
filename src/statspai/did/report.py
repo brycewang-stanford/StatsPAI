@@ -343,7 +343,7 @@ class CSReport:
             lines.append(
                 f"- **Pre-trend Wald**: χ²({pt.get('df', 0)}) = "
                 f"{pt.get('statistic', float('nan')):.3f}, "
-                f"p = {pt.get('pvalue', float('nan')):.4g}"
+                f"{_pretrend_p_text(pt)}"
             )
         lines.append("")
 
@@ -577,7 +577,7 @@ class CSReport:
             header += (
                 f" Pre-trend Wald: $\\chi^2({pt.get('df', 0)}) = "
                 f"{pt.get('statistic', float('nan')):.3f}$, "
-                f"$p = {pt.get('pvalue', float('nan')):.4g}$."
+                f"{_pretrend_p_text(pt, latex=True)}."
             )
 
         parts: List[str] = []
@@ -787,7 +787,7 @@ class CSReport:
             lines.append(
                 f"Pre-trend Wald: χ²({pt.get('df', 0)}) = "
                 f"{pt.get('statistic', float('nan')):.3f}, "
-                f"p = {pt.get('pvalue', float('nan')):.4g}"
+                f"{_pretrend_p_text(pt)}"
             )
 
         # Dynamic (event study)
@@ -1001,6 +1001,26 @@ def _record_degradation(
 # ======================================================================
 # Public entry point
 # ======================================================================
+
+
+def _pretrend_p_text(pt: Dict[str, Any], latex: bool = False) -> str:
+    """The pre-test p-value(s) of a CS fit, each with its distribution.
+
+    The headline ``pvalue`` is the Hotelling-F one unless the fit used
+    ``parity=``; R ``did`` and Stata ``csdid`` print the chi2 one, so both
+    are shown when the fit carries both.
+    """
+    p_f, p_chi2 = pt.get("pvalue_f"), pt.get("pvalue_chi2")
+    if p_f is None or p_chi2 is None:
+        p = pt.get("pvalue", float("nan"))
+        return f"$p = {p:.4g}$" if latex else f"p = {p:.4g}"
+    if latex:
+        parts = [f"$p_F = {p_f:.4g}$", f"$p_{{\\chi^2}} = {p_chi2:.4g}$"]
+    else:
+        parts = [f"p (Hotelling F) = {p_f:.4g}", f"p (χ²) = {p_chi2:.4g}"]
+    if pt.get("pvalue_method") == "chi2":
+        parts.reverse()
+    return "; ".join(parts)
 
 
 @accepts_aliases(id="i", time="t", seed="random_state", cohort="g", first_treat="g")

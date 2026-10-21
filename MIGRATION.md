@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.39.6 → unreleased: `sp.callaway_santanna` drops always-treated units; `parity=`
+
+- Units whose cohort is at or before the first observed period plus
+  `anticipation` are now removed before estimation, with a warning, as R
+  `did` and Stata `csdid` do (`always_treated='drop'`, the default;
+  `'error'` raises). ATT(g, t), every aggregate and every analytic SE are
+  unchanged. On a panel that has such units, `model_info['n_units']` and
+  `n_obs` fall by their count, the default (Hotelling-F) pre-test p-value
+  moves slightly because it counts units, and a seeded multiplier
+  bootstrap gives different draws. Panels without such units are
+  unaffected.
+- `model_info['pretrend_test']['pvalue']` is unchanged by default (Hotelling
+  F); the chi2 value that R `did` / csdid print is now alongside it as
+  `pvalue_chi2`. `summary()` prints both.
+- New: `parity='r' | 'stata'` on `sp.callaway_santanna` and `sp.aggte`.
+  Code that reproduced R or Stata by hand
+  (`base_period='varying'`, `notyet_cutoff='cohort'`,
+  `aggte(..., share_variance=False)` for csdid's group average, a chi2 p-value
+  computed from the statistic) can pass `parity=` instead. Defaults are
+  unchanged.
+
+---
+
 ## 1.39.6 → unreleased: swapped `group=` in `sp.did_imputation` / `sp.drdid`; `sp.drdid(seed=, random_state=)`
 
 No number changes. What can now stop or warn a call that used to run:

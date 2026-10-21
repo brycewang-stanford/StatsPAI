@@ -33,7 +33,7 @@ Mammen, E. (1993).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -42,6 +42,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+from . import _cs_conventions as _conv
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import weight_influence as _weight_influence
@@ -53,6 +54,7 @@ from ._validate import inference_note as _inference_note
 
 
 @accepts_aliases(seed="random_state", alp="alpha", biters="n_boot")
+@_conv.track_explicit
 def aggte(
     result: CausalResult,
     type: str = "simple",
@@ -68,6 +70,7 @@ def aggte(
     random_state: Optional[int] = None,
     share_variance: bool = True,
     agg_weights: str = "did",
+    parity: Optional[Literal["r", "stata"]] = None,
 ) -> CausalResult:
     """
     Aggregate group-time ATT(g, t) estimates from ``callaway_santanna``.
@@ -147,6 +150,28 @@ def aggte(
         Seed for the multiplier bootstrap.  When the bootstrap runs without
         one, a seed is drawn and recorded in ``model_info['random_state']``
         so the reported SE can be reproduced exactly.
+    parity : {'r', 'stata'}, optional
+        Aggregate with the conventions of R ``did::aggte`` or Stata
+        ``csdid``'s ``estat``. ``None`` (default) inherits the parity of
+        the fit (``sp.callaway_santanna(parity=...)``); passing a parity
+        that differs from the fit's raises, because the base period and
+        comparison group are fixed when ATT(g, t) is estimated.
+
+        - ``'r'``: cohort-share term everywhere (``share_variance=True``)
+          and R ``did``'s cohort-share weights; the bootstrap follows the
+          fit, as ``aggte(bstrap = NULL)`` does.
+        - ``'stata'``: analytic standard errors even if the fit
+          bootstrapped (``estat`` always reports them); the group
+          average holds the cohort shares fixed while every other
+          aggregate and every cell carries the share term; on repeated
+          cross-sections the simple and group aggregates use csdid's
+          per-cell counts (``agg_weights='csdid'``).
+
+        An explicit ``share_variance`` / ``agg_weights`` / ``bstrap`` /
+        ``cband`` / ``n_boot`` that contradicts the parity raises. The
+        conventions used are in ``model_info['conventions']``.
+
+        .. versionadded:: 1.40.0
 
     Returns
     -------
@@ -200,6 +225,25 @@ def aggte(
     from ..survey.linearization import refuse_design_result
 
     refuse_design_result(result, "aggte")
+
+    # parity= (or the fit's parity) fixes the aggregation conventions of R
+    # did / Stata csdid; contradicting arguments raise in there.
+    parity = _conv.require_parity(parity, function="aggte")
+    _p = _conv.resolve_aggte_parity(
+        parity,
+        fit_info=model_info,
+        explicit=_conv.explicit_args(),
+        type=type,
+        bstrap=bstrap,
+        cband=cband,
+        n_boot=n_boot,
+        share_variance=share_variance,
+        agg_weights=agg_weights,
+        has_cell_counts=detail is not None and "n_treated_obs" in detail.columns,
+    )
+    parity = _p["parity"]
+    bstrap, cband, agg_weights = _p["bstrap"], _p["cband"], _p["agg_weights"]
+    share_cells, share_overall = _p["share_cells"], _p["share_overall"]
 
     # Inference settings follow the fit unless overridden (R did::aggte's
     # bstrap = NULL / cband = NULL / biters from att_gt).
@@ -324,7 +368,7 @@ def aggte(
     psi_cells: Optional[np.ndarray] = None
     if inf_matrix is not None:
         if (
-            share_variance
+            share_cells
             and unit_cohorts is not None
             and len(unit_cohorts) == inf_matrix.shape[0]
         ):
@@ -473,7 +517,7 @@ def aggte(
             #     estimated share, so the term applies here instead (the
             #     per-cohort cells are single-cohort, so their share term is zero).
             overall_inf = np.asarray(psi_cells @ w_overall, dtype=float)
-            if type == "group" and ind_cells is not None:
+            if type == "group" and ind_cells is not None and share_overall:
                 pg_g, ind_g = _cohort_share_context(
                     np.asarray(labels, dtype=float), unit_cohorts, unit_weights
                 )
@@ -547,7 +591,17 @@ def aggte(
         "vcv_pre": vcv_pre,
         "pre_event_times": pre_event_times,
         "source_method": result.method,
-        "share_variance": bool(share_variance),
+        "share_variance": bool(share_overall if type == "group" else share_cells),
+        "parity": parity,
+        "conventions": _conv.aggte_conventions(
+            model_info,
+            parity=parity,
+            type=type,
+            bstrap=bstrap,
+            share_cells=share_cells,
+            share_overall=share_overall,
+            agg_weights=agg_weights,
+        ),
     }
     if "base_period" in (result.model_info or {}):
         # sp.honest_did reads it: its bounds need the universal-base path
@@ -593,6 +647,7 @@ def aggte(
                 "alpha": alpha,
                 "random_state": random_state,
                 "share_variance": share_variance,
+                "parity": parity,
                 "upstream_run_id": upstream.run_id if upstream else None,
                 "upstream_function": upstream.function if upstream else None,
             },

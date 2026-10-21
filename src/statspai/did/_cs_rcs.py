@@ -205,12 +205,16 @@ def cs_repeated_cross_sections(
     random_state: Optional[int] = None,
     exclude_cohorts: Sequence[Any] = (),
     variance_convention: str = "delta",
+    pretest_pvalue: str = "hotelling_f",
+    analytic_aggregates: bool = False,
 ) -> CausalResult:
     """Callaway-Sant'Anna ATT(g, t) when the rows are not a balanced panel.
 
     See the module docstring and ``docs/dev/cleanroom/cs_rcs.md``.
     ``unit_col`` switches on the unbalanced-panel reading (influence
     functions summed within unit); without it every row is its own unit.
+    ``analytic_aggregates`` keeps the simple ATT and the event study on
+    analytic standard errors under ``bstrap=True`` (``parity='stata'``).
     The remaining arguments are those of
     :func:`statspai.did.callaway_santanna`.
     """
@@ -423,6 +427,7 @@ def cs_repeated_cross_sections(
             detail["cband_lower"] = att_vals - crit * se_new
             detail["cband_upper"] = att_vals + crit * se_new
 
+    agg_boot_cfg = None if analytic_aggregates else boot_cfg
     cohort_sizes = _cohort_sizes(unit_cohorts, cohorts, unit_w)
     post = (detail["relative_time"] >= 0).to_numpy()
     post_inf = inf_matrix[:, post] if inf_matrix is not None else None
@@ -432,7 +437,7 @@ def cs_repeated_cross_sections(
         cohort_sizes,
         n_units,
         alpha,
-        boot_cfg=boot_cfg,
+        boot_cfg=agg_boot_cfg,
         unit_cohorts=unit_cohorts,
         unit_weights=unit_w,
         cluster_ids=analytic_cluster,
@@ -443,7 +448,7 @@ def cs_repeated_cross_sections(
         cohort_sizes,
         n_units,
         alpha,
-        boot_cfg=boot_cfg,
+        boot_cfg=agg_boot_cfg,
         unit_cohorts=unit_cohorts,
         unit_weights=unit_w,
         cluster_ids=analytic_cluster,
@@ -455,6 +460,7 @@ def cs_repeated_cross_sections(
         pretest=pretest,
         pretest_periods=pretest_periods,
         cluster_ids=cluster_ids,
+        pvalue_method=pretest_pvalue,
     )
 
     model_info: Dict[str, Any] = {

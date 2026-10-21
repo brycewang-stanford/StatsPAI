@@ -2984,7 +2984,10 @@ def _build_registry() -> None:
                     False,
                     "joint",
                     "Report the joint pre-trend Wald test ('joint') or skip "
-                    "it ('none').",
+                    "it ('none'). model_info['pretrend_test'] carries both "
+                    "p-values: pvalue_f (Hotelling-F, the default pvalue) "
+                    "and pvalue_chi2 (what R did / csdid report; the "
+                    "pvalue under parity=).",
                     ["joint", "none"],
                 ),
                 ParamSpec(
@@ -3047,7 +3050,12 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "universal",
-                    "Base period",
+                    "Base period. 'universal' compares every cell with g-1 "
+                    "(the base sp.honest_did needs); 'varying' compares a "
+                    "pre-period cell with the period before it, the default "
+                    "of R did and Stata csdid. Post-period ATT(g,t) are the "
+                    "same under both; pre-period ones differ. summary() "
+                    "notes it when left unset; parity= sets 'varying'.",
                     ["universal", "varying"],
                 ),
                 ParamSpec(
@@ -3106,7 +3114,13 @@ def _build_registry() -> None:
                     "Multiplier-bootstrap SEs per ATT(g,t) instead of analytic "
                     "(R did / Stata csdid wboot)",
                 ),
-                ParamSpec("biters", "int", False, 1000, "Bootstrap replications"),
+                ParamSpec(
+                    "biters",
+                    "int",
+                    False,
+                    1000,
+                    "Bootstrap replications (alias n_boot=, aggte's spelling)",
+                ),
                 ParamSpec(
                     "cband",
                     "bool",
@@ -3138,6 +3152,37 @@ def _build_registry() -> None:
                     "under-covers when the propensity model is wrong. Same "
                     "ATT(g,t).",
                     ["delta", "reference"],
+                ),
+                ParamSpec(
+                    "always_treated",
+                    "str",
+                    False,
+                    "drop",
+                    "Units first treated at or before the first period "
+                    "(+ anticipation) have no untreated period and no "
+                    "identified ATT(g,t). 'drop' removes them with one "
+                    "warning and records model_info['n_always_treated_"
+                    "dropped'] (R did and Stata csdid drop them too); "
+                    "'error' raises IdentificationFailure.",
+                    ["drop", "error"],
+                ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "Use every convention of R did 2.5 ('r') or Stata csdid "
+                    "1.8 ('stata') where StatsPAI's default differs: "
+                    "base_period='varying', the not-yet-treated cutoff "
+                    "('period' / 'cohort'), the chi2 pre-test p-value, R's "
+                    "balance='full' on unbalanced panels, csdid's analytic "
+                    "aggregation SEs and fixed group-average shares, and "
+                    "each program's bootstrap defaults when bstrap=True. "
+                    "An explicit argument contradicting a convention "
+                    "raises. sp.aggte inherits it. Matches att_gt / csdid "
+                    "on mpdta to 1e-10 (1e-7 with covariates). Recorded in "
+                    "model_info['conventions'].",
+                    ["r", "stata"],
                 ),
             ],
             returns="CausalResult",
@@ -33772,6 +33817,19 @@ def _build_registry() -> None:
                     "or Stata csdid's per-cell treated-observation counts "
                     "(repeated cross-sections only; simple and group)",
                     ["did", "csdid"],
+                ),
+                ParamSpec(
+                    "parity",
+                    "str",
+                    False,
+                    None,
+                    "Aggregate with R did::aggte's ('r') or Stata csdid "
+                    "estat's ('stata') conventions. None inherits the fit's "
+                    "parity; one that differs from the fit's raises. "
+                    "'stata': analytic SEs even after a bootstrap fit, "
+                    "cohort-share term everywhere except the group average, "
+                    "csdid cell counts on repeated cross-sections.",
+                    ["r", "stata"],
                 ),
             ],
             returns="CausalResult",

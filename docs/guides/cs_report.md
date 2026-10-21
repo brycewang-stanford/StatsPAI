@@ -59,7 +59,7 @@ rpt.simple       # DataFrame: simple aggregation
 rpt.dynamic      # DataFrame: event study with uniform bands
 rpt.group        # DataFrame: per-cohort θ(g)
 rpt.calendar     # DataFrame: per-calendar-time θ(t)
-rpt.pretrend     # dict: χ² pre-trend Wald test
+rpt.pretrend     # dict: χ² pre-trend Wald test (pvalue_f and pvalue_chi2)
 rpt.breakdown    # DataFrame: R-R breakdown M* per post event time
 rpt.meta         # dict: run metadata (n_units, estimator, …)
 ```

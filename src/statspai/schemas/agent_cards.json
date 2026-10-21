@@ -3830,6 +3830,15 @@
               "alp"
             ]
           },
+          "always_treated": {
+            "default": "drop",
+            "description": "Units first treated at or before the first period (+ anticipation) have no untreated period and no identified ATT(g,t). 'drop' removes them with one warning and records model_info['n_always_treated_dropped'] (R did and Stata csdid drop them too); 'error' raises IdentificationFailure.",
+            "enum": [
+              "drop",
+              "error"
+            ],
+            "type": "string"
+          },
           "anticipation": {
             "default": 0,
             "description": "Number of anticipation periods",
@@ -3846,7 +3855,7 @@
           },
           "base_period": {
             "default": "universal",
-            "description": "Base period",
+            "description": "Base period. 'universal' compares every cell with g-1 (the base sp.honest_did needs); 'varying' compares a pre-period cell with the period before it, the default of R did and Stata csdid. Post-period ATT(g,t) are the same under both; pre-period ones differ. summary() notes it when left unset; parity= sets 'varying'.",
             "enum": [
               "universal",
               "varying"
@@ -3855,8 +3864,11 @@
           },
           "biters": {
             "default": 1000,
-            "description": "Bootstrap replications",
-            "type": "integer"
+            "description": "Bootstrap replications (alias n_boot=, aggte's spelling)",
+            "type": "integer",
+            "x-aliases": [
+              "n_boot"
+            ]
           },
           "boot_weight_type": {
             "default": "rademacher",
@@ -3956,9 +3968,17 @@
             "description": "False means repeated cross-sections",
             "type": "boolean"
           },
+          "parity": {
+            "description": "Use every convention of R did 2.5 ('r') or Stata csdid 1.8 ('stata') where StatsPAI's default differs: base_period='varying', the not-yet-treated cutoff ('period' / 'cohort'), the chi2 pre-test p-value, R's balance='full' on unbalanced panels, csdid's analytic aggregation SEs and fixed group-average shares, and each program's bootstrap defaults when bstrap=True. An explicit argument contradicting a convention raises. sp.aggte inherits it. Matches att_gt / csdid on mpdta to 1e-10 (1e-7 with covariates). Recorded in model_info['conventions'].",
+            "enum": [
+              "r",
+              "stata"
+            ],
+            "type": "string"
+          },
           "pretest": {
             "default": "joint",
-            "description": "Report the joint pre-trend Wald test ('joint') or skip it ('none').",
+            "description": "Report the joint pre-trend Wald test ('joint') or skip it ('none'). model_info['pretrend_test'] carries both p-values: pvalue_f (Hotelling-F, the default pvalue) and pvalue_chi2 (what R did / csdid report; the pvalue under parity=).",
             "enum": [
               "joint",
               "none"
@@ -76436,6 +76456,14 @@
             "default": true,
             "description": "Drop ATT(g,t) cells with missing / infinite SE before aggregating",
             "type": "boolean"
+          },
+          "parity": {
+            "description": "Aggregate with R did::aggte's ('r') or Stata csdid estat's ('stata') conventions. None inherits the fit's parity; one that differs from the fit's raises. 'stata': analytic SEs even after a bootstrap fit, cohort-share term everywhere except the group average, csdid cell counts on repeated cross-sections.",
+            "enum": [
+              "r",
+              "stata"
+            ],
+            "type": "string"
           },
           "random_state": {
             "description": "Seed for the multiplier bootstrap. When the bootstrap runs without one, a seed is drawn and recorded in ``model_info['random_state']`` so the reported SE can be reproduced exactly.",

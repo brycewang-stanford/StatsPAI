@@ -42,6 +42,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from . import _cs_conventions as _conv
 from . import _dr_common as _drc
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import cohort_share_context as _cohort_share_context
@@ -249,12 +250,15 @@ def _require_columns(
     weightsname="weights",
     est_method="estimator",
     alp="alpha",
+    # sp.aggte / sp.drdid / sp.did_imputation spell it n_boot.
+    n_boot="biters",
 )
 @accepts_vce(
     default=None, cluster="clustervars", native={"bootstrap": {"bstrap": True}}
 )
 @_calendar_time_aware(time="t", cohort="g")
 @_expands_categorical("x")
+@_conv.track_explicit
 def callaway_santanna(
     data: pd.DataFrame,
     y: str,
@@ -284,6 +288,8 @@ def callaway_santanna(
     balance: Optional[str] = None,
     design: Optional[Any] = None,
     variance_convention: Literal["delta", "reference"] = "delta",
+    always_treated: Literal["drop", "error"] = "drop",
+    parity: Optional[Literal["r", "stata"]] = None,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -410,6 +416,15 @@ def callaway_santanna(
     base_period : str, default 'universal'
         Base period: 'universal' (always g-1) or 'varying'.
 
+        R ``did`` and Stata ``csdid`` default to ``'varying'``. The two
+        give the same post-treatment ATT(g, t) and different
+        pre-treatment ones. ``'universal'`` is kept as the default
+        because it is the base that ``sp.honest_did`` needs. When it is
+        left unset, ``summary()`` says so in one line, and
+        ``model_info['conventions']['base_period_explicit']`` records
+        whether it was passed. ``parity='r'`` / ``'stata'`` sets
+        ``'varying'``.
+
         Maps onto Stata ``csdid``'s pre-treatment gap options:
         ``'universal'`` is ``long2``, ``'varying'`` is the csdid default
         (short gaps). ``csdid``'s ``long`` is ``long2`` with the sign of
@@ -459,7 +474,8 @@ def callaway_santanna(
         exact R-default parity).
     biters : int, default 1000
         Number of multiplier-bootstrap replications (R: ``biters``,
-        Stata: ``reps()``).
+        Stata: ``reps()``). ``n_boot=`` is accepted as an alias, the
+        spelling of ``sp.aggte``.
     cband : bool, default False
         If ``True``, additionally report *uniform* (simultaneous)
         confidence bands across all ATT(g, t) via the sup-t bootstrap
@@ -606,6 +622,59 @@ def callaway_santanna(
 
         .. versionchanged:: 1.40.0
            ⚠️ The default was the R convention (``'reference'``).
+    always_treated : {'drop', 'error'}, default 'drop'
+        Units whose cohort ``g`` is at or before the first observed period
+        plus ``anticipation`` have no untreated period, so none of their
+        ATT(g, t) is identified and they never serve as comparisons.
+        ``'drop'`` removes them before estimation, with one warning, and
+        records the count in ``model_info['n_always_treated_dropped']``
+        (cohorts and rows in ``model_info['always_treated']``). This is
+        R ``did``'s rule (it drops ``g <= min(t) + anticipation``, the
+        first period included) and Stata ``csdid``'s. ``'error'`` raises
+        :class:`~statspai.exceptions.IdentificationFailure` instead.
+
+        .. versionchanged:: 1.40.0
+           The units used to be kept, with their cohort skipped. Every
+           ATT(g, t), aggregate and standard error is the same. What
+           changes is ``n_units`` / ``n_obs``, the unit count in the
+           Hotelling-F pre-test p-value, and the draws of a seeded
+           multiplier bootstrap.
+    parity : {'r', 'stata'}, optional
+        Use every convention of R ``did`` 2.5 (``'r'``) or Stata
+        ``csdid`` 1.8 (``'stata'``) where StatsPAI's default differs:
+
+        - ``base_period='varying'`` (both);
+        - the not-yet-treated cutoff: ``notyet_cutoff='period'`` (R) or
+          ``'cohort'`` (Stata);
+        - the pre-test p-value from chi2 rather than the Hotelling-F
+          correction (``model_info['pretrend_test']['pvalue']``; both are
+          always reported);
+        - an unbalanced panel is first balanced (``balance='full'``) under
+          ``'r'``, as R ``did`` does; csdid 1.8 uses each cell's complete
+          pairs, the StatsPAI default;
+        - under ``'stata'`` this fit's simple ATT and event study, and
+          every ``sp.aggte`` of it, use analytic standard errors even when
+          ``bstrap=True`` (csdid's ``estat`` does), and the group average
+          holds the cohort shares fixed;
+        - with ``bstrap=True``, the bootstrap options default to the
+          program's: Rademacher weights and 1000 draws (R), Mammen weights
+          and 999 draws (Stata), and uniform bands in both. These stay
+          options: an explicit ``boot_weight_type`` / ``biters`` /
+          ``cband`` is used as given.
+
+        Passing a convention that contradicts the chosen parity (say
+        ``parity='stata', base_period='universal'``) raises
+        :class:`~statspai.exceptions.MethodIncompatibility`. The critical
+        value is the normal one in both programs, clustered or not. With
+        ``bstrap=False`` the standard errors are those of
+        ``att_gt(bstrap = FALSE)`` and ``csdid`` without ``wboot``; on
+        ``mpdta`` they agree to 1e-10, and to 1e-7 with a covariate,
+        where each program's logit stops at its own tolerance
+        (``tests/reference_parity/test_cs_parity_switch.py``). The
+        conventions a fit used are in ``model_info['conventions']``,
+        whether or not ``parity=`` was passed.
+
+        .. versionadded:: 1.40.0
 
     References
     ----------
@@ -613,7 +682,10 @@ def callaway_santanna(
     with multiple time periods. *Journal of Econometrics*. [@callaway2021difference]
     """
     if design is not None and getattr(design, "is_replicate_design", False):
-        _args = dict(locals())
+        # Forward only what the caller passed, so that each refit sees the
+        # same explicit arguments (parity= checks for conflicts with them).
+        _passed = _conv.explicit_args() | {"data", "design"}
+        _args = {k: v for k, v in dict(locals()).items() if k in _passed}
         from ..survey._replicate_refit import replicate_refit
 
         return replicate_refit(
@@ -670,6 +742,26 @@ def callaway_santanna(
         data, x = _covariates_from_formula(data, x, function="callaway_santanna")
         x = x or None
     x = _coerce_optional_columns(x, argument="x")
+    # parity= sets the conventions of R did / Stata csdid in one argument
+    # (did/_cs_conventions.py); an explicit argument that contradicts one
+    # raises there.
+    parity = _conv.require_parity(parity, function="callaway_santanna")
+    _explicit = _conv.explicit_args()
+    base_period_explicit = "base_period" in _explicit
+    _resolved_conv = _conv.resolve_fit_parity(
+        parity,
+        explicit=_explicit,
+        base_period=base_period,
+        notyet_cutoff=notyet_cutoff,
+        balance=balance,
+        allow_unbalanced_panel=allow_unbalanced_panel,
+        panel=panel,
+        estimator=estimator,
+    )
+    base_period = _resolved_conv["base_period"]
+    notyet_cutoff = _resolved_conv["notyet_cutoff"]
+    balance = _resolved_conv["balance"]
+    pretest_pvalue = _conv.pretest_pvalue_method(parity)
     estimator = _require_string_option(
         estimator,
         argument="estimator",
@@ -688,7 +780,11 @@ def callaway_santanna(
     pscore_trim = _require_pscore_trim(pscore_trim)
     # A non-default cutoff with never-treated controls is silently inert —
     # say so rather than let the caller believe it took effect (§7).
-    if notyet_cutoff != "period" and control_group == "nevertreated":
+    if (
+        notyet_cutoff != "period"
+        and control_group == "nevertreated"
+        and "notyet_cutoff" in _explicit
+    ):
         warnings.warn(
             f"callaway_santanna: notyet_cutoff={notyet_cutoff!r} only affects the "
             "'notyettreated' control group, but control_group="
@@ -770,6 +866,12 @@ def callaway_santanna(
             n_clusters=_n_clusters,
         )
         bstrap = _resolved == "multiplier"
+    # Under parity= the bootstrap options default to the program's (only the
+    # ones the caller left unset; they stay options, not conventions).
+    _boot_defaults = _conv.bootstrap_defaults(parity, explicit=_explicit, bstrap=bstrap)
+    biters = _boot_defaults.get("biters", biters)
+    boot_weight_type = _boot_defaults.get("boot_weight_type", boot_weight_type)
+    cband = _boot_defaults.get("cband", cband)
     biters = _require_int_at_least(biters, argument="biters", minimum=1)
     boot_weight_type = _require_string_option(
         boot_weight_type,
@@ -795,6 +897,17 @@ def callaway_santanna(
         # R `did` stops on a cohort that varies within a unit; the reshape
         # below would otherwise keep each unit's first row only.
         _require_constant_cohort(data, unit=i, cohort=g, function="callaway_santanna")
+    # Always-treated units (g <= first period + anticipation) leave the
+    # sample here, as in R did and Stata csdid; they carry no ATT(g, t) and
+    # are never comparisons, so only the unit counts move.
+    data, always_info = _conv.drop_always_treated(
+        data,
+        g=g,
+        t=t,
+        i=i if panel else None,
+        anticipation=anticipation,
+        rule=always_treated,
+    )
     balance_info: Optional[Dict[str, Any]] = None
     if balance == "full":
         data, balance_info = _balance_full(data, i, t)
@@ -964,7 +1077,7 @@ def callaway_santanna(
             "(the others then contribute zero but keep their PSUs).",
         )
     if (not panel) or use_unbalanced:
-        return _callaway_santanna_rcs(
+        _rcs_result = _callaway_santanna_rcs(
             data=data,
             y=y,
             g=g,
@@ -988,7 +1101,19 @@ def callaway_santanna(
             random_state=random_state,
             exclude_cohorts=excluded_cohorts,
             variance_convention=variance_convention,
+            pretest_pvalue=pretest_pvalue,
+            analytic_aggregates=parity == "stata",
         )
+        _record_conventions(
+            _rcs_result.model_info,
+            parity=parity,
+            base_period=base_period,
+            base_period_explicit=base_period_explicit,
+            notyet_cutoff=notyet_cutoff,
+            balance="none" if use_unbalanced else None,
+            always_info=always_info,
+        )
+        return _rcs_result
 
     # A panel has one row per unit and period. Repeated (unit, period) rows
     # used to be collapsed to the first one by the reshape below, so the
@@ -1017,6 +1142,7 @@ def callaway_santanna(
         data, y, g, t, i, x, weights
     )
     cohorts = [c for c in cohorts if not any(c == e for e in excluded_cohorts)]
+    unbalanced_panel = bool(y_wide.isna().to_numpy().any())
 
     if not cohorts:
         raise DataInsufficient(
@@ -1181,13 +1307,15 @@ def callaway_santanna(
         if inf_matrix is not None
         else None
     )
+    # Stata csdid's estat aggregates with analytic SEs even after wboot.
+    agg_boot_cfg = None if parity == "stata" else boot_cfg
     agg_est, agg_se, agg_pval, agg_ci = _aggregate_simple(
         detail[post_mask],
         post_inf,
         cohort_sizes,
         n_units,
         alpha,
-        boot_cfg=boot_cfg,
+        boot_cfg=agg_boot_cfg,
         unit_cohorts=unit_info[g].to_numpy(),
         unit_weights=unit_weights,
         cluster_ids=analytic_cluster,
@@ -1200,7 +1328,7 @@ def callaway_santanna(
         cohort_sizes,
         n_units,
         alpha,
-        boot_cfg=boot_cfg,
+        boot_cfg=agg_boot_cfg,
         unit_cohorts=unit_info[g].to_numpy(),
         unit_weights=unit_weights,
         cluster_ids=analytic_cluster,
@@ -1214,6 +1342,7 @@ def callaway_santanna(
         pretest=pretest,
         pretest_periods=pretest_periods,
         cluster_ids=cluster_ids,
+        pvalue_method=pretest_pvalue,
     )
 
     # Trimming that binds changes the estimand — it silently redefines the
@@ -1324,6 +1453,16 @@ def callaway_santanna(
     if balance_info is not None:
         model_info["balance_n_units_dropped"] = balance_info["n_units_dropped"]
         model_info["balance_n_obs_dropped"] = balance_info["n_obs_dropped"]
+    model_info["unbalanced_panel"] = unbalanced_panel
+    _record_conventions(
+        model_info,
+        parity=parity,
+        base_period=base_period,
+        base_period_explicit=base_period_explicit,
+        notyet_cutoff=notyet_cutoff,
+        balance=model_info["balance"],
+        always_info=always_info,
+    )
 
     _result = CausalResult(
         method="Callaway and Sant'Anna (2021)",
@@ -1363,6 +1502,8 @@ def callaway_santanna(
                 "cband": cband,
                 "boot_weight_type": boot_weight_type,
                 "random_state": random_state,
+                "parity": parity,
+                "always_treated": always_treated,
             },
             data=data,
             overwrite=False,
@@ -1375,6 +1516,36 @@ def callaway_santanna(
 # ======================================================================
 # Data preparation
 # ======================================================================
+
+
+def _record_conventions(
+    model_info: Dict[str, Any],
+    *,
+    parity: Optional[str],
+    base_period: str,
+    base_period_explicit: bool,
+    notyet_cutoff: str,
+    balance: Optional[str],
+    always_info: Dict[str, Any],
+) -> None:
+    """Write ``conventions``, the summary notes and the always-treated record."""
+    se_method = model_info.get("se_method", "analytic")
+    model_info["parity"] = parity
+    model_info["conventions"] = _conv.fit_conventions(
+        parity,
+        base_period=base_period,
+        base_period_explicit=base_period_explicit,
+        se_method="bootstrap" if se_method == "multiplier" else se_method,
+        pretest=model_info.get("pretrend_test"),
+        notyet_cutoff=notyet_cutoff,
+        balance=balance,
+    )
+    model_info["convention_notes"] = _conv.fit_notes(
+        parity, base_period=base_period, explicit=base_period_explicit
+    )
+    model_info["n_always_treated_dropped"] = int(always_info.get("n_units", 0))
+    model_info["always_treated"] = _conv.always_treated_record(always_info)
+    model_info["_always_treated_ids"] = always_info.get("_ids")
 
 
 def _never_treated_beyond_horizon(data: pd.DataFrame, g: str, t: str) -> pd.DataFrame:
@@ -2896,6 +3067,7 @@ def _pretrend_test(
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
     cluster_ids: Any = None,
+    pvalue_method: str = "hotelling_f",
 ) -> Optional[Dict[str, Any]]:
     """Joint Wald test for H0: all pre-treatment ATT(g,t) = 0.
 
@@ -2904,6 +3076,13 @@ def _pretrend_test(
     including them adds degrees of freedom faster than signal and pushes
     the test toward non-rejection — the direction that flatters the
     design.
+
+    Both p-values are returned: ``pvalue_f`` (Hotelling-F, below) and
+    ``pvalue_chi2`` (the plug-in chi2(r), which R ``did`` and Stata
+    ``csdid`` report). ``pvalue`` is the one named by ``pvalue_method``
+    (``'hotelling_f'``, the default, or ``'chi2'``, under ``parity=``);
+    ``pvalue_method`` in the result says which was used (chi2 when the
+    F correction is unavailable).
     """
     if pretest == "none":
         return None
@@ -2977,11 +3156,15 @@ def _pretrend_test(
     # which is exact under (asymptotically) normal influence functions and
     # converges to chi²(r)/r as G → ∞. Falls back to chi² when G is unknown
     # or too small relative to r.
+    pvalue_chi2 = float(stats.chi2.sf(W, rank))
+    pvalue_f: Optional[float] = None
     if G is not None and G > rank + 1:
         f_stat = W * (G - rank) / (rank * (G - 1))
-        pvalue = float(stats.f.sf(f_stat, rank, G - rank))
+        pvalue_f = float(stats.f.sf(f_stat, rank, G - rank))
+    if pvalue_method == "hotelling_f" and pvalue_f is not None:
+        pvalue, used = pvalue_f, "hotelling_f"
     else:
-        pvalue = float(stats.chi2.sf(W, rank))
+        pvalue, used = pvalue_chi2, "chi2"
 
     return {
         "statistic": W,
@@ -2990,6 +3173,10 @@ def _pretrend_test(
         "rank": rank,
         "rank_deficient": rank < k,
         "pvalue": pvalue,
+        "pvalue_method": used,
+        "pvalue_chi2": pvalue_chi2,
+        "pvalue_f": pvalue_f,
+        "f_df": (rank, G - rank) if pvalue_f is not None else None,
     }
 
 

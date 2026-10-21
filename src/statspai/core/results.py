@@ -4183,11 +4183,29 @@ class CausalResult(DiDAccessorsMixin):
             dof = pt.get("df")
             label = f"chi2({dof})" if dof is not None else "chi2"
             lines.append("-" * 78)
+            p_f, p_chi2 = pt.get("pvalue_f"), pt.get("pvalue_chi2")
+            if p_f is not None and p_chi2 is not None:
+                # Callaway-Sant'Anna reports both: the Hotelling-F p-value
+                # by default, the chi2 one that R did / csdid print.
+                both = [
+                    f"p (Hotelling F) = {float(p_f):.4f}",
+                    f"p (chi2, R did / csdid) = {float(p_chi2):.4f}",
+                ]
+                if pt.get("pvalue_method") == "chi2":
+                    both.reverse()
+                p_text = "; ".join(both)
+            else:
+                p_text = f"p-value = {float(pt['pvalue']):.4f}"
             lines.append(
                 f"  Pre-trend Test: {label} = {float(pt['statistic']):.4f}, "
-                f"p-value = {float(pt['pvalue']):.4f}"
+                f"{p_text}"
             )
             lines.append("")
+
+        # One line per convention that differs from the reference programs
+        # (e.g. callaway_santanna's base period), when the estimator says so.
+        for note in self.model_info.get("convention_notes") or ():
+            lines.append(f"  Note: {note}")
 
         # Model info footer
         lines.append("-" * 78)
