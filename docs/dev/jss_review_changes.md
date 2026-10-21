@@ -5375,3 +5375,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces of the formula-integer modules after narrowing an except
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `8ae8fdc03`.
+- **Reason.** `core/_formula_dtypes.py` (added in `ab6433bf9`) caught
+  `Exception` around the formula parse; it now catches patsy's parse
+  errors only. The file is on the traced paths of Track A modules 01 14
+  48 51 53 54 55 56 57 and of the original-data modules 01 04 04b 09. The
+  change does not touch the estimation (those formulas parse), so the
+  committed results stand; only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
