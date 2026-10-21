@@ -1691,6 +1691,13 @@ def _tool_detect_design(
     return result_dict
 
 
+def _server_runtime() -> Dict[str, Any]:
+    """StatsPAI version and interpreter of this server (``sp.doctor`` subset)."""
+    from .._doctor import runtime_summary
+
+    return runtime_summary()
+
+
 def _tool_preflight(
     arguments: Dict[str, Any],
     data: Optional[pd.DataFrame],
@@ -1738,6 +1745,7 @@ def _tool_preflight(
         result_dict = out.to_dict()
     else:
         result_dict = {"value": str(out), "verdict": getattr(out, "verdict", None)}
+    result_dict["server_runtime"] = _server_runtime()
     if as_handle:
         rid = RESULT_CACHE.put(out, tool="preflight", arguments=arguments)
         result_dict["result_id"] = rid
@@ -2890,6 +2898,7 @@ def _tool_describe_function(arguments: Dict[str, Any]) -> Dict[str, Any]:
         "tool": "call_function",
         "arguments": {"function": name, "arguments": {"<param>": "<value>"}},
     }
+    out["server_runtime"] = _server_runtime()
     return out
 
 

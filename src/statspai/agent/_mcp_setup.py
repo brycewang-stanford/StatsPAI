@@ -14,6 +14,12 @@ Nothing here talks to the network. ``doctor`` reads client configuration
 files and starts the interpreters they name with ``-c "import statspai"``;
 ``config --write`` edits one JSON configuration file after copying it to a
 timestamped backup.
+
+For the interpreter-level view (which StatsPAI every ``python3`` on
+``PATH`` has, optional backends, R / Stata) see ``statspai doctor`` /
+``sp.doctor()`` in :mod:`statspai._doctor`; the server itself reports its
+interpreter in the session instructions and as ``server_runtime`` in the
+``describe_function`` / ``preflight`` replies.
 """
 
 from __future__ import annotations
@@ -466,12 +472,15 @@ def run_doctor(*, self_test: bool = True, cwd: Optional[Path] = None) -> Dict[st
     """Collect the doctor report (see :func:`format_doctor`)."""
     import statspai
 
+    from .._doctor import runtime_summary
+
     report: Dict[str, Any] = {
         "python": os.path.abspath(sys.executable),
         "python_version": platform.python_version(),
         "platform": platform.platform(),
         "statspai_version": statspai.__version__,
         "statspai_file": statspai.__file__,
+        "install_kind": runtime_summary()["install_kind"],
         "problems": [],
         "notes": [],
     }
@@ -561,6 +570,8 @@ def format_doctor(report: Dict[str, Any]) -> str:
         f"  interpreter     {report['python']} (Python {report['python_version']})",
         f"  StatsPAI        {report['statspai_version']}  {report['statspai_file']}",
     ]
+    if report.get("install_kind"):
+        lines.append(f"  install         {report['install_kind']}")
     probe = report.get("statspai_mcp_on_path_probe") or {}
     if report.get("statspai_mcp_on_path"):
         lines.append(

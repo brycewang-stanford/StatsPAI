@@ -522,6 +522,14 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(sites x species).",
         },
     ],
+    "doctor": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. timeout=5.0.",
+            "symptom": "doctor: timeout must be a positive number of seconds, "
+            "got <timeout>",
+        }
+    ],
     "esize": [
         {
             "exception": "statspai.DataInsufficient",

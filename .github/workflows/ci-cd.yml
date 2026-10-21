@@ -254,6 +254,12 @@ jobs:
 
     - name: Test with pytest (full coverage)
       if: matrix.test_scope == 'full' && matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      # The DiD paper gallery (tests/external_parity/test_did_paper_gallery.py)
+      # needs four public datasets that are fetched, not shipped (~7 MB,
+      # SHA-256 pinned). Only this one full-scope job downloads them; every
+      # other job skips those tests.
+      env:
+        STATSPAI_FETCH_DATASETS: "1"
       run: |
         pytest tests/ -v --cov=statspai --cov-report=xml --cov-report=term-missing --cov-fail-under=60
 

@@ -13425,6 +13425,31 @@
     }
   },
   {
+    "description": "Environment report: which StatsPAI this interpreter imports (version, location, editable install, pip metadata, git revision), sys.executable and sys.prefix, the optional backends with versions (statspai_hdfe with its API level, pyfixest, numba, jax, torch, pymc, matplotlib, polars, pyarrow), whether Rscript and Stata are found, and the other python / python3.x interpreters on PATH with the StatsPAI version each has. Use it when `import statspai` works in one shell and not another, or an MCP client runs an old version. Same report as `statspai doctor`; `python -m statspai --where` prints the first block.",
+    "name": "doctor",
+    "parameters": {
+      "properties": {
+        "check_imports": {
+          "default": false,
+          "description": "Import each installed optional backend in a child process and report whether it succeeds (slower; torch / jax / pymc take seconds). Off: installed + metadata version only.",
+          "type": "boolean"
+        },
+        "probe_path": {
+          "default": true,
+          "description": "Also ask each python / python3 / python3.x on PATH (child process, without PYTHONPATH) which StatsPAI it has.",
+          "type": "boolean"
+        },
+        "timeout": {
+          "default": 5.0,
+          "description": "Seconds allowed for each child process; a probe that times out is reported with an error field.",
+          "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Reports each arm's effective sample size and warns when the weights leave an arm less than a fifth of its size. Validation: certified parity evidence.",
     "name": "ipw",
     "parameters": {

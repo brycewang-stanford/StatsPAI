@@ -1587,6 +1587,28 @@ _SESSION_INSTRUCTIONS = (
 )
 
 
+def _runtime_instructions() -> str:
+    """The last paragraph of the instructions: which Python runs the server.
+
+    A client cannot otherwise tell which environment its ``statspai-mcp``
+    entry resolved to, and an old StatsPAI in another environment is the
+    most common broken setup (``statspai mcp doctor``).
+    """
+    from .._doctor import runtime_summary
+
+    rt = runtime_summary()
+    return (
+        f"\n\nServer runtime: StatsPAI {rt['statspai_version']} on Python "
+        f"{rt['python_version']} at {rt['python']} ({rt['install_kind']}). "
+        "describe_function and preflight replies repeat this as "
+        "server_runtime; `statspai doctor` in a shell lists the other "
+        "interpreters and their StatsPAI versions."
+    )
+
+
+_SESSION_INSTRUCTIONS = _SESSION_INSTRUCTIONS + _runtime_instructions()
+
+
 def _handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
     # Snapshot the client's capability advertisement so server-side
     # sampling helpers can route to ``sampling/createMessage`` when

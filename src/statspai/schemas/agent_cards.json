@@ -29146,6 +29146,86 @@
   {
     "alias_of": null,
     "alternatives": [
+      "version_info"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Environment report: which StatsPAI this interpreter imports (version, location, editable install, pip metadata, git revision), sys.executable and sys.prefix, the optional backends with versions (statspai_hdfe with its API level, pyfixest, numba, jax, torch, pymc, matplotlib, polars, pyarrow), whether Rscript and Stata are found, and the other python / python3.x interpreters on PATH with the StatsPAI version each has. Use it when `import statspai` works in one shell and not another, or an MCP client runs an old version. Same report as `statspai doctor`; `python -m statspai --where` prints the first block.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.doctor(probe_path=False)['statspai']['version']",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. timeout=5.0.",
+        "symptom": "doctor: timeout must be a positive number of seconds, got <timeout>"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "doctor",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "dict",
+      "description": "dict {statspai, python, environment, backends, rust, r, stata, interpreters_on_path, env, problems, notes, ok}",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Environment report: which StatsPAI this interpreter imports (version, location, editable install, pip metadata, git revision), sys.executable and sys.prefix, the optional backends with versions (statspai_hdfe with its API level, pyfixest, numba, jax, torch, pymc, matplotlib, polars, pyarrow), whether Rscript and Stata are found, and the other python / python3.x interpreters on PATH with the StatsPAI version each has. Use it when `import statspai` works in one shell and not another, or an MCP client runs an old version. Same report as `statspai doctor`; `python -m statspai --where` prints the first block.",
+      "name": "doctor",
+      "parameters": {
+        "properties": {
+          "check_imports": {
+            "default": false,
+            "description": "Import each installed optional backend in a child process and report whether it succeeds (slower; torch / jax / pymc take seconds). Off: installed + metadata version only.",
+            "type": "boolean"
+          },
+          "probe_path": {
+            "default": true,
+            "description": "Also ask each python / python3 / python3.x on PATH (child process, without PYTHONPATH) which StatsPAI it has.",
+            "type": "boolean"
+          },
+          "timeout": {
+            "default": 5.0,
+            "description": "Seconds allowed for each child process; a probe that times out is reported with an error field.",
+            "type": "number"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_doctor.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "tmle",
       "g_computation"
     ],

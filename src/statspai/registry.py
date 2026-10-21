@@ -15439,6 +15439,63 @@ def _build_registry() -> None:
         )
     )
 
+    register(
+        FunctionSpec(
+            name="doctor",
+            category="utils",
+            description=(
+                "Environment report: which StatsPAI this interpreter imports "
+                "(version, location, editable install, pip metadata, git "
+                "revision), sys.executable and sys.prefix, the optional "
+                "backends with versions (statspai_hdfe with its API level, "
+                "pyfixest, numba, jax, torch, pymc, matplotlib, polars, "
+                "pyarrow), whether Rscript and Stata are found, and the other "
+                "python / python3.x interpreters on PATH with the StatsPAI "
+                "version each has. Use it when `import statspai` works in one "
+                "shell and not another, or an MCP client runs an old version. "
+                "Same report as `statspai doctor`; `python -m statspai "
+                "--where` prints the first block."
+            ),
+            params=[
+                ParamSpec(
+                    "probe_path",
+                    "bool",
+                    False,
+                    True,
+                    "Also ask each python / python3 / python3.x on PATH (child "
+                    "process, without PYTHONPATH) which StatsPAI it has.",
+                ),
+                ParamSpec(
+                    "check_imports",
+                    "bool",
+                    False,
+                    False,
+                    "Import each installed optional backend in a child process "
+                    "and report whether it succeeds (slower; torch / jax / pymc "
+                    "take seconds). Off: installed + metadata version only.",
+                ),
+                ParamSpec(
+                    "timeout",
+                    "float",
+                    False,
+                    5.0,
+                    "Seconds allowed for each child process; a probe that times "
+                    "out is reported with an error field.",
+                ),
+            ],
+            returns=(
+                "dict {statspai, python, environment, backends, rust, r, stata, "
+                "interpreters_on_path, env, problems, notes, ok}"
+            ),
+            validation_notes=[
+                "API/unit contract evidence: tests/test_doctor.py",
+            ],
+            example="sp.doctor(probe_path=False)['statspai']['version']",
+            tags=["environment", "install", "interpreter", "backends", "diagnostics"],
+            alternatives=["version_info"],
+        )
+    )
+
     # -- IPW -------------------------------------------------------------- #
     register(
         FunctionSpec(

@@ -15,7 +15,14 @@ Commands
     statspai mcp [--profile core|curated|full]
     statspai mcp doctor [--json] [--no-self-test]
     statspai mcp config --client CLIENT [--write] [--data-root DIR ...]
+    statspai doctor [--json] [--no-path] [--check-imports] [--timeout S]
     statspai version
+
+``statspai doctor`` (also ``sp.doctor()``) reports which StatsPAI this
+interpreter imports, from where, whether it is an editable install, the
+optional backends, R / Stata, and the other Python interpreters on PATH
+with the StatsPAI version each has. ``python -m statspai --where`` prints
+the first lines of that report.
 
 Discovery commands delegate to sp.help / sp.list_functions /
 sp.describe_function / sp.search_functions. ``run`` and the family
@@ -632,6 +639,31 @@ def _make_parser() -> argparse.ArgumentParser:
         help="Also execute the pipeline files on synthetic data (minutes).",
     )
 
+    # doctor
+    p_doc = sub.add_parser(
+        "doctor",
+        help="Which StatsPAI and Python this is, optional backends, other "
+        "interpreters on PATH.",
+    )
+    p_doc.add_argument("--json", action="store_true", help="Emit the report as JSON.")
+    p_doc.add_argument(
+        "--no-path",
+        action="store_true",
+        help="Skip probing the other python / python3.x interpreters on PATH.",
+    )
+    p_doc.add_argument(
+        "--check-imports",
+        action="store_true",
+        help="Import each installed optional backend in a child process "
+        "(slower: torch / jax / pymc take seconds).",
+    )
+    p_doc.add_argument(
+        "--timeout",
+        type=float,
+        default=5.0,
+        help="Seconds allowed for each child process (default 5).",
+    )
+
     # version
     sub.add_parser("version", help="Print StatsPAI version and exit.")
 
@@ -801,6 +833,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.command == "skill":
         return _skill_command(args)
+
+    if args.command == "doctor":
+        from ._doctor import doctor, format_doctor
+
+        if args.timeout <= 0:
+            print("statspai doctor: --timeout must be positive", file=sys.stderr)
+            return EXIT_USAGE
+        report = doctor(
+            probe_path=not args.no_path,
+            check_imports=args.check_imports,
+            timeout=args.timeout,
+        )
+        print(_dumps(report, indent=2) if args.json else format_doctor(report))
+        return 0 if report["ok"] else 1
 
     if args.command == "mcp":
         if args.mcp_action == "doctor":

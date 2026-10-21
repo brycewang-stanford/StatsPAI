@@ -20,6 +20,7 @@ from statspai import datasets as D
 
 def test_every_dataset_carries_a_consistent_flag():
     table = sp.list_datasets()
+    table = table[table["delivery"] == "shipped"]  # fetched rows would download
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for name, simulated in zip(table["name"], table["simulated"]):

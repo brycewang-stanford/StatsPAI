@@ -143,6 +143,7 @@ nav:
       - "Mixtape replication suite — overview": guides/mixtape_replications.md
       - "Mixtape Ch. 9 DiD — full replication": guides/mixtape_ch09_did.md
       - "Castle doctrine — real-data staggered DiD": guides/mixtape_castle_replication.md
+      - "DiD paper gallery: five published applications reproduced": guides/did_paper_gallery.md
       - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
       - "Choosing a DID estimator": guides/choosing_did_estimator.md
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md

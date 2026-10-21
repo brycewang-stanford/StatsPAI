@@ -17,7 +17,14 @@ replica instead. ``list_datasets()['source']`` says which you get.
 The one exception is ``nsw_dw()``, whose bare call is the replica
 (parity fixtures are built on it); ``nsw_dw(simulated=False)`` is the
 real sample.
-Nothing here touches the network — the whole catalogue works offline.
+
+Shipped datasets never touch the network. A few real datasets that are
+too large for the wheel, or whose licence does not clearly allow
+redistribution, are *fetched*: the first call downloads the file from
+its canonical public URL, checks a pinned SHA-256 and caches it under
+``$STATSPAI_DATA_DIR`` (default ``~/.cache/statspai/datasets``); later
+calls work offline. ``list_datasets()['delivery']`` says which is which.
+Nothing downloads at import time.
 
 Each function returns a ``pd.DataFrame`` with:
 
@@ -39,7 +46,16 @@ Available datasets
 
 DID / panel
     ``mpdta()``                 — Callaway-Sant'Anna teen employment
+                                  (replica; ``simulated=False`` fetches
+                                  the original)
     ``teen_employment()``       — alias of ``mpdta()``
+    ``castle_doctrine()``       — Cheng-Hoekstra castle-doctrine panel (real)
+    ``bacon_divorce()``         — Goodman-Bacon divorce-reform panel
+                                  (real, fetched)
+    ``jel_medicaid()``          — Baker et al. JEL county mortality
+                                  (real, fetched)
+    ``lalonde_panel()``         — NSW + CPS + PSID 1975/1978 panel of
+                                  Sant'Anna-Zhao (real, fetched)
 
 RD
     ``lee_2008_senate()``       — US Senate RD (Lee 2008 design; CFT 2015 data)
@@ -104,6 +120,9 @@ from ._canonical import (
     thornton_hiv,
 )
 from ._currency_union import currency_union_panel
+from ._did_gallery import REMOTE as _REMOTE
+from ._did_gallery import bacon_divorce, jel_medicaid, lalonde_panel
+from ._fetch import is_cached as _is_cached
 
 # Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
 # These reshape payloads a data MCP already fetched into tidy StatsPAI frames;
@@ -189,6 +208,74 @@ _DEFAULT_SOURCE = {
     "texas_prison": "bundled CSV",
     "sasp_panel": "bundled CSV",
     "thornton_hiv": "bundled CSV",
+    "jel_medicaid": "fetched",
+    "bacon_divorce": "fetched",
+    "lalonde_panel": "fetched",
+}
+
+#: Loaders whose bare call downloads (then caches) the real file. Their
+#: columns are listed here so that ``list_datasets()`` never downloads.
+_FETCHED_COLUMNS = {
+    "jel_medicaid": [
+        "state",
+        "stfips",
+        "county",
+        "county_code",
+        "year",
+        "year_code",
+        "deaths",
+        "population_20_64",
+        "crude_rate_20_64",
+        "population_total",
+        "population_20_64_hispanic",
+        "population_20_64_female",
+        "population_20_64_white",
+        "unemployed",
+        "labor_force",
+        "unemp_rate",
+        "poverty_rate",
+        "median_income",
+        "Expansion Status",
+        "Description",
+        "yaca",
+        "maca",
+    ],
+    "bacon_divorce": [
+        "stfips",
+        "year",
+        "_nfd",
+        "post",
+        "asmrs",
+        "pcinc",
+        "asmrh",
+        "cases",
+        "weight",
+        "copop",
+        "first_treat",
+    ],
+    "lalonde_panel": [
+        "id",
+        "year",
+        "treated",
+        "age",
+        "educ",
+        "black",
+        "married",
+        "nodegree",
+        "dwincl",
+        "re74",
+        "hisp",
+        "early_ra",
+        "sample",
+        "experimental",
+        "re",
+    ],
+}
+
+#: The real variant of a loader whose bare call returns a replica.
+_REAL_VARIANT = {
+    "mpdta": "mpdta(simulated=False): original panel, fetched",
+    "nsw_dw": "nsw_dw(simulated=False): real sample, shipped",
 }
 
 
@@ -196,13 +283,18 @@ def list_datasets() -> pd.DataFrame:
     """Return a DataFrame describing all available datasets.
 
     Columns: name, design, n_obs, paper, paper_original, expected_main,
-    source, simulated, columns.
+    source, simulated, delivery, available_offline, real_variant, columns.
 
-    Every dataset here loads from disk — none of them touches the
-    network, so the whole catalogue works offline. ``source`` says which
-    variant a bare ``name()`` call returns: ``"bundled CSV"`` is the real
-    extract shipped in ``datasets/data/``, ``"simulated"`` a
-    deterministic replica calibrated near the published estimate.
+    ``source`` says which variant a bare ``name()`` call returns:
+    ``"bundled CSV"`` is the real extract shipped in ``datasets/data/``,
+    ``"simulated"`` a deterministic replica calibrated near the published
+    estimate, ``"fetched"`` real data downloaded from its public source
+    on first use. ``delivery`` is ``"shipped"`` (in the wheel, works
+    offline) or ``"fetched"``; ``available_offline`` is True for shipped
+    data and, for fetched data, whether a verified copy is already in the
+    cache (``$STATSPAI_DATA_DIR``). ``real_variant`` names the call that
+    returns the real data when a bare call returns a replica. Listing the
+    catalogue never downloads anything.
 
     - ``paper_original`` is the headline number from the published paper on the
       ORIGINAL data (what readers expect to see).
@@ -356,6 +448,33 @@ def list_datasets() -> pd.DataFrame:
             "(tau_true); FE-forest imputation ATT with controls='auto' "
             "recovers it, the pooled forest is biased upward",
         ),
+        (
+            "jel_medicaid",
+            "DID 2x2 / staggered (real, fetched)",
+            31843,
+            "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna, JEL",
+            "Weighted 2x2 -2.56 (Table 5 col 4); DR with 2013 covariates "
+            "-3.76 (Table 7); TWFE with time-varying X -1.37 (Table 5 col 6)",
+            "REAL data: -2.56 / -3.76 / -1.37 reproduced (= Stata to 1e-5); "
+            "sample='2x2' / 'staggered' apply the authors' cleaning",
+        ),
+        (
+            "bacon_divorce",
+            "staggered DID / Bacon decomposition (real, fetched)",
+            1617,
+            "Goodman-Bacon (2021), JoE 225(2), Section 6",
+            "TWFE -3.08; 156 2x2 comparisons; later-vs-always weight 0.38",
+            "REAL data: TWFE -3.0799 and all 156 2x2s = Stata bacondecomp",
+        ),
+        (
+            "lalonde_panel",
+            "DR-DID panel (real, fetched)",
+            38408,
+            "Sant'Anna & Zhao (2020), JoE 219(1), Table 3",
+            "Evaluation bias, LaLonde sample, linear X: DR -871, improved "
+            "DR -901, OR -1301 (truth 0)",
+            "REAL data: all 54 cells of Table 3 reproduced (= Stata drdid)",
+        ),
     ]
     table = pd.DataFrame(
         registry,
@@ -369,7 +488,21 @@ def list_datasets() -> pd.DataFrame:
     # nsw_lalonde) also accept ``simulated=`` to pick the other one.
     table["source"] = table["name"].map(_DEFAULT_SOURCE).fillna("simulated")
     table["simulated"] = table["source"] == "simulated"
-    table["columns"] = [list(_quiet_load(name).columns) for name in table["name"]]
+    table["delivery"] = [
+        "fetched" if s == "fetched" else "shipped" for s in table["source"]
+    ]
+    table["available_offline"] = [
+        _is_cached(_REMOTE[n]) if n in _REMOTE else True for n in table["name"]
+    ]
+    table["real_variant"] = table["name"].map(_REAL_VARIANT)
+    table["columns"] = [
+        (
+            list(_FETCHED_COLUMNS[name])
+            if name in _FETCHED_COLUMNS
+            else list(_quiet_load(name).columns)
+        )
+        for name in table["name"]
+    ]
     return table
 
 
@@ -473,9 +606,20 @@ _LOADERS = (
     "german_reunification",
     "nhefs",
     "currency_union_panel",
+    "jel_medicaid",
+    "bacon_divorce",
+    "lalonde_panel",
 )
 for _name in _LOADERS:
-    globals()[_name] = _flagged(_name, globals()[_name])
+    globals()[_name] = _flagged(
+        _name,
+        globals()[_name],
+        real_alternative=(
+            "sp.datasets.mpdta(simulated=False) downloads the original panel"
+            if _name == "mpdta"
+            else None
+        ),
+    )
 teen_employment = mpdta
 load_nhefs = nhefs
 del _name
@@ -491,7 +635,8 @@ def load_dataset(name: str, **kwargs: Any) -> pd.DataFrame:
         ``"card_1995"``, ``"nsw_dw"``, ``"lee_2008_senate"``, ...).
     **kwargs
         Passed to the dataset's loader (e.g. ``simulated=False`` for
-        ``nsw_dw``, ``seed=`` for the simulated replicas).
+        ``nsw_dw`` or ``mpdta``, ``seed=`` for the simulated replicas,
+        ``download=False`` to refuse a download for a fetched dataset).
 
     Returns
     -------
@@ -546,6 +691,9 @@ __all__ = [
     "nhefs",
     "load_nhefs",
     "currency_union_panel",
+    "jel_medicaid",
+    "bacon_divorce",
+    "lalonde_panel",
     "list_datasets",
     "load_dataset",
     "from_worldbank",

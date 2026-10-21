@@ -1726,6 +1726,7 @@ __all__ = [
     "attach_provenance",
     "get_provenance",
     "version_info",
+    "doctor",
     "compute_data_hash",
     "format_provenance",
     "lineage_summary",
@@ -3418,6 +3419,9 @@ _register_lazy("agent._translation._stata", "from_stata")
 _register_lazy("agent._translation._stata_run", "stata")
 _register_lazy("agent._translation._r", "from_r")
 _register_lazy("agent._translation._coverage", "translation_coverage")
+# ``sp.doctor()``: which StatsPAI / Python / backends (stdlib only, but kept
+# off the cold-import path because it is a diagnostic).
+_register_lazy("_doctor", "doctor")
 _register_lazy("regression.cnsreg", "cnsreg")
 _register_lazy("regression.nls", "nls")
 _register_lazy("regression.threshold", "threshold")

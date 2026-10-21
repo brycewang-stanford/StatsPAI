@@ -34,12 +34,18 @@ def _catalog():
         return sp.datasets.list_datasets()
 
 
+def _shipped():
+    """Rows whose data is in the wheel (fetched rows would download)."""
+    table = _catalog()
+    return table[table["delivery"] == "shipped"]
+
+
 def test_every_row_names_a_real_loader():
     for name in _catalog()["name"]:
         assert hasattr(sp.datasets, name), f"catalogue lists missing {name}"
 
 
-@pytest.mark.parametrize("name", list(_catalog()["name"]))
+@pytest.mark.parametrize("name", list(_shipped()["name"]))
 def test_row_count_matches_the_loader(name):
     """The number in the table is the number you get."""
     row = _catalog().query("name == @name").iloc[0]
@@ -53,7 +59,7 @@ def test_row_count_matches_the_loader(name):
 
 def test_source_column_matches_what_the_loader_returns():
     """'bundled CSV' must mean a real extract, not a replica."""
-    table = _catalog()
+    table = _shipped()
     for _, row in table.iterrows():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -67,7 +73,7 @@ def test_source_column_matches_what_the_loader_returns():
 
 def test_whole_catalogue_loads_offline(no_network):
     """The point of shipping data: it works with the network down."""
-    for name in _catalog()["name"]:
+    for name in _shipped()["name"]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             df = getattr(sp.datasets, name)()
@@ -125,3 +131,14 @@ def test_the_replica_is_still_reachable():
             replica = getattr(sp.datasets, name)(simulated=True)
         assert len(replica) > 0
         assert replica.attrs.get("data_source") != "real"
+
+
+def test_fetched_rows_are_real_and_never_download_when_listed(no_network):
+    """Listing the catalogue works offline and does not fetch anything."""
+    table = _catalog()
+    fetched = table[table["delivery"] == "fetched"]
+    assert set(fetched["name"]) >= {"jel_medicaid", "bacon_divorce", "lalonde_panel"}
+    assert (fetched["source"] == "fetched").all()
+    assert not fetched["simulated"].any()
+    assert all(isinstance(c, list) and c for c in fetched["columns"])
+    assert table.loc[table["delivery"] == "shipped", "available_offline"].all()

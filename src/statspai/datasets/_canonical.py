@@ -56,12 +56,32 @@ def _load_bundled_csv(name: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def mpdta(seed: int = 42) -> pd.DataFrame:
+def mpdta(
+    seed: int = 42, simulated: bool = True, download: bool = True
+) -> pd.DataFrame:
     """Simulated replica of the ``mpdta`` dataset from R's ``did`` package.
 
     The original ``mpdta`` is a county-year panel of log teen-employment
     (2003-2007) where some counties raise their minimum wage in 2004,
     2006, or 2007 (staggered adoption).
+
+    ``simulated=False`` returns the original panel instead. It is not
+    shipped (R ``did`` distributes it under GPL-3): the first call
+    downloads Stata ``csdid``'s ``mpdta.dta`` (67 kB, the same values as
+    R's copy), checks a pinned SHA-256 and caches it under
+    ``$STATSPAI_DATA_DIR`` (default ``~/.cache/statspai/datasets``). On
+    it R ``did`` and Stata ``csdid`` report simple ATT -0.0400, group
+    -0.0310, calendar -0.0417 and dynamic -0.0772.
+
+    Parameters
+    ----------
+    seed : int, default 42
+        Seed of the simulated replica (ignored with ``simulated=False``).
+    simulated : bool, default True
+        ``False`` fetches the original data.
+    download : bool, default True
+        With ``simulated=False``: download when not cached. ``False``
+        raises ``DataInsufficient`` instead of touching the network.
 
     Our replica preserves:
     - 500 counties × 5 years = 2500 rows
@@ -94,6 +114,10 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
     Callaway, B. & Sant'Anna, P.H.C. (2021). Difference-in-Differences
     with Multiple Time Periods. Journal of Econometrics 225(2), 200-230. [@callaway2021difference]
     """
+    if not simulated:
+        from ._did_gallery import mpdta_original
+
+        return mpdta_original(download=download)
     rng = np.random.default_rng(seed)
     n_counties = 500
     years = list(range(2003, 2008))  # 2003..2007

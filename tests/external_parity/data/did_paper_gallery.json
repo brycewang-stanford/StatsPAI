@@ -1,0 +1,2446 @@
+{
+ "description": "Reference numbers for tests/external_parity/test_did_paper_gallery.py. Paper numbers are copied with the decimals the source prints. Stata numbers are the full-precision outputs of Stata 18 MP runs on the same data bytes (SHA-256 pinned in statspai/datasets/_did_gallery.py and, for castle, the shipped castle_2013.csv), made for the 2026-10-21 '2026 \u5b66 DiD' replication series (case folders ep1-ep5, did_case.do).",
+ "built": "2026-10-21",
+ "santanna_zhao_2020": {
+  "paper_source": "Sant'Anna & Zhao (2020), arXiv:1812.01723v3 (May 2020), Section 5 & Table 3 'Evaluation bias of different DID estimators ... NSW data with CPS comparison group'; values in dollars, rounded to the dollar as printed. Checked 2026-10-21 against the arXiv v3 PDF, Table 3 (all 54 cells and SEs).",
+  "paper_decimals": 0,
+  "paper_table3": {
+   "lalonde": {
+    "lin": {
+     "dr_trad": {
+      "att": -871,
+      "se": 396
+     },
+     "dr_imp": {
+      "att": -901,
+      "se": 394
+     },
+     "or_did": {
+      "att": -1301,
+      "se": 350
+     },
+     "ipw_abadie": {
+      "att": -1108,
+      "se": 409
+     },
+     "ipw_did": {
+      "att": -1022,
+      "se": 398
+     },
+     "twfe_cov": {
+      "att": 868,
+      "se": 353
+     }
+    },
+    "dw": {
+     "dr_trad": {
+      "att": -626,
+      "se": 496
+     },
+     "dr_imp": {
+      "att": -591,
+      "se": 467
+     },
+     "or_did": {
+      "att": -830,
+      "se": 360
+     },
+     "ipw_abadie": {
+      "att": -732,
+      "se": 534
+     },
+     "ipw_did": {
+      "att": -564,
+      "se": 487
+     },
+     "twfe_cov": {
+      "att": 868,
+      "se": 359
+     }
+    },
+    "adw": {
+     "dr_trad": {
+      "att": -597,
+      "se": 491
+     },
+     "dr_imp": {
+      "att": -599,
+      "se": 470
+     },
+     "or_did": {
+      "att": -1041,
+      "se": 358
+     },
+     "ipw_abadie": {
+      "att": -685,
+      "se": 523
+     },
+     "ipw_did": {
+      "att": -558,
+      "se": 485
+     },
+     "twfe_cov": {
+      "att": 868,
+      "se": 352
+     }
+    }
+   },
+   "dw": {
+    "lin": {
+     "dr_trad": {
+      "att": 253,
+      "se": 451
+     },
+     "dr_imp": {
+      "att": 253,
+      "se": 452
+     },
+     "or_did": {
+      "att": -230,
+      "se": 408
+     },
+     "ipw_abadie": {
+      "att": 188,
+      "se": 459
+     },
+     "ipw_did": {
+      "att": 155,
+      "se": 452
+     },
+     "twfe_cov": {
+      "att": 2092,
+      "se": 459
+     }
+    },
+    "dw": {
+     "dr_trad": {
+      "att": 408,
+      "se": 691
+     },
+     "dr_imp": {
+      "att": 520,
+      "se": 588
+     },
+     "or_did": {
+      "att": 402,
+      "se": 426
+     },
+     "ipw_abadie": {
+      "att": -34,
+      "se": 845
+     },
+     "ipw_did": {
+      "att": 481,
+      "se": 672
+     },
+     "twfe_cov": {
+      "att": 2092,
+      "se": 471
+     }
+    },
+    "adw": {
+     "dr_trad": {
+      "att": 514,
+      "se": 663
+     },
+     "dr_imp": {
+      "att": 524,
+      "se": 582
+     },
+     "or_did": {
+      "att": 27,
+      "se": 428
+     },
+     "ipw_abadie": {
+      "att": 97,
+      "se": 793
+     },
+     "ipw_did": {
+      "att": 502,
+      "se": 653
+     },
+     "twfe_cov": {
+      "att": 2092,
+      "se": 458
+     }
+    }
+   },
+   "era": {
+    "lin": {
+     "dr_trad": {
+      "att": -434,
+      "se": 605
+     },
+     "dr_imp": {
+      "att": -441,
+      "se": 607
+     },
+     "or_did": {
+      "att": -831,
+      "se": 583
+     },
+     "ipw_abadie": {
+      "att": -516,
+      "se": 611
+     },
+     "ipw_did": {
+      "att": -515,
+      "se": 607
+     },
+     "twfe_cov": {
+      "att": 1136,
+      "se": 730
+     }
+    },
+    "dw": {
+     "dr_trad": {
+      "att": -246,
+      "se": 724
+     },
+     "dr_imp": {
+      "att": -176,
+      "se": 683
+     },
+     "or_did": {
+      "att": -264,
+      "se": 596
+     },
+     "ipw_abadie": {
+      "att": -495,
+      "se": 781
+     },
+     "ipw_did": {
+      "att": -223,
+      "se": 718
+     },
+     "twfe_cov": {
+      "att": 1136,
+      "se": 751
+     }
+    },
+    "adw": {
+     "dr_trad": {
+      "att": -148,
+      "se": 701
+     },
+     "dr_imp": {
+      "att": -144,
+      "se": 677
+     },
+     "or_did": {
+      "att": -498,
+      "se": 591
+     },
+     "ipw_abadie": {
+      "att": -337,
+      "se": 740
+     },
+     "ipw_did": {
+      "att": -165,
+      "se": 700
+     },
+     "twfe_cov": {
+      "att": 1136,
+      "se": 728
+     }
+    }
+   }
+  },
+  "paper_experimental_benchmark": {
+   "lalonde": {
+    "att": 886,
+    "se": 488
+   },
+   "dw": {
+    "att": 1794,
+    "se": 671
+   },
+   "era": {
+    "att": 2748,
+    "se": 1005
+   }
+  },
+  "stata_source": "Stata 18 MP, drdid (Rios-Avila, Sant'Anna & Naqvi), one estimator per call (drimp / dripw / reg / stdipw / ipw / twfe), 'regress re treated, vce(robust)' for the benchmark; ep2 did_case.do",
+  "stata": [
+   {
+    "sample": "lalonde",
+    "design": "experiment",
+    "spec": "none",
+    "estimator": "exp_benchmark",
+    "att": 886.3038,
+    "se": 488.1385
+   },
+   {
+    "sample": "dw",
+    "design": "experiment",
+    "spec": "none",
+    "estimator": "exp_benchmark",
+    "att": 1794.3424,
+    "se": 670.8245
+   },
+   {
+    "sample": "era",
+    "design": "experiment",
+    "spec": "none",
+    "estimator": "exp_benchmark",
+    "att": 2748.4832,
+    "se": 1005.0149
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 867.509,
+    "se": 329.9863
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 867.509,
+    "se": 352.9703
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": -871.3271,
+    "se": 396.0211
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": -901.2703,
+    "se": 393.6127
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": -1300.6446,
+    "se": 349.8259
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": -1107.872,
+    "se": 408.6127
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": -1021.6095,
+    "se": 397.5201
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "twfe_cov",
+    "att": 867.509,
+    "se": 359.4149
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_trad",
+    "att": -626.172,
+    "se": 496.1357
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_imp",
+    "att": -590.7052,
+    "se": 467.0335
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "or_did",
+    "att": -830.1089,
+    "se": 360.0216
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_abadie",
+    "att": -732.4487,
+    "se": 534.4366
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_did",
+    "att": -564.0427,
+    "se": 486.9242
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "twfe_cov",
+    "att": 867.509,
+    "se": 351.7892
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_trad",
+    "att": -596.5413,
+    "se": 490.9275
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_imp",
+    "att": -599.3927,
+    "se": 469.8643
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "or_did",
+    "att": -1041.4493,
+    "se": 358.4677
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_abadie",
+    "att": -684.906,
+    "se": 523.4634
+   },
+   {
+    "sample": "lalonde",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_did",
+    "att": -557.7348,
+    "se": 484.5192
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 1714.3974,
+    "se": 485.8966
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 1714.3974,
+    "se": 492.2146
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": -40.7692,
+    "se": 522.1914
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": -54.904,
+    "se": 521.0595
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": -430.8775,
+    "se": 496.4228
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": -217.3604,
+    "se": 531.3431
+   },
+   {
+    "sample": "lalonde",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": -149.7419,
+    "se": 523.7539
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 2092.0356,
+    "se": 380.0113
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 2092.0356,
+    "se": 458.9011
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": 252.5015,
+    "se": 450.8097
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": 252.7689,
+    "se": 451.8618
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": -229.9682,
+    "se": 407.5609
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": 187.6714,
+    "se": 458.7694
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": 155.0536,
+    "se": 451.7998
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "twfe_cov",
+    "att": 2092.0356,
+    "se": 471.4847
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_trad",
+    "att": 408.0267,
+    "se": 690.5849
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_imp",
+    "att": 520.3414,
+    "se": 587.7183
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "or_did",
+    "att": 401.6428,
+    "se": 425.8394
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_abadie",
+    "att": -34.3092,
+    "se": 845.3622
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_did",
+    "att": 480.9742,
+    "se": 671.5135
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "twfe_cov",
+    "att": 2092.0356,
+    "se": 458.1579
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_trad",
+    "att": 513.6404,
+    "se": 662.9947
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_imp",
+    "att": 523.8823,
+    "se": 582.0584
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "or_did",
+    "att": 27.4614,
+    "se": 428.0196
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_abadie",
+    "att": 96.856,
+    "se": 793.4608
+   },
+   {
+    "sample": "dw",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_did",
+    "att": 501.568,
+    "se": 652.572
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 3621.2317,
+    "se": 609.8301
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 3621.2317,
+    "se": 660.5916
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": 1865.6422,
+    "se": 644.9075
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": 1869.5254,
+    "se": 644.9336
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": 1415.7817,
+    "se": 630.0895
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": 1846.8742,
+    "se": 649.2638
+   },
+   {
+    "sample": "dw",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": 1818.574,
+    "se": 646.4216
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 1136.1033,
+    "se": 574.5665
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 1136.1033,
+    "se": 730.3222
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": -434.2513,
+    "se": 604.9866
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": -440.6554,
+    "se": 606.8321
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": -830.9157,
+    "se": 582.6114
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": -516.3981,
+    "se": 611.4537
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": -515.3372,
+    "se": 606.6447
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "twfe_cov",
+    "att": 1136.1033,
+    "se": 751.3932
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_trad",
+    "att": -245.6294,
+    "se": 723.6369
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "dr_imp",
+    "att": -176.2402,
+    "se": 682.8112
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "or_did",
+    "att": -264.091,
+    "se": 595.503
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_abadie",
+    "att": -494.8936,
+    "se": 781.0472
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "dw",
+    "estimator": "ipw_did",
+    "att": -223.4175,
+    "se": 717.8508
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "twfe_cov",
+    "att": 1136.1033,
+    "se": 727.7401
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_trad",
+    "att": -148.039,
+    "se": 701.0162
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "dr_imp",
+    "att": -144.2289,
+    "se": 676.8873
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "or_did",
+    "att": -498.0363,
+    "se": 590.5844
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_abadie",
+    "att": -336.7504,
+    "se": 739.7272
+   },
+   {
+    "sample": "era",
+    "design": "evalbias",
+    "spec": "adw",
+    "estimator": "ipw_did",
+    "att": -164.8508,
+    "se": 700.4496
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "none",
+    "estimator": "did_nocov",
+    "att": 3565.5145,
+    "se": 935.422
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "twfe_cov",
+    "att": 3565.5145,
+    "se": 1029.8989
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_trad",
+    "att": 1895.1174,
+    "se": 945.2203
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "dr_imp",
+    "att": 1893.296,
+    "se": 945.9471
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "or_did",
+    "att": 1514.3533,
+    "se": 937.7664
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_abadie",
+    "att": 1836.5618,
+    "se": 948.6076
+   },
+   {
+    "sample": "era",
+    "design": "trt_vs_cps",
+    "spec": "lin",
+    "estimator": "ipw_did",
+    "att": 1844.6181,
+    "se": 946.3104
+   }
+  ]
+ },
+ "goodman_bacon_2021": {
+  "paper_source": "Goodman-Bacon (2021) JoE 225(2):254-277 Sec. 6; numbers read from NBER w25018 (Sept 2018) Sec. III + Fig. 5-6 and the July 2019 revision (identical numbers); JoE typeset version not accessed. Checked 2026-10-21 against the NBER w25018 PDF: DD -3.08 (s.e. 1.27 in Figure 5, 1.13 in the text), 156 components, weights / estimates 0.38 / -7.04, 0.24 / -5.33, 0.26 / 3.51, 0.11 / -0.19.",
+  "paper_decimals": 2,
+  "paper": {
+   "twfe": -3.08,
+   "twfe_se_robust_fig5": 1.27,
+   "n_2x2": 156,
+   "summary": {
+    "Later vs Always Treated": {
+     "weight": 0.38,
+     "estimate": -7.04
+    },
+    "Treated vs Untreated": {
+     "weight": 0.24,
+     "estimate": -5.33
+    },
+    "Later vs Earlier Treated": {
+     "weight": 0.26,
+     "estimate": 3.51
+    },
+    "Earlier vs Later Treated": {
+     "weight": 0.11,
+     "estimate": -0.19
+    }
+   }
+  },
+  "stata_source": "Stata 18 MP: reghdfe asmrs post, absorb(stfips year) vce(cluster stfips) (also vce(robust) / unadjusted); bacondecomp 1.0.5 asmrs post, ddetail; csdid asmrs, ivar(stfips) time(year) gvar(gvar) long2 + estat simple on the 41 states without the 8 pre-1964 reformers; ep3 did_case.do",
+  "stata_twfe": {
+   "cluster": {
+    "att": -3.079925765539897,
+    "se": 2.455829522362508
+   },
+   "robust": {
+    "att": -3.079925765539897,
+    "se": 1.267704945311894
+   },
+   "unadjusted": {
+    "att": -3.079925765539897,
+    "se": 1.111656390407321
+   }
+  },
+  "stata_twfe_41_states": {
+   "att": -0.6044904854986857,
+   "se": 2.581598696613089
+  },
+  "stata_bacon_summary": {
+   "Earlier vs Later Treated": {
+    "weight": 0.1106540336757577,
+    "estimate": -0.1867699779387157,
+    "n_comparisons": 66
+   },
+   "Later vs Always Treated": {
+    "weight": 0.3844322134359662,
+    "estimate": -7.043688925222613,
+    "n_comparisons": 12
+   },
+   "Later vs Earlier Treated": {
+    "weight": 0.264643624164854,
+    "estimate": 3.51196696322525,
+    "n_comparisons": 66
+   },
+   "Treated vs Untreated": {
+    "weight": 0.240270128723423,
+    "estimate": -5.330906824521018,
+    "n_comparisons": 12
+   }
+  },
+  "stata_bacon_2x2": [
+   {
+    "treated": 1969,
+    "control": "1970",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.089867353439331,
+    "weight": 0.0001259937761591
+   },
+   {
+    "treated": 1970,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -23.83420181274414,
+    "weight": 0.0006803663642933
+   },
+   {
+    "treated": 1969,
+    "control": "1971",
+    "type": "Earlier vs Later Treated",
+    "estimate": 0.7286439538002014,
+    "weight": 0.0008819564181326
+   },
+   {
+    "treated": 1971,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -8.258329391479492,
+    "weight": 0.004586173590015
+   },
+   {
+    "treated": 1970,
+    "control": "1971",
+    "type": "Earlier vs Later Treated",
+    "estimate": 2.404874801635742,
+    "weight": 0.0005291738388948
+   },
+   {
+    "treated": 1971,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 22.15005111694336,
+    "weight": 0.0022930867950075
+   },
+   {
+    "treated": 1969,
+    "control": "1972",
+    "type": "Earlier vs Later Treated",
+    "estimate": 1.676301956176758,
+    "weight": 0.0005669719702444
+   },
+   {
+    "treated": 1972,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -7.148348331451416,
+    "weight": 0.0028348599710697
+   },
+   {
+    "treated": 1970,
+    "control": "1972",
+    "type": "Earlier vs Later Treated",
+    "estimate": 4.613049507141113,
+    "weight": 0.0004535776061574
+   },
+   {
+    "treated": 1972,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 26.58180046081543,
+    "weight": 0.001889906687329
+   },
+   {
+    "treated": 1971,
+    "control": "1972",
+    "type": "Earlier vs Later Treated",
+    "estimate": -7.006736755371094,
+    "weight": 0.0009260542779897
+   },
+   {
+    "treated": 1972,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": -5.394356727600098,
+    "weight": 0.0033073365530162
+   },
+   {
+    "treated": 1969,
+    "control": "1973",
+    "type": "Earlier vs Later Treated",
+    "estimate": 0.672705352306366,
+    "weight": 0.0025198755831053
+   },
+   {
+    "treated": 1973,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -7.433825969696045,
+    "weight": 0.0120954020318808
+   },
+   {
+    "treated": 1970,
+    "control": "1973",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.899661064147949,
+    "weight": 0.0022678878809777
+   },
+   {
+    "treated": 1973,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 27.04117584228516,
+    "weight": 0.0090715515239106
+   },
+   {
+    "treated": 1971,
+    "control": "1973",
+    "type": "Earlier vs Later Treated",
+    "estimate": -7.52142858505249,
+    "weight": 0.0061736948670042
+   },
+   {
+    "treated": 1973,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.398066520690918,
+    "weight": 0.0211669535557914
+   },
+   {
+    "treated": 1972,
+    "control": "1973",
+    "type": "Earlier vs Later Treated",
+    "estimate": -3.244979858398438,
+    "weight": 0.0015119252539851
+   },
+   {
+    "treated": 1973,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": -3.630996227264404,
+    "weight": 0.0045357757619553
+   },
+   {
+    "treated": 1969,
+    "control": "1974",
+    "type": "Earlier vs Later Treated",
+    "estimate": 0.1488796174526215,
+    "weight": 0.0009449533436645
+   },
+   {
+    "treated": 1974,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -5.158778190612793,
+    "weight": 0.0043467852250548
+   },
+   {
+    "treated": 1970,
+    "control": "1974",
+    "type": "Earlier vs Later Treated",
+    "estimate": -2.91013765335083,
+    "weight": 0.0009071552123149
+   },
+   {
+    "treated": 1974,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 23.89071273803711,
+    "weight": 0.0034774283238609
+   },
+   {
+    "treated": 1971,
+    "control": "1974",
+    "type": "Earlier vs Later Treated",
+    "estimate": -9.381551742553713,
+    "weight": 0.0027781627141214
+   },
+   {
+    "treated": 1974,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.318483829498291,
+    "weight": 0.009128249020554
+   },
+   {
+    "treated": 1972,
+    "control": "1974",
+    "type": "Earlier vs Later Treated",
+    "estimate": -8.437993049621582,
+    "weight": 0.0009071552123149
+   },
+   {
+    "treated": 1974,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.46885871887207,
+    "weight": 0.0026080711829719
+   },
+   {
+    "treated": 1973,
+    "control": "1974",
+    "type": "Earlier vs Later Treated",
+    "estimate": 4.291956901550293,
+    "weight": 0.0017009160305808
+   },
+   {
+    "treated": 1974,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 6.192469596862793,
+    "weight": 0.0043467852250548
+   },
+   {
+    "treated": 1969,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 9.615415573120115,
+    "weight": 0.0007559626269926
+   },
+   {
+    "treated": 1975,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": 0.6682447195053101,
+    "weight": 0.0033262357984624
+   },
+   {
+    "treated": 1970,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 5.732773303985596,
+    "weight": 0.0007559626269926
+   },
+   {
+    "treated": 1975,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 29.61791610717773,
+    "weight": 0.0027718630455377
+   },
+   {
+    "treated": 1971,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 2.411342144012451,
+    "weight": 0.0024694779947407
+   },
+   {
+    "treated": 1975,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": 4.052882671356201,
+    "weight": 0.0077612166233838
+   },
+   {
+    "treated": 1972,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 5.130411148071289,
+    "weight": 0.0009071552123149
+   },
+   {
+    "treated": 1975,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": 4.886719703674316,
+    "weight": 0.0024946766690754
+   },
+   {
+    "treated": 1973,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 8.392121315002441,
+    "weight": 0.0022678878809777
+   },
+   {
+    "treated": 1975,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 10.78344917297363,
+    "weight": 0.0055437260910755
+   },
+   {
+    "treated": 1974,
+    "control": "1975",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.155681610107422,
+    "weight": 0.0003779813134963
+   },
+   {
+    "treated": 1975,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": 3.873969554901123,
+    "weight": 0.0008315589496156
+   },
+   {
+    "treated": 1969,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.482367753982544,
+    "weight": 0.0004409782090663
+   },
+   {
+    "treated": 1976,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": 4.239864349365234,
+    "weight": 0.0018521085559793
+   },
+   {
+    "treated": 1970,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": -7.721079349517822,
+    "weight": 0.0004535776061574
+   },
+   {
+    "treated": 1976,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 28.58859062194824,
+    "weight": 0.0015875215166844
+   },
+   {
+    "treated": 1971,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": -8.404179573059082,
+    "weight": 0.0015434237167511
+   },
+   {
+    "treated": 1976,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": 3.74080491065979,
+    "weight": 0.0046302712701008
+   },
+   {
+    "treated": 1972,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": -9.093745231628418,
+    "weight": 0.000604770101594
+   },
+   {
+    "treated": 1976,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": 0.6837824583053589,
+    "weight": 0.0015875215166844
+   },
+   {
+    "treated": 1973,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": 1.421976327896118,
+    "weight": 0.0017009160305808
+   },
+   {
+    "treated": 1976,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 11.66159820556641,
+    "weight": 0.0039688039115585
+   },
+   {
+    "treated": 1974,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": -16.38343238830566,
+    "weight": 0.0003779813134963
+   },
+   {
+    "treated": 1976,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.338175296783447,
+    "weight": 0.0007937607583422
+   },
+   {
+    "treated": 1975,
+    "control": "1976",
+    "type": "Earlier vs Later Treated",
+    "estimate": -14.61515998840332,
+    "weight": 0.0001385931582693
+   },
+   {
+    "treated": 1976,
+    "control": "1975",
+    "type": "Later vs Earlier Treated",
+    "estimate": -7.964285850524902,
+    "weight": 0.0002645869194474
+   },
+   {
+    "treated": 1969,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": -3.567538976669312,
+    "weight": 0.0015119252539851
+   },
+   {
+    "treated": 1977,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -13.05292701721191,
+    "weight": 0.0060477010159404
+   },
+   {
+    "treated": 1970,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": -10.86773681640625,
+    "weight": 0.0015875215166844
+   },
+   {
+    "treated": 1977,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 13.2482967376709,
+    "weight": 0.0052917383889479
+   },
+   {
+    "treated": 1971,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": -7.687454700469971,
+    "weight": 0.0055563254282428
+   },
+   {
+    "treated": 1977,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": -9.13735008239746,
+    "weight": 0.0158752156462339
+   },
+   {
+    "treated": 1972,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": -6.326669692993164,
+    "weight": 0.0022678878809777
+   },
+   {
+    "treated": 1977,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": -11.05425262451172,
+    "weight": 0.0056697199421393
+   },
+   {
+    "treated": 1973,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": 4.825609683990479,
+    "weight": 0.0068036641223233
+   },
+   {
+    "treated": 1977,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 0.6438633799552917,
+    "weight": 0.0151192534986317
+   },
+   {
+    "treated": 1974,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": 2.691236257553101,
+    "weight": 0.0017009160305808
+   },
+   {
+    "treated": 1977,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": -4.655465126037598,
+    "weight": 0.0034018320611617
+   },
+   {
+    "treated": 1975,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": 1.836740970611572,
+    "weight": 0.0008315589496156
+   },
+   {
+    "treated": 1977,
+    "control": "1975",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.611749649047852,
+    "weight": 0.0015119252539851
+   },
+   {
+    "treated": 1976,
+    "control": "1977",
+    "type": "Earlier vs Later Treated",
+    "estimate": 20.30932998657227,
+    "weight": 0.0002267888030787
+   },
+   {
+    "treated": 1977,
+    "control": "1976",
+    "type": "Later vs Earlier Treated",
+    "estimate": 7.368327140808105,
+    "weight": 0.0003779813134963
+   },
+   {
+    "treated": 1969,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.358542203903198,
+    "weight": 0.0006929657613844
+   },
+   {
+    "treated": 1980,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": -4.76494026184082,
+    "weight": 0.0023560837205394
+   },
+   {
+    "treated": 1970,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -9.930462837219238,
+    "weight": 0.0007559626269926
+   },
+   {
+    "treated": 1980,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 19.64731597900391,
+    "weight": 0.002141894269609
+   },
+   {
+    "treated": 1971,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -2.845511436462402,
+    "weight": 0.0027781627141214
+   },
+   {
+    "treated": 1980,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": -0.2154272049665451,
+    "weight": 0.0067469666256799
+   },
+   {
+    "treated": 1972,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -3.231632232666016,
+    "weight": 0.0012095402031881
+   },
+   {
+    "treated": 1980,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": -2.357027530670166,
+    "weight": 0.0025702729317747
+   },
+   {
+    "treated": 1973,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.202227830886841,
+    "weight": 0.0039688039115585
+   },
+   {
+    "treated": 1980,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 6.197752475738525,
+    "weight": 0.0074966295840888
+   },
+   {
+    "treated": 1974,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -0.0546139180660248,
+    "weight": 0.0011339439404888
+   },
+   {
+    "treated": 1980,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": 0.2491527497768402,
+    "weight": 0.0019277048186786
+   },
+   {
+    "treated": 1975,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -4.58188533782959,
+    "weight": 0.0006929657613844
+   },
+   {
+    "treated": 1980,
+    "control": "1975",
+    "type": "Later vs Earlier Treated",
+    "estimate": -6.757017612457275,
+    "weight": 0.0010709471348045
+   },
+   {
+    "treated": 1976,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": 23.7095775604248,
+    "weight": 0.000302385050797
+   },
+   {
+    "treated": 1980,
+    "control": "1976",
+    "type": "Later vs Earlier Treated",
+    "estimate": 21.65239143371582,
+    "weight": 0.000428378841937
+   },
+   {
+    "treated": 1977,
+    "control": "1980",
+    "type": "Earlier vs Later Treated",
+    "estimate": -5.129266738891602,
+    "weight": 0.0007370635613177
+   },
+   {
+    "treated": 1980,
+    "control": "1977",
+    "type": "Later vs Earlier Treated",
+    "estimate": 2.485960006713867,
+    "weight": 0.0009638524093393
+   },
+   {
+    "treated": 1969,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 9.392490386962892,
+    "weight": 0.0009449533436645
+   },
+   {
+    "treated": 1984,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": 0.7609612941741943,
+    "weight": 0.0024568786575734
+   },
+   {
+    "treated": 1970,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": -8.653765678405762,
+    "weight": 0.0010583476777896
+   },
+   {
+    "treated": 1984,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 20.6285285949707,
+    "weight": 0.0022930867950075
+   },
+   {
+    "treated": 1971,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 2.29973578453064,
+    "weight": 0.0040129018313394
+   },
+   {
+    "treated": 1984,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": 3.6046302318573,
+    "weight": 0.0074525319040031
+   },
+   {
+    "treated": 1972,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.22386622428894,
+    "weight": 0.0018143104246297
+   },
+   {
+    "treated": 1984,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": 4.552188396453857,
+    "weight": 0.002948254245271
+   },
+   {
+    "treated": 1973,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 6.547305107116699,
+    "weight": 0.0062366920322313
+   },
+   {
+    "treated": 1984,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 10.90640640258789,
+    "weight": 0.0090085548380739
+   },
+   {
+    "treated": 1974,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 5.205687999725342,
+    "weight": 0.001889906687329
+   },
+   {
+    "treated": 1984,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": 6.719021320343018,
+    "weight": 0.0024568786575734
+   },
+   {
+    "treated": 1975,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": -0.8521057963371277,
+    "weight": 0.0012473383345377
+   },
+   {
+    "treated": 1984,
+    "control": "1975",
+    "type": "Later vs Earlier Treated",
+    "estimate": -2.820950984954834,
+    "weight": 0.0014741271226355
+   },
+   {
+    "treated": 1976,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": 17.60421180725098,
+    "weight": 0.000604770101594
+   },
+   {
+    "treated": 1984,
+    "control": "1976",
+    "type": "Later vs Earlier Treated",
+    "estimate": 19.93760681152344,
+    "weight": 0.0006551676300348
+   },
+   {
+    "treated": 1977,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": -2.688749551773071,
+    "weight": 0.0017198150363318
+   },
+   {
+    "treated": 1984,
+    "control": "1977",
+    "type": "Later vs Earlier Treated",
+    "estimate": 9.549223899841309,
+    "weight": 0.0017198150363318
+   },
+   {
+    "treated": 1980,
+    "control": "1984",
+    "type": "Earlier vs Later Treated",
+    "estimate": -1.343767166137695,
+    "weight": 0.0004031800777167
+   },
+   {
+    "treated": 1984,
+    "control": "1980",
+    "type": "Later vs Earlier Treated",
+    "estimate": 1.879976272583008,
+    "weight": 0.0003275838150174
+   },
+   {
+    "treated": 1969,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -1.982551336288452,
+    "weight": 0.0010079502092726
+   },
+   {
+    "treated": 1985,
+    "control": "1969",
+    "type": "Later vs Earlier Treated",
+    "estimate": 8.675222396850586,
+    "weight": 0.0024190804063762
+   },
+   {
+    "treated": 1970,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -19.76277542114258,
+    "weight": 0.0011339439404888
+   },
+   {
+    "treated": 1985,
+    "control": "1970",
+    "type": "Later vs Earlier Treated",
+    "estimate": 28.40373802185059,
+    "weight": 0.0022678878809777
+   },
+   {
+    "treated": 1971,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -5.887892723083496,
+    "weight": 0.0043215865507201
+   },
+   {
+    "treated": 1985,
+    "control": "1971",
+    "type": "Later vs Earlier Treated",
+    "estimate": 11.73446559906006,
+    "weight": 0.0074084342239174
+   },
+   {
+    "treated": 1972,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -0.3483164310455322,
+    "weight": 0.0019655029500282
+   },
+   {
+    "treated": 1985,
+    "control": "1972",
+    "type": "Later vs Earlier Treated",
+    "estimate": 13.98102951049805,
+    "weight": 0.002948254245271
+   },
+   {
+    "treated": 1973,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": 6.036512851715088,
+    "weight": 0.0068036641223233
+   },
+   {
+    "treated": 1985,
+    "control": "1973",
+    "type": "Later vs Earlier Treated",
+    "estimate": 21.13029670715332,
+    "weight": 0.0090715515239106
+   },
+   {
+    "treated": 1974,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": 3.112169027328491,
+    "weight": 0.0020788973440771
+   },
+   {
+    "treated": 1985,
+    "control": "1974",
+    "type": "Later vs Earlier Treated",
+    "estimate": 16.37677192687988,
+    "weight": 0.0024946766690754
+   },
+   {
+    "treated": 1975,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": 0.1411235332489014,
+    "weight": 0.0013859315227689
+   },
+   {
+    "treated": 1985,
+    "control": "1975",
+    "type": "Later vs Earlier Treated",
+    "estimate": 9.925600051879885,
+    "weight": 0.0015119252539851
+   },
+   {
+    "treated": 1976,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": 16.27362823486328,
+    "weight": 0.0006803663642933
+   },
+   {
+    "treated": 1985,
+    "control": "1976",
+    "type": "Later vs Earlier Treated",
+    "estimate": 29.59807777404785,
+    "weight": 0.0006803663642933
+   },
+   {
+    "treated": 1977,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -1.641644477844238,
+    "weight": 0.0019655029500282
+   },
+   {
+    "treated": 1985,
+    "control": "1977",
+    "type": "Later vs Earlier Treated",
+    "estimate": 22.16219139099121,
+    "weight": 0.0018143104246297
+   },
+   {
+    "treated": 1980,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": -2.667479753494263,
+    "weight": 0.0005039751046363
+   },
+   {
+    "treated": 1985,
+    "control": "1980",
+    "type": "Later vs Earlier Treated",
+    "estimate": 12.13856983184814,
+    "weight": 0.0003779813134963
+   },
+   {
+    "treated": 1984,
+    "control": "1985",
+    "type": "Earlier vs Later Treated",
+    "estimate": 5.633138179779053,
+    "weight": 0.0001259937761591
+   },
+   {
+    "treated": 1985,
+    "control": "1984",
+    "type": "Later vs Earlier Treated",
+    "estimate": 16.8643913269043,
+    "weight": 7.55962626993e-05
+   },
+   {
+    "treated": 1969,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -0.67381352186203,
+    "weight": 0.0141113026901212
+   },
+   {
+    "treated": 1970,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -28.15147399902344,
+    "weight": 0.0163287927430391
+   },
+   {
+    "treated": 1971,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -9.563416481018066,
+    "weight": 0.06420642930143
+   },
+   {
+    "treated": 1972,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -7.451986789703369,
+    "weight": 0.0302385069972635
+   },
+   {
+    "treated": 1973,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -7.823691844940186,
+    "weight": 0.108858625957173
+   },
+   {
+    "treated": 1974,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -5.204057216644287,
+    "weight": 0.0347742818004381
+   },
+   {
+    "treated": 1975,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -4.073575019836426,
+    "weight": 0.0243923953760006
+   },
+   {
+    "treated": 1976,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": 2.652825355529785,
+    "weight": 0.0127001721334749
+   },
+   {
+    "treated": 1977,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -10.95954513549805,
+    "weight": 0.0393100585211741
+   },
+   {
+    "treated": 1980,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": -2.68566632270813,
+    "weight": 0.0137081229419854
+   },
+   {
+    "treated": 1984,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": 1.235458374023438,
+    "weight": 0.0131033528403914
+   },
+   {
+    "treated": 1985,
+    "control": "Always",
+    "type": "Later vs Always Treated",
+    "estimate": 11.85027980804443,
+    "weight": 0.0127001721334749
+   },
+   {
+    "treated": 1969,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": 6.449241638183594,
+    "weight": 0.0088195647805637
+   },
+   {
+    "treated": 1970,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -22.34909629821777,
+    "weight": 0.0102054957040946
+   },
+   {
+    "treated": 1971,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -5.5906662940979,
+    "weight": 0.0401290183133937
+   },
+   {
+    "treated": 1972,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -4.800137519836426,
+    "weight": 0.0188990671129848
+   },
+   {
+    "treated": 1973,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -5.63776969909668,
+    "weight": 0.068036635470549
+   },
+   {
+    "treated": 1974,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -4.487441062927246,
+    "weight": 0.0217339266046641
+   },
+   {
+    "treated": 1975,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -3.793232679367065,
+    "weight": 0.0152452468703052
+   },
+   {
+    "treated": 1976,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": 2.105811595916748,
+    "weight": 0.007937607823117
+   },
+   {
+    "treated": 1977,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -11.80971336364746,
+    "weight": 0.0245687860963435
+   },
+   {
+    "treated": 1980,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -5.057754516601563,
+    "weight": 0.0085675770784361
+   },
+   {
+    "treated": 1984,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": -1.616272568702698,
+    "weight": 0.0081895950458543
+   },
+   {
+    "treated": 1985,
+    "control": "Never",
+    "type": "Treated vs Untreated",
+    "estimate": 9.36685276031494,
+    "weight": 0.007937607823117
+   }
+  ],
+  "stata_cs_simple_41_states": {
+   "att": -10.21984783106993,
+   "se": 3.086455140383271
+  }
+ },
+ "callaway_santanna_2021": {
+  "r_source": "R did 2.5.1 documentation: 'Getting Started' vignette (att_gt, DR, never-treated, varying base) and ?aggte examples / README; printed to 4 decimals; R SEs are multiplier-bootstrap, so only point estimates are compared with R.",
+  "r_decimals": 4,
+  "r_attgt": [
+   {
+    "group": 2004,
+    "time": 2004,
+    "att": -0.0105
+   },
+   {
+    "group": 2004,
+    "time": 2005,
+    "att": -0.0704
+   },
+   {
+    "group": 2004,
+    "time": 2006,
+    "att": -0.1373
+   },
+   {
+    "group": 2004,
+    "time": 2007,
+    "att": -0.1008
+   },
+   {
+    "group": 2006,
+    "time": 2004,
+    "att": 0.0065
+   },
+   {
+    "group": 2006,
+    "time": 2005,
+    "att": -0.0028
+   },
+   {
+    "group": 2006,
+    "time": 2006,
+    "att": -0.0046
+   },
+   {
+    "group": 2006,
+    "time": 2007,
+    "att": -0.0412
+   },
+   {
+    "group": 2007,
+    "time": 2004,
+    "att": 0.0305
+   },
+   {
+    "group": 2007,
+    "time": 2005,
+    "att": -0.0027
+   },
+   {
+    "group": 2007,
+    "time": 2006,
+    "att": -0.0311
+   },
+   {
+    "group": 2007,
+    "time": 2007,
+    "att": -0.0261
+   }
+  ],
+  "r_pretest_p": 0.16812,
+  "r_aggregations": {
+   "simple": -0.04,
+   "group": -0.031,
+   "calendar": -0.0417,
+   "dynamic": -0.0772,
+   "group_elements": {
+    "2004": -0.0797,
+    "2006": -0.0229,
+    "2007": -0.0261
+   },
+   "calendar_elements": {
+    "2004": -0.0105,
+    "2005": -0.0704,
+    "2006": -0.0488,
+    "2007": -0.0371
+   },
+   "dynamic_elements": {
+    "-3": 0.0305,
+    "-2": -0.0006,
+    "-1": -0.0245,
+    "0": -0.0199,
+    "1": -0.051,
+    "2": -0.1373,
+    "3": -0.1008
+   }
+  },
+  "r_simple_printed_decimals": 2,
+  "stata_source": "Stata 18 MP: csdid lemp, ivar(countyreal) time(year) gvar(first_treat) method(dripw) + estat pretrend / simple / group / calendar / event (analytic influence-function SEs); ep4 did_case.do",
+  "stata_attgt": [
+   {
+    "group": 2004,
+    "time": 2004,
+    "att": -0.0105032462209635,
+    "se": 0.0232510363681662
+   },
+   {
+    "group": 2004,
+    "time": 2005,
+    "att": -0.0704231581031491,
+    "se": 0.0309847667572764
+   },
+   {
+    "group": 2004,
+    "time": 2006,
+    "att": -0.1372587388894044,
+    "se": 0.0364356642876861
+   },
+   {
+    "group": 2004,
+    "time": 2007,
+    "att": -0.1008113630854053,
+    "se": 0.034359225834673
+   },
+   {
+    "group": 2006,
+    "time": 2004,
+    "att": 0.0065201124242329,
+    "se": 0.0233268051418048
+   },
+   {
+    "group": 2006,
+    "time": 2005,
+    "att": -0.0027508187505187,
+    "se": 0.0195585610358815
+   },
+   {
+    "group": 2006,
+    "time": 2006,
+    "att": -0.0045946069528627,
+    "se": 0.0177551966592764
+   },
+   {
+    "group": 2006,
+    "time": 2007,
+    "att": -0.0412244715462179,
+    "se": 0.0202291807041071
+   },
+   {
+    "group": 2007,
+    "time": 2004,
+    "att": 0.0305066555832921,
+    "se": 0.0150335602801301
+   },
+   {
+    "group": 2007,
+    "time": 2005,
+    "att": -0.002725892886116,
+    "se": 0.0163958328955344
+   },
+   {
+    "group": 2007,
+    "time": 2006,
+    "att": -0.0310871193896881,
+    "se": 0.0178775113133435
+   },
+   {
+    "group": 2007,
+    "time": 2007,
+    "att": -0.0260544107191972,
+    "se": 0.0166554353492522
+   }
+  ],
+  "stata_aggregations": {
+   "simple": {
+    "att": -0.039951275155177,
+    "se": 0.0120340127701854
+   },
+   "group": {
+    "att": -0.031018282228749,
+    "se": 0.012387168271344
+   },
+   "calendar": {
+    "att": -0.0417004321312833,
+    "se": 0.0159718518845598
+   },
+   "dynamic": {
+    "att": -0.0772398214573161,
+    "se": 0.0199649890618492
+   }
+  },
+  "stata_pretest": {
+   "chi2": 7.791236627200007,
+   "df": 5,
+   "p": 0.1681224949238969
+  },
+  "r_analytic_source": "R did 2.5.1, run 2026-10-21 as a black box: att_gt(yname='lemp', gname='first.treat', idname='countyreal', tname='year', xformla=~1, data=mpdta, est_method='dr', control_group='nevertreated', base_period='varying', bstrap=FALSE) and aggte(type=..., bstrap=FALSE); printed with format(digits=10).",
+  "r_analytic": {
+   "simple": {
+    "att": -0.03995127516,
+    "se": 0.01203401277
+   },
+   "group": {
+    "att": -0.03101828223,
+    "se": 0.01244605932
+   },
+   "calendar": {
+    "att": -0.04170043213,
+    "se": 0.01597185188
+   },
+   "dynamic": {
+    "att": -0.07723982146,
+    "se": 0.01996498906
+   }
+  }
+ },
+ "cheng_hoekstra_2013": {
+  "paper_source": "Cheng & Hoekstra (2012), NBER WP 18134, Table 5 Panel A (log homicide, OLS weighted by population, SE clustered by state); published as JHR 48(3), 2013. Mixtape 1st ed. (mixtape.scunning.com, archived 2021-10-19) Table 9.7 reprints the same numbers; its Bacon-decomposition table reports TWFE 0.069 (0.034) (unweighted, post dummy), weights 0.899/0.077/0.024. Checked 2026-10-21 against the Wayback Machine copy (2021-10-19) of mixtape.scunning.com/difference-in-differences.html, Table 9.7 Panel A: 0.0801 (0.0342) and 0.0946 (0.0279).",
+  "paper_decimals": 4,
+  "paper": {
+   "col1_state_year_fe": {
+    "att": 0.0801,
+    "se": 0.0342
+   },
+   "col2_region_by_year_fe": {
+    "att": 0.0946,
+    "se": 0.0279
+   }
+  },
+  "stata_source": "Stata 18 MP: reghdfe l_homicide <x> [aw=popwt], absorb(sid year | sid region#year) vce(cluster sid) for x in cdl / post / D=1[year>=effyear]; csdid l_homicide [iw=popwt], ivar(sid) time(year) gvar(gvar) long2 method(reg) + estat simple / event; ep5 did_case.do",
+  "stata_twfe": [
+   {
+    "x": "cdl",
+    "fe": "sid + year",
+    "att": 0.0800635103382444,
+    "se": 0.0342246899742143
+   },
+   {
+    "x": "cdl",
+    "fe": "sid + region^year",
+    "att": 0.0945877435644142,
+    "se": 0.027947775184709
+   },
+   {
+    "x": "post",
+    "fe": "sid + year",
+    "att": 0.0755332389041525,
+    "se": 0.0331936063310304
+   },
+   {
+    "x": "post",
+    "fe": "sid + region^year",
+    "att": 0.0857097254680734,
+    "se": 0.026248987235664
+   },
+   {
+    "x": "D",
+    "fe": "sid + year",
+    "att": 0.0594441496432807,
+    "se": 0.0275695574484701
+   },
+   {
+    "x": "D",
+    "fe": "sid + region^year",
+    "att": 0.0649085914356251,
+    "se": 0.0249731697155442
+   }
+  ],
+  "stata_cs_simple": {
+   "att": 0.1081768428771639,
+   "se": 0.0245185812909315
+  },
+  "stata_cs_post_average": {
+   "att": 0.1078201437436837,
+   "se": 0.0259273660769145
+  }
+ },
+ "baker_et_al_jel": {
+  "paper_source": "pedrohcgs/JEL-DiD tables/table2_R.tex, table5_R.tex, table7_R.tex at commit affb8f69f6975652445adbc727a50ea04b2c7bd8 (the authors' replication output for the JEL article's Tables 2, 5 and 7); Table 2 prints 1 decimal, Tables 5 and 7 print 2.",
+  "paper": {
+   "table2_did": {
+    "unweighted": 0.1,
+    "weighted": -2.6
+   },
+   "table5": {
+    "col1_unweighted_no_covs": {
+     "att": 0.12,
+     "se": 3.75
+    },
+    "col3_unweighted_xt": {
+     "att": -0.49,
+     "se": 3.83
+    },
+    "col4_weighted_no_covs": {
+     "att": -2.56,
+     "se": 1.49
+    },
+    "col6_weighted_xt": {
+     "att": -1.37,
+     "se": 1.62
+    }
+   },
+   "table7": {
+    "unweighted": {
+     "reg": -1.62,
+     "ipw": -0.86,
+     "dr": -1.23
+    },
+    "weighted": {
+     "reg": -3.46,
+     "ipw": -3.84,
+     "dr": -3.76
+    }
+   }
+  },
+  "stata_source": "Stata 18 MP: reg y i.Treat##i.Post [aw=set_wt], vce(cluster county_code); drdid y $COVS [iw=set_wt], ivar(county_code) time(year) tr(Treat) reg / stdipw / dripw pscoretrim(0.995) with covariates fixed at 2013; reghdfe y D $COVS [aw=set_wt], absorb(county_code year) vce(cluster county_code); staggered: reghdfe y D [aw=set_wt] / unweighted, bacondecomp y D, ddetail; csdid y, ivar(county_code) time(year) gvar(treat_year) notyet long2 + estat simple; ep1 did_case.do",
+  "stata": {
+   "did_2x2_unweighted": {
+    "att": 0.12163,
+    "se": 3.748435
+   },
+   "did_2x2_weighted": {
+    "att": -2.562875,
+    "se": 1.490007
+   },
+   "reg": {
+    "att": -3.459222,
+    "se": 2.376819
+   },
+   "ipw": {
+    "att": -3.841699,
+    "se": 3.22011
+   },
+   "dr": {
+    "att": -3.756107,
+    "se": 3.094219
+   },
+   "twfe_xt_weighted": {
+    "att": -1.369975,
+    "se": 1.614914
+   },
+   "staggered_twfe_weighted": {
+    "att": -0.935153,
+    "se": 2.176622
+   },
+   "staggered_twfe_unweighted": {
+    "att": -1.011909,
+    "se": 1.723404
+   },
+   "staggered_cs_simple_unweighted": {
+    "att": 3.242478,
+    "se": 2.568305
+   },
+   "bacon": {
+    "Earlier vs Later Treated": {
+     "weight": 0.109981,
+     "estimate": -12.038776
+    },
+    "Later vs Earlier Treated": {
+     "weight": 0.044029,
+     "estimate": -6.059628
+    },
+    "Treated vs Untreated": {
+     "weight": 0.84599,
+     "estimate": 0.684322
+    }
+   }
+  },
+  "stata_decimals": 6
+ }
+}

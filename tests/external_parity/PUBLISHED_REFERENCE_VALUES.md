@@ -27,6 +27,17 @@ with Multiple Time Periods. *Journal of Econometrics*, 225(2), 200-230.
 order of magnitude match; exact numerical R parity not claimed
 because the data is simulated).
 
+**Checked 2026-10-21 (R `did` 2.5.1 run as a black box on the original
+`mpdta`, DR, never-treated, varying base, analytic SEs):** simple
+-0.03995 (0.01203), group -0.03102 (0.01245), calendar -0.04170
+(0.01597), dynamic -0.07724 (0.01996); the group effects are 2004
+-0.0797, 2006 -0.0229, 2007 -0.0261. These do not match the first table
+above (-0.0454, and group ATTs attributed to a "Table 5"), whose source
+could not be confirmed; treat those rows as unverified. The original
+data is `sp.datasets.mpdta(simulated=False)` (fetched), and
+`tests/external_parity/test_did_paper_gallery.py` checks the verified
+numbers against R and Stata `csdid`.
+
 ## Card (1995) returns to schooling
 
 | Statistic | Value | Source |
