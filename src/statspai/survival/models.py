@@ -188,15 +188,6 @@ class CoxResult(EconometricResults):
             with the other three its ``km``, ``rank`` and ``log`` options.
             Unweighted right-censored fits only.
 
-        Weighted fits (``weights=``) and counting-process fits (``start=``)
-        get the score test of ``cox.zph`` for such fits: the case weights
-        enter the score and the information as they enter the partial
-        likelihood, the information is the model-based one whatever
-        variance the fit reports, and ``g`` ignores the weights (``'km'``
-        is the unweighted Kaplan-Meier of the ``(start, stop]`` data,
-        ``'rank'`` ranks the stop times of all rows). Fits with
-        ``design=`` are refused.
-
         Returns
         -------
         pd.DataFrame
@@ -207,6 +198,15 @@ class CoxResult(EconometricResults):
 
         Notes
         -----
+        Weighted fits (``weights=``) and counting-process fits (``start=``)
+        get the score test of ``cox.zph`` for such fits: the case weights
+        enter the score and the information as they enter the partial
+        likelihood, the information is the model-based one whatever
+        variance the fit reports, and ``g`` ignores the weights (``'km'``
+        is the unweighted Kaplan-Meier of the ``(start, stop]`` data,
+        ``'rank'`` ranks the stop times of all rows). Fits with
+        ``design=`` are refused.
+
         The two methods differ most when the covariate distribution of the
         risk set changes over time, which is when the average information
         matrix is a poor stand-in for each event time's own.
@@ -369,8 +369,9 @@ class CoxResult(EconometricResults):
             ``'hazard'`` — baseline cumulative hazard,
             ``'hr'`` — hazard ratio forest plot.
         ax : matplotlib.Axes, optional
-        type : str, optional
-            Alias of ``kind`` (the spelling other result classes use).
+        **kwargs
+            ``type=`` is accepted as an alias of ``kind`` (the spelling
+            other result classes use); the rest go to matplotlib.
         """
         import matplotlib.pyplot as plt
 

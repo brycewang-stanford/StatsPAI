@@ -29,7 +29,7 @@ Imai, Keele & Tingley (2010); the reference (R ``mediation`` 4.5.1,
 
 References
 ----------
-[@imai2010identification]
+[@imai2010identification],
 [@imai2010general]
 """
 
@@ -347,8 +347,7 @@ def mediate_sensitivity(
 
     References
     ----------
-    [@imai2010identification]
-    [@imai2010general]
+    [@imai2010identification], [@imai2010general]
 
     Clean-room implementation; the reference (R ``mediation`` 4.5.1,
     ``medsens``, GPL >= 2) was used only as a black box.

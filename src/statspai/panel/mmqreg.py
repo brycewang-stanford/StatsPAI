@@ -219,7 +219,7 @@ def mmqreg(
 
     References
     ----------
-    [@machado2019quantiles]
+    [@machado2019quantiles],
     [@riosavila2024estimating]
     """
     xs = _as_list(x)

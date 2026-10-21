@@ -23,7 +23,7 @@ units (``sp.scest(treat=)``) are handled in ``_scest_multi``.
 
 References
 ----------
-[@cattaneo2021prediction]
+[@cattaneo2021prediction],
 [@cattaneo2025scpi]
 """
 
@@ -632,7 +632,7 @@ def scpi(
 
     References
     ----------
-    [@cattaneo2021prediction]
+    [@cattaneo2021prediction],
     [@cattaneo2025scpi]
     """
     _warn_deprecated_lambdas(lasso_lambda, ridge_lambda)

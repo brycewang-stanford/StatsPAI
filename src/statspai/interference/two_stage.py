@@ -251,8 +251,7 @@ def two_stage_interference(
 
     References
     ----------
-    [@hudgens2008toward]
-    [@basse2018analyzing]
+    [@hudgens2008toward], [@basse2018analyzing]
     """
     if weighting not in _WEIGHTINGS:
         raise MethodIncompatibility(

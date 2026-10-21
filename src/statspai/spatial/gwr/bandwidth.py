@@ -161,14 +161,16 @@ def gwr_bandwidth(
         The search stops when two interior criterion values differ by at
         most ``tol`` or the golden step falls to ``tol``.
 
-    A probed bandwidth that admits no GWR fit (one neighbour or less) scores
-    ``+inf``, with a ``RuntimeWarning``; if no probe can be fitted the first
-    error is raised.
-
     Returns
     -------
     float
         The selected bandwidth.
+
+    Notes
+    -----
+    A probed bandwidth that admits no GWR fit (one neighbour or less) scores
+    ``+inf``, with a ``RuntimeWarning``; if no probe can be fitted the first
+    error is raised.
 
     Examples
     --------

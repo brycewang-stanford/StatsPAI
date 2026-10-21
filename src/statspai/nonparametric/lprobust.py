@@ -35,7 +35,7 @@ Cattaneo and Farrell (2019); their building blocks are in
 
 References
 ----------
-[@calonico2019nprobust] [@calonico2018effect] [@calonico2014robust]
+[@calonico2019nprobust], [@calonico2018effect], [@calonico2014robust]
 """
 
 from __future__ import annotations
@@ -204,7 +204,7 @@ def lprobust_at_point(
 
     References
     ----------
-    [@calonico2018effect] [@calonico2019nprobust]
+    [@calonico2018effect], [@calonico2019nprobust]
     """
     x0 = float(eval_point)
     b_val = h if b is None else b
@@ -366,7 +366,7 @@ def lpbwselect_mse_dpi(
 
     References
     ----------
-    [@calonico2019nprobust] [@calonico2014robust]
+    [@calonico2019nprobust], [@calonico2014robust]
     """
     _bw.check_kernel(kernel)
     xs, ys = _sel.selector_inputs(x, y, kernel, p, deriv, n_neighbors, "mse-dpi")
@@ -707,7 +707,7 @@ def lpbwselect_ce_rot(
 
     References
     ----------
-    [@calonico2019nprobust] [@calonico2018effect]
+    [@calonico2019nprobust], [@calonico2018effect]
     """
     _bw.check_kernel(kernel)
     _bw.check_orders(p, deriv, odd_only="ce-rot")

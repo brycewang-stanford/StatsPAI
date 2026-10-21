@@ -815,7 +815,7 @@ def gam(
     References
     ----------
     [@eilers1996flexible],
-    [@wood2017generalized]
+    [@wood2017generalized],
     [@wood2003thin],
     [@wood2013pvalues]
     """
