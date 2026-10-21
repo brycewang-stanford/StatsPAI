@@ -417,6 +417,33 @@ def _staggered(
     return {"unit": u, "time": t, "share": share, "n_cohorts": n_cohorts}
 
 
+def _adoption_dates(g: pd.Series, t: pd.Series, d: np.ndarray) -> bool:
+    """Whether ``g`` holds adoption dates on ``t``'s scale for ``d``.
+
+    True when ``d`` is 0 for the never-adopting levels (``g <= 0`` or after
+    the last period) and otherwise depends on ``g`` only through ``t - g``:
+    ``1{t >= g}`` and every event-time dummy ``1{t - g = k}``. Such a column
+    groups units by when they were treated, so it is not an assignment unit,
+    even where an event-time dummy is 0 for several cohorts and the cohorts
+    no longer have distinct treatment paths.
+    """
+    if g.dtype.kind not in "iu" or t.dtype.kind not in "iuf":
+        return False
+    gv = g.to_numpy(dtype=np.float64)
+    tv = t.to_numpy(dtype=np.float64)
+    if not np.all(np.isfinite(tv)) or np.any(tv != np.round(tv)):
+        return False
+    t_min, t_max = float(tv.min()), float(tv.max())
+    never = (gv <= 0) | (gv > t_max)
+    if d[never].any() or never.all():
+        return False
+    dated = ~never
+    if np.any(gv[dated] < t_min - (t_max - t_min)):
+        return False  # not on the time axis (e.g. state codes vs years)
+    diff, n_diff = _codes(pd.Series(tv[dated] - gv[dated]))
+    return _within(diff, n_diff, d[dated])[0]
+
+
 def _assignment_level(
     codes: _CodeCache,
     d: np.ndarray,
@@ -490,6 +517,8 @@ def _assignment_level(
             n_paths = len(np.unique(np.round(sig, 9)))
         if n_g <= n_paths:
             continue  # a cohort / treated-group column, not an assignment unit
+        if time is not None and _adoption_dates(frame[name], frame[time], d):
+            continue  # adoption dates: event-time dummies share all-0 paths
         if any(_nested(gcode, n_g, cc, nc) for cc, nc in cl_codes):
             continue  # clustered at this level or coarser
         if cl_codes and not any(
