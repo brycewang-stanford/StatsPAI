@@ -5312,3 +5312,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces after the DiD API changes (swapped `group=`, aliases, result accessors)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `761b03983` (DiD API), `a4f10d3ee` (traces).
+- **Reason.** `CausalResult` now mixes in `core/_result_access.py`
+  (`.attgt` / `.event_study` / `.aggregations`), so
+  `src/statspai/core/results.py` changed; it is on the traced path of 69
+  Track A modules and all 12 original-data modules. The `did/` alias
+  decorators and the argument-role checks (`did/_arg_roles.py`) touch
+  modules 16, 17, 20, 38, 73, 75, 79, 82 and 84. Modules 04, 05, 16, 17,
+  20, 38, 73, 75, 79, 82 and 84 were re-run first on the no-Rust path: 04,
+  05, 16, 17, 20, 75 and 82 reproduce their committed results bit for
+  bit; 38, 73, 79 and 84 differ in the last digits (about 1e-12
+  relative), and main without these changes produces the same bytes, so
+  the drift predates them and the files were kept. Only the traces were
+  re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
