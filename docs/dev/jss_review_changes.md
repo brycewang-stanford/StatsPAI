@@ -5296,3 +5296,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces 05 / 67 / 83 / 85 re-recorded after `parity=` and the feols cluster spellings
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f2e119bc8`.
+- **Reason.** `did/sun_abraham.py` and `did/event_study.py` (new `parity=`
+  critical values, `did/_crit.py`) and `fixest/wrapper.py` (cluster
+  `vcov` spellings, `core/_vcov_spellings.py`) are on the traced paths of
+  Track A modules 05 67 83 85. Every module was re-run first: the
+  committed results reproduce byte for byte; only the traces were
+  re-recorded. No module passes `parity=`, so the defaults it reads are
+  unchanged.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
