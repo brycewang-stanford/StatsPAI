@@ -1809,19 +1809,38 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
             notes.append(f"pretrends({opts.get('pretrends')}) is not an integer.")
     if "autosample" in opts:
         args["autosample"] = True
-    if (opts.get("minn") or "").strip() == "0":
-        # minn(0) switches off Stata's suppression of thinly supported
-        # coefficients (default 30); sp.did_imputation suppresses nothing
-        # unless min_n= is given, so there is nothing to pass.
-        pass
-    elif "minn" in opts:
+    # minn(#) suppresses horizons whose effective number of treated
+    # observations (inverse Herfindahl of the weights) is below # -- 30 when
+    # the option is left out, so a translation that passes nothing reports
+    # horizons Stata hides. Unweighted, the effective number is the count
+    # sp.did_imputation(min_n=) uses; the pre-trend coefficients are kept by
+    # both. min_n only applies to an event study (horizon=).
+    minn_text = (opts.get("minn") or "").strip() if "minn" in opts else "30"
+    weighted = cmd.weight is not None or bool(opts.get("wtr"))
+    try:
+        minn = int(minn_text)
+    except ValueError:
+        minn = None
+    if minn is None or minn < 0:
         lost.append("minn")
-        notes.append(
-            f"minn({opts.get('minn')}) suppresses coefficients by the "
-            "effective number of observations behind them; "
-            "sp.did_imputation(min_n=) counts treated observations, a "
-            "different threshold, so it is not carried over."
-        )
+        notes.append(f"minn({minn_text}) is not a non-negative integer.")
+    elif minn > 0 and "horizon" in args:
+        if weighted:
+            lost.append("minn")
+            notes.append(
+                f"minn({minn}) counts the effective number of treated "
+                "observations, which is below their count once weights "
+                "enter; sp.did_imputation(min_n=) counts them, so the "
+                "threshold is not carried over."
+            )
+        else:
+            args["min_n"] = minn
+            if "minn" not in opts:
+                notes.append(
+                    "min_n=30 is Stata's default minn(30): horizons with "
+                    "fewer than 30 treated observations are not reported. "
+                    "minn(0) / min_n=0 reports them all."
+                )
     if opts.get("controls"):
         args["controls"] = (opts.get("controls") or "").split()
     cluster = _vce_cluster(cmd)

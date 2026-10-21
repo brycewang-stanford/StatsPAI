@@ -485,12 +485,58 @@ def test_did_imputation_options_reach_the_call():
         "autosample": True,
         "controls": ["a", "b"],
         "cluster": "id",
+        "min_n": 30,  # Stata's default minn(30)
     }
     assert sp.from_stata("did_imputation y id t g, horizons(-4(2)4)")["arguments"][
         "horizon"
     ] == [-4, -2, 0, 2, 4]
     bad = sp.from_stata("did_imputation y id t g, horizons(abc)")
     assert bad["untranslated_options"] == ["horizons"]
+
+
+def test_did_imputation_minn_carries_statas_default():
+    # Stata suppresses horizons with fewer than minn (default 30) effective
+    # treated observations; unweighted that is the count min_n= uses, so the
+    # threshold is carried over, default included.
+    def args(line):
+        return sp.from_stata(line)["arguments"]
+
+    assert args("did_imputation y id t g, horizons(0/3)")["min_n"] == 30
+    assert args("did_imputation y id t g, horizons(0/3) minn(12)")["min_n"] == 12
+    assert "min_n" not in args("did_imputation y id t g, horizons(0/3) minn(0)")
+    # no event study: there is nothing for min_n to filter
+    assert "min_n" not in args("did_imputation y id t g")
+    # weighted: the effective number is below the count, so it is not carried
+    weighted = sp.from_stata("did_imputation y id t g [aw=w], horizons(0/3)")
+    assert "min_n" not in weighted["arguments"]
+    assert weighted["untranslated_options"] == ["minn"]
+    assert sp.from_stata("did_imputation y id t g, horizons(0/3) minn(x)")[
+        "untranslated_options"
+    ] == ["minn"]
+
+
+def test_did_imputation_default_minn_drops_what_stata_drops():
+    # Stata's default minn(30) suppresses the horizons with fewer than 30
+    # treated observations and keeps every pre-trend coefficient (checked in
+    # Stata 18 on a 267-city panel: tau1-tau3 suppressed, pre1-pre6 kept).
+    # Here horizons 0-2 have 30 treated observations and 3-4 have 15.
+    rng = np.random.default_rng(7)
+    rows = []
+    for i in range(60):
+        g = {0: 4, 1: 6}.get(i % 3, 0) if i < 45 else 0
+        for t in range(1, 9):
+            d = int(g and t >= g)
+            rows.append((i, t, g, rng.normal() + 0.5 * d))
+    df = pd.DataFrame(rows, columns=["id", "t", "g", "y"])
+    code = sp.from_stata("did_imputation y id t g, horizons(0/4) pretrends(2)")
+    fit = _quiet(sp.did_imputation, df, **{k: v for k, v in code["arguments"].items()})
+    es = fit.model_info["event_study"]
+    treated = (
+        df[df.g > 0].assign(k=lambda d: d.t - d.g).query("k >= 0").groupby("k").size()
+    )
+    kept = set(es.loc[es.relative_time >= 0, "relative_time"])
+    assert kept == set(treated[treated >= 30].index)
+    assert set(es.loc[es.relative_time < 0, "relative_time"]) == {-2, -1}
 
 
 def _call_keywords(code):
