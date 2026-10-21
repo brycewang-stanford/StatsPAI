@@ -65,11 +65,12 @@ def formula_factor_codes(formula: Any) -> List[str]:
         return [str(getattr(f, "code", f)) for f in infos]
     if not isinstance(formula, str):
         return []
-    try:
-        from patsy import ModelDesc
+    from patsy import ModelDesc, PatsyError
 
+    try:
         desc = ModelDesc.from_formula(formula)
-    except Exception:
+    except (PatsyError, SyntaxError, ValueError, TypeError):
+        # the caller's own parse reports the malformed formula
         return []
     codes = []
     for term in list(desc.lhs_termlist) + list(desc.rhs_termlist):
