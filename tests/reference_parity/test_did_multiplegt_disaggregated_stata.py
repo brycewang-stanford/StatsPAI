@@ -183,3 +183,17 @@ def test_bootstrap_resamples_groups_of_cells(panel):
     a = _fit(panel, "y", "d", n_boot=20, seed=3)
     b = _fit(panel, "y", "d", n_boot=20, seed=3)
     assert np.isfinite(a.se) and a.se > 0 and a.se == b.se
+
+
+def test_robust_placebos_do_not_depend_on_dynamic(panel):
+    """Stata refuses ``placebo(3) dynamic(1) robust_dynamic`` ("the number of
+    placebos requested cannot be larger than the number of dynamic effects")
+    but computes ``placebo(3) robust_dynamic``. The robust placebos are
+    defined without reference to the dynamic effects, so StatsPAI computes
+    them in both calls and they are identical; placebo 1 equals the Stata
+    run of the fixture."""
+    a = _fit(panel, "ya", "da", placebo=3, dynamic=0, robust_dynamic=True)
+    b = _fit(panel, "ya", "da", placebo=3, dynamic=1, robust_dynamic=True)
+    pa = [p["estimate"] for p in a.model_info["placebo"]]
+    pb = [p["estimate"] for p in b.model_info["placebo"]]
+    assert len(pa) == 3 and pa == pb
