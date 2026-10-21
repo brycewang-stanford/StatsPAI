@@ -29,6 +29,40 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.cs_report(parity=)` forwards to every `sp.callaway_santanna` fit and
   `sp.aggte` call of the report.
 
+- `sp.breakdown_m` and `sp.pretrends_test` accept event-study coefficients
+  with `sigma=` / `event_times=` / `num_pre_periods=`, as `sp.pretrends_power`
+  does: a breakdown value and a joint pre-test from the estimates and SEs a
+  paper prints. On the personal-bankruptcy pilot paper's event study the
+  relative-magnitude breakdown is 0.36793 and the smoothness one 0.00095703;
+  Stata `honestdid` excludes zero just below each and includes it just above.
+- `sp.bacon_decomposition(balance='observed_rows')` reproduces Stata
+  `ddtiming` on unbalanced panels (every `e()` scalar to 1e-15 on three
+  synthetic panels and the 267-city replication panel): Theorem 1 applied to
+  the observed rows. Off a balanced panel this is not an identity, so
+  `weighted_sum` (ddtiming's DD) differs from `beta_twfe` and the function
+  warns; weights can be negative; 2x2s with no treatment variation are NaN
+  with `identified=False` (ddtiming prints 0). Golden fixture
+  `tests/reference_parity/_fixtures/bacon_ddtiming_Stata.json`.
+- `sp.stacked_did(aggregation='event_time' | 'treated_obs')`: the overall ATT
+  as the equal-weight mean of the post event-time effects (default, as
+  before) or weighted by treated observations, the estimand of CS / BJS /
+  ETWFE. `sp.stacked_did(cluster_stack=True)` clusters on unit x stack, the
+  default of Stata `stackedev`, for replication only: a control unit repeats
+  in every stack, so it understates the SEs of time-varying controls (0.62x
+  on the test panel). Both match Stata to 2e-11
+  (`test_stacked_did_stackedev_Stata_parity.py`). stackedev builds its
+  cluster id as `stack * unit`, which can merge two (unit, stack) pairs; ours
+  does not.
+- `sp.did_summary(event_study=True, event_window=)` puts every method's
+  event-study path in `result.event_study_paths` on one relative-time axis,
+  with a `lead_definition` column (`reference_period` for CS / SA / stacked,
+  `untreated_regression` for BJS leads, `post_only` for ETWFE);
+  `sp.did_summary_plot(kind='event_study')` draws them.
+- `sp.did_multiplegt_dyn`: `detail` and `model_info['event_study']` gain
+  `twfe_relative_time` (effect l at l, placebo l at -(l+1), the axis of a
+  base -1 event study; `relative_time` is unchanged, where placebo 1 sits at
+  -1), and `detail` gains a public `se` column for whichever `se_method` ran.
+
 ### Changed
 
 - The code that `sp.recommend` and the agent cards suggest for `sp.sun_abraham` / `sp.event_study` now spells out the announced defaults (`aggregation='fixest_att'`, `crit_dist='t'`), so a copied call does not warn and keeps its numbers when 1.41 flips the defaults.
@@ -60,6 +94,11 @@ All notable changes to StatsPAI will be documented in this file.
   against the same call with the guard switched off; Track A 16, 17, 38,
   73, 75, 81, 84 byte-identical to main's own reruns).
 
+- Announced for 1.42: `sp.did_multiplegt_dyn` defaults become
+  `aggregation='switchers'` (Stata / R `Av_tot_eff`) and
+  `se_method='analytic'`. A call that leaves either unset warns
+  (`FutureWarning`); numbers are unchanged until then. See MIGRATION.md.
+
 ### Fixed
 
 - **⚠️ Correctness**: `sp.did_multiplegt` on data below the group level (individuals within groups, several rows per group and period). Stata `did_multiplegt_old` averages such data to (group, period) cells and weights each cell by its row count; its results on the rows equal its results on the collapsed cells with `weight(n)`. StatsPAI paired the rows of a group across periods, so a cell weighed n_t x n_{t-1} in DID_M (0.6149 against Stata's 0.5600 on the test panel), and the placebo and dynamic paths kept only the first row of each cell. It now collapses to cells and weights them as Stata does (DID_M and placebo cells by their size in the switching period), matching Stata to 3e-16 on DID_M and placebos, with binary and count treatments. Dynamic cells weigh their size in the switching period t by default, as R `DIDmultiplegt` does (0.66028 on the test panel, R 0.66028), and their size at t + l with `robust_dynamic=True`, as Stata does. A cluster variable that varies within a cell is refused. `n_obs` is the row count; `model_info` gains `collapsed_to_cells` and `n_cells`. One row per (group, period), the usual layout, is unchanged.
@@ -68,6 +107,34 @@ All notable changes to StatsPAI will be documented in this file.
 - Not changed, now documented: on unbalanced panels R `DIDmultiplegt` 0.1.4 differences a group's outcome across a gap (consecutive observed periods), Stata leaves that difference missing. StatsPAI follows Stata for every estimate; R's unbalanced numbers, DID_M included, are not reproduced (docs/dev/modules/did.md).
 - `sp.did_multiplegt(n_boot=0)` no longer warns that placebo / dynamic effects are not estimable when they were estimated (the check read the missing bootstrap SE).
 - **⚠️ Correctness**: `sp.rlasso_iv(select_Z=True, select_X=False)` solves the second stage exactly. It used `MASS::ginv`'s tolerance on `Dhat'[d, x]`, as `hdm::rlassoIVselectZ` 0.3.2 does; that product squares the conditioning of the controls, and on the BCH eminent-domain application (`EminentDomain$logGDP`, 80 full-rank controls with condition number 7e6, product 5e13) the cutoff discarded 34 of 81 singular values. The 0.2274 that hdm prints and StatsPAI matched is a truncated-SVD value that moves with the tolerance (0.0054 at 1e-10). The controls are now partialled out with a pivoted QR and the IV system solved exactly: 0.0154, HC0 SE 0.0141 (was 0.2274 / 0.1760), equal to `AER::ivreg` with `sandwich::vcovHC(type='HC0')` to 6e-13 on the same first stage; the parity fixture now uses that reference. Well-conditioned designs move by rounding only. The double-selection and `select_X` paths are unchanged. The deprecation message of `iv.bch_post_lasso_iv` no longer says it is "~17x off" hdm here: that comparison was against the truncated value (it returns 0.0130).
+- **⚠️ Correctness**: `sp.did_summary` reported the Sun-Abraham and stacked
+  rows as the equal-weight mean of the post event-time effects and the other
+  rows as treated-observation ATTs, then averaged them and called the spread
+  a disagreement between estimators. All rows are now treated-observation
+  ATTs (SA `aggregation='fixest_att'`, stacked `aggregation='treated_obs'`),
+  and `detail` has an `estimand` column. On the 267-city personal-bankruptcy
+  replication panel: SA 0.01696 -> 0.01215, stacked 0.01617 -> 0.01187,
+  cross-method SD 0.0025 -> 0.00012.
+- The design guardrail of `sp.feols` / `sp.fepois` / `sp.regress` /
+  `sp.hdfe_ols` / `sp.panel` reported an event-time dummy that only some
+  cohorts reach (k = 3 when only the earliest cohort is seen three years
+  after adoption) as "assigned at the cohort level" and suggested clustering
+  on the handful of cohorts. A column on which the treatment depends only
+  through `time - column` is an adoption date, not an assignment unit, and
+  is no longer flagged. State-level assignment still is. Warnings only.
+- `sp.bacon_plot` default colours were keyed by names that
+  `sp.bacon_decomposition` never writes, so every point was grey; a partial
+  `colors=` dict now overrides type by type.
+- `sp.did_imputation(min_n=0)` raised; it is Stata's `minn(0)` (report every
+  horizon) and is accepted. Other invalid values raise
+  `MethodIncompatibility` with a recovery hint.
+- `sp.from_stata` / `sp.stata` carry `did_imputation, minn(#)` over, and
+  Stata's default `minn(30)` when the option is left out (unweighted event
+  studies, where the effective number of treated observations is the count
+  `min_n=` uses). The translation used to report the horizons Stata
+  suppresses.
+- `sp.from_r("did_multiplegt_dyn(..., effects = k)")` emitted `dynamic=k`, one
+  effect too many; it emits `dynamic=k-1` and `aggregation='switchers'`.
 
 ## [1.40.0] — 2026-10-21
 

@@ -5,6 +5,32 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.0 → 1.41: ⚠️ `sp.did_summary` rows share one estimand; announced `sp.did_multiplegt_dyn` defaults for 1.42
+
+- **`sp.did_summary`.** The Sun-Abraham and stacked rows were the
+  equal-weight mean of the post event-time effects, the other rows
+  treated-observation ATTs. All rows are now treated-observation ATTs. On the
+  267-city personal-bankruptcy panel SA moves from 0.01696 to 0.01215 and
+  stacked from 0.01617 to 0.01187. The old numbers are
+  `sp.sun_abraham(..., aggregation='event_time')` and `sp.stacked_did(...)`
+  (its default `aggregation='event_time'` is unchanged).
+- **`sp.bacon_plot(colors=)`** with a partial dict keeps the default colours
+  for the types it leaves out.
+- **`sp.did_multiplegt_dyn`, announced.** From 1.42 the defaults are
+  `aggregation='switchers'` (Stata / R `Av_tot_eff`, switcher-weighted) and
+  `se_method='analytic'` (influence-function SEs). Today, without these
+  arguments, `.estimate` is the equal-weight mean of the dynamic effects and
+  the SEs come from 500 bootstrap draws. The two headlines differ whenever
+  later horizons rest on fewer cohorts: 0.0168 against 0.0119 on the
+  bankruptcy panel. Pass `aggregation='simple', se_method='bootstrap'` to
+  keep today's numbers, or `aggregation='switchers', se_method='analytic'` to
+  adopt the 1.42 ones now; either silences the warning.
+- **`sp.from_stata` / `sp.stata` with `did_imputation, horizons()`** now pass
+  `min_n=30` when `minn()` is left out, so the translated call hides the
+  horizons Stata hides. Add `minn(0)` to the Stata line to report them all.
+
+---
+
 ## 1.40.0 → 1.41: ⚠️ `sp.rlasso_iv(select_Z=True, select_X=False)` solves the second stage exactly
 
 The second stage was solved with a Moore-Penrose pseudo-inverse at
