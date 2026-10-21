@@ -5797,9 +5797,8 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "status": "bit-exact",
         "reference": "R hdm::rlassoIV 0.3.2",
         "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "hdm": "0.3.2"},
-        "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol "
-        "1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient "
-        "control block)",
+        "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain "
+        "select_Z-only atol 1e-8 (observed 6.3e-13, against AER::ivreg)",
         "sides": ["py", "R"],
         "test": [
             "tests/reference_parity/test_rlasso_parity.py",
@@ -5810,7 +5809,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "vignette. The select_Z-only path is pinned to hdm's first stage plus "
         "hdm's tsls with the intercept restored: rlassoIVselectZ 0.3.2 drops "
         "the second-stage intercept and transposes the sandwich bread "
-        "(reference bugs, documented in sp.rlasso_iv Notes).",
+        "(reference bugs, documented in sp.rlasso_iv Notes). On EminentDomain "
+        "that second stage is the exact IV solve (AER::ivreg, HC0): hdm's "
+        "MASS::ginv discards 34 of 81 singular values of a cond-5e13 system "
+        "and prints 0.2274; the IV estimate is 0.0154.",
     },
     "rlassologit": {
         "status": "aligned",

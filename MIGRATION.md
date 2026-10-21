@@ -5,6 +5,20 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.0 → 1.41: ⚠️ `sp.rlasso_iv(select_Z=True, select_X=False)` solves the second stage exactly
+
+The second stage was solved with a Moore-Penrose pseudo-inverse at
+`MASS::ginv`'s tolerance, as `hdm::rlassoIVselectZ` 0.3.2 does. When the
+controls are ill-conditioned the pseudo-inverse discards real singular
+values and the coefficient is not the IV estimate. On the eminent-domain
+application (`EminentDomain$logGDP`) the coefficient moves from 0.2274 to
+0.0154 and the SE from 0.1760 to 0.0141; the new numbers equal
+`AER::ivreg` with HC0 SEs on the same first stage. Well-conditioned designs
+change only by rounding. There is no switch back: the old number depends on
+an arbitrary singular-value cutoff (0.0054 at 1e-10).
+
+---
+
 ## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` placebo and dynamic effects with `controls=`; `robust_dynamic=`
 
 Checked against Stata 18 `did_multiplegt_old` and R `DIDmultiplegt` 0.1.4 on

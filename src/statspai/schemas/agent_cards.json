@@ -119881,7 +119881,7 @@
         "tests/reference_parity/test_rlasso_vignette_parity.py",
         "tests/reference_parity/_fixtures/rlasso_R.json"
       ],
-      "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol 1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient control block)"
+      "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain select_Z-only atol 1e-8 (observed 6.3e-13, against AER::ivreg)"
     },
     "example": "res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)",
     "failure_modes": [
@@ -120042,7 +120042,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R hdm::rlassoIV 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol 1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient control block) -- tests/reference_parity/test_rlasso_parity.py",
+      "Cross-language parity (bit-exact) vs R hdm::rlassoIV 0.3.2 [R version 4.5.2 (2025-10-31), hdm 0.3.2]; tolerance coef / se atol 1e-6 (observed <= 3e-15); EminentDomain select_Z-only atol 1e-8 (observed 6.3e-13, against AER::ivreg) -- tests/reference_parity/test_rlasso_parity.py",
       "tests/reference_parity/test_cluster_lasso_stata.py"
     ],
     "validation_status": "certified"

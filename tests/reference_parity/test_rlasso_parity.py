@@ -30,9 +30,10 @@ near machine precision, not "within 5%":
   restored: ``rlassoIVselectZ`` 0.3.2 drops the second-stage intercept and
   transposes the sandwich bread (see ``sp.rlasso_iv`` Notes); hdm's raw
   numbers are kept in the fixture as ``selectZ_hdm_raw``.
-- ``rlasso_iv`` on EminentDomain (rank-deficient control block): the
-  Moore-Penrose pseudo-inverse SVD differs between LAPACK builds, so we
-  allow ``atol=1e-4`` (observed ~1e-9).
+- ``rlasso_iv`` ``select_Z``-only on EminentDomain: the reference is
+  ``AER::ivreg`` + HC0 on hdm's first stage, an exact solve. hdm 0.3.2's
+  ``ginv`` solve truncates 34 of 81 singular values of an ill-conditioned
+  (cond 5e13) system and reports 0.2274; the IV estimate is 0.0154.
 
 References
 ----------
@@ -233,16 +234,21 @@ def test_rlasso_iv_selectZ_nonzero_mean_is_2sls(R):
 
 def test_eminent_selectZ_matches_hdm(eminent, R):
     """The headline case: BCH (2012) optimal-instrument IV on eminent
-    domain.  StatsPAI's pre-port estimator was ~17x off (0.013 vs 0.227).
-    The coefficient is hdm's 0.2274 (the controls hold a constant column,
-    so no intercept is added); the SE is the sandwich of that estimator,
-    0.1760, where hdm 0.3.2 reports 0.2466 from a transposed bread."""
+    domain, with hdm's first stage (same 5 selected columns). The second
+    stage is the exact IV solve, 0.0154 (HC0 SE 0.0141) = AER::ivreg; hdm
+    0.3.2 reports 0.2274 (SE 0.2466) from a ginv that truncates 34 of 81
+    singular values (the controls hold a constant column, so no intercept
+    is added)."""
     y, d, X, Z = eminent
     exp = R["eminent_logGDP"]["selectZ"]
     res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)
-    np.testing.assert_allclose(res.coef[0], exp["coef"], atol=1e-4)
-    np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-4)
+    # cond(x) ~7e6 bounds cross-LAPACK drift near 1e-9; observed 6e-13.
+    np.testing.assert_allclose(res.coef[0], exp["coef"], atol=1e-8)
+    np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-8)
     assert res.selection["n_selected_Z"] == exp["n_selected"]
+    # hdm's truncated-SVD number is kept in the fixture; we must not land
+    # on it.
+    assert abs(res.coef[0] - R["eminent_logGDP"]["selectZ_hdm_raw"]["coef"]) > 0.1
 
 
 def test_eminent_selectBoth_matches_hdm(eminent, R):

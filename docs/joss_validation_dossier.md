@@ -196,7 +196,7 @@ pinned directly against `hdm` 0.3.2 output (generated on R 4.5.2 / `glmnet`
 | `rlasso` (`post`/`intercept`/`homoscedastic` variants) | coefficients, `λ₀`, loadings, residuals, σ | `atol=1e-6` | ~1e-13; **selected support exact** |
 | `rlasso_effect` (partialling-out & double-selection) | α, SE, t | `atol=1e-6` | ~1e-14 |
 | `rlasso_effects` (multi-target) | α, SE, t per target | `atol=1e-6` | ~1e-14 |
-| `rlasso_iv` — eminent domain, `select_Z` (BCH 2012) | coef = 0.227394, SE = 0.246620, 5 instruments | `atol=1e-4` | ~1e-9 |
+| `rlasso_iv` — eminent domain, `select_Z` (BCH 2012) | first stage: 5 selected columns; second stage coef = 0.0154304, SE = 0.0141055 vs `AER::ivreg` + HC0 (corrected 2026-10-22) | `atol=1e-8` | ~1e-12 |
 | `rlassologit` | selected support; glmnet engine; `post` refit | support exact | engine ~1e-6, `post` ~1e-9 |
 | `rlasso_effect` / `rlasso_iv` — `hdm` vignette (Growth, AJR, cps2012) | published coefficients (see below) | `atol=1e-6` | ~1e-10 / exact |
 
@@ -205,11 +205,16 @@ pinned directly against `hdm` 0.3.2 output (generated on R 4.5.2 / `glmnet`
   iteration), the no-`1/n` LassoShooting objective, and the post-Lasso OLS refit
   all match `hdm` to ~1e-13. The selected support is **bit-identical**, which is
   the property that actually matters for a selection estimator.
-- **The eminent-domain IV application reproduces the published BCH (2012)
-  number** (`coef 0.2274`, `SE 0.2466`) across all four selection regimes. The
-  rank-deficient control block requires matching `hdm`'s `MASS::ginv`
-  singular-value cutoff (√ε ≈ 1.49 × 10⁻⁸) rather than NumPy's default `pinv`
-  tolerance; doing so restores agreement to ~1e-9.
+- **Correction (2026-10-22) to the eminent-domain IV row.** This dossier
+  originally said the application reproduces `coef 0.2274`, `SE 0.2466`
+  (which are `hdm` 0.3.2's printed numbers, not a figure from BCH 2012) by
+  matching `hdm`'s `MASS::ginv` cutoff. That cutoff discards 34 of the 81
+  singular values of the `select_Z`-only second-stage system (condition
+  number about 5e13, although the controls themselves are full rank), so
+  the number is a truncated-SVD value that moves with the tolerance. The IV
+  estimate on the same first stage is `coef 0.0154`, `SE 0.0141`
+  (`AER::ivreg`, HC0), and `sp.rlasso_iv` returns it in StatsPAI releases after 1.40.0
+  on. The double-selection path was not affected.
 - **All three `hdm` vignette applications reproduce exactly.** On the
   Barro-Lee growth panel (`hdm::GrowthData`), `sp.rlasso_effect` recovers
   the conditional-convergence coefficient `hdm` reports — `-0.04981` (SE

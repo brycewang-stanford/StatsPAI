@@ -122,23 +122,23 @@ write.csv(data.frame(y = y3, d = d3, x, z, check.names = FALSE),
 
 resZ    <- rlassoIV(x = x, d = d3, y = y3, z = z, select.X = FALSE, select.Z = TRUE)
 resBoth <- rlassoIV(x = x, d = d3, y = y3, z = z, select.X = TRUE,  select.Z = TRUE)
-# hdm 0.3.2's rlassoIVselectZ reports A^+' Omega A^+ with A = Dhat'D; the
-# sandwich of alpha = A^+ Dhat'y is A^+ Omega A^+' (what hdm's own tsls
-# computes; tsls cannot be used here because the 80-column control block
-# makes solve(Z'Z) singular). x already holds a constant column (column 50),
-# so no intercept is appended.
-selz_ginv <- function(x, d, y, z) {
+# The select.Z-only second stage is the just-identified IV of y on [d, x]
+# with instruments [dhat, x]; x holds a constant column (column 50), so no
+# intercept is appended. hdm 0.3.2 solves it with MASS::ginv(t(Dh) %*% D):
+# that matrix squares the conditioning of x (cond ~5e13) and the sqrt(eps)
+# cutoff truncates 34 of 81 singular values, so hdm's 0.2274 is a truncated
+# SVD that moves with the tolerance (1e-10 gives 0.0054). The reference is
+# AER::ivreg with HC0 sandwich SEs, an exact solve. hdm's raw numbers stay
+# in selectZ_hdm_raw.
+selz_exact <- function(x, d, y, z) {
   dhat <- as.numeric(predict(rlasso(cbind(z, x), d, post = TRUE, intercept = TRUE)))
-  Dh <- cbind(dhat, x); D <- cbind(d, x)
-  Ainv <- MASS::ginv(t(Dh) %*% D)
-  a <- Ainv %*% (t(Dh) %*% y)
-  e <- as.numeric(y - D %*% a)
-  V <- Ainv %*% (t(Dh) %*% (Dh * e^2)) %*% t(Ainv)
-  list(coef = a[1], se = sqrt(V[1, 1]))
+  f <- AER::ivreg(y ~ d + x - 1 | dhat + x - 1)
+  list(coef = unname(coef(f)["d"]),
+       se = sqrt(sandwich::vcovHC(f, type = "HC0")["d", "d"]))
 }
 stopifnot(any(apply(x, 2, sd) == 0))
-resZfix <- selz_ginv(x, d3, y3, z)
-# Core rlasso of d on [z,x] — the first-stage selection that was 17x off
+resZfix <- selz_exact(x, d3, y3, z)
+# Core rlasso of d on [z,x]: the first-stage selection
 lasso_d_zx <- rlasso(cbind(z, x), d3, post = TRUE)
 
 out$eminent_logGDP <- list(

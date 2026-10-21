@@ -128,8 +128,10 @@ numerics are held to `hdm` exactly:
   `describe_function()` / `function_schema()`, the same as every other
   estimator.
 - **Faithful, not approximate.** An earlier from-memory reconstruction of
-  optimal-IV selection was ~17× off `hdm` on the eminent-domain application
-  because it used the *asymptotic* penalty and selected only instruments; that
+  optimal-IV selection did not reproduce `hdm`'s selection on the
+  eminent-domain application because it used the *asymptotic* penalty and
+  selected only instruments (the "~17× off" figure once given here compared
+  against a truncated pseudo-inverse; see the correction below); that
   path is deprecated. `sp.rlasso` ports the rigorous penalty, the
   heteroskedastic loadings, the LassoShooting objective, and post-Lasso exactly.
 
@@ -144,10 +146,19 @@ passing**:
 | --- | --- |
 | `rlasso` coefficients / `λ₀` / loadings / residuals | ~1e-13; **selected support exact** |
 | `rlasso_effect` / `rlasso_effects` (α, SE) | ~1e-14 |
-| `rlasso_iv` eminent domain, `select_Z` (BCH 2012) | `coef 0.2274`, `SE 0.2466` (~1e-9) |
+| `rlasso_iv` eminent domain, `select_Z` (BCH 2012) | `coef 0.0154`, `SE 0.0141` (corrected 2026-10-22; see note) |
 | `rlassologit` selected support / `post` refit | support exact; `post` ~1e-9 |
 | `sp.dml(ml_g='rlasso', ml_m='rlasso')` end to end | matches R DoubleML `θ̂=1.44867`, `SE=0.04502` (machine precision) |
 | `hdm` vignette applications | Growth, AJR, and cps2012 coefficients pinned to `hdm` |
+
+> **Correction (2026-10-22).** This answer originally listed `coef 0.2274`,
+> `SE 0.2466` for eminent domain. Those are the numbers `hdm` 0.3.2 prints,
+> but its `select_Z`-only second stage takes `MASS::ginv` of a matrix with
+> condition number about 5e13 and discards 34 of 81 singular values; the
+> result moves with the cutoff and is not the IV estimate. The exact solve
+> on the same first stage, equal to `AER::ivreg` with HC0 SEs, is
+> `coef 0.0154`, `SE 0.0141`, and is what `sp.rlasso_iv` returns from
+> StatsPAI releases after 1.40.0. See `CHANGELOG.md`.
 
 The full numbers and the `hdm` ↔ StatsPAI function map are in
 [`docs/guides/rigorous_lasso_hdm.md`](guides/rigorous_lasso_hdm.md); the

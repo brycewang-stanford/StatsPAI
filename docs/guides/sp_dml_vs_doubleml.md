@@ -202,8 +202,10 @@ release:
   (coefficients, `λ₀`, loadings, residuals and selected support are
   bit-exact across `post`/`intercept`/`homoscedastic` variants);
 - `sp.rlasso_iv(y, d, z, x, select_Z=, select_X=)` reproduces
-  `hdm::rlassoIV` on the BCH eminent-domain application **exactly**
-  (`coef 0.2274`, `SE 0.2466`), across all four selection regimes;
+  `hdm::rlassoIV`'s selection exactly; on the `select_Z`-only path it
+  departs from `hdm` 0.3.2 where the reference is wrong (on eminent domain
+  hdm's pseudo-inverse prints 0.2274; the exact IV solve, equal to
+  `AER::ivreg`, is 0.0154). See the guide linked below;
 - `sp.dml(model='plr', ml_g='rlasso', ml_m='rlasso')` now wires the
   rigorous Lasso in as a drop-in nuisance learner
   (`sp.RlassoRegressor` / `sp.RlassoClassifier`, clone-safe across
@@ -211,9 +213,8 @@ release:
 
 This **resolves** the previously-tracked divergence: the earlier
 hand-rolled reconstruction (`iv.bch_post_lasso_iv`, with the asymptotic
-penalty `λ = 2c√{2n log(2p/α)}`) was ~17× off `hdm` on eminent domain
-(0.013 vs 0.227) because it used a different penalty and selected only
-instruments. `iv.bch_post_lasso_iv` retains its original numerics for
+penalty `λ = 2c√{2n log(2p/α)}`) does not reproduce `hdm`'s selection
+because it used a different penalty and selected only instruments. `iv.bch_post_lasso_iv` retains its original numerics for
 backward compatibility, but `sp.rlasso_iv` is the hdm-faithful path; see
 [`docs/guides/rigorous_lasso_hdm.md`](rigorous_lasso_hdm.md). `LassoCV`
 (CV-tuned) remains available as the alternative sparse-linear nuisance.

@@ -73,7 +73,7 @@ Pinned against `hdm` 0.3.2 in `tests/reference_parity/test_rlasso_parity.py`,
 | --- | --- |
 | `rlasso` coefficients / `λ₀` / loadings / residuals | ~1e-13; **selected support exact** |
 | `rlasso_effect` / `rlasso_effects` (α, SE) | ~1e-14 |
-| `rlasso_iv` eminent domain, `select_Z` (BCH 2012) | `coef 0.2274`, `SE 0.2466` (~1e-9) |
+| `rlasso_iv` eminent domain, `select_Z` (BCH 2012) | first stage exact; second stage `coef 0.0154`, `SE 0.0141` = `AER::ivreg` + HC0 (~1e-12); hdm 0.3.2 prints 0.2274 from a truncated pseudo-inverse |
 | `rlassologit` selected support / `post` refit | support exact; `post` ~1e-9 |
 | `hdm` vignette: Growth, AJR, cps2012 | published worked-example coefficients pinned to `atol=1e-6` |
 

@@ -5708,6 +5708,7 @@
         "tests/reference_parity/test_absorbing_reference.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_multiplegt_disaggregated_stata.py",
+        "tests/reference_parity/test_did_multiplegt_dynamic_conventions.py",
         "tests/reference_parity/test_did_multiplegt_parity.py"
       ],
       "also_verified_by": [
@@ -20165,7 +20166,7 @@
       ],
       "function": "rlasso_iv",
       "notes": [
-        "All four select_Z / select_X paths, BCCH EminentDomain and the AJR vignette. The select_Z-only path is pinned to hdm's first stage plus hdm's tsls with the intercept restored: rlassoIVselectZ 0.3.2 drops the second-stage intercept and transposes the sandwich bread (reference bugs, documented in sp.rlasso_iv Notes)."
+        "All four select_Z / select_X paths, BCCH EminentDomain and the AJR vignette. The select_Z-only path is pinned to hdm's first stage plus hdm's tsls with the intercept restored: rlassoIVselectZ 0.3.2 drops the second-stage intercept and transposes the sandwich bread (reference bugs, documented in sp.rlasso_iv Notes). On EminentDomain that second stage is the exact IV solve (AER::ivreg, HC0): hdm's MASS::ginv discards 34 of 81 singular values of a cond-5e13 system and prints 0.2274; the IV estimate is 0.0154."
       ],
       "reference": "R hdm::rlassoIV 0.3.2",
       "reference_versions": {
@@ -20183,7 +20184,7 @@
         "tests/reference_parity/test_rlasso_vignette_parity.py",
         "tests/reference_parity/_fixtures/rlasso_R.json"
       ],
-      "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol 1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient control block)"
+      "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain select_Z-only atol 1e-8 (observed 6.3e-13, against AER::ivreg)"
     },
     {
       "also_verified_by": [

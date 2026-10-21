@@ -41,6 +41,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy import linalg as scipy_linalg
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
@@ -48,44 +49,6 @@ from ..core._call_record import records_call
 from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
 from ._core import _cluster_codes, rlasso
-
-# MASS::ginv (used throughout hdm's IV routines) defaults to a singular-value
-# cutoff of ``tol = sqrt(.Machine$double.eps)`` relative to the largest
-# singular value.  numpy's ``pinv`` defaults to a far tighter ``rcond=1e-15``,
-# which keeps spurious near-zero singular values and silently produces a
-# different pseudo-inverse on the (collinear) high-dimensional control blocks.
-# Matching the MASS tolerance is essential for hdm parity.
-_GINV_TOL = float(np.sqrt(np.finfo(float).eps))
-
-
-def _ginv(A: np.ndarray) -> np.ndarray:
-    """Moore-Penrose pseudo-inverse with MASS::ginv's tolerance."""
-    out: np.ndarray = np.linalg.pinv(np.asarray(A, dtype=float), rcond=_GINV_TOL)
-    return out
-
-
-def _spans_constant(x: Optional[np.ndarray]) -> bool:
-    """True when the control block already contains an intercept.
-
-    A literal constant column is the common case (``hdm``'s EminentDomain
-    controls carry one); a full set of dummies also spans the constant.
-    Appending a second, redundant constant would only perturb the
-    pseudo-inverse on an ill-conditioned control block.
-    """
-    if x is None:
-        return False
-    x = np.asarray(x, dtype=float)
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    if x.shape[1] == 0:
-        return False
-    if np.any((np.ptp(x, axis=0) == 0.0) & (x[0] != 0.0)):
-        return True
-    ones = np.ones(x.shape[0])
-    coef, *_ = np.linalg.lstsq(x, ones, rcond=None)
-    resid = ones - x @ coef
-    return bool(np.linalg.norm(resid) <= 1e-8 * np.sqrt(x.shape[0]))
-
 
 # ═══════════════════════════════════════════════════════════════════════
 #  tsls  (hdm::tsls.default)
@@ -314,40 +277,59 @@ def _select_z(
         )
 
     Dhat = np.column_stack(Dhat_list)
-    if x is not None:
-        Dhat = np.column_stack([Dhat, x])
-        d_aug = np.column_stack([d, x])
-    else:
-        d_aug = d
+    # The second stage is the just-identified IV of y on [d, x, 1] with
+    # instruments [dhat, x, 1]. Solve it exactly by partialling out the
+    # controls (Frisch-Waugh) rather than with ``ginv`` of the joint
+    # system as hdm 0.3.2 does: Dhat'[d, x] squares the conditioning of x,
+    # and on EminentDomain (x full rank, cond 7e6) MASS's sqrt(eps) cutoff
+    # truncates 34 of 81 singular values, so the "estimate" is a truncated
+    # SVD that moves with the tolerance (0.227 at sqrt(eps), 0.0054 at
+    # 1e-10) while the IV estimate is 0.0154 (= AER::ivreg).
+    #
     # The first stage fits an intercept, so the second stage must carry
     # one too. ``hdm::rlassoIVselectZ`` (0.3.2) omits it: with a nonzero
     # mean in y or d its IV slope is then the ratio of uncentred moments
     # and is inconsistent (truth -2 → -0.64 on a known-truth DGP). With
     # every instrument selected the corrected estimator equals 2SLS.
-    if intercept and not _spans_constant(x):
-        Dhat = np.column_stack([Dhat, np.ones(n)])
-        d_aug = np.column_stack([d_aug, np.ones(n)])
+    W_parts = [] if x is None else [x]
+    if intercept:
+        W_parts.append(np.ones((n, 1)))
+    if W_parts:
+        W = np.column_stack(W_parts)
+        Q, R, _ = scipy_linalg.qr(W, mode="economic", pivoting=True)
+        rdiag = np.abs(np.diag(R))
+        rank = int(np.sum(rdiag > max(W.shape) * np.finfo(float).eps * rdiag[0]))
+        Q = Q[:, :rank]
 
-    Ainv = _ginv(Dhat.T @ d_aug)
-    alpha = Ainv @ (Dhat.T @ y)
-    residuals = y - d_aug @ alpha
+        def _partial(v: np.ndarray) -> np.ndarray:
+            out: np.ndarray = v - Q @ (Q.T @ v)
+            return out
+
+    else:
+
+        def _partial(v: np.ndarray) -> np.ndarray:
+            return v
+
+    Dh_r = _partial(Dhat)
+    D_r = _partial(d)
+    A = Dh_r.T @ D_r
+    Ainv = np.linalg.inv(A)
+    coef = np.atleast_1d(Ainv @ (Dh_r.T @ _partial(y)))
+    # Residuals of the full second stage equal the partialled ones.
+    residuals = _partial(y) - D_r @ coef
     if codes is None:
-        Omega = Dhat.T @ (Dhat * (residuals**2)[:, None])
+        Omega = Dh_r.T @ (Dh_r * (residuals**2)[:, None])
     else:
         n_clusters = int(codes.max()) + 1
-        sums = np.zeros((n_clusters, Dhat.shape[1]))
-        np.add.at(sums, codes, Dhat * residuals[:, None])
+        sums = np.zeros((n_clusters, ke))
+        np.add.at(sums, codes, Dh_r * residuals[:, None])
         Omega = sums.T @ sums
-    # alpha = A^+ Dhat'y with A = Dhat'd_aug, so Var(alpha) = A^+ Omega A^+'.
-    # hdm 0.3.2 uses ginv(d_aug'Dhat) = A^+' here, i.e. A^+' Omega A^+,
-    # which differs whenever controls make A asymmetric (hdm's own
-    # tsls(homoscedastic=FALSE) on [dhat, 1, x] gives the A^+ Omega A^+'
-    # value).
-    vcov_full = Ainv @ Omega @ Ainv.T
-
-    coef = np.atleast_1d(alpha[:ke])
-    se = np.sqrt(np.diag(vcov_full))[:ke]
-    vcov = vcov_full[:ke, :ke]
+    # coef = A^{-1} Dh_r'y_r, so Var(coef) = A^{-1} Omega A^{-1}'. hdm 0.3.2
+    # uses ginv(d_aug'Dhat) = A^+' here, i.e. A^+' Omega A^+, which differs
+    # whenever controls make A asymmetric (hdm's own tsls(homoscedastic=
+    # FALSE) on [dhat, 1, x] gives the A^{-1} Omega A^{-1}' value).
+    vcov = Ainv @ Omega @ Ainv.T
+    se = np.sqrt(np.diag(vcov))
     n_sel = int(np.sum([s.sum() for s in select_mat]))
     return RLassoIVResult(
         coef=coef,
@@ -587,7 +569,7 @@ def rlasso_iv(
     Chernozhukov-Hansen (2012) optimal-instrument estimator that the
     eminent-domain application made famous. Three paths match
     ``hdm::rlassoIV`` 0.3.2 to ~1e-14. This one departs from
-    ``hdm::rlassoIVselectZ`` in two places, both reference bugs:
+    ``hdm::rlassoIVselectZ`` in three places, all reference bugs:
 
     * the second stage keeps an intercept when ``intercept=True`` and the
       controls do not already span a constant. hdm drops it, so with a
@@ -595,11 +577,17 @@ def rlasso_iv(
       hdm -0.65 on ``tests/reference_parity/_fixtures/
       rlasso_iv_nonzero_mean.csv``). With every instrument selected the
       estimate is now exactly robust 2SLS;
-    * the sandwich is ``A^+ Omega A^+'`` with ``A = Dhat'[d, x]``; hdm
-      transposes ``A``, which changes the SE whenever the first stage
-      leaves some control out (EminentDomain logGDP: 0.2466 -> 0.1760;
-      hdm's own ``tsls(homoscedastic=FALSE)`` on ``[dhat, 1, x]`` gives
-      the corrected value).
+    * the second stage is solved exactly, by partialling the controls out
+      with a pivoted QR. hdm takes ``MASS::ginv`` of ``Dhat'[d, x]``, which
+      squares the conditioning of ``x``; on EminentDomain logGDP (``x``
+      full rank, cond 7e6) the default cutoff discards 34 of 81 singular
+      values and hdm's 0.2274 is a truncated-SVD value that moves with the
+      tolerance. The IV estimate is 0.0154 (SE 0.0141), equal to
+      ``AER::ivreg`` with HC0 SEs to 1e-12;
+    * the sandwich is ``A^{-1} Omega A^{-1}'`` with ``A = Dhat'[d, x]``;
+      hdm transposes ``A``, which changes the SE whenever the first stage
+      leaves some control out (hdm's own ``tsls(homoscedastic=FALSE)`` on
+      ``[dhat, 1, x]`` gives the corrected value).
 
     With double selection and no control selected for the instrument,
     the instrument is centred at its own mean; hdm centres it at the grand

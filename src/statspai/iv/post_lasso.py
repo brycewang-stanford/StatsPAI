@@ -336,8 +336,9 @@ def bch_post_lasso_iv(
     warnings.warn(
         "iv.bch_post_lasso_iv is deprecated and will be removed in a future "
         "release. It is StatsPAI's original BCH-2012 reconstruction and does "
-        "not agree numerically with R's hdm (e.g. ~17x off on the eminent-"
-        "domain application). Use sp.rlasso_iv(...), a faithful, parity-tested "
+        "not reproduce R hdm's penalty or selection (on the eminent-domain "
+        "application it keeps 1 instrument where hdm keeps 3 instruments and "
+        "2 controls). Use sp.rlasso_iv(...), a faithful, parity-tested "
         "port of hdm::rlassoIV, instead. See MIGRATION.md.",
         DeprecationWarning,
         stacklevel=2,
