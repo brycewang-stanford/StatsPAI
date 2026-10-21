@@ -5467,3 +5467,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces after the DiD group guards, drdid `treat=` and `sp.did(crit_dist=)`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `6e2cb7dd8` (group guards, drdid `treat=`, `parity=`
+  forwarding), `94bada667` (`sp.did(crit_dist=)`, `_crit.py` warning
+  attribution).
+- **Reason.** `sp.drdid`'s treatment-group parameter is now `treat`
+  (`group=` deprecated), and the unit-role swap guard of
+  `src/statspai/did/_arg_roles.py` now also runs in `gardner_2s.py`,
+  `stacked_did.py`, `wooldridge_did.py` (etwfe, wooldridge_did) and
+  `did_multiplegt.py`; `did/_crit.py` changed only how the 1.41
+  `FutureWarning` locates the caller. Those files are on the traced paths
+  of Track A modules 05 16 17 38 73 75 81 84 85, and the entry script
+  `tests/r_parity/38_drdid.py` now passes `treat=` (fixture lock
+  refreshed). All nine were re-run on the no-Rust path first: the results
+  are byte-identical to main's own reruns and reproduce the committed
+  files within 7.3e-11 relative, so the result files were kept and only
+  the traces re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
