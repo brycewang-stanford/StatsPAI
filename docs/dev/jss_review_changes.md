@@ -5413,3 +5413,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces after the mpdta docstring fix (strict docs)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `de972fcf8` (docstring), `2019529ce` (traces).
+- **Reason.** The "Our replica preserves" list in `sp.datasets.mpdta`'s
+  docstring sat inside its Parameters section and failed `mkdocs build
+  --strict`; it moved to Notes. `src/statspai/datasets/_canonical.py` is
+  on the traced paths of Track A modules 01 02 04 05 06 08 09 11 14 16 17
+  20 22 53 55 73 88 and original-data modules 06-11. All were re-run on
+  the no-Rust path first: the committed results reproduce within 1.4e-10
+  relative (most bit for bit), so the result files were kept and only the
+  traces re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
