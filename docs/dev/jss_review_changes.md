@@ -5277,3 +5277,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   gets fixest's sample; module 67's Poisson fixture has none.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after `sp.doctor` and the fetched gallery datasets
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `14c8461ff`.
+- **Reason.** `src/statspai/datasets/__init__.py` and
+  `src/statspai/datasets/_canonical.py` (new fetch-on-demand loaders,
+  `mpdta(simulated=False)`, new `list_datasets` columns) and
+  `src/statspai/__init__.py` (lazy `sp.doctor`) are imported on the traced
+  paths of Track A modules 01 02 03 04 05 06 07 08 09 11 12 13 14 15 16 17
+  18 19 20 22 24 25 26 27 53 55 65 66 73 88 and of the original-data
+  modules 06-11. No estimator changed. Every module was re-run first: the
+  committed results reproduce within 1e-9 (worst 1.4e-10 relative); only
+  the traces were re-recorded.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
