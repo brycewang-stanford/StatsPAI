@@ -5524,3 +5524,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number in Track A changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-22 — trace 81 after the did_multiplegt split / firstdiff_placebo
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `4feca435e` (split), `55a7fd849` (feature), `f80d5b171` (trace).
+- **Reason.** `src/statspai/did/did_multiplegt.py` is split by concern
+  into `_dcdh_cells.py`, `_dcdh_pairwise.py` and `_dcdh_inference.py`
+  (pure move), and gains `firstdiff_placebo=` and
+  `model_info['effect_average']` on the `robust_dynamic=True` path. Track A
+  81 (default call) was re-run on the no-Rust path: the result equals what
+  origin/main's code gives (both differ from the committed file only in
+  the 16th digit), so the result file was kept and only the trace
+  re-recorded.
+- **Effect on the paper.** None; no number in Track A changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
