@@ -83,13 +83,6 @@ def mpdta(
         With ``simulated=False``: download when not cached. ``False``
         raises ``DataInsufficient`` instead of touching the network.
 
-    Our replica preserves:
-    - 500 counties × 5 years = 2500 rows
-    - Three treatment cohorts: 2004, 2006, 2007 + never-treated
-    - Negative homogeneous ATT ≈ -0.04 log points (matches the published
-      R ``did::att_gt`` aggregated ATT of roughly -0.045 on the original)
-    - County-level clustering in residuals
-
     Returns
     -------
     pd.DataFrame with columns: countyreal, year, lemp, first_treat, treat
@@ -99,6 +92,14 @@ def mpdta(
 
     Notes
     -----
+    Our replica preserves:
+
+    - 500 counties × 5 years = 2500 rows
+    - Three treatment cohorts: 2004, 2006, 2007 + never-treated
+    - Negative homogeneous ATT ≈ -0.04 log points (matches the published
+      R ``did::att_gt`` aggregated ATT of roughly -0.045 on the original)
+    - County-level clustering in residuals
+
     ``df.attrs['expected_simple_att']`` = -0.040  (R ``did::att_gt`` +
     ``aggte(type='simple')`` on the original data returns -0.03995
     with ``est_method='reg'``, never-treated controls, and analytic
