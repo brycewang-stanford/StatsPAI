@@ -2,7 +2,36 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.40.0] — 2026-10-21
+
+A minor release. Read the ⚠️ entries before upgrading: several of them change
+numbers.
+
+- **Three announced defaults take effect** (MIGRATION.md, "1.39.x → 1.40"):
+  `sp.feols` / `sp.fepois` drop fixed-effect singletons, as R `fixest` does;
+  `sp.bayes_regress` uses the weakly informative prior when no prior is given;
+  `sp.kaplan_meier` reports the log-log interval, as Stata does.
+- **Correctness fixes from a library-wide review against Stata and R**, among
+  them: `sp.rdrobust` mass-point bandwidths and CR2/CR3 cluster variances,
+  Callaway-Sant'Anna cohorts treated after the sample, dynamic-panel GMM
+  classical SEs, `sp.sac` SEs, `sp.rlasso_iv` with `select_X=False`,
+  wild-bootstrap dispatch, FE-aware `predict` / margins after `sp.fepois` /
+  `sp.feglm`, and translated `[pweight]` SEs in `sp.from_stata`.
+- **Clean-room rewrites**: modules whose code had been derived from GPL or
+  unlicensed reference implementations were re-implemented from the method
+  papers, documentation and black-box outputs, with parity unchanged
+  (`docs/dev/2026-10-20-license-provenance-audit.md`, specs in
+  `docs/dev/cleanroom/`). `THIRD_PARTY_NOTICES.md` now lists the
+  permissively licensed references.
+- **New**: survey designs (`design=`, replicate weights) in causal estimators,
+  survival causal tools (`sp.stteffects`, `sp.rmst`, weighted and
+  counting-process Cox / Kaplan-Meier), `sp.panel_match`, multi-endogenous and
+  cluster-robust weak-IV inference, IV / panel / state-dependent local
+  projections, group-sequential designs and mSPRT, `sp.weightit`,
+  `sp.bart_causal`, `sp.lmtp`, `sp.mmqreg`, `sp.two_stage_interference`, a
+  Stata-style data layer (`sp.xtset`, `sp.lag`, `sp.reshape`, `sp.collapse`,
+  `sp.egen`) and Stata factor-variable syntax in formulas.
+- **Dependencies**: matplotlib is now a core dependency.
 
 ### Callaway-Sant'Anna: `parity='r' | 'stata'`, both pre-test p-values, always-treated units dropped
 

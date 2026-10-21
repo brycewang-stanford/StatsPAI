@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.39.6 → unreleased: `sp.callaway_santanna` drops always-treated units; `parity=`
+## 1.39.6 → 1.40.0: `sp.callaway_santanna` drops always-treated units; `parity=`
 
 - Units whose cohort is at or before the first observed period plus
   `anticipation` are now removed before estimation, with a warning, as R
@@ -28,7 +28,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.39.6 → unreleased: swapped `group=` in `sp.did_imputation` / `sp.drdid`; `sp.drdid(seed=, random_state=)`
+## 1.39.6 → 1.40.0: swapped `group=` in `sp.did_imputation` / `sp.drdid`; `sp.drdid(seed=, random_state=)`
 
 No number changes. What can now stop or warn a call that used to run:
 
@@ -81,7 +81,7 @@ the argument is unaffected.
 
 ---
 
-## 1.39.6 → unreleased: `parity=` on the regression event studies; cluster spellings in `sp.feols`
+## 1.39.6 → 1.40.0: `parity=` on the regression event studies; cluster spellings in `sp.feols`
 
 No default number changes.
 
@@ -104,7 +104,7 @@ No default number changes.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ integer columns inside generated formula terms; new `sp.bacon_decomposition` columns; `sp.honest_did` attrs
+## 1.39.6 → 1.40.0: ⚠️ integer columns inside generated formula terms; new `sp.bacon_decomposition` columns; `sp.honest_did` attrs
 
 - A formula term that computes on an integer column (`I(x**3)`,
   `np.power(x, 2)`) is now evaluated in float64. Results change only
@@ -130,7 +130,7 @@ No default number changes.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
+## 1.39.6 → 1.40.0: ⚠️ `sp.rlasso_iv` with `select_Z=True, select_X=False`; neural estimators with `n_bootstrap < 2`
 
 - `sp.rlasso_iv(select_Z=True, select_X=False)` now keeps an intercept in
   the second stage (unless the controls already contain a constant) and
@@ -151,7 +151,7 @@ No default number changes.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'`; `sp.rddensity` not-computable test
+## 1.39.6 → 1.40.0: ⚠️ `sp.rdrobust` / `sp.rdbwselect` with `cluster=` and `vce='hc2'` / `'hc3'`; `sp.rddensity` not-computable test
 
 - With `cluster=`, `vce='hc2'` and `vce='hc3'` are now the cluster-robust
   CR2 and CR3 variances of R rdrobust 4.0.0 (each cluster's residuals
@@ -172,7 +172,7 @@ No default number changes.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ DR-DiD standard errors on repeated cross-sections; never-treated cohorts beyond the sample; classical dynamic-panel GMM after FOD / `h=1`
+## 1.39.6 → 1.40.0: ⚠️ DR-DiD standard errors on repeated cross-sections; never-treated cohorts beyond the sample; classical dynamic-panel GMM after FOD / `h=1`
 
 - `sp.drdid(est_method='dr', method='trad')` without `id=` and
   `sp.callaway_santanna(estimator='dr')` with `panel=False` or
@@ -192,7 +192,7 @@ No default number changes.
   after system GMM or orthogonal deviations change to xtabond2's
   formula. Robust and two-step results are unchanged.
 
-## 1.39.6 → unreleased: ⚠️ design-mode `sp.rdsampsi` uses the exact power equation
+## 1.39.6 → 1.40.0: ⚠️ design-mode `sp.rdsampsi` uses the exact power equation
 
 `sp.rdsampsi` without `data=` now returns the smallest sample whose two-sided
 power reaches `target_power`. It used the one-tail approximation before, which
@@ -203,7 +203,7 @@ calling code.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.match(method='radius', caliper_scale='sd')`
+## 1.39.6 → 1.40.0: ⚠️ `sp.match(method='radius', caliper_scale='sd')`
 
 Radius matching ignored `caliper_scale='sd'` and used `caliper` as a raw
 radius. It now uses `caliper * sd(score)`, as nearest-neighbour matching
@@ -213,7 +213,7 @@ different (correct) estimate; to keep the old number pass
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.grapple(loss='tukey')` standard errors; `sp.mr_raps` robust log-likelihood
+## 1.39.6 → 1.40.0: ⚠️ `sp.grapple(loss='tukey')` standard errors; `sp.mr_raps` robust log-likelihood
 
 - `sp.grapple` with the Tukey loss (its default) now evaluates the whole
   sandwich on one scale of the loss. `tau2_se` and `loglik` are 3.658
@@ -229,7 +229,7 @@ different (correct) estimate; to keep the old number pass
 
 ---
 
-## 1.39.6 → unreleased: `sp.interference("partial" | "hudgens_halloran")` deprecated as aliases of `spillover`
+## 1.39.6 → 1.40.0: `sp.interference("partial" | "hudgens_halloran")` deprecated as aliases of `spillover`
 
 `sp.interference("partial", ...)` and `sp.interference("hudgens_halloran", ...)`
 route to `sp.spillover`, which is not the Hudgens-Halloran (2008) estimator
@@ -251,7 +251,7 @@ nor change target later.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` / `sp.rdbwselect` bandwidths with mass points
+## 1.39.6 → 1.40.0: ⚠️ `sp.rdrobust` / `sp.rdbwselect` bandwidths with mass points
 
 With `masspoints='adjust'` (the default) and 20% or more tied values of the
 running variable on a side, the selected `h` and `b` are no longer floored
@@ -264,7 +264,7 @@ pseudo-inverse.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.scpi(w_constr='L1-L2')` in-sample bounds
+## 1.39.6 → 1.40.0: ⚠️ `sp.scpi(w_constr='L1-L2')` in-sample bounds
 
 The in-sample bounds of the L1-L2 constraint (and the combined
 `subgaussian` / `ls` / `qreg` and `joint` bounds that add to them) now
@@ -274,7 +274,7 @@ option restores the old values.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.lee_bounds(trimming='leebounds')` on tiny outcomes; `leebounds_ntall` renamed
+## 1.39.6 → 1.40.0: ⚠️ `sp.lee_bounds(trimming='leebounds')` on tiny outcomes; `leebounds_ntall` renamed
 
 With outcomes whose trimming threshold is below 1e-5 in absolute value,
 `trimming='leebounds'` now rounds the threshold as Stata stores it (12
@@ -284,7 +284,7 @@ unchanged. `model_info['leebounds_ntall']` (tightened bounds) is now
 `model_info['between_cell_divisor']`; the old key is still filled and will
 be removed in a later minor version.
 
-## 1.39.6 → unreleased: ⚠️ sup-F p-values (Hansen 1997 table recomputed)
+## 1.39.6 → 1.40.0: ⚠️ sup-F p-values (Hansen 1997 table recomputed)
 
 `sp.structural_break(method='sup-f')` p-values (and
 `statspai.timeseries.structural_break.hansen_supf_pvalue`) use a
@@ -296,7 +296,7 @@ non-integer `k`, and a trimming in (0.5, 1) or <= 0 now raise
 `MethodIncompatibility`. To reproduce an old number exactly, use
 StatsPAI 1.39.6.
 
-## 1.39.6 → unreleased: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
+## 1.39.6 → 1.40.0: ⚠️ `sp.breakdown_m(method='relative_magnitude')` precision and search
 
 The default (C-LF) relative-magnitude breakdown value is now the first
 Mbar at which the set contains zero, found by a log-grid scan and bisected
@@ -307,7 +307,7 @@ search.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.sac` standard errors (and estimates)
+## 1.39.6 → 1.40.0: ⚠️ `sp.sac` standard errors (and estimates)
 
 `sp.sac` now reports observed-information (OIM) standard errors of the
 full likelihood, as Stata `spregress, ml dvarlag(W) errorlag(W)`. The old
@@ -319,7 +319,7 @@ old SEs were not a valid covariance.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.local_projections` state-dependent options, redundant instruments
+## 1.39.6 → 1.40.0: ⚠️ `sp.local_projections` state-dependent options, redundant instruments
 
 - `sp.local_projections(state=...)` now applies `dfk=` and `common_sample=`
   (observed shock) and `vce=` / `dfk=` (with
@@ -335,7 +335,7 @@ old SEs were not a valid covariance.
 
 ---
 
-## 1.39.6 → unreleased: default changes and announced deprecations (owner decisions 2026-10-20)
+## 1.39.6 → 1.40.0: default changes and announced deprecations (owner decisions 2026-10-20)
 
 None of these changes a number in this release, except the `'rlasso'`
 classifier alias in the next section. The full record is
@@ -372,7 +372,7 @@ classifier alias in the next section. The full record is
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `ml_m='rlasso'` in a classifier role is the logistic rigorous Lasso
+## 1.39.6 → 1.40.0: ⚠️ `ml_m='rlasso'` in a classifier role is the logistic rigorous Lasso
 
 `sp.dml` (`irm` / `iivm` propensities, `ml_r`; any classifier role),
 `sp.dml_did(ml_m=)` and `sp.dml_panel` (binary treatment) resolve the string `'rlasso'` (and
@@ -386,7 +386,7 @@ change. Regressor roles (`ml_g`, a continuous `ml_m`) keep
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
+## 1.39.6 → 1.40.0: ⚠️ classifier learners in `sp.dynamic_dml`; rigorous-Lasso learners refuse `sample_weight`
 
 - `sp.dynamic_dml(model_t=<classifier>)` (or `model_y=`) now residualises
   on the classifier's P(T = 1) instead of its hard 0/1 label; estimates
@@ -403,7 +403,7 @@ change. Regressor roles (`ml_g`, a continuous `ml_m`) keep
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.wild_cluster_boot(bootcluster=)` across one-way clusters
+## 1.39.6 → 1.40.0: ⚠️ `sp.wild_cluster_boot(bootcluster=)` across one-way clusters
 
 With one-way `cluster=` and a `bootcluster=` that cuts across it, the
 bootstrap weights are drawn for the intersections of the two (Stata
@@ -414,7 +414,7 @@ there is no switch: they did not correspond to a defined bootstrap.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.binscatter(method='binsreg')` on a discrete `x`
+## 1.39.6 → 1.40.0: ⚠️ `sp.binscatter(method='binsreg')` on a discrete `x`
 
 With `n_bins` left to the selector and an `x` that takes at most about
 30 + (rule-of-thumb bins) distinct values, each value is now its own bin
@@ -424,7 +424,7 @@ values. Continuous `x` and explicit `n_bins` are unchanged.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.xtivreg(method='re')` on balanced panels with time-invariant variables
+## 1.39.6 → 1.40.0: ⚠️ `sp.xtivreg(method='re')` on balanced panels with time-invariant variables
 
 On a balanced panel, `sp.xtivreg(method='re')` now follows Stata 18's
 `xtivreg, re` where a regressor or an excluded instrument does not vary
@@ -439,7 +439,7 @@ to raise; it now runs as Stata does, with a warning.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.honest_did` smoothness test-inverted sets no longer empty for large effects
+## 1.39.6 → 1.40.0: ⚠️ `sp.honest_did` smoothness test-inverted sets no longer empty for large effects
 
 `sp.honest_did(method='smoothness', honestdid_method='Conditional' or
 'C-LF')`, with or without `bias_direction` / `monotonicity_direction`,
@@ -453,7 +453,7 @@ returns `NA` for these rows.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ ordered Categorical outcomes, spatial z intervals, `dose_response(method='dr')` defaults
+## 1.39.6 → 1.40.0: ⚠️ ordered Categorical outcomes, spatial z intervals, `dose_response(method='dr')` defaults
 
 - `sp.ologit` / `sp.oprobit` / `sp.gologit` read an ordered `pd.Categorical`
   outcome in its declared order (they sorted the labels alphabetically).
@@ -474,7 +474,7 @@ returns `NA` for these rows.
 
 ---
 
-## 1.39.6 → unreleased: `sp.margins` after `fepois` / `feglm` needs `vcov=False`
+## 1.39.6 → 1.40.0: `sp.margins` after `fepois` / `feglm` needs `vcov=False`
 
 After a fit with absorbed fixed effects and a non-linear link
 (`sp.fepois`, `sp.feglm`), and for predictive margins after `sp.feols`,
@@ -493,7 +493,7 @@ factor. Logit / probit with absorbed effects, OLS predictive margins,
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.panel(vce='wild')` re-absorbs entity effects not nested in the clusters
+## 1.39.6 → 1.40.0: ⚠️ `sp.panel(vce='wild')` re-absorbs entity effects not nested in the clusters
 
 With `method='fe', vce='wild'` and a `cluster=` column that does not nest
 the entities (each entity in one cluster), the bootstrap now re-absorbs the
@@ -506,7 +506,7 @@ bootstrap that is not valid for non-nested effects.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.feols` / `sp.hdfe_ols` finish unconverged projections exactly
+## 1.39.6 → 1.40.0: ⚠️ `sp.feols` / `sp.hdfe_ols` finish unconverged projections exactly
 
 When the alternating projections stopped at their sweep limit, the native
 `sp.feols` and `sp.hdfe_ols` used to report the unconverged slope silently.
@@ -517,7 +517,7 @@ change (to the dummy-variable regression's numbers); converged fits do not.
 numbers were wrong. `sp.read_data` on a large CSV now parses decimals to
 the nearest double (pyarrow), which can move the last bit of a value that
 pandas' default parser rounded the other way.
-## 1.39.6 → unreleased: ⚠️ `sp.mi_estimate` degrees of freedom for clustered and likelihood fits
+## 1.39.6 → 1.40.0: ⚠️ `sp.mi_estimate` degrees of freedom for clustered and likelihood fits
 
 `sp.mi_estimate` now takes the complete-data df of the Barnard-Rubin
 correction from the fit's own t reference, as Stata `mi estimate` does:
@@ -530,7 +530,7 @@ reference implementation.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.lee_bounds` drops rows with missing indicators
+## 1.39.6 → 1.40.0: ⚠️ `sp.lee_bounds` drops rows with missing indicators
 
 `sp.lee_bounds` now drops rows whose treatment or selection indicator is
 missing, and selected rows whose outcome is missing, as Stata `leebounds`
@@ -542,7 +542,7 @@ impute the rows yourself to control the sample.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ translated two-way clustered `reghdfe` uses reghdfe's factor
+## 1.39.6 → 1.40.0: ⚠️ translated two-way clustered `reghdfe` uses reghdfe's factor
 
 `sp.from_stata('reghdfe y x, absorb(id) cluster(a b)')` now emits
 `sp.hdfe_ols(..., cluster=['a', 'b'], cluster_df='min')`, so the standard
@@ -551,7 +551,7 @@ per-term numbers, call `sp.hdfe_ols` directly without `cluster_df=`.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.augsynth(covariates=...)` now uses the covariates
+## 1.39.6 → 1.40.0: ⚠️ `sp.augsynth(covariates=...)` now uses the covariates
 
 `sp.augsynth` ignored `covariates=` on the native path. It now balances
 them as `augsynth::augsynth` does by default (pre-period means appended to
@@ -561,7 +561,7 @@ argument. Calls without covariates are unchanged.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ treatment-effect estimators refuse non-binary treatments; `sp.sensemakr` / `sp.bcf` / `sp.optimal_match`
+## 1.39.6 → 1.40.0: ⚠️ treatment-effect estimators refuse non-binary treatments; `sp.sensemakr` / `sp.bcf` / `sp.optimal_match`
 
 - `sp.cbps`, `sp.ipw`, `sp.aipw`, `sp.tmle`, `sp.ebalance`, `sp.optimal_match`,
   `sp.cardinality_match` and `sp.rosenbaum_bounds` raise
@@ -581,7 +581,7 @@ argument. Calls without covariates are unchanged.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.causal_impact` standard errors are wider
+## 1.39.6 → 1.40.0: ⚠️ `sp.causal_impact` standard errors are wider
 
 **What changed.** The standard error, confidence interval and p-value of
 `sp.causal_impact` now include the estimation of the regression and of the
@@ -594,7 +594,7 @@ estimates are unchanged.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.ges` returns the GES equivalence class
+## 1.39.6 → 1.40.0: ⚠️ `sp.ges` returns the GES equivalence class
 
 **What changed.** `sp.ges` runs Greedy Equivalence Search over CPDAGs
 (Chickering 2002). Edges that the old version reported as undirected but
@@ -606,7 +606,7 @@ meaning. Results from earlier versions should be re-run.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.msm` weights are not truncated by default
+## 1.39.6 → 1.40.0: ⚠️ `sp.msm` weights are not truncated by default
 
 **What changed.** `sp.msm(trim=)` defaults to `0.0` (no truncation) instead
 of `0.01`, matching R `ipw::ipwtm`. Estimates and standard errors of calls
@@ -619,7 +619,7 @@ how far truncation moved the estimate.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.did_imputation` lead-horizon covariance and lead SEs
+## 1.39.6 → 1.40.0: ⚠️ `sp.did_imputation` lead-horizon covariance and lead SEs
 
 **What changed.** With BJS pre-trend leads, `model_info['event_study_vcov']`
 now has the lead-horizon cross-covariance (it was zero and flagged
@@ -636,7 +636,7 @@ matrix; its zero cross block was not an estimate of anything.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.rdrobust` fuzzy + covariates bandwidth
+## 1.39.6 → 1.40.0: ⚠️ `sp.rdrobust` fuzzy + covariates bandwidth
 
 **What changed.** With `fuzzy=` and `covs=` and no `h=`, the selected
 bandwidth now matches R / Stata `rdrobust` (the covariates are no longer
@@ -650,7 +650,7 @@ explicitly.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ staggered DiD input checks (`sun_abraham`, `etwfe`, `stacked_did`, ...)
+## 1.39.6 → 1.40.0: ⚠️ staggered DiD input checks (`sun_abraham`, `etwfe`, `stacked_did`, ...)
 
 **What changed.** (1) A cohort column that varies within a unit is now an
 error in `callaway_santanna`, `sun_abraham`, `did_imputation`,
@@ -674,7 +674,7 @@ from `statspai.did._validate`).
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `[pweight=]` in `sp.from_stata` / `sp.stata`
+## 1.39.6 → 1.40.0: ⚠️ `[pweight=]` in `sp.from_stata` / `sp.stata`
 
 **What changed.** A Stata command with `[pweight=]` and no `vce()` is
 translated as if `vce(robust)` were given, as Stata fits it (`xtreg, fe`:
@@ -690,7 +690,7 @@ re-run the line to get Stata's. Payloads also carry `dropped` and
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ predictions, marginal effects and wild bootstraps after fixed-effects, IV and GLM fits
+## 1.39.6 → 1.40.0: ⚠️ predictions, marginal effects and wild bootstraps after fixed-effects, IV and GLM fits
 
 **What changed.**
 
@@ -739,7 +739,7 @@ singletons. Either silences the warning.
 
 ---
 
-## 1.39.6 → unreleased: `sp.feols` / `sp.fepois` / `sp.feglm` fit on StatsPAI's own engine
+## 1.39.6 → 1.40.0: `sp.feols` / `sp.fepois` / `sp.feglm` fit on StatsPAI's own engine
 
 **What changed.** `sp.feols(backend=)` defaults to `'auto'` (was
 `'pyfixest'`), and `sp.fepois` / `sp.feglm` gained the same argument. With `'auto'`, a
@@ -772,7 +772,7 @@ or needs pyfixest's own fit for another reason, passes
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ `sp.panel` within / between / overall R-squared
+## 1.39.6 → 1.40.0: ⚠️ `sp.panel` within / between / overall R-squared
 
 **What changed.** After `method="fe"`, `"re"` and `"be"` (unweighted),
 `diagnostics["R-squared (within)"]` and `["R-squared (between)"]` are
@@ -783,7 +783,7 @@ between R-squared of 0.47 where `xtreg, fe` prints 0.87).
 **What to do.** Nothing if you compare with Stata. For the old numbers,
 read `result.model_info["r2_linearmodels"]`.
 
-## 1.39.6 → unreleased: ⚠️ mixed-model standard errors in the eighth digit
+## 1.39.6 → 1.40.0: ⚠️ mixed-model standard errors in the eighth digit
 
 **What changed.** `sp.melogit` / `meglm` / `mepoisson` / `meologit` and
 `sp.icc` take the observed information from a Richardson-extrapolated
@@ -796,7 +796,7 @@ beyond seven significant digits.
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ zero-inflated / hurdle NB at the dispersion boundary
+## 1.39.6 → 1.40.0: ⚠️ zero-inflated / hurdle NB at the dispersion boundary
 
 **What changed.** When the NB2 dispersion estimate of `sp.zinb` or
 `sp.hurdle(count_model="negbin")` sits at alpha = 0 (overdispersion
@@ -813,7 +813,7 @@ the data show no overdispersion; `sp.zip_model` / `sp.hurdle(count_model=
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ E-values, honest DiD relative magnitudes, spatial intervals
+## 1.39.6 → 1.40.0: ⚠️ E-values, honest DiD relative magnitudes, spatial intervals
 
 **What changed.**
 
@@ -830,7 +830,7 @@ relied on the default grid; pass `m_grid=` to keep a specific grid.
 
 ---
 
-## 1.39.6 → unreleased: figure editor (`sp.interactive`)
+## 1.39.6 → 1.40.0: figure editor (`sp.interactive`)
 
 **What changed.** The editor was rebuilt (CHANGELOG, "Figure editor").
 Figures themselves are unchanged until edited; what differs is the editor's
@@ -855,7 +855,7 @@ editor to change global fonts, call `sp.set_theme(...)` or set
 
 ---
 
-## 1.39.6 → unreleased: ⚠️ options off the default path in DiD, matching and IV
+## 1.39.6 → 1.40.0: ⚠️ options off the default path in DiD, matching and IV
 
 **What changed.** Comparing every option value of the core estimators
 with R and Stata found defects in non-default options. Default calls on

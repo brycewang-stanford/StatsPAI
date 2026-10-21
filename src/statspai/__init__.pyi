@@ -47,6 +47,7 @@ from ._auto_estimators import auto_did as auto_did
 from ._auto_estimators import auto_iv as auto_iv
 from ._build_info import version_info as version_info
 from ._citation import citation as citation
+from ._doctor import doctor as doctor
 from ._routing import decision_guide as decision_guide
 from ._routing import route as route
 from .agent._translation._coverage import translation_coverage as translation_coverage
