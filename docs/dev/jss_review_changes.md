@@ -5491,3 +5491,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-10-21 — trace 81 after the did_multiplegt cell / controls fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `b65208241` (fix), `aeaa1ee15` (trace).
+- **Reason.** `src/statspai/did/did_multiplegt.py` now collapses rows below
+  the group level to weighted cells and uses Stata's stayer-cell regression
+  for `controls=`. Track A 81 (one row per group-period, no controls) was
+  re-run on the no-Rust path: the result equals what main's code gives
+  (both differ from the committed file only in the 16th digit, an
+  environment effect), so the result file was kept and only the trace
+  re-recorded.
+- **Effect on the paper.** None; no number in Track A changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
