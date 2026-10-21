@@ -183,7 +183,12 @@ def test_eventstudyinteract_reproduces_stata(esi, extra, ref):
     assert out["tool"] == "sun_abraham"
     # a single line cannot show that the varlist is every relative period
     assert out["dropped"] == ["varlist"] and out["complete"] is False
-    es = _es(_quiet(line, esi))
+    # eventstudyinteract reports t(G - 1) inference with vce(cluster)
+    assert out["arguments"]["parity"] == "stata"
+    result = _quiet(line, esi)
+    conv = result.model_info["conventions"]
+    assert conv["crit_dist"] == "t" and conv["crit_df"] == esi["id"].nunique() - 1
+    es = _es(result)
     for k, (b, se) in ref.items():
         assert np.isclose(es[k][0], b, rtol=RTOL, atol=0), k
         assert np.isclose(es[k][1], se, rtol=RTOL, atol=0), k

@@ -325,7 +325,9 @@ def _feols_sunab(
             notes.append(
                 f"R `weights = {kw['weights']}` is an expression, not a column."
             )
-    args["share_variance"] = False
+    # fixest's conventions: fixed cohort shares in the variance and t(G-1)
+    # p-values and intervals with clustered SEs.
+    args["parity"] = "r"
     pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
     out = _emit("sun_abraham", args, f"sp.sun_abraham(data=df, {pairs})", notes)
     if untranslated:

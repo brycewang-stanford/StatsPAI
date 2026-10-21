@@ -80,9 +80,13 @@ def test_sunab_translates_to_sun_abraham_and_reproduces_fixest():
         "g": "cohort",
         "t": "year",
         "i": "id",
-        "share_variance": False,
+        "parity": "r",
     }
     result = _run(out, _sunab_panel())
+    # fixest's conventions: fixed cohort shares, t(G - 1) with clustered SEs
+    conv = result.model_info["conventions"]
+    assert conv["share_variance"] is False and conv["crit_dist"] == "t"
+    assert conv["crit_df"] == _sunab_panel()["id"].nunique() - 1
     es = _event_study(result)
     for k, (b, se) in FIXEST.items():
         assert np.isclose(es[k][0], b, rtol=RTOL, atol=0), k

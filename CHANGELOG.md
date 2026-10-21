@@ -10,6 +10,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- `sp.from_stata` / `sp.stata` translate `eventstudyinteract` to `sp.sun_abraham(..., parity='stata')` and `sp.from_r` translates fixest `sunab()` to `sp.sun_abraham(..., parity='r')` (was `share_variance=False`). Coefficients and SEs are unchanged; p-values and intervals now use t(G-1) with clustered SEs, as the translated command reports them.
 - Announced for 1.41 (owner decision 2026-10-21): the default becomes `crit_dist='t'`, the Stata / fixest convention. Until then the default reproduces today's numbers byte for byte (normal for the two event studies, t(N-K) also under clustering for `did_2x2`), and a call that sets neither `crit_dist` nor `parity` warns (`FutureWarning`, once per call, attributed to the caller's line) wherever the intervals or p-values would change; `sp.did_2x2` without `cluster=` does not warn. Estimates, standard errors, the pre-trend tests, `sp.uniform_bands` and `sp.honest_did` do not depend on it. Callaway-Sant'Anna keeps the normal distribution (R `did`, Stata `csdid`). Library entry points that call these estimators for the user (`sp.did_analysis`, `sp.did_summary`, `sp.auto_did`, `sp.compare_event_study_conventions`, `sp.causal_question`, `CausalWorkflow.compare_estimators`, the calibrated simulation) pass the pre-1.41 value and do not warn. Before / after on the castle-doctrine panel in MIGRATION.md ("1.40.0 → 1.41").
 
 ## [1.40.0] — 2026-10-21

@@ -118,6 +118,9 @@ def _h_eventstudyinteract(cmd: StataCommand) -> Dict[str, Any]:
             "eventstudyinteract without vce() reports non-clustered "
             "standard errors; sp.sun_abraham clusters on the unit."
         )
+    # eventstudyinteract reports t(G-1) p-values and intervals with
+    # clustered SEs (t(N-K) otherwise); parity='stata' is that convention.
+    args["parity"] = "stata"
     pairs = ", ".join(f"{k}={v!r}" for k, v in args.items())
     out = _emit("sun_abraham", args, f"sp.sun_abraham(data=df, {pairs})", notes)
     out["untranslated_options"] = untranslated
