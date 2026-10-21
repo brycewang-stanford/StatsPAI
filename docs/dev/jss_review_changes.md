@@ -5391,3 +5391,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces re-recorded after the Callaway-Sant'Anna `parity=` changes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `086d3cfad`.
+- **Reason.** `core/results.py` (the pre-test line of `summary()`),
+  `did/callaway_santanna.py`, `did/aggte.py`, `did/_cs_rcs.py`,
+  `did/report.py`, the new `did/_cs_conventions.py` and `registry.py` are on
+  the traced paths of Track A modules 01 02 04 05 06 07 08 09 10 11 12 14 16
+  17 18 19 21 24 28 29 35 36 37 38 40-59 61-67 71-79 81-87 89 and of all
+  twelve original-data modules. Every module was re-run first: Track A 04
+  and 79 and original-data 02 (the Callaway-Sant'Anna rows) are
+  byte-identical to the `origin/main` code, and the rest reproduce the
+  committed results within 1e-9 (worst 7.3e-11 relative, last-digit jitter
+  that `origin/main` shows too); only the traces were re-recorded.
+- **Effect on the paper.** None; no number changes. The default
+  `callaway_santanna` keeps the universal base period and the Hotelling-F
+  pre-test p-value; `parity=` is opt-in.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
