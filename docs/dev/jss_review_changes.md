@@ -5256,3 +5256,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-21 — traces 67 and 24 after the 1.40 default changes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `82fc04d7d` (defaults), `69b035a9a` (traces).
+- **Reason.** The 1.40 defaults (`sp.feols` / `sp.fepois`
+  `fixef_rm="singleton"`, `sp.kaplan_meier` `conf_type="log-log"`,
+  `sp.bayes_regress` weakly informative prior) changed
+  `src/statspai/fixest/wrapper.py` (traced path of Track A module 67) and
+  `src/statspai/survival/models.py` (module 24). Module 67 now passes
+  `fixef_rm="singleton"` to `sp.fepois` explicitly, the setting of its
+  `fixest::fepois` reference. Both modules were re-run first on the
+  no-Rust path: 67 reproduces its committed result bit for bit, 24 within
+  1e-15 relative (last-digit jitter; the file was kept). Only the traces
+  were re-recorded.
+- **Effect on the paper.** None; no number changes. A reader who calls
+  `sp.feols` / `sp.fepois` without `fixef_rm` on data with singletons now
+  gets fixest's sample; module 67's Poisson fixture has none.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
