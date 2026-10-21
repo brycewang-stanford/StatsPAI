@@ -5507,3 +5507,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None; no number in Track A changes.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-22 — trace 81 after did_multiplegt robust_dynamic / controls
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `cf9290845` (fix), `f61157249` (trace).
+- **Reason.** `src/statspai/did/did_multiplegt.py` gains `robust_dynamic=`
+  (Stata's first-time-switcher estimators, new `_dcdh_first_switch.py`),
+  applies `controls=` to placebos and dynamic effects, and weighs
+  disaggregated dynamic cells at the switching period. Track A 81 (default
+  call, one row per group-period, no controls) was re-run on the no-Rust
+  path: the result equals what the previous HEAD's code gives (both differ
+  from the committed file only in the 16th digit), so the result file was
+  kept and only the trace re-recorded.
+- **Effect on the paper.** None; no number in Track A changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
