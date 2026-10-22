@@ -187,7 +187,9 @@ def _pip_freeze() -> Optional[str]:
             [sys.executable, "-m", "pip", "freeze"],
             capture_output=True,
             text=True,
-            timeout=15.0,
+            # 15 s ran out on a GitHub Windows runner with ~250 packages
+            # (2026-10-22), turning a strict pack into a refusal
+            timeout=60.0,
             check=False,
         )
         if out.returncode == 0:
