@@ -5626,3 +5626,21 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-22 — release 1.40.1
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `21d386c6d` (release).
+- **Reason.** Version strings in the parity tables and the fixture lock; the
+  docstring-only edits (`versionadded:: 1.41.0` -> `1.40.1`) in
+  `src/statspai/did/` made the traces of Track A 04 10 16 20 38 76 78 79
+  81 84 and original-data 02 stale; they were re-recorded. No result file
+  changes.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.tex`
+  - `tests/r_parity/results/parity_table_3way.tex`
