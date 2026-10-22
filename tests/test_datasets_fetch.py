@@ -9,6 +9,7 @@ exercise the real files.
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -160,10 +161,12 @@ def test_importing_datasets_downloads_nothing(tmp_path):
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
+        # the parent environment, not an empty one: Python on Windows does
+        # not start without SYSTEMROOT. The blocked socket is the guard.
         env={
+            **{k: v for k, v in os.environ.items() if k != "STATSPAI_FETCH_DATASETS"},
             "PYTHONPATH": src,
             "STATSPAI_DATA_DIR": str(tmp_path),
-            "PATH": "",
             "HOME": str(tmp_path),
         },
         timeout=300,
