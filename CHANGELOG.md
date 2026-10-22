@@ -4,6 +4,29 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.40.1] — 2026-10-22
+
+A patch release of DiD fixes and conventions, most of them found by
+replicating five DiD papers in Stata 18 and StatsPAI side by side. Read the
+⚠️ entries before upgrading: they change numbers.
+
+- **Correctness fixes.** `sp.did_multiplegt` with several rows per group and
+  period, and its `controls=` adjustment (both now equal Stata
+  `did_multiplegt_old`); `sp.rlasso_iv(select_Z=True, select_X=False)`;
+  `sp.did_summary` rows now share one estimand; `sp.feols` / `sp.fepois`
+  extended variances no longer crash under pandas 3.
+- **Reproducing R and Stata in one argument.** `parity='r' | 'stata'` on
+  `sp.callaway_santanna` / `sp.aggte` now also covers repeated
+  cross-sections, unbalanced panels and sampling weights; `sp.did` and
+  `sp.cs_report` forward it.
+- **New options from Stata's dCDH command**: `robust_dynamic`,
+  `firstdiff_placebo`, `effect_average`, controls in placebo and dynamic
+  effects.
+- **Announced for 1.41**: event-study p-values and intervals move to t(G-1)
+  with clustered SEs (`crit_dist='t'`), as Stata and fixest report. Calls
+  that would change warn now; `crit_dist=` adopts or keeps a rule.
+- **Deprecated**: the `group=` keyword of `sp.drdid` (use `treat=`).
+
 ### Added
 
 - `sp.did_multiplegt(robust_dynamic=True)`: the first-time-switcher DID_l estimators of Stata `did_multiplegt_old, robust_dynamic` (dCDH, REStat 2024). The estimate becomes DID_0, `dynamic=` gives DID_1..DID_L against groups with the same initial treatment that have not switched yet, and the placebos are Stata's long differences. Checked against Stata 18 on 16 configurations (binary and count treatments switching on and off, balanced and unbalanced, with and without controls, rows below the cell and cell means) to 3e-15, `tests/reference_parity/test_did_multiplegt_dynamic_conventions.py`. Conventions found by running Stata as a black box are listed in docs/dev/modules/did.md (the sign of a group is that of its summed deviation from the baseline after the first switch, not of the first change; placebo l uses DID_{l-1}'s groups; a group must be observed throughout the effect's window). `model_info['dynamic'][h]['n_switchers']` equals Stata's `e(N_switchers_effect_h)`. The default is unchanged: the pair-by-pair dynamic effects of R `DIDmultiplegt` 0.1.4 that Track A module 81 certifies. The two agree on a binary staggered treatment with one row per cell and differ when treatment switches on and off (on the 2026-10-21 test panel: 0.80151 with `robust_dynamic=True`, Stata 0.80151, against 0.70159 by default, R 0.70159).

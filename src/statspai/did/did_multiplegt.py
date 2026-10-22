@@ -115,7 +115,7 @@ def did_multiplegt(
         (group, period) cell and the cell is weighted by its row count, as
         Stata ``did_multiplegt_old`` does.
 
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            ⚠️ Correctness fix: several rows per cell used to be paired
            across periods (main estimate) or reduced to the first row
            (placebo and dynamic effects).
@@ -161,7 +161,7 @@ def did_multiplegt(
         variation net of the period effects gets a slope of 0, as in both
         references.
 
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            ⚠️ Correctness fix: the slope used to be fitted within each
            period's switchers and stayers, and the placebo and dynamic
            effects ignored the controls.
@@ -179,7 +179,7 @@ def did_multiplegt(
         effects only with ``robust_dynamic``). With several rows per cell a
         cell weighs its size in period *t*.
 
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            With several rows per cell the weight is the size at *t* (R).
            The unreleased 2026-10-21 change weighed it at *t+l*, which is
            Stata's first-time-switcher rule, now ``robust_dynamic=True``.

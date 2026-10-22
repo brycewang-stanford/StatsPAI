@@ -355,7 +355,7 @@ def did_imputation(
         the coefficient's weights), which equals the count used here for
         an unweighted horizon and is smaller with ``weights=``.
 
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            ``min_n=0`` used to raise.
     hetby : str, optional
         Stata ``did_imputation, hetby(varname)``: report heterogeneous

@@ -553,7 +553,7 @@ def pretrends_test(
         The test is then the chi-squared Wald test (``type='f'`` is refused:
         coefficients alone carry no denominator degrees of freedom).
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
 
     Returns
     -------

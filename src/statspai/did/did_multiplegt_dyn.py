@@ -523,7 +523,7 @@ def did_multiplegt_dyn(
     placebo 1 sits at ``-1``, the period those estimators normalise to 0.
     ``detail['se']`` is the standard error of the requested ``se_method``.
 
-    .. versionadded:: 1.41.0
+    .. versionadded:: 1.40.1
        ``twfe_relative_time`` and ``detail['se']``.
 
     Examples

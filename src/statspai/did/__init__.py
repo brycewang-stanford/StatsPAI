@@ -495,7 +495,7 @@ def did(
         raises there. Otherwise ``sp.did(..., parity=p)`` is the same call
         as the estimator's with ``parity=p``.
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
     crit_dist : {'t', 'residual', 'normal', 'legacy'}, optional
         Critical-value rule, forwarded to :func:`did_2x2` (``'t'`` /
         ``'residual'``) or :func:`sun_abraham` (``'t'`` / ``'normal'``)
@@ -510,7 +510,7 @@ def did(
         ``crit_dist`` raises (Callaway-Sant'Anna uses normal critical
         values).
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
     **kwargs
         Branch-specific options: ``horizon`` / ``event_window`` /
         ``pretrends`` / ``pretrend_method`` for the BJS imputation

@@ -102,7 +102,7 @@ def breakdown_m(
         be computed from the estimates and standard errors printed in a
         paper (a diagonal ``sigma`` when the paper reports no covariance).
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
 
     Returns
     -------

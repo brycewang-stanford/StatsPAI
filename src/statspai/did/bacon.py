@@ -130,7 +130,7 @@ def bacon_decomposition(
         the gap. Not with ``covariates`` or ``weights``. On a balanced panel
         it equals the default.
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
     covariates : list of str, optional
         Time-varying controls (R ``bacon(y ~ d + x1 + x2, ...)``). The TWFE
         coefficient with controls splits into a within-timing-group part

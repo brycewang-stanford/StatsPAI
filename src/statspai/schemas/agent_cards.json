@@ -67688,7 +67688,7 @@
             "x-statspai-role": "columns"
           },
           "data": {
-            "description": "Panel data in long format: one row per group and period, or several (individuals within groups). Several rows are averaged to the (group, period) cell and the cell is weighted by its row count, as Stata ``did_multiplegt_old`` does. .. versionchanged:: 1.41.0 WARNING Correctness fix: several rows per cell used to be paired across periods (main estimate) or reduced to the first row (placebo and dynamic effects).",
+            "description": "Panel data in long format: one row per group and period, or several (individuals within groups). Several rows are averaged to the (group, period) cell and the cell is weighted by its row count, as Stata ``did_multiplegt_old`` does. .. versionchanged:: 1.40.1 WARNING Correctness fix: several rows per cell used to be paired across periods (main estimate) or reduced to the first row (placebo and dynamic effects).",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -82412,7 +82412,7 @@
             "type": "integer"
           },
           "event_times": {
-            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.40.1",
             "type": "string"
           },
           "honestdid_method": {
@@ -82448,7 +82448,7 @@
             "type": "string"
           },
           "num_pre_periods": {
-            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.40.1",
             "type": "integer"
           },
           "result": {
@@ -82461,7 +82461,7 @@
             "type": "integer"
           },
           "sigma": {
-            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.41.0",
+            "description": "Take the event study from coefficients instead of a fitted result: ``result`` is then the coefficient vector (reference period excluded) and ``sigma`` its joint covariance, or a fitted regression with ``event_times={coefficient name: event time}``. Same conventions as :func:`honest_did_from_moments`, whose ``breakdown=True`` stores the same number, so a breakdown value can be computed from the estimates and standard errors printed in a paper (a diagonal ``sigma`` when the paper reports no covariance). .. versionadded:: 1.40.1",
             "type": "string"
           },
           "window": {
@@ -82674,7 +82674,7 @@
             "type": "array"
           },
           "min_n": {
-            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.41.0 ``min_n=0`` used to raise.",
+            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.40.1 ``min_n=0`` used to raise.",
             "type": "integer"
           },
           "n_boot": {
@@ -83016,7 +83016,7 @@
             "type": "array"
           },
           "min_n": {
-            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.41.0 ``min_n=0`` used to raise.",
+            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.40.1 ``min_n=0`` used to raise.",
             "type": "integer"
           },
           "n_boot": {

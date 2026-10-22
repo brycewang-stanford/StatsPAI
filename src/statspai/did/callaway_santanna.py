@@ -692,7 +692,7 @@ def callaway_santanna(
         whether or not ``parity=`` was passed.
 
         .. versionadded:: 1.40.0
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            Repeated cross-sections and unbalanced panels: csdid's
            cell-count weights in every aggregate, the reference DR variance
            convention, and R's ``allow_unbalanced_panel=True``.

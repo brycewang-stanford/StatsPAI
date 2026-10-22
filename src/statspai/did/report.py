@@ -1122,7 +1122,7 @@ def cs_report(
         contradict it). The functional-form test and the covariate
         balance table do not depend on these conventions.
 
-        .. versionadded:: 1.41.0
+        .. versionadded:: 1.40.1
 
     Returns
     -------

@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.0 → 1.41: ⚠️ `sp.did_summary` rows share one estimand; announced `sp.did_multiplegt_dyn` defaults for 1.42
+## 1.40.0 → 1.40.1: ⚠️ `sp.did_summary` rows share one estimand; announced `sp.did_multiplegt_dyn` defaults for 1.42
 
 - **`sp.did_summary`.** The Sun-Abraham and stacked rows were the
   equal-weight mean of the post event-time effects, the other rows
@@ -31,7 +31,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.0 → 1.41: ⚠️ `sp.rlasso_iv(select_Z=True, select_X=False)` solves the second stage exactly
+## 1.40.0 → 1.40.1: ⚠️ `sp.rlasso_iv(select_Z=True, select_X=False)` solves the second stage exactly
 
 The second stage was solved with a Moore-Penrose pseudo-inverse at
 `MASS::ginv`'s tolerance, as `hdm::rlassoIVselectZ` 0.3.2 does. When the
@@ -45,13 +45,13 @@ an arbitrary singular-value cutoff (0.0054 at 1e-10).
 
 ---
 
-## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` placebo and dynamic effects with `controls=`; `robust_dynamic=`
+## 1.40.0 → 1.40.1: ⚠️ `sp.did_multiplegt` placebo and dynamic effects with `controls=`; `robust_dynamic=`
 
 Checked against Stata 18 `did_multiplegt_old` and R `DIDmultiplegt` 0.1.4 on
 the same CSV (`tests/reference_parity/test_did_multiplegt_dynamic_conventions.py`).
 
 - **`controls=` with `placebo=` or `dynamic=`.** These effects ignored the
-  controls (1.40.0 silently, the 1.41 development line with a warning). They
+  controls (1.40.0 silently, the development line after it with a warning). They
   are now adjusted like DID_M, with slopes fitted on each estimate's own
   control cells, as R does. On the 2026-10-21 test panel (cell means)
   `dynamic_1` moves from 0.59200 to 0.57119 (R 0.57119) and `placebo_1`
@@ -71,7 +71,7 @@ To get the old unadjusted placebo or dynamic numbers, drop `controls=`.
 
 ---
 
-## 1.40.0 → 1.41: `parity=` of `sp.callaway_santanna` off a balanced panel
+## 1.40.0 → 1.40.1: `parity=` of `sp.callaway_santanna` off a balanced panel
 
 Only fits with `parity='r'` or `'stata'` on repeated cross-sections or an
 unbalanced panel change; default numbers do not.
@@ -96,7 +96,7 @@ unbalanced panel change; default numbers do not.
 
 ---
 
-## 1.40.0 → 1.41: ⚠️ `sp.did_multiplegt` with several rows per cell, and with `controls=`
+## 1.40.0 → 1.40.1: ⚠️ `sp.did_multiplegt` with several rows per cell, and with `controls=`
 
 Two correctness fixes, both checked against Stata 18 `did_multiplegt_old`
 on the same CSV (`tests/reference_parity/test_did_multiplegt_disaggregated_stata.py`).
@@ -117,7 +117,7 @@ computed with rules that no reference implementation uses.
 
 ---
 
-## 1.40.0 → 1.41: announced, t critical values in `sp.event_study`, `sp.sun_abraham`, `sp.did_2x2`
+## 1.40.0 → 1.40.1: announced for 1.41, t critical values in `sp.event_study`, `sp.sun_abraham`, `sp.did_2x2`
 
 From 1.41 the three regression-based event-study estimators turn their
 standard errors into p-values and confidence intervals the way Stata
@@ -178,7 +178,7 @@ pre-1.41 value and do not warn; they switch with the default.
 
 ---
 
-## 1.40.0 → 1.41: `sp.drdid(group=)` deprecated in favour of `treat=`; swapped `group=` in five DiD estimators
+## 1.40.0 → 1.40.1: `sp.drdid(group=)` deprecated in favour of `treat=`; swapped `group=` in five DiD estimators
 
 No number changes.
 

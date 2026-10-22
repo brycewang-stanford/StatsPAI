@@ -141,7 +141,7 @@ def aggte(
         and weighted (``tests/reference_parity/test_cs_parity_rc_unbal.py``).
 
         .. versionadded:: 1.31.0
-        .. versionchanged:: 1.41.0
+        .. versionchanged:: 1.40.1
            All four aggregation types, unbalanced panels, and csdid's
            count term in the SEs of every aggregate.
     share_variance : bool, default True
