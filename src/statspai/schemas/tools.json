@@ -6288,7 +6288,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+          "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
           "type": "string",
           "x-aliases": [
             "vce"
@@ -22714,7 +22714,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+          "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
           "type": "string",
           "x-aliases": [
             "vce"
@@ -29263,7 +29263,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "Standard error type: \"nonrobust\", \"robust\"/\"hc0\", \"hc1\".",
+          "description": "Standard error type: \"nonrobust\" (model-based), \"robust\" (Stata's ``vce(robust)``: HC0 times ``N/(N-1)``), \"hc0\" (unscaled sandwich) or \"hc1\" (sandwich times ``N/(N-K)``). To match Stata use \"robust\".",
           "type": "string",
           "x-aliases": [
             "vce"
@@ -30274,7 +30274,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+          "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
           "type": "string",
           "x-aliases": [
             "vce"

@@ -4,6 +4,65 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+An external audit compared StatsPAI 1.40.1 with Stata 18 on 60
+specifications (240 rows, 30 groups) and asked why coefficients and
+standard errors could match while t / F / p-values did not. One case was a
+gap and is fixed (⚠️ below); the others were legitimate conventions that the
+output did not state, and the output now states them.
+
+### ⚠️ Correctness
+
+- `sp.iv(method='gmm')` under the unadjusted weight matrix (the default
+  `robust='nonrobust'`, with either `gmm_vcov`) now carries the finite-sample
+  factor `N / (N - K)` when `small=True` (the default), as Stata
+  `ivregress gmm ..., wmatrix(unadjusted) small` does. Until 1.40.1 that
+  branch carried no factor, so `small=True` paired the large-sample variance
+  with t / F inference. Standard errors grow by `sqrt(N / (N - K))`: on the
+  audit's data (N = 240, K = 4) the SE of x1 moves from 0.067613 to 0.068183
+  and the joint F from 10.1226 to 9.9539, both now equal to Stata 18 to 1e-15.
+  `small=False` is unchanged and point estimates and Hansen's J are unchanged.
+  `sp.from_stata` / `sp.stata` now translate `ivregress gmm ...,
+  wmatrix(unadjusted) small`, which they reported as untranslatable.
+- `sp.panel` with `cluster=`, a robust / kernel variance or `ssc=`: the model
+  test in `diagnostics` (and the summary) was linearmodels' homoskedastic F
+  whatever the variance, so a clustered fit printed F = 12.29 where the
+  clustered test of the same slopes is 29.47 (`sp.test`) and Stata's
+  `xtreg, fe vce(cluster)` 28.49 (`ssc='stata'`). It is now the Wald test of
+  the reported variance on the coefficients' reference distribution:
+  `F-statistic` / `F p-value` under t inference, `Wald chi2` / `Prob > chi2`
+  under z (`xtreg, re` with `ssc='stata'`, Stata 21.516). Classical-variance
+  fits keep linearmodels' F, which is the same number.
+
+### Added
+
+- `result.inference_rule()` on regression results: the variance label, the
+  reference distribution (`'t'` with its df, or `'z'`), the joint-test form
+  (`F(q, df)` / `chi2(q)`), clusters, the IV `small` convention, the panel
+  `ssc` convention, rows and groups for panel fits, and notes on defaults
+  that differ from Stata. `summary()` prints it under the coefficient table
+  and `to_agent_summary()` returns it under `inference`. For a GMM fit the
+  label names the variance, not the weight matrix: the default reports a
+  sandwich even though `robust='nonrobust'`.
+- `sp.panel` results record `data_info['n_rows']` and `data_info['n_groups']`;
+  for `method='be'` the summary shows "240 observations in 30 groups" where
+  `nobs` (the N of the degrees of freedom) is 30 and Stata's `e(N)` is 240.
+- `tests/reference_parity/test_inference_conventions_stata_parity.py`: the
+  audit's data (its DGP, regenerated) and Stata 18 output for GMM under three
+  weight matrices with and without `small`, 2SLS, LIML, logit / probit /
+  poisson `vce(robust)`, `xtreg` fe / re / be and a collinear design. All 18
+  fits agree on b, SE, the joint test and its p-value to 4.4e-14.
+
+### Changed
+
+- `sp.test` refuses a restriction on a coefficient omitted for collinearity
+  ("was omitted from the model (collinear with 'x1'), so a restriction on it
+  is not estimable") instead of "Unknown coefficient".
+- Docstrings of `sp.logit` / `sp.probit` / `sp.cloglog` / `sp.poisson` /
+  `sp.nbreg` no longer present `robust='hc1'` and `'robust'` as synonyms:
+  `'robust'` is Stata's `vce(robust)` (N/(N-1)), `'hc1'` scales by N/(N-K).
+  The default panel convention note (`model_info['ssc_reference']`) now says
+  that RE is referred to t / F by default and that `ssc='stata'` gives z / chi2.
+
 ## [1.40.1] — 2026-10-22
 
 A patch release of DiD fixes and conventions, most of them found by

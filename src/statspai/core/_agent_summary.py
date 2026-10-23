@@ -1448,6 +1448,17 @@ def _positional(arr: Any, i: int) -> Optional[float]:
         return None
 
 
+def _inference_rule_or_none(result: Any) -> Optional[Dict[str, Any]]:
+    rule = getattr(result, "inference_rule", None)
+    if not callable(rule):
+        return None
+    try:
+        return rule()
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        # the payload must still build; say why the rule is missing
+        return {"unavailable": f"{type(exc).__name__}: {exc}"}
+
+
 def econometric_agent_summary(result: Any) -> Dict[str, Any]:
     """JSON-ready structured summary of an :class:`EconometricResults`."""
     params = getattr(result, "params", None)
@@ -1492,6 +1503,7 @@ def econometric_agent_summary(result: Any) -> Dict[str, Any]:
         ),
         "df_resid": data_info.get("df_resid"),
         "dependent_var": data_info.get("dependent_var", ""),
+        "inference": _inference_rule_or_none(result),
         "coefficients": coefs,
         "diagnostics": scalar_diagnostics,
         "violations": econometric_violations(result),

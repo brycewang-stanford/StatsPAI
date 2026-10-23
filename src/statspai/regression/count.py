@@ -1424,7 +1424,9 @@ def poisson(
     x : list of str, optional
         Independent variable names (alternative to formula).
     robust : str, default "nonrobust"
-        Standard error type: "nonrobust", "robust"/"hc0", "hc1".
+        Standard error type: "nonrobust" (model-based), "robust" (Stata's
+        ``vce(robust)``: HC0 times ``N/(N-1)``), "hc0" (unscaled sandwich)
+        or "hc1" (sandwich times ``N/(N-K)``). To match Stata use "robust".
     cluster : str, optional
         Variable name for clustered standard errors.
     weights : str, optional
@@ -1745,7 +1747,9 @@ def nbreg(
     x : list of str, optional
         Independent variable names (alternative to formula).
     robust : str, default "nonrobust"
-        Standard error type: "nonrobust", "robust"/"hc0", "hc1".
+        Standard error type: "nonrobust" (model-based), "robust" (Stata's
+        ``vce(robust)``: HC0 times ``N/(N-1)``), "hc0" (unscaled sandwich)
+        or "hc1" (sandwich times ``N/(N-K)``). To match Stata use "robust".
     cluster : str, optional
         Variable name for clustered standard errors.
     weights : str, optional

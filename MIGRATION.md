@@ -5,6 +5,25 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.1 → unreleased: ⚠️ `sp.iv(method='gmm')` with the unadjusted weight matrix and `small=True`
+
+`ivregress gmm ..., wmatrix(unadjusted) small` multiplies the variance by
+`N / (N - K)`. `sp.iv(method='gmm')` with `robust='nonrobust'` (the default)
+did not, although `small=True` (also the default) reported t / F as if it
+had. Standard errors under that combination grow by `sqrt(N / (N - K))`
+(0.8% at N = 240, K = 4); estimates and Hansen's J do not change.
+
+- To keep the old standard errors, pass `small=False`: they are Stata's
+  `wmatrix(unadjusted) vce(robust)` (default `gmm_vcov`) or
+  `wmatrix(unadjusted)` (`gmm_vcov='efficient'`), with z / chi2 inference
+  instead of t / F.
+- `robust='hc1'` and `cluster=` fits are unchanged.
+- `summary()` gains lines that state the variance, the reference
+  distribution and the small-sample convention. Code that parses the summary
+  text by line position should read `result.inference_rule()` instead.
+
+---
+
 ## 1.40.0 → 1.40.1: ⚠️ `sp.did_summary` rows share one estimand; announced `sp.did_multiplegt_dyn` defaults for 1.42
 
 - **`sp.did_summary`.** The Sun-Abraham and stacked rows were the

@@ -14,12 +14,15 @@ The mapping, which the ``small`` entry of ``sp.iv``'s docstring states:
 ``wmatrix(robust) small``                       ``robust='hc1'``
 ``wmatrix(cluster cl)``                         ``cluster='cl', small=False``
 ``wmatrix(cluster cl) small``                   ``cluster='cl'``
-``wmatrix(unadjusted)``                         ``gmm_vcov='efficient'``
+``wmatrix(unadjusted)``                         ``gmm_vcov='efficient', small=False``
+``wmatrix(unadjusted) small``                   ``gmm_vcov='efficient'``
+``wmatrix(unadjusted) vce(robust) small``       (the default)
 ==============================================  ==================================
 
-``wmatrix(unadjusted) small`` multiplies the last one by ``N / (N - K)``
-and has no counterpart; the file keeps its numbers so that the gap is
-pinned as exactly that factor.
+Until 1.40.1 the unadjusted weight matrix carried no finite-sample factor
+under ``small=True``, so ``wmatrix(unadjusted) small`` had no counterpart
+and the default reported the large-sample variance with t / F inference
+(reported by an external audit, 2026-10-23).
 """
 
 from __future__ import annotations
@@ -47,7 +50,8 @@ CASES = {
     "robust_small": {"robust": "hc1"},
     "cluster": {"cluster": "cl", "small": False},
     "cluster_small": {"cluster": "cl"},
-    "unadjusted": {"gmm_vcov": "efficient"},
+    "unadjusted": {"gmm_vcov": "efficient", "small": False},
+    "unadjusted_small": {"gmm_vcov": "efficient"},
 }
 
 
@@ -96,19 +100,26 @@ def test_small_changes_the_variance_by_the_documented_factor(ref, card):
     assert robust == pytest.approx(n / (n - k), rel=1e-9)
     cluster = (ref["cluster_small"]["se"] / ref["cluster"]["se"]) ** 2
     assert cluster == pytest.approx(g / (g - 1) * (n - 1) / (n - k), rel=1e-9)
-    # the row with no counterpart differs from the efficient variance by
-    # the same N / (N - K), and by nothing else
+    # the unadjusted weight matrix takes the same N / (N - K), and sp.iv
+    # applies it there too (it did not until 1.40.1)
     gap = (ref["unadjusted_small"]["se"] / ref["unadjusted"]["se"]) ** 2
     assert gap == pytest.approx(n / (n - k), rel=1e-9)
-    res = sp.iv(FORMULA, data=card, method="gmm", gmm_vcov="efficient")
-    rescaled = float(res.std_errors["educ"]) * np.sqrt(n / (n - k))
-    assert rescaled == pytest.approx(ref["unadjusted_small"]["se"], rel=RTOL)
+    small = sp.iv(FORMULA, data=card, method="gmm", gmm_vcov="efficient")
+    large = sp.iv(FORMULA, data=card, method="gmm", gmm_vcov="efficient", small=False)
+    ratio = float(small.std_errors["educ"] / large.std_errors["educ"]) ** 2
+    assert ratio == pytest.approx(n / (n - k), rel=1e-12)
 
 
 def test_default_is_the_sandwich_around_the_unadjusted_weight_matrix(card):
-    """``ivregress gmm, wmatrix(unadjusted) vce(robust)``: 0.04851397500143."""
-    res = sp.iv(FORMULA, data=card, method="gmm")
+    """``ivregress gmm, wmatrix(unadjusted) vce(robust)``: 0.04851397500143
+    without ``small``; ``small`` multiplies the variance by N / (N - K)."""
+    n, k = 3010, 7
+    res = sp.iv(FORMULA, data=card, method="gmm", small=False)
     assert float(res.std_errors["educ"]) == pytest.approx(0.04851397500143, rel=1e-9)
+    res = sp.iv(FORMULA, data=card, method="gmm")
+    assert float(res.std_errors["educ"]) == pytest.approx(
+        0.04851397500143 * np.sqrt(n / (n - k)), rel=1e-9
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -129,6 +140,7 @@ TRANSLATED = {
     ", wmatrix(unadjusted)": "unadjusted",
     ", vce(unadjusted)": (0.158838655315, 0.048498277691),
     ", wmatrix(unadjusted) vce(robust)": (0.16084872834863, 0.04851397500143),
+    ", wmatrix(unadjusted) small": "unadjusted_small",
 }
 
 
@@ -150,7 +162,6 @@ def test_translated_command_reproduces_stata(ref, card, options):
 @pytest.mark.parametrize(
     "options,lost",
     [
-        (", wmatrix(unadjusted) small", "small"),
         (", wmatrix(cluster cl) vce(robust)", "vce"),
         (", wmatrix(hac bartlett 2)", "wmatrix"),
         (", igmm", "igmm"),

@@ -478,18 +478,18 @@ def _gmm_fit(
     # which is what ``ivreg2``/``ivreghdfe`` print. ``"sandwich"`` (the
     # StatsPAI default) keeps the full sandwich with Omega re-estimated at
     # the final residuals, which stays valid if the weight matrix is not
-    # the efficient one. Both carry the same finite-sample factor q as the
-    # k-class path: G/(G-1) * (n-1)/(n-k) when clustered, n/(n-k) for HC1,
-    # 1 otherwise.
+    # the efficient one. Both carry the finite-sample factor q of
+    # ``ivregress gmm ..., small``: G/(G-1) * (n-1)/(n-k) when clustered and
+    # n/(n-k) otherwise, under the unadjusted weight matrix as well (Stata 18;
+    # until 1.40.1 that branch carried no factor, so small=True left the
+    # large-sample variance in place). ``small=False`` divides q back out.
     if cluster is not None:
         _frame = _as_cluster_frame(cluster)
         _codes = _cluster_codes(_frame, (0,))
         _g = int(_codes.max()) + 1
         ssc = (_g / (_g - 1)) * ((n - 1) / max(n - k, 1))
-    elif robust != "nonrobust":
-        ssc = n / max(n - k, 1)
     else:
-        ssc = 1.0
+        ssc = n / max(n - k, 1)
 
     if gmm_vcov == "efficient":
         # bread == (1/n) (X'W Sigma^{-1} W'X)^{-1} because S == Sigma / n.
@@ -1843,6 +1843,15 @@ class IVRegression(BaseModel):
             "cluster": cluster,
             "alpha": alpha,
         }
+        if method == "gmm":
+            # robust= / cluster= choose the weight matrix, gmm_vcov the
+            # variance: the default 'nonrobust' still reports a sandwich
+            model_info["gmm_vcov"] = gmm_vcov
+            model_info["gmm_wmatrix"] = (
+                "cluster"
+                if cluster is not None
+                else ("unadjusted" if robust == "nonrobust" else "robust")
+            )
         if sw is not None:
             model_info["weights"] = weights if isinstance(weights, str) else "array"
             model_info["weight_type"] = "aweight"
@@ -2984,6 +2993,9 @@ def _apply_small(
     if not isinstance(small, bool):
         raise MethodIncompatibility(f"small must be True or False, got {small!r}")
     if small:
+        # recorded so that summary() can say which convention t / F follow
+        if isinstance(getattr(result, "model_info", None), dict):
+            result.model_info.setdefault("small", True)
         return
     if absorbed:
         raise MethodIncompatibility(
@@ -3026,13 +3038,9 @@ def _ivregress_large_sample(result: EconometricResults, method: str) -> None:
     if n_cl is not None:
         g = int(n_cl)
         factor = (df_resid / (n - 1)) * ((g - 1) / g)
-    elif method == "gmm":
-        # The GMM variance carries n / (n - k) under any robust weight
-        # matrix and no factor under the unadjusted one (``_gmm_fit``), so
-        # ``ivregress gmm`` without ``small`` is the former with the factor
-        # removed and the latter as it stands.
-        factor = 1.0 if robust == "nonrobust" else df_resid / n
-    elif robust in ("nonrobust", "hc1"):
+    elif robust in ("nonrobust", "hc1") or method == "gmm":
+        # ``_gmm_fit`` carries n / (n - k) under every unclustered weight
+        # matrix, so ``ivregress gmm`` without ``small`` removes it.
         factor = df_resid / n
     elif robust == "hc0":
         factor = 1.0
@@ -3142,12 +3150,15 @@ def iv(
         ``robust='hc1', small=False`` is ``ivregress gmm`` at its default
         ``wmatrix(robust)``; ``robust='hc1'`` is the same with ``small``;
         ``cluster=`` with and without ``small=False`` is
-        ``wmatrix(cluster ...)``; ``gmm_vcov='efficient'`` alone is
-        ``wmatrix(unadjusted)``; and the default (``robust='nonrobust'``)
-        is ``wmatrix(unadjusted) vce(robust)``, a sandwich around the
-        homoskedastic weight matrix with no finite-sample factor.
-        ``wmatrix(unadjusted) small``, which multiplies by ``N / (N - K)``,
-        has no counterpart here.
+        ``wmatrix(cluster ...)``; ``gmm_vcov='efficient'`` is
+        ``wmatrix(unadjusted) small`` (``wmatrix(unadjusted)`` with
+        ``small=False``); and the default (``robust='nonrobust'``) is
+        ``wmatrix(unadjusted) vce(robust) small``, a sandwich around the
+        homoskedastic weight matrix (``small=False`` drops the
+        ``N / (N - K)``). Note that ``robust=`` picks the GMM *weight
+        matrix*; the variance is ``gmm_vcov``, so the default reports a
+        heteroskedasticity-robust sandwich, not the classical variance
+        Stata prints for ``wmatrix(unadjusted)`` alone.
     **kwargs
         Estimator-specific options forwarded to the underlying fitter.
         The one most users reach for is ``gmm_vcov``

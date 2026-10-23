@@ -10191,8 +10191,8 @@
       "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
       "tests/reference_parity/test_hansen_methods_stata_parity.py",
       "tests/reference_parity/test_hausman_stata_parity.py",
-      "tests/reference_parity/test_joint_wald_stata_parity.py",
-      "tests/reference_parity/test_oct2026_fourth_pass.py"
+      "tests/reference_parity/test_inference_conventions_stata_parity.py",
+      "tests/reference_parity/test_joint_wald_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -99773,7 +99773,7 @@
           },
           "robust": {
             "default": "nonrobust",
-            "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+            "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
             "type": "string",
             "x-aliases": [
               "vce"
@@ -99969,7 +99969,7 @@
           },
           "robust": {
             "default": "nonrobust",
-            "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+            "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
             "type": "string",
             "x-aliases": [
               "vce"
@@ -100158,7 +100158,7 @@
           },
           "robust": {
             "default": "nonrobust",
-            "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
+            "description": "``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich variances that differ only in the finite-sample factor: ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to match Stata use ``'robust'``. ``result.inference_rule()`` reports which one a fit used.",
             "type": "string",
             "x-aliases": [
               "vce"
@@ -100569,7 +100569,7 @@
           },
           "robust": {
             "default": "nonrobust",
-            "description": "Standard error type: \"nonrobust\", \"robust\"/\"hc0\", \"hc1\".",
+            "description": "Standard error type: \"nonrobust\" (model-based), \"robust\" (Stata's ``vce(robust)``: HC0 times ``N/(N-1)``), \"hc0\" (unscaled sandwich) or \"hc1\" (sandwich times ``N/(N-K)``). To match Stata use \"robust\".",
             "type": "string",
             "x-aliases": [
               "vce"

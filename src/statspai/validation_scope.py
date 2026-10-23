@@ -1169,8 +1169,8 @@ _add(
                 _EST_SE,
                 "under the unadjusted weight matrix, both variances sp.iv offers: "
                 "the default sandwich is ivregress gmm, wmatrix(unadjusted) "
-                "vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); "
-                "neither carries a finite-sample factor",
+                "vce(robust) small, and gmm_vcov='efficient' is "
+                "wmatrix(unadjusted) small; small=False drops N/(N-K) from both",
                 "sp.iv(formula, data, method='gmm')",
             ),
             _Row(

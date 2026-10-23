@@ -260,6 +260,16 @@ _INTERCEPT_NAMES = ("_cons", "Intercept", "const", "(Intercept)")
 def _params(result: Any) -> pd.Series:
     params = result.params
     if isinstance(params, pd.Series):
+        omitted = (getattr(result, "model_info", None) or {}).get("omitted")
+        if omitted:
+            # a shallow copy carries the dropped terms to _resolve_name
+            # without touching the result's own Series
+            params = params.copy(deep=False)
+            params.attrs["omitted"] = {
+                str(o.get("variable")): str(o.get("reason", ""))
+                for o in omitted
+                if isinstance(o, dict)
+            }
         return params
     values = np.atleast_1d(np.asarray(params, dtype=float))
     return pd.Series(values, index=[f"b{i}" for i in range(values.size)])
@@ -355,6 +365,19 @@ def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
             "arithmetic expression needs one.",
             recovery_hint="Name one level (2.race), or list the factor on "
             "its own for a joint test (sp.test(result, 'i.race')).",
+        )
+    omitted = params.attrs.get("omitted") or {}
+    if name in omitted:
+        # Stata keeps the term at 0 and drops the constraint ("constraint
+        # dropped"); a test of it is not a test of anything identified
+        reason = f" ({omitted[name]})" if omitted[name] else ""
+        raise MethodIncompatibility(
+            f"{name!r} in {expression!r} was omitted from the model{reason}, "
+            "so a restriction on it is not estimable.",
+            recovery_hint="Restate the hypothesis on an identified combination: "
+            "with x2 = c*x1 omitted, the coefficient on x1 is the effect of "
+            "x1 + c*x2.",
+            diagnostics={"omitted": dict(omitted)},
         )
     for token, real in zip(names, shown):
         expression = expression.replace(token, real)
@@ -485,6 +508,8 @@ def _shield_names(text: str, params: pd.Series) -> Tuple[str, pd.Series]:
                 tokens[i] = token
     shielded = pd.Series(np.asarray(params, dtype=float), index=tokens)
     shielded.attrs["display"] = names
+    if params.attrs.get("omitted"):
+        shielded.attrs["omitted"] = params.attrs["omitted"]
     return text, shielded
 
 

@@ -1442,15 +1442,6 @@ def _ivregress_gmm(cmd: StataCommand, formula: str) -> Dict[str, Any]:
                 f"wmatrix({weight[0]}) with vce({vce[0]}) has no counterpart in "
                 "sp.iv: the call below is not that estimator."
             )
-        if weight[0] == "unadjusted" and small:
-            # sp.iv applies no finite-sample factor under the unadjusted
-            # weight matrix; Stata's `small` multiplies by N / (N - K).
-            lost.append("small")
-            notes.append(
-                "`small` with wmatrix(unadjusted) multiplies the variance by "
-                "N / (N - K); sp.iv has no counterpart, so the standard errors "
-                "below are the ones Stata reports without `small`."
-            )
     if not small:
         args["small"] = False
         notes.append(

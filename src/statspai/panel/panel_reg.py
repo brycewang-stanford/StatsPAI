@@ -1787,8 +1787,9 @@ def _binding_n_clusters(
 #: ``tests/test_panel_vce_contract.py``.
 _LINEARMODELS_REFERENCE = (
     "linearmodels scaling: N/(N-k) on the covariance, no G/(G-1) cluster factor, "
-    "tests referred to N - K degrees of freedom. ssc='stata' gives xtreg's "
-    "G/(G-1) factor and t(G-1); ssc='fixest' gives R fixest's."
+    "tests referred to N - K degrees of freedom (t / F, also after RE). "
+    "ssc='stata' gives xtreg's G/(G-1) factor and t(G-1), and z / chi2 after "
+    "xtreg, re; ssc='fixest' gives R fixest's."
 )
 
 
@@ -1984,6 +1985,13 @@ def _convert_lm_result(
         "residuals": lm_result.resids.values.ravel(),
         "vcov": vcov,
     }
+    # Rows and groups beside the N the degrees of freedom use: the between
+    # estimator's N is the number of groups, where xtreg, be reports rows.
+    try:
+        data_info["n_rows"] = int(lm_result.model.dependent.dataframe.shape[0])
+        data_info["n_groups"] = int(lm_result.entity_info.total)
+    except (AttributeError, TypeError, ValueError):
+        pass
     if ssc_inf is not None:
         if ssc_inf.df_inference is None:
             data_info["inference"] = "z"
@@ -2008,7 +2016,7 @@ def _convert_lm_result(
         diagnostics["F-statistic"] = float(lm_result.f_statistic.stat)
         diagnostics["F p-value"] = float(lm_result.f_statistic.pval)
 
-    return PanelResults(
+    result = PanelResults(
         params=params,
         std_errors=std_errors,
         model_info=model_info,
@@ -2023,6 +2031,56 @@ def _convert_lm_result(
         _method=method,
         _lm_result=lm_result,
     )
+    if (
+        ssc_inf is not None
+        or model_info.get("cluster") is not None
+        or str(model_info.get("robust", "nonrobust")).lower() != "nonrobust"
+    ):
+        _model_test_from_own_variance(result)
+    return result
+
+
+def _model_test_from_own_variance(result: PanelResults) -> None:
+    """Replace linearmodels' model F by the Wald test of the reported variance.
+
+    linearmodels' ``f_statistic`` is the homoskedastic F whatever the
+    covariance, so under ``cluster=`` the summary printed 12.29 where the
+    clustered test of the same slopes (``sp.test``, ``xtreg ..., vce(cluster)``)
+    is 28.49 (2026-10-23 audit data). The model test now uses the variance,
+    small-sample convention and reference distribution of the coefficients:
+    F(q, df) under t inference, Wald chi2(q) under z (``xtreg, re`` with
+    ``ssc='stata'``).
+    """
+    from ..postestimation.hypothesis import test as _wald
+
+    slopes = [
+        str(n) for n in result.params.index if str(n) not in ("const", "Intercept")
+    ]
+    if not slopes:
+        return
+    diag = result.diagnostics
+    try:
+        out = _wald(result, [f"{n} = 0" for n in slopes])
+    except (MethodIncompatibility, np.linalg.LinAlgError, ValueError) as exc:
+        # linearmodels' F ignores this variance, so it is not reported either
+        diag.pop("F-statistic", None)
+        diag.pop("F p-value", None)
+        warnings.warn(
+            "sp.panel: the model test of all slopes could not be computed "
+            f"from the reported variance ({type(exc).__name__}: {exc}); it is "
+            "left out of the diagnostics.",
+            RuntimeWarning,
+            stacklevel=4,
+        )
+        return
+    diag.pop("F-statistic", None)
+    diag.pop("F p-value", None)
+    if out["distribution"] == "chi2":
+        diag["Wald chi2"] = float(out["statistic"])
+        diag["Prob > chi2"] = float(out["pvalue"])
+    else:
+        diag["F-statistic"] = float(out["statistic"])
+        diag["F p-value"] = float(out["pvalue"])
 
 
 # ======================================================================

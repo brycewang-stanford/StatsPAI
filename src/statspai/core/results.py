@@ -664,6 +664,16 @@ class EconometricResults:
         # Add coefficient table
         output.append(coef_table.to_string(float_format="%.4f"))
 
+        # The variance and reference distribution behind the t / p columns:
+        # identical SEs give different p-values under t(N-K), t(G-1) and z.
+        try:
+            from ._inference_rule import inference_lines
+
+            output.append("")
+            output.extend(inference_lines(self.inference_rule()))
+        except Exception as exc:  # the table must print regardless
+            output.append(f"(inference rule unavailable: {type(exc).__name__})")
+
         # Add model diagnostics
         if self.diagnostics:
             output.append("")
@@ -683,6 +693,36 @@ class EconometricResults:
 
         output.append("=" * 80)
         return SummaryText("\n".join(output))
+
+    def inference_rule(self) -> Dict[str, Any]:
+        """The variance, reference distribution and small-sample convention.
+
+        Coefficients and standard errors can agree with another program
+        while t / F / p values do not, because the statistics are referred
+        to a different distribution (t(N-K), t(G-1) or z) or the variance
+        carries a different finite-sample factor. This states the rule the
+        fit used, as recorded by the estimator; ``summary()`` prints it.
+
+        Returns
+        -------
+        dict
+            ``vcov``, ``distribution`` (``'t'`` / ``'z'``), ``df``,
+            ``joint_test``, ``n_obs``, and when recorded ``n_clusters``,
+            ``small``, ``ssc``, ``n_rows``, ``n_groups``, ``notes``.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"x": rng.normal(size=60), "g": np.repeat(range(12), 5)})
+        >>> df["y"] = df.x + rng.normal(size=60)
+        >>> sp.regress("y ~ x", data=df, cluster="g").inference_rule()["df"]
+        11
+        """
+        from ._inference_rule import inference_rule
+
+        return inference_rule(self)
 
     def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
         """

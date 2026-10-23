@@ -1237,7 +1237,12 @@ def logit(
     x : list of str, optional
         Regressor names (alternative to formula).
     robust : str, default ``'nonrobust'``
-        ``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.
+        ``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich
+        variances that differ only in the finite-sample factor:
+        ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and
+        ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to
+        match Stata use ``'robust'``. ``result.inference_rule()`` reports
+        which one a fit used.
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional
@@ -1372,7 +1377,12 @@ def probit(
     x : list of str, optional
         Regressor names (alternative to formula).
     robust : str, default ``'nonrobust'``
-        ``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.
+        ``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich
+        variances that differ only in the finite-sample factor:
+        ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and
+        ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to
+        match Stata use ``'robust'``. ``result.inference_rule()`` reports
+        which one a fit used.
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional
@@ -1503,7 +1513,12 @@ def cloglog(
     x : list of str, optional
         Regressor names (alternative to formula).
     robust : str, default ``'nonrobust'``
-        ``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.
+        ``'nonrobust'`` for the MLE (information-matrix) SE. Two sandwich
+        variances that differ only in the finite-sample factor:
+        ``'robust'`` is Stata's ``vce(robust)`` (HC0 times ``N/(N-1)``) and
+        ``'hc1'`` scales by ``N/(N-K)`` instead. They are not synonyms; to
+        match Stata use ``'robust'``. ``result.inference_rule()`` reports
+        which one a fit used.
     cluster : str, optional
         Column name for clustered standard errors.
     weights : str, optional

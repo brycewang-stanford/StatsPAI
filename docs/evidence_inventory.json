@@ -11105,7 +11105,7 @@
               "true"
             ]
           },
-          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); neither carries a finite-sample factor"
+          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust) small, and gmm_vcov='efficient' is wmatrix(unadjusted) small; small=False drops N/(N-K) from both"
         },
         {
           "kind": "T2",
@@ -11982,7 +11982,7 @@
               "true"
             ]
           },
-          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust), and gmm_vcov='efficient' is wmatrix(unadjusted); neither carries a finite-sample factor"
+          "compares": "under the unadjusted weight matrix, both variances sp.iv offers: the default sandwich is ivregress gmm, wmatrix(unadjusted) vce(robust) small, and gmm_vcov='efficient' is wmatrix(unadjusted) small; small=False drops N/(N-K) from both"
         },
         {
           "kind": "T2",
