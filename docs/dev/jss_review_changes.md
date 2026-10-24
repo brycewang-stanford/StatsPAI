@@ -5644,3 +5644,65 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `tests/r_parity/results/parity_table.tex`
   - `tests/r_parity/results/parity_table_3way.tex`
+
+### 2026-10-23 — traces after the GMM small-sample fix and `inference_rule()`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `934889673`.
+- **Reason.** `src/statspai/regression/iv.py` (the GMM `n/(n-k)` factor
+  under the unadjusted weight matrix), `src/statspai/core/results.py` and
+  `src/statspai/core/_agent_summary.py` (the inference-rule lines of
+  `summary()`), `src/statspai/panel/panel_reg.py` (model test from the
+  reported variance) and `src/statspai/postestimation/hypothesis.py`
+  changed, so nearly every trace went stale and was re-recorded. Every
+  Track A module was re-run into scratch first: 89 of 89 reproduce their
+  committed `*_py.json` (worst 1.4e-10 relative, module 88), so no result
+  file changed.
+  No Track A module fits GMM through `sp.iv`.
+- **Effect on the paper.** None; no number changes.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-24 — traces after `wmatrix=` and the 1.42 default announcements
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ef844a880`, `b576aac85`.
+- **Reason.** `src/statspai/regression/iv.py` (`wmatrix=`),
+  `src/statspai/panel/_ssc.py` and `src/statspai/panel/panel_reg.py` (the
+  `FutureWarning` for the 1.42 `ssc` default). Traces 02, 35, 59, 69 and the
+  original-data ledger re-recorded; the four modules were re-run first and
+  reproduce (worst 5.2e-12). Module 35 now emits the announcement warning;
+  its numbers do not change until 1.42.
+- **Effect on the paper.** None now. When the 1.42 default lands, the
+  clustered rows of module 35 change (`ssc='stata'`), unless the module pins
+  `ssc='linearmodels'`.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-25 — Track C CS-DiD re-timed on 1.40.1 (JSS re-anchor)
+
+The freeze is inactive (not submitted); recorded for the re-anchor to 1.40.1.
+
+- **Commits.** `70359a722`.
+- **Reason.** The JSS manuscript moves to tag v1.40.1, whose CS-DiD files
+  differ from the 1.40.0 tree the timings were measured on. Re-measured
+  on a checkout of v1.40.1 with the idle-guarded runner (02_csdid only;
+  peak load 1.48 / 1.33) and re-traced there; all four modules pass
+  `trace_perf_path.py --check` on v1.40.1. On main the four are reported
+  stale only because `core/results.py` / `core/_agent_summary.py` changed
+  after the tag.
+- **Effect on the paper.** Track C table and figure, CS-DiD row: 0.037 s
+  against 0.083 at n=125k (2.2x, was 2.6x); 1.18x / 1.74x at the smaller
+  sizes. Section 6 updated accordingly.
+- **Paths.**
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/perf/results/perf_table.md`
+  - `tests/perf/results/perf_table.tex`
+  - `tests/perf/figures/track_c_loglog.pdf`
+  - `tests/perf/figures/track_c_loglog.png`
