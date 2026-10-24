@@ -96,7 +96,9 @@ def test_few_cluster_warning_points_at_the_convention_only_under_the_default(fra
         sp.panel(small, "y ~ x", entity="id", time="t", cluster="id")
     hints = [getattr(w.message, "recovery_hint", "") for w in caught]
     assert any("ssc='stata'" in h for h in hints)
-    assert int(caught[0].message.diagnostics["n_clusters"]) == 12
+    # the first AssumptionWarning; the 1.42 ssc FutureWarning comes first
+    few = next(w for w in caught if isinstance(w.message, AssumptionWarning))
+    assert int(few.message.diagnostics["n_clusters"]) == 12
 
     with pytest.warns(AssumptionWarning) as caught:
         sp.panel(small, "y ~ x", entity="id", time="t", cluster="id", ssc="stata")

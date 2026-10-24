@@ -6,7 +6,7 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **70**
 - functions with a card defect: **0**
-- enum values tried: **619** (564 accepted, 55 need a precondition, 0 refused by the function)
+- enum values tried: **646** (583 accepted, 63 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
@@ -14,22 +14,22 @@ Each card is checked against a real call on small data: the required arguments, 
 | --- | --- | ---: | ---: | --- |
 | `regress` | EconometricResults | 11 / 0 / 0 | 8 / 0 / 0 | none |
 | `ivreg` | EconometricResults | 2 / 0 / 0 | 3 / 0 / 6 | none |
-| `iv` | EconometricResults | 19 / 14 / 0 | 10 / 0 / 0 | none |
+| `iv` | EconometricResults | 21 / 17 / 0 | 10 / 0 / 0 | none |
 | `logit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
 | `probit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
 | `poisson` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
 | `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 7 / 0 / 0 | none |
 | `feols` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 2 | none |
-| `panel` | PanelResults | 14 / 0 / 0 | 8 / 0 / 0 | none |
-| `did` | CausalResult | 22 / 3 / 0 | 10 / 0 / 0 | none |
-| `callaway_santanna` | CausalResult | 22 / 0 / 0 | 5 / 0 / 5 | none |
-| `sun_abraham` | CausalResult | 11 / 0 / 0 | 5 / 0 / 5 | none |
+| `panel` | PanelResults | 15 / 0 / 0 | 8 / 0 / 0 | none |
+| `did` | CausalResult | 25 / 6 / 0 | 10 / 0 / 0 | none |
+| `callaway_santanna` | CausalResult | 26 / 0 / 0 | 5 / 0 / 5 | none |
+| `sun_abraham` | CausalResult | 13 / 0 / 0 | 5 / 0 / 5 | none |
 | `did_imputation` | CausalResult | 8 / 0 / 0 | 5 / 0 / 5 | none |
 | `gardner_did` | CausalResult | 4 / 0 / 0 | 6 / 0 / 4 | none |
 | `etwfe` | CausalResult | 18 / 4 / 0 | 5 / 0 / 5 | none |
-| `stacked_did` | CausalResult | 9 / 0 / 0 | 10 / 0 / 0 | none |
-| `event_study` | CausalResult | 2 / 0 / 0 | 10 / 0 / 0 | none |
-| `bacon_decomposition` | BaconDecompositionResult | 2 / 0 / 0 | 10 / 0 / 0 | none |
+| `stacked_did` | CausalResult | 11 / 0 / 0 | 10 / 0 / 0 | none |
+| `event_study` | CausalResult | 4 / 0 / 0 | 10 / 0 / 0 | none |
+| `bacon_decomposition` | BaconDecompositionResult | 3 / 0 / 0 | 10 / 0 / 0 | none |
 | `rdrobust` | CausalResult | 25 / 1 / 0 | 9 / 0 / 1 | none |
 | `rddensity` | CausalResult | 2 / 0 / 0 | 6 / 0 / 3 | none |
 | `synth` | CausalResult | 33 / 7 / 0 | 10 / 0 / 0 | none |
@@ -72,10 +72,10 @@ Each card is checked against a real call on small data: the required arguments, 
 | `rd_discrete` | CausalResult | 8 / 0 / 0 | 4 / 0 / 6 | none |
 | `mixed` | MixedResult | 2 / 0 / 0 | 5 / 0 / 2 | none |
 | `liml` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 10 | none |
-| `aggte` | CausalResult | 6 / 1 / 0 | 10 / 0 / 0 | none |
+| `aggte` | CausalResult | 6 / 3 / 0 | 10 / 0 / 0 | none |
 | `honest_did` | DataFrame | 14 / 0 / 0 | 7 / 0 / 3 | none |
 | `drdid` | CausalResult | 9 / 0 / 0 | 10 / 0 / 0 | none |
-| `did_multiplegt` | CausalResult | 2 / 0 / 0 | 5 / 0 / 5 | none |
+| `did_multiplegt` | CausalResult | 4 / 0 / 0 | 5 / 0 / 5 | none |
 | `gsynth` | CausalResult | 7 / 0 / 0 | 2 / 0 / 7 | none |
 | `psmatch2` | PSMatch2Result | 20 / 0 / 0 | 8 / 0 / 0 | none |
 | `xtnbreg` | EconometricResults | 7 / 0 / 0 | 7 / 0 / 0 | none |
@@ -99,10 +99,16 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.iv(method='bayes')`: TypeError: bayesian_iv() missing 3 required positional arguments: 'y', 'endog', and 'instruments'
 - `sp.iv(method='continuous_late')`: TypeError: continuous_iv_late() missing 3 required positional arguments: 'y', 'treat', and 'instrument'
 - `sp.iv(method='shift_share')`: TypeError: bartik() missing 4 required positional arguments: 'y', 'endog', 'shares', and 'shocks'
+- `sp.iv(wmatrix='robust')`: MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none. -> recovery: Pass method='gmm', or drop wmatrix=.
+- `sp.iv(wmatrix='unadjusted')`: MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none. -> recovery: Pass method='gmm', or drop wmatrix=.
+- `sp.iv(wmatrix='cluster')`: MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none. -> recovery: Pass method='gmm', or drop wmatrix=.
 - `sp.qreg(vce='cluster')`: MethodIncompatibility: qreg: vce='cluster' needs a cluster column. -> recovery: Pass cluster='<column>' or vce='cluster <column>'.
 - `sp.did(method='2x2')`: MethodIncompatibility: Treatment variable 'first_treat' must have exactly 2 values, got 4: [np.int64(0), np.int64(2004), np.int64(2006), np.int64(2007)] -> recov
 - `sp.did(method='ddd')`: MethodIncompatibility: 'subgroup' is required for Triple Differences (DDD). Provide the name of a binary column indicating the affected subgroup. -> recovery: Pa
 - `sp.did(method='sdid')`: DataInsufficient: sdid: cohort(s) adopting at [2004] have fewer than two pre-treatment periods, so the noise level that scales the regularisation is undefined
+- `sp.did(crit_dist='t')`: MethodIncompatibility: sp.did: crit_dist='t' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callaway-San
+- `sp.did(crit_dist='residual')`: MethodIncompatibility: sp.did: crit_dist='residual' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Calla
+- `sp.did(crit_dist='normal')`: MethodIncompatibility: sp.did: crit_dist='normal' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callawa
 - `sp.etwfe(family='logit')`: MethodIncompatibility: family='logit' needs a 0/1 outcome; column 'lemp' has 2500 value(s) outside {0, 1}. -> recovery: Recode the outcome to 0/1 or use family='
 - `sp.etwfe(family='binomial')`: MethodIncompatibility: family='binomial' needs a 0/1 outcome; column 'lemp' has 2500 value(s) outside {0, 1}. -> recovery: Recode the outcome to 0/1 or use famil
 - `sp.etwfe(separated='drop')`: MethodIncompatibility: etwfe(separated='drop') applies to family='poisson' with fe='unit'. -> recovery: Drop separated= for the linear ETWFE.
@@ -139,7 +145,9 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.fect(method='mc')`: MethodIncompatibility: method='mc' needs a positive nuclear-norm penalty lam= (or cv=True) -> recovery: Pass lam= (a positive number), or cv=True to choose it by
 - `sp.interflex(estimator='kernel')`: MethodIncompatibility: estimator='kernel' needs a positive bandwidth bw= (or cv=True to cross-validate it) -> recovery: Pass bw= (in units of the moderator), or
 - `sp.interflex(vce='bootstrap')`: MethodIncompatibility: vce='bootstrap' is available for estimator='kernel'; the linear and binning estimators report delta-method SEs -> recovery: Use estimator=
-- `sp.aggte(agg_weights='csdid')`: MethodIncompatibility: agg_weights='csdid' is defined here for type='simple' and type='group', the two aggregates csdid's rule was read off and rebuilt from; got t
+- `sp.aggte(agg_weights='csdid')`: MethodIncompatibility: agg_weights='csdid' weights each cell by its own count of treated observations (repeated cross-sections) or of treated units seen in both of
+- `sp.aggte(parity='r')`: MethodIncompatibility: aggte: parity='r' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when ATT(
+- `sp.aggte(parity='stata')`: MethodIncompatibility: aggte: parity='stata' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when
 
 ## Arguments the schema requires beyond the signature
 

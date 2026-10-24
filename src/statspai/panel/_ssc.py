@@ -91,6 +91,58 @@ def resolve_ssc(ssc: Optional[str], method: str) -> Optional[str]:
     return key
 
 
+#: Methods whose t / z, cluster factor or meaning of ``robust`` differ
+#: between linearmodels and the Stata command (measured 2026-10-24 on the
+#: data of ``test_inference_conventions_stata_parity.py``).
+_ROBUST_IS_CLUSTER = {"fe", "twoway", "re", "mundlak", "chamberlain"}
+_Z_METHODS = {"re", "mundlak", "chamberlain"}
+
+
+def default_change_applies(method: str, robust: Any, cluster: Any) -> bool:
+    """Would ``ssc='stata'`` (the 1.42 default) change this fit's inference?
+
+    True where it changes the standard errors or the reference
+    distribution and is defined: one-way clustering (all methods but
+    ``be``), ``robust='robust'`` where ``xtreg`` clusters on the panel
+    variable, and the random-effects family (z rather than t). The
+    classical ``fe`` / ``twoway`` / ``pooled`` / ``fd`` / ``be`` fits are
+    the same number under both conventions; kernel, Driscoll-Kraay and
+    two-way clustering have no Stata counterpart and keep linearmodels'.
+    """
+    if method not in _STATA_COMMAND:
+        return False
+    rob = str(robust).lower() if robust not in (None, False) else "nonrobust"
+    if rob not in ("nonrobust", "unadjusted", "robust"):
+        return False
+    if cluster is not None:
+        if isinstance(cluster, (list, tuple)) or str(cluster) == "twoway":
+            return False
+        return method != "be"
+    if rob == "robust":
+        # pooled / fd: HC1 in both conventions
+        return method in _ROBUST_IS_CLUSTER
+    return method in _Z_METHODS
+
+
+def warn_default_change(method: str, stacklevel: int) -> None:
+    """``FutureWarning``: the default ``ssc`` becomes ``'stata'`` in 1.42."""
+    import warnings
+
+    warnings.warn(
+        f"sp.panel(method={method!r}): standard errors and p-values follow "
+        "linearmodels' small-sample convention (no G/(G-1) cluster factor, "
+        "t(N-K) also under clustering and after RE, White SEs for "
+        "robust='robust'). From 1.42 the default is ssc='stata', the "
+        f"conventions of `{_STATA_COMMAND[method]}`: G/(G-1)*(N-1)/(N-K) and "
+        "t(G-1) under clustering, vce(robust) clustering on the panel "
+        "variable after xtreg, z / chi2 after RE. Coefficients do not change. "
+        "Pass ssc='stata' to adopt it now, or ssc='linearmodels' to keep these "
+        "numbers. See MIGRATION.md.",
+        FutureWarning,
+        stacklevel=stacklevel,
+    )
+
+
 @dataclass
 class SSCInference:
     """Covariance and reference distribution under a named convention."""

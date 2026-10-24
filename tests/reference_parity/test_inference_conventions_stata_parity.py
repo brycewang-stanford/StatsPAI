@@ -51,6 +51,19 @@ FITS = {
     "gmm_robust": lambda d: sp.iv(IV, data=d, method="gmm", robust="hc1", small=False),
     "gmm_cluster_small": lambda d: sp.iv(IV, data=d, method="gmm", cluster="g"),
     "gmm_cluster": lambda d: sp.iv(IV, data=d, method="gmm", cluster="g", small=False),
+    # wmatrix= picks the weight matrix, cluster= the variance (1.41)
+    "gmm_robust_vce_cluster_small": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="robust", cluster="g"
+    ),
+    "gmm_robust_vce_cluster": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="robust", cluster="g", small=False
+    ),
+    "gmm_unadj_vce_cluster_small": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="unadjusted", cluster="g"
+    ),
+    "gmm_unadj_vce_cluster": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="unadjusted", cluster="g", small=False
+    ),
     "tsls_small": lambda d: sp.iv(IV, data=d),
     "tsls": lambda d: sp.iv(IV, data=d, small=False),
     "liml_robust_small": lambda d: sp.iv(IV, data=d, method="liml", robust="hc1"),
@@ -239,3 +252,97 @@ def test_panel_model_test_agrees_with_sp_test_under_the_default_convention(data)
         joint["statistic"], rel=1e-14
     )
     assert res.diagnostics["F p-value"] == pytest.approx(joint["pvalue"], rel=1e-12)
+
+
+# --------------------------------------------------------------------- #
+# Defaults announced for 1.42 (owner decision 2026-10-24)
+# --------------------------------------------------------------------- #
+
+
+def _future(fn):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        res = fn()
+    return res, [w for w in caught if issubclass(w.category, FutureWarning)]
+
+
+def test_gmm_default_weight_matrix_warns_and_wmatrix_robust_is_stata(ref, data):
+    """From 1.42 sp.iv(method='gmm') is Stata's ivregress gmm: wmatrix(robust)."""
+    res, fw = _future(lambda: sp.iv(IV, data=data, method="gmm", small=False))
+    assert len(fw) == 1 and "wmatrix='robust'" in str(fw[0].message)
+    assert fw[0].filename == __file__
+    assert float(res.params["x1"]) == pytest.approx(
+        ref["gmm_unadj_sandwich"]["b_x1"], rel=RTOL
+    )
+    new, fw = _future(
+        lambda: sp.iv(IV, data=data, method="gmm", wmatrix="robust", small=False)
+    )
+    assert fw == []
+    assert float(new.params["x1"]) == pytest.approx(ref["gmm_robust"]["b_x1"], rel=RTOL)
+    assert float(new.std_errors["x1"]) == pytest.approx(
+        ref["gmm_robust"]["se_x1"], rel=RTOL
+    )
+    for kw in (
+        {"wmatrix": "unadjusted"},
+        {"robust": "hc1"},
+        {"cluster": "g"},
+    ):
+        assert _future(lambda: sp.iv(IV, data=data, method="gmm", **kw))[1] == []
+    # just-identified: the weight matrix changes nothing, so nothing warns
+    just = "y ~ x1 + x2 + (xd ~ z1)"
+    assert _future(lambda: sp.iv(just, data=data, method="gmm"))[1] == []
+
+
+def test_wmatrix_is_validated(data):
+    with pytest.raises(Exception, match="wmatrix"):
+        sp.iv(IV, data=data, method="gmm", wmatrix="hac")
+    with pytest.raises(Exception, match="method='gmm'"):
+        sp.iv(IV, data=data, wmatrix="robust")
+    with pytest.raises(Exception, match="cluster="):
+        sp.iv(IV, data=data, method="gmm", wmatrix="cluster")
+
+
+@pytest.mark.parametrize(
+    "method,kw,warns",
+    [
+        ("fe", {"cluster": "g"}, True),
+        ("fe", {"robust": "robust"}, True),
+        ("re", {}, True),
+        ("pooled", {"cluster": "g"}, True),
+        ("fe", {}, False),
+        ("pooled", {"robust": "robust"}, False),
+        ("be", {}, False),
+        ("fe", {"robust": "kernel"}, False),
+        ("fe", {"cluster": "g", "ssc": "linearmodels"}, False),
+        ("fe", {"cluster": "g", "ssc": "stata"}, False),
+    ],
+)
+def test_panel_ssc_default_change_warns_exactly_where_numbers_move(
+    data, method, kw, warns
+):
+    def fit(**extra):
+        return sp.panel(
+            data, "yp ~ x1 + x2", entity="g", time="t", method=method, **kw, **extra
+        )
+
+    res, fw = _future(fit)
+    assert (len(fw) == 1) is warns, [str(w.message) for w in fw]
+    if warns:
+        assert fw[0].filename == __file__
+        assert "ssc='stata'" in str(fw[0].message)
+    if "ssc" in kw:
+        return
+    # the warning is right about which fits move: compare with ssc='stata'
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            stata = fit(ssc="stata")
+        except sp.exceptions.MethodIncompatibility:
+            # no Stata counterpart (kernel SEs): the default stays put
+            assert not warns
+            return
+    moved = not (
+        np.allclose(res.std_errors, stata.std_errors, rtol=1e-12)
+        and np.allclose(res.pvalues, stata.pvalues, rtol=1e-12)
+    )
+    assert moved is warns

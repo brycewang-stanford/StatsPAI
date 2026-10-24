@@ -1651,13 +1651,15 @@ def recommend(
                     "Mundlak projection allows RE efficiency with FE consistency."
                 ),
                 "code": f"sp.panel(df, '{panel_formula}', "
-                f"entity='{id}', time='{time}', method='mundlak')",
+                f"entity='{id}', time='{time}', method='mundlak', ssc='stata')",
                 "params": {
                     "data": data,
                     "formula": panel_formula,
                     "entity": id,
                     "time": time,
                     "method": "mundlak",
+                    # xtreg, re inference (z); the 1.42 default
+                    "ssc": "stata",
                 },
             }
         )

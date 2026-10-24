@@ -27867,10 +27867,11 @@
           "type": "string"
         },
         "ssc": {
-          "description": "Small-sample convention: None keeps linearmodels; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+          "description": "Small-sample convention: None keeps linearmodels (and warns where 'stata' would differ: from 1.42 None means 'stata' wherever it is defined); 'linearmodels' keeps it silently; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
           "enum": [
             "stata",
-            "fixest"
+            "fixest",
+            "linearmodels"
           ],
           "type": "string"
         },

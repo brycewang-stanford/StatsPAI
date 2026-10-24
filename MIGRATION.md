@@ -5,6 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.1 → unreleased: defaults announced for 1.42 (`sp.iv` GMM weight matrix, `sp.panel` `ssc`)
+
+Nothing changes numerically in this release; calls whose numbers will
+change in 1.42 emit a `FutureWarning` that names the argument to pin.
+
+- `sp.iv(method='gmm')` over-identified, with no `wmatrix=`, `cluster=` or
+  robust `robust=`: from 1.42 the weight matrix is heteroskedasticity-robust
+  (Stata `ivregress gmm`), so the estimate changes. Pass
+  `wmatrix='unadjusted'` to keep the current estimator (equal to 2SLS) or
+  `wmatrix='robust'` to adopt the new one.
+- `sp.panel(...)` with `cluster=`, with `robust='robust'` (fe / twoway / re /
+  CRE), or with method re / mundlak / chamberlain: from 1.42 the default is
+  `ssc='stata'` (G/(G-1)·(N-1)/(N-K) and t(G-1) under clustering, clustering
+  on the panel variable for `robust='robust'` after `xtreg`, z / chi2 after
+  RE). Pass `ssc='linearmodels'` to keep the current numbers.
+
+---
+
 ## 1.40.1 → unreleased: ⚠️ `sp.iv(method='gmm')` with the unadjusted weight matrix and `small=True`
 
 `ivregress gmm ..., wmatrix(unadjusted) small` multiplies the variance by

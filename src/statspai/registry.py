@@ -1229,7 +1229,35 @@ def _build_registry() -> None:
                     "Small-sample statistics as Stata ivregress, small (N-K "
                     "divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); "
                     "False gives ivregress' default large-sample statistics "
-                    "(N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
+                    "(N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML/GMM. "
+                    "Kept True by design: R AER::ivreg, fixest, ivreg2 small "
+                    "and sp.ivreg report small-sample statistics too",
+                ),
+                ParamSpec(
+                    "wmatrix",
+                    "str",
+                    False,
+                    None,
+                    "method='gmm' only: the weight matrix, as ivregress gmm's "
+                    "wmatrix(). None derives it from the variance options "
+                    "(cluster -> cluster, robust -> robust, else unadjusted, "
+                    "which makes the estimate 2SLS); from 1.42 None means "
+                    "'robust', Stata's default. cluster= sets the variance "
+                    "separately, e.g. wmatrix='robust', cluster='g' is "
+                    "wmatrix(robust) vce(cluster g)",
+                    ["robust", "unadjusted", "cluster"],
+                ),
+                ParamSpec(
+                    "gmm_vcov",
+                    "str",
+                    False,
+                    "sandwich",
+                    "method='gmm' only: the variance formula. 'sandwich' "
+                    "re-estimates the moment variance at the final residuals "
+                    "(ivregress gmm's vce(robust) / vce(cluster)); 'efficient' "
+                    "is (X'Z W Z'X)^-1, Stata's vce(unadjusted) under "
+                    "wmatrix(unadjusted)",
+                    ["sandwich", "efficient"],
                 ),
             ],
             returns="EconometricResults",
@@ -7313,11 +7341,13 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Small-sample convention: None keeps linearmodels; "
-                    "'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), "
+                    "Small-sample convention: None keeps linearmodels (and "
+                    "warns where 'stata' would differ: from 1.42 None means "
+                    "'stata' wherever it is defined); 'linearmodels' keeps it "
+                    "silently; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), "
                     "t(G-1), z for RE, xtreg vce(robust) = cluster on unit); "
                     "'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
-                    ["stata", "fixest"],
+                    ["stata", "fixest", "linearmodels"],
                 ),
                 ParamSpec(
                     "lags", "int", False, 1, "AR lags for dynamic panel (ab/system)"

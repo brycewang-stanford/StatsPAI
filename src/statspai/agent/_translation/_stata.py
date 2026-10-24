@@ -1426,16 +1426,25 @@ def _ivregress_gmm(cmd: StataCommand, formula: str) -> Dict[str, Any]:
     if weight is not None and vce is not None:
         pair = (weight[0], vce[0])
         if pair == ("robust", "robust"):
+            args["wmatrix"] = "robust"
             args["robust"] = "hc1"
         elif pair == ("robust", "unadjusted"):
+            args["wmatrix"] = "robust"
             args["robust"] = "hc1"
             args["gmm_vcov"] = "efficient"
         elif pair == ("cluster", "cluster") and weight[1] == vce[1]:
+            args["wmatrix"] = "cluster"
             args["cluster"] = weight[1]
         elif pair == ("unadjusted", "unadjusted"):
+            args["wmatrix"] = "unadjusted"
             args["gmm_vcov"] = "efficient"
         elif pair == ("unadjusted", "robust"):
-            pass  # sp.iv's default: the sandwich around the unadjusted matrix
+            # the sandwich around the unadjusted weight matrix
+            args["wmatrix"] = "unadjusted"
+        elif pair in (("robust", "cluster"), ("unadjusted", "cluster")):
+            # the weight matrix ignores the clusters, the variance does not
+            args["wmatrix"] = weight[0]
+            args["cluster"] = vce[1]
         else:
             lost.append("vce" if opts.get("vce") is not None else "wmatrix")
             notes.append(
@@ -1450,7 +1459,7 @@ def _ivregress_gmm(cmd: StataCommand, formula: str) -> Dict[str, Any]:
         )
     code_pairs = ["data=df"] + [
         f"{key}={args[key]!r}"
-        for key in ("method", "robust", "cluster", "gmm_vcov", "small")
+        for key in ("method", "wmatrix", "robust", "cluster", "gmm_vcov", "small")
         if key in args
     ]
     out = _emit("iv", args, f"sp.iv({formula!r}, {', '.join(code_pairs)})", notes)

@@ -33,8 +33,41 @@ output did not state, and the output now states them.
   under z (`xtreg, re` with `ssc='stata'`, Stata 21.516). Classical-variance
   fits keep linearmodels' F, which is the same number.
 
+### Announced for 1.42 (owner decisions 2026-10-24)
+
+- **`sp.iv(method='gmm')` defaults to the robust weight matrix.** Without
+  `wmatrix=`, `cluster=` or a robust `robust=`, the weight matrix is the
+  homoskedastic one, so the estimate is 2SLS. From 1.42 the default is
+  `wmatrix='robust'`, the two-step GMM of Stata `ivregress gmm` and
+  linearmodels `IVGMM`. Over-identified calls that rely on the old default
+  warn (`FutureWarning`); just-identified ones do not, the estimator being
+  the same. `wmatrix='robust'` adopts the new default now,
+  `wmatrix='unadjusted'` keeps the old one.
+- **`sp.panel` defaults to `ssc='stata'`.** linearmodels' convention has no
+  G/(G-1) cluster factor, refers clustered and RE statistics to t(N-K), and
+  reads `robust='robust'` as White SEs, which are inconsistent with fixed
+  effects; `xtreg` clusters on the panel variable instead. On the audit data
+  the clustered FE p-value of x1 is 2.5e-05 by default and 2.1e-04 under
+  Stata's rule. Fits whose SEs or p-values would change warn
+  (`FutureWarning`): one-way clustering, `robust='robust'` with fe / twoway /
+  re / CRE, and the RE family. Classical fe / twoway / pooled / fd / be fits
+  are the same number under both and do not warn; kernel, Driscoll-Kraay and
+  two-way clustering have no Stata counterpart and keep linearmodels'.
+  `ssc='stata'` adopts the new default, `ssc='linearmodels'` keeps today's.
+- **Not changing:** `sp.iv(small=True)`. R `AER::ivreg`, `fixest`,
+  `ivreg2, small` and `sp.ivreg` report small-sample statistics as well;
+  only Stata `ivregress` defaults to large-sample ones. `summary()` now says
+  which applies, and `sp.stata` translates `ivregress` exactly.
+
 ### Added
 
+- `sp.iv(method='gmm', wmatrix=)`: the weight matrix (`'robust'`,
+  `'unadjusted'`, `'cluster'`) separately from the variance, as
+  `ivregress gmm`'s `wmatrix()` and `vce()`. `wmatrix='robust', cluster='g'`
+  is `wmatrix(robust) vce(cluster g)` and `wmatrix='unadjusted', cluster='g'`
+  is `wmatrix(unadjusted) vce(cluster g)`, both new and equal to Stata 18 to
+  1e-15 with and without `small`. `sp.stata` now passes `wmatrix=` for every
+  `ivregress gmm` line and translates those two combinations.
 - `result.inference_rule()` on regression results: the variance label, the
   reference distribution (`'t'` with its df, or `'z'`), the joint-test form
   (`F(q, df)` / `chi2(q)`), clusters, the IV `small` convention, the panel

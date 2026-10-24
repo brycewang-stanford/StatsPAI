@@ -392,6 +392,55 @@ def _liml_kappa(
 # ====================================================================== #
 
 
+#: Stata ``ivregress gmm``'s weight matrices (``hac`` has no counterpart).
+_GMM_WMATRIX = ("robust", "unadjusted", "cluster")
+
+
+def _resolve_gmm_wmatrix(
+    wmatrix: Optional[str], robust: str, cluster: Any, overidentified: bool = False
+) -> str:
+    """The GMM weight matrix: ``wmatrix=`` if given, else the pre-1.42 rule.
+
+    Without ``wmatrix=`` the weight matrix follows the variance options:
+    clustered with ``cluster=``, heteroskedasticity-robust with any robust
+    ``robust=``, homoskedastic (``'unadjusted'``) otherwise. The last makes
+    the default ``sp.iv(method='gmm')`` the 2SLS point estimate with a
+    sandwich variance; from 1.42 the default is ``'robust'``, Stata
+    ``ivregress gmm``'s, and until then that call warns.
+    """
+    if wmatrix is not None:
+        if wmatrix == "cluster" and cluster is None:
+            raise MethodIncompatibility(
+                "wmatrix='cluster' needs cluster= (the clustering variable "
+                "of the weight matrix).",
+                recovery_hint="Pass cluster='<column>' with wmatrix='cluster'.",
+            )
+        return wmatrix
+    if cluster is not None:
+        return "cluster"
+    if robust != "nonrobust":
+        return "robust"
+    if not overidentified:
+        # just-identified: every weight matrix gives the IV estimate and the
+        # same sandwich, so the 1.42 change does not touch this call
+        return "unadjusted"
+    from ..did._crit import _external_stacklevel
+
+    warnings.warn(
+        "sp.iv(method='gmm'): without wmatrix= or a robust / cluster "
+        "variance the weight matrix is the homoskedastic one, so the "
+        "estimate equals 2SLS (with a sandwich variance). From 1.42 the "
+        "default is wmatrix='robust', the heteroskedasticity-robust two-step "
+        "GMM that Stata `ivregress gmm` and linearmodels IVGMM fit by "
+        "default; estimates change when the model is over-identified. Pass "
+        "wmatrix='robust' to adopt it now, or wmatrix='unadjusted' to keep "
+        "this estimator. See MIGRATION.md.",
+        FutureWarning,
+        stacklevel=_external_stacklevel(),
+    )
+    return "unadjusted"
+
+
 def _gmm_fit(
     y: np.ndarray,
     X_exog: np.ndarray,
@@ -400,9 +449,16 @@ def _gmm_fit(
     robust: str = "nonrobust",
     cluster: Optional[pd.Series] = None,
     gmm_vcov: str = "sandwich",
+    wmatrix: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Efficient two-step GMM estimator for IV.
+
+    ``wmatrix`` is the weight matrix (``'unadjusted'``, ``'robust'`` or
+    ``'cluster'``); ``None`` derives it from ``cluster`` / ``robust`` as
+    :func:`_resolve_gmm_wmatrix` does. The variance is clustered whenever
+    ``cluster`` is given, whatever the weight matrix (Stata
+    ``wmatrix(robust) vce(cluster c)``).
 
     Step 1: 2SLS to get initial residuals.
     Step 2: Re-estimate with optimal weighting matrix S^{-1}.
@@ -441,7 +497,9 @@ def _gmm_fit(
 
     # Step 2: Optimal weighting matrix
     # S = (1/n) sum_i (Z_i * e_i)(Z_i * e_i)' for heteroskedastic case
-    if cluster is not None:
+    if wmatrix is None:
+        wmatrix = _resolve_gmm_wmatrix(None, robust, cluster)
+    if wmatrix == "cluster":
         # Cluster-robust weighting matrix. With multiway clustering the
         # inclusion-exclusion matrix is not guaranteed PSD, so it cannot
         # serve as a GMM weight; ``ivreg2`` uses the first clustering
@@ -450,7 +508,7 @@ def _gmm_fit(
         _frame = _as_cluster_frame(cluster)
         S, _ = _cluster_meat(W, resid_init, _cluster_codes(_frame, (0,)))
         S /= n
-    elif robust != "nonrobust":
+    elif wmatrix == "robust":
         # Heteroskedasticity-robust weighting matrix
         S = (W * resid_init[:, np.newaxis]).T @ (W * resid_init[:, np.newaxis]) / n
     else:
@@ -1517,6 +1575,23 @@ class IVRegression(BaseModel):
                     "valid": ["sandwich", "efficient"],
                 },
             )
+        wmatrix = kwargs.pop("wmatrix", None)
+        if wmatrix is not None:
+            wmatrix = str(wmatrix).strip().lower()
+            if wmatrix not in _GMM_WMATRIX:
+                raise MethodIncompatibility(
+                    f"Unknown wmatrix={wmatrix!r}.",
+                    recovery_hint="Use wmatrix='robust', 'unadjusted' or "
+                    "'cluster' (Stata ivregress gmm's weight matrices).",
+                    diagnostics={"wmatrix": wmatrix, "valid": list(_GMM_WMATRIX)},
+                )
+            if self.method != "gmm":
+                raise MethodIncompatibility(
+                    f"wmatrix= is the GMM weight matrix; method={self.method!r} "
+                    "has none.",
+                    recovery_hint="Pass method='gmm', or drop wmatrix=.",
+                    diagnostics={"wmatrix": wmatrix, "method": self.method},
+                )
         reject_unknown_kwargs(kwargs, function="iv")
 
         # Normalise the SE-type vocabulary through the shared Stata grammar
@@ -1794,6 +1869,12 @@ class IVRegression(BaseModel):
             )
 
         elif method == "gmm":
+            gmm_weight = _resolve_gmm_wmatrix(
+                wmatrix,
+                robust,
+                cluster_var,
+                overidentified=Z_fit.shape[1] > X_endog_fit.shape[1],
+            )
             results = _gmm_fit(
                 y_fit,
                 X_exog_fit,
@@ -1802,6 +1883,7 @@ class IVRegression(BaseModel):
                 robust=robust,
                 cluster=cluster_var,
                 gmm_vcov=gmm_vcov,
+                wmatrix=gmm_weight,
             )
 
         elif method == "jive":
@@ -1847,11 +1929,7 @@ class IVRegression(BaseModel):
             # robust= / cluster= choose the weight matrix, gmm_vcov the
             # variance: the default 'nonrobust' still reports a sandwich
             model_info["gmm_vcov"] = gmm_vcov
-            model_info["gmm_wmatrix"] = (
-                "cluster"
-                if cluster is not None
-                else ("unadjusted" if robust == "nonrobust" else "robust")
-            )
+            model_info["gmm_wmatrix"] = gmm_weight
         if sw is not None:
             model_info["weights"] = weights if isinstance(weights, str) else "array"
             model_info["weight_type"] = "aweight"
@@ -3159,6 +3237,11 @@ def iv(
         matrix*; the variance is ``gmm_vcov``, so the default reports a
         heteroskedasticity-robust sandwich, not the classical variance
         Stata prints for ``wmatrix(unadjusted)`` alone.
+
+        ``small=True`` stays the default on purpose: R ``AER::ivreg``,
+        ``fixest``, ``ivreg2, small`` and ``sp.ivreg`` report small-sample
+        statistics too; only ``ivregress`` defaults to large-sample ones.
+        ``result.inference_rule()`` and ``summary()`` state which applies.
     **kwargs
         Estimator-specific options forwarded to the underlying fitter.
         The one most users reach for is ``gmm_vcov``
@@ -3168,6 +3251,16 @@ def iv(
         matrix is not the efficient one; ``'efficient'`` reports the
         textbook efficient-GMM variance ``q (X'W S^-1 W'X)^-1``, which is
         what ``ivreg2 gmm2s`` prints.
+
+        ``wmatrix`` ({'robust', 'unadjusted', 'cluster'}) is the GMM weight
+        matrix, as ``ivregress gmm``'s ``wmatrix()``; ``cluster=`` then sets
+        the variance on its own (``wmatrix='robust', cluster='g'`` is
+        ``wmatrix(robust) vce(cluster g)``). Left out, the weight matrix
+        follows the variance options: clustered with ``cluster=``, robust
+        with a robust ``robust=``, otherwise unadjusted, which makes the
+        estimate 2SLS. From 1.42 the default is ``'robust'``, Stata's and
+        linearmodels'; until then an over-identified call that relies on
+        the old default warns (``FutureWarning``).
 
     Returns
     -------

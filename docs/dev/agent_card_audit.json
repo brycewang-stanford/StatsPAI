@@ -4,8 +4,8 @@
   "n_functions": 70,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 564,
-    "precondition": 55,
+    "ok": 583,
+    "precondition": 63,
     "rejected": 0
   },
   "functions": [
@@ -315,6 +315,28 @@
           "hc3": {
             "status": "ok"
           }
+        },
+        "wmatrix": {
+          "robust": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none.\n  -> recovery: Pass method='gmm', or drop wmatrix=."
+          },
+          "unadjusted": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none.\n  -> recovery: Pass method='gmm', or drop wmatrix=."
+          },
+          "cluster": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: wmatrix= is the GMM weight matrix; method='2sls' has none.\n  -> recovery: Pass method='gmm', or drop wmatrix=."
+          }
+        },
+        "gmm_vcov": {
+          "sandwich": {
+            "status": "ok"
+          },
+          "efficient": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -590,10 +612,10 @@
       },
       "enums": {
         "fixef_rm": {
-          "none": {
+          "singleton": {
             "status": "ok"
           },
-          "singleton": {
+          "none": {
             "status": "ok"
           }
         },
@@ -719,6 +741,9 @@
           },
           "fixest": {
             "status": "ok"
+          },
+          "linearmodels": {
+            "status": "ok"
           }
         }
       },
@@ -833,6 +858,31 @@
             "status": "ok"
           },
           "reg": {
+            "status": "ok"
+          }
+        },
+        "parity": {
+          "r": {
+            "status": "ok"
+          },
+          "stata": {
+            "status": "ok"
+          }
+        },
+        "crit_dist": {
+          "t": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.did: crit_dist='t' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callaway-San"
+          },
+          "residual": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.did: crit_dist='residual' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Calla"
+          },
+          "normal": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: sp.did: crit_dist='normal' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callawa"
+          },
+          "legacy": {
             "status": "ok"
           }
         },
@@ -992,6 +1042,22 @@
           "reference": {
             "status": "ok"
           }
+        },
+        "always_treated": {
+          "drop": {
+            "status": "ok"
+          },
+          "error": {
+            "status": "ok"
+          }
+        },
+        "parity": {
+          "r": {
+            "status": "ok"
+          },
+          "stata": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1059,6 +1125,14 @@
             "status": "ok"
           },
           "stata": {
+            "status": "ok"
+          }
+        },
+        "crit_dist": {
+          "t": {
+            "status": "ok"
+          },
+          "normal": {
             "status": "ok"
           }
         },
@@ -1482,6 +1556,14 @@
           "keep": {
             "status": "ok"
           }
+        },
+        "aggregation": {
+          "event_time": {
+            "status": "ok"
+          },
+          "treated_obs": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1534,6 +1616,14 @@
             "status": "ok"
           },
           "stata": {
+            "status": "ok"
+          }
+        },
+        "crit_dist": {
+          "t": {
+            "status": "ok"
+          },
+          "normal": {
             "status": "ok"
           }
         }
@@ -1600,6 +1690,9 @@
             "status": "ok"
           },
           "drop_units": {
+            "status": "ok"
+          },
+          "observed_rows": {
             "status": "ok"
           }
         }
@@ -3304,10 +3397,10 @@
       },
       "enums": {
         "fixef_rm": {
-          "none": {
+          "singleton": {
             "status": "ok"
           },
-          "singleton": {
+          "none": {
             "status": "ok"
           }
         },
@@ -4880,7 +4973,17 @@
           },
           "csdid": {
             "status": "precondition",
-            "error": "MethodIncompatibility: agg_weights='csdid' is defined here for type='simple' and type='group', the two aggregates csdid's rule was read off and rebuilt from; got t"
+            "error": "MethodIncompatibility: agg_weights='csdid' weights each cell by its own count of treated observations (repeated cross-sections) or of treated units seen in both of"
+          }
+        },
+        "parity": {
+          "r": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: aggte: parity='r' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when ATT("
+          },
+          "stata": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: aggte: parity='stata' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when "
           }
         }
       },
@@ -5016,13 +5119,13 @@
         "signature": [
           "data",
           "y",
-          "group",
+          "treat",
           "time"
         ],
         "schema": [
           "data",
           "y",
-          "group",
+          "treat",
           "time"
         ],
         "schema_only": {}
@@ -5118,6 +5221,14 @@
             "status": "ok"
           },
           "r": {
+            "status": "ok"
+          }
+        },
+        "placebo_controls": {
+          "refit": {
+            "status": "ok"
+          },
+          "main": {
             "status": "ok"
           }
         }

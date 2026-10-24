@@ -45,7 +45,13 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 from ._cre import fit_cre, fit_re, within_rank_deficient
-from ._ssc import SSCInference, panel_ssc_inference, resolve_ssc
+from ._ssc import (
+    SSCInference,
+    default_change_applies,
+    panel_ssc_inference,
+    resolve_ssc,
+    warn_default_change,
+)
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
@@ -891,9 +897,12 @@ def _dispatch_panel_impl(
         GMM instrument lag range (for ``'ab'``/``'system'``).
     twostep : bool, default False
         Two-step GMM (for ``'ab'``/``'system'``).
-    ssc : {'stata', 'fixest'}, optional
+    ssc : {'stata', 'fixest', 'linearmodels'}, optional
         Small-sample convention for the standard errors. By default the
-        linearmodels scaling is kept. ``'stata'`` reproduces the command
+        linearmodels scaling is kept, and a fit whose standard errors or
+        p-values would differ under ``'stata'`` warns (``FutureWarning``):
+        from 1.42 the default is ``'stata'`` wherever it is defined.
+        ``'linearmodels'`` keeps today's numbers without the warning. ``'stata'`` reproduces the command
         each method corresponds to -- ``xtreg, fe`` / ``xtreg ... i.t, fe``
         / ``regress`` / ``regress D.y D.x, nocons`` / ``xtreg, re`` /
         ``xtreg, be`` -- including ``G/(G-1)*(N-1)/(N-K)`` for clusters,
@@ -1125,6 +1134,15 @@ def _dispatch_panel_impl(
             recovery_hint="Drop ssc=, or drop vce= / use a static method.",
         )
     ssc_key = resolve_ssc(ssc, canonical)
+    if (
+        ssc is None
+        and _vce_l not in _PANEL_BR_VCE
+        and default_change_applies(canonical, robust, cluster)
+    ):
+        from ..did._crit import _external_stacklevel
+
+        # +1: the warning is issued one frame down, in warn_default_change
+        warn_default_change(canonical, stacklevel=_external_stacklevel() + 1)
     _refuse_unusable_panel_keys(data, entity, time, canonical, cluster, ssc_key)
     if _vce_l in _PANEL_BR_VCE or _cluster_is_pair:
         return _panel_bias_reduced(
