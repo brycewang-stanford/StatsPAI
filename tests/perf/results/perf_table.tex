@@ -9,12 +9,12 @@
 Estimator & Common task & Ref. & Max.~$N$ & \statspai{} (s) & Ref. (s) & Faster & Agree \\
 \midrule
 HDFE & OLS, two absorbed FE, iid SE & \pkg{fixest} & 1{,}000{,}000 & 0.032 (0.000) & 0.076 (0.001) & sp $\mathbf{2.4\times}$ & 2e-14 \\
-CS-DiD & ATT(g,t), pre-test, simple and dynamic aggregation & \pkg{did} & 125{,}000 & 0.035 (0.000) & 0.091 (0.007) & sp $\mathbf{2.6\times}$ & 4e-13 \\
+CS-DiD & ATT(g,t), pre-test, simple and dynamic aggregation & \pkg{did} & 125{,}000 & 0.037 (0.000) & 0.083 (0.000) & sp $\mathbf{2.2\times}$ & 4e-13 \\
 SCM & ADH special predictors, nested V, no placebos & \pkg{Synth} & 100 & 1.300 (0.015) & 4.611 (0.044) & sp $\mathbf{3.5\times}$ & 2e-05 \\
 DML & PLR, linear learners, 5 folds & \pkg{DoubleML} & 10{,}000 & 0.0090 (0.0001) & 0.0090 (0.0000) & tie $0.99\times$ & 0.00 SE \\
 \bottomrule
 \end{tabular}
 \endgroup
-\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.40.0). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds are drawn independently on each side).}
+\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.40.0 / 1.40.1). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds are drawn independently on each side).}
 \label{tab:track-c-perf}
 \end{table}
