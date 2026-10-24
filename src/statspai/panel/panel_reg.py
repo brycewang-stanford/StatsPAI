@@ -902,10 +902,11 @@ def _dispatch_panel_impl(
         linearmodels scaling is kept, and a fit whose standard errors or
         p-values would differ under ``'stata'`` warns (``FutureWarning``):
         from 1.42 the default is ``'stata'`` wherever it is defined.
-        ``'linearmodels'`` keeps today's numbers without the warning. ``'stata'`` reproduces the command
-        each method corresponds to -- ``xtreg, fe`` / ``xtreg ... i.t, fe``
-        / ``regress`` / ``regress D.y D.x, nocons`` / ``xtreg, re`` /
-        ``xtreg, be`` -- including ``G/(G-1)*(N-1)/(N-K)`` for clusters,
+        ``'linearmodels'`` keeps today's numbers without the warning.
+        ``'stata'`` reproduces the command each method corresponds to --
+        ``xtreg, fe`` / ``xtreg ... i.t, fe`` / ``regress`` /
+        ``regress D.y D.x, nocons`` / ``xtreg, re`` / ``xtreg, be`` --
+        including ``G/(G-1)*(N-1)/(N-K)`` for clusters,
         t(G-1) (z for RE), and Stata's rule that ``vce(robust)`` after
         ``xtreg`` clusters on the panel variable (``areg`` counting when the
         cluster does not nest the unit). ``'fixest'`` reproduces R
