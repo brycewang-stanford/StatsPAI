@@ -123,7 +123,15 @@ def test_weights_are_optimal_within_the_solver_gap(case):
             return float(np.sum((A - B @ w) ** 2))
 
         gap = f(w_R[u]) - f(w_py)
-        assert gap >= -1e-14 * f(w_py)
+        # Ours may lose to R only by the rounding of evaluating f: the error
+        # of each residual, eps (|A| + |B| |w|), through the sum of squares,
+        # plus the summation itself. A fixed 1e-14 * f was tighter than that
+        # on the unconstrained fits (Windows CI: 48 eps, bound 153 eps).
+        r = A - B @ w_py
+        rounding = np.finfo(float).eps * (
+            2 * np.abs(r) @ (np.abs(A) + np.abs(B) @ np.abs(w_py)) + A.size * f(w_py)
+        )
+        assert gap >= -rounding
         assert gap <= 1e-7 * f(w_py)
         lam_min = np.linalg.eigvalsh(B.T @ B).min()
         assert np.linalg.norm(w_R[u] - w_py) <= np.sqrt(max(gap, 0) / lam_min) + 1e-9

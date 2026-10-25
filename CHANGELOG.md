@@ -59,6 +59,30 @@ output did not state, and the output now states them.
   only Stata `ivregress` defaults to large-sample ones. `summary()` now says
   which applies, and `sp.stata` translates `ivregress` exactly.
 
+### Fixed
+
+- `sp.recommend(design='did', treat_time=...)` with a time-invariant group
+  indicator as `treatment` on a panel: the Callaway-Sant'Anna card derived
+  each unit's cohort as its first "treated" period, which for a group
+  indicator is the first observed period. With periods starting at 0 that is
+  the never-treated code, so every unit was coded never treated and the
+  suggested fit raised "No treatment cohorts found". The ever-treated units
+  now adopt at `treat_time`, and the code shown says so. (The recommend
+  benchmark's repeated-cross-section case had failed CI since 10-19; its
+  data now drop the unit id, as the case intends.)
+- `sp.mixlogit` maximises with a central-difference gradient. The
+  forward-difference default stopped about 1e-7 short of the optimum,
+  limited by rounding rather than `tol`, so the digits depended on the BLAS
+  build (Linux CI missed Stata's correlated Σ by 1.3e-6). Estimates now agree
+  with Stata `mixlogit` to 4e-9 and move by about 1e-7 from 1.40.1; each fit
+  takes about 0.5 s longer.
+- Tests: `test_period_date_out_of_range_warns_and_keeps_counts` used year 0,
+  which pandas 3.1 represents (`0000-01-01`); it now uses a year beyond every
+  datetime64 resolution. The SCM optimality check in
+  `test_scest_multi_parity.py` bounds the objective by the rounding of its
+  own evaluation instead of a fixed 1e-14 (Windows CI: 48 eps against a
+  153-eps bound).
+
 ### Added
 
 - `sp.iv(method='gmm', wmatrix=)`: the weight matrix (`'robust'`,

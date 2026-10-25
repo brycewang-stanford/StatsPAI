@@ -932,16 +932,31 @@ def recommend(
         if time and id and data[time].nunique() > 2:
             cohort_col = f"_cohort_{treatment}"
 
+            # A treatment column that never changes within a unit is a group
+            # indicator, not a switch: its "first treated period" is the first
+            # observed period, which reads as 0 (never treated) when periods
+            # start at 0. With treat_time given, the ever-treated units adopt
+            # at treat_time.
+            _group_indicator = bool(
+                treat_time is not None
+                and id in data.columns
+                and data.groupby(id)[treatment].nunique(dropna=True).max() <= 1
+            )
+
             def _derive_cohort(
                 df_in: pd.DataFrame,
                 _treat: Any = treatment,
                 _id: Any = id,
                 _time: Any = time,
                 _col: str = cohort_col,
+                _tt: Any = treat_time if _group_indicator else None,
             ) -> pd.DataFrame:
                 """Attach cohort column = first treated period per unit."""
                 out = df_in.copy()
-                if _id and _id in out.columns:
+                if _id and _id in out.columns and _tt is not None:
+                    ever = out.groupby(_id)[_treat].transform("max") == 1
+                    out[_col] = np.where(ever, _tt, 0)
+                elif _id and _id in out.columns:
                     treated = out[out[_treat] == 1]
                     cmap = treated.groupby(_id)[_time].min()
                     out[_col] = out[_id].map(cmap).fillna(0).astype(int)
@@ -1039,9 +1054,16 @@ def recommend(
                     "robustness": (
                         "Run sp.pretrends_test(), sp.honest_did(), sp.event_study()"
                     ),
-                    "code": f"# Derived cohort column = first period treated\n"
-                    f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
-                    f"t='{time}', i='{id}')",
+                    "code": (
+                        (
+                            f"# Derived cohort column = {treat_time!r} for units "
+                            f"with {treatment} == 1, else 0\n"
+                            if _group_indicator
+                            else "# Derived cohort column = first period treated\n"
+                        )
+                        + f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
+                        f"t='{time}', i='{id}')"
+                    ),
                     "params": {
                         "data": did_data,
                         "y": y,

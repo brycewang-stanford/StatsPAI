@@ -1278,7 +1278,10 @@ entries:
       fingerprint: {synthetic: true, repeated_cross_sections: true, no_panel_id: true}
     data:
       tier: B
-      loader: "sp.dgp_did(n_units=200, n_periods=4, staggered=False, seed=41)"
+      # dgp_did draws a panel; dropping the unit id makes the rows repeated
+      # cross-sections, which is what this case probes (recommend reads the
+      # panel layout since 1.40, so with the id present it routes to CS).
+      loader: "sp.dgp_did(n_units=200, n_periods=4, staggered=False, seed=41).drop(columns=['unit'])"
       args: {y: y, treatment: group, time: time, treat_time: 2, design: did}
     ground_truth:
       estimator:

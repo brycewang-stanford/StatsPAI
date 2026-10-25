@@ -9,6 +9,7 @@ offered as covariates (``sp.match(..., covariates=['unit', 'time',
 from __future__ import annotations
 
 import ast
+import warnings
 
 import pytest
 
@@ -87,3 +88,30 @@ def test_ols_code_is_a_valid_formula():
     assert formula == "log_wage ~ union + education + experience"
     fit = eval(code, {"sp": sp, "df": df})
     assert "education" in fit.params.index
+
+
+def test_group_indicator_with_treat_time_gives_the_adoption_cohort():
+    """A time-invariant ``group`` indicator plus ``treat_time``: the treated
+    units adopt at treat_time. Read as a switch, the indicator's first
+    "treated" period is the first observed one, 0, which is the
+    never-treated code, so every unit was coded never treated and the fit
+    raised (the recommend benchmark's repeated-cross-section case, 10-19 to
+    10-25)."""
+    df = sp.dgp_did(n_units=60, n_periods=4, staggered=False, seed=41)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rec = sp.recommend(
+            df, y="y", treatment="group", time="time", treat_time=2, design="did"
+        )
+        card = rec.recommendations[0]
+        assert card["function"] == "callaway_santanna"
+        cohorts = card["params"]["data"]["_cohort_group"]
+        assert set(cohorts.unique()) == {0, 2}
+        # the derived cohort marks exactly the units with group == 1
+        by_unit = card["params"]["data"].groupby("unit")
+        assert (
+            (by_unit["_cohort_group"].first() == 2) == (by_unit["group"].first() == 1)
+        ).all()
+        assert "= 2 for units with group == 1" in card["code"]
+        res = rec.run(0)
+    assert res.estimate == res.estimate  # finite

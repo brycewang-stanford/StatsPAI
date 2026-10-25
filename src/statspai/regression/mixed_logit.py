@@ -645,10 +645,16 @@ class _MixedLogitFitter:
                 print(f"  f={val:.6f}")
             return val
 
+        # Central differences: the forward-difference gradient BFGS uses by
+        # default stalls about 1e-7 short of the optimum, where it is limited
+        # by rounding rather than by ``tol`` and lands on different digits on
+        # different BLAS builds (Linux CI missed Stata's correlated Sigma by
+        # 1.3e-6). With '3-point' the fit agrees with Stata mixlogit to 4e-9.
         opt = optimize.minimize(
             neg_ll,
             theta0,
             method="BFGS",
+            jac="3-point",
             options={"maxiter": self.maxiter, "gtol": self.tol, "disp": self.verbose},
         )
         theta_hat = _as_float_array(opt.x)

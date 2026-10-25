@@ -35,9 +35,10 @@ Conventions
 * ``corr``: Cholesky L with Σ = LL'; compared on Σ (invariant to the sign
   of each column) and on the means.
 
-Tolerance: rtol 1e-6 on means, SDs, Σ and SEs (observed <= 2.2e-7: BFGS on
-a finite-difference gradient here, Newton-Raphson in Stata); 1e-10 on the
-log-likelihood.
+Tolerance: rtol 1e-6 on means, SDs, Σ and SEs; 1e-10 on the log-likelihood.
+BFGS here uses a central-difference gradient (Newton-Raphson in Stata):
+estimates agree to <= 4.2e-9 (2026-10-25). With the forward-difference
+default they agreed only to ~8e-7 and Linux CI missed Σ by 1.3e-6.
 """
 
 from __future__ import annotations
