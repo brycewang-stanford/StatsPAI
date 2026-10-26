@@ -239,17 +239,19 @@ class SuperLearner:
                     recovery_hint="Use learners that accept sample_weight.",
                 ) from exc
 
+        # The library actually fitted lives in ``library_``; ``library``
+        # stays the constructor argument (scikit-learn's contract), so a
+        # refit -- weighted or not -- starts from the same place.
         self.dropped_learners_: List[str] = []
-        if self.library is None:
-            self.library = self._default_library()
+        library: Any = self.library
+        if library is None:
+            library = self._default_library()
             if sw is not None:
                 from sklearn.utils.validation import has_fit_parameter
 
-                kept = [
-                    m for m in self.library if has_fit_parameter(m, "sample_weight")
-                ]
+                kept = [m for m in library if has_fit_parameter(m, "sample_weight")]
                 self.dropped_learners_ = [
-                    type(m).__name__ for m in self.library if m not in kept
+                    type(m).__name__ for m in library if m not in kept
                 ]
                 if self.dropped_learners_:
                     import warnings
@@ -262,14 +264,15 @@ class SuperLearner:
                         UserWarning,
                         stacklevel=2,
                     )
-                self.library = kept
-        if not isinstance(self.library, list) or len(self.library) == 0:
+                library = kept
+        if not isinstance(library, list) or len(library) == 0:
             raise MethodIncompatibility(
                 "SuperLearner.fit() requires a non-empty learner library.",
                 recovery_hint="Pass at least one sklearn-style estimator.",
-                diagnostics={"library_type": type(self.library).__name__},
+                diagnostics={"library_type": type(library).__name__},
             )
-        n_learners = len(self.library)
+        self.library_: List[Any] = list(library)
+        n_learners = len(self.library_)
 
         # Multiclass guard: classification SuperLearner pulls
         # ``predict_proba(X)[:, 1]`` and would silently drop other class
@@ -340,7 +343,7 @@ class SuperLearner:
             X_tr, y_tr = X[train_idx], y[train_idx]
             X_te = X[test_idx]
 
-            for k, learner in enumerate(self.library):
+            for k, learner in enumerate(self.library_):
                 m = clone(learner)
                 _fit_one(m, X_tr, y_tr, None if sw is None else sw[train_idx])
                 if self.task == "classification" and hasattr(m, "predict_proba"):
@@ -420,7 +423,7 @@ class SuperLearner:
 
         # Step 3: Refit all learners on full data
         self._fitted_learners = []
-        for learner in self.library:
+        for learner in self.library_:
             m = clone(learner)
             _fit_one(m, X, y, sw)
             self._fitted_learners.append(m)
@@ -626,8 +629,7 @@ class SuperLearner:
         lines.append(f"{'Learner':<30} {'Weight':>8} {'CV Risk':>10}")
         lines.append("-" * 50)
 
-        assert self.library is not None
-        for k, learner in enumerate(self.library):
+        for k, learner in enumerate(self.library_):
             name = type(learner).__name__
             w = self.weights_[k]
             risk = self.cv_risks_[k]

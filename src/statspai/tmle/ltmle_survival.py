@@ -6,11 +6,13 @@ under static or dynamic treatment regimes, with optional right censoring,
 via a discrete-time pooled-logistic hazard model targeted at each time
 interval.
 
-This is the survival analogue of :func:`ltmle`. It treats survival as a
-sequence of K binary hazards ``h_k = P(T = k | T >= k, history)`` and
-runs the LTMLE recursion on the pooled hazard scale, which is the
-standard approach for causal survival analysis (van der Laan & Gruber
-2012; Stitelman-van der Laan 2010; Cai & van der Laan 2019).
+This is the survival analogue of :func:`ltmle`. For each horizon ``t``
+the risk ``P(T^a <= t)`` is a longitudinal mean of the cumulative event
+indicator, estimated by the sequential-regression (iterated conditional
+expectation) TMLE of van der Laan & Gruber (2012), with the survival
+structure built in: a unit whose event has occurred keeps outcome 1, so
+it is not refitted at later intervals (R ``ltmle`` with
+``survivalOutcome = TRUE``).
 
 Data layout
 -----------
@@ -22,8 +24,9 @@ Wide-format DataFrame with one row per subject and columns:
 * ``A_k`` for k=1..K — treatment at interval k
 * ``L_k`` — time-varying covariates at interval k
 
-Subjects contribute to the hazard regression at interval k only while
-they are at risk (no event and uncensored through k-1).
+Subjects enter the regressions at interval k only while they are at risk
+(no event before k) and uncensored. An indicator may also be cumulative
+(1 from the event onwards); values after the event are ignored.
 
 References
 ----------
@@ -42,7 +45,7 @@ doi 10.1111/biom.13172. [@cai2020step]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union, Any
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -50,11 +53,7 @@ from scipy import stats
 from scipy.special import expit, logit
 
 from .._result_serialize import ResultProtocolMixin
-
-# sklearn is imported lazily inside ``_fit_logit`` so that
-# ``import statspai`` doesn't pull ~245 sklearn submodules through this
-# file when the user never touches ltmle_survival.
-
+from .ltmle import _fluctuate, _logit_fit
 
 Regime = Union[Sequence[int], Callable[[int, Dict[str, np.ndarray]], np.ndarray]]
 
@@ -154,43 +153,6 @@ class LTMLESurvivalResult(ResultProtocolMixin):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-#  Internal helpers (mirror ltmle.py's style)
-# ═══════════════════════════════════════════════════════════════════════
-
-
-def _fit_logit(X: np.ndarray, y: np.ndarray) -> Any:
-    if np.all(y == y[0]):
-
-        class _Const:
-            def __init__(self, p: float) -> None:
-                self.p = p
-
-            def predict_proba(self, X: np.ndarray) -> np.ndarray:
-                return np.column_stack(
-                    [
-                        1 - self.p * np.ones(X.shape[0]),
-                        self.p * np.ones(X.shape[0]),
-                    ]
-                )
-
-        return _Const(float(y[0]))
-    from sklearn.linear_model import LogisticRegression
-
-    lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
-    lr.fit(X, y)
-    return lr
-
-
-def _predict_proba(model: Any, X: np.ndarray) -> np.ndarray:
-    prob = model.predict_proba(X)
-    return np.asarray(prob[:, 1] if prob.ndim == 2 else prob)
-
-
-def _safe_logit(p: Any, eps: float = 1e-6) -> Any:
-    return logit(np.clip(p, eps, 1 - eps))
-
-
-# ═══════════════════════════════════════════════════════════════════════
 #  Main entry point
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -277,53 +239,36 @@ def ltmle_survival(
 
     Notes
     -----
-    Estimation strategy:
+    **Algorithm.** For each horizon ``t`` the risk ``P(T^a <= t)`` is the
+    mean of the cumulative event indicator ``Ybar_t`` under the regime,
+    estimated by sequential regression as in :func:`ltmle` (van der Laan &
+    Gruber 2012). Backwards over ``k = t, ..., 1``:
 
-    1. For each interval k, fit a pooled-logistic hazard
-       :math:`h_k = P(T=k | T \\ge k, A_k, L_k, W)` on the at-risk set.
-    2. Obtain counterfactual hazards under the regime by predicting
-       at ``A_k = regime[k]``.
-    3. Apply an LTMLE-style targeting correction at each interval
-       using the clever covariate
-       :math:`H_k = I(\\bar A_{1:k} = \\bar{regime})
-                   / [\\prod_j g_j(regime_j | H_j)
-                     \\prod_j P(C_j=1 | H_j, A_j)]`.
-    4. Accumulate the survival curve
-       :math:`S^{regime}(k) = \\prod_{j \\le k} (1 - h^{regime,*}_j)`.
-    5. Report RMST =  :math:`\\sum_{k=1}^K S(k)` and the terminal risk
-       difference :math:`S^{control}(K) - S^{treated}(K)`.
+    1. Fit a main-terms logistic (quasi-binomial) regression of the next
+       pseudo-outcome (``Ybar_t`` at ``k = t``) on the history through
+       ``A_k`` among units at risk at ``k`` (no earlier event) and
+       uncensored through ``k``; predict with every ``A_j``, ``j <= k``,
+       set to the regime (a dynamic regime is evaluated on the observed
+       history), bounded to ``[1e-4, 0.9999]``.
+    2. Target it with an intercept-only logistic fluctuation, offset the
+       logit of the prediction, weights ``1 / prod_{j<=k} g_j`` over the
+       units that follow the regime and are uncensored through ``k``.
+    3. A unit whose event happened before ``k`` keeps pseudo-outcome 1
+       (the survival structure; R ``ltmle``'s ``survivalOutcome = TRUE``).
 
-    This implementation uses logistic regression for nuisance models
-    (self-contained). Advanced users can swap in the
-    :class:`SuperLearner` by monkey-patching ``_fit_logit``.
+    ``S(t) = 1 - mean(Q*_1)``; its influence curve is minus
+    ``sum_k H_k (Q*_{k+1} - Q*_k) + Q*_1 - risk``. RMST is ``sum_t S(t)``
+    with the summed influence curves; the terminal risk difference uses
+    the influence curves of ``S(K)`` alone. Treatment and censoring models
+    are main-terms logistic regressions on the at-risk units, the
+    treatment probabilities bounded by ``propensity_bounds``.
 
-    Notes
-    -----
-    **Influence function — Cai & van der Laan (2020) form.** The EIF for
-    :math:`E[S^a(t)]` is
-
-    .. math::
-
-       D^*(O) = -\\sum_{j \\le t} H_j \\cdot \\frac{S^a(t)}{S^a(j)}
-                                   \\cdot (T_j - h_j^*)
-                + (S^a(t) - \\psi_S(t))
-
-    The survival ratio :math:`S^a(t)/S^a(j)` is essential — without it
-    earlier intervals' contributions are overweighted, inflating the
-    SE. The RMST EIF is the per-:math:`k` sum of these. The terminal
-    risk difference's EIF is the EIF of :math:`S^a(K)` *alone*, NOT the
-    cross-:math:`k` RMST sum. v1.11.4 and earlier collapsed all
-    intervals into a single IC and used it for both RMST and terminal
-    RD, leading to over-conservative RMST SE *and* incorrect terminal
-    SE. This module now computes the two ICs separately.
-
-    **One-step targeting residual.** Like :func:`ltmle`, the targeting
-    step uses a one-step linear approximation rather than fully
-    iterated MLE. The targeting equation residual at each interval is
-    therefore near-zero rather than identically zero, and the EIF
-    expression above ignores that residual. Coverage may be slightly
-    anti-conservative when nuisance models are flexible; use a CV-LTMLE
-    workflow (not yet exposed) for critical inference.
+    Before the Oct 2026 scan this function fitted one hazard per interval
+    and predicted it with only the *current* treatment set to the regime,
+    earlier treatments at their observed values, which is biased whenever
+    past treatment affects later hazards (on a two-interval randomised
+    design with a lagged effect the treated survival at ``t = 2`` was
+    about 0.06 too low).
     """
     event_indicators = list(event_indicators)
     treatments = list(treatments)
@@ -349,6 +294,7 @@ def ltmle_survival(
 
     df = data.copy().reset_index(drop=True)
     n = len(df)
+    lo_b, hi_b = propensity_bounds
 
     # ── Materialise regimes (same pattern as ltmle.py) ────────────────
     def _materialise(regime: Regime) -> np.ndarray:
@@ -374,235 +320,147 @@ def ltmle_survival(
     regime_treated_mat = _materialise(regime_treated)
     regime_control_mat = _materialise(regime_control)
 
-    # ── Fit propensity and censoring models per interval ─────────────
-    propensities: List[np.ndarray] = []
-    cens_probs: List[np.ndarray] = []
-    for k in range(K):
-        hist_cols = list(baseline)
+    # ── Observed status ───────────────────────────────────────────────
+    # ``event_before[:, k]``: the event happened in an interval before k.
+    # Once it has, later columns (treatment, covariates, censoring, event)
+    # carry no information and may be missing.
+    T_raw = np.column_stack([df[c].to_numpy(dtype=float) for c in event_indicators])
+    T_obs = np.where(np.isfinite(T_raw), T_raw, 0.0)
+    cum_event = np.maximum.accumulate(T_obs, axis=1)
+    event_before = np.column_stack([np.zeros(n), cum_event[:, :-1]]) > 0
+    at_risk = ~event_before
+    if censoring is not None:
+        C_obs = np.column_stack([df[c].to_numpy(dtype=float) == 1 for c in censoring])
+        uncens = np.cumprod(C_obs | event_before, axis=1).astype(bool)
+    else:
+        uncens = np.ones((n, K), dtype=bool)
+    uncens_before = np.column_stack([np.ones(n, dtype=bool), uncens[:, :-1]])
+    observed = at_risk & uncens  # event indicator of interval k is observed
+    if np.any(observed & ~np.isfinite(T_raw)):
+        raise ValueError(
+            "ltmle_survival: an event indicator is missing for a unit that "
+            "is at risk and uncensored in that interval."
+        )
+    A_obs = np.column_stack([df[a].to_numpy(dtype=float) for a in treatments])
+
+    def _hist_cols(k: int) -> List[str]:
+        cols = list(baseline)
         for j in range(k):
-            hist_cols += [treatments[j]] + list(covariates_time[j])
-        hist_cols += list(covariates_time[k])
-        X_k = df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
-        X_k = np.column_stack([np.ones(n), X_k])
+            cols += [treatments[j]] + list(covariates_time[j])
+        return cols + list(covariates_time[k])
 
-        A_k = df[treatments[k]].to_numpy(dtype=int)
-        model_g = _fit_logit(X_k, A_k)
-        g_k = np.clip(_predict_proba(model_g, X_k), *propensity_bounds)
-        propensities.append(g_k)
-
-        if censoring is not None:
-            X_c = np.column_stack([X_k, A_k.astype(float).reshape(-1, 1)])
-            C_k = df[censoring[k]].to_numpy(dtype=int)
-            if np.all(C_k == 1):
-                cens_probs.append(np.ones(n))
-            else:
-                m_c = _fit_logit(X_c, C_k)
-                p_c = np.clip(_predict_proba(m_c, X_c), *propensity_bounds)
-                cens_probs.append(p_c)
-        else:
-            cens_probs.append(np.ones(n))
-
-    # ── Fit & target discrete-time hazards under each regime ─────────
-    def _run_regime(
-        regime_mat: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Returns per-subject sequences plus the population survival curve.
-
-        Returned arrays (all per-subject):
-
-        * ``survival_curve`` (K,) — population S^a(k) = E_n[S^a(k) | i]
-          for k = 1..K
-        * ``S_seq`` (n × K) — per-subject S^a(k) for k = 1..K
-        * ``h_star_seq`` (n × K) — per-subject targeted hazard h_k^*(regime)
-        * ``H_seq`` (n × K) — per-subject clever-covariate value (zero
-          outside the regime-following + observed + at-risk indicator)
-        * ``T_seq`` (n × K) — observed event indicator
-        * ``mask_seq`` (n × K) — at-risk + observed mask (only these
-          subjects contribute to the EIF score at each k)
-
-        The downstream EIF computation uses these directly, so any
-        target functional (S(K), RMST, RD at K) gets its own correct
-        influence function — see :func:`_eif_survival_K` and
-        :func:`_eif_rmst` below.
-        """
-        # cum_follow[i] = True while subject i has followed the regime
-        # so far AND been uncensored AND event-free; once False it stays.
-        cum_follow = np.ones(n, dtype=bool)
-        cum_weight = np.ones(n)
-        at_risk = np.ones(n, dtype=bool)  # hasn't had the event yet
-
-        S_prev = np.ones(n)
-        survival_curve = np.ones(K + 1)  # S(0) = 1
-        S_seq = np.zeros((n, K))
-        h_star_seq = np.zeros((n, K))
-        H_seq = np.zeros((n, K))
-        T_seq = np.zeros((n, K))
-        mask_seq = np.zeros((n, K), dtype=bool)
-
-        for k in range(K):
-            hist_cols = list(baseline)
-            for j in range(k):
-                hist_cols += [treatments[j]] + list(covariates_time[j])
-            hist_cols += list(covariates_time[k])
-            X_hist = (
-                df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
+    def _design(k: int) -> Tuple[np.ndarray, List[str]]:
+        cols = _hist_cols(k) + [treatments[k]]
+        X = df[cols].to_numpy(dtype=float)
+        bad = ~np.isfinite(X).all(axis=1) & at_risk[:, k] & uncens_before[:, k]
+        if bad.any():
+            raise ValueError(
+                f"ltmle_survival: missing history or treatment values at "
+                f"interval {k + 1} for {int(bad.sum())} unit(s) still at risk "
+                "and uncensored."
             )
-            X_hist = np.column_stack([np.ones(n), X_hist])
+        # Rows after an event or censoring are never fitted or used.
+        return np.column_stack([np.ones(n), np.nan_to_num(X)]), cols
 
-            A_k = df[treatments[k]].to_numpy(dtype=int)
-            a_tgt = regime_mat[:, k]
-
-            # Subjects still at risk (no event, uncensored so far)
-            if censoring is not None:
-                C_k_obs = df[censoring[k]].to_numpy(dtype=int)
-            else:
-                C_k_obs = np.ones(n, dtype=int)
-            T_k = df[event_indicators[k]].to_numpy(dtype=int)
-
-            # Hazard regression on at-risk + uncensored subjects
-            mask = at_risk & (C_k_obs == 1)
-            if mask.sum() < 5:
-                # Too few at risk — assume zero hazard and coast.
-                h_hat = np.zeros(n)
-                h_hat_regime = np.zeros(n)
-            else:
-                X_h = np.column_stack([X_hist[mask], A_k[mask].astype(float)])
-                y_h = T_k[mask]
-                m = _fit_logit(X_h, y_h)
-                X_h_all = np.column_stack([X_hist, A_k.astype(float)])
-                h_hat_raw = _predict_proba(m, X_h_all)
-                X_h_regime = np.column_stack([X_hist, a_tgt.astype(float)])
-                h_hat_regime = _predict_proba(m, X_h_regime)
-                h_hat = h_hat_raw
-
-            # Clever covariate — product of 1/g along regime & 1/p_c
-            g_k = propensities[k]
-            g_regime = np.where(a_tgt == 1, g_k, 1 - g_k)
-            p_c = cens_probs[k]
-            inc = 1.0 / np.maximum(g_regime, 1e-6) / np.maximum(p_c, 1e-6)
-            new_cum_weight = cum_weight * inc
-
-            # Targeting step on logit scale (pooled-logistic)
-            indicator = cum_follow & (A_k == a_tgt) & (C_k_obs == 1) & at_risk
-            H = np.where(indicator, new_cum_weight, 0.0)
-
-            # Targeting is a one-step logistic update applied to the
-            # *regime-counterfactual* hazard (the quantity whose
-            # survival curve we report), not the observed-arm hazard.
-            # The TMLE offset is therefore logit(h_hat_regime); the
-            # residual uses the observed-arm h_hat only to score
-            # epsilon against observed outcomes under the clever
-            # covariate.
-            resid = np.where(mask, T_k.astype(float) - h_hat, 0.0)
-            denom = float(np.sum(H[mask] ** 2))
-            if denom > 1e-10:
-                eps = float(np.sum(H[mask] * resid[mask]) / denom)
-            else:
-                eps = 0.0
-            offset_regime = _safe_logit(np.clip(h_hat_regime, 1e-6, 1 - 1e-6))
-            h_star_regime = expit(offset_regime + eps * new_cum_weight)
-
-            # Survival update: S(k) = S(k-1) * (1 - h*)
-            S_new = S_prev * (1.0 - h_star_regime)
-
-            # Stash the per-subject sequences for the EIF post-pass.
-            # The proper EIF for S^a(K) requires the survival ratio
-            # S^a(K)/S^a(j); for RMST it requires the per-k partial sum
-            # of those ratios. Both need every k's S, h*, H, T, mask —
-            # which we now record rather than collapse to a single
-            # cross-time sum.
-            S_seq[:, k] = S_new
-            h_star_seq[:, k] = h_star_regime
-            H_seq[:, k] = H
-            T_seq[:, k] = T_k
-            mask_seq[:, k] = mask
-
-            survival_curve[k + 1] = float(np.mean(S_new))
-
-            # Update running state
-            at_risk = at_risk & (T_k == 0) & (C_k_obs == 1)
-            cum_follow = indicator
-            cum_weight = new_cum_weight
-            S_prev = S_new
-
-        return (survival_curve[1:], S_seq, h_star_seq, H_seq, T_seq, mask_seq)
-
-    def _eif_survival_at_k(
-        target_k: int,
-        S_seq: np.ndarray,
-        h_star_seq: np.ndarray,
-        H_seq: np.ndarray,
-        T_seq: np.ndarray,
+    def _fit_predict(
+        X: np.ndarray, y: np.ndarray, rows: np.ndarray, X_pred: np.ndarray
     ) -> np.ndarray:
-        """EIF of E[S^a(target_k)] under the stacked nuisance fits.
+        if not rows.any():
+            return np.full(len(X_pred), 0.5)
+        yr = y[rows]
+        if np.all(yr == yr[0]):
+            return np.full(len(X_pred), float(yr[0]))
+        beta = _logit_fit(X[rows], yr)
+        return np.asarray(expit(X_pred @ beta), dtype=float)
 
-        D*(O) = -∑_{j≤target_k} H_j · (T_j − h_j^*) · S^a(target_k)/S^a(j)
-                + (S^a(target_k) − ψ_S(target_k))
+    # ── Treatment and censoring models on the at-risk, uncensored set ──
+    prob_a1: List[np.ndarray] = []
+    prob_c1: List[np.ndarray] = []
+    for k in range(K):
+        X_k, _ = _design(k)
+        X_g = X_k[:, :-1]  # history through L_k, without A_k
+        rows = at_risk[:, k] & uncens_before[:, k]
+        p_a = _fit_predict(X_g, A_obs[:, k], rows, X_g)
+        prob_a1.append(np.clip(p_a, lo_b, hi_b))
+        if censoring is not None:
+            c_k = (df[censoring[k]].to_numpy(dtype=float) == 1).astype(float)
+            p_c = _fit_predict(X_k, c_k, rows, X_k)
+            prob_c1.append(np.clip(p_c, lo_b, 1.0))
+        else:
+            prob_c1.append(np.ones(n))
 
-        S_seq[:, j] is per-subject S^a(j+1) (1-indexed), so for the
-        ratio at column j we use ``S_seq[:, j]`` ≈ S^a(j+1) — call
-        sites compensate by using `target_k` 0-indexed (j ≤ target_k).
-        """
-        n = S_seq.shape[0]
-        S_K = S_seq[:, target_k]
+    # ── Sequential-regression TMLE, one horizon at a time ─────────────
+    def _risk_at(
+        t: int, regime_mat: np.ndarray
+    ) -> Tuple[float, np.ndarray, List[float]]:
+        """TMLE of P(event by interval t+1 under the regime) (0-indexed t),
+        with its influence curve and the targeting epsilons."""
+        g_step = np.column_stack(
+            [
+                np.where(regime_mat[:, k] == 1, prob_a1[k], 1 - prob_a1[k]) * prob_c1[k]
+                for k in range(t + 1)
+            ]
+        )
+        cum_g = np.cumprod(g_step, axis=1)
+        follow = np.cumprod(A_obs[:, : t + 1] == regime_mat[:, : t + 1], axis=1)
+        follow = follow.astype(bool)
+
+        Q_next = cum_event[:, t].astype(float)  # observed outcome at t
         ic = np.zeros(n)
-        for j in range(target_k + 1):
-            S_j = S_seq[:, j]
-            # Ratio S^a(target_k)/S^a(j); guard against S_j ≈ 0.
-            ratio = np.where(S_j > 1e-12, S_K / np.maximum(S_j, 1e-12), 0.0)
-            ic -= H_seq[:, j] * (T_seq[:, j] - h_star_seq[:, j]) * ratio
-        ic_centred = ic + (S_K - float(np.mean(S_K)))
-        return ic_centred
+        eps_list: List[float] = []
+        for k in reversed(range(t + 1)):
+            X_obs, cols = _design(k)
+            X_reg = X_obs.copy()
+            for j in range(k + 1):
+                X_reg[:, 1 + cols.index(treatments[j])] = regime_mat[:, j]
+            # Units still at risk at k whose next outcome is known: the
+            # observed event (k = t) or the targeted prediction from k + 1.
+            rows = at_risk[:, k] & uncens[:, k]
+            q_pred = np.clip(_fit_predict(X_obs, Q_next, rows, X_reg), 1e-4, 0.9999)
+            off = logit(q_pred)
+            subs = rows & follow[:, k]
+            w = np.where(subs, 1.0 / cum_g[:, k], 0.0)
+            eps = _fluctuate(Q_next[subs], off[subs], w[subs])
+            q_star = expit(off + eps)
+            ic = ic + np.where(subs, (Q_next - q_star) / cum_g[:, k], 0.0)
+            eps_list.append(float(eps))
+            # An event before k fixes the outcome at 1.
+            Q_next = np.where(at_risk[:, k], q_star, 1.0)
+        psi = float(np.mean(Q_next))
+        return psi, ic + Q_next - psi, eps_list[::-1]
 
-    def _eif_rmst(
-        S_seq: np.ndarray, h_star_seq: np.ndarray, H_seq: np.ndarray, T_seq: np.ndarray
-    ) -> np.ndarray:
-        """EIF of E[∑_{k=1}^K S^a(k)] = E[RMST^a].
+    def _curve(regime_mat: np.ndarray) -> Tuple[np.ndarray, np.ndarray, list]:
+        """Survival S(t) = 1 - risk(t), t = 1..K, and its influence curves
+        (n x K)."""
+        surv = np.empty(K)
+        ics = np.empty((n, K))
+        eps_all = []
+        for t in range(K):
+            risk, ic_risk, eps = _risk_at(t, regime_mat)
+            surv[t] = 1.0 - risk
+            ics[:, t] = -ic_risk
+            eps_all.append(eps)
+        return surv, ics, eps_all
 
-        D*(O) = ∑_{k=1}^K D*_{S^a(k)}(O)  (linearity in target functional).
-        """
-        n = S_seq.shape[0]
-        K_local = S_seq.shape[1]
-        ic = np.zeros(n)
-        for tk in range(K_local):
-            ic += _eif_survival_at_k(tk, S_seq, h_star_seq, H_seq, T_seq)
-        return ic
-
-    surv_t, S_t_seq, h_t_seq, H_t_seq, T_t_seq, mask_t_seq = _run_regime(
-        regime_treated_mat,
-    )
-    surv_c, S_c_seq, h_c_seq, H_c_seq, T_c_seq, mask_c_seq = _run_regime(
-        regime_control_mat,
-    )
-    S_t = surv_t  # population survival curve (treated)
-    S_c = surv_c  # population survival curve (control)
+    S_t, IC_t, eps_t = _curve(regime_treated_mat)
+    S_c, IC_c, eps_c = _curve(regime_control_mat)
 
     rmst_t = float(np.sum(S_t))
     rmst_c = float(np.sum(S_c))
     rmst_diff = rmst_t - rmst_c
-
-    # Proper RMST EIF: linear sum across k of S^a(k) EIFs, with the
-    # full survival-product factor S^a(k)/S^a(j) (Cai & van der Laan
-    # 2020). Earlier versions of this module dropped the survival
-    # ratio and used the same cross-time IC for both RMST and the
-    # terminal risk difference — see the v1.11.5 changelog audit note.
-    ic_rmst_t = _eif_rmst(S_t_seq, h_t_seq, H_t_seq, T_t_seq)
-    ic_rmst_c = _eif_rmst(S_c_seq, h_c_seq, H_c_seq, T_c_seq)
-    diff_ic_rmst = ic_rmst_t - ic_rmst_c
+    # RMST is a sum of survival probabilities, so its influence curve is
+    # the sum of theirs.
+    diff_ic_rmst = IC_t.sum(axis=1) - IC_c.sum(axis=1)
     rmst_se = float(np.std(diff_ic_rmst, ddof=1) / np.sqrt(n))
     z = rmst_diff / rmst_se if rmst_se > 0 else 0.0
     pval = float(2 * stats.norm.sf(abs(z)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
     rmst_ci = (rmst_diff - crit * rmst_se, rmst_diff + crit * rmst_se)
 
-    # Terminal risk difference: its EIF is the EIF of S^a(K) only,
-    # NOT the cumulative-across-K RMST EIF. v1.11.4 and earlier reused
-    # the RMST IC here — overstating the SE since the RMST IC contains
-    # contributions from all earlier intervals.
+    # Terminal risk difference (treated minus control risk) and its SE
+    # from the influence curves of S(K) alone.
     rd_final = S_c[-1] - S_t[-1]
-    ic_SK_t = _eif_survival_at_k(K - 1, S_t_seq, h_t_seq, H_t_seq, T_t_seq)
-    ic_SK_c = _eif_survival_at_k(K - 1, S_c_seq, h_c_seq, H_c_seq, T_c_seq)
-    rd_final_se = float(np.std(ic_SK_c - ic_SK_t, ddof=1) / np.sqrt(n))
+    rd_final_se = float(np.std(IC_c[:, -1] - IC_t[:, -1], ddof=1) / np.sqrt(n))
 
     return LTMLESurvivalResult(
         times=np.arange(1, K + 1),
@@ -619,11 +477,14 @@ def ltmle_survival(
         K=K,
         n_obs=n,
         detail={
-            "propensity_summary": [
-                (float(p.min()), float(p.max())) for p in propensities
-            ],
+            "propensity_summary": [(float(p.min()), float(p.max())) for p in prob_a1],
             "regime_treated_callable": callable(regime_treated),
             "regime_control_callable": callable(regime_control),
+            "algorithm": "sequential-regression TMLE per horizon (survival outcome)",
+            "survival_se_treated": IC_t.std(axis=0, ddof=1) / np.sqrt(n),
+            "survival_se_control": IC_c.std(axis=0, ddof=1) / np.sqrt(n),
+            "epsilons_treated": eps_t,
+            "epsilons_control": eps_c,
         },
     )
 
