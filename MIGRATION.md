@@ -5,6 +5,69 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → Unreleased: ⚠️ postestimation after `irr=True`, unseen factor levels, stateful transforms in new data
+
+- `sp.test` / `sp.lincom` / `sp.nlcom` / `sp.hypotheses` after
+  `sp.poisson` / `sp.nbreg` / `sp.xtnbreg` with `irr=True` name and test the
+  coefficients `b` (Stata `e(b)`), not `exp(b)`. A hypothesis about the IRR
+  is written on `b`: IRR = 1 is `x = 0`, IRR = 2 is `x = ln(2)`. For a
+  combination reported as an IRR, take `exp()` of the `lincom` estimate and
+  of its interval ends.
+- `sp.margins_at`, `sp.margins(at=)`, `sp.contrast`, `sp.pwcompare` and the
+  marginaleffects-style functions with `newdata=` raise
+  `MethodIncompatibility` for a factor level the fit never saw. Drop or
+  recode those rows.
+- `sp.predictions(newdata=)` and `result.predict(data)` with `center()`,
+  `standardize()`, `bs()` or another stateful transform in the formula
+  return the predictions the fitted model makes. The old numbers had the
+  transform re-estimated on the new rows; there is no option to restore them.
+
+---
+
+## 1.40.2 → Unreleased: ⚠️ `sp.twoway_cluster`, `sp.conley`, `sp.front_door(covariates=)`, `sp.suest(cluster=)`
+
+- `sp.twoway_cluster`: `predict(what='confidence' / 'prediction')` use the
+  two-way covariance and the error variance RSS / (n - k); p-values always
+  use t(min(G1, G2) - 1), like the intervals. `data_info['df_resid']` is
+  n - k again; the inference degrees of freedom are in
+  `data_info['df_inference']`. Logit / probit / Poisson / GLM results raise
+  `MethodIncompatibility`.
+- `sp.conley` after a weighted `sp.regress` returns different standard
+  errors: the weights now enter the sandwich. The old SEs were an unweighted
+  sandwich around weighted coefficients, which no reference computes.
+- `sp.conley` raises `MethodIncompatibility` after logit, probit, Poisson
+  and other likelihood fits. Use `sp.fepois(vce='conley')` or
+  `sp.ppmlhdfe(vce='conley')` for Poisson models.
+- p-values of an `sp.conley` result use t(n - k), as its intervals did,
+  whatever the input fit's inference was. `data_info['var_cov']` is the
+  Conley matrix.
+- `sp.front_door` with `covariates=` returns a different estimate when the
+  covariates predict the treatment. Calls without covariates are unchanged.
+- `sp.suest(cluster=)` returns different standard errors when `data` has
+  rows that no equation uses whose clusters appear nowhere else. The new
+  number is the one obtained after dropping those rows, as Stata `suest`.
+
+---
+
+## 1.40.2 → Unreleased: ⚠️ `sp.spec_curve`, `sp.robustness_report`, sensitivity breakpoints
+
+- `sp.spec_curve`: `ci_lower` / `ci_upper` are `1 - alpha` intervals (they
+  were 95% for every `alpha`). The `nonrobust` / `hc1` specifications keep
+  rows whose `cluster_var` is missing. A specification whose regressors are
+  linearly dependent is no longer on the curve; it raises an
+  `AssumptionWarning` and is listed in `model_info["dropped_specs"]`.
+  `n_specs` and `share_significant` can change for such inputs.
+- `sp.robustness_report`: the clustered row's p-value and interval use
+  t(G - 1).
+- `sp.copula_sensitivity` / `sp.survival_sensitivity`: `breakpoint` can be
+  set where it was `None` (an interval that crosses zero between grid
+  values).
+- `sp.robustness_report` / `sp.subgroup_analysis`: formulas with `| fe`,
+  `C()`, `I()`, functions or interactions raise `MethodIncompatibility`.
+  Create the columns first and name them in the formula.
+
+---
+
 ## 1.40.2 → next: ⚠️ survival, epidemiology and Mendelian-randomization statistics (2026-10 option scan)
 
 None of these has an option that restores the old number; each old number

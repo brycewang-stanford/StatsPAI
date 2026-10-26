@@ -100,6 +100,89 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   for the GWAS sample size in `R^2 = F / (F + n - 2)` (R^2 0.8 for F = 100
   and 25 variants). `r2_mean` is now NaN unless `n_samples` is given. The
   F-statistics are unchanged.
+- `sp.test`, `sp.lincom`, `sp.nlcom` and `sp.hypotheses` after a fit
+  reported as incidence-rate ratios (`sp.poisson` / `sp.nbreg` /
+  `sp.xtnbreg` with `irr=True`) work on the coefficients `b`, as Stata's
+  `test` / `lincom` / `nlcom` after `poisson, irr` work on `e(b)`. They read
+  the reported `exp(b)` as the coefficient: `sp.test(fit, "x1 = 0")` tested
+  IRR = 0 with the IRR's standard error (Wald 560.9 where the coefficient
+  test gives 64.2 on the test data), and tests of several coefficients
+  refused. Answers now equal those after the `irr=False` fit.
+- `sp.margins_at`, `sp.margins(at=)`, `sp.contrast`, `sp.pwcompare` and
+  `sp.predictions` / `comparisons` / `slopes` with `newdata=` refuse a
+  factor level the fit never saw. With `C(g)` such a row got zeros in every
+  dummy, so the answer was the base level's, without a word. `predict()`
+  already refused.
+- `sp.predictions(newdata=)` and `result.predict(data)` evaluate a formula
+  with a stateful transform (`center(x)`, `standardize(x)`, `bs(x)`) with
+  the values memorised at fit time. They re-memorised them on the new rows,
+  so `y ~ center(x)` predicted on four rows was centred on those four rows.
+  The design is now memorised on the frame the model was fitted on, when
+  the result still reaches it and that frame reproduces the stored design.
+  Other formulas give bit-identical numbers.
+- `sp.twoway_cluster` returns a result whose inference all reads the two-way
+  covariance and t(min(G1, G2) - 1). `predict(what='confidence')` used the
+  input fit's covariance. `predict(what='prediction')` divided the residual
+  sum of squares by min(G1, G2) - 1 instead of n - k (error variance 28.75
+  instead of 0.868 on a 300-row example with 10 years). After a clustered or
+  CR2 input fit the p-values used the input's degrees of freedom while the
+  intervals used min(G1, G2) - 1. Logit, probit, Poisson and GLM fits are
+  refused: the sandwich has the least-squares bread.
+- `sp.conley` after a weighted fit (`sp.regress(..., weights=)`) uses the
+  weights. The sandwich was built from the unweighted design and residuals.
+  The bread is now `X'WX` and the score `w x e`, as `sp.twoway_cluster`
+  does. On a 300-row example with a 300 km cutoff the SE of x1 moves from
+  0.1624 to 0.2356; with no neighbour pairs it equals the weighted HC0
+  sandwich (0.1985; it was 0.1568). A fit whose weights are recorded but not
+  stored row by row is refused.
+- `sp.conley` refuses logit, probit, Poisson, negative binomial and other
+  non-Gaussian likelihood fits, to which it applied the least-squares bread.
+  For Poisson models `sp.fepois(vce='conley')` and `sp.ppmlhdfe(vce='conley')`
+  give the likelihood sandwich.
+- The result of `sp.conley` carries the Conley covariance and its own
+  degrees of freedom. It kept the input fit's `var_cov` and `df_inference`,
+  so after a clustered fit the p-values used t(G - 1) while the intervals
+  used t(n - k), and `predict(what='confidence')` used the pre-Conley
+  matrix. After `sp.regress(..., cluster=)` on 30 clusters the p-value of x2
+  moves from 0.0786 to 0.0692 (SEs unchanged). After a GMM / LIML IV fit
+  with z inference the Conley p-values are now t(n - k), like its intervals.
+- `sp.front_door(covariates=)` weights the arms of the inner sum by
+  `P(D = d' | X)`, the conditional front-door formula. It used the marginal
+  `P(D = d')`, right only when the covariates do not predict the treatment.
+  On a population whose conditional front-door ATE is 1.134 the estimate
+  moves from 0.773 to 1.124 (n = 200,000). Calls without covariates are
+  unchanged to the last bit. A failed treatment logit warns and sets
+  `model_info['treatment_model_degraded']`.
+- `sp.suest(cluster=)` counts the clusters of the rows some equation uses,
+  as Stata's `suest` counts those of `e(sample)`. Clusters whose rows every
+  equation dropped raised G. With 20 used and 5 unused clusters the SE of
+  `y1:x` moves from 0.07840 to 0.07881.
+- `sp.spec_curve(alpha=)` sets the level of `ci_lower` / `ci_upper`. They
+  were 95% intervals whatever `alpha` was, while `significant` used
+  `alpha`. With `alpha=0.10` on 200 rows the interval was [0.1512, 0.4956];
+  it is now the 90% interval [0.1791, 0.4677].
+- `sp.spec_curve(cluster_var=)` no longer drops rows with a missing cluster
+  id from the `nonrobust` and `hc1` specifications. With 20 of 200 ids
+  missing the nonrobust estimate was 0.2806 on 180 rows; it is now 0.3234 on
+  200 rows, the `sp.regress("y ~ x")` number.
+- `sp.spec_curve` leaves out a specification whose regressors are linearly
+  dependent. `np.linalg.inv` inverted a numerically singular X'X (a control
+  equal to `a + b` in floating point) and reported 0.3612 (se 0.0757) where
+  the identified coefficient is 0.3698. Such specifications now raise an
+  `AssumptionWarning` and are listed in `model_info["dropped_specs"]`.
+  Exactly singular ones were already left out, silently.
+- `sp.robustness_report` refers the clustered check to t(G - 1), as
+  `sp.regress(cluster=)` and Stata `regress, vce(cluster)` do. It used
+  t(n - k). With 5 clusters the p-value of that row was 4.1e-16; it is now
+  8.9e-4, equal to `sp.regress`.
+- `sp.robustness_report` and `sp.subgroup_analysis` refuse a formula with
+  absorbed fixed effects (`y ~ x + a | g`). The `| g` part was parsed away
+  and every check ran without it.
+- `sp.copula_sensitivity` and `sp.survival_sensitivity` report a breakpoint
+  when the adjusted interval crosses zero between two grid values. With a
+  small SE a reversed effect was called robust: `sp.copula_sensitivity(0.32,
+  0.001)` gave no breakpoint and now gives 0.35; `sp.survival_sensitivity(0.4,
+  0.001)` now gives 1.5 instead of none.
 
 ### Fixed
 
@@ -163,6 +246,24 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
 - `sp.aft` / `sp.survreg` state their log-likelihood scale:
   `AFTResult.log_likelihood_scale` (log time, Stata `streg`) and
   `model_info['ll_scale']` (time, R `survreg`).
+- `sp.margins(method='mem')` after any weighted fit raised "shape-mismatch
+  for sum". It returns the effect at the weighted means.
+- `sp.margins` after `sp.twoway_cluster` keeps the fit's formula and weights.
+  An `I(x**2)` term was refused and averages were unweighted.
+- `sp.predictions(newdata=)` accepts rows that do not show every level of a
+  factor when the formula also has a transformation. It refused.
+- `sp.margins_table` after `ologit` / `mlogit` labels rows
+  `variable:outcome`. The labels were repeated across outcomes.
+- `sp.hypotheses` refuses `b1` when a regressor is also called `b1` (it
+  tested the intercept). `sp.nlcom` refuses a fractional power of a negative
+  estimate (it raised TypeError). `sp.lincom` validates `alpha`.
+- `sp.suest(cluster=)` no longer refuses a missing cluster value on rows that
+  no equation uses; those rows are dropped, as in Stata.
+- `sp.robustness_report` and `sp.subgroup_analysis` name a formula term they
+  cannot evaluate (`C(g)`, `I(x**2)`, `np.log(x)`, `x:z`). They raised
+  `ColumnNotFound` for columns nobody wrote, such as `'C'`.
+- `sp.oneway(compare="sidak")` keeps full precision for very small
+  p-values. A pair with t = 38.7 on 87 df gets 7.8e-59 instead of 0.
 
 ### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
 
