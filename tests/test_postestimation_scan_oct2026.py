@@ -74,11 +74,6 @@ def test_hypotheses_after_irr_equal_coefficient_scale():
     assert he["std_error"].iloc[0] == pytest.approx(hb["std_error"].iloc[0], rel=1e-10)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="S1b: EconometricResults.predict(newdata) uses exp(b) as b after "
-    "irr=True; fix lives in core/results.py (Track C list) -> coordinator",
-)
 def test_predict_newdata_after_irr_equals_fitted_values():
     d = _count_frame()
     e = sp.poisson("y ~ x1 + x2", data=d, irr=True)
@@ -87,6 +82,18 @@ def test_predict_newdata_after_irr_equals_fitted_values():
         np.asarray(e.data_info["fitted_values"])[:10],
         rtol=1e-10,
     )
+
+
+def test_predict_confidence_after_irr_equals_the_coefficient_fit():
+    d = _count_frame()
+    e = sp.poisson("y ~ x1 + x2", data=d, irr=True)
+    b = sp.poisson("y ~ x1 + x2", data=d)
+    for what in ("link", "mean", "confidence"):
+        np.testing.assert_allclose(
+            np.asarray(e.predict(d.iloc[:10], what=what), dtype=float),
+            np.asarray(b.predict(d.iloc[:10], what=what), dtype=float),
+            rtol=1e-10,
+        )
 
 
 # --------------------------------------------------------------------- #

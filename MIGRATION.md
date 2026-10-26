@@ -13,6 +13,10 @@ Internal version-to-version migrations are at the top; the long-form
   is written on `b`: IRR = 1 is `x = 0`, IRR = 2 is `x = ln(2)`. For a
   combination reported as an IRR, take `exp()` of the `lincom` estimate and
   of its interval ends.
+- `result.predict(data)` after those `irr=True` fits returns the model's
+  predictions (equal to the `irr=False` fit's). The old numbers used
+  `exp(b)` as the coefficients and were wrong; there is no option to
+  restore them.
 - `sp.margins_at`, `sp.margins(at=)`, `sp.contrast`, `sp.pwcompare` and the
   marginaleffects-style functions with `newdata=` raise
   `MethodIncompatibility` for a factor level the fit never saw. Drop or

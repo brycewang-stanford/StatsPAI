@@ -108,6 +108,12 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   IRR = 0 with the IRR's standard error (Wald 560.9 where the coefficient
   test gives 64.2 on the test data), and tests of several coefficients
   refused. Answers now equal those after the `irr=False` fit.
+- `result.predict(data)` after the same `irr=True` fits used the reported
+  `exp(b)` as the coefficients, so predictions on supplied data were
+  `exp(X exp(b))` (up to 27 times the stored fitted values on the test data)
+  and their intervals used the IRR-scale covariance. Predictions,
+  link values and intervals now equal those of the `irr=False` fit.
+  Predictions without `data` were already right.
 - `sp.margins_at`, `sp.margins(at=)`, `sp.contrast`, `sp.pwcompare` and
   `sp.predictions` / `comparisons` / `slopes` with `newdata=` refuse a
   factor level the fit never saw. With `C(g)` such a row got zeros in every

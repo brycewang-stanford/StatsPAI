@@ -1150,7 +1150,11 @@ class EconometricResults:
             X = self._prediction_design(data)
             offset = self._prediction_offset(data, X.shape[0])
             index = data.index
-        beta = np.asarray(self.params, dtype=float)
+        from ..postestimation._covariance import coefficient_scale
+
+        # irr=True reports exp(b); the linear index uses b (Stata e(b)).
+        on_b = coefficient_scale(self)
+        beta = np.asarray(on_b.params, dtype=float)
         if X.shape[1] != beta.shape[0]:
             raise MethodIncompatibility(
                 f"The prediction design has {X.shape[1]} columns but the model "
@@ -1168,8 +1172,8 @@ class EconometricResults:
                 f"alpha must lie strictly between 0 and 1; got {alpha!r}.",
                 recovery_hint="Use alpha=0.05 for 95% intervals.",
             )
-        cov = self.data_info.get("var_cov")
-        if cov is None:
+        cov = (getattr(on_b, "data_info", None) or {}).get("var_cov")
+        if cov is None and on_b is self:
             cov = getattr(self, "_var_cov", None)
         if cov is None:
             raise MethodIncompatibility(
