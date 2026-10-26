@@ -328,6 +328,90 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   described with. It warns and keeps its numbers until removal, no earlier
   than the next minor release.
 
+### Option scan of `survey/`, `multilevel/`, `gmm/` (Oct 2026)
+
+The modules had never been scanned option by option. Tests in
+`tests/test_{survey,multilevel,gmm}_scan_oct2026.py`.
+
+#### ⚠️ Correctness
+
+- `sp.mixed(group=[outer, inner])`: random effects were keyed by the inner
+  label alone. When class ids repeat across schools (class 1, 2, ... in every
+  school) the classes merged and every one got the first school's random
+  effect, so `predict(data)` and `random_effects` were wrong (up to 3.84 on
+  the test panel); estimates were not affected. Keys are now the
+  `(outer, inner)` pair and `random_effects` has a two-level index.
+  `predict()` without data dropped the random part altogether and returned
+  `X b`; it now adds it.
+- `sp.mixed` "LR test vs. linear model" (`summary()`, `_lr_test`): with one
+  variance parameter the p-value was the chi2(1) tail, twice Stata's
+  chibar2(01); under REML the statistic compared the ML likelihood at the
+  REML estimates with the OLS likelihood. It now compares REML with REML and
+  ML with ML and uses chibar2(01) for one parameter, chi2(k) otherwise, as
+  Stata 18 `mixed`. On the test fixture: ML p 8.72e-5 to 4.36e-5, REML
+  statistic 15.378 to 15.902 (Stata 15.901683, 4.35977e-5 and 3.33597e-5).
+- `sp.xtlsdvc(bootstrap=)`: the parametric bootstrap regenerated `y` as
+  `rho y_{t-1} + e` over consecutive rows, without the regressors, the unit
+  effects or gaps, contrary to its docstring. It now draws
+  `rho y_{t-1} + x'b + eta_i + e` on the cells the estimation used. On a
+  simulated panel (N = 150, T = 8) the SE of rho moves from 0.0339 to
+  0.0268; the Monte Carlo SD of the estimator is 0.0272. Failed replications
+  are counted (`model_info['bootstrap_failed']`) and warned about instead of
+  being skipped silently.
+- `sp.gmm(vcov='hac')` without `hac_bandwidth` used bandwidth 1, which
+  weights no lag, so it equalled `vcov='mds'`. The default is now
+  `floor(4 (n/100)^(2/9))` lags, the rule `sp.regress` / `sp.glm` use
+  (`model_info['hac_lags']`). On n = 400: SEs 0.07107 / 0.07856 to
+  0.07653 / 0.07645.
+- `sp.gmm(method='onestep')` reported Hansen's J with a chi2 p-value at any
+  weight; it is chi2 only at the efficient one, and Stata 18 `estat overid`
+  is "not available after one-step estimation". `J_stat` / `J_p` are now
+  `None` with `J_note`.
+- `sp.meglm(family='binomial', trials=)`: `n_obs` was the total number of
+  trials, so BIC used it (1500 trials on 300 rows: BIC 913.15 to 908.32).
+  It is the number of rows, as Stata `meglm` and lme4 count.
+- `MEGLMResult.conf_int()`, `odds_ratios()`, `incidence_rate_ratios()`
+  ignored the fit's `alpha` and always gave 95% intervals (`summary()` did
+  use it). They now default to the fit's level.
+- `sp.svymean` / `sp.svytotal` / `sp.svyglm` `subpop=` as an array or Series:
+  a missing value counted as inside the domain (`NaN` cast to `True`); it is
+  now outside, as for a column name and Stata `subpop()`. A string column
+  ("yes" / "no") put every row in the domain and is now refused.
+- `sp.svydesign(cluster=)` with a missing PSU id: with `nest=True` it became
+  the PSU "stratum__nan". It is refused, as a missing stratum already was.
+
+#### Fixed
+
+- `sp.svyglm`, `sp.meologit` and `sp.mixed` / `sp.meglm` with a categorical
+  group raised `InvalidIndexError` on data with repeated index labels; rows
+  are now located by position.
+- `sp.xtabond` / `sp.xtdpdsys(cluster=)` with string labels said the cluster
+  variable was missing for every unit; labels are now coded. Numeric
+  clusters are unchanged.
+- `sp.xtabond(cluster=..., robust=False)` returned the classical one-step
+  variance (or the uncorrected two-step one) and ignored `cluster=`. The
+  combination is refused: xtabond2's help says `cluster()` implies robust.
+- `MixedResult.predict()` without data is labelled with the estimation rows'
+  index, so `df['yhat'] = res.predict()` lines up; `plot(kind='residuals')`
+  paired the outcome in group order with fitted values in row order.
+- `sp.meologit` sorted string outcomes alphabetically ("high" < "low" <
+  "medium"), against its docstring. Strings are refused; pass an ordered
+  categorical. Unused categories are dropped.
+- Refused instead of fitted: `sp.meglm(trials=)` outside the binomial family
+  (Poisson ignored it, the others read it as frequency weights); binomial
+  outcomes outside `[0, trials]` (1/2 coding returned the start values),
+  negative counts, non-positive gamma outcomes; `sp.svyglm` binomial outcomes
+  outside `[0, 1]` and negative Poisson outcomes; missing values in
+  `sp.svymean` / `sp.svytotal` variables (NaN estimates) and in
+  `sp.linear_calibration` inputs; `sp.lrtest` on mixed fits with different
+  samples or REML against ML; `sp.gmm(vcov='cluster')` with missing labels.
+
+#### Added
+
+- `sp.gmm(small=True)`: `False` refers t statistics, p-values and intervals
+  to the normal, as Stata `gmm` and R `gmm::summary`; the default keeps
+  t(n - k), as `sp.iv(small=True)`. `result.inference_rule()` states which.
+
 ## [1.40.2] — 2026-10-27
 
 A patch release: one correctness fix to `sp.iv` GMM and two to the frontier

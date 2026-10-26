@@ -5,6 +5,35 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ survey / multilevel / gmm option scan
+
+Numbers that change, and how to get the old ones where that makes sense:
+
+- `sp.mixed(group=[outer, inner])`: `random_effects` is indexed by
+  `(outer, inner)` and `predict(data)` needs both columns. Predictions with
+  class ids that repeat across schools were wrong and are not restorable.
+- `sp.mixed` LR test vs. the linear model: p-value is chibar2(01) with one
+  variance parameter (half the old value); under REML the statistic now
+  compares REML criteria. Old p = 2 × new p for one parameter.
+- `sp.xtlsdvc(bootstrap=)`: bootstrap SEs change (the old resampling world
+  had no regressors and no unit effects). No option restores them.
+- `sp.gmm(vcov='hac')` without `hac_bandwidth`: now `floor(4 (n/100)^(2/9))`
+  lags. `hac_bandwidth=1` gives the old (no-lag) numbers.
+- `sp.gmm(method='onestep')`: `diagnostics['J_stat']` / `['J_p']` are
+  `None`. Fit `method='twostep'` for Hansen's J.
+- `sp.meglm(..., trials=)`: `n_obs` is the row count, so BIC changes.
+- `MEGLMResult.conf_int()` and the odds-ratio / IRR tables use the fit's
+  `alpha`; pass `conf_int(alpha=0.05)` for 95%.
+- `subpop=` arrays with missing values: those rows are outside the domain.
+- Newly refused (typed errors with a recovery hint): string `subpop`
+  columns, missing PSU ids, string outcomes in `sp.meologit`, `trials=`
+  outside the binomial family, outcomes outside a family's support,
+  `sp.xtabond(cluster=..., robust=False)`, `sp.lrtest` across samples or
+  REML / ML, missing values in `sp.svymean` / `sp.svytotal` variables (use
+  `subpop=data[col].notna()`).
+
+---
+
 ## 1.40.2 → Unreleased: ⚠️ postestimation after `irr=True`, unseen factor levels, stateful transforms in new data
 
 - `sp.test` / `sp.lincom` / `sp.nlcom` / `sp.hypotheses` after
