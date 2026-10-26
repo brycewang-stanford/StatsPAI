@@ -571,8 +571,10 @@ def conley(
         beta = np.linalg.solve(X.T @ X_struct, X.T @ y_iv)
         residuals = y_iv - X_struct @ beta
     else:
+        _require_least_squares(result)
         X = np.asarray(result.data_info["X"])
         residuals = np.asarray(result.data_info["residuals"])
+        X, residuals = _weighted_scores(result, X, residuals)
     n, k = X.shape
     # Absorbed fixed effects cost residual degrees of freedom; carry the
     # charge the estimator already computed so the t critical value matches
@@ -804,6 +806,74 @@ def conley(
     )
 
 
+def _require_least_squares(result: EconometricResults) -> None:
+    """Refuse a likelihood fit: the sandwich below has the OLS bread.
+
+    ``(X'X)^-1 S'KS (X'X)^-1`` with ``S = x e`` is the Conley covariance of
+    least squares. A logit / probit / Poisson / GLM fit stores its design
+    and response residuals too, and was given that formula, whose bread is
+    not the Hessian of the likelihood (``X' diag(dmu/deta) X``).
+    """
+    mi = result.model_info or {}
+    di = result.data_info or {}
+    link = mi.get("link")
+    link_obj = di.get("link_obj")
+    if link_obj is not None:
+        link = getattr(link_obj, "name", link)
+    family = mi.get("family")
+    linear_links = ("identity", "gaussian")
+    linear_families = ("gaussian", "normal")
+    nonlinear = (isinstance(link, str) and link.lower() not in linear_links) or (
+        isinstance(family, str) and family.lower() not in linear_families
+    )
+    if nonlinear:
+        raise MethodIncompatibility(
+            f"sp.conley computes the spatial HAC covariance of least squares; "
+            f"this fit is a likelihood model (family={family!r}, "
+            f"link={link!r}), whose sandwich needs the Hessian of its "
+            "likelihood as the bread.",
+            recovery_hint=(
+                "Use sp.conley after sp.regress / sp.feols / sp.iv. For a "
+                "Poisson model, sp.fepois(vce='conley') / "
+                "sp.ppmlhdfe(vce='conley') use the likelihood sandwich."
+            ),
+            diagnostics={"family": family, "link": link},
+        )
+
+
+def _weighted_scores(
+    result: EconometricResults, X: np.ndarray, residuals: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """The design and residuals of a weighted least-squares fit, rescaled.
+
+    With analytic weights ``w`` the sandwich is ``(X'WX)^-1 S'KS (X'WX)^-1``
+    with score rows ``w x e``. Multiplying ``X`` and ``e`` by ``sqrt(w)``
+    gives exactly that through the unweighted formula (as
+    ``sp.twoway_cluster`` does). The stored design and residuals are the
+    unweighted ones, so without this the weights were ignored.
+    """
+    di = result.data_info or {}
+    w = di.get("analytic_weights")
+    if w is None:
+        from ..postestimation._design import model_setting
+
+        if model_setting(result, "weights") is not None:
+            raise MethodIncompatibility(
+                "sp.conley: this fit used weights that the result does not "
+                "carry row by row, so the weighted sandwich cannot be formed.",
+                recovery_hint="Fit with sp.regress(..., weights=) and pass "
+                "that result.",
+            )
+        return X, residuals
+    root = np.sqrt(np.asarray(w, dtype=float).ravel())
+    if root.size != X.shape[0]:
+        raise MethodIncompatibility(
+            f"sp.conley: {root.size} weights for {X.shape[0]} fitted rows.",
+            recovery_hint="Refit and pass the result unchanged.",
+        )
+    return X * root[:, None], residuals * root
+
+
 def _finalise(
     result: EconometricResults,
     V: np.ndarray,
@@ -827,6 +897,14 @@ def _finalise(
     data_info = dict(result.data_info)
     data_info["df_resid"] = df_resid
     data_info["vcov"] = V
+    # The result describes the Conley covariance and the t(n - k) reference
+    # this function builds its intervals with. The input fit's matrix and
+    # its degrees of freedom (G - 1 after a clustered fit, Bell-McCaffrey
+    # after CR2, z after GMM) were left in place, so p-values used another
+    # law than the intervals and predict(what='confidence') the old matrix.
+    data_info["var_cov"] = V
+    for stale in ("df_inference", "df_by_coefficient", "hotelling_df", "inference"):
+        data_info.pop(stale, None)
 
     model_info["alpha"] = alpha
     new_result = EconometricResults(
