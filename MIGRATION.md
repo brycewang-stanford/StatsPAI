@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ CATE, TMLE survival, conformal and policy-tree fixes (Oct 2026 scan)
+
+- `sp.ltmle_survival`: the survival curves are now the sequential-regression
+  TMLE with every past treatment set to the regime. Numbers change whenever
+  earlier treatment affects later hazards. There is no option for the old
+  estimator, which was biased.
+- `sp.conformal_cate`: `estimate` / `se` are the cross-fitted AIPW average
+  and its SE (as `sp.metalearner`). The old point estimate is
+  `model_info['cate_mean']`; the old SE has no replacement.
+- `sp.conformal_fair_ite`: intervals are about twice as wide; they now cover
+  the effect rather than one potential outcome.
+- `sp.focal_cate`: `se_grid` is the standard error of the CATE prediction.
+- `sp.policy_tree`: `value_policy`, `value_gain`, their SEs and intervals
+  are cross-fitted by default. Pass `value_evaluation='in_sample'` to
+  reproduce earlier numbers (it warns that they are optimistic).
+- `sp.auto_cate`: `blp_beta1_pvalue` tests `beta1 = 0`.
+- OPE with fitted behaviour propensities and actions not coded `0..K-1`:
+  values change (the old ones used uniform propensities).
+- `sp.cate_by_group` / `sp.blp_test` / `sp.gate_test` after rows were
+  dropped: rows are now paired correctly; a frame of any other length than
+  the estimation sample or the input frame raises instead of being sliced.
+
+---
+
 ## 1.40.2 → 1.41: announced defaults take effect
 
 The defaults that 1.40.0 and 1.40.1 announced with a `FutureWarning`

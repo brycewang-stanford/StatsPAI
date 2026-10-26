@@ -189,6 +189,57 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   small SE a reversed effect was called robust: `sp.copula_sensitivity(0.32,
   0.001)` gave no breakpoint and now gives 0.35; `sp.survival_sensitivity(0.4,
   0.001)` now gives 1.5 instead of none.
+- `sp.ltmle_survival` set only the current interval's treatment to the
+  regime and left earlier treatments at their observed values, so any
+  lagged treatment effect was diluted. It is now the sequential-regression
+  TMLE of `sp.ltmle`, run per horizon, with a unit whose event has happened
+  keeping outcome 1. On a two-interval randomised design with a lagged
+  effect (n = 20000) survival at t = 2 under always-treat moves from 0.7211
+  to 0.7714 and under never-treat from 0.5858 to 0.5296, against true values
+  0.7800 and 0.5344. Treatment and censoring models are now fitted on the
+  at-risk units.
+- `sp.conformal_cate`: `se` was a bootstrap of the fitted CATEs, which
+  treats the fitted effect function as data (the bug `sp.metalearner` fixed
+  in 1.11.4). `estimate` / `se` are now the cross-fitted AIPW average and its
+  influence-function SE, equal to `sp.metalearner(learner='t')` with the same
+  outcome model. On a randomised design with n = 2000 the SE moves from
+  0.0015 to 0.0498 (difference-in-means SE 0.045). The plug-in mean is
+  `model_info['cate_mean']`. The intervals are unchanged.
+- `sp.conformal_fair_ite` calibrated one quantile of single-arm residuals,
+  which bounds one potential outcome, not the effect. Each arm now gets a
+  quantile at `1 - alpha / 2` within each group and the half-width is their
+  sum, the construction of `sp.conformal_cate`. Coverage of `Y(1) - Y(0)` at
+  nominal 90% moves from 0.736 to 0.992 (conservative, as the union bound
+  is) in a 3000-row simulation.
+- `sp.focal_cate`: `se_grid` was the residual SD of the pseudo-outcome
+  regression and did not shrink with n (20 times the sampling SD in a
+  simulation). It is now the HC1 standard error of the linear CATE
+  prediction (ratio to the Monte Carlo SD about 1).
+- `sp.policy_tree` reported the value of the learned policy, and its gain
+  over the best uniform action, on the same scores the tree was chosen to
+  maximise. Under scores with no heterogeneity the gain is positive by
+  construction and its 95% interval covered 0 in 22 of 100 draws. The new
+  default `value_evaluation='cross_fit'` grows the tree on the other folds
+  and evaluates each held-out row, unbiased for the value of the procedure
+  (coverage 0.92 to 0.97 with heterogeneity, 0.81 to 0.85 at an exact null).
+  `value_evaluation='in_sample'` keeps the old numbers with a warning, and
+  `value_policy_in_sample` / `value_gain_in_sample` are always returned.
+  The deployed `policy` / `tree` are unchanged.
+- `sp.auto_cate`: `blp_beta1_pvalue` tested `beta1 = 1`. In this regression
+  `beta1` is the ATE, so it now tests `beta1 = 0`, as `sp.blp_test` does
+  (with ATE = 1 the p-value moves from 0.165 to below 1e-6).
+- `sp.ips` / `sp.snips` / `sp.doubly_robust` with the behaviour propensity
+  fitted internally and actions not coded `0..K-1`: the propensity column
+  was indexed by the action label, which raised inside the fit and fell
+  back to uniform propensities. With actions {1, 2} logged at 0.3 / 0.7 the
+  IPS value of always playing 2 moves from 1.392 to 0.999 (0.994 with the
+  true propensities).
+- `sp.cate_by_group`, `sp.blp_test` and `sp.gate_test` took the first
+  `len(cate)` rows of `data`, so after `sp.metalearner` dropped rows with
+  missing values each effect was paired with another unit's outcome and
+  covariates. `sp.metalearner` now records its estimation rows
+  (`model_info['estimation_rows']`) and the diagnostics use them; a frame
+  that cannot be paired row by row raises.
 
 ### Fixed
 
@@ -278,6 +329,19 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   level in the estimation sample) crashed with a `ZeroDivisionError` in
   the cluster-SE correction G/(G-1). It now raises `MethodIncompatibility`
   with a recovery hint, whatever `crit_dist` is.
+- `sp.blp_test` / `sp.gate_test` with the default out-of-fold proxy crashed
+  after `sp.metalearner(cluster=)` or `fold_indices=`.
+- `sp.auto_cate_tuned(tune='nuisance')` chose the propensity hyperparameters
+  by the R-loss at `tau = 0`, which does not depend on the propensity, so the
+  pick followed the sampler's order. They are now chosen by cross-fitted log
+  loss (`best_propensity_log_loss`). `tune='per_learner'` no longer hands
+  the S- or T-learner's (unused) CATE hyperparameters to the other learners.
+- `sp.SuperLearner.fit` overwrote `library` with the fitted library, so a
+  weighted refit of the same object failed and `get_params()` changed after
+  fit. The fitted library is now `library_`.
+- `sp.cluster_cate` returned an empty table for a treatment not coded 0/1;
+  it now raises, and warns when clusters are left out.
+- `sp.cate_eval` now validates `target=`.
 
 ### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
 
