@@ -1506,11 +1506,9 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "three boundary points along one boundary; bias-corrected and "
-            "conventional estimates, standard errors, selected bandwidths "
-            "and per-side effective sample sizes agree with \\pkg{rdmulti} "
-            "to 7.6e-12 and with Stata to 3.3e-9, and the six effective "
-            "sample sizes are exactly equal on all three sides"
+            'three boundary points: estimates, SEs, bandwidths and effective '
+            'sample sizes agree with \\pkg{rdmulti} to 7.6e-12 and Stata to '
+            '3.3e-9; sample sizes exactly equal'
         ),
     },
     "88_rdbwselect": {
@@ -1541,11 +1539,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "all 68 bandwidths agree with \\pkg{rdrobust} to 1.8e-12 and "
-            "with Stata to 3.7e-9; \\code{certwo} is pinned against R only "
-            "because Stata \\code{rdbwselect} 10.0.0 exits \\code{r(3200)} "
-            "on that selector, including on the package authors' own "
-            "\\code{rdrobust\\_senate.dta}"
+            '68 bandwidths: \\pkg{rdrobust} 1.8e-12, Stata 3.7e-9; \\code{certwo} '
+            'R only (Stata \\code{rdbwselect} 10.0.0 exits \\code{r(3200)})'
         ),
     },
     "85_twfe_event_study": {
@@ -1594,10 +1589,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "estimate rel 4.8e-8 and SE rel 2.7e-10 against did2s "
-            "(Stata did2s: 2.4e-12 / 1.3e-14); vce='analytic' is the did2s "
-            "corrected two-stage clustered variance, so stage-1 estimation "
-            "error is propagated on all three sides"
+            'estimate 4.8e-8 and SE 2.7e-10 vs did2s (Stata 2.4e-12 / 1.3e-14); '
+            'stage-1 error propagated on all sides'
         ),
     },
     "84_bjs_pretrends": {
@@ -1606,10 +1599,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "point estimates rel $<$ 1e-7 against both references; the three "
-            "leads match Stata \\texttt{pretrends(3)} at rel $<$ 1e-14 on "
-            "estimate and SE, and are a py$\\leftrightarrow$Stata pin because "
-            "R exposes no equivalent option; horizon SEs are an open gap"
+            'estimates within 1e-7 of both references; the three leads match '
+            'Stata \\texttt{pretrends(3)} at 1e-14 (no R equivalent)'
         ),
     },
     "83_lpdid": {
@@ -1688,8 +1679,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "threshold=1.96 rows vs pretrends with an exact integrator "
-            "(1.6e-8); default rows differ by pretrends' fixed 1.96 cutoff"
+            'threshold=1.96 rows vs pretrends with an exact integrator; default '
+            "rows differ by pretrends' fixed 1.96 cutoff"
         ),
     },
     "75_stacked": {
@@ -1775,11 +1766,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "se_teffects_ai joins Stata teffects psmatch's Abadie-Imbens "
-            "2016 estimated-score variance at rel 7e-8 via the "
-            "abadie_imbens_2016 SE option; the default psmatch2 ai(1) "
-            "SE is a documented convention (sample vs population ATT, no "
-            "score term)"
+            "se_teffects_ai joins Stata's Abadie-Imbens 2016 variance at 7e-8; "
+            'the default psmatch2 ai(1) SE is a documented convention'
         ),
     },
     "12_sdid": {
@@ -2204,7 +2192,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         or d.statistic == "ln_phi",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "betareg SEs are expected-information (documented)",
+        "gap_note": (
+            'default betareg SEs are expected information; observed-information '
+            'rows at 1.2e-7'
+        ),
     },
     "62_truncreg": {
         "name": "Truncated regression ML",
@@ -2247,7 +2238,9 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: True,
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5",
+        "gap_note": (
+            'vs fixest::feglm/fepois, absorbed id FE, run to glm.tol 1e-12'
+        ),
     },
     "68_demean_within": {
         "name": "Within transformation",

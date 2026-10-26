@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.40.2] — 2026-10-27
+
+A patch release: one correctness fix to `sp.iv` GMM and two to the frontier
+SEs. The rest makes statistics StatsPAI already computed say how they were
+computed, and audits the parity harness row by row. Read the ⚠️ entries
+before upgrading: they change numbers.
+
+- **Correctness fixes.** `sp.iv(method='gmm')` under the unadjusted weight
+  matrix now applies `N/(N-K)` when `small=True`, as Stata does.
+  `sp.frontier` / `sp.xtfrontier` SEs no longer carry the ~1e-5 round-off
+  of a fixed-step Hessian. The `sp.panel` model test now uses the reported
+  variance.
+- **Parity harness.** Every Track A row above 1e-6 now has a registered
+  reason, and every convention has rows that reproduce it. Python now fits
+  the exact doubles Stata reads. SE budgets of 18 modules drop to 1e-6.
+- **Added.** `wmatrix=` for GMM, `result.inference_rule()`, and
+  `threshold=` on the pre-trends power functions.
+
 An external audit compared StatsPAI 1.40.1 with Stata 18 on 60
 specifications (240 rows, 30 groups) and asked why coefficients and
 standard errors could match while t / F / p-values did not. One case was a

@@ -9,8 +9,8 @@
       "report_sha256": "70cccead20bdc65153e09a4d42e5c5207791b0d040bfb055e20c9b8ab3909eeb",
       "rederive_with": "python tests/r_parity/verify_reproduce.py",
       "last_reproduced": {
-        "commit": "4ca82f1c3",
-        "date": "2026-10-06T15:11:26+08:00"
+        "commit": "1a6efc8c5",
+        "date": "2026-10-27T01:35:57+08:00"
       },
       "n_modules": 89,
       "n_reproduce": 89,
@@ -1357,8 +1357,8 @@
       "report_sha256": "7b3573990dbde1d9d069dffc3a752ea96e55b5212e91e35854f3bbe8dc99b047",
       "rederive_with": "python tests/stata_parity/verify_reproduce_stata.py",
       "last_reproduced": {
-        "commit": "14a0bff8d",
-        "date": "2026-09-22T22:16:38+08:00"
+        "commit": "1a6efc8c5",
+        "date": "2026-10-27T01:35:57+08:00"
       },
       "n_modules": 85,
       "n_reproduce": 85,
@@ -2491,8 +2491,8 @@
       "report_sha256": "9e47bd6c4610dec3a0203d6d28f28c9052070bb43191feedc86c64b4a9e4a702",
       "rederive_with": "python tests/r_parity/verify_reproduce_py.py",
       "last_reproduced": {
-        "commit": "f99e3441f",
-        "date": "2026-09-25T10:53:04+08:00"
+        "commit": "1a6efc8c5",
+        "date": "2026-10-27T01:35:57+08:00"
       },
       "n_modules": 89,
       "n_reproduce": 89,

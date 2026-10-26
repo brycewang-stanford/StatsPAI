@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.1 → unreleased: ⚠️ `sp.frontier` / `sp.xtfrontier` standard errors
+## 1.40.1 → 1.40.2: ⚠️ `sp.frontier` / `sp.xtfrontier` standard errors
 
 The observed-information SEs were inverted from a central-difference Hessian
 with a fixed 1e-5 step, whose round-off was about 1e-5 relative. They now use
@@ -16,7 +16,7 @@ There is no option to restore the old numbers, which were round-off.
 
 ---
 
-## 1.40.1 → unreleased: defaults announced for 1.42 (`sp.iv` GMM weight matrix, `sp.panel` `ssc`)
+## 1.40.1 → 1.40.2: defaults announced for 1.42 (`sp.iv` GMM weight matrix, `sp.panel` `ssc`)
 
 Nothing changes numerically in this release; calls whose numbers will
 change in 1.42 emit a `FutureWarning` that names the argument to pin.
@@ -34,7 +34,7 @@ change in 1.42 emit a `FutureWarning` that names the argument to pin.
 
 ---
 
-## 1.40.1 → unreleased: ⚠️ `sp.iv(method='gmm')` with the unadjusted weight matrix and `small=True`
+## 1.40.1 → 1.40.2: ⚠️ `sp.iv(method='gmm')` with the unadjusted weight matrix and `small=True`
 
 `ivregress gmm ..., wmatrix(unadjusted) small` multiplies the variance by
 `N / (N - K)`. `sp.iv(method='gmm')` with `robust='nonrobust'` (the default)
