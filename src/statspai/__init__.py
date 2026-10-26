@@ -3959,10 +3959,12 @@ _register_lazy(
     "ctree",
     "CTreeResult",
 )
+# ``mixed`` / ``MixedResult`` resolve from the leaf module: importing the
+# back-compat shim ``statspai.multilevel.mixed`` rebinds the package
+# attribute ``mixed`` to that module, and ``sp.mixed`` returned the module.
+_register_lazy("multilevel.lmm", "mixed", "MixedResult")
 _register_lazy(
     "multilevel",
-    "mixed",
-    "MixedResult",
     "meglm",
     "melogit",
     "mepoisson",

@@ -192,6 +192,10 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
 
 ### Fixed
 
+- `sp.mixed` returned the module `statspai.multilevel.mixed` ("'module' object
+  is not callable") when old code had imported that back-compat path
+  before the first use of `sp.mixed`. The lazy export now resolves from
+  `multilevel/lmm.py`.
 - `sp.geary` and `sp.join_counts` crashed (`operands could not be
   broadcast`) on weights that store a zero, such as adaptive bisquare
   `sp.kernel_weights`: they paired `S.nonzero()` with `S.data`.
