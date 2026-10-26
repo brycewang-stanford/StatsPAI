@@ -89,6 +89,15 @@ class FrontierSensitivityResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+def _overturned(estimate: float, ci_low: np.ndarray, ci_high: np.ndarray) -> np.ndarray:
+    """Grid rows whose interval is not entirely on the estimate's side of 0."""
+    if estimate > 0:
+        return np.asarray(ci_low <= 0)
+    if estimate < 0:
+        return np.asarray(ci_high >= 0)
+    return np.asarray((ci_low <= 0) & (0 <= ci_high))
+
+
 def copula_sensitivity(
     estimate: float,
     se: float,
@@ -108,7 +117,9 @@ def copula_sensitivity(
 
     under the normalisation sigma_D = 1. The adjusted estimate is
     ``estimate - bias(rho)``; we sweep ``rho`` on a grid to find the
-    breakpoint ``rho*`` that zeros the effect.
+    breakpoint ``rho*`` that zeros the effect: the grid value of smallest
+    ``|rho|`` whose adjusted interval covers zero or lies on the other side
+    of it.
 
     Parameters
     ----------
@@ -148,9 +159,12 @@ def copula_sensitivity(
     z = stats.norm.ppf(1 - alpha / 2)
     ci_low = adjusted - z * se
     ci_high = adjusted + z * se
-    # Breakpoint: smallest |rho| such that the adjusted estimate's CI
-    # includes zero.
-    covers_zero = (ci_low <= 0) & (0 <= ci_high)
+    # Breakpoint: smallest |rho| at which the adjusted estimate's CI is no
+    # longer entirely on the side of zero the estimate is on -- it covers
+    # zero or lies beyond it. Testing only "covers zero" missed a CI that
+    # jumps across zero between two grid values (a small SE) and called
+    # a reversed effect robust.
+    covers_zero = _overturned(float(estimate), ci_low, ci_high)
     try:
         bp = float(grid[covers_zero][np.argmin(np.abs(grid[covers_zero]))])
     except ValueError:
@@ -221,7 +235,9 @@ def survival_sensitivity(
     Notes
     -----
     ``breakpoint`` is the smallest grid ``Γ`` whose worst-case confidence
-    interval contains 0. The continuous crossing is the confidence limit
+    interval contains 0 or lies on the other side of it (with a small SE
+    the interval can cross 0 between two grid values). The continuous
+    crossing is the confidence limit
     nearest the null on the hazard-ratio scale,
     ``Γ* = exp(|log_hr| - z se)`` (when it exceeds 1) -- the bias factor
     whose E-value ``Γ* + sqrt(Γ*(Γ* - 1))`` R ``EValue::evalues.HR(rare =
@@ -265,7 +281,8 @@ def survival_sensitivity(
     # Δ survival = S_0(t)^exp(log_hr) - S_0(t)
     delta_worst = baseline_survival_t ** np.exp(log_hr_worst) - baseline_survival_t
     delta_best = baseline_survival_t ** np.exp(log_hr_best) - baseline_survival_t
-    covers_zero_worst = (ci_low_worst <= 0) & (0 <= ci_high_worst)
+    # covers the null or lies beyond it (see copula_sensitivity)
+    covers_zero_worst = _overturned(float(log_hr), ci_low_worst, ci_high_worst)
     try:
         bp = float(grid2[covers_zero_worst][np.argmin(grid2[covers_zero_worst])])
     except ValueError:
@@ -344,7 +361,9 @@ def calibrate_confounding_strength(
         Residual degrees of freedom of the regression. Required: the bias
         bound scales with ``√dof``.
     alpha : float, default 0.05
-        Level of the adjusted confidence interval.
+        Level of the adjusted confidence interval, referred to t with
+        ``dof`` degrees of freedom as R ``sensemakr::ovb_bounds`` reports
+        it (sensemakr's stand-alone ``adjusted_ci`` uses ``dof - 1``).
     target_estimate : float, default 0.0
         Effect value to explain away.
     multipliers : sequence of float, optional
@@ -403,6 +422,10 @@ def calibrate_confounding_strength(
         else np.asarray(multipliers, dtype=float)
     )
     r2d, r2y = float(observed_r2_treatment), float(observed_r2_outcome)
+    # t(dof), as sensemakr::ovb_bounds reports adjusted_lower_CI /
+    # adjusted_upper_CI (tests/reference_parity/test_misc_sens_R_parity.py).
+    # sensemakr 0.1.6 is not consistent here: its stand-alone adjusted_ci()
+    # refers the same adjusted SE to t(dof - 1).
     z = stats.t.ppf(1 - alpha / 2, dof)
     rows = []
     for k in grid:
