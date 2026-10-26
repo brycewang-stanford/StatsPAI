@@ -53383,7 +53383,7 @@
     }
   },
   {
-    "description": "Nevo-Rosen (2012) bounds for LATE under imperfect instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Nevo-Rosen (2012) bounds on a linear IV slope with an imperfect instrument. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "iv_bounds",
     "parameters": {
       "properties": {
@@ -53394,7 +53394,7 @@
         },
         "assumption": {
           "default": "monotone_iv",
-          "description": "- ``'monotone_iv'``: instrument has same-sign direct effect as through the treatment (Nevo-Rosen Proposition 2). - ``'less_than_late'``: direct effect of Z on Y is weakly less than the indirect effect (tighter).",
+          "description": "- ``'monotone_iv'``: Nevo-Rosen A3 and A4, the sharp set above. - ``'less_than_late'``: deprecated. It returned ``Wald +/- |OLS - Wald|``, an interval with no source in the literature that can exclude the true slope under the assumption it was described with; it is kept, unchanged up to rounding, until the next minor release.",
           "enum": [
             "monotone_iv",
             "less_than_late"
@@ -53402,7 +53402,7 @@
           "type": "string"
         },
         "controls": {
-          "description": "Control variables (residualized out via OLS).",
+          "description": "Exogenous regressors W, partialled out of ``y``, ``x`` and ``z`` (they serve as their own instruments).",
           "items": {
             "type": "string"
           },
@@ -53419,7 +53419,7 @@
           "x-statspai-role": "dataframe"
         },
         "instrument": {
-          "description": "Instrument variable (binary).",
+          "description": "Imperfect instrument (one variable).",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -53438,13 +53438,22 @@
           "x-canonical": "seed"
         },
         "treatment": {
-          "description": "Endogenous treatment (binary).",
+          "description": "Endogenous regressor (continuous or binary).",
           "type": "string",
           "x-aliases": [
             "treat"
           ],
           "x-canonical": "treat",
           "x-statspai-role": "column"
+        },
+        "xu_sign": {
+          "default": "positive",
+          "description": "The assumed sign of ``corr(x, u)``: ``'positive'`` when OLS is believed to overstate ``beta``. It decides which IV estimate is the upper and which the lower endpoint.",
+          "enum": [
+            "positive",
+            "negative"
+          ],
+          "type": "string"
         },
         "y": {
           "description": "Outcome variable.",
@@ -53565,7 +53574,7 @@
         },
         "method": {
           "default": "conditional",
-          "description": "- ``'conditional'``: compute Lee bounds within covariate strata and average (tighter). - ``'unconditional'``: standard Lee bounds ignoring covariates.",
+          "description": "- ``'conditional'``: Lee's (2009) tightened bounds. Each covariate stratum is trimmed by its own share and the trimmed means are averaged over the covariate distribution of the always-observed (the selected units of the less-retained arm). Continuous covariates (float, or more than 10 values) are binned into quartiles first. Equals ``sp.lee_bounds(covariates=<strata>, trimming='quantile')``. - ``'unconditional'``: Lee bounds ignoring covariates, equal to ``sp.lee_bounds(trimming='quantile')``.",
           "enum": [
             "conditional",
             "unconditional"
@@ -54786,12 +54795,12 @@
       "properties": {
         "alpha_in": {
           "default": 0.05,
-          "description": "p-value threshold for variable entry (when ``criterion=\"pvalue\"``).",
+          "description": "p-value threshold for variable entry (when ``criterion=\"pvalue\"``): the candidate with the smallest p-value enters while it is below ``alpha_in``, the rule of Stata ``stepwise, pe()``. No information criterion is consulted.",
           "type": "number"
         },
         "alpha_out": {
           "default": 0.1,
-          "description": "p-value threshold for variable removal (when ``criterion=\"pvalue\"``).",
+          "description": "p-value threshold for variable removal (when ``criterion=\"pvalue\"``): the included term with the largest p-value leaves while it is at least ``alpha_out`` (Stata ``pr()``). Removals are tried before entries at every step, which can order the steps differently from Stata's forward-stepwise mode; on the test design the selections agree in all four modes. Must not be smaller than ``alpha_in``.",
           "type": "number"
         },
         "criterion": {
@@ -75850,7 +75859,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Accepted for API symmetry; no confidence interval is computed.",
           "type": "number"
         },
         "data": {

@@ -30,7 +30,8 @@ Nonparametric Analysis of Randomized Experiments with Missing
 Covariate and Outcome Data. JASA, 95(449), 77-84. [@horowitz2000nonparametric]
 
 Nevo, A. & Rosen, A. M. (2012).
-Identification with Imperfect Instruments. RES, 79(3), 1104-1127. [@nevo2012identification]
+Identification with Imperfect Instruments. Review of Economics and
+Statistics, 94(3), 659-671. doi:10.1162/REST_a_00171. [@nevo2012identification]
 
 Oster, E. (2019).
 Unobservable Selection and Coefficient Stability.
@@ -41,17 +42,17 @@ Salvaging Falsified Instrumental Variable Models.
 Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
 """
 
+from .balke_pearl import BalkePearlResult, balke_pearl
 from .lee_manski import lee_bounds, manski_bounds
+from .ml_bounds import MLBoundsResult, ml_bounds
 from .partial_id import (
     BoundsResult,
+    breakdown_frontier,
     horowitz_manski,
     iv_bounds,
     oster_delta,
     selection_bounds,
-    breakdown_frontier,
 )
-from .balke_pearl import balke_pearl, BalkePearlResult
-from .ml_bounds import ml_bounds, MLBoundsResult
 
 __all__ = [
     "lee_bounds",

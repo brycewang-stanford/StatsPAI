@@ -17,7 +17,9 @@ Covariate and Outcome Data." JASA, 95(449), 77-84.
 [@horowitz2000nonparametric]
 
 Nevo, A. & Rosen, A. M. (2012). "Identification with Imperfect Instruments."
-RES, 79(3), 1104-1127. [@nevo2012identification]
+Review of Economics and Statistics, 94(3), 659-671.
+doi:10.1162/REST_a_00171 (verified via Crossref and cemmap, 2026-10-27).
+[@nevo2012identification]
 
 Oster, E. (2019).
 "Unobservable Selection and Coefficient Stability: Theory and Evidence."
@@ -43,6 +45,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 # ======================================================================
 # BoundsResult — Shared result class for all bounding methods
@@ -126,6 +129,35 @@ class BoundsResult(ResultProtocolMixin):
         """Midpoint of the identified set."""
         return (self.lower + self.upper) / 2.0
 
+    def parameter_ci(self) -> Tuple[float, float]:
+        """Imbens-Manski (2004) confidence interval for the parameter.
+
+        ``[lower - c se_lower, upper + c se_upper]`` with ``c`` solving
+        ``Phi(c + width / max(se)) - Phi(-c) = 1 - alpha``: between the
+        one-sided ``z_{1-alpha}`` (wide set) and the two-sided
+        ``z_{1-alpha/2}`` (point identified). The same interval
+        ``sp.lee_bounds`` reports. Until 2026-10-27 the printed interval was
+        labelled Imbens-Manski but used ``z_{1-alpha/2}``, which covers the
+        whole identified set and over-covers the parameter.
+        """
+        from .lee_manski import _imbens_manski_cn
+
+        ses = [v for v in (self.se_lower, self.se_upper) if np.isfinite(v)]
+        sigma = max(ses) if ses else float("nan")
+        c = _imbens_manski_cn(max(self.width, 0.0), sigma, self.alpha)
+        # an open side (a one-sided set) stays open
+        lo = (
+            self.lower
+            if not np.isfinite(self.lower)
+            else self.lower - c * self.se_lower
+        )
+        hi = (
+            self.upper
+            if not np.isfinite(self.upper)
+            else self.upper + c * self.se_upper
+        )
+        return float(lo), float(hi)
+
     def includes_zero(self) -> bool:
         """Check whether the identified set includes zero."""
         return self.lower <= 0 <= self.upper
@@ -136,12 +168,8 @@ class BoundsResult(ResultProtocolMixin):
 
     def summary(self) -> str:
         """Return a formatted summary string."""
-        z = sp_stats.norm.ppf(1 - self.alpha / 2)
         pct = int((1 - self.alpha) * 100)
-
-        # Imbens-Manski CI for the identified set
-        im_lo = self.lower - z * self.se_lower
-        im_hi = self.upper + z * self.se_upper
+        im_lo, im_hi = self.parameter_ci()
 
         lines = [
             "",
@@ -188,10 +216,8 @@ class BoundsResult(ResultProtocolMixin):
 
     def _repr_html_(self) -> str:
         """Rich HTML for Jupyter notebooks."""
-        z = sp_stats.norm.ppf(1 - self.alpha / 2)
         pct = int((1 - self.alpha) * 100)
-        im_lo = self.lower - z * self.se_lower
-        im_hi = self.upper + z * self.se_upper
+        im_lo, im_hi = self.parameter_ci()
 
         if self.includes_zero():
             verdict = '<span style="color:#e67e22">Bounds include zero</span>'
@@ -240,13 +266,16 @@ class BoundsResult(ResultProtocolMixin):
         if ax is None:
             fig, ax = plt.subplots(figsize=(6, 3))
 
-        z = sp_stats.norm.ppf(1 - self.alpha / 2)
-
-        # Identified set as thick bar
+        # Identified set as thick bar; an open side (a one-sided set) is
+        # drawn to the edge of the finite part of the picture
+        finite = [v for v in (self.lower, self.upper) if np.isfinite(v)]
+        span = max(1.0, *(abs(v) for v in finite)) if finite else 1.0
+        left = self.lower if np.isfinite(self.lower) else min(finite) - span
+        right = self.upper if np.isfinite(self.upper) else max(finite) + span
         ax.barh(
             0,
-            self.upper - self.lower,
-            left=self.lower,
+            right - left,
+            left=left,
             height=0.3,
             color="#3498db",
             alpha=0.6,
@@ -254,8 +283,9 @@ class BoundsResult(ResultProtocolMixin):
         )
 
         # CI whiskers
-        ci_lo = self.lower - z * self.se_lower
-        ci_hi = self.upper + z * self.se_upper
+        ci_lo, ci_hi = self.parameter_ci()
+        ci_lo = ci_lo if np.isfinite(ci_lo) else left
+        ci_hi = ci_hi if np.isfinite(ci_hi) else right
         ax.plot([ci_lo, ci_hi], [0, 0], "k-", linewidth=1)
         ax.plot([ci_lo, ci_lo], [-0.1, 0.1], "k-", linewidth=1)
         ax.plot([ci_hi, ci_hi], [-0.1, 0.1], "k-", linewidth=1)
@@ -289,6 +319,7 @@ def _bootstrap_bounds(
     n_boot: int,
     alpha: float,
     random_state: int,
+    point: Tuple[float, float],
     label: str = "bounds bootstrap",
     **kwargs: Any,
 ) -> Tuple[float, float, Tuple[float, float], Tuple[float, float], int]:
@@ -298,6 +329,12 @@ def _bootstrap_bounds(
     SE/CI computation; a ``RuntimeWarning`` reports the failed fraction
     (same convention as ``core._bootstrap.bootstrap_se``) and the count
     is returned so callers can record it in ``model_info``.
+
+    ``point`` holds the full-sample ``(lower, upper)``: each endpoint's
+    interval is ``bound +/- z_{1-alpha/2} se``, centred on the estimate.
+    Before 2026-10-27 it was centred on the median of the bootstrap draws,
+    which moves with their skew. Fewer than two usable draws give NaN
+    standard errors (they used to be reported as 0).
 
     Returns
     -------
@@ -326,18 +363,17 @@ def _bootstrap_bounds(
             stacklevel=2,
         )
 
-    boot_lb = boot_lb[~np.isnan(boot_lb)]
-    boot_ub = boot_ub[~np.isnan(boot_ub)]
-
-    se_lb = float(np.std(boot_lb, ddof=1)) if len(boot_lb) > 1 else 0.0
-    se_ub = float(np.std(boot_ub, ddof=1)) if len(boot_ub) > 1 else 0.0
-
     z = sp_stats.norm.ppf(1 - alpha / 2)
-    lb_point = float(np.median(boot_lb)) if len(boot_lb) > 0 else 0.0
-    ub_point = float(np.median(boot_ub)) if len(boot_ub) > 0 else 0.0
 
-    ci_lb = (lb_point - z * se_lb, lb_point + z * se_lb)
-    ci_ub = (ub_point - z * se_ub, ub_point + z * se_ub)
+    def _side(draws: np.ndarray, est: float) -> Tuple[float, Tuple[float, float]]:
+        if not np.isfinite(est):  # an open side (e.g. a one-sided bound)
+            return float("nan"), (est, est)
+        draws = draws[np.isfinite(draws)]
+        se = float(np.std(draws, ddof=1)) if len(draws) > 1 else float("nan")
+        return se, (est - z * se, est + z * se)
+
+    se_lb, ci_lb = _side(boot_lb, float(point[0]))
+    se_ub, ci_ub = _side(boot_ub, float(point[1]))
 
     return se_lb, se_ub, ci_lb, ci_ub, n_failed
 
@@ -424,6 +460,13 @@ def horowitz_manski(
     )
     df = data.dropna(subset=[y, treatment] + covariates).copy()
 
+    D_all = df[treatment].to_numpy(dtype=np.float64)
+    if not np.isin(D_all, (0.0, 1.0)).all():
+        raise MethodIncompatibility(
+            f"horowitz_manski: treatment {treatment!r} must be coded 0/1; "
+            f"found {sorted(np.unique(D_all).tolist())[:6]}.",
+            recovery_hint=f"Recode {treatment!r} to 0/1 (1 = treated).",
+        )
     Y = df[y].values.astype(np.float64)
 
     if y_lower is None:
@@ -447,6 +490,7 @@ def horowitz_manski(
         n_boot,
         alpha,
         random_state,
+        point=(lb, ub),
         label="horowitz_manski",
     )
 
@@ -558,13 +602,28 @@ def iv_bounds(
     alpha: float = 0.05,
     n_boot: int = 500,
     random_state: int = 42,
+    xu_sign: str = "positive",
 ) -> BoundsResult:
     """
-    Nevo-Rosen (2012) bounds for LATE under imperfect instruments.
+    Nevo-Rosen (2012) bounds on a linear IV slope with an imperfect instrument.
 
-    When the exclusion restriction may be violated, the LATE is no longer
-    point-identified.  Under weaker monotonicity assumptions on the
-    direction of the violation, informative bounds can still be obtained.
+    The model is ``y = beta x + W delta + u`` with one endogenous regressor
+    ``x`` (``treatment``), exogenous ``controls`` W and one instrument ``z``
+    that may be correlated with ``u``. Nevo and Rosen replace exogeneity of
+    ``z`` with two assumptions:
+
+    * A3 (same direction): ``corr(x, u)`` and ``corr(z, u)`` have the same
+      sign;
+    * A4 (less endogenous): ``|corr(z, u)| <= |corr(x, u)|``.
+
+    Under A3 and A4, ``V(1) = sd(z) x - sd(x) z`` is a second instrument
+    whose bias has the opposite sign, and the sharp identified set for
+    ``beta`` has the IV estimates with ``z`` and with ``V(1)`` as endpoints
+    (working paper, Proposition 2; Proposition 3 with controls). It is a
+    closed interval when the two instruments bound ``beta`` from opposite
+    sides, and a half-line otherwise (typically when ``z`` and ``x`` are
+    positively correlated). Which side is open follows from the sign of
+    ``corr(x, u)``, which the data cannot tell and ``xu_sign`` states.
 
     Parameters
     ----------
@@ -572,102 +631,124 @@ def iv_bounds(
     y : str
         Outcome variable.
     treatment : str
-        Endogenous treatment (binary).
+        Endogenous regressor (continuous or binary).
     instrument : str
-        Instrument variable (binary).
+        Imperfect instrument (one variable).
     controls : list of str, optional
-        Control variables (residualized out via OLS).
-    assumption : str, default 'monotone_iv'
-        - ``'monotone_iv'``: instrument has same-sign direct effect as
-          through the treatment (Nevo-Rosen Proposition 2).
-        - ``'less_than_late'``: direct effect of Z on Y is weakly less
-          than the indirect effect (tighter).
+        Exogenous regressors W, partialled out of ``y``, ``x`` and ``z``
+        (they serve as their own instruments).
+    assumption : {'monotone_iv', 'less_than_late'}, default 'monotone_iv'
+        - ``'monotone_iv'``: Nevo-Rosen A3 and A4, the sharp set above.
+        - ``'less_than_late'``: deprecated. It returned
+          ``Wald +/- |OLS - Wald|``, an interval with no source in the
+          literature that can exclude the true slope under the assumption
+          it was described with; it is kept, unchanged up to rounding, until
+          the next minor release.
     alpha : float, default 0.05
     n_boot : int, default 500
     random_state : int, default 42
+    xu_sign : {'positive', 'negative'}, default 'positive'
+        The assumed sign of ``corr(x, u)``: ``'positive'`` when OLS is
+        believed to overstate ``beta``. It decides which IV estimate is the
+        upper and which the lower endpoint.
 
     Returns
     -------
     BoundsResult
+        ``lower`` / ``upper`` (``-inf`` / ``inf`` for an open side).
+        ``model_info`` holds ``beta_iv_z``, ``beta_iv_v1`` (the two
+        endpoints), ``ols_estimate``, ``wald_estimate`` (= ``beta_iv_z``),
+        ``closed`` and ``first_stage_f`` (the F statistic of ``z`` in the
+        regression of ``x`` on ``z`` and the controls, homoskedastic).
 
     Notes
     -----
+    Before 2026-10-27 ``'monotone_iv'`` returned ``[min(OLS, IV),
+    max(OLS, IV)]``. When ``z`` and ``x`` are positively correlated both
+    estimates are biased in the same direction and the true slope lies
+    outside that interval: with ``corr(x, u) > 0`` it lies below both.
+    ``first_stage_f`` was ``n corr(z, x)^2``.
+
     Bootstrap replicates that fail are dropped from the SE/CI
     computation; a ``RuntimeWarning`` reports the failed fraction and
-    ``model_info['n_boot_failed']`` records the count.
+    ``model_info['n_boot_failed']`` records the count. An open side has a
+    NaN standard error.
+
+    The formulas are those of the working paper (NBER w14434 and cemmap
+    CWP16/08, Section 3, both read 2026-10-27); the published version is
+    Review of Economics and Statistics 94(3), 659-671.
+
+    References
+    ----------
+    nevo2012identification
 
     Examples
     --------
     >>> import statspai as sp, numpy as np, pandas as pd
     >>> rng = np.random.default_rng(0)
-    >>> n = 500
-    >>> lottery = rng.binomial(1, 0.5, n)
-    >>> trained = ((lottery + rng.normal(0, 1, n)) > 0.5).astype(int)
-    >>> employed = ((0.3 * trained + rng.normal(0, 1, n)) > 0).astype(int)
-    >>> df = pd.DataFrame({"employed": employed, "trained": trained,
-    ...                    "lottery": lottery})
-    >>> result = sp.iv_bounds(
-    ...     data=df, y="employed", treatment="trained",
-    ...     instrument="lottery", assumption="monotone_iv",
-    ... )
+    >>> n = 2000
+    >>> z, v, e = rng.normal(size=(3, n))
+    >>> u = 0.2 * z + 0.8 * v + 0.5 * e      # z is mildly endogenous
+    >>> x = -z + v                            # negatively correlated with z
+    >>> df = pd.DataFrame({"y": x + u, "x": x, "z": z})
+    >>> result = sp.iv_bounds(data=df, y="y", treatment="x", instrument="z",
+    ...                       n_boot=50)
     >>> result.method
     'Nevo-Rosen IV Bounds (monotone_iv)'
-    >>> bool(result.lower <= result.upper)
+    >>> bool(result.lower <= 1.0 <= result.upper)     # true slope 1
     True
     """
-    cols = [y, treatment, instrument]
-    if controls:
-        cols += controls
+    if assumption not in ("monotone_iv", "less_than_late"):
+        raise MethodIncompatibility(
+            f"iv_bounds: unknown assumption {assumption!r}.",
+            recovery_hint="Use assumption='monotone_iv'.",
+        )
+    if xu_sign not in ("positive", "negative"):
+        raise MethodIncompatibility(
+            f"iv_bounds: xu_sign must be 'positive' or 'negative', got {xu_sign!r}.",
+            recovery_hint="State the assumed sign of corr(treatment, error).",
+        )
+    if assumption == "less_than_late":
+        warnings.warn(
+            "iv_bounds(assumption='less_than_late') is deprecated and will be "
+            "removed no earlier than the next minor release: the interval "
+            "Wald +/- |OLS - Wald| has no source in the literature and can "
+            "exclude the true slope. Use assumption='monotone_iv' (Nevo-Rosen "
+            "A3 + A4). See MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    controls = list(controls) if controls else []
+    cols = [y, treatment, instrument] + controls
     _check_cols(
         data,
         {
             "y": y,
             "treatment": treatment,
             "instrument": instrument,
-            "controls": list(controls) if controls else None,
+            "controls": controls or None,
         },
         "sp.iv_bounds",
     )
 
-    df = data.dropna(subset=cols).copy()
+    df = data.dropna(subset=cols).reset_index(drop=True)
+    sign = 1.0 if xu_sign == "positive" else -1.0
 
-    # Residualize if controls are provided
-    Y = df[y].values.astype(np.float64)
-    D = df[treatment].values.astype(np.float64)
-    Z = df[instrument].values.astype(np.float64)
+    def _arrays(d: pd.DataFrame) -> tuple:
+        Y = d[y].to_numpy(dtype=np.float64)
+        X = d[treatment].to_numpy(dtype=np.float64)
+        Z = d[instrument].to_numpy(dtype=np.float64)
+        W = np.column_stack(
+            [np.ones(len(d))] + [d[c].to_numpy(dtype=np.float64) for c in controls]
+        )
+        return Y, X, Z, W
 
-    if controls and len(controls) > 0:
-        X = df[controls].values.astype(np.float64)
-        X_aug = np.column_stack([np.ones(len(X)), X])
-        # Residualize Y, D, Z
-        for arr_name in ["Y", "D", "Z"]:
-            arr = locals()[arr_name]
-            beta = np.linalg.lstsq(X_aug, arr, rcond=None)[0]
-            resid = arr - X_aug @ beta
-            if arr_name == "Y":
-                Y = resid
-            elif arr_name == "D":
-                D = resid + np.mean(D)  # Keep mean for proportions
-            else:
-                Z = resid + np.mean(Z)
-
-    lb, ub = _iv_bounds_point(Y, D, Z, assumption)
-
-    # Bootstrap
     def _compute(df_b: pd.DataFrame, **kw: Any) -> tuple[float, float]:
-        Yb = df_b[y].values.astype(np.float64)
-        Db = df_b[treatment].values.astype(np.float64)
-        Zb = df_b[instrument].values.astype(np.float64)
-        if controls and len(controls) > 0:
-            Xb = df_b[controls].values.astype(np.float64)
-            Xb_aug = np.column_stack([np.ones(len(Xb)), Xb])
-            beta_y = np.linalg.lstsq(Xb_aug, Yb, rcond=None)[0]
-            Yb = Yb - Xb_aug @ beta_y
-            beta_d = np.linalg.lstsq(Xb_aug, Db, rcond=None)[0]
-            Db = Db - Xb_aug @ beta_d + np.mean(Db)
-            beta_z = np.linalg.lstsq(Xb_aug, Zb, rcond=None)[0]
-            Zb = Zb - Xb_aug @ beta_z + np.mean(Zb)
-        return _iv_bounds_point(Yb, Db, Zb, assumption)
+        out = _iv_bounds_point(*_arrays(df_b), assumption, sign)
+        return out["lower"], out["upper"]
+
+    point = _iv_bounds_point(*_arrays(df), assumption, sign)
+    lb, ub = point["lower"], point["upper"]
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
         _compute,
@@ -675,14 +756,23 @@ def iv_bounds(
         n_boot,
         alpha,
         random_state,
+        point=(lb, ub),
         label="iv_bounds",
     )
 
-    # Wald estimate for reference
-    cov_zy = np.cov(Z, Y)[0, 1]
-    cov_zd = np.cov(Z, D)[0, 1]
-    wald = cov_zy / cov_zd if abs(cov_zd) > 1e-12 else np.nan
-
+    model_info = {
+        "assumption": assumption,
+        "xu_sign": xu_sign,
+        "beta_iv_z": point["beta_z"],
+        "beta_iv_v1": point["beta_v1"],
+        "ols_estimate": point["ols"],
+        "wald_estimate": point["beta_z"],
+        "closed": point["closed"],
+        "cov_zy": point["cov_zy"],
+        "cov_zd": point["cov_zx"],
+        "first_stage_f": point["first_stage_f"],
+        "n_boot_failed": n_failed,
+    }
     return BoundsResult(
         lower=lb,
         upper=ub,
@@ -693,63 +783,86 @@ def iv_bounds(
         method=f"Nevo-Rosen IV Bounds ({assumption})",
         alpha=alpha,
         n_obs=len(df),
-        model_info={
-            "assumption": assumption,
-            "wald_estimate": float(wald) if np.isfinite(wald) else None,
-            "cov_zy": float(cov_zy),
-            "cov_zd": float(cov_zd),
-            "first_stage_f": (
-                float(cov_zd**2 / (np.var(Z) * np.var(D) / len(Z)))
-                if np.var(D) > 0
-                else 0.0
-            ),
-            "n_boot_failed": n_failed,
-        },
+        model_info=model_info,
     )
 
 
 def _iv_bounds_point(
     Y: np.ndarray,
-    D: np.ndarray,
+    X: np.ndarray,
     Z: np.ndarray,
+    W: np.ndarray,
     assumption: str,
-) -> tuple[float, float]:
-    """Compute Nevo-Rosen bounds for given arrays."""
-    cov_zy = np.cov(Z, Y, ddof=1)[0, 1]
-    cov_zd = np.cov(Z, D, ddof=1)[0, 1]
-    var_d = np.var(D, ddof=1)
+    sign: float = 1.0,
+) -> Dict[str, Any]:
+    """Nevo-Rosen identified set for one sample.
 
-    # Standard Wald/IV estimate
-    wald = cov_zy / cov_zd if abs(cov_zd) > 1e-12 else 0.0
+    ``W`` holds the constant and the exogenous controls; ``Y`` and ``X`` are
+    partialled on it (working paper eq. 3.10), and every covariance with a
+    residualised variable equals the covariance of the raw variable with it,
+    so ``z`` itself needs no residualising. ``V(1) = sd(z) x - sd(x) z`` uses
+    the raw standard deviations, because A4 restricts the raw correlations
+    with ``u``.
+    """
 
-    # OLS estimate for reference
-    cov_dy = np.cov(D, Y, ddof=1)[0, 1]
-    ols = cov_dy / var_d if var_d > 1e-12 else 0.0
+    def _resid(v: np.ndarray) -> np.ndarray:
+        r: np.ndarray = v - W @ np.linalg.lstsq(W, v, rcond=None)[0]
+        return r
 
-    if assumption == "monotone_iv":
-        # Nevo-Rosen Proposition 2: if instrument has same-sign direct
-        # effect on Y as through D, LATE is bounded between OLS and Wald.
-        # Under positive correlation: [min(OLS, Wald), max(OLS, Wald)]
-        lb = min(ols, wald)
-        ub = max(ols, wald)
-
-    elif assumption == "less_than_late":
-        # Tighter: the direct effect of Z on Y is less than the indirect effect.
-        # Bounds: [Wald - |OLS - Wald|, Wald + |OLS - Wald|]
-        # but the upper bound is capped at OLS direction.
-        diff = abs(ols - wald)
-        lb = wald - diff
-        ub = wald + diff
-        # Ensure sensible ordering
-        if lb > ub:
-            lb, ub = ub, lb
-    else:
-        raise ValueError(
-            f"Unknown assumption '{assumption}'. "
-            f"Use 'monotone_iv' or 'less_than_late'."
+    Yt, Xt, Zt = _resid(Y), _resid(X), _resid(Z)
+    n = len(Y)
+    cov_zy = float(Zt @ Yt) / (n - 1)
+    cov_zx = float(Zt @ Xt) / (n - 1)
+    cov_xx = float(Xt @ Xt) / (n - 1)
+    cov_xy = float(Xt @ Yt) / (n - 1)
+    sd_x = float(np.std(X, ddof=1))
+    sd_z = float(np.std(Z, ddof=1))
+    cov_vx = sd_z * cov_xx - sd_x * cov_zx  # cov(V(1), X~)
+    cov_vy = sd_z * cov_xy - sd_x * cov_zy
+    scale = np.sqrt(abs(cov_xx) * float(Zt @ Zt) / (n - 1))
+    if abs(cov_zx) <= 1e-12 * max(scale, 1e-300):
+        raise MethodIncompatibility(
+            "iv_bounds: the instrument is uncorrelated with the treatment "
+            "(after the controls); the IV estimate is not defined.",
+            recovery_hint="Use an instrument that moves the treatment.",
         )
+    beta_z = cov_zy / cov_zx
+    ols = cov_xy / cov_xx
+    beta_v1 = cov_vy / cov_vx if abs(cov_vx) > 1e-12 * max(scale, 1e-300) else np.nan
+    k = W.shape[1]
+    r2 = cov_zx**2 / (cov_xx * float(Zt @ Zt) / (n - 1))
+    first_stage_f = (n - k - 1) * r2 / (1.0 - r2) if r2 < 1 else float("inf")
 
-    return float(lb), float(ub)
+    closed = False
+    if assumption == "less_than_late":
+        diff = abs(ols - beta_z)
+        lb, ub = beta_z - diff, beta_z + diff
+    else:
+        # With sign = sign(corr(x, u)): beta_z - beta has the sign of
+        # sign * cov(z, x~), beta_v1 - beta the sign of sign * cov(V1, x~)
+        # (A3 / A4 sign the numerators). An endpoint whose bias is positive
+        # is an upper bound, otherwise a lower bound.
+        uppers, lowers = [], []
+        for est, den in ((beta_z, cov_zx), (beta_v1, cov_vx)):
+            if not np.isfinite(est):
+                continue
+            (uppers if sign * den > 0 else lowers).append(est)
+        lb = max(lowers) if lowers else -np.inf
+        ub = min(uppers) if uppers else np.inf
+        closed = bool(lowers and uppers)
+        if lb > ub:  # cannot happen in population; sampling noise only
+            lb, ub = ub, lb
+    return {
+        "lower": float(lb),
+        "upper": float(ub),
+        "beta_z": float(beta_z),
+        "beta_v1": float(beta_v1),
+        "ols": float(ols),
+        "closed": closed,
+        "cov_zy": cov_zy,
+        "cov_zx": cov_zx,
+        "first_stage_f": float(first_stage_f),
+    }
 
 
 # ======================================================================
@@ -928,6 +1041,7 @@ def oster_delta(
         n_boot,
         alpha,
         random_state,
+        point=(lb, ub),
         label="oster_delta",
     )
     r_max = r_max_used
@@ -989,10 +1103,16 @@ def selection_bounds(
         Binary indicator: 1 = outcome observed, 0 = missing.
     covariates : list of str, optional
         Covariates to condition on for tighter (conditional) bounds.
-    method : str, default 'conditional'
-        - ``'conditional'``: compute Lee bounds within covariate strata
-          and average (tighter).
-        - ``'unconditional'``: standard Lee bounds ignoring covariates.
+    method : {'conditional', 'unconditional'}, default 'conditional'
+        - ``'conditional'``: Lee's (2009) tightened bounds. Each covariate
+          stratum is trimmed by its own share and the trimmed means are
+          averaged over the covariate distribution of the always-observed
+          (the selected units of the less-retained arm). Continuous
+          covariates (float, or more than 10 values) are binned into
+          quartiles first. Equals
+          ``sp.lee_bounds(covariates=<strata>, trimming='quantile')``.
+        - ``'unconditional'``: Lee bounds ignoring covariates, equal to
+          ``sp.lee_bounds(trimming='quantile')``.
     n_boot : int, default 500
     alpha : float, default 0.05
     random_state : int, default 42
@@ -1003,6 +1123,16 @@ def selection_bounds(
 
     Notes
     -----
+    Since 2026-10-27 both methods run the ``sp.lee_bounds`` code. Before,
+    the unconditional bounds kept ``floor((1 - p) n)`` observations (one
+    fewer than Lee's quantile rule when ``p n`` is not whole, the rule
+    ``sp.lee_bounds`` dropped in 1.29), and the conditional bounds
+    weighted strata by their share of the whole sample and dropped
+    strata missing an arm, instead of weighting by the always-observed.
+    Rows with a missing treatment / selection indicator, or selected
+    with a missing outcome, are dropped with a warning, as in
+    ``sp.lee_bounds``.
+
     Bootstrap replicates that fail (or yield NaN bounds, e.g. a stratum
     losing all treated or selected units in a resample) are dropped from
     the SE/CI computation; a ``RuntimeWarning`` reports the failed
@@ -1030,9 +1160,13 @@ def selection_bounds(
     >>> bool(result.lower <= result.upper)
     True
     """
-    cols = [y, treatment, selection]
-    if covariates:
-        cols += covariates
+    if method not in ("conditional", "unconditional"):
+        raise MethodIncompatibility(
+            f"selection_bounds: method must be 'conditional' or "
+            f"'unconditional', got {method!r}.",
+            recovery_hint="Use method='conditional' with covariates=, or "
+            "method='unconditional'.",
+        )
     _check_cols(
         data,
         {
@@ -1043,25 +1177,36 @@ def selection_bounds(
         },
         "sp.selection_bounds",
     )
+    # One implementation of Lee (2009): the estimation sample, the trimming
+    # rule and the tightened (cell) bounds are those of sp.lee_bounds with
+    # trimming='quantile'.
+    from ._lee_sample import lee_estimation_sample
 
-    df = data.copy()
-    D = df[treatment].values.astype(float)
-    S = df[selection].values.astype(float)
+    covariates = list(covariates) if covariates else []
+    df, sel_col = lee_estimation_sample(data, y, treatment, selection)
+    if covariates:
+        n_before = len(df)
+        df = df.dropna(subset=covariates)
+        if len(df) < n_before:
+            warnings.warn(
+                f"selection_bounds: dropped {n_before - len(df)} row(s) with "
+                "missing covariates.",
+                UserWarning,
+                stacklevel=2,
+            )
+    df = df.reset_index(drop=True)
+    conditional = method == "conditional" and bool(covariates)
 
-    p1 = np.mean(S[D == 1])
-    p0 = np.mean(S[D == 0])
-
-    if method == "unconditional" or covariates is None or len(covariates) == 0:
-        lb, ub = _lee_bounds_core(df, y, treatment, selection)
-    else:
-        lb, ub = _conditional_lee_bounds(df, y, treatment, selection, covariates)
-
-    # Bootstrap
     def _compute(df_b: pd.DataFrame, **kw: Any) -> tuple[float, float]:
-        if method == "unconditional" or covariates is None or len(covariates) == 0:
-            return _lee_bounds_core(df_b, y, treatment, selection)
-        else:
-            return _conditional_lee_bounds(df_b, y, treatment, selection, covariates)
+        return _selection_lee_point(
+            df_b, y, treatment, sel_col, covariates, conditional
+        )
+
+    lb, ub = _compute(df)
+    D = df[treatment].to_numpy(dtype=float)
+    S = df[sel_col].to_numpy(dtype=float)
+    p1 = float(np.mean(S[D == 1]))
+    p0 = float(np.mean(S[D == 0]))
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
         _compute,
@@ -1069,6 +1214,7 @@ def selection_bounds(
         n_boot,
         alpha,
         random_state,
+        point=(lb, ub),
         label="selection_bounds",
     )
 
@@ -1089,108 +1235,50 @@ def selection_bounds(
             "trimming_fraction": (
                 float(abs(p1 - p0) / max(p1, p0)) if max(p1, p0) > 0 else 0.0
             ),
-            "covariates": covariates or [],
+            "covariates": covariates,
+            "trimming": "quantile",
             "n_boot_failed": n_failed,
         },
     )
 
 
-def _lee_bounds_core(
-    df: pd.DataFrame,
-    y: str,
-    treatment: str,
-    selection: str,
-) -> tuple[float, float]:
-    """Core unconditional Lee bounds computation."""
-    D = df[treatment].values.astype(float)
-    S = df[selection].values.astype(float)
-
-    p1 = np.mean(S[D == 1])
-    p0 = np.mean(S[D == 0])
-
-    if p1 == 0 or p0 == 0:
-        return (np.nan, np.nan)
-
-    obs = S == 1
-    Y_obs = df.loc[obs, y].values.astype(float)
-    D_obs = D[obs]
-
-    Y1 = Y_obs[D_obs == 1]
-    Y0 = Y_obs[D_obs == 0]
-
-    if len(Y1) == 0 or len(Y0) == 0:
-        return (np.nan, np.nan)
-
-    mean_y0 = np.mean(Y0)
-
-    if p1 > p0:
-        q = p0 / p1
-        n1 = len(Y1)
-        k = max(int(np.floor(q * n1)), 1)
-        Y1s = np.sort(Y1)
-        lb = np.mean(Y1s[:k]) - mean_y0
-        ub = np.mean(Y1s[n1 - k :]) - mean_y0
-    elif p0 > p1:
-        q = p1 / p0
-        n0 = len(Y0)
-        k = max(int(np.floor(q * n0)), 1)
-        Y0s = np.sort(Y0)
-        mean_y1 = np.mean(Y1)
-        lb = mean_y1 - np.mean(Y0s[n0 - k :])
-        ub = mean_y1 - np.mean(Y0s[:k])
-    else:
-        lb = np.mean(Y1) - mean_y0
-        ub = lb
-
-    return float(lb), float(ub)
-
-
-def _conditional_lee_bounds(
+def _selection_lee_point(
     df: pd.DataFrame,
     y: str,
     treatment: str,
     selection: str,
     covariates: List[str],
+    conditional: bool,
 ) -> tuple[float, float]:
-    """Conditional Lee bounds — average stratum-specific bounds."""
-    strata = _create_strata(df, covariates)
+    """Lee bounds through the ``sp.lee_bounds`` primitives (trimming='quantile').
 
-    strata_arr = strata.values
-    n = len(df)
+    Unconditional: ``lee_manski._compute_lee_bounds``. Conditional: Lee's
+    tightened bounds (``_lee_tight.tightened_lee_bounds``) on the strata of
+    ``_create_strata`` (continuous covariates binned into quartiles), i.e.
+    ``sp.lee_bounds(covariates=<strata>, trimming='quantile')``. With equal
+    retention in the two arms the effect is point identified and both
+    branches return the difference in means.
+    """
+    from ._lee_tight import tightened_lee_bounds
+    from .lee_manski import _compute_lee_bounds
 
-    lb_total = 0.0
-    ub_total = 0.0
-    w_total = 0.0
-
-    for s in np.unique(strata_arr):
-        mask = strata_arr == s
-        w = mask.sum() / n
-
-        df_s = df.loc[mask].copy()
-        if df_s[treatment].nunique() < 2:
-            continue
-
-        D_s = df_s[treatment].values.astype(float)
-        S_s = df_s[selection].values.astype(float)
-
-        if np.sum(D_s == 1) == 0 or np.sum(D_s == 0) == 0:
-            continue
-        if np.mean(S_s[D_s == 1]) == 0 or np.mean(S_s[D_s == 0]) == 0:
-            continue
-
-        lb_s, ub_s = _lee_bounds_core(df_s, y, treatment, selection)
-        if np.isnan(lb_s) or np.isnan(ub_s):
-            continue
-
-        lb_total += w * lb_s
-        ub_total += w * ub_s
-        w_total += w
-
-    if w_total > 0:
-        lb_total /= w_total
-        ub_total /= w_total
-
-    return float(lb_total), float(ub_total)
+    D = df[treatment].to_numpy(dtype=float)
+    S = df[selection].to_numpy(dtype=float)
+    Y = df[y].to_numpy(dtype=float)
+    p1 = float(np.mean(S[D == 1]))
+    p0 = float(np.mean(S[D == 0]))
+    if p1 == 0 or p0 == 0:
+        raise ValueError("One treatment group has zero retention.")
+    if conditional and p1 != p0:
+        cells = _create_strata(df, covariates).to_numpy()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            tight = tightened_lee_bounds(Y, D, S, cells, "quantile")
+        return float(tight["lower"]), float(tight["upper"])
+    obs = S == 1
+    Y1 = Y[obs & (D == 1)]
+    Y0 = Y[obs & (D == 0)]
+    return _compute_lee_bounds(Y1, Y0, p1, p0, "quantile")
 
 
 # ======================================================================
@@ -1336,11 +1424,12 @@ CausalResult._CITATIONS["nevo_rosen"] = (
     "@article{nevo2012identification,\n"
     "  title={Identification with Imperfect Instruments},\n"
     "  author={Nevo, Aviv and Rosen, Adam M},\n"
-    "  journal={The Review of Economic Studies},\n"
-    "  volume={79},\n"
+    "  journal={Review of Economics and Statistics},\n"
+    "  volume={94},\n"
     "  number={3},\n"
-    "  pages={1104--1127},\n"
-    "  year={2012}\n"
+    "  pages={659--671},\n"
+    "  year={2012},\n"
+    "  doi={10.1162/REST_a_00171}\n"
     "}"
 )
 

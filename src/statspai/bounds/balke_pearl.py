@@ -124,11 +124,18 @@ def balke_pearl(
     y : str
     treat : str
     instrument : str
-    alpha : float, default 0.05 (for CI of joint probabilities)
+    alpha : float, default 0.05
+        Accepted for API symmetry; no confidence interval is computed.
 
     Returns
     -------
     BalkePearlResult
+
+    Notes
+    -----
+    ``lower_monotone`` / ``upper_monotone`` assume monotonicity in the
+    direction of the estimated first stage: no defiers relative to the
+    arm of Z with the higher take-up (``detail["z_hi"]``).
 
     Examples
     --------
@@ -194,14 +201,19 @@ def balke_pearl(
     ub = float(min(upper_terms))
     lb = float(max(lower_terms))
 
-    # Under monotonicity (no defiers), the bounds tighten.
-    # Following Manski-Pepper / Balke-Pearl corollary:
-    # E[Y(1)] ∈ [E(Y·D|Z=1), 1 - E((1-Y)·D|Z=1)]  (with IAR)
-    # E[Y(0)] ∈ [E(Y·(1-D)|Z=0), 1 - E((1-Y)·(1-D)|Z=0)]
-    E_Y1_lo = p11z1
-    E_Y1_hi = 1 - p10z1
-    E_Y0_lo = p01z0
-    E_Y0_hi = 1 - p00z0
+    # Under monotonicity (no defiers) the bounds use the arm in which more
+    # units take the treatment: with z_hi that arm and z_lo the other,
+    # E[Y(1)] in [P(Y=1, D=1 | z_hi), 1 - P(Y=0, D=1 | z_hi)] and
+    # E[Y(0)] in [P(Y=1, D=0 | z_lo), 1 - P(Y=0, D=0 | z_lo)].
+    # The direction of monotonicity is read from the first stage. Until
+    # 2026-10-27 z_hi was always Z = 1, so an instrument that lowers take-up
+    # (or a relabelled one) got bounds for the wrong direction.
+    first_stage = float(P[1, 1, :].sum() - P[0, 1, :].sum())
+    z_hi, z_lo = (1, 0) if first_stage >= 0 else (0, 1)
+    E_Y1_lo = P[z_hi, 1, 1]
+    E_Y1_hi = 1 - P[z_hi, 1, 0]
+    E_Y0_lo = P[z_lo, 0, 1]
+    E_Y0_hi = 1 - P[z_lo, 0, 0]
     ub_mono = float(E_Y1_hi - E_Y0_lo)
     lb_mono = float(E_Y1_lo - E_Y0_hi)
 
@@ -232,6 +244,11 @@ def balke_pearl(
         upper_monotone=ub_mono,
         joint_probs=joint,
         n_obs=n,
+        detail={
+            "first_stage": first_stage,
+            "monotonicity": "D(z_hi) >= D(z_lo)",
+            "z_hi": z_hi,
+        },
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

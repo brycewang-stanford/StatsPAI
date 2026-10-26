@@ -923,10 +923,24 @@ def manski_bounds(
     D = clean[treat].values.astype(np.float64)
     n = len(Y)
 
+    if not np.isin(D, (0.0, 1.0)).all() or len(np.unique(D)) < 2:
+        raise MethodIncompatibility(
+            f"manski_bounds: treatment {treat!r} must be coded 0/1 with both "
+            f"values present; found {sorted(np.unique(D).tolist())[:6]}.",
+            recovery_hint=f"Recode {treat!r} to 0/1 (1 = treated).",
+        )
     if y_lower is None:
         y_lower = float(Y.min())
     if y_upper is None:
         y_upper = float(Y.max())
+    if y_lower > Y.min() or y_upper < Y.max():
+        raise MethodIncompatibility(
+            f"manski_bounds: the outcome support [{y_lower}, {y_upper}] does not "
+            f"contain the observed range [{Y.min()}, {Y.max()}]; worst-case "
+            "bounds need the true support of the outcome.",
+            recovery_hint="Widen y_lower / y_upper, or leave them as None to "
+            "use the observed minimum and maximum.",
+        )
 
     Y1 = Y[D == 1]
     Y0 = Y[D == 0]

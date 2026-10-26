@@ -337,12 +337,14 @@ def test_text_treatment_effect_bucket_collisions_leave_confounding():
     assert np.max(est) > 1.15
 
 
-def test_iv_bounds_run_from_the_wald_ratio_to_the_ols_contrast():
+def test_iv_bounds_upper_end_is_the_wald_ratio_with_a_valid_instrument():
     # With a valid randomised instrument the Wald ratio is the complier
     # effect (0.117 here, by simulation of the complier population) and
-    # the raw contrast is confounded upward. The bounds are the interval
-    # between the two.
-    lower, upper = [], []
+    # the raw contrast is confounded upward. z and d are positively
+    # correlated, so the Nevo-Rosen set (corr(d, u) > 0) is the half-line
+    # below min(Wald, IV with V(1)); the Wald ratio binds. (Until 2026-10-27
+    # this test pinned [min(Wald, OLS), max(Wald, OLS)].)
+    upper = []
     for seed in range(6):
         rng = np.random.default_rng(seed)
         n = 4000
@@ -354,13 +356,15 @@ def test_iv_bounds_run_from_the_wald_ratio_to_the_ols_contrast():
         res = sp.iv_bounds(df, y="y", treatment="d", instrument="z", n_boot=30)
         wald = res.model_info["wald_estimate"]
         ols = y[d == 1].mean() - y[d == 0].mean()
-        assert res.lower == pytest.approx(min(wald, ols), abs=1e-12)
-        assert res.upper == pytest.approx(max(wald, ols), abs=1e-12)
-        lower.append(res.lower)
+        assert ols > wald
+        assert res.lower == -np.inf
+        assert res.upper == pytest.approx(
+            min(wald, res.model_info["beta_iv_v1"]), abs=1e-12
+        )
+        assert res.upper == pytest.approx(wald, abs=1e-12)
         upper.append(res.upper)
     # Wald SE at this n is about 0.04, so the mean of six has SE 0.017.
-    assert np.mean(lower) == pytest.approx(0.117, abs=0.06)
-    assert np.mean(upper) > 0.3
+    assert np.mean(upper) == pytest.approx(0.117, abs=0.06)
 
 
 def test_rd_bayes_hte_posterior_at_the_cutoff():

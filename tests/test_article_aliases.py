@@ -234,8 +234,6 @@ def test_partial_identification_horowitz_manski():
             result.upper,
             result.se_lower,
             result.se_upper,
-            result.ci_lower[0],
-            result.ci_upper[1],
         ],
         # Since 1.29 strata missing an arm keep their mass instead of being
         # skipped. Worst-case bounds are then exactly y_upper - y_lower apart
@@ -247,10 +245,17 @@ def test_partial_identification_horowitz_manski():
             0.5802888888888889,
             0.01609893060429312,
             0.016098930604293127,
-            -0.4518033241740242,
-            0.6113033241740242,
         ],
         atol=1e-12,
+    )
+    # Each bound's interval is centred on the bound itself (since
+    # 2026-10-27; it was centred on the median of the bootstrap draws).
+    z = 1.959963984540054
+    assert result.ci_lower[0] == pytest.approx(
+        result.lower - z * result.se_lower, abs=1e-12
+    )
+    assert result.ci_upper[1] == pytest.approx(
+        result.upper + z * result.se_upper, abs=1e-12
     )
 
 

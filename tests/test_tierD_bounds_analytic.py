@@ -253,13 +253,17 @@ class TestIVBoundsAnalytic:
         y = tau * d + 0.8 * u + rng.normal(0, 0.3, n)  # exclusion holds (no z)
         return pd.DataFrame({"y": y, "d": d, "z": z})
 
-    def test_monotone_set_equals_ols_wald_interval(self):
-        # Under 'monotone_iv' the identified set is exactly [min(OLS, Wald),
-        # max(OLS, Wald)] — recompute both moment estimands independently.
+    def test_monotone_set_is_the_nevo_rosen_half_line(self):
+        # Nevo-Rosen (A3 + A4, corr(d, u) > 0) with cov(z, d) > 0: both the
+        # Wald ratio and the IV with V(1) = sd(z) d - sd(d) z overstate beta,
+        # so the set is (-inf, min(Wald, IV_V1)]. Both recomputed here from
+        # the moments. (Until 2026-10-27 the set was [min(OLS, Wald),
+        # max(OLS, Wald)], which excludes beta when both are biased up.)
         df = self._valid_iv_data()
         Y, D, Z = df["y"].values, df["d"].values, df["z"].values
         wald = np.cov(Z, Y, ddof=1)[0, 1] / np.cov(Z, D, ddof=1)[0, 1]
-        ols = np.cov(D, Y, ddof=1)[0, 1] / np.var(D, ddof=1)
+        V1 = Z.std(ddof=1) * D - D.std(ddof=1) * Z
+        iv_v1 = np.cov(V1, Y, ddof=1)[0, 1] / np.cov(V1, D, ddof=1)[0, 1]
         res = sp.iv_bounds(
             df,
             y="y",
@@ -268,14 +272,13 @@ class TestIVBoundsAnalytic:
             assumption="monotone_iv",
             n_boot=10,
         )
-        assert res.lower == pytest.approx(min(ols, wald), abs=1e-9)
-        assert res.upper == pytest.approx(max(ols, wald), abs=1e-9)
+        assert res.lower == -np.inf
+        assert res.upper == pytest.approx(min(wald, iv_v1), abs=1e-9)
 
     def test_valid_iv_recovers_effect_ols_biased_up(self):
-        # When the instrument is valid, the Wald estimand is consistent for the
-        # structural effect tau=1, while OLS is biased *upward* by the positive
-        # confounder. The monotone-IV set therefore runs from the consistent
-        # Wald endpoint up to the biased OLS endpoint: [Wald, OLS] with Wald<OLS.
+        # With a valid instrument the Wald estimand is consistent for tau = 1
+        # and OLS is biased upward; the Wald ratio is the binding upper end
+        # of the Nevo-Rosen set, which contains tau.
         df = self._valid_iv_data()
         Y, D, Z = df["y"].values, df["d"].values, df["z"].values
         wald = np.cov(Z, Y, ddof=1)[0, 1] / np.cov(Z, D, ddof=1)[0, 1]
@@ -290,8 +293,8 @@ class TestIVBoundsAnalytic:
         )
         assert wald == pytest.approx(1.0, abs=0.12)  # IV consistency
         assert ols - wald > 0.5  # known-sign confounding bias
-        assert res.lower == pytest.approx(wald, abs=1e-9)
-        assert res.upper == pytest.approx(ols, abs=1e-9)
+        assert res.upper == pytest.approx(wald, abs=1e-9)
+        assert res.lower <= 1.0 <= res.upper + 0.12
 
     def test_less_than_late_symmetric_interval(self):
         # The 'less_than_late' set is [Wald - |OLS - Wald|, Wald + |OLS - Wald|]

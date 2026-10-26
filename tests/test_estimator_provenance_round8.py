@@ -84,7 +84,7 @@ class TestManskiBoundsProvenance:
             }
         )
         r = sp.manski_bounds(
-            df, y="y", treat="d", y_lower=-3.0, y_upper=3.0, n_bootstrap=20
+            df, y="y", treat="d", y_lower=-10.0, y_upper=10.0, n_bootstrap=20
         )
         prov = sp.get_provenance(r)
         assert prov is not None
