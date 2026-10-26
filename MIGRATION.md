@@ -5,6 +5,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## Unreleased: ⚠️ bounds, quantile and selection fixes (option scan, 2026-10-27)
+
+Numbers change in these calls; there is no option to restore the old ones,
+which were wrong.
+
+- `sp.selection_bounds` equals `sp.lee_bounds(trimming='quantile')`
+  (unconditional) or `sp.lee_bounds(covariates=<strata>,
+  trimming='quantile')` (conditional). Bounds move by about one
+  observation's mass (unconditional) or by the change of cell weights
+  (conditional).
+- `sp.iv_bounds(assumption='monotone_iv')` returns the Nevo-Rosen set, which
+  is a half-line (`lower = -inf` or `upper = inf`) whenever the instrument
+  and the treatment are positively correlated after the controls. Code that
+  read `lower` / `upper` as finite numbers must handle `inf`;
+  `model_info['closed']` says which case applies. State the assumed sign of
+  `corr(treatment, error)` with `xu_sign=` (default `'positive'`).
+  `model_info['first_stage_f']` is now the first-stage F.
+- `sp.iv_bounds(assumption='less_than_late')` is deprecated
+  (`DeprecationWarning`) and will be removed no earlier than the next minor
+  release. It has no replacement; use `'monotone_iv'`.
+- `sp.balke_pearl` monotone bounds follow the direction of the first stage.
+  Calls with an instrument that raises take-up are unchanged.
+- `sp.qte(method='conditional_qr')` effects are the exact quantile-regression
+  coefficients (as `sp.qreg`); they move in the third decimal or so.
+- `sp.best_subset` may select no candidate. Check `selected` before indexing.
+- `sp.stepwise(criterion='pvalue')` may enter more terms than before (the
+  BIC no longer vetoes them). It now refuses `alpha_in > alpha_out`.
+- `BoundsResult.ci_lower` / `ci_upper` are centred on the estimated bounds,
+  and the interval in `summary()` / `plot()` is Imbens-Manski
+  (`parameter_ci()`), narrower than the old two-sided one when the set is
+  wide.
+
+---
+
 ## 1.40.2 → unreleased: ⚠️ spatial impacts, `SpatialModel`, local Moran, spatial DiD, shift-share alignment
 
 Numbers change in these calls; there is no option to restore the old ones,

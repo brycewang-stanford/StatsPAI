@@ -78,6 +78,82 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.bartik` and `sp.ssaggregate` returned NaN estimates on missing values
   in the outcome, regressor, shares or controls; they now raise
   `DataInsufficient`.
+- `sp.distributional_te` drops rows with missing values (with a warning);
+  one missing outcome used to turn every output into NaN. It refuses a
+  treatment not coded 0/1 (0-3 for `method='cic'`).
+- `sp.manski_bounds` refuses a treatment not coded 0/1 and an outcome
+  support narrower than the observed range; `sp.horowitz_manski` refuses a
+  treatment not coded 0/1.
+- `sp.panel_qtet` refuses duplicated (unit, time) rows, which passed the
+  balance check and were counted twice.
+- `sp.qte` checks the 0/1 coding before converting to integers (0.6 was read
+  as 0).
+- `sp.stepwise` and `sp.lasso_select` refuse an unknown `method` /
+  `criterion` (an unknown `lasso_select` method meant AIC, an unknown
+  `stepwise` method stopped at the starting model). `stepwise` with
+  `criterion='pvalue'` requires `alpha_in <= alpha_out`.
+- `sp.selection_bounds` refuses an unknown `method`.
+- Nevo and Rosen (2012) appeared in two docstrings and in the BibTeX of
+  `sp.iv_bounds` as Review of Economic Studies 79(3), 1104-1127; it is Review
+  of Economics and Statistics 94(3), 659-671 (refs verified via Crossref,
+  cemmap).
+
+### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
+
+- `sp.selection_bounds` now runs the `sp.lee_bounds` code (trimming
+  `'quantile'`). The unconditional bounds kept `floor((1 - p) n)`
+  observations, the rule `sp.lee_bounds` dropped in 1.29, so each bound was
+  off by one observation's mass. The conditional bounds weighted covariate
+  strata by their share of the whole sample and dropped strata missing an
+  arm; Lee's tightened bounds weight by the always-observed. On a 1,203-row
+  example the unconditional lower bound moves from -0.06854 to -0.06479 and
+  the conditional one from -0.01186 to 0.00072, each now equal to
+  `sp.lee_bounds` (which matches Stata `leebounds`) to 1e-12. Rows with a
+  missing treatment or selection indicator, or selected with a missing
+  outcome, are dropped with a warning as in `sp.lee_bounds`.
+- `sp.iv_bounds(assumption='monotone_iv')` returned `[min(OLS, IV),
+  max(OLS, IV)]`. When the instrument and the treatment are positively
+  correlated both estimates are biased the same way and the true slope lies
+  outside that interval (OLS 1.50, IV 1.20, truth 1.00 on the test design).
+  It now returns the Nevo-Rosen identified set under their A3 and A4
+  (working paper Propositions 2 and 3, `nevo2012identification`): the IV
+  estimates with `z` and with `V(1) = sd(z) x - sd(x) z` as endpoints, a
+  closed interval when `cov(z, x) < 0` after the controls and a half-line
+  otherwise. New `xu_sign=` states the assumed sign of `corr(x, u)`.
+  `model_info['first_stage_f']` was `n corr(z, x)^2` (1508.5 on a 3,000-row
+  example) and is now the first-stage F (3028.2).
+- `sp.balke_pearl`: the monotone bounds always took `Z = 1` as the arm with
+  more take-up. With an instrument that lowers take-up they came out wider
+  than the bounds without monotonicity ([-0.85, 0.95] against [0.29, 0.49]).
+  The direction is now read from the first stage (`detail['z_hi']`).
+- `sp.qte(method='conditional_qr')` solved the quantile regression by an
+  iteratively reweighted least-squares loop that stops near the minimiser,
+  not on it. It now uses the exact solver of `sp.qreg` (= `quantreg::rq`):
+  on a 500-row example the 0.75 effect moves from 1.1121 to 1.0943.
+- `sp.best_subset` never compared the model without candidates, so it
+  selected at least one variable even when none helps (BIC 1133.79 for a
+  noise regressor against 1128.64 for the intercept alone). The empty model
+  now competes; its statistics are in `history.attrs['null_model']`.
+- `sp.stepwise(criterion='pvalue')` also required each move to lower the
+  BIC, so at n = 2000 a term needed p < 0.006 to enter whatever `alpha_in`
+  said. Moves now follow the p-values alone: the least significant term
+  leaves while p >= `alpha_out`, else the most significant candidate enters
+  while p < `alpha_in`.
+- `horowitz_manski` / `iv_bounds` / `oster_delta` / `selection_bounds`
+  (`BoundsResult`): each bound's interval was centred on the median of the
+  bootstrap draws rather than on the estimate (lower-bound interval of a
+  `horowitz_manski` example [-8.470, -7.062] becomes [-8.481, -7.073]);
+  fewer than two usable draws gave an SE of 0, now NaN. `summary()` and
+  `plot()` printed `lower - z se, upper + z se` with the two-sided z under
+  the label Imbens-Manski; they now use the Imbens-Manski critical value
+  (`BoundsResult.parameter_ci()`), as `sp.lee_bounds` does.
+
+### Deprecated
+
+- `sp.iv_bounds(assumption='less_than_late')`: `Wald +/- |OLS - Wald|` has
+  no source and can exclude the true slope under the assumption it was
+  described with. It warns and keeps its numbers until removal, no earlier
+  than the next minor release.
 
 ## [1.40.2] — 2026-10-27
 
