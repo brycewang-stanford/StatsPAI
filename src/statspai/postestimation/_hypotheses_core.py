@@ -97,6 +97,19 @@ def _parse_restriction(
         if n.isidentifier():
             lookup.setdefault(n, i)
     for m in _B_INDEX.finditer(text):
+        if (
+            f"b{m.group(1)}" in names
+            and names.index(f"b{m.group(1)}") != int(m.group(1)) - 1
+        ):
+            # b2 is the second estimate, and also the name of another one
+            raise MethodIncompatibility(
+                f"hypotheses: {m.group(0)!r} in {hypothesis!r} is both the "
+                f"position of an estimate and the name of coefficient "
+                f"{names.index(m.group(0)) + 1}.",
+                recovery_hint="Rename the regressor (e.g. b1 -> b1_), so "
+                "positions b1, b2 ... are unambiguous.",
+                diagnostics={"names": list(names)},
+            )
         if int(m.group(1)) > beta.size or int(m.group(1)) < 1:
             raise MethodIncompatibility(
                 f"hypotheses: b{m.group(1)} is out of range (1..{beta.size})."

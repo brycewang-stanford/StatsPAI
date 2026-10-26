@@ -22,7 +22,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..exceptions import MethodIncompatibility
-from ._covariance import require_covariance
+from ._covariance import coefficient_scale, require_covariance
 from .hypothesis import _params, _resolve_name
 
 __all__ = ["nlcom"]
@@ -125,7 +125,13 @@ def _evaluate(
                         raise bad("a non-positive base with an estimated exponent")
                     value = a**b
                     return value, value * (gb * np.log(a) + ga * b / a)
-                return a**b, ga * b * a ** (b - 1)
+                if a < 0 and not float(b).is_integer():
+                    raise bad("a negative base with a fractional power")
+                if a == 0 and b < 1 and np.any(ga):
+                    raise bad("a power below one of a quantity that is zero")
+                if a == 0 and b < 0:
+                    raise bad("a negative power of zero")
+                return a**b, ga * b * a ** (b - 1) if np.any(ga) else ga
             raise bad("an operator other than + - * / **")
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name):
             table = _functions()
@@ -153,7 +159,9 @@ def nlcom(result: Any, expression: str, alpha: float = 0.05) -> Dict[str, Any]:
     Parameters
     ----------
     result : EconometricResults or CausalResult
-        Fitted model with ``.params`` and a covariance matrix.
+        Fitted model with ``.params`` and a covariance matrix. After
+        ``irr=True`` the names refer to the coefficients ``b``, not
+        ``exp(b)``, as in Stata.
     expression : str
         A function of the coefficients, written with their names or with
         ``_b[name]`` (required when a name is not a plain identifier, such
@@ -215,6 +223,7 @@ def nlcom(result: Any, expression: str, alpha: float = 0.05) -> Dict[str, Any]:
             f"nlcom: alpha must be in (0, 1), got {alpha!r}.",
             recovery_hint="alpha is 1 minus the confidence level, e.g. 0.05.",
         )
+    result = coefficient_scale(result)
     params = _params(result)
     beta = params.to_numpy(dtype=float)
     names: List[str] = [str(n) for n in params.index]

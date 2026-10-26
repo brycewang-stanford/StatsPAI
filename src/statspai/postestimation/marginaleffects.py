@@ -34,8 +34,8 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import MethodIncompatibility
-from ._covariance import AttrArray, inference_df, require_covariance
-from ._design import design_for
+from ._covariance import AttrArray, coefficient_scale, inference_df, require_covariance
+from ._design import design_for, known_factor_levels, reject_unseen_levels
 from ._hypotheses_core import (
     _hypothesis_list,
     _joint_wald,
@@ -139,6 +139,12 @@ class _Model:
             frame, _ = _estimation_sample(result, frame, self.design, restrict=True)
         else:
             frame = newdata
+            # A level the fit never saw would be given the base level's
+            # dummies, so its prediction would be the base level's.
+            known = known_factor_levels(result)
+            if not known and self._source is not None:
+                known = known_factor_levels(result, design_for(result, self._source))
+            reject_unseen_levels(known, frame, context=fn)
             self.design = design_for(result, frame)
             needed = [v for v in self.design.variables if v in frame.columns]
             frame = frame.loc[frame[needed].notna().all(axis=1)] if needed else frame
@@ -1087,6 +1093,8 @@ def hypotheses(
         names: List[str] = []
         dfv = _resolve_df(df, None) if df != "model" else result.attrs.get("df", np.inf)
     else:
+        # an irr=True fit is tested on its coefficients, as Stata does
+        result = coefficient_scale(result)
         params = result.params
         beta = params.to_numpy(dtype=float)
         cov = require_covariance(result, np.ones((1, beta.size)), "hypotheses")

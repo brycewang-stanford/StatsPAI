@@ -26,7 +26,12 @@ from scipy import stats
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, MethodIncompatibility, StatsPAIWarning
 from ._covariance import coefficient_covariance, inference_df, require_covariance
-from ._design import design_for, model_setting
+from ._design import (
+    design_for,
+    known_factor_levels,
+    model_setting,
+    reject_unseen_levels,
+)
 from ._ldv_margins import ldv_margins, ldv_margins_at, ldv_model
 
 
@@ -312,11 +317,22 @@ class _MarginsContext:
             frame = frame.copy()
             for name, value in at.items():
                 frame[name] = value
+            self.reject_unseen(frame, list(at))
         self.frame = frame
         self.at = dict(at or {})
         self.weights, self.weights_name = _averaging_weights(result, frame, data)
         self.df = inference_df(result)
         self.alpha = alpha
+
+    def reject_unseen(self, frame: pd.DataFrame, columns: List[str]) -> None:
+        """Refuse a factor value the model was not fitted on: the dummy
+        design would give it the base level's prediction."""
+        reject_unseen_levels(
+            known_factor_levels(self.result, self.design),
+            frame,
+            context="margins",
+            only=columns,
+        )
 
     # -- averaging -------------------------------------------------------
     def mean(self, values: np.ndarray) -> Any:
@@ -333,6 +349,10 @@ class _MarginsContext:
                     recovery_hint="Pass data= containing the weight column.",
                 )
             return values.mean(axis=0)
+        if values.shape[0] == 1 and len(self.weights) != 1:
+            # method='mem': the quantity is already evaluated at the
+            # (weighted) means, one row; there is nothing left to average
+            return values[0]
         w = self.weights / self.weights.sum()
         return np.tensordot(w, values, axes=(0, 0))
 
@@ -351,6 +371,7 @@ class _MarginsContext:
         fr = self.frame.copy()
         for k, v in setting.items():
             fr[k] = v
+        self.reject_unseen(fr, list(setting))
         if method == "mem":
             X = self._design_at_means(fr)
             return X @ self.beta + self.offset("mem", fr), X
@@ -1620,6 +1641,10 @@ class _MarginsResult(ResultProtocolMixin):
                 f"{list(margins_df.columns)}"
             )
         idx = margins_df["variable"].astype(str).tolist()
+        if "outcome" in margins_df.columns:
+            # after mlogit / ologit each variable has one row per outcome:
+            # label both, or the table would merge rows of one name
+            idx = [f"{v}:{o}" for v, o in zip(idx, margins_df["outcome"].astype(str))]
         # ``dy/dx`` may be NaN for binary/categorical rows that report a
         # discrete change instead — the helper below is defensive.
         col_dydx = "dy/dx" if "dy/dx" in margins_df.columns else "diff"

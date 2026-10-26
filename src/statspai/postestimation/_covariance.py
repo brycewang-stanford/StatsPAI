@@ -26,6 +26,7 @@ from ..exceptions import MethodIncompatibility
 __all__ = [
     "AttrArray",
     "coefficient_covariance",
+    "coefficient_scale",
     "inference_df",
     "require_covariance",
 ]
@@ -202,6 +203,62 @@ def require_covariance(result: Any, weights: np.ndarray, what: str) -> np.ndarra
             "Refit with an estimator that stores data_info['var_cov'], or "
             "test one coefficient at a time."
         ),
+    )
+
+
+class _CoefficientScaleView:
+    """A fit reported as ``exp(b)`` (``irr=True``) seen on the ``b`` scale."""
+
+    def __init__(
+        self,
+        params: pd.Series,
+        std_errors: pd.Series,
+        data_info: dict,
+        model_info: dict,
+    ) -> None:
+        self.params = params
+        self.std_errors = std_errors
+        self.data_info = data_info
+        self.model_info = model_info
+
+
+def coefficient_scale(result: Any) -> Any:
+    """``result`` on the scale of its estimated coefficients.
+
+    ``sp.poisson`` / ``sp.nbreg`` / ``sp.xtnbreg`` with ``irr=True`` report
+    ``exp(b)`` with standard errors ``exp(b) se(b)``. Stata's ``test`` /
+    ``lincom`` / ``nlcom`` after ``poisson, irr`` work on ``e(b) = b``, so
+    these functions read such a fit through this view: ``b``, ``se(b)`` and
+    the covariance of ``b``. Ancillary parameters (names starting with
+    ``/``) are not exponentiated by the fits and are left as they are.
+    Any other result is returned unchanged.
+    """
+    model_info = getattr(result, "model_info", None) or {}
+    params = getattr(result, "params", None)
+    if not model_info.get("irr") or not isinstance(params, pd.Series):
+        return result
+    names = [str(n) for n in params.index]
+    expo = np.array([not n.startswith("/") for n in names])
+    reported = params.to_numpy(dtype=float)
+    se = _standard_errors(result, len(params))
+    b = reported.copy()
+    b[expo] = np.log(reported[expo])
+    se_b = se.copy()
+    se_b[expo] = se[expo] / reported[expo]
+    data_info = dict(getattr(result, "data_info", None) or {})
+    # sp.xtnbreg(irr=True) maps its covariance to the IRR scale (J V J'),
+    # sp.poisson / sp.nbreg keep the b-scale matrix: undo the former.
+    V_reported, _ = coefficient_covariance(result)
+    if V_reported is not None:
+        scale = np.where(expo, 1.0 / reported, 1.0)
+        data_info["var_cov"] = V_reported * np.outer(scale, scale)
+    view_info = dict(model_info)
+    view_info["irr"] = False
+    return _CoefficientScaleView(
+        pd.Series(b, index=params.index),
+        pd.Series(se_b, index=params.index),
+        data_info,
+        view_info,
     )
 
 

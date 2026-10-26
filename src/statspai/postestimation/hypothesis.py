@@ -28,7 +28,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..exceptions import MethodIncompatibility
-from ._covariance import inference_df, require_covariance
+from ._covariance import coefficient_scale, inference_df, require_covariance
 
 
 def test(
@@ -43,6 +43,9 @@ def test(
     result : EconometricResults or CausalResult
         Fitted model with ``.params`` and ``.std_errors``; restrictions that
         involve several coefficients also need its covariance matrix.
+        After a fit reported as incidence-rate ratios (``irr=True``) the
+        restrictions are on the coefficients ``b``, not on ``exp(b)``, as
+        Stata's ``test`` after ``poisson, irr``.
     hypothesis : str or list of str
         Hypothesis specification (Stata ``test`` syntax), or a list of
         them to be tested jointly (``["x1 = 0", "x2 = 2*x3"]``). A
@@ -97,6 +100,7 @@ def test(
     True
     >>> restr = sp.test(result, "x1 + x2 = 1")  # beta1 + beta2 = 1?
     """
+    result = coefficient_scale(result)
     params = _params(result)
     R, r = _parse_hypothesis(hypothesis, params)
     R, r = _independent_restrictions(R, r, str(hypothesis))
@@ -173,7 +177,8 @@ def lincom(
     Parameters
     ----------
     result : EconometricResults or CausalResult
-        Fitted model.
+        Fitted model. After ``irr=True`` the combination is of the
+        coefficients ``b`` (Stata's ``lincom`` without its ``irr`` option).
     expression : str
         Linear combination (Stata ``lincom`` syntax). Examples:
         - ``"x1 + x2"`` — beta_x1 + beta_x2
@@ -209,6 +214,12 @@ def lincom(
     >>> bool(diff["se"] > 0)
     True
     """
+    if not 0 < alpha < 1:
+        raise MethodIncompatibility(
+            f"lincom: alpha must be in (0, 1), got {alpha!r}.",
+            recovery_hint="alpha is 1 minus the confidence level, e.g. 0.05.",
+        )
+    result = coefficient_scale(result)
     params = _params(result)
     c, constant = _parse_linear(*_shield_names(expression, params))
     if not np.any(c):

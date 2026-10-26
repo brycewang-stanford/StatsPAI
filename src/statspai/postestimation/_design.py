@@ -358,17 +358,23 @@ def fitted_factor_levels(design_info: Any, columns: Sequence[Any]) -> Dict[str, 
     return out
 
 
-def reject_unseen_levels(levels: Any, frame: pd.DataFrame) -> None:
+def reject_unseen_levels(
+    levels: Any,
+    frame: pd.DataFrame,
+    context: str = "predict()",
+    only: Optional[Sequence[str]] = None,
+) -> None:
     """Raise when ``frame`` holds a factor level the model was not fitted on.
 
     A dummy-coded design gives such a row zeros in every dummy of the
     factor, which is the row of the reference level: the prediction would
-    be the reference level's, without a word.
+    be the reference level's, without a word. ``context`` names the caller
+    in the message; ``only`` restricts the check to these columns.
     """
     if not isinstance(levels, dict):
         return
     for var, seen in levels.items():
-        if var not in frame.columns:
+        if var not in frame.columns or (only is not None and var not in only):
             continue
         known = set()
         for level in seen:
@@ -387,7 +393,7 @@ def reject_unseen_levels(levels: Any, frame: pd.DataFrame) -> None:
                 unseen.append(value.item() if hasattr(value, "item") else value)
         if unseen:
             raise MethodIncompatibility(
-                f"predict(): {var!r} takes the value(s) {unseen} in the new "
+                f"{context}: {var!r} takes the value(s) {unseen} in the new "
                 f"data, which the model was not fitted on (levels at fit "
                 f"time: {list(seen)}). The model has no coefficient for "
                 f"them, so there is no prediction for these rows.",
@@ -397,6 +403,20 @@ def reject_unseen_levels(levels: Any, frame: pd.DataFrame) -> None:
                 ),
                 diagnostics={"variable": var, "unseen_levels": unseen},
             )
+
+
+def known_factor_levels(result: Any, design: Any = None) -> Dict[str, Any]:
+    """Levels of each factor the fit saw, ``{column: [levels]}``.
+
+    The record the fit wrote (``data_info['factor_levels']``), or, for a
+    fit that wrote none, the levels ``design`` read off the estimation data
+    (the base level and one level per dummy).
+    """
+    recorded = (getattr(result, "data_info", None) or {}).get("factor_levels")
+    if isinstance(recorded, dict):
+        return recorded
+    factors = getattr(design, "factors", None) or {}
+    return {var: list(levels) for var, (levels, _base) in factors.items()}
 
 
 def design_for(result: Any, frame: pd.DataFrame) -> Any:
@@ -414,7 +434,72 @@ def design_for(result: Any, frame: pd.DataFrame) -> Any:
             recovery_hint="Refit with a formula-based estimator (sp.regress, "
             "sp.logit, sp.probit, sp.glm) and pass data=.",
         )
-    return _FormulaDesign(_structural_formula(formula), frame, terms)
+    structural = _structural_formula(formula)
+    fitted = _design_from_fitted_frame(result, structural, terms, frame)
+    if fitted is not None:
+        return fitted
+    return _FormulaDesign(structural, frame, terms)
+
+
+def _fitted_frame(result: Any) -> Optional[pd.DataFrame]:
+    """The DataFrame the model was fitted on, if the result still reaches it."""
+    from ..core._call_record import get_call_record
+
+    record = get_call_record(result)
+    if record is None:
+        return None
+    for ref in record.frames().values():
+        found = ref.get()
+        if isinstance(found, pd.DataFrame):
+            return found
+    return None
+
+
+def _design_from_fitted_frame(
+    result: Any, formula: str, terms: Sequence[str], frame: pd.DataFrame
+) -> Optional[_FormulaDesign]:
+    """The formula's design as memorised on the frame the model was fitted
+    on, to be evaluated on ``frame``.
+
+    patsy memorises stateful transforms (``center``, ``standardize``,
+    ``bs`` ...) and factor levels on the frame it first sees. Rebuilt on new
+    rows, ``center(x)`` would centre on their mean and a factor missing from
+    them would change the columns. The fitted frame gives the coding the
+    coefficients belong to; it is used only when, evaluated on the fit's
+    rows, it reproduces the stored design (the frame may have been edited
+    since). None when ``frame`` is that frame or it is not available.
+    """
+    fitted = _fitted_frame(result)
+    if fitted is None or fitted is frame:
+        return None
+    try:
+        design = _FormulaDesign(formula, fitted, terms)
+    except Exception:  # noqa: BLE001 - patsy and pandas raise many types
+        return None
+    if any(v not in frame.columns for v in design.variables):
+        return None
+    data_info = getattr(result, "data_info", None) or {}
+    X = data_info.get("X")
+    if X is None:
+        return design
+    X = np.asarray(X, dtype=float)
+    cols = list(design.variables)
+    dep = data_info.get("dependent_var")
+    if isinstance(dep, str) and dep in fitted.columns:
+        cols.append(dep)
+    rows = fitted.loc[fitted[cols].notna().all(axis=1)] if cols else fitted
+    try:
+        rebuilt = design.build(rows)
+    except Exception:  # noqa: BLE001
+        return None
+    if rebuilt.shape != X.shape:
+        # the fit dropped further rows (weights, clusters, singletons):
+        # its sample cannot be matched row by row; the coding stands
+        return design
+    scale = max(1.0, float(np.nanmax(np.abs(X)))) if X.size else 1.0
+    if np.allclose(rebuilt, X, rtol=1e-8, atol=1e-10 * scale):
+        return design
+    return None
 
 
 __all__ = [
@@ -422,6 +507,7 @@ __all__ = [
     "design_for",
     "factor_value",
     "fitted_factor_levels",
+    "known_factor_levels",
     "model_formula",
     "model_setting",
     "reject_unseen_levels",
