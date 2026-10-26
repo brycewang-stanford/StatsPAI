@@ -929,8 +929,12 @@ def _build_spatial_lags(
     W_norm: np.ndarray,
     unit_order: Sequence[Any],
     out_col: str,
+    source: Optional[pd.DataFrame] = None,
 ) -> pd.Series:
-    wide = df.pivot(index=unit, columns=time, values=value_col).reindex(unit_order)
+    """``W x`` per period, read from ``source`` (default ``df``), returned on
+    the rows of ``df``."""
+    src = df if source is None else source
+    wide = src.pivot(index=unit, columns=time, values=value_col).reindex(unit_order)
     time_cols = list(wide.columns)
     mat = wide.fillna(0.0).to_numpy(dtype=float)
     lagged = W_norm @ mat
@@ -960,6 +964,17 @@ def _event_time(
     return rel.where(tmp[unit].isin(first.index), np.nan)
 
 
+def _lookup(
+    df: pd.DataFrame, src: pd.DataFrame, unit: str, time: str, col: str
+) -> pd.Series:
+    """``src[col]`` on the rows of ``df``, matched by ``(unit, time)``."""
+    keys = pd.MultiIndex.from_frame(df[[unit, time]])
+    table = pd.Series(
+        src[col].to_numpy(), index=pd.MultiIndex.from_frame(src[[unit, time]])
+    )
+    return pd.Series(keys.map(table), index=df.index, name=col).astype(float)
+
+
 def _wald_zero(beta: np.ndarray, V: np.ndarray) -> Dict[str, Any]:
     if beta.size == 0:
         return {}
@@ -986,9 +1001,14 @@ def _spatial_event_study(
     unit_distances: Optional[np.ndarray],
     conley_cutoff: Optional[float],
     conley_kernel: str,
+    treat_panel: Optional[pd.DataFrame] = None,
 ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
     es_df = df.copy()
-    es_df["_rel_time"] = _event_time(es_df, treat, unit, time)
+    src = es_df if treat_panel is None else treat_panel.copy()
+    # Event time from the full treatment path: the first treated period of a
+    # unit must not move when that period's outcome is missing.
+    src["_rel_time"] = _event_time(src, treat, unit, time)
+    es_df["_rel_time"] = _lookup(es_df, src, unit, time, "_rel_time")
     rel_obs = es_df["_rel_time"].dropna()
     if rel_obs.empty:
         return pd.DataFrame(), {}
@@ -1007,6 +1027,7 @@ def _spatial_event_study(
         d_col = f"_E_{k}"
         w_col = f"_WE_{k}"
         es_df[d_col] = (es_df["_rel_time"] == k).astype(float)
+        src[d_col] = (src["_rel_time"] == k).astype(float)
         es_df[w_col] = _build_spatial_lags(
             es_df,
             d_col,
@@ -1015,6 +1036,7 @@ def _spatial_event_study(
             W_norm,
             unit_order,
             w_col,
+            source=src,
         )
         direct_cols.append(d_col)
         spill_cols.append(w_col)
@@ -1407,9 +1429,34 @@ def spatial_did(
     W_norm = _row_normalize(W_mat) if normalize_W else W_mat.astype(float)
     unit_index = {u: i for i, u in enumerate(resolved_order)}
 
+    # Spillover exposure is built from every observed treatment value, not
+    # only from the rows that survive the outcome / covariate NaN drop:
+    # a unit-period with a missing outcome is still treated (or not), and
+    # its neighbours are exposed to it. Through 1.40.2 such a unit counted
+    # as untreated in its neighbours' WD for that period.
+    treat_panel = data.loc[
+        data[treat].notna()
+        & data[unit].isin(resolved_order)
+        & data[time].isin(pd.unique(df[time])),
+        [unit, time, treat],
+    ]
+    if treat_panel.duplicated([unit, time]).any():
+        raise MethodIncompatibility(
+            "spatial_did requires one row per unit-period; aggregate "
+            "repeated cross sections before calling.",
+            recovery_hint=(
+                "Aggregate repeated unit-time cells or choose a "
+                "repeated-cross-section estimator."
+            ),
+            diagnostics={
+                "duplicate_rows": int(treat_panel.duplicated([unit, time]).sum())
+            },
+        )
+    treat_panel = treat_panel.reset_index(drop=True)
+
     warnings = []
     expected_cells = len(resolved_order) * df[time].nunique()
-    if len(df) < expected_cells:
+    if len(treat_panel) < expected_cells:
         warnings.append(
             "Panel is unbalanced; missing neighbors' treatment is treated as 0 "
             "when constructing WD for that period."
@@ -1424,7 +1471,7 @@ def spatial_did(
         )
 
     df["_WD"] = _build_spatial_lags(
-        df, treat, time, unit, W_norm, resolved_order, "_WD"
+        df, treat, time, unit, W_norm, resolved_order, "_WD", source=treat_panel
     )
 
     x_cols = [treat, "_WD"] + cov
@@ -1504,6 +1551,7 @@ def spatial_did(
             unit_distances,
             conley_cutoff,
             conley_kernel,
+            treat_panel=treat_panel,
         )
 
     exposure_frame = df[[unit, time, treat, "_WD"]].rename(
