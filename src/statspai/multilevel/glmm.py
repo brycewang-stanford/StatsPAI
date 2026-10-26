@@ -586,6 +586,45 @@ _FAMILY_ALIASES: Dict[str, str] = {
 }
 
 
+def _check_outcome(
+    family: str, name: str, y: np.ndarray, w: np.ndarray, trials: Optional[str]
+) -> None:
+    """Refuse outcomes outside the family's support (lme4 / Stata do too).
+
+    A 1/2-coded binary outcome made every log-likelihood -inf: the
+    optimiser stopped at its start values with only a Hessian warning.
+    """
+    if family == "binomial":
+        if trials and not np.all(w > 0):
+            raise MethodIncompatibility(
+                f"meglm(): trials column {trials!r} must be positive.",
+                recovery_hint="Drop rows with zero trials.",
+            )
+        bad = (y < 0) | (y > w)
+        if bad.any():
+            upper = f"its trials ({trials!r})" if trials else "1"
+            raise MethodIncompatibility(
+                f"meglm(family='binomial'): the outcome {name!r} must lie "
+                f"between 0 and {upper}; {int(bad.sum())} row(s) do not "
+                f"(range [{y.min():g}, {y.max():g}]).",
+                recovery_hint="Recode a binary outcome to 0/1 (e.g. y - 1 for "
+                "1/2 coding), or pass the number of trials with trials=.",
+                diagnostics={"n_bad": int(bad.sum())},
+            )
+    elif family in ("poisson", "nbinomial") and np.any(y < 0):
+        raise MethodIncompatibility(
+            f"meglm(family={family!r}): the outcome {name!r} has "
+            f"{int((y < 0).sum())} negative value(s); counts are >= 0.",
+            recovery_hint="Check the outcome, or use family='gaussian'.",
+        )
+    elif family == "gamma" and np.any(y <= 0):
+        raise MethodIncompatibility(
+            f"meglm(family='gamma'): the outcome {name!r} must be strictly "
+            f"positive; {int((y <= 0).sum())} value(s) are not.",
+            recovery_hint="Drop or recode non-positive outcomes.",
+        )
+
+
 def _resolve_family(name: str) -> _Family:
     name = _require_string(name, "family")
     key = name.lower()
@@ -731,8 +770,11 @@ class MEGLMResult(ResultProtocolMixin):
         """Estimated dispersion (φ for gamma, α for nbinomial); None otherwise."""
         return self._dispersion
 
-    def conf_int(self, alpha: float = 0.05) -> pd.DataFrame:
-        alpha = _require_open_unit_float(alpha, "alpha")
+    def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
+        """Wald intervals; the level defaults to the fit's ``alpha``."""
+        alpha = _require_open_unit_float(
+            self._alpha if alpha is None else alpha, "alpha"
+        )
         z = stats.norm.ppf(1 - alpha / 2)
         lo = self.fixed_effects - z * self._se_fixed
         hi = self.fixed_effects + z * self._se_fixed
@@ -1748,6 +1790,16 @@ def meglm(
     extra_cols = []
     if trials:
         trials = _require_string(trials, "trials")
+        if fam_key != "binomial":
+            # Poisson ignored it; the other families read it as frequency
+            # weights. Neither is documented.
+            raise MethodIncompatibility(
+                f"trials= applies to family='binomial' only; got "
+                f"family={fam_key!r}.",
+                recovery_hint="Drop trials=, or use an offset (log exposure) "
+                "for a count rate model.",
+                diagnostics={"family": fam_key, "trials": trials},
+            )
         extra_cols.append(trials)
     if offset:
         offset = _require_string(offset, "offset")
@@ -1814,6 +1866,7 @@ def meglm(
     y_all = np.concatenate([b.y for b in blocks])
     w_all = np.concatenate(weights_list)
     off_all = np.concatenate(offsets_list)
+    _check_outcome(fam_key, y, y_all, w_all, trials)
     beta0 = _irls_init(X_all, y_all, w_all, off_all, fam)
 
     theta_cov0 = _initial_theta(q_random, cov_type, s2_init=0.3)
@@ -2004,7 +2057,9 @@ def meglm(
         random_effects=random_effects_df,
         variance_components=vc,
         blups=blup_dict,
-        n_obs=int(np.sum(w_all) if fam_key == "binomial" and trials else len(df)),
+        # Rows, as Stata meglm e(N) and lme4 nobs() count them (also with
+        # trials=); the total number of trials made BIC too large.
+        n_obs=len(df),
         n_groups=len(blocks),
         log_likelihood=float(-fun_hat),
         family=fam_key,

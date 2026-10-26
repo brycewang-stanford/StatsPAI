@@ -469,8 +469,9 @@ def meologit(
 
     The outcome ``y`` is treated as ordered categorical with K levels.
     If ``y`` is numeric it is coerced to integer codes 1..K based on
-    sorted unique values.  Other dtypes (str, pandas categorical) are
-    coerced via ``pd.Categorical`` and ordered by appearance.
+    sorted unique values.  A pandas categorical is ordered by its
+    categories (unused categories are dropped).  Strings and other
+    dtypes are refused: their order is not known.
 
     No intercept enters β — its role is taken by the K-1 thresholds.
     Returns an :class:`MEGLMResult` with ``family='ordinal'`` and
@@ -544,9 +545,23 @@ def meologit(
     # Encode y as 1..K integer codes preserving sort order.
     y_raw = df[y]
     if isinstance(y_raw.dtype, pd.CategoricalDtype):
-        levels = list(y_raw.cat.categories)
-    else:
+        # The categories' order is the outcome order; a category with no
+        # observation has no threshold to estimate (R clmm uses the
+        # observed levels).
+        levels = list(y_raw.cat.remove_unused_categories().cat.categories)
+    elif pd.api.types.is_numeric_dtype(y_raw) or pd.api.types.is_bool_dtype(y_raw):
         levels = sorted(y_raw.dropna().unique().tolist())
+    else:
+        # Sorting labels alphabetically put "high" < "low" < "medium".
+        raise MethodIncompatibility(
+            f"meologit(): the outcome {y!r} is not numeric and not an ordered "
+            "categorical, so the order of its categories is not known.",
+            recovery_hint=(
+                "Pass pd.Categorical(values, categories=[lowest, ..., highest], "
+                "ordered=True), or numeric codes in outcome order."
+            ),
+            diagnostics={"dtype": str(y_raw.dtype)},
+        )
     K = len(levels)
     if K < 3:
         raise ValueError(f"meologit() requires at least 3 outcome categories; got {K}.")
@@ -565,9 +580,11 @@ def meologit(
     fixed_names = list(x_fixed)
     random_names = ["_cons"] + list(x_random_cols)
 
-    positions = np.arange(len(df))
-    for key, sub in df.groupby(group, sort=False):
-        idx = positions[df.index.get_indexer(sub.index)]
+    grouped = df.groupby(group, sort=False)
+    # Positions, not index labels: get_indexer fails on repeated labels.
+    where = grouped.indices
+    for key, sub in grouped:
+        idx = np.asarray(where.get(key, np.zeros(0, dtype=np.intp)), dtype=np.intp)
         y_c = sub[y].to_numpy(dtype=int)
         if x_fixed:
             X_j = sub[list(x_fixed)].to_numpy(dtype=float)

@@ -123,9 +123,12 @@ class MixedResult(ResultProtocolMixin):
     _converged: bool = field(default=True, repr=False)
     _alpha: float = field(default=0.05, repr=False)
     _n_cov_params: int = field(default=0, repr=False)
-    _lr_test: Optional[Dict[str, float]] = field(default=None, repr=False)
+    _lr_test: Optional[Dict[str, Any]] = field(default=None, repr=False)
     _ranef_se: Optional[pd.DataFrame] = field(default=None, repr=False)
     _nakagawa: Optional[Dict[str, float]] = field(default=None, repr=False)
+    #: index labels of the estimation rows (``data`` after dropping rows
+    #: with a missing model variable), in data order
+    _row_labels: Optional[pd.Index] = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Convenience accessors
@@ -240,7 +243,15 @@ class MixedResult(ResultProtocolMixin):
                 else:  # pragma: no cover — legacy path without row_idx
                     idx_start = int(getattr(block, "_idx_start", 0))
                     out[idx_start : idx_start + block.n] = mu
-            return pd.Series(out, name="yhat")
+            # Labelled like the estimation rows of ``data``, so that
+            # ``df['yhat'] = res.predict()`` lines up even when rows were
+            # dropped or the index is not 0..n-1.
+            index = (
+                self._row_labels
+                if self._row_labels is not None and len(self._row_labels) == out.size
+                else None
+            )
+            return pd.Series(out, index=index, name="yhat")
 
         # Arbitrary new data ------------------------------------------------
         if not isinstance(data, pd.DataFrame):
@@ -471,9 +482,10 @@ class MixedResult(ResultProtocolMixin):
         if self._lr_test is not None:
             lines.append("-" * w)
             lr = self._lr_test
+            dist = lr.get("distribution", f"chi2({lr['df']:.0f})")
             lines.append(
-                f"LR test vs. pooled OLS:  chi2({lr['df']:.0f}) = {lr['chi2']:.4f}, "
-                f"Prob > chi2 = {lr['p']:.4f}"
+                f"LR test vs. linear model:  {dist} = {lr['chi2']:.4f}, "
+                f"Prob >= chi2 = {lr['p']:.4f}"
             )
         lines.append("=" * w)
         return "\n".join(lines)
@@ -694,7 +706,11 @@ class MixedResult(ResultProtocolMixin):
 
         if kind == "residuals":
             yhat = self.predict().values
-            y_all = np.concatenate([b.y for b in self._blocks])
+            # predict() returns rows in data order; the blocks are grouped,
+            # so the outcome is scattered back the same way.
+            y_all = np.empty(yhat.size)
+            for b in self._blocks:
+                y_all[b.row_idx] = b.y
             resid = y_all - yhat
             fig, ax = plt.subplots(**{"figsize": (5, 4), **kwargs})
             ax.scatter(yhat, resid, s=10, alpha=0.6)
@@ -896,8 +912,6 @@ def _fit_three_level_intercept(
     outer_seen, outer_dense = np.unique(outer_of, return_inverse=True)
 
     order = np.argsort(outer_code, kind="stable")
-    outer_sizes = np.bincount(outer_code, minlength=n_outer)
-    bounds = np.concatenate([[0], np.cumsum(outer_sizes)])
     X_all = X_raw[order]
     y_all = y_raw[order]
 
@@ -954,27 +968,29 @@ def _fit_three_level_intercept(
     )
     school_u = np.zeros(n_outer)
     school_u[outer_seen] = sigma2_s * outer_sum
-    school_blups: List[float] = [float(v) for v in school_u]
-    class_blups: List[float] = [float(v) for v in sigma2_c * inner_sum]
-    class_blup_keys: List[Any] = list(inner_label)
+    class_u = sigma2_c * inner_sum
 
-    # Build composed BLUP dict: keys are innermost (class) labels mapping
-    # to their random intercept (total = school + class).
-    # We keep the class-level BLUP (what you'd pass to predict() for
-    # prediction within a known class).
-    df_inner_to_outer = df.groupby(inner_col, sort=False)[outer_col].first()
-    outer_keys = list(df.groupby(outer_col, sort=False).groups.keys())
-    school_to_blup = dict(zip(outer_keys, school_blups))
+    # BLUPs are keyed by the (outer, inner) pair: class ids commonly repeat
+    # across schools (class 1, 2, ... in every school), and a key on the
+    # inner label alone merged those classes and added the first school's
+    # BLUP to all of them. The total innermost intercept (school + class)
+    # is what predict() adds.
+    outer_raw = df[outer_col].to_numpy()
+    first_row = np.unique(outer_code, return_index=True)[1]
+    outer_label_of = dict(
+        zip(np.unique(outer_code).tolist(), outer_raw[first_row].tolist())
+    )
+    pair_keys: List[Any] = [
+        (outer_label_of[int(o)], lab)
+        for o, lab in zip(outer_of.tolist(), inner_label.tolist())
+    ]
+    total_u = class_u + school_u[outer_of]
 
-    blup_dict = {}
-    blup_rows = []
-    for c, u in zip(class_blup_keys, class_blups):
-        # Compose the total innermost random intercept for prediction.
-        outer_key = df_inner_to_outer[c]
-        blup_dict[c] = np.array([u + school_to_blup[outer_key]])
-        blup_rows.append({"_cons": u + school_to_blup[outer_key]})
-    random_effects_df = pd.DataFrame(blup_rows, index=class_blup_keys)
-    random_effects_df.index.name = inner_col
+    blup_dict = {key: np.array([u]) for key, u in zip(pair_keys, total_u)}
+    random_effects_df = pd.DataFrame(
+        {"_cons": total_u},
+        index=pd.MultiIndex.from_tuples(pair_keys, names=[outer_col, inner_col]),
+    )
 
     # Variance components ------------------------------------------------
     vc = {
@@ -1000,17 +1016,21 @@ def _fit_three_level_intercept(
     # The ``_G`` slot is normally a q×q random-effect covariance; in the
     # three-level path we store a marker NaN matrix so downstream code
     # doesn't mistake it for a genuine single-level G.
+    # One block per inner cluster, keyed like the BLUPs, so that
+    # predict(data=None) adds the conditional (school + class) intercept.
     blocks_proxy: List[_GroupBlock] = []
-    for j in range(n_outer):
-        lo, hi = int(bounds[j]), int(bounds[j + 1])
+    pair_order = np.argsort(inner_code, kind="stable")
+    pair_bounds = np.concatenate([[0], np.cumsum(np.bincount(inner_code))])
+    for c, key in enumerate(pair_keys):
+        rows = pair_order[pair_bounds[c] : pair_bounds[c + 1]]
         blocks_proxy.append(
             _GroupBlock(
-                key=None,
-                y=y_all[lo:hi],
-                X=np.asfortranarray(X_all[lo:hi]),
-                Z=np.ones((hi - lo, 1)),
-                n=hi - lo,
-                row_idx=order[lo:hi],
+                key=key,
+                y=y_raw[rows],
+                X=np.asfortranarray(X_raw[rows]),
+                Z=np.ones((rows.size, 1)),
+                n=int(rows.size),
+                row_idx=rows,
             )
         )
 
@@ -1020,7 +1040,7 @@ def _fit_three_level_intercept(
         variance_components=vc,
         blups=blup_dict,
         n_obs=n_obs,
-        n_groups=len(class_blup_keys),
+        n_groups=len(pair_keys),
         icc=icc_outer,
         log_likelihood=ll_report,
         _se_fixed=pd.Series(np.sqrt(np.diag(cov_beta)), index=fixed_names),
@@ -1032,7 +1052,7 @@ def _fit_three_level_intercept(
         _G=np.array([[sigma2_s + sigma2_c]]),
         _sigma2=sigma2_e,
         _blocks=blocks_proxy,
-        _group_cols=[inner_col],
+        _group_cols=[outer_col, inner_col],
         _fixed_names=fixed_names,
         _random_names=random_names,
         _x_fixed=list(x_fixed),
@@ -1045,6 +1065,7 @@ def _fit_three_level_intercept(
         _n_cov_params=3,
         _lr_test=None,
         _ranef_se=None,
+        _row_labels=df.index,
     )
 
 
@@ -1338,17 +1359,9 @@ def mixed(
 
     # Log-likelihood --------------------------------------------------------
     # R lme4::logLik and Stata mixed e(ll) report the fitted criterion:
-    # REML for REML fits, ML for ML fits.  Keep a separate ML conversion for
-    # the LR diagnostic below.
+    # REML for REML fits, ML for ML fits.
     nll_opt = float(res.fun)
     ll_report = -nll_opt
-    if reml:
-        # REML adds +0.5 log|XtVinvX| and -0.5 p log(2π); remove those
-        # terms to get the ML-basis likelihood for LR diagnostics.
-        sign, logdet = np.linalg.slogdet(XtVinvX)
-        ll_ml = -(nll_opt - 0.5 * logdet - (-0.5 * p_fixed * np.log(2 * np.pi)))
-    else:
-        ll_ml = ll_report
 
     # ICC -----------------------------------------------------------------
     sigma2_u0 = float(G_hat[0, 0])
@@ -1356,15 +1369,38 @@ def mixed(
         sigma2_u0 / (sigma2_u0 + sigma2_hat) if (sigma2_u0 + sigma2_hat) > 0 else np.nan
     )
 
-    # LR test vs. pooled OLS (ML likelihood basis) ---------------------------
+    # LR test vs. the linear model, as Stata mixed reports it ----------------
+    # Both criteria on the fit's own basis: ML against the OLS likelihood,
+    # REML against the OLS restricted likelihood. One variance parameter
+    # sits on the boundary under the null, so the reference is the 50:50
+    # mixture chibar2(01); with more, Stata refers chi2(k) and calls the
+    # test conservative. (Until 1.40.2 the REML version compared the ML
+    # likelihood at the REML estimates, and the p-value was chi2(1) for
+    # one parameter: twice Stata's.)
     resid_ols = y_all - X_all @ ols_beta
-    s2_ml_ols = float(np.sum(resid_ols**2) / n_obs)
-    ll_ols = -0.5 * n_obs * (np.log(2 * np.pi * s2_ml_ols) + 1)
-    chi2 = max(2.0 * (ll_ml - ll_ols), 0.0)
+    rss_ols = float(np.sum(resid_ols**2))
+    if reml:
+        dof_ols = n_obs - p_fixed
+        _, logdet_xtx = np.linalg.slogdet(X_all.T @ X_all)
+        ll_ols = -0.5 * (
+            dof_ols * np.log(2 * np.pi * rss_ols / dof_ols) + dof_ols + logdet_xtx
+        )
+    else:
+        ll_ols = -0.5 * n_obs * (np.log(2 * np.pi * rss_ols / n_obs) + 1)
+    chi2 = max(2.0 * (ll_report - ll_ols), 0.0)
+    chibar = n_cov_pars == 1
+    if chi2 <= 0:
+        p_lr = 1.0
+    elif chibar:
+        p_lr = float(0.5 * stats.chi2.sf(chi2, 1))
+    else:
+        p_lr = float(stats.chi2.sf(chi2, n_cov_pars))
     lr_test = {
         "chi2": chi2,
         "df": float(n_cov_pars),
-        "p": float(stats.chi2.sf(chi2, n_cov_pars)) if chi2 > 0 else 1.0,
+        "p": p_lr,
+        "distribution": "chibar2(01)" if chibar else f"chi2({n_cov_pars})",
+        "basis": "reml" if reml else "ml",
     }
 
     return MixedResult(
@@ -1394,6 +1430,7 @@ def mixed(
         _n_cov_params=n_cov_pars + 1,  # + residual variance
         _lr_test=lr_test,
         _ranef_se=ranef_se_df,
+        _row_labels=df.index,
     )
 
 

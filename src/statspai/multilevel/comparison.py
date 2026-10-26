@@ -258,6 +258,27 @@ def lrtest(
             "``method='ml'`` before calling lrtest()."
         )
 
+    from ..exceptions import MethodIncompatibility
+
+    reml_r, reml_f = meth_r == "reml", meth_f == "reml"
+    if reml_r != reml_f:
+        raise MethodIncompatibility(
+            "lrtest: one fit maximised the REML criterion and the other the "
+            f"likelihood ({meth_r!r} and {meth_f!r}); the two are not "
+            "comparable.",
+            recovery_hint="Refit both with the same method= (method='ml' to "
+            "test fixed effects).",
+        )
+    n_r, n_f = _n_obs(restricted), _n_obs(full)
+    if n_r is not None and n_f is not None and n_r != n_f:
+        raise MethodIncompatibility(
+            f"lrtest: the models were fitted on different samples ({n_r} and "
+            f"{n_f} observations), so the statistic is not a likelihood ratio.",
+            recovery_hint="Refit the restricted model on the rows the full "
+            "model uses (drop rows with a missing value in any variable of "
+            "either model).",
+        )
+
     ll_r = float(restricted.log_likelihood)
     ll_f = float(full.log_likelihood)
     chi2 = max(2.0 * (ll_f - ll_r), 0.0)

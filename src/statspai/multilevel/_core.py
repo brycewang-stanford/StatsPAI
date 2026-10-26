@@ -187,9 +187,12 @@ def _group_blocks(
     if isinstance(df[group_col_name].dtype, pd.CategoricalDtype):
         # A categorical key can yield groups with no rows (unobserved
         # categories); let pandas decide which, and in what order.
-        positions = np.arange(len(df))
+        # Positions, not index labels: get_indexer fails on repeated labels.
+        where = grouped.indices
+        empty = np.zeros(0, dtype=np.intp)
         parts = [
-            (key, positions[df.index.get_indexer(sub.index)]) for key, sub in grouped
+            (key, np.asarray(where.get(key, empty), dtype=np.intp))
+            for key, _ in grouped
         ]
         keys: List[object] = [key for key, _ in parts]
         row_sets = [idx for _, idx in parts]
