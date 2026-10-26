@@ -40,6 +40,7 @@ Usage
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from itertools import product
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -51,7 +52,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import ColumnNotFound, MethodIncompatibility
+from ..exceptions import AssumptionWarning, ColumnNotFound, MethodIncompatibility
 
 # ---------------------------------------------------------------------------
 # Result container
@@ -112,7 +113,10 @@ class SpecCurveResult(ResultProtocolMixin):
     choice_dims: List[str]
     model_info: Dict[str, Any] = field(default_factory=dict)
     """``multiplicity``: the session count of specifications of ``y``
-    (this curve's included), see ``core/_spec_counter.py``."""
+    (this curve's included), see ``core/_spec_counter.py``.
+    ``dropped_specs``: the specifications left out because their regressors
+    are linearly dependent, one dict per specification with its choices and
+    the redundant columns (``collinear``, ``reason``)."""
 
     # ---- pretty-print --------------------------------------------------
 
@@ -420,8 +424,15 @@ def _run_one_spec(
     transform_y: Optional[Callable[[pd.Series], Any]],
     transform_label: str,
     fe: Optional[List[str]] = None,
+    alpha: float = 0.05,
+    dropped: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Run a single specification and return results dict."""
+    """Run a single specification and return results dict.
+
+    ``None`` when the specification cannot be estimated. A specification
+    whose regressors are linearly dependent is one of them; it is recorded
+    in ``dropped`` (when given) with the columns that are redundant.
+    """
     fe = list(fe or [])
     df = data.copy()
 
@@ -445,7 +456,9 @@ def _run_one_spec(
         return None
 
     all_vars = [y_col, x] + controls
-    if cluster_var:
+    # The cluster column limits the sample of the clustered variance only:
+    # regress y x drops no row for a missing cluster id, vce(cluster) does.
+    if cluster_var and se_type == "cluster" and cluster_var not in all_vars:
         all_vars.append(cluster_var)
     all_vars += [f for f in fe if f not in all_vars]
     df_clean = df[all_vars].dropna()
@@ -465,6 +478,8 @@ def _run_one_spec(
             subset_label,
             model_type,
             transform_label,
+            alpha=alpha,
+            dropped=dropped,
         )
 
     Y = df_clean[y_col].values.astype(float)
@@ -477,6 +492,29 @@ def _run_one_spec(
     )
 
     n, k = X_mat.shape
+
+    # Linearly dependent regressors: np.linalg.inv raises only on an exactly
+    # singular X'X; a numerically singular one (a control equal to a + b in
+    # floating point) used to be inverted into meaningless numbers.
+    from ..core._collinear import independent_columns
+
+    _, omitted = independent_columns(X_mat, ["Intercept", x] + list(controls))
+    if omitted:
+        if dropped is not None:
+            dropped.append(
+                {
+                    "controls": ", ".join(controls) if controls else "(none)",
+                    "fe": "(none)",
+                    "se_type": se_type,
+                    "subset": subset_label,
+                    "y_transform": transform_label,
+                    "collinear": [o["variable"] for o in omitted],
+                    "reason": "; ".join(
+                        f"{o['variable']}: {o['reason']}" for o in omitted
+                    ),
+                }
+            )
+        return None
 
     # Estimate OLS
     try:
@@ -525,7 +563,7 @@ def _run_one_spec(
     df_resid = G - 1 if (se_type == "cluster" and cluster_var) else n - k
     t_stat = beta_x / se_x if se_x > 0 else np.inf
     p_val = 2 * stats.t.sf(abs(t_stat), df_resid)
-    t_crit = stats.t.ppf(0.975, df_resid)
+    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
 
     # R-squared
     ss_res = np.sum(resid**2)
@@ -561,6 +599,8 @@ def _run_one_fe_spec(
     subset_label: str,
     model_type: str,
     transform_label: str,
+    alpha: float = 0.05,
+    dropped: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[Dict[str, Any]]:
     """One specification with absorbed fixed effects, as Stata ``reghdfe``.
 
@@ -584,7 +624,20 @@ def _run_one_fe_spec(
     except (ValueError, np.linalg.LinAlgError):
         return None
     if 0 in out["omitted"]:
-        return None  # x is collinear with the fixed effects
+        # x is collinear with the fixed effects
+        if dropped is not None:
+            dropped.append(
+                {
+                    "controls": ", ".join(controls) if controls else "(none)",
+                    "fe": ", ".join(fe),
+                    "se_type": se_type,
+                    "subset": subset_label,
+                    "y_transform": transform_label,
+                    "collinear": [x],
+                    "reason": f"{x}: collinear with the fixed effects",
+                }
+            )
+        return None
     n = int(out["n"])
     resid = out["resid"]
     if se_type in ("hc1", "robust"):
@@ -605,7 +658,7 @@ def _run_one_fe_spec(
     beta_x = float(out["coef"][0])
     t_stat = beta_x / se_x if se_x > 0 else np.inf
     p_val = 2 * stats.t.sf(abs(t_stat), dof)
-    t_crit = stats.t.ppf(0.975, dof)
+    t_crit = stats.t.ppf(1 - alpha / 2, dof)
     keep = out["absorber"].keep_mask
     Yk = Y[keep]
     ss_tot = float(np.sum((Yk - Yk.mean()) ** 2))
@@ -683,14 +736,17 @@ def spec_curve(
         full sample.  Default: ``{'Full Sample': None}``.
     cluster_var : str, optional
         Column for clustered SEs.  Automatically adds ``'cluster'``
-        to *se_types* if provided and not already present.
+        to *se_types* if provided and not already present. Rows with a
+        missing cluster id are left out of the clustered specifications
+        only, as Stata ``regress, vce(cluster)`` does.
     y_transforms : dict[str, callable], optional
         Named outcome transformations.
         Example: ``{'Level': None, 'Log': np.log}``.
         Default: ``{'Level': None}``.
         ``None`` value means no transform.
     alpha : float, default 0.05
-        Significance threshold.
+        Significance threshold; ``ci_lower`` / ``ci_upper`` are
+        ``1 - alpha`` intervals.
     fe : list of list of str, optional
         Fixed-effect sets, one choice dimension like *controls*: each inner
         list names the columns absorbed in that specification (``[]`` = none),
@@ -815,6 +871,7 @@ def spec_curve(
 
     # ---- enumerate all combinations -------------------------------------
     all_results = []
+    dropped_specs: List[Dict[str, Any]] = []
     spec_id = 0
 
     for (
@@ -843,11 +900,35 @@ def spec_curve(
             transform_y=tf_func,
             transform_label=tf_label,
             fe=fe_set,
+            alpha=alpha,
+            dropped=dropped_specs,
         )
         if res is not None:
             res["spec_id"] = spec_id
             all_results.append(res)
             spec_id += 1
+
+    if dropped_specs:
+        # These used to vanish from the curve without a word, changing
+        # n_specs and share_significant.
+        shown = "; ".join(
+            f"[controls: {d['controls']}, fe: {d['fe']}, subset: {d['subset']}] "
+            f"{d['reason']}"
+            for d in dropped_specs[:5]
+        )
+        more = f" (and {len(dropped_specs) - 5} more)" if len(dropped_specs) > 5 else ""
+        warnings.warn(
+            AssumptionWarning(
+                f"spec_curve: {len(dropped_specs)} specification(s) left out "
+                f"because their regressors are linearly dependent: {shown}{more}.",
+                recovery_hint=(
+                    "Remove the redundant control from that control set, or "
+                    "see result.model_info['dropped_specs']."
+                ),
+                diagnostics={"n_dropped": len(dropped_specs)},
+            ),
+            stacklevel=2,
+        )
 
     if not all_results:
         raise ValueError(
@@ -881,6 +962,7 @@ def spec_curve(
         share_positive=float((results_df["estimate"] > 0).mean()),
         choice_dims=choice_dims,
     )
+    out.model_info["dropped_specs"] = dropped_specs
     from ..core._design_guardrails import record_search
 
     record_search(

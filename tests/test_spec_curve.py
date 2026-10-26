@@ -350,25 +350,32 @@ class TestSpecCurveEdgeCases:
         """Many combinations run correctly."""
         import statspai as sp
 
-        result = sp.spec_curve(
-            data=sample_data,
-            y="wage",
-            x="education",
-            controls=[
-                [],
-                ["experience"],
-                ["female"],
-                ["experience", "female"],
-            ],
-            se_types=["nonrobust", "hc1"],
-            subsets={
-                "Full": None,
-                "Male": sample_data["female"] == 0,
-            },
-        )
+        with pytest.warns(sp.AssumptionWarning, match="4 specification"):
+            result = sp.spec_curve(
+                data=sample_data,
+                y="wage",
+                x="education",
+                controls=[
+                    [],
+                    ["experience"],
+                    ["female"],
+                    ["experience", "female"],
+                ],
+                se_types=["nonrobust", "hc1"],
+                subsets={
+                    "Full": None,
+                    "Male": sample_data["female"] == 0,
+                },
+            )
         # 4 controls × 2 SE × 2 subsets = 16, but 'female' control
-        # on Male-only subset is constant → singular, so 4 specs dropped
+        # on Male-only subset is constant → singular, so 4 specs dropped,
+        # with a warning and a record of each (they used to vanish silently)
         assert result.n_specs == 12
+        dropped = result.model_info["dropped_specs"]
+        assert len(dropped) == 4
+        assert all(d["subset"] == "Male" for d in dropped)
+        assert all(d["collinear"] == ["female"] for d in dropped)
+        assert {d["se_type"] for d in dropped} == {"nonrobust", "hc1"}
 
     def test_empty_controls(self, sample_data):
         """Empty control list uses no controls."""
