@@ -198,6 +198,51 @@ def _coerce_shift_share(shares: Any, shocks: Any, data: pd.DataFrame) -> Any:
     return shares, shocks
 
 
+def _align_rows(frame: pd.DataFrame, index: pd.Index, what: str) -> pd.DataFrame:
+    """Rows of ``frame`` in the order of ``index``.
+
+    The same labels in another order are aligned by label; labels that
+    share nothing with ``index`` (e.g. a ``RangeIndex`` next to region
+    codes) keep the positional contract; a partial overlap is refused.
+    Through 1.40.2 the rows were always taken by position, so a reordered
+    ``data`` silently paired each region with another region's shares.
+    """
+    if frame.index.equals(index):
+        return frame
+    same = (
+        frame.index.is_unique
+        and index.is_unique
+        and len(frame.index) == len(index)
+        and set(frame.index) == set(index)
+    )
+    if same:
+        return frame.reindex(index)
+    overlap = frame.index.intersection(index)
+    if len(overlap) == 0:
+        return frame
+    raise MethodIncompatibility(
+        f"{what} and data share {len(overlap)} of {len(index)} row labels; "
+        "the rows cannot be matched.",
+        recovery_hint=f"Index {what} by the same unit labels as data (or pass "
+        "both with a default RangeIndex in the same order).",
+        diagnostics={"overlap": int(len(overlap)), "n": int(len(index))},
+    )
+
+
+def _require_finite(arrays: dict, function: str) -> None:
+    """Refuse NaN / inf inputs (through 1.40.2 they produced NaN estimates)."""
+    from ..exceptions import DataInsufficient
+
+    bad = [k for k, v in arrays.items() if not np.all(np.isfinite(v))]
+    if bad:
+        raise DataInsufficient(
+            f"{function}: missing or non-finite values in {bad}.",
+            recovery_hint="Drop the incomplete units from data and from the share "
+            "matrix (same rows) before estimation.",
+            diagnostics={"columns": bad},
+        )
+
+
 class BartikIV:
     """
     Bartik Shift-Share IV estimator.
@@ -273,6 +318,7 @@ class BartikIV:
                 f"shares has {self.shares.shape[0]} rows but data has "
                 f"{len(self.data)} rows"
             )
+        self.shares = _align_rows(self.shares, self.data.index, "shares")
 
         # Align industry names
         common = self.shares.columns.intersection(self.shocks.index)
@@ -302,6 +348,9 @@ class BartikIV:
                     f"regional_shocks has {self.regional_shocks.shape[0]} "
                     f"rows but data has {len(self.data)} rows"
                 )
+            self.regional_shocks = _align_rows(
+                self.regional_shocks, self.data.index, "regional_shocks"
+            )
             missing = set(common) - set(self.regional_shocks.columns)
             if missing:
                 raise ValueError(
@@ -449,6 +498,10 @@ class BartikIV:
         Y = self.data[self.y].values.astype(float)
         X_endog = self.data[self.endog].values.astype(float)
         B = self._construct_instrument()
+        finite = {self.y: Y, self.endog: X_endog, "shares / shocks": B}
+        for c in self.covariates:
+            finite[c] = self.data[c].to_numpy(dtype=float)
+        _require_finite(finite, "sp.bartik")
 
         # Exogenous regressors (constant + covariates)
         if self.covariates:

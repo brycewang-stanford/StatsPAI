@@ -30,6 +30,7 @@ from .._input_validation import check_columns
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ._akm import _akm_fit, _bhj_aggregate, _resid
+from .shift_share import _align_rows, _require_finite
 
 # ======================================================================
 # ssaggregate — full shift-share 2SLS with AKM SEs
@@ -174,6 +175,8 @@ def ssaggregate(
     # ------------------------------------------------------------------
     shock_ids = None
     if isinstance(shares, pd.DataFrame):
+        if shares.shape[0] == n:
+            shares = _align_rows(shares, data.index, "shares")
         shock_ids = shares.columns.to_numpy()
         S = shares.values.astype(float)
     else:
@@ -197,6 +200,28 @@ def ssaggregate(
                 )
             g = shock_data[shocks].values.astype(float)
         elif isinstance(shocks, pd.Series):
+            # A labelled Series is matched to the share columns by label
+            # (as sp.bartik does); through 1.40.2 it was read by position.
+            if isinstance(shares, pd.DataFrame) and len(
+                shares.columns.intersection(shocks.index)
+            ):
+                if not (
+                    shocks.index.is_unique and set(shocks.index) == set(shares.columns)
+                ):
+                    raise MethodIncompatibility(
+                        "shocks.index and shares.columns name different " "industries.",
+                        recovery_hint="Give shocks one entry per share column, "
+                        "indexed by the column labels.",
+                        diagnostics={
+                            "missing": sorted(
+                                map(str, set(shares.columns) - set(shocks.index))
+                            )[:5],
+                            "extra": sorted(
+                                map(str, set(shocks.index) - set(shares.columns))
+                            )[:5],
+                        },
+                    )
+                shocks = shocks.reindex(shares.columns)
             g = shocks.values.astype(float)
         else:
             g = np.asarray(shocks, dtype=float)
@@ -219,6 +244,10 @@ def ssaggregate(
     else:
         W = np.ones((n, 1))
         control_names = ["Intercept"]
+    finite = {y: Y, x: X_endog, "shares": S, "controls": W}
+    if g is not None:
+        finite["shocks"] = g
+    _require_finite(finite, "sp.ssaggregate")
 
     region = None
     if cluster is not None:

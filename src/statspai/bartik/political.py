@@ -312,8 +312,13 @@ def _long_to_panel(
     """
     panel = data.sort_values([unit, time]).reset_index(drop=True)
     # First-differences by unit: Δy_i = y_i(T) - y_i(t0), same for endog.
-    first = panel.groupby(unit).first()
-    last = panel.groupby(unit).last()
+    # The first and last ROWS of each unit: ``groupby().first()`` / ``last()``
+    # skip NaN column by column, so through 1.40.2 a unit with its outcome
+    # missing in the first period was differenced from a later period (and
+    # outcome and endog could come from different periods). A missing
+    # endpoint now leaves a NaN difference, which the caller refuses.
+    first = panel.groupby(unit).head(1).set_index(unit)
+    last = panel.groupby(unit).tail(1).set_index(unit)
     dy = last[outcome] - first[outcome]
     dx = last[endog] - first[endog]
     agg = pd.DataFrame(
