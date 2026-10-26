@@ -563,6 +563,9 @@ def subgroup_analysis(
         robust, None, function="subgroup_analysis", supported=_SUBGROUP_SE_KINDS
     ).kind
 
+    from .robustness_report import _require_plain_formula
+
+    _require_plain_formula(formula, data, "subgroup_analysis")
     parsed = parse_formula(formula)
     y_col = parsed["dependent"]
     all_rhs = parsed["exogenous"]

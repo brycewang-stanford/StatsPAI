@@ -55,7 +55,7 @@ from scipy import stats
 from .._aliases import accepts_aliases, accepts_formula_first
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import ColumnNotFound
+from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
 @dataclass
@@ -269,6 +269,62 @@ def _stars_latex(p: float) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _require_plain_formula(formula: str, data: pd.DataFrame, who: str) -> None:
+    """Refuse formula terms the hand-built regressions here cannot evaluate.
+
+    The robustness helpers regress on plain columns. ``C(region)``,
+    ``I(x**2)``, ``np.log(x)``, interactions and IV blocks used to be torn
+    apart by the formula parser (``C(region)`` became the columns ``region``
+    and ``C``), ending in a ColumnNotFound for a column nobody named, and an
+    absorbed ``| fe`` part was dropped without a word.
+    """
+    from ..core.utils import _split_additive_formula_terms
+
+    if not isinstance(formula, str) or "~" not in formula:
+        return  # parse_formula reports it
+    rhs = formula.split("~", 1)[1]
+    if "|" in rhs:
+        raise MethodIncompatibility(
+            f"{who}: absorbed fixed effects ('| ...') are not supported; the "
+            "checks would run without them.",
+            recovery_hint="Add the fixed effects as dummy columns, or use "
+            "sp.spec_curve(..., fe=[[...]]) for absorbed effects.",
+            diagnostics={"formula": formula},
+        )
+    # split on the top-level '+' only, so np.log(b + 10) stays one term
+    pieces, depth, buf = [], 0, ""
+    for ch in rhs:
+        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(ch, 0)
+        if ch == "+" and depth == 0:
+            pieces.append(buf)
+            buf = ""
+        else:
+            buf += ch
+    pieces.append(buf)
+    terms: List[str] = []
+    for piece in pieces:
+        if "(" in piece or "[" in piece:
+            terms.append(piece.strip())
+        else:  # '-1' / '0' intercept spellings
+            terms.extend(_split_additive_formula_terms(piece))
+    for term in terms:
+        name = term.strip()
+        if name in ("1", "-1", "0") or name in data.columns:
+            continue
+        if name.startswith("`") and name.endswith("`") and name[1:-1] in data.columns:
+            continue
+        if not name.isidentifier():
+            raise MethodIncompatibility(
+                f"{who}: the formula term {term!r} is not a column of the "
+                "data; this function regresses on plain columns (no C(), "
+                "I(), functions, interactions or instrument blocks).",
+                recovery_hint="Create the dummy or transformed columns in the "
+                "data first (e.g. pd.get_dummies, df['x2'] = df['x'] ** 2) "
+                "and name them in the formula.",
+                diagnostics={"term": term, "formula": formula},
+            )
+
+
 def _quick_ols(
     data: pd.DataFrame,
     y_col: str,
@@ -326,7 +382,10 @@ def _quick_ols(
     se = np.sqrt(np.diag(vcov))
     beta_x = params[1]
     se_x = se[1]
-    df_resid = n - k
+    # Stata regress: t(n - k), or t(G - 1) with vce(cluster), as sp.regress
+    # (data_info['df_inference']) and sp.spec_curve; the clustered check
+    # used t(n - k), which understates p-values when clusters are few.
+    df_resid = G - 1 if (se_type == "cluster" and cluster_col) else n - k
     t_stat = beta_x / se_x if se_x > 0 else np.inf
     p_val = 2 * stats.t.sf(abs(t_stat), df_resid)
     t_crit = stats.t.ppf(0.975, df_resid)
@@ -426,6 +485,7 @@ def robustness_report(
     # Parse formula → y, controls
     from ..core.utils import parse_formula
 
+    _require_plain_formula(formula, data, "robustness_report")
     parsed = parse_formula(formula)
     y_col = parsed["dependent"]
     all_rhs = parsed["exogenous"]
