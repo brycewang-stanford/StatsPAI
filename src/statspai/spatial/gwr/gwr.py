@@ -236,8 +236,17 @@ def gwr(
         XtWX = X.T @ WX
         try:
             XtWX_inv = np.linalg.inv(XtWX)
-        except np.linalg.LinAlgError:
-            XtWX_inv = np.linalg.pinv(XtWX)
+        except np.linalg.LinAlgError as exc:
+            # Through 1.40.2 this fell back to pinv and returned arbitrary
+            # (minimum-norm) local coefficients without a word.
+            raise NumericalInstability(
+                f"gwr: the locally weighted design at observation {i} is "
+                "singular (too few points with positive kernel weight, or "
+                "locally collinear regressors).",
+                recovery_hint="Increase the bandwidth (or use an adaptive one); "
+                "sp.gwr_bandwidth skips such bandwidths.",
+                diagnostics={"observation": i, "bw": float(bw), "kernel": kernel},
+            ) from exc
         C_i = XtWX_inv @ (X.T * w)  # (k, n): β̂_i = C_i y
         beta_i = C_i @ y
         params[i] = beta_i

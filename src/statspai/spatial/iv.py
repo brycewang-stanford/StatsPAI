@@ -221,6 +221,24 @@ def spatial_iv(
         @ full_instruments.T
     )
     X_hat = PZ @ full_design
+    # Order / rank condition: the projected regressors must have full column
+    # rank. Through 1.40.2 an under-identified design (e.g. no exogenous
+    # regressor and no excluded instrument) went through ``pinv`` and came
+    # back as a minimum-norm solution with finite standard errors.
+    n_reg = full_design.shape[1]
+    rank_hat = int(np.linalg.matrix_rank(X_hat))
+    if rank_hat < n_reg:
+        from ..exceptions import IdentificationFailure
+
+        raise IdentificationFailure(
+            f"spatial_iv: {n_reg} regressors but the instruments identify only "
+            f"{rank_hat} of them (instrument rank "
+            f"{int(np.linalg.matrix_rank(full_instruments))}).",
+            recovery_hint="Add excluded instruments, or exogenous regressors whose "
+            "spatial lags WX, W^2X instrument WY; set include_WY=False if there is "
+            "no spatial lag of y.",
+            diagnostics={"n_regressors": n_reg, "rank": rank_hat},
+        )
     beta = np.linalg.pinv(X_hat.T @ full_design) @ X_hat.T @ Y
     resid = Y - full_design @ beta
 

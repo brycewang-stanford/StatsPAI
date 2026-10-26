@@ -316,6 +316,31 @@ def spatial_panel(
     else:
         indep_names = list(indep)
 
+    # A regressor the within transform wipes out (time-invariant under
+    # entity effects, or a pure time trend under two-way effects) used to
+    # surface as a bare LinAlgError from inv(X'X).
+    scale = (
+        np.sqrt(
+            np.sum(np.column_stack([x.flatten(order="F") for x in X_mats]) ** 2, axis=0)
+        )
+        if X_mats
+        else np.zeros(0)
+    )
+    col_norm = np.sqrt(np.sum(X_stack**2, axis=0))
+    ref = np.concatenate([scale, scale]) if model == "sdm" else scale
+    absorbed = [
+        nm
+        for nm, cn, r in zip(indep_names, col_norm, ref)
+        if not cn > 1e-10 * max(r, 1e-300)
+    ]
+    if absorbed:
+        raise MethodIncompatibility(
+            f"spatial_panel(effects={effects!r}): {absorbed} do not vary "
+            "within the fixed effects and are absorbed by them.",
+            recovery_hint="Drop the absorbed regressors, or use effects='re'.",
+            diagnostics={"absorbed": absorbed, "effects": effects},
+        )
+
     W_dense = M.toarray()
     eigvals = np.real(np.linalg.eigvals(W_dense))
     # Admissible interval of spdep/splm ``jacobianSetup(method = "eigen")``:

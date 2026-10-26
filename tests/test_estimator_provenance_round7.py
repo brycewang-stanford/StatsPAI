@@ -89,9 +89,11 @@ class TestSpatialDidProvenance:
 
 class TestSpatialIvProvenance:
     def test_attached(self, panel_df, W_matrix):
-        # spatial_iv expects cross-section data shaped to W. Use first
-        # period only as a 20-region cross-section.
-        cs = panel_df[panel_df["year"] == 0].reset_index(drop=True)
+        # spatial_iv expects cross-section data shaped to W. Use one
+        # period as a 20-region cross-section; period 2, because in period 0
+        # ``d`` is identically zero and the model is not identified
+        # (spatial_iv now raises IdentificationFailure there).
+        cs = panel_df[panel_df["year"] == 2].reset_index(drop=True)
         from statspai.spatial.iv import spatial_iv
 
         r = spatial_iv(

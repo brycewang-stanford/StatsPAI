@@ -25,6 +25,26 @@ from ...core.results import EconometricResults
 from ...exceptions import MethodIncompatibility, NumericalInstability
 from .ml import _coerce_W, _parse_formula
 
+
+def _check_robust(robust: Any, fn: str) -> Optional[str]:
+    """``None`` or ``"het"`` (any case); anything else is refused.
+
+    Through 1.40.2 ``sem_gmm`` / ``sar_gmm`` read every value other than
+    ``"het"`` -- ``True``, ``"hc1"``, ``"HET"`` -- as the classical
+    variance without saying so.
+    """
+    if robust is None:
+        return None
+    if isinstance(robust, str) and robust.lower() == "het":
+        return "het"
+    raise MethodIncompatibility(
+        f"{fn}: robust must be None or 'het'; got {robust!r}.",
+        recovery_hint="Pass robust='het' (or vce='robust') for the "
+        "heteroskedasticity-robust sandwich, robust=None for the classical one.",
+        diagnostics={"robust": repr(robust)},
+    )
+
+
 # --------------------------------------------------------------------- #
 #  SEM GMM (Kelejian-Prucha 1999)
 # --------------------------------------------------------------------- #
@@ -100,6 +120,7 @@ def sem_gmm(
     >>> list(res.params.index)
     ['const', 'x', 'lambda']
     """
+    robust = _check_robust(robust, "sem_gmm")
     y, X, dep, indep = _parse_formula(formula, data)
     n = len(y)
     M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
@@ -222,6 +243,13 @@ def sar_gmm(
     ----------
     kelejian1998generalized
     """
+    robust = _check_robust(robust, "sar_gmm")
+    if int(w_lags) < 1:
+        raise MethodIncompatibility(
+            f"sar_gmm: w_lags must be >= 1; got {w_lags!r} (with no spatial "
+            "lag of X the lag W y has no instrument).",
+            recovery_hint="Use w_lags=1 (spreg GM_Lag) or 2 (spatialreg stsls).",
+        )
     y, X, dep, indep = _parse_formula(formula, data)
     n, k = X.shape
     M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
@@ -476,8 +504,7 @@ def sarar_gmm(
     ----------
     kelejian1998generalized
     """
-    if robust not in (None, "het"):
-        raise MethodIncompatibility(f"robust must be None or 'het'; got {robust!r}")
+    robust = _check_robust(robust, "sarar_gmm")
     is_robust = robust == "het"
     y, X, dep, indep = _parse_formula(formula, data)
     n = len(y)
