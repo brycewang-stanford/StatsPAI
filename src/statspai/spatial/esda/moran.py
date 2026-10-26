@@ -210,10 +210,45 @@ def moran_local(
     sims = None
     p_sim = None
     if permutations and permutations > 0:
-        rng = np.random.default_rng(seed)
-        sims = np.empty((permutations, n))
-        for k in range(permutations):
-            zp = rng.permutation(z)
-            sims[k] = z * (S @ zp) / m2
+        sims = _conditional_local_sims(z, S.tocsr(), m2, int(permutations), seed)
         p_sim = np.array([permutation_pvalue(Ii[i], sims[:, i]) for i in range(n)])
     return {"Is": Ii, "p_sim": p_sim, "simulations": sims}
+
+
+def _conditional_local_sims(
+    z: np.ndarray, S: Any, m2: float, permutations: int, seed: Optional[int]
+) -> np.ndarray:
+    """Conditional-randomisation replicates of the local Moran statistics.
+
+    Anselin (1995): ``z_i`` stays at ``i`` and the neighbours of ``i``
+    receive a random draw, without replacement, from the other ``n - 1``
+    values. One set of draws of ``n - 1`` indices per replicate is shared
+    across locations and mapped past ``i`` (the index trick of PySAL's
+    ``crand``), so each location's replicates have the right distribution.
+    A self-weight ``w_ii`` keeps ``z_i``. Through 1.40.2 every replicate
+    permuted all ``n`` values, ``z_i`` included, which centres the
+    replicates at 0 rather than at ``-z_i^2 w_i. / ((n - 1) m2)``.
+    """
+    n = z.size
+    indptr, indices, data = S.indptr, S.indices, S.data
+    k_max = int(np.max(np.diff(indptr))) if n else 0
+    rng = np.random.default_rng(seed)
+    if k_max > 0 and n > 1:
+        rids = np.stack(
+            [rng.permutation(n - 1)[: min(k_max, n - 1)] for _ in range(permutations)]
+        )
+    sims = np.zeros((permutations, n))
+    for i in range(n):
+        cols = indices[indptr[i] : indptr[i + 1]]
+        vals = data[indptr[i] : indptr[i + 1]]
+        own = cols == i
+        self_term = float(vals[own].sum()) * z[i]
+        cols, vals = cols[~own], vals[~own]
+        k_i = cols.size
+        lag = np.full(permutations, self_term)
+        if k_i > 0:
+            idx = rids[:, :k_i]
+            idx = idx + (idx >= i)
+            lag = lag + z[idx] @ vals
+        sims[:, i] = z[i] * lag / m2
+    return sims
