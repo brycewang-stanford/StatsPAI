@@ -5,6 +5,67 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → 1.41: announced defaults take effect
+
+The defaults that 1.40.0 and 1.40.1 announced with a `FutureWarning`
+change now, and the warnings are gone. Code that named the argument is
+unaffected; the last column of the table restores the 1.40 behaviour.
+
+| function | 1.40 default | 1.41 default | keep 1.40 |
+| --- | --- | --- | --- |
+| ⚠️ `sp.event_study` | normal critical values | t(G-1) | `crit_dist="normal"` |
+| ⚠️ `sp.sun_abraham` | normal critical values | t(G-1); t(N-K) with `i=None` | `crit_dist="normal"` |
+| ⚠️ `sp.did_2x2` | t(N-K), also with `cluster=` | t(G-1) with `cluster=`, else t(N-K) | `crit_dist="residual"` |
+| ⚠️ `sp.sun_abraham` | headline `aggregation="event_time"` | `aggregation="fixest_att"` | `aggregation="event_time"` |
+| ⚠️ `sp.hdfe_ols`, two or more clusters | `cluster_df="per_term"` | `cluster_df="min"` | `cluster_df="per_term"` |
+| `sp.bcf` | ensemble approximation, `CausalResult` | `sp.bart_causal(method="bcf")`, `BayesCausalResult` | `sp.BayesianCausalForest(...).fit()` |
+| `sp.interference("partial" / "hudgens_halloran")` | `sp.spillover` | `sp.two_stage_interference` | `sp.interference("spillover", ...)` |
+| `diagnostics["predicted_*"]` of `sp.zip_model` / `sp.zinb` / `sp.hurdle` | worked, `DeprecationWarning` | removed | `data_info["predicted_*"]` |
+
+- **Critical values.** The rule announced in "1.40.0 → 1.40.1: announced
+  for 1.41, t critical values" (below) is the default. Estimates, SEs and
+  the pre-trend tests do not change. Castle-doctrine panel
+  (`sp.datasets.castle_doctrine()`, outcome `l_homicide`,
+  `window=(-5, 4)`, `weights="popwt"`, clustered on 50 states; the 1.41
+  numbers equal Stata `reghdfe` / `lincom` / `regress` to 1e-10,
+  `tests/reference_parity/test_es_crit_default.py`):
+
+  | | estimate (SE) | 1.40: 95% CI, p | 1.41: 95% CI, p |
+  | --- | --- | --- | --- |
+  | `sp.event_study`, lead -3 | 0.05072 (0.02550) | [0.00074, 0.10070], p = 0.0467 | [-0.00053, 0.10196], p = 0.0523 |
+  | `sp.event_study`, headline ATT | 0.09770 (0.02400) | [0.05067, 0.14474], p = 4.7e-5 | [0.04948, 0.14593], p = 1.7e-4 |
+  | `sp.did_2x2`, 2006 cohort, `cluster="sid"` (42 states) | 0.06824 (0.08417) | [-0.09716, 0.23364], p = 0.418 | [-0.10174, 0.23821], p = 0.422 |
+
+  `sp.did(crit_dist="legacy")` still means each estimator's 1.40 rule.
+  Library entry points that pinned the 1.40 value (`sp.did_analysis`,
+  `sp.did_summary`, `sp.auto_did`, `sp.compare_event_study_conventions`,
+  `sp.causal_question`, `CausalWorkflow`, `sp.compare_estimators`) now
+  follow the default.
+- **Sun-Abraham headline.** `.estimate` / `.se` are the cohort-by-period
+  cell-weighted ATT of `fixest::summary(agg = "att")`. On `mpdta`
+  (`y="lemp"`, `g="first_treat"`, `t="year"`, `i="countyreal"`) the
+  headline moves from -0.0772 to -0.0400 (fixest -0.03995). Both numbers
+  stay in `model_info` (`att_event_time`, `att_fixest_att`).
+- **Multi-way clustering in `sp.hdfe_ols`.** Every term of
+  `V_a + V_b - V_ab` is scaled by G_min/(G_min-1), as Stata `reghdfe` and
+  R `fixest` do. SEs change by a few percent when one dimension has few
+  clusters (on the weighted two-way fixture of
+  `tests/reference_parity/test_panel_absorb_ols_parity.py`, x2: 0.038146 →
+  0.038382, reghdfe's). One-way clustering, fits without absorbed effects
+  and the IV path are unchanged, and `sp.absorb_ols` keeps `"per_term"`.
+- **`sp.bcf`.** It samples the Bayesian causal forest posterior. Pass
+  `draws=`, `burnin=`, `chains=` (forwarded to `sp.bart_causal`) instead of
+  `n_bootstrap=` / `n_folds=`, which now raise. Read `result.cate` (a
+  DataFrame with the posterior mean, SD and interval per row) instead of
+  `result.model_info["cate"]`. `sp.bcf_ordinal`, `sp.bcf_factor_exposure`
+  and `sp.did_bcf` are unchanged.
+- **`sp.interference`.** `"partial"` and `"hudgens_halloran"` need
+  `group=` and `saturation=` now. A call with `sp.spillover`'s arguments
+  (`cluster=`, `n_bootstrap=`, ...) under those names raises
+  `MethodIncompatibility`; call `sp.interference("spillover", ...)`.
+
+---
+
 ## 1.40.2 → next: ⚠️ survey / multilevel / gmm option scan
 
 Numbers that change, and how to get the old ones where that makes sense:
@@ -354,6 +415,9 @@ computed with rules that no reference implementation uses.
 ---
 
 ## 1.40.0 → 1.40.1: announced for 1.41, t critical values in `sp.event_study`, `sp.sun_abraham`, `sp.did_2x2`
+
+In effect since 1.41 ("1.40.2 → 1.41: announced defaults take effect",
+above); "today" below means 1.40.
 
 From 1.41 the three regression-based event-study estimators turn their
 standard errors into p-values and confidence intervals the way Stata

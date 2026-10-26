@@ -270,6 +270,10 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   `ColumnNotFound` for columns nobody wrote, such as `'C'`.
 - `sp.oneway(compare="sidak")` keeps full precision for very small
   p-values. A pair with t = 38.7 on 87 df gets 7.8e-59 instead of 0.
+- `sp.event_study` with a single cluster (`cluster=` a column with one
+  level in the estimation sample) crashed with a `ZeroDivisionError` in
+  the cluster-SE correction G/(G-1). It now raises `MethodIncompatibility`
+  with a recovery hint, whatever `crit_dist` is.
 
 ### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
 
@@ -411,6 +415,68 @@ The modules had never been scanned option by option. Tests in
 - `sp.gmm(small=True)`: `False` refers t statistics, p-values and intervals
   to the normal, as Stata `gmm` and R `gmm::summary`; the default keeps
   t(n - k), as `sp.iv(small=True)`. `result.inference_rule()` states which.
+
+### Changed (defaults announced for 1.41)
+
+The defaults that 1.40.0 and 1.40.1 announced with a `FutureWarning` take
+effect, and the warnings are gone. Calls that named the argument are
+unaffected. See MIGRATION.md, "1.40.2 → 1.41".
+
+- ⚠️ **`crit_dist='t'` is the default of `sp.event_study`, `sp.sun_abraham`
+  and `sp.did_2x2`** (owner decision 2026-10-21). P-values and intervals
+  use t(G-1) with cluster-robust SEs and t(N-K) otherwise, as Stata
+  `reghdfe` / `regress` / `eventstudyinteract` and R `fixest` report.
+  Estimates, SEs and the pre-trend tests do not change. On the
+  castle-doctrine panel the `sp.event_study` lead at -3 moves from p =
+  0.0467 to 0.0523 and the headline ATT interval from [0.05067, 0.14474]
+  to [0.04948, 0.14593], equal to Stata `reghdfe` / `lincom` to 1e-10;
+  the clustered `sp.did_2x2` interval moves from [-0.09716, 0.23364] to
+  [-0.10174, 0.23821] (Stata `regress, vce(cluster)`). `crit_dist='normal'`
+  (event studies) / `'residual'` (`did_2x2`) keeps the 1.40 numbers.
+  Library entry points that pinned the old value now follow the default:
+  `sp.did_analysis`, `sp.did_summary`, `sp.auto_did`,
+  `sp.compare_event_study_conventions`, `sp.causal_question`,
+  `CausalWorkflow`, `sp.compare_estimators` and the calibrated simulation.
+  `sp.did(crit_dist='legacy')` still selects the pre-1.41 rule.
+- ⚠️ **`sp.sun_abraham` reports the cell-weighted ATT by default**
+  (`aggregation='fixest_att'`, `fixest::summary(agg = "att")`; owner
+  decision 2026-10-20, item 3). On `mpdta` the headline moves from
+  -0.0772 (equal-weight mean of the post event-time effects) to -0.0400
+  (R fixest -0.03995). `aggregation='event_time'` keeps the 1.40 headline;
+  both numbers stay in `model_info`. `sp.did(method='sun_abraham')`,
+  `sp.did_analysis(method='sa')` and `sp.auto_did` follow.
+- ⚠️ **`sp.hdfe_ols` multi-way clustering uses `cluster_df='min'` by
+  default** (item 2): every term of the inclusion-exclusion sum carries
+  G_min/(G_min-1), as Stata `reghdfe` and R `fixest` do, instead of its own
+  G/(G-1) (R `sandwich::vcovCL`). On the weighted two-way fixture of
+  `test_panel_absorb_ols_parity.py` the x2 SE moves from 0.038146 to
+  0.038382, equal to reghdfe to 1e-10. One-way clustering, fits without
+  absorbed effects and the IV path are unchanged; `cluster_df='per_term'`
+  keeps the 1.40 SEs. `sp.psm_did(fixed_effects=, cluster=[...])` and
+  `sp.panel(method='hdfe')`, which call `sp.hdfe_ols`, follow.
+  `sp.absorb_ols` keeps `'per_term'`.
+- **`sp.bcf` is `sp.bart_causal(method='bcf')`** (item 4): the Bayesian
+  causal forest with BART priors and an MCMC posterior, with `sp.bcf`'s
+  argument names (`n_trees_mu`, `n_trees_tau`, `alpha`, `random_state` /
+  `seed`; other options such as `draws=` / `chains=` pass through). It
+  returns a `BayesCausalResult` (`.cate` is a DataFrame; there is no
+  `model_info['cate']`). `n_bootstrap=` / `n_folds=` belonged to the old
+  random-forest / boosting approximation and now raise
+  `MethodIncompatibility`; that approximation, and its numbers, is
+  `sp.BayesianCausalForest(...).fit()`. `sp.bcf_ordinal`,
+  `sp.bcf_factor_exposure` and `sp.did_bcf` keep it and are unchanged
+  (`sp.did_bcf` no longer emits the `sp.bcf` notice).
+- **`sp.interference('partial' | 'hudgens_halloran')` is the
+  Hudgens-Halloran two-stage estimator** (`sp.two_stage_interference`,
+  `group=` and `saturation=`), the same as `'two_stage'`. Through 1.40 the
+  two names routed to `sp.spillover`; a call that still passes
+  `sp.spillover`'s arguments under them raises `MethodIncompatibility`
+  pointing to `'spillover'`.
+- **Removed**: the fitted-value keys of `diagnostics` of `sp.zip_model`,
+  `sp.zinb` and `sp.hurdle` (`predicted_overall`, `predicted_count`,
+  `predicted_structural_zero`, `predicted_hurdle_prob`,
+  `predicted_count_mean`), deprecated in 1.39.0. Read them from
+  `data_info`. Results pickled by 1.39 / 1.40 still load.
 
 ## [1.40.2] — 2026-10-27
 

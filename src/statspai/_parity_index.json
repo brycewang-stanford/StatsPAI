@@ -19,6 +19,23 @@
       "tolerance": ""
     },
     {
+      "function": "BayesianCausalForest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bcf_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "DAG",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1267,7 +1284,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_bart_causal_seed_screen.py"
+        "tests/reference_parity/test_bart_causal_seed_screen.py",
+        "tests/reference_parity/test_bcf_parity.py"
       ],
       "tolerance": ""
     },
@@ -5430,6 +5448,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_es_crit_default.py",
         "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_survey_did_parity.py",
         "tests/reference_parity/test_survey_replicate_parity.py"
@@ -7346,6 +7365,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_rebel_canal_published.py",
+        "tests/reference_parity/test_es_crit_default.py",
         "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_event_study_grid_R_parity.py",
         "tests/reference_parity/test_event_study_options_R_parity.py",
@@ -22642,6 +22662,7 @@
         "tests/external_parity/test_dcdh_did_textbook.py",
         "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
         "tests/reference_parity/test_did_validation_parity.py",
+        "tests/reference_parity/test_es_crit_default.py",
         "tests/reference_parity/test_es_crit_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_control_cohort_parity.py",

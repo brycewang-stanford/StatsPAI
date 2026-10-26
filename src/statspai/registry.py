@@ -2781,8 +2781,8 @@ def _build_registry() -> None:
                     None,
                     "Critical-value rule, forwarded to did_2x2 ('t' / "
                     "'residual') or sun_abraham ('t' / 'normal') when method "
-                    "resolves to one of them; both warn (FutureWarning) when "
-                    "it is unset and their default changes in 1.41. 't' is "
+                    "resolves to one of them; unset, both use 't' (the "
+                    "default since 1.41). 't' is "
                     "t(G-1) clustered / t(N-K) otherwise (Stata, fixest). "
                     "'legacy' keeps the pre-1.41 rule of whichever estimator "
                     "runs and is a no-op for methods without the option; any "
@@ -27104,10 +27104,10 @@ def _build_registry() -> None:
                     "spillover",
                     "Interference design — call "
                     "sp.interference_available_designs() for the "
-                    "full list. 'partial' / 'hudgens_halloran' are "
-                    "deprecated aliases of 'spillover' (FutureWarning); "
-                    "they will route to 'two_stage' (Hudgens-Halloran) "
-                    "in the next minor release.",
+                    "full list. 'partial' / 'hudgens_halloran' are aliases "
+                    "of 'two_stage' (Hudgens-Halloran, needs group= and "
+                    "saturation=) since 1.41; before 1.41 they routed to "
+                    "'spillover'.",
                 ),
             ],
             returns=(
@@ -29429,7 +29429,7 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Critical values of a reference program; estimates and SEs "
-                    "unchanged. None: t(N-K) always. 'stata' (regress, "
+                    "unchanged. None: follow crit_dist. 'stata' (regress, "
                     "vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with "
                     "cluster=, t(N-K) otherwise. Recorded in "
                     "model_info['conventions'].",
@@ -29443,8 +29443,7 @@ def _build_registry() -> None:
                     "Critical-value rule; estimates and SEs unchanged. 't': "
                     "t(G-1) with cluster=, t(N-K) otherwise (= parity's). "
                     "'residual': t(N-K) always (the pre-1.41 default). None "
-                    "= 'residual' and a FutureWarning when cluster= is given; "
-                    "the default becomes 't' in 1.41. Contradicting parity= "
+                    "= 't' (the default since 1.41). Contradicting parity= "
                     "raises.",
                     ["t", "residual"],
                 ),
@@ -29703,11 +29702,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Headline summary convention: 'event_time' (equal weight "
-                    "per relative time) or 'fixest_att' (cohort-size "
-                    "weighted, matching fixest agg='att'). None = "
-                    "'event_time' with a FutureWarning: 'fixest_att' becomes "
-                    "the default in a later minor release.",
+                    "Headline summary convention: 'fixest_att' (cohort-size "
+                    "weighted, matching fixest agg='att') or 'event_time' "
+                    "(equal weight per relative time, the pre-1.41 "
+                    "default). None = 'fixest_att' (the default since 1.41).",
                     ["event_time", "fixest_att"],
                 ),
                 ParamSpec(
@@ -29729,8 +29727,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Inference conventions of a reference program; estimates "
-                    "unchanged. None: normal critical values, share term "
-                    "carried. 'stata' (eventstudyinteract): t(G-1) for "
+                    "unchanged. None: crit_dist's critical values, share "
+                    "term carried. 'stata' (eventstudyinteract): t(G-1) for "
                     "cluster SEs, t(N-K) for the HC1 SEs of i=None, share "
                     "term carried. 'r' (fixest sunab): the same t and "
                     "share_variance=False. Recorded in "
@@ -29745,9 +29743,8 @@ def _build_registry() -> None:
                     "Critical-value rule alone (share_variance untouched). "
                     "'t': t(G-1) for cluster SEs, t(N-K) for i=None (= "
                     "parity='stata' with the default share term). 'normal': "
-                    "the pre-1.41 default. None = 'normal' with a "
-                    "FutureWarning; the default becomes 't' in 1.41. "
-                    "'normal' with parity= raises.",
+                    "the pre-1.41 default. None = 't' (the default since "
+                    "1.41). 'normal' with parity= raises.",
                     ["t", "normal"],
                 ),
                 ParamSpec(
@@ -31610,7 +31607,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Critical values of a reference program for p-values and "
-                    "CIs (estimates and SEs unchanged). None: normal. "
+                    "CIs (estimates and SEs unchanged). None: follow "
+                    "crit_dist. "
                     "'stata' (reghdfe, vce(cluster)) and 'r' (fixest, "
                     "cluster=): Student t with G-1 df. Recorded in "
                     "model_info['conventions'].",
@@ -31624,8 +31622,8 @@ def _build_registry() -> None:
                     "Critical-value rule for p-values and CIs; estimates, "
                     "SEs and the pre-trend F test unchanged. 't': t(G-1) "
                     "(= parity's). 'normal': the pre-1.41 default. None = "
-                    "'normal' with a FutureWarning; the default becomes 't' "
-                    "in 1.41. 'normal' with parity= raises.",
+                    "'t' (the default since 1.41). 'normal' with parity= "
+                    "raises.",
                     ["t", "normal"],
                 ),
             ],

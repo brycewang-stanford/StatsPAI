@@ -2528,16 +2528,16 @@
     "name": "bauer_sinning"
   },
   {
-    "description": "BCF-style CATE approximation (random forest + boosting), not BART/MCMC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
+    "description": "Bayesian causal forest (Hahn, Murray and Carvalho 2020), MCMC posterior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "The credible interval has level ``1 - alpha``.",
           "type": "number"
         },
         "covariates": {
-          "description": "Covariate names.",
+          "description": "Numeric covariate names (confounders and moderators).",
           "items": {
             "type": "string"
           },
@@ -2545,28 +2545,26 @@
           "x-statspai-role": "columns"
         },
         "n_bootstrap": {
-          "default": 200,
-          "description": "Bootstrap iterations for uncertainty quantification.",
+          "description": "Options of the pre-1.41 approximation. Passing either raises ``MethodIncompatibility``: the posterior is sampled, not bootstrapped (use ``draws=`` / ``chains=``).",
           "type": "integer"
         },
         "n_folds": {
-          "default": 5,
-          "description": "Cross-fitting folds for propensity estimation.",
+          "description": "Options of the pre-1.41 approximation. Passing either raises ``MethodIncompatibility``: the posterior is sampled, not bootstrapped (use ``draws=`` / ``chains=``).",
           "type": "integer"
         },
         "n_trees_mu": {
           "default": 200,
-          "description": "Number of trees for the prognostic function mu(X).",
+          "description": "Trees in the prognostic forest (``n_trees_control`` of ``sp.bart_causal``).",
           "type": "integer"
         },
         "n_trees_tau": {
           "default": 50,
-          "description": "Number of trees for the treatment effect function tau(X). Fewer trees = stronger shrinkage toward homogeneous effects.",
+          "description": "Trees in the effect forest (``n_trees_moderate``).",
           "type": "integer"
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Seed of the chains (``seed`` of ``sp.bart_causal``); also accepted as ``seed=``.",
           "type": "integer",
           "x-aliases": [
             "seed"
@@ -2579,7 +2577,7 @@
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "Outcome variable.",
+          "description": "Continuous outcome.",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -2599,7 +2597,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "number"
         },
         "binarize": {
@@ -2633,7 +2631,7 @@
         },
         "n_bootstrap": {
           "default": 100,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "integer"
         },
         "n_factors": {
@@ -2643,25 +2641,25 @@
         },
         "n_folds": {
           "default": 5,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "integer",
           "x-statspai-source": "signature"
         },
         "n_trees_mu": {
           "default": 200,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "integer",
           "x-statspai-source": "signature"
         },
         "n_trees_tau": {
           "default": 50,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "integer",
           "x-statspai-source": "signature"
         },
         "random_state": {
           "default": 42,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each factor.",
           "type": "integer",
           "x-aliases": [
             "seed"
@@ -2777,7 +2775,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "number"
         },
         "baseline": {
@@ -2794,27 +2792,27 @@
         },
         "n_bootstrap": {
           "default": 100,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "integer"
         },
         "n_folds": {
           "default": 5,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "integer"
         },
         "n_trees_mu": {
           "default": 200,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "integer"
         },
         "n_trees_tau": {
           "default": 50,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "integer"
         },
         "random_state": {
           "default": 42,
-          "description": "Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.",
+          "description": "Forwarded to the BCF-style ensemble fit (``sp.BayesianCausalForest``) for each incremental fit.",
           "type": "integer",
           "x-aliases": [
             "seed"
@@ -9412,7 +9410,7 @@
           "x-statspai-role": "columns"
         },
         "crit_dist": {
-          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1) with cluster=, t(N-K) otherwise (= parity's). 'residual': t(N-K) always (the pre-1.41 default). None = 'residual' and a FutureWarning when cluster= is given; the default becomes 't' in 1.41. Contradicting parity= raises.",
+          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1) with cluster=, t(N-K) otherwise (= parity's). 'residual': t(N-K) always (the pre-1.41 default). None = 't' (the default since 1.41). Contradicting parity= raises.",
           "enum": [
             "t",
             "residual"
@@ -9435,7 +9433,7 @@
           "x-statspai-source": "signature"
         },
         "parity": {
-          "description": "Critical values of a reference program; estimates and SEs unchanged. None: t(N-K) always. 'stata' (regress, vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with cluster=, t(N-K) otherwise. Recorded in model_info['conventions'].",
+          "description": "Critical values of a reference program; estimates and SEs unchanged. None: follow crit_dist. 'stata' (regress, vce(cluster)) and 'r' (fixest, cluster=): t(G-1) with cluster=, t(N-K) otherwise. Recorded in model_info['conventions'].",
           "enum": [
             "r",
             "stata"
@@ -14086,7 +14084,7 @@
           "x-statspai-role": "columns"
         },
         "crit_dist": {
-          "description": "Critical-value rule for p-values and CIs; estimates, SEs and the pre-trend F test unchanged. 't': t(G-1) (= parity's). 'normal': the pre-1.41 default. None = 'normal' with a FutureWarning; the default becomes 't' in 1.41. 'normal' with parity= raises.",
+          "description": "Critical-value rule for p-values and CIs; estimates, SEs and the pre-trend F test unchanged. 't': t(G-1) (= parity's). 'normal': the pre-1.41 default. None = 't' (the default since 1.41). 'normal' with parity= raises.",
           "enum": [
             "t",
             "normal"
@@ -14103,7 +14101,7 @@
           "type": "string"
         },
         "parity": {
-          "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: normal. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
+          "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: follow crit_dist. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
           "enum": [
             "r",
             "stata"
@@ -18034,10 +18032,10 @@
           "description": "One-way or multi-way cluster column(s)."
         },
         "cluster_df": {
-          "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the default) is ``'per_term'`` in this release and warns (``FutureWarning``) when two or more cluster variables are given: the default will become ``'min'`` in a later minor release. Pass either value to silence the warning. ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does; ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to reproduce their numbers. The two differ by a few percent with few clusters in one dimension (0.00935 against 0.00856 on one 40 x 15 panel); one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. OLS with fixed effects only. .. deprecated:: 1.40.0 The implicit ``'per_term'`` default for multi-way clustering; it becomes ``'min'`` (see MIGRATION.md).",
+          "description": "Small-sample factor of a multi-way cluster variance (the inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the default) is ``'min'``: every term is scaled by ``G_min/(G_min - 1)``, the smallest cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and so ``sp.feols(vcov={'CRV1': 'a + b'})``) report. ``'per_term'`` scales each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does (the default before 1.41). The two differ by a few percent with few clusters in one dimension; one-way clustering is the same either way. The choice is recorded in ``cluster_info['cluster_df']``. Explicit values apply to OLS with fixed effects only; without absorbed effects or with instruments the multi-way factor is per term. .. versionchanged:: 1.41 The default for multi-way clustering is ``'min'`` (was ``'per_term'``; see MIGRATION.md).",
           "enum": [
-            "per_term",
-            "min"
+            "min",
+            "per_term"
           ],
           "type": "string"
         },
@@ -19219,7 +19217,7 @@
       "properties": {
         "design": {
           "default": "spillover",
-          "description": "Interference design -- call sp.interference_available_designs() for the full list. 'partial' / 'hudgens_halloran' are deprecated aliases of 'spillover' (FutureWarning); they will route to 'two_stage' (Hudgens-Halloran) in the next minor release.",
+          "description": "Interference design -- call sp.interference_available_designs() for the full list. 'partial' / 'hudgens_halloran' are aliases of 'two_stage' (Hudgens-Halloran, needs group= and saturation=) since 1.41; before 1.41 they routed to 'spillover'.",
           "enum": [
             "aronow_samii",
             "as",
@@ -41056,7 +41054,7 @@
     "input_schema": {
       "properties": {
         "aggregation": {
-          "description": "Headline ATT; omitted = event_time (FutureWarning: fixest_att later).",
+          "description": "Headline ATT; omitted = fixest_att (fixest agg='att'); event_time = equal weight per relative time (pre-1.41 default).",
           "enum": [
             "event_time",
             "fixest_att"
@@ -41081,7 +41079,7 @@
           "type": "array"
         },
         "crit_dist": {
-          "description": "Critical values: 't' = t(G-1) as Stata and fixest; omitted = normal (FutureWarning: 't' in 1.41).",
+          "description": "Critical values: 't' = t(G-1) as Stata and fixest (omitted = 't'); 'normal' = the pre-1.41 default.",
           "enum": [
             "t",
             "normal"

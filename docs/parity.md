@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 438 |
 | | aligned | 57 |
 | | **subtotal** | **495** |
-| **No external software reference** | analytical-only (T1) | 426 |
+| **No external software reference** | analytical-only (T1) | 427 |
 | | external-replication (published numbers) | 62 |
-| | **subtotal** | **488** |
-| No numerical evidence yet | unverified | 644 |
+| | **subtotal** | **489** |
+| No numerical evidence yet | unverified | 643 |
 
 ### Honest denominators
 
@@ -43,8 +43,8 @@ The all-registered denominator understates coverage: it counts result and except
 | --- | ---: | ---: | ---: | ---: |
 | estimator callables | 495 | 965 | 982 | 50.4% |
 | infrastructure (parity N/A) | 0 | 13 | 233 | 0.0% |
-| result / exception classes | 0 | 5 | 412 | 0.0% |
-| **all registered** | 495 | 983 | 1627 | 30.4% |
+| result / exception classes | 0 | 6 | 412 | 0.0% |
+| **all registered** | 495 | 984 | 1627 | 30.4% |
 
 ### Coverage by estimator family
 
@@ -675,13 +675,14 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 426 functions
+## analytical-only — 427 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
 | function | test |
 | --- | --- |
 | `BartikIV` | [`test_akm_collinear_shares_R_parity.py`](../tests/reference_parity/test_akm_collinear_shares_R_parity.py) |
+| `BayesianCausalForest` | [`test_bcf_parity.py`](../tests/reference_parity/test_bcf_parity.py) |
 | `DAG` | [`test_dag_instruments_dagitty_parity.py`](../tests/reference_parity/test_dag_instruments_dagitty_parity.py) |
 | `DoubleML` | [`test_dml_cluster_doubleml_parity.py`](../tests/reference_parity/test_dml_cluster_doubleml_parity.py) (+1) |
 | `RlassoRegressor` | [`test_yuksel_aydede_causal_ml_parity.py`](../tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py) |
@@ -704,7 +705,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bandit_allocate` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
 | `bandit_experiment` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
 | `bart` | [`test_bayes_nonparametric_exact.py`](../tests/reference_parity/test_bayes_nonparametric_exact.py) |
-| `bart_causal` | [`test_bart_causal_seed_screen.py`](../tests/reference_parity/test_bart_causal_seed_screen.py) |
+| `bart_causal` | [`test_bart_causal_seed_screen.py`](../tests/reference_parity/test_bart_causal_seed_screen.py) (+1) |
 | `bayes_arima` | [`test_bayes_timeseries_exact_posterior.py`](../tests/reference_parity/test_bayes_timeseries_exact_posterior.py) |
 | `bayes_bootstrap` | [`test_bayes_regress_exact_posterior.py`](../tests/reference_parity/test_bayes_regress_exact_posterior.py) |
 | `bayes_did` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
@@ -1108,6 +1109,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
-## unverified — 644 functions
+## unverified — 643 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
