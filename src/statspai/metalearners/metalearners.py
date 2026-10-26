@@ -1041,6 +1041,10 @@ def metalearner(
     CausalResult
         Result with ATE estimate, SE, CI, p-value, and individual
         CATE predictions accessible via ``result.model_info['cate']``.
+        ``model_info['estimation_rows']`` holds the positions, in ``data``,
+        of the rows behind ``cate`` (complete cases); the CATE diagnostics
+        (``sp.cate_by_group``, ``sp.blp_test``, ``sp.gate_test``) use it to
+        pair each effect with its own row.
 
     Notes
     -----
@@ -1148,11 +1152,17 @@ def metalearner(
     check_columns(
         data, {"weights": weights, "cluster": cluster}, function="sp.metalearner"
     )
+    n_input_rows = len(data)
+    design_ok = np.ones(n_input_rows, dtype=bool)
     if design:
         # Complete cases on the design columns too, before the usual prep.
+        design_ok = data[design].notna().all(axis=1).to_numpy()
         data = data.loc[data[design].notna().all(axis=1)]
     Y, D, X, n = _prepare_data(data, y, treat, covariates, function="sp.metalearner")
     keep_rows = data[[y, treat] + list(covariates)].notna().all(axis=1).to_numpy()
+    # Positions, in the frame passed in, of the rows behind ``cate``; the
+    # CATE diagnostics use them to pair each effect with its own row.
+    estimation_rows = np.flatnonzero(design_ok)[keep_rows]
     sw: Optional[np.ndarray] = None
     if weights is not None:
         sw = data.loc[keep_rows, weights].to_numpy(dtype=float)
@@ -1446,6 +1456,8 @@ def metalearner(
         ),
         "cate_mean_se": None,
         "covariates": covariates,
+        "estimation_rows": estimation_rows,
+        "n_input_rows": n_input_rows,
         "_estimator": est,
         "cate": cate,
         "cate_mean": float(np.mean(cate)),

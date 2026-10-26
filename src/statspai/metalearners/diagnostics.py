@@ -21,6 +21,40 @@ from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
 
+def _align_rows(result: Any, data: pd.DataFrame, n: int, context: str) -> pd.DataFrame:
+    """The rows of ``data`` that the ``n`` effects in ``result`` belong to.
+
+    ``sp.metalearner`` drops rows with missing values and records which
+    rows it kept (``model_info['estimation_rows']``, positions in the frame
+    it was given). Passed that same frame, the diagnostics use those rows.
+    Passed a frame with one row per effect, it is used as is. Anything else
+    cannot be paired row by row and is refused: slicing the first ``n`` rows
+    would attach effects to the wrong units.
+    """
+    info = getattr(result, "model_info", None)
+    rows = info.get("estimation_rows") if isinstance(info, dict) else None
+    n_in = info.get("n_input_rows") if isinstance(info, dict) else None
+    if rows is not None and n_in is not None and len(data) == int(n_in):
+        if len(rows) != n:
+            raise MethodIncompatibility(
+                f"{context}: the result records {len(rows)} estimation rows "
+                f"but carries {n} effects.",
+                recovery_hint="Refit the model and pass its result unchanged.",
+            )
+        return data.iloc[np.asarray(rows, dtype=int)]
+    if len(data) == n:
+        return data
+    raise MethodIncompatibility(
+        f"{context}: data has {len(data)} rows but there are {n} effect "
+        "estimates, so they cannot be paired with rows.",
+        recovery_hint=(
+            "Pass the data frame the model was fitted on, or only the rows "
+            "it used (complete cases)."
+        ),
+        diagnostics={"n_rows": int(len(data)), "n_effects": int(n)},
+    )
+
+
 def cate_summary(result: CausalResult) -> pd.DataFrame:
     """
     Descriptive statistics of the CATE distribution.
@@ -141,7 +175,8 @@ def cate_by_group(
         check_columns(
             data, {"by": by}, function="sp.cate_by_group", extra_hint="Or by='cate'."
         )
-        col = data[by].values[: len(cate)]
+        data = _align_rows(result, data, len(cate), "sp.cate_by_group")
+        col = data[by].values
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
             labels = pd.qcut(col, q=n_groups, labels=False, duplicates="drop")
         else:
@@ -369,9 +404,10 @@ def _cddf_inputs(
         function="sp." + context.removesuffix("()"),
         extra_hint="Pass the same data frame used to fit the CATE model.",
     )
-    Y = data[y].to_numpy(dtype=float)[:n]
-    D = data[treat].to_numpy(dtype=float)[:n]
-    X = data[list(covariates)].to_numpy(dtype=float)[:n]
+    data = _align_rows(result, data, n, context)
+    Y = data[y].to_numpy(dtype=float)
+    D = data[treat].to_numpy(dtype=float)
+    X = data[list(covariates)].to_numpy(dtype=float)
     if not np.all(np.isin(D, (0.0, 1.0))):
         raise MethodIncompatibility(
             f"{context} requires a binary 0/1 treatment.",
@@ -660,6 +696,7 @@ def gate_test(
 
     from . import _cddf
 
+    data = _align_rows(result, data, len(_extract_cate(result)), "gate_test()")
     Y, D, p, B, S, p_source, s_source = _cddf_inputs(
         result,
         data,
@@ -682,7 +719,7 @@ def gate_test(
         check_columns(
             data, {"by": by}, function="sp.gate_test", extra_hint="Or by='cate'."
         )
-        col = data[by].to_numpy()[:n]
+        col = data[by].to_numpy()
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
             labels = _cddf.quantile_groups(col.astype(float), n_groups)
             levels = list(range(n_groups))
@@ -722,7 +759,7 @@ def gate_test(
     if clan is not None:
         check_columns(data, {"clan": list(clan)}, function="sp.gate_test")
         extra["clan_table"] = _clan_table(
-            data[list(clan)].to_numpy(dtype=float)[:n], labels, K, list(clan), z
+            data[list(clan)].to_numpy(dtype=float), labels, K, list(clan), z
         )
     return {
         **extra,
@@ -784,7 +821,7 @@ def _gate_descriptive(
     if by == "cate":
         labels = pd.qcut(cate, q=n_groups, labels=False, duplicates="drop")
     else:
-        col = data[by].values[: len(cate)]
+        col = _align_rows(result, data, len(cate), "gate_test()")[by].values
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
             labels = pd.qcut(col, q=n_groups, labels=False, duplicates="drop")
         else:

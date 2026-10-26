@@ -34,7 +34,7 @@ def resolve_vector(value: Any, data: pd.DataFrame, n: int, name: str) -> np.ndar
             {name: value},
             extra_hint=f"Or pass an array for {name}.",
         )
-        arr = data[value].to_numpy(dtype=float)[:n]
+        arr = data[value].to_numpy(dtype=float)
     else:
         arr = np.asarray(value, dtype=float).ravel()
     if arr.shape[0] != n:
@@ -153,6 +153,11 @@ def cross_fit_proxy(
     out = np.empty(len(Y))
     for tr, te in KFold(n_splits=n_folds, shuffle=True, random_state=seed).split(X):
         model = copy.deepcopy(est)
+        if getattr(model, "fold_indices", None) is not None:
+            # The learner's own cross-fitting partition labels the full
+            # sample; on a training fold it would not line up, so the
+            # refit uses the learner's default split.
+            model.fold_indices = None
         model.fit(X[tr], Y[tr], D[tr])
         out[te] = np.asarray(model.effect(X[te]), dtype=float).ravel()
     return out
