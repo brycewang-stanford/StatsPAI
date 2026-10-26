@@ -56,12 +56,19 @@ def join_counts(
     >>> {"BB", "WW", "BW"} <= set(jc)
     True
     """
-    y = np.asarray(y).ravel().astype(int)
-    if not set(np.unique(y)).issubset({0, 1}):
+    y_raw = np.asarray(y, dtype=float).ravel()
+    # Check the values themselves: through 1.40.2 the cast to int came
+    # first, so 0.5 became 0 and 1.7 became 1 and passed the check.
+    if not set(np.unique(y_raw)).issubset({0.0, 1.0}):
         raise ValueError("join_counts requires binary y (values 0 or 1).")
+    y = y_raw.astype(int)
     S = w.sparse
-    rows, cols = S.nonzero()
-    data = S.data
+    # Row, column and value from one COO view: ``S.nonzero()`` drops stored
+    # zeros while ``S.data`` keeps them, and adaptive bisquare / triangular
+    # kernel weights store a zero for the k-th neighbour (through 1.40.2
+    # the two arrays then had different lengths).
+    coo = S.tocoo()
+    rows, cols, data = coo.row, coo.col, coo.data
     bb = 0.5 * float(np.sum(data * ((y[rows] == 1) & (y[cols] == 1))))
     ww = 0.5 * float(np.sum(data * ((y[rows] == 0) & (y[cols] == 0))))
     # The 0.5 is not optional and was missing here while BB and WW had it.

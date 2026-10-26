@@ -91,8 +91,12 @@ def geary(
     S0 = float(S.sum())
     if S0 == 0:
         raise ValueError("Weights matrix has zero total.")
-    rows, cols = S.nonzero()
-    data = S.data
+    # Row, column and value from one COO view: ``S.nonzero()`` drops stored
+    # zeros while ``S.data`` keeps them, and adaptive bisquare / triangular
+    # kernel weights store a zero for the k-th neighbour (through 1.40.2
+    # the two arrays then had different lengths).
+    coo = S.tocoo()
+    rows, cols, data = coo.row, coo.col, coo.data
     diffs = (y[rows] - y[cols]) ** 2
     num = float(np.sum(data * diffs))
     z = y - y.mean()
