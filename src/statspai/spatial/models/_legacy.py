@@ -18,11 +18,8 @@ LeSage, J. and Pace, R.K. (2009).
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
-
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize_scalar
 
 from ...core.results import EconometricResults
 
@@ -237,6 +234,10 @@ class SpatialModel:
     ) -> None:
         self.model_type = model_type.lower()
         self.alpha = alpha
+        self._W_input = W
+        self._data = data
+        self._formula = formula
+        self._row_normalize = row_normalize
 
         # Parse formula
         if "~" not in formula:
@@ -281,280 +282,28 @@ class SpatialModel:
         self._rho_max = min(self._rho_max * 0.99, 0.99)
 
     def fit(self) -> EconometricResults:
-        if self.model_type == "sar":
-            return self._fit_sar()
-        elif self.model_type == "sem":
-            return self._fit_sem()
-        elif self.model_type == "sdm":
-            return self._fit_sdm()
-        else:
+        """Fit by maximum likelihood with :func:`sp.sar` / :func:`sp.sem` /
+        :func:`sp.sdm`, so the class and the functions report one set of
+        estimates and standard errors.
+
+        Notes
+        -----
+        Through 1.40.2 the class kept its own concentrated-likelihood
+        fit with the information-matrix formulas the functions had
+        replaced: the ``rho`` SE omitted ``tr(G'G)``, the ``beta`` SEs
+        treated ``rho`` as known, the ``lambda`` SE used
+        ``tr(G^2) + tr(G)^2 / n``, and ``alpha`` never reached the
+        intervals.
+        """
+        from . import ml
+
+        fitters = {"sar": ml.sar, "sem": ml.sem, "sdm": ml.sdm}
+        if self.model_type not in fitters:
             raise ValueError(f"Unknown model_type: {self.model_type}")
-
-    # ------------------------------------------------------------------ #
-    #  SAR:  Y = ρWY + Xβ + ε
-    # ------------------------------------------------------------------ #
-
-    def _fit_sar(self) -> EconometricResults:
-        W, y, X, n = self.W, self.y, self.X, self.n
-        Wy = W @ y
-
-        # Concentrated ML: for given ρ, β = (X'X)^{-1} X'(y - ρWy)
-        XtX_inv = np.linalg.inv(X.T @ X)
-
-        def neg_conc_ll(rho: float) -> float:
-            y_star = y - rho * Wy
-            beta = XtX_inv @ X.T @ y_star
-            e = y_star - X @ beta
-            sigma2 = e @ e / n
-            if sigma2 <= 0:
-                return 1e20
-            ll = -n / 2 * np.log(sigma2)
-            ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
-            return float(-ll)
-
-        result = minimize_scalar(
-            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
+        return fitters[self.model_type](
+            self._W_input,
+            self._data,
+            self._formula,
+            row_normalize=self._row_normalize,
+            alpha=self.alpha,
         )
-        rho = float(result.x)
-
-        # Recover β, σ²
-        y_star = y - rho * Wy
-        beta = XtX_inv @ X.T @ y_star
-        e = y_star - X @ beta
-        sigma2 = float(e @ e / n)
-
-        # Standard errors via information matrix
-        se_beta, se_rho = self._spatial_se(X, e, Wy, rho, sigma2, "sar")
-
-        # Build results
-        all_names = self._var_names + ["rho"]
-        all_params = np.append(beta, rho)
-        all_se = np.append(se_beta, se_rho)
-
-        return self._make_results(all_params, all_se, all_names, sigma2, rho, e)
-
-    # ------------------------------------------------------------------ #
-    #  SEM:  Y = Xβ + u,  u = λWu + ε  →  (I - λW)Y = (I - λW)Xβ + ε
-    # ------------------------------------------------------------------ #
-
-    def _fit_sem(self) -> EconometricResults:
-        W, y, X, n = self.W, self.y, self.X, self.n
-
-        def neg_conc_ll(lam: float) -> float:
-            A = np.eye(n) - lam * W
-            y_star = A @ y
-            X_star = A @ X
-            XtX_inv = np.linalg.inv(X_star.T @ X_star)
-            beta = XtX_inv @ X_star.T @ y_star
-            e = y_star - X_star @ beta
-            sigma2 = e @ e / n
-            if sigma2 <= 0:
-                return 1e20
-            ll = -n / 2 * np.log(sigma2)
-            ll += np.sum(np.log(np.abs(1 - lam * self._eigenvalues)))
-            return float(-ll)
-
-        result = minimize_scalar(
-            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
-        )
-        lam = float(result.x)
-
-        # Recover β
-        A = np.eye(n) - lam * W
-        y_star = A @ y
-        X_star = A @ X
-        XtX_inv = np.linalg.inv(X_star.T @ X_star)
-        beta = XtX_inv @ X_star.T @ y_star
-        e = y_star - X_star @ beta
-        sigma2 = float(e @ e / n)
-
-        # Standard errors
-        se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
-        # Approximate SE for lambda
-        se_lam = self._lambda_se(W, e, lam, sigma2)
-
-        all_names = self._var_names + ["lambda"]
-        all_params = np.append(beta, lam)
-        all_se = np.append(se_beta, se_lam)
-
-        return self._make_results(
-            all_params, all_se, all_names, sigma2, lam, e, param_name="lambda"
-        )
-
-    # ------------------------------------------------------------------ #
-    #  SDM:  Y = ρWY + Xβ + WXθ + ε
-    # ------------------------------------------------------------------ #
-
-    def _fit_sdm(self) -> EconometricResults:
-        W, y, X, n = self.W, self.y, self.X, self.n
-        Wy = W @ y
-
-        # Augment X with WX (spatial lags of covariates, skip constant)
-        WX = W @ X[:, 1:]  # don't lag the constant
-        X_aug = np.column_stack([X, WX])
-        XtX_inv = np.linalg.inv(X_aug.T @ X_aug)
-
-        lag_names = [f"W_{v}" for v in self._indep_vars]
-
-        def neg_conc_ll(rho: float) -> float:
-            y_star = y - rho * Wy
-            beta = XtX_inv @ X_aug.T @ y_star
-            e = y_star - X_aug @ beta
-            sigma2 = e @ e / n
-            if sigma2 <= 0:
-                return 1e20
-            ll = -n / 2 * np.log(sigma2)
-            ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
-            return float(-ll)
-
-        result = minimize_scalar(
-            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
-        )
-        rho = float(result.x)
-
-        y_star = y - rho * Wy
-        beta_aug = XtX_inv @ X_aug.T @ y_star
-        e = y_star - X_aug @ beta_aug
-        sigma2 = float(e @ e / n)
-
-        se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
-        _, se_rho = self._spatial_se(X_aug, e, Wy, rho, sigma2, "sar")
-
-        all_names = self._var_names + lag_names + ["rho"]
-        all_params = np.append(beta_aug, rho)
-        all_se = np.append(se_beta, se_rho)
-
-        result_obj = self._make_results(all_params, all_se, all_names, sigma2, rho, e)
-
-        # Direct / indirect / total effects (LeSage & Pace 2009)
-        beta_own = beta_aug[1 : self.k]  # skip constant
-        theta = beta_aug[self.k :]
-        effects = self._compute_effects(rho, beta_own, theta)
-        result_obj.diagnostics.update(effects)
-
-        return result_obj
-
-    # ------------------------------------------------------------------ #
-    #  Helpers
-    # ------------------------------------------------------------------ #
-
-    def _spatial_se(
-        self,
-        X: np.ndarray,
-        e: np.ndarray,
-        Wy: np.ndarray,
-        rho: float,
-        sigma2: float,
-        model: str,
-    ) -> Tuple[np.ndarray, float]:
-        """Approximate SE from concentrated likelihood Hessian."""
-        n, k = X.shape
-        XtX_inv = np.linalg.inv(X.T @ X)
-        se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
-
-        # SE for rho: from information matrix diagonal
-        A_inv_W = np.linalg.solve(np.eye(n) - rho * self.W, self.W)
-        tr2 = np.trace(A_inv_W @ A_inv_W)
-        I_rho = tr2 + (A_inv_W @ X @ XtX_inv @ X.T @ A_inv_W.T).trace() / sigma2
-        se_rho = 1.0 / np.sqrt(max(I_rho, 1e-10))
-
-        return np.asarray(se_beta, dtype=float), float(se_rho)
-
-    def _lambda_se(
-        self,
-        W: np.ndarray,
-        e: np.ndarray,
-        lam: float,
-        sigma2: float,
-    ) -> float:
-        """Approximate SE for spatial error parameter."""
-        n = len(e)
-        A_inv_W = np.linalg.solve(np.eye(n) - lam * W, W)
-        tr2 = np.trace(A_inv_W @ A_inv_W)
-        tr1 = np.trace(A_inv_W)
-        I_lam = tr2 + tr1**2 / n
-        return float(1.0 / np.sqrt(max(I_lam, 1e-10)))
-
-    def _compute_effects(
-        self,
-        rho: float,
-        beta: np.ndarray,
-        theta: np.ndarray,
-    ) -> Dict[str, Dict[str, float]]:
-        """Direct, indirect, total effects for SDM (LeSage & Pace 2009)."""
-        n = self.n
-        S_inv = np.linalg.inv(np.eye(n) - rho * self.W)
-        k_vars = len(beta)
-
-        direct = np.zeros(k_vars)
-        indirect = np.zeros(k_vars)
-        total = np.zeros(k_vars)
-
-        for j in range(k_vars):
-            S_j = S_inv @ (beta[j] * np.eye(n) + theta[j] * self.W)
-            direct[j] = np.trace(S_j) / n
-            total[j] = S_j.sum() / n
-            indirect[j] = total[j] - direct[j]
-
-        return {
-            "Direct effects": {
-                name: float(value)
-                for name, value in zip(self._indep_vars, np.round(direct, 6))
-            },
-            "Indirect effects": {
-                name: float(value)
-                for name, value in zip(self._indep_vars, np.round(indirect, 6))
-            },
-            "Total effects": {
-                name: float(value)
-                for name, value in zip(self._indep_vars, np.round(total, 6))
-            },
-        }
-
-    def _make_results(
-        self,
-        params: np.ndarray,
-        se: np.ndarray,
-        names: List[str],
-        sigma2: float,
-        spatial_param: float,
-        resid: np.ndarray,
-        param_name: str = "rho",
-    ) -> EconometricResults:
-        """Build EconometricResults."""
-        model_names = {
-            "sar": "SAR (Spatial Lag)",
-            "sem": "SEM (Spatial Error)",
-            "sdm": "SDM (Spatial Durbin)",
-        }
-        fitted = self.y - resid[: len(self.y)] if len(resid) == self.n else None
-
-        return EconometricResults(
-            params=pd.Series(params, index=names),
-            std_errors=pd.Series(se, index=names),
-            model_info={
-                "model_type": model_names.get(self.model_type, self.model_type),
-                "method": "Maximum Likelihood",
-                "spatial_param": param_name,
-                "spatial_param_value": float(spatial_param),
-            },
-            data_info={
-                "nobs": self.n,
-                "df_model": len(names) - 1,
-                "df_resid": self.n - len(names),
-                "dependent_var": self._dep_var,
-                "fitted_values": fitted if fitted is not None else np.zeros(self.n),
-                "residuals": resid[: self.n],
-            },
-            diagnostics={
-                "sigma2": round(sigma2, 6),
-                "Log-Likelihood": round(self._log_likelihood(sigma2, spatial_param), 4),
-            },
-        )
-
-    def _log_likelihood(self, sigma2: float, spatial_param: float) -> float:
-        """Full log-likelihood at ML estimates."""
-        n = self.n
-        ll = -n / 2 * np.log(2 * np.pi) - n / 2 * np.log(sigma2) - n / 2
-        ll += np.sum(np.log(np.abs(1 - spatial_param * self._eigenvalues)))
-        return float(ll)
