@@ -472,9 +472,14 @@ def _design_from_fitted_frame(
     fitted = _fitted_frame(result)
     if fitted is None or fitted is frame:
         return None
+    from patsy import PatsyError
+
+    # pandas raises KeyError / TypeError / ValueError on columns the fitted
+    # frame no longer has in usable form.
+    _rebuild_errors = (PatsyError, ValueError, KeyError, TypeError, IndexError)
     try:
         design = _FormulaDesign(formula, fitted, terms)
-    except Exception:  # noqa: BLE001 - patsy and pandas raise many types
+    except _rebuild_errors:
         return None
     if any(v not in frame.columns for v in design.variables):
         return None
@@ -490,7 +495,7 @@ def _design_from_fitted_frame(
     rows = fitted.loc[fitted[cols].notna().all(axis=1)] if cols else fitted
     try:
         rebuilt = design.build(rows)
-    except Exception:  # noqa: BLE001
+    except _rebuild_errors:
         return None
     if rebuilt.shape != X.shape:
         # the fit dropped further rows (weights, clusters, singletons):

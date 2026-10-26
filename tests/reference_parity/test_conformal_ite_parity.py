@@ -77,4 +77,7 @@ def test_interval_structural_identities():
     assert float(r.diagnostics["cate_mean"]) == pytest.approx(
         float(cate.mean()), abs=1e-12
     )
-    assert float(r.estimate) == pytest.approx(float(cate.mean()), abs=1e-12)
+    # Since 1.41 the headline is the cross-fitted AIPW average (equal to
+    # sp.metalearner's, tests/test_conformal_causal_scan_oct2026.py), not the
+    # mean of the fitted CATEs, which stays in diagnostics["cate_mean"].
+    assert np.isfinite(float(r.estimate)) and float(r.se) > 0
