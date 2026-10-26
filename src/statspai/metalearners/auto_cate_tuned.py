@@ -255,6 +255,38 @@ def _sample_params(trial: Any, search_space: Dict[str, List[Any]]) -> Dict[str, 
     return params
 
 
+def _nuisance_losses(
+    params: Dict[str, Any],
+    X: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    n_folds: int,
+    random_state: int,
+) -> Tuple[float, float]:
+    """Held-out losses of one nuisance candidate: the R-loss at
+    ``tau_hat = 0`` (the cross-fitted squared error of ``m``) and the
+    cross-fitted Bernoulli log loss of the clipped propensity ``e``.
+
+    The R-loss at ``tau_hat = 0`` is ``mean((Y - m)^2)`` and does not
+    involve ``e`` at all, so it cannot rank propensity models; each
+    nuisance is scored by its own loss.
+    """
+    outcome, propensity = _build_models_from_params(params, random_state)
+    m_hat, e_hat = _cross_fit_nuisance(
+        X,
+        Y,
+        D,
+        outcome_model=outcome,
+        propensity_model=propensity,
+        n_folds=n_folds,
+        random_state=random_state,
+    )
+    e_hat = np.clip(e_hat, 0.01, 0.99)
+    r_loss = _r_loss(np.zeros_like(Y), Y, D, m_hat, e_hat)
+    log_loss = float(-np.mean(D * np.log(e_hat) + (1 - D) * np.log(1 - e_hat)))
+    return r_loss, log_loss
+
+
 def _r_loss_on_nuisance(
     params: Dict[str, Any],
     X: np.ndarray,
@@ -264,7 +296,8 @@ def _r_loss_on_nuisance(
     random_state: int,
 ) -> float:
     """Held-out R-loss using these nuisance HPs and a naive ``tau_hat = 0``
-    baseline. Lower is better.
+    baseline. Lower is better. It ranks outcome models only (see
+    :func:`_nuisance_losses`).
 
     Why tau_hat=0: the nuisance hyperparameters affect ``m_hat`` and
     ``e_hat`` directly, and the R-loss lower-bound for a *correctly
@@ -361,9 +394,14 @@ def auto_cate_tuned(
     tune : {'nuisance', 'per_learner', 'both'}, default ``'nuisance'``
         Tuning regime:
 
-        - ``'nuisance'`` — tune the shared outcome / propensity GBMs
-          against held-out R-loss, then hand them to ``auto_cate``.
-          (v0.9.5 behaviour.)
+        - ``'nuisance'`` — tune the shared outcome / propensity GBMs,
+          then hand them to ``auto_cate``. The outcome model is chosen by
+          held-out R-loss at ``tau = 0`` (its cross-fitted squared error),
+          the propensity model by its cross-fitted log loss
+          (``best_propensity_log_loss``); the R-loss at ``tau = 0`` does
+          not depend on the propensity, so before the Oct 2026 scan the
+          propensity hyperparameters were whatever the sampler drew with
+          the best outcome model.
         - ``'per_learner'`` — keep default nuisance models; for each
           learner, tune its final-stage CATE model against held-out
           R-loss.
@@ -389,7 +427,7 @@ def auto_cate_tuned(
         With winner's ``model_info`` populated based on ``tune``:
 
         - ``'nuisance'`` / ``'both'``: ``tuned_params`` (nuisance) +
-          ``n_trials`` + ``best_r_loss_nuisance``.
+          ``n_trials`` + ``best_r_loss_nuisance`` + ``best_propensity_log_loss``.
         - ``'per_learner'`` / ``'both'``: ``per_learner_params``
           (dict keyed by learner short code, value = best CATE HP) +
           ``per_learner_r_loss`` (dict keyed by short code).
@@ -555,6 +593,7 @@ def auto_cate_tuned(
     # ------------------------------------------------------------------
     best_nuisance_params: Optional[Dict[str, Any]] = None
     best_r_loss_nuisance: Optional[float] = None
+    best_propensity_log_loss: Optional[float] = None
     n_completed_nuisance: int = 0
     best_outcome = None
     best_propensity = None
@@ -563,7 +602,7 @@ def auto_cate_tuned(
 
         def _objective_nuisance(trial: Any) -> float:
             params = _sample_params(trial, space)
-            return _r_loss_on_nuisance(
+            r_loss, log_loss = _nuisance_losses(
                 params,
                 X,
                 Y,
@@ -571,6 +610,12 @@ def auto_cate_tuned(
                 n_folds=n_folds,
                 random_state=random_state,
             )
+            # The study minimises the outcome model's loss; every trial
+            # also scores its propensity candidate by its own loss, and the
+            # propensity hyperparameters are taken from the trial with the
+            # lowest log loss below.
+            trial.set_user_attr("propensity_log_loss", log_loss)
+            return r_loss
 
         nuisance_sampler = sampler or optuna.samplers.TPESampler(seed=random_state)
         nuisance_study = optuna.create_study(
@@ -583,15 +628,31 @@ def auto_cate_tuned(
             timeout=timeout,
             show_progress_bar=verbose,
         )
-        best_nuisance_params = dict(nuisance_study.best_params)
-        n_completed_nuisance = len(
-            [
-                t
-                for t in nuisance_study.trials
-                if t.state == optuna.trial.TrialState.COMPLETE
-            ]
-        )
+        completed = [
+            t
+            for t in nuisance_study.trials
+            if t.state == optuna.trial.TrialState.COMPLETE
+        ]
+        n_completed_nuisance = len(completed)
         best_r_loss_nuisance = float(nuisance_study.best_value)
+        # Outcome hyperparameters from the lowest R-loss trial, propensity
+        # hyperparameters from the lowest propensity log loss (ties go to
+        # the earliest such trial in sorted-parameter order, so the pick
+        # does not depend on the order the sampler visited them).
+        best_prop_trial = min(
+            completed,
+            key=lambda t: (
+                t.user_attrs["propensity_log_loss"],
+                repr(sorted(t.params.items())),
+            ),
+        )
+        best_nuisance_params = {
+            k: (best_prop_trial.params[k] if k.startswith("propensity_") else v)
+            for k, v in nuisance_study.best_params.items()
+        }
+        best_propensity_log_loss = float(
+            best_prop_trial.user_attrs["propensity_log_loss"]
+        )
         best_outcome, best_propensity = _build_models_from_params(
             best_nuisance_params,
             random_state=random_state,
@@ -660,9 +721,14 @@ def auto_cate_tuned(
     # For per-learner mode we pick the CATE model corresponding to the
     # lowest-per-learner-R-loss learner as the *shared* cate_model hint;
     # auto_cate still races all learners and picks its winner by R-loss.
-    if per_learner_params:
+    # Only the X-, R- and DR-learners have a CATE-stage model; for the S-
+    # and T-learners every trial scores the same, so their "best"
+    # hyperparameters are arbitrary and must not be handed to the others.
+    uses_cate_model = [c for c in per_learner_r_loss if c in ("x", "r", "dr")]
+    best_pl_code: Optional[str] = None
+    if uses_cate_model:
         best_pl_code = min(
-            per_learner_r_loss,
+            uses_cate_model,
             key=lambda code: per_learner_r_loss[code],
         )
         best_pl_cate_model = _build_cate_model(
@@ -696,6 +762,7 @@ def auto_cate_tuned(
         info["tuned_params"] = best_nuisance_params
         info["n_trials"] = n_completed_nuisance
         info["best_r_loss_nuisance"] = best_r_loss_nuisance
+        info["best_propensity_log_loss"] = best_propensity_log_loss
     if per_learner_params:
         info["per_learner_params"] = per_learner_params
         info["per_learner_r_loss"] = per_learner_r_loss

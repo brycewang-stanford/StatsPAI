@@ -90,8 +90,12 @@ class AutoCATEResult(ResultProtocolMixin):
     Attributes
     ----------
     leaderboard : pd.DataFrame
-        One row per learner with ATE, SE, CI, R-loss, BLP calibration
-        columns, and CATE dispersion. Sorted by R-loss ascending.
+        One row per learner with ATE, SE, CI, R-loss, BLP columns and
+        CATE dispersion, sorted by R-loss ascending. ``blp_beta1`` is the
+        BLP coefficient on ``D - e(X)`` (the ATE) and
+        ``blp_beta1_pvalue`` tests it against zero; ``blp_beta2`` /
+        ``blp_beta2_pvalue`` are the heterogeneity slope and its test of
+        zero, all on out-of-fold CATE predictions.
     best_learner : str
         Full name of the chosen winner (e.g. ``"DR-Learner"``).
     best_result : CausalResult
@@ -320,10 +324,13 @@ def _blp_calibration(
     Regresses ``Y - m_hat`` on ``[1, (D - e_hat), (D - e_hat) * (tau_hat - mean)]``
     with HC1 covariance.
 
-    - ``beta_1 ~ 1`` indicates the CATE is well-calibrated to the
-      population ATE.
-    - ``beta_2 > 0`` and significant indicates genuine heterogeneity
-      (not noise).
+    - ``beta_1`` is the coefficient on ``D - e_hat``: the average
+      treatment effect in the units of ``Y`` (CDDF's BLP), not a
+      calibration factor around 1. ``blp_beta1_pvalue`` tests
+      ``beta_1 = 0``, as ``sp.blp_test``'s ``beta1_pvalue`` does.
+    - ``beta_2`` is the slope of the effect on the centred CATE proxy;
+      ``beta_2 > 0`` and significant indicates genuine heterogeneity
+      (not noise), ``beta_2 = 1`` a calibrated proxy.
 
     The constant column is required because ``m_hat`` is estimated,
     so ``Y - m_hat`` is not exactly mean-zero in finite samples.
@@ -339,12 +346,9 @@ def _blp_calibration(
         ols = sm.OLS(Y_res, Z).fit(cov_type="HC1")
         b1 = float(ols.params[1])
         b1_se = float(ols.bse[1])
-        # Two-sided p-value for H0: beta_1 = 1
-        if b1_se > 0:
-            t1 = (b1 - 1.0) / b1_se
-            p1 = float(2 * stats.norm.sf(abs(t1)))
-        else:
-            p1 = np.nan
+        # Two-sided p-value for H0: beta_1 = 0 (beta_1 is the ATE). Until
+        # the Oct 2026 scan this tested beta_1 = 1, a null with no meaning here.
+        p1 = float(2 * stats.norm.sf(abs(b1 / b1_se))) if b1_se > 0 else np.nan
         b2 = float(ols.params[2])
         p2 = float(ols.pvalues[2])
     except Exception as exc:
@@ -426,8 +430,8 @@ def auto_cate(
         Currently only ``'r_loss'`` is implemented. Reserved for
         future expansion.
     alpha : float, default 0.05
-        Significance level for both learner confidence intervals and
-        the BLP-beta1 acceptance region used by the selection rule.
+        Significance level of the learners' confidence intervals. It does
+        not enter the selection rule.
     n_bootstrap : int, default 200
         Bootstrap iterations for ATE standard error on non-DR learners
         (passed through to ``metalearner``).
