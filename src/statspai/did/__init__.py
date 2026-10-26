@@ -500,10 +500,9 @@ def did(
         Critical-value rule, forwarded to :func:`did_2x2` (``'t'`` /
         ``'residual'``) or :func:`sun_abraham` (``'t'`` / ``'normal'``)
         when ``method`` resolves to one of them; ``sp.did(...,
-        crit_dist=c)`` is then the same call as the estimator's. Both
-        warn (``FutureWarning``) when it is left unset and their default
-        would change in 1.41; pass ``'t'`` to adopt the Stata / fixest
-        rule now. ``'legacy'`` keeps the pre-1.41 rule of whichever
+        crit_dist=c)`` is then the same call as the estimator's. Left
+        unset, both use ``'t'``, the Stata / fixest rule (the default
+        since 1.41). ``'legacy'`` keeps the pre-1.41 rule of whichever
         estimator runs (``'residual'`` / ``'normal'``) and is a no-op for
         the methods without the option and under ``parity=``, so it can be
         passed before the method is known. Any other value with a method that has no

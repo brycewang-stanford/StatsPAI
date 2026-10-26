@@ -12,17 +12,15 @@ and R ``fixest`` 0.14.0, run as black boxes):
 * heteroskedasticity-robust or classical SEs: t with ``N - K``, where
   ``K`` counts the slopes plus the absorbed fixed-effect levels.
 
-In this release the StatsPAI defaults are unchanged: the two event
-studies use the normal distribution and ``did_2x2`` uses t with ``N - K``
-also under clustering. ``parity='stata'`` / ``parity='r'`` switch to the
-reference program's distribution, and so does ``crit_dist='t'``, which
-names the convention without naming a program. The default becomes
-``crit_dist='t'`` in 1.41 (owner decision 2026-10-21); until then a call
-whose intervals or p-values would change warns (``FutureWarning``), and
-``crit_dist='normal'`` (event studies) / ``crit_dist='residual'``
-(``did_2x2``) keeps today's numbers without the warning. The
-convention used is recorded in ``model_info['conventions']`` (keys
-``parity``, ``crit_dist``, ``crit_df``).
+Since 1.41 this is the StatsPAI default too (owner decision 2026-10-21):
+``crit_dist=None`` means ``crit_dist='t'``, the critical values of
+``parity='stata'`` / ``parity='r'``, named by convention rather than by
+program. ``crit_dist='normal'`` (event studies) / ``crit_dist='residual'``
+(``did_2x2``) keeps the pre-1.41 rule: the normal distribution for the
+two event studies, t with ``N - K`` also under clustering for
+``did_2x2``. The convention used is recorded in
+``model_info['conventions']`` (keys ``parity``, ``crit_dist``,
+``crit_df``).
 
 Callaway-Sant'Anna is not affected: R ``did`` and Stata ``csdid`` both
 use the normal distribution.
@@ -32,7 +30,6 @@ from __future__ import annotations
 
 import os
 import sys
-import warnings
 from types import FrameType
 from typing import Any, Dict, Optional, Tuple
 
@@ -56,7 +53,8 @@ def check_crit_dist(
 
     ``legacy`` is the value that reproduces the function's pre-1.41
     default (``'normal'`` for the event studies, ``'residual'`` for
-    ``did_2x2``). Returns ``None``, ``'t'`` or ``legacy``.
+    ``did_2x2``). Returns ``None`` (not given, which the estimators read
+    as ``'t'``), ``'t'`` or ``legacy``.
     """
     if crit_dist is None:
         return None
@@ -108,43 +106,9 @@ def _external_stacklevel() -> int:
     return level
 
 
-def warn_default_change(
-    function: str,
-    *,
-    old: Tuple[str, Optional[float]],
-    new: Optional[Tuple[str, Optional[float]]],
-    legacy: str,
-) -> None:
-    """``FutureWarning`` for an implicit default that changes in 1.41.
-
-    ``old`` is the ``(crit_dist, crit_df)`` this call reports, ``new`` the
-    one ``crit_dist='t'`` would give (``None`` when it would raise, e.g.
-    a single cluster). Silent when the two coincide.
-    """
-    if new is not None and new == old:
-        return
-
-    def _name(spec: Tuple[str, Optional[float]]) -> str:
-        dist, df = spec
-        return "normal" if dist == "normal" else f"t({int(round(df or 0))})"
-
-    after = (
-        f"the {_name(new)} distribution here"
-        if new is not None
-        else "an error here (t critical values are undefined for this fit)"
-    )
-    warnings.warn(
-        f"{function}: p-values and confidence intervals use the "
-        f"{_name(old)} distribution; from 1.41 the default is "
-        f"crit_dist='t', which gives {after}: t(G-1) with cluster-robust "
-        "SEs and t(N-K) otherwise, as Stata reghdfe / regress / "
-        "eventstudyinteract and R fixest report. Estimates and standard "
-        "errors do not change. Pass crit_dist='t' (or parity='stata' / "
-        f"'r') to adopt it now, or crit_dist={legacy!r} to keep these "
-        "numbers. See MIGRATION.md.",
-        FutureWarning,
-        stacklevel=_external_stacklevel(),
-    )
+def resolve_crit_dist(crit_arg: Optional[str]) -> str:
+    """The rule a call uses: ``crit_dist=None`` is ``'t'`` since 1.41."""
+    return "t" if crit_arg is None else crit_arg
 
 
 def check_parity(parity: Any, function: str) -> Optional[str]:
@@ -182,41 +146,33 @@ def crit_spec(
     """
     if parity is None and crit_dist != "t":
         return default
-    what = f"parity={parity!r}" if parity is not None else "crit_dist='t'"
+    what = (
+        f"parity={parity!r}"
+        if parity is not None
+        else "crit_dist='t' (the default since 1.41)"
+    )
     if clustered:
         if n_clusters is None or n_clusters < 2:
             raise MethodIncompatibility(
                 f"{what} needs at least two clusters for t(G-1) "
                 f"critical values; got G={n_clusters}.",
-                recovery_hint="Cluster on a variable with two or more levels.",
+                recovery_hint=(
+                    "Cluster on a variable with two or more levels, or drop "
+                    "parity= and pass crit_dist='normal' for normal critical "
+                    "values."
+                ),
             )
         return "t", float(n_clusters - 1)
     if df_resid is None or df_resid < 1:
         raise MethodIncompatibility(
             f"{what}: the residual degrees of freedom are "
             f"{df_resid}; t(N-K) critical values are undefined.",
-            recovery_hint="Use parity=None (normal critical values).",
+            recovery_hint=(
+                "Drop parity= and pass crit_dist='normal' for normal "
+                "critical values."
+            ),
         )
     return "t", float(df_resid)
-
-
-def t_spec_or_none(
-    *,
-    clustered: bool,
-    n_clusters: Optional[int],
-    df_resid: Optional[float],
-) -> Optional[Tuple[str, Optional[float]]]:
-    """What ``crit_dist='t'`` would give, or ``None`` where it raises."""
-    try:
-        return crit_spec(
-            None,
-            clustered=clustered,
-            n_clusters=n_clusters,
-            df_resid=df_resid,
-            crit_dist="t",
-        )
-    except MethodIncompatibility:
-        return None
 
 
 def crit_value(alpha: float, dist: str, df: Optional[float]) -> float:

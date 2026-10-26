@@ -335,12 +335,13 @@ def event_study(
     parity : {'stata', 'r'}, optional
         Critical-value convention for the p-values and confidence
         intervals (the coefficients and standard errors do not change).
-        ``None`` (default) uses the normal distribution. ``'stata'``
+        ``None`` (default) follows ``crit_dist``. ``'stata'``
         (``reghdfe ..., vce(cluster)`` followed by ``invttail(e(df_r), .)``
         or ``lincom``) and ``'r'`` (``fixest::feols`` with ``cluster =``)
         both use Student t with ``G - 1`` degrees of freedom, ``G`` the
-        number of clusters; on the castle-doctrine and divorce panels the
-        intervals then equal Stata's and fixest's to 1e-13. The headline
+        number of clusters, which is also the default (``crit_dist='t'``);
+        on the castle-doctrine and divorce panels the intervals equal
+        Stata's and fixest's to 1e-13. The headline
         ATT interval follows the same rule. The pre-trend test is a
         cluster F(q, G-1) test under every setting, as Stata's ``test``.
         The convention used is in ``model_info['conventions']``.
@@ -348,12 +349,11 @@ def event_study(
         The same choice named by convention rather than by program.
         ``'t'``: Student t with ``G - 1`` degrees of freedom (every fit
         here is cluster-robust), the critical values of ``parity='stata'``
-        / ``'r'``. ``'normal'``: the normal distribution. ``None``
-        (default) is ``'normal'`` in this release and warns
-        (``FutureWarning``): the default becomes ``'t'`` in 1.41, as in
-        Stata and fixest. Pass either value to silence the warning.
-        Coefficients, SEs and the pre-trend F test do not depend on it.
-        ``'normal'`` together with ``parity=`` raises. See MIGRATION.md.
+        / ``'r'``. ``'normal'``: the normal distribution, the default
+        before 1.41. ``None`` (default) is ``'t'``, as in Stata and fixest
+        (since 1.41). Coefficients, SEs and the pre-trend F test do not
+        depend on it. ``'normal'`` together with ``parity=`` raises. See
+        MIGRATION.md.
 
     Returns
     -------
@@ -627,27 +627,17 @@ def event_study(
         """Unambiguous bin label: a point period prints as-is."""
         return str(start) if start == end else f"[{start}, {end}]"
 
-    # Critical values: normal by default (t from 1.41); under
-    # parity='stata' / 'r' or crit_dist='t' the t(G - 1) of reghdfe and
-    # fixest with cluster-robust SEs (every fit here clusters, on
-    # ``cluster`` or on the unit).
+    # Critical values: the t(G - 1) of reghdfe and fixest with
+    # cluster-robust SEs by default (since 1.41; every fit here clusters,
+    # on ``cluster`` or on the unit); crit_dist='normal' keeps the normal.
     n_clusters = len(np.unique(cluster_ids))
     crit_dist, crit_df = _crit.crit_spec(
         parity,
         clustered=True,
         n_clusters=n_clusters,
         df_resid=None,
-        crit_dist=crit_arg,
+        crit_dist=_crit.resolve_crit_dist(crit_arg),
     )
-    if parity is None and crit_arg is None:
-        _crit.warn_default_change(
-            "sp.event_study",
-            old=(crit_dist, crit_df),
-            new=_crit.t_spec_or_none(
-                clustered=True, n_clusters=n_clusters, df_resid=None
-            ),
-            legacy="normal",
-        )
     t_crit = _crit.crit_value(alpha, crit_dist, crit_df)
 
     es_rows = []
@@ -1151,6 +1141,18 @@ def _cluster_se(
     scores = X * ((np.sqrt(w) * resid) if w is not None else resid)[:, None]
     cluster_scores = _group_sums(scores, cluster_ids)
     G = cluster_scores.shape[0]
+    if G < 2:
+        # G/(G-1) is undefined and a one-cluster sandwich is zero by
+        # construction (the scores sum to zero within the only cluster).
+        raise MethodIncompatibility(
+            f"event_study: cluster-robust SEs need at least two clusters; "
+            f"the estimation sample has G={G}.",
+            recovery_hint=(
+                "Cluster on a variable with two or more levels (the default "
+                "cluster= is the unit), or drop cluster= to cluster on the unit."
+            ),
+            diagnostics={"n_clusters": int(G)},
+        )
     meat = _outer_sum(cluster_scores)
 
     correction = (G / (G - 1)) * ((n - 1) / max(n - k - k_fe, 1))

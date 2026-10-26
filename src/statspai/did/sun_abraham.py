@@ -43,7 +43,6 @@ Sun, L. and Abraham, S. (2021).
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
@@ -414,19 +413,17 @@ def sun_abraham(
         Additional controls (time-varying; added linearly).
     cluster : str, optional
         Cluster variable for SEs. Default: clusters on ``i``.
-    aggregation : {'event_time', 'fixest_att'}, optional
-        Overall post-treatment summary convention. ``'event_time'`` is the
-        historical StatsPAI default: equal-weight the post-treatment
-        relative-time IW effects. ``'fixest_att'`` weights each post
-        cohort-time cell by its treated cohort size, matching
-        ``fixest::summary(..., agg='att')`` and Stata/R default ATT
-        parity on balanced staggered panels. ``None`` (the default) is
-        ``'event_time'`` in this release and emits a ``FutureWarning``:
-        a later minor release makes ``'fixest_att'`` the default headline.
-        Pass either value to silence it.
+    aggregation : {'fixest_att', 'event_time'}, optional
+        Overall post-treatment summary convention. ``'fixest_att'``
+        weights each post cohort-time cell by its treated cohort size,
+        matching ``fixest::summary(..., agg='att')`` and Stata/R default
+        ATT parity on balanced staggered panels. ``'event_time'``
+        equal-weights the post-treatment relative-time IW effects (the
+        default before 1.41). ``None`` (the default) is ``'fixest_att'``.
 
-        .. deprecated:: 1.40.0
-           The implicit ``'event_time'`` headline (see MIGRATION.md).
+        .. versionchanged:: 1.41
+           The default headline is ``'fixest_att'`` (was
+           ``'event_time'``; see MIGRATION.md).
     share_variance : bool, optional
         ``None`` (default) means ``True``, or ``False`` under
         ``parity='r'``. Whether Var(δ̂_ℓ) carries the cohort-share estimation term
@@ -447,8 +444,9 @@ def sun_abraham(
         (with the default ``cluster=i`` that is the time effects only).
     parity : {'stata', 'r'}, optional
         Inference conventions of a reference program. The coefficients do
-        not change. ``None`` (default): normal critical values and the
-        share term carried. ``'stata'`` (``eventstudyinteract``, which
+        not change. ``None`` (default): the critical values of
+        ``crit_dist`` (t since 1.41) and the share term carried.
+        ``'stata'`` (``eventstudyinteract``, which
         displays its IW table with t on ``e(df_r)``): Student t with
         ``G - 1`` degrees of freedom for cluster-robust SEs and ``N - K``
         for the HC1 SEs of ``i=None``, share term carried. ``'r'``
@@ -465,11 +463,10 @@ def sun_abraham(
         for the HC1 SEs of ``i=None`` (the critical values of
         ``parity='stata'`` / ``'r'``; with the default share term this is
         exactly ``parity='stata'``). ``'normal'``: the normal
-        distribution. ``None`` (default) is ``'normal'`` in this release
-        and warns (``FutureWarning``): the default becomes ``'t'`` in
-        1.41, as in Stata ``eventstudyinteract`` and fixest. Pass either
-        value to silence the warning. ``'normal'`` together with
-        ``parity=`` raises. See MIGRATION.md.
+        distribution, the default before 1.41. ``None`` (default) is
+        ``'t'``, as in Stata ``eventstudyinteract`` and fixest (since
+        1.41). ``'normal'`` together with ``parity=`` raises. See
+        MIGRATION.md.
     alpha : float, default 0.05
         Significance level.
     pretest : {'joint', 'none'}, default 'joint'
@@ -513,24 +510,24 @@ def sun_abraham(
         with cluster-robust SE and 1−α CI).
 
         ``.estimate`` / ``.se`` depend on ``aggregation``. With the
-        default ``'event_time'`` they are the **equal-weight average of
-        the post-treatment event-time effects**, which is not the number
-        ``fixest`` reports as ``summary(m, agg = "att")``: that one weights
-        every post-treatment cohort x period cell by its size, so later
-        event times, observed for fewer cohorts, count less. Both are
-        always in ``model_info``: ``att_event_time`` / ``se_event_time``
-        and ``att_fixest_att`` / ``se_fixest_att`` (``se_fixest_att_share``
-        adds the cohort-share term, Stata ``eventstudyinteract``'s
-        ``e(V_iw)`` convention), and ``summary()`` prints the one that is
-        not the headline. Pass ``aggregation='fixest_att'`` to make the
-        cell-weighted ATT the headline.
+        default ``'fixest_att'`` they are the cell-weighted ATT that
+        ``fixest`` reports as ``summary(m, agg = "att")``: every
+        post-treatment cohort x period cell weighs by its size, so later
+        event times, observed for fewer cohorts, count less. With
+        ``'event_time'`` they are the **equal-weight average of the
+        post-treatment event-time effects** (the headline before 1.41).
+        Both are always in ``model_info``: ``att_event_time`` /
+        ``se_event_time`` and ``att_fixest_att`` / ``se_fixest_att``
+        (``se_fixest_att_share`` adds the cohort-share term, Stata
+        ``eventstudyinteract``'s ``e(V_iw)`` convention), and
+        ``summary()`` prints the one that is not the headline.
 
     Examples
     --------
     >>> import statspai as sp
     >>> df = sp.dgp_did(n_units=120, n_periods=8, staggered=True, seed=42)
     >>> result = sp.sun_abraham(df, y='y', g='first_treat', t='time', i='unit')
-    >>> result.estimate > 0  # post-treatment IW average (true effect 0.5)
+    >>> result.estimate > 0  # cell-weighted post-treatment ATT (true effect 0.5)
     True
     >>> list(result.detail.columns[:3])  # event-study table by relative time
     ['relative_time', 'att', 'se']
@@ -604,19 +601,9 @@ def sun_abraham(
             f"got {control_group!r}"
         )
     if aggregation is None:
-        warnings.warn(
-            "sun_abraham: without aggregation=, .estimate is the equal-weight "
-            "average of the post-treatment event-time effects "
-            "(aggregation='event_time'). A later minor release makes the "
-            "cohort-by-period cell-weighted ATT that fixest's "
-            "summary(agg = 'att') reports (aggregation='fixest_att') the "
-            "default headline. Pass aggregation='event_time' to keep this "
-            "number or 'fixest_att' to adopt the new one now; both are in "
-            "model_info either way. See MIGRATION.md.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        aggregation = "event_time"
+        # Since 1.41 the headline is fixest's summary(agg = 'att');
+        # aggregation='event_time' keeps the pre-1.41 equal-weight average.
+        aggregation = "fixest_att"
     aggregation_aliases = {
         "event_time": "event_time",
         "event_time_equal": "event_time",
@@ -900,27 +887,16 @@ def sun_abraham(
         .sum()
         .items()
     }
-    # Critical values: normal by default (t from 1.41); under
-    # parity='stata' / 'r' or crit_dist='t' the t(G - 1) (cluster) or
-    # t(N - K) (HC1, i=None) that eventstudyinteract and fixest display.
+    # Critical values: by default (since 1.41) the t(G - 1) (cluster) or
+    # t(N - K) (HC1, i=None) that eventstudyinteract and fixest display;
+    # crit_dist='normal' keeps the normal.
     crit_dist, crit_df = _crit.crit_spec(
         parity,
         clustered=cluster_col != "_sa_row",
         n_clusters=n_clust,
         df_resid=float(n - K),
-        crit_dist=crit_arg,
+        crit_dist=_crit.resolve_crit_dist(crit_arg),
     )
-    if parity is None and crit_arg is None:
-        _crit.warn_default_change(
-            "sp.sun_abraham",
-            old=(crit_dist, crit_df),
-            new=_crit.t_spec_or_none(
-                clustered=cluster_col != "_sa_row",
-                n_clusters=n_clust,
-                df_resid=float(n - K),
-            ),
-            legacy="normal",
-        )
     z_crit = _crit.crit_value(alpha, crit_dist, crit_df)
 
     # Observation counts per relative time over the *estimated* cohorts

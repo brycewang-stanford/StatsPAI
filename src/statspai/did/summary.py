@@ -256,7 +256,6 @@ def _run_sa(
         # The cell-weighted ATT (fixest summary(agg = 'att')), the estimand
         # of the other rows; 'event_time' averages the event times equally.
         aggregation="fixest_att",
-        crit_dist="normal",
     )
 
 

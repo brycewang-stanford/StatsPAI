@@ -142,15 +142,13 @@ coefficients should show the dynamic path of the treatment.
 
 The plotted intervals depend on the critical values. Stata
 (`eventstudyinteract`, `reghdfe`) and R `fixest` use Student t with
-`G - 1` degrees of freedom when the SEs are clustered on `G` units;
-`sp.sun_abraham` and `sp.event_study` use the normal distribution in this
-release and switch to t(G-1) in 1.41 (MIGRATION.md, "1.40.0 → 1.41").
-Pass `crit_dist="t"` for the Stata / fixest intervals now, or
-`crit_dist="normal"` to keep the current ones; either silences the
-`FutureWarning`. With few clusters the difference matters: on the
-castle-doctrine panel (50 states) the `sp.event_study` lead at -3 has p = 0.047 under the
-normal and p = 0.052 under t(49). The coefficients and SEs are the same
-either way.
+`G - 1` degrees of freedom when the SEs are clustered on `G` units, and
+so, since 1.41, do `sp.sun_abraham` and `sp.event_study` by default
+(`crit_dist="t"`; MIGRATION.md, "1.40.2 → 1.41"). Before 1.41 they used
+the normal distribution, which `crit_dist="normal"` still gives. With few
+clusters the difference matters: on the castle-doctrine panel (50 states)
+the `sp.event_study` lead at -3 has p = 0.052 under t(49) and p = 0.047
+under the normal. The coefficients and SEs are the same either way.
 
 ---
 

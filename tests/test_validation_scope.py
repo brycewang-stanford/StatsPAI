@@ -762,8 +762,16 @@ def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
     assert fixed["outputs"]["vcov"]["evidence"][0]["artifact"].endswith(
         "test_event_study_vcov_R_parity.py"
     )
-    # The coverage simulation ran the default only.
-    assert default["outputs"]["coverage"]["status"] == "coverage_simulation"
+    # The coverage simulation (Track B, frozen) ran the pre-1.41 default
+    # only: the event-time headline with normal intervals. The 1.41 default
+    # (fixest_att, t(G-1)) has no coverage row until Track B is rerun.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        old = sp.validation_scope(
+            sp.sun_abraham(mp, **keys, aggregation="event_time", crit_dist="normal")
+        )
+    assert old["outputs"]["coverage"]["status"] == "coverage_simulation"
+    assert default["outputs"]["coverage"]["status"] == "not_covered"
     assert fixed["outputs"]["coverage"]["status"] == "not_covered"
     # A by-name query that omits the new dimension means the default.
     by_name = sp.validation_scope(
@@ -1324,8 +1332,12 @@ def castle_crit():
     return d.assign(gvar=d.effyear.fillna(0).astype(int))
 
 
-def _crit_fits(castle_crit, parity):
+def _crit_fits(castle_crit, parity, legacy=False):
+    """``legacy=True``: the pre-1.41 rules (crit_dist='normal' / 'residual');
+    otherwise the default (crit_dist='t' since 1.41) or ``parity``."""
     d = castle_crit
+    es_crit = {"crit_dist": "normal"} if legacy else {}
+    dd_crit = {"crit_dist": "residual"} if legacy else {}
     es = _quiet(
         sp.event_study,
         d,
@@ -1338,6 +1350,7 @@ def _crit_fits(castle_crit, parity):
         weights="popwt",
         cluster="sid",
         parity=parity,
+        **es_crit,
     )
     sa = _quiet(
         sp.sun_abraham,
@@ -1350,6 +1363,7 @@ def _crit_fits(castle_crit, parity):
         control_group="nevertreated",
         aggregation="event_time",
         parity=parity,
+        **es_crit,
     )
     d2 = d[(d.effyear == 2006) | d.effyear.isna()].copy()
     d2["tr"] = d2.effyear.notna().astype(int)
@@ -1362,13 +1376,15 @@ def _crit_fits(castle_crit, parity):
         time="po",
         cluster="sid",
         parity=parity,
+        **dd_crit,
     )
     return {"event_study": es, "sun_abraham": sa, "did_2x2": dd}
 
 
 def test_crit_dist_is_read_and_grades_only_the_interval(castle_crit):
-    legacy = _crit_fits(castle_crit, None)
+    legacy = _crit_fits(castle_crit, None, legacy=True)
     stata = _crit_fits(castle_crit, "stata")
+    default = _crit_fits(castle_crit, None)
     want = {
         "event_study": ("normal", "t_cluster"),
         "sun_abraham": ("normal", "t_resid"),
@@ -1385,12 +1401,16 @@ def test_crit_dist_is_read_and_grades_only_the_interval(castle_crit):
         # the critical value does not touch the estimate or the SE
         for out in ("estimate", "se"):
             assert a["outputs"][out] == b["outputs"][out], (name, out)
-        # the reference intervals are t's: the legacy default has none
+        # the reference intervals are t's: the pre-1.41 rules have none
         assert a["outputs"]["interval"]["status"] == "not_covered", name
         assert b["outputs"]["interval"]["status"] == "reference", name
         assert {e["artifact"] for e in b["outputs"]["interval"]["evidence"]} == {
             _ES_CRIT
         }
+        # the 1.41 default (crit_dist='t') lands on the same referenced cell
+        c = sp.validation_scope(default[name])
+        assert c["configuration"]["crit_dist"] == new, name
+        assert c["outputs"]["interval"] == b["outputs"]["interval"], name
 
 
 def test_did_2x2_map_reads_the_variance_and_the_design():

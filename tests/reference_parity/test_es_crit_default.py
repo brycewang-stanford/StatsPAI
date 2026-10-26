@@ -1,22 +1,22 @@
-"""``crit_dist=`` on the regression event studies and the announced 1.41 default.
+"""``crit_dist=`` on the regression event studies and its 1.41 default.
 
-Owner decision 2026-10-21: ``sp.event_study``, ``sp.sun_abraham`` and
-``sp.did_2x2`` move to the Stata / fixest critical values (t(G - 1) with
-cluster-robust SEs, t(N - K) otherwise) in 1.41. This release adds
-``crit_dist=`` and warns where the default will change. Pinned here:
+Owner decision 2026-10-21, announced in 1.40.1 with a ``FutureWarning`` and
+in effect since 1.41: ``sp.event_study``, ``sp.sun_abraham`` and
+``sp.did_2x2`` use the Stata / fixest critical values (t(G - 1) with
+cluster-robust SEs, t(N - K) otherwise) by default. Pinned here:
 
-* ``crit_dist='t'`` gives exactly the numbers of ``parity='stata'`` (which
-  ``test_es_crit_parity.py`` holds to the Stata and fixest references), so
-  it inherits that evidence; one row is re-checked against the Stata
-  fixture directly.
-* the legacy values (``'normal'``, ``'residual'``) give exactly today's
-  default numbers, with no warning;
-* the ``FutureWarning`` fires once per call exactly where the intervals
-  would change, and is attributed to the caller's line;
+* the default reproduces Stata 18 ``reghdfe`` / ``lincom`` /
+  ``eventstudyinteract`` / ``regress`` on the castle-doctrine panel
+  (``_fixtures/es_crit_Stata.csv``) to 1e-10, and the MIGRATION.md table;
+* the default is the same fit as ``crit_dist='t'``, which gives exactly
+  the numbers of ``parity='stata'`` (held to Stata and fixest by
+  ``test_es_crit_parity.py``);
+* the legacy values (``'normal'``, ``'residual'``) keep the pre-1.41
+  numbers, and no call warns any more;
 * contradicting ``parity=`` raises a ``MethodIncompatibility`` with a
   recovery hint;
 * library entry points that call these functions on the user's behalf
-  pin the legacy value and do not warn.
+  follow the default and do not warn.
 """
 
 from __future__ import annotations
@@ -26,11 +26,18 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from scipy import stats
 
 import statspai as sp
 from statspai.exceptions import MethodIncompatibility
 
 FIX = Path(__file__).resolve().parent / "_fixtures"
+TOL = 1e-10
+
+ES_TERMS = {
+    k: (f"es_m{-k}" if k < 0 else f"es_p{k}") for k in [-5, -4, -3, -2, 0, 1, 2, 3, 4]
+}
+SA_STATA = {k: (f"L{-k}" if k < 0 else f"F{k}") for k in [*range(-9, -1), *range(0, 6)]}
 
 
 def _future(record) -> list:
@@ -115,8 +122,79 @@ def _same(a, b, table="event_study") -> None:
     assert ca == cb
 
 
+def _stata(tag: str) -> pd.DataFrame:
+    ref = pd.read_csv(
+        FIX / "es_crit_Stata.csv", skipinitialspace=True, dtype={"term": str}
+    )
+    return ref[ref.tag == tag].set_index("term")
+
+
+def _check(table: pd.DataFrame, ref: pd.DataFrame, terms: dict) -> None:
+    assert len(terms) > 0
+    for k, term in terms.items():
+        row, r = table.loc[k], ref.loc[term]
+        assert row["se"] == pytest.approx(r["se"], rel=TOL), (k, "se")
+        assert abs(row["pvalue"] - r["pvalue"]) < TOL, (k, "pvalue")
+        assert abs(row["ci_lower"] - r["ll"]) < TOL, (k, "ll")
+        assert abs(row["ci_upper"] - r["ul"]) < TOL, (k, "ul")
+
+
 # --------------------------------------------------------------------------
-# crit_dist='t' is parity='stata'; the legacy value is today's default
+# The 1.41 default reproduces Stata (and so the MIGRATION.md table)
+# --------------------------------------------------------------------------
+
+
+def test_event_study_default_reproduces_stata(castle):
+    res, w = _es(castle)
+    assert w == []
+    _check(
+        res.model_info["event_study"].set_index("relative_time"),
+        _stata("es_castle_cl"),
+        ES_TERMS,
+    )
+    att = _stata("es_castle_cl_att").loc["att"]
+    assert res.estimate == pytest.approx(att["b"], rel=1e-12)
+    assert abs(res.pvalue - att["pvalue"]) < TOL
+    assert abs(res.ci[0] - att["ll"]) < TOL and abs(res.ci[1] - att["ul"]) < TOL
+    assert res.model_info["conventions"] == {
+        "parity": None,
+        "crit_dist": "t",
+        "crit_df": 49,
+    }
+    # MIGRATION.md, "1.40.2 -> 1.41": lead -3 and the headline ATT
+    lead = res.model_info["event_study"].set_index("relative_time").loc[-3]
+    assert round(lead["ci_lower"], 5) == -0.00053
+    assert round(lead["ci_upper"], 5) == 0.10196
+    assert round(lead["pvalue"], 4) == 0.0523
+    assert (round(res.ci[0], 5), round(res.ci[1], 5)) == (0.04948, 0.14593)
+    assert f"{res.pvalue:.1e}" == "1.7e-04"
+
+
+def test_did_2x2_clustered_default_reproduces_stata(castle_2x2):
+    res, w = _dd(castle_2x2, cluster="sid")
+    assert w == []
+    r = _stata("2x2_castle_cl").loc["trpo"]
+    assert abs(res.pvalue - r["pvalue"]) < TOL
+    assert abs(res.ci[0] - r["ll"]) < TOL and abs(res.ci[1] - r["ul"]) < TOL
+    assert res.model_info["conventions"]["crit_df"] == int(r["df"]) == 41
+    # MIGRATION.md: [-0.10174, 0.23821], p = 0.422
+    assert (round(res.ci[0], 5), round(res.ci[1], 5)) == (-0.10174, 0.23821)
+    assert round(res.pvalue, 3) == 0.422
+
+
+def test_sun_abraham_default_reproduces_eventstudyinteract(castle):
+    res, w = _sa(castle)
+    assert w == []
+    _check(
+        res.model_info["event_study"].set_index("relative_time"),
+        _stata("sa_castle_cl"),
+        SA_STATA,
+    )
+    assert res.model_info["conventions"]["crit_df"] == res.model_info["n_clusters"] - 1
+
+
+# --------------------------------------------------------------------------
+# The default is crit_dist='t' (= parity='stata'); legacy values keep 1.40
 # --------------------------------------------------------------------------
 
 
@@ -136,16 +214,31 @@ def test_event_study_t_equals_parity_stata(castle):
     assert abs(row["ci_upper"] - r["ul"]) < 1e-10
 
 
-def test_event_study_normal_is_todays_default(castle):
+def test_event_study_default_is_t_and_normal_is_the_old_rule(castle):
     base, w0 = _es(castle)
+    t, _ = _es(castle, crit_dist="t")
     leg, w1 = _es(castle, crit_dist="normal")
-    assert len(w0) == 1 and w1 == []
-    _same(base, leg)
+    assert w0 == [] and w1 == []
+    _same(base, t)
     assert leg.model_info["conventions"] == {
         "parity": None,
         "crit_dist": "normal",
         "crit_df": None,
     }
+    # same coefficients and SEs; the interval is the normal quantile
+    es = leg.model_info["event_study"]
+    es = es[~es.is_reference]
+    pd.testing.assert_series_equal(
+        es.se, base.model_info["event_study"].loc[es.index, "se"]
+    )
+    z = stats.norm.ppf(0.975)
+    assert ((es.ci_upper - es.att) / es.se - z).abs().max() < 1e-12
+    # MIGRATION.md: the pre-1.41 lead -3 interval [0.00074, 0.10070]
+    lead = es.set_index("relative_time").loc[-3]
+    assert (round(lead["ci_lower"], 5), round(lead["ci_upper"], 5)) == (
+        0.00074,
+        0.10070,
+    )
 
 
 @pytest.mark.parametrize("panel", [True, False])
@@ -159,11 +252,14 @@ def test_sun_abraham_t_equals_parity_stata(castle, panel):
 
 
 @pytest.mark.parametrize("panel", [True, False])
-def test_sun_abraham_normal_is_todays_default(castle, panel):
+def test_sun_abraham_default_is_t_and_normal_is_the_old_rule(castle, panel):
     base, w0 = _sa(castle, panel)
+    t, _ = _sa(castle, panel, crit_dist="t")
     leg, w1 = _sa(castle, panel, crit_dist="normal")
-    assert len(w0) == 1 and w1 == []
-    _same(base, leg)
+    assert w0 == [] and w1 == []
+    _same(base, t)
+    assert leg.model_info["conventions"]["crit_dist"] == "normal"
+    assert leg.model_info["conventions"]["crit_df"] is None
 
 
 def test_sun_abraham_t_with_fixed_shares(castle):
@@ -188,12 +284,16 @@ def test_did_2x2_t_equals_parity_stata(castle_2x2, kw):
     "kw",
     [{}, {"cluster": "sid"}, {"cluster": "sid", "weights": "popwt"}],
 )
-def test_did_2x2_residual_is_todays_default(castle_2x2, kw):
-    base, _ = _dd(castle_2x2, **kw)
-    leg, w = _dd(castle_2x2, crit_dist="residual", **kw)
-    assert w == []
-    _same(base, leg, table="detail")
+def test_did_2x2_default_is_t_and_residual_is_the_old_rule(castle_2x2, kw):
+    base, w0 = _dd(castle_2x2, **kw)
+    t, _ = _dd(castle_2x2, crit_dist="t", **kw)
+    leg, w1 = _dd(castle_2x2, crit_dist="residual", **kw)
+    assert w0 == [] and w1 == []
+    _same(base, t, table="detail")
     assert leg.model_info["conventions"]["crit_df"] == len(castle_2x2) - 4
+    if "cluster" not in kw:
+        # without clusters the two rules are the same t(N - K)
+        _same(base, leg, table="detail")
 
 
 def test_did_2x2_t_clustered_matches_stata(castle_2x2):
@@ -205,29 +305,22 @@ def test_did_2x2_t_clustered_matches_stata(castle_2x2):
     assert res.model_info["conventions"]["crit_df"] == int(r["df"]) == 41
 
 
-# --------------------------------------------------------------------------
-# The FutureWarning: exactly where the numbers would change
-# --------------------------------------------------------------------------
-
-
-def test_warning_text_and_location(castle):
-    _, w = _es(castle)
-    assert len(w) == 1
-    msg = str(w[0].message)
-    assert "1.41" in msg and "t(49)" in msg and "normal" in msg
-    assert "crit_dist='t'" in msg and "crit_dist='normal'" in msg
-    assert "fixest" in msg and "reghdfe" in msg
-    # attributed to the user's call, not to a statspai frame
-    assert "statspai" not in Path(w[0].filename).parts[-3:-1]
-
-
-def test_did_2x2_warns_only_when_clustered(castle_2x2):
-    _, w = _dd(castle_2x2)
-    assert w == []  # t(N-K) is already the Stata / fixest value
-    _, w = _dd(castle_2x2, cluster="sid")
-    assert len(w) == 1
-    assert "t(458)" in str(w[0].message) and "t(41)" in str(w[0].message)
-    assert "crit_dist='residual'" in str(w[0].message)
+def test_no_call_warns_about_the_default(castle, castle_2x2):
+    """The 1.40.1 FutureWarning is gone with the switch (any FutureWarning)."""
+    calls = [
+        lambda: sp.event_study(
+            castle, y="l_homicide", treat_time="effyear", time="year", unit="sid"
+        ),
+        lambda: sp.sun_abraham(castle, y="l_homicide", g="gvar", t="year", i="sid"),
+        lambda: sp.did_2x2(
+            castle_2x2, y="l_homicide", treat="tr", time="po", cluster="sid"
+        ),
+    ]
+    for call in calls:
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            call()
+        assert [w for w in rec if issubclass(w.category, FutureWarning)] == []
 
 
 @pytest.mark.parametrize("parity", ["stata", "r"])
@@ -272,13 +365,33 @@ def test_did_2x2_crit_dist_refused_under_bayes(castle_2x2):
         _dd(castle_2x2, crit_dist="t", engine="bayes")
 
 
+@pytest.mark.parametrize("crit_dist", [None, "normal"])
+def test_single_cluster_raises_with_a_hint(castle, crit_dist):
+    """One cluster: G/(G-1) and t(G-1) are undefined. 1.40.2 crashed with a
+    ZeroDivisionError in the SE correction whatever crit_dist was."""
+    one = castle.assign(one=1)
+    kw = {} if crit_dist is None else {"crit_dist": crit_dist}
+    with pytest.raises(MethodIncompatibility, match="two clusters") as ei:
+        sp.event_study(
+            one,
+            y="l_homicide",
+            treat_time="effyear",
+            time="year",
+            unit="sid",
+            cluster="one",
+            **kw,
+        )
+    assert "cluster" in ei.value.recovery_hint
+    assert ei.value.diagnostics["n_clusters"] == 1
+
+
 # --------------------------------------------------------------------------
-# Library entry points pin the legacy value: no warning the user cannot act on
+# Library entry points follow the default and do not warn
 # --------------------------------------------------------------------------
 
 
-def test_did_analysis_does_not_warn(castle, castle_2x2):
-    _, w = _run(
+def test_did_analysis_follows_the_default(castle, castle_2x2):
+    out, w = _run(
         sp.did_analysis,
         data=castle_2x2,
         y="l_homicide",
@@ -288,7 +401,10 @@ def test_did_analysis_does_not_warn(castle, castle_2x2):
         cluster="sid",
     )
     assert w == []
-    _, w = _run(
+    direct, _ = _dd(castle_2x2, cluster="sid")
+    assert (out.main_result.pvalue, out.main_result.ci) == (direct.pvalue, direct.ci)
+    assert out.main_result.model_info["conventions"]["crit_df"] == 41
+    out, w = _run(
         sp.did_analysis,
         data=castle,
         y="l_homicide",
@@ -298,6 +414,8 @@ def test_did_analysis_does_not_warn(castle, castle_2x2):
         method="sa",
     )
     assert w == []
+    assert out.main_result.model_info["conventions"]["crit_dist"] == "t"
+    assert out.main_result.model_info["summary_aggregation"] == "fixest_att"
 
 
 def test_compare_event_study_conventions_does_not_warn(castle):

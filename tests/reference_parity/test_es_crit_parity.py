@@ -2,11 +2,13 @@
 
 ``sp.event_study``, ``sp.sun_abraham`` and ``sp.did_2x2`` reproduce the
 standard errors of Stata (``reghdfe`` / ``eventstudyinteract`` /
-``regress``) and R ``fixest``, but turn them into p-values and intervals
-with their own distribution: normal for the two event studies, t(N - K)
-for ``did_2x2``. Both reference programs use t(G - 1) with
-cluster-robust SEs and t(N - K) otherwise. ``parity='stata'`` /
-``parity='r'`` switch to that convention.
+``regress``) and R ``fixest``. Both reference programs turn them into
+p-values and intervals with t(G - 1) under cluster-robust SEs and
+t(N - K) otherwise; ``parity='stata'`` / ``parity='r'`` use that
+convention, which is also the default since 1.41 (``crit_dist='t'``;
+before 1.41 the two event studies used the normal and ``did_2x2``
+t(N - K) also under clustering, now ``crit_dist='normal'`` /
+``'residual'``).
 
 References, run on the same bytes (the bundled castle-doctrine CSV and
 ``tests/fixtures/divorce_no_fault_panel.csv``):
@@ -89,7 +91,7 @@ def _check(table: pd.DataFrame, ref: pd.DataFrame, terms: dict) -> None:
         assert abs(row["ci_upper"] - r["ul"]) < TOL, (k, "ul")
 
 
-def _es(data, parity, cluster="sid", alpha=0.05):
+def _es(data, parity, cluster="sid", alpha=0.05, **kw):
     return sp.event_study(
         data,
         y="l_homicide",
@@ -102,6 +104,7 @@ def _es(data, parity, cluster="sid", alpha=0.05):
         cluster=cluster,
         alpha=alpha,
         parity=parity,
+        **kw,
     )
 
 
@@ -302,7 +305,8 @@ def test_interval_half_width_is_the_stated_quantile(castle, parity):
 
 
 def test_parity_moves_only_the_inference(castle):
-    base, st = _es(castle, None), _es(castle, "stata")
+    # the pre-1.41 normal rule against Stata's t: only the inference moves
+    base, st = _es(castle, None, crit_dist="normal"), _es(castle, "stata")
     a, b = base.model_info["event_study"], st.model_info["event_study"]
     pd.testing.assert_series_equal(a.att, b.att)
     pd.testing.assert_series_equal(a.se, b.se)

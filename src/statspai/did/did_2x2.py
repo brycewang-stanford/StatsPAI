@@ -156,8 +156,9 @@ def did_2x2(
     parity : {'stata', 'r'}, optional
         Critical-value convention for the p-values and confidence
         intervals; coefficients and SEs do not change. ``None`` (default)
-        uses Student t with ``N - K`` degrees of freedom in every case.
-        ``'stata'`` (``regress ..., vce(cluster c)``) and ``'r'``
+        follows ``crit_dist``, whose default gives the same critical
+        values as both programs (since 1.41). ``'stata'``
+        (``regress ..., vce(cluster c)``) and ``'r'``
         (``fixest::feols(y ~ treat * time, cluster = ~c)``) use t with
         ``G - 1`` degrees of freedom when ``cluster`` is given, and the
         same ``N - K`` as the default otherwise. With ``design=`` the
@@ -170,16 +171,16 @@ def did_2x2(
         given and ``N - K`` otherwise (the critical values of
         ``parity='stata'`` / ``'r'``). ``'residual'``: t with the residual
         degrees of freedom ``N - K`` in every case, also under clustering,
-        which is what this function has always reported (R ``lm`` with
+        which is what this function reported before 1.41 (R ``lm`` with
         ``lmtest::coeftest(vcov = vcovCL)`` does the same; the two values
-        agree without ``cluster``). ``None`` (default) is ``'residual'`` in this
-        release and warns (``FutureWarning``) when ``cluster`` is given,
-        the one case where the numbers differ: the default becomes ``'t'``
-        in 1.41, as Stata ``regress, vce(cluster)`` and fixest. The
+        agree without ``cluster``). ``None`` (default) is ``'t'``, as
+        Stata ``regress, vce(cluster)`` and fixest (since 1.41; it
+        differs from ``'residual'`` only when ``cluster`` is given). The
         p-values of the full coefficient table in ``detail`` follow the
         same rule. ``design=`` uses the design degrees of freedom under
-        every setting. ``'residual'`` together with ``parity=`` raises.
-        See MIGRATION.md.
+        every setting. ``'residual'`` together with ``parity=`` raises;
+        any explicit value with ``engine='bayes'`` raises. See
+        MIGRATION.md.
     engine : {'ols', 'bayes'}, default 'ols'
         Inference backend for the same 2×2 design. ``'ols'`` (default) is the
         frequentist OLS estimator above. ``'bayes'`` routes to
@@ -468,18 +469,15 @@ def did_2x2(
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
     df_resid = n - k if svy_df is None else svy_df
-    if cluster is not None and svy_df is None:
-        if parity is not None or crit_arg == "t":
-            # Stata ``regress, vce(cluster)`` and fixest both refer the
-            # cluster-robust t statistic to t(G - 1), not t(N - K).
-            df_resid = n_cl - 1
-        elif crit_arg is None:
-            _crit.warn_default_change(
-                "sp.did_2x2",
-                old=("t", float(n - k)),
-                new=("t", float(n_cl - 1)) if n_cl >= 2 else None,
-                legacy="residual",
-            )
+    if (
+        cluster is not None
+        and svy_df is None
+        and (parity is not None or _crit.resolve_crit_dist(crit_arg) == "t")
+    ):
+        # Stata ``regress, vce(cluster)`` and fixest both refer the
+        # cluster-robust t statistic to t(G - 1), not t(N - K); the
+        # default since 1.41 (crit_dist='residual' keeps t(N - K)).
+        df_resid = n_cl - 1
     pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att - t_crit * att_se, att + t_crit * att_se)

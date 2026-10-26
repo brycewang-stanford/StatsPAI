@@ -370,9 +370,6 @@ def _default_runners(
             unit=unit,
             window=window,
             cluster=cluster or unit,
-            # Pin today's critical values: no FutureWarning users cannot act on.
-            # Switch with the crit_dist default (planned 1.41).
-            crit_dist="normal",
         )
         return _normalise_path(res.model_info["event_study"])
 
@@ -402,11 +399,6 @@ def _default_runners(
             i=unit,
             event_window=window,
             cluster=cluster,
-            # only the event-time path is read; the headline is irrelevant
-            aggregation="event_time",
-            # Pin today's critical values: no FutureWarning users cannot act on.
-            # Switch with the crit_dist default (planned 1.41).
-            crit_dist="normal",
         )
         return _normalise_path(res.model_info["event_study"])
 

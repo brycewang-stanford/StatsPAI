@@ -3,9 +3,10 @@
 Same contract as :mod:`statspai.validation_scope`: each row lists the
 configurations its artifact runs and the outputs it compares. The
 ``crit_dist`` dimension is the distribution behind the ATT's p-value and
-interval: t(N - K) (``'t_resid'``, the default before 1.41 also under
-clustering), t(G - 1) (``'t_cluster'``, ``parity='stata'`` / ``'r'`` or
-``crit_dist='t'`` with ``cluster=``), t on the survey design's degrees of
+interval: t(N - K) (``'t_resid'``; under clustering only with
+``crit_dist='residual'``, the default before 1.41), t(G - 1)
+(``'t_cluster'``, with ``cluster=`` under the default ``crit_dist='t'``
+or ``parity='stata'`` / ``'r'``), t on the survey design's degrees of
 freedom (``'t_design'``, ``design=``) or the wild cluster bootstrap
 (``vce='wild'``).
 """
@@ -164,9 +165,10 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
             },
             note="vce='hc1' is robust=True (the default) without cluster=; "
             "'survey' is design=, whose weights live in the design, so "
-            "weights reads 'none'. crit_dist 't_resid' under cluster= is the "
-            "pre-1.41 default, which neither Stata nor fixest uses; its "
-            "intervals have no reference row. engine='bayes' returns "
-            "sp.bayes_did's result and reads as unchecked.",
+            "weights reads 'none'. crit_dist 't_resid' under cluster= is "
+            "crit_dist='residual' (the default before 1.41), which neither "
+            "Stata nor fixest uses; its intervals have no reference row. "
+            "engine='bayes' returns sp.bayes_did's result and reads as "
+            "unchecked.",
         )
     )

@@ -183,23 +183,35 @@ def test_sunab_fixest_att_aggregation_matches_r(mpdta):
     assert res.se == pytest.approx(se_r, rel=0.01)
 
 
-def test_sunab_default_aggregation_is_event_time_not_fixest(mpdta):
+def test_sunab_default_aggregation_is_fixest_att(mpdta):
     """Pin the documented default so the convention gap stays visible.
 
-    The default equal-weights event times; fixest weights by treated cohort
-    size.  On this unbalanced panel that is a ~2x difference, which is a real
-    migration footgun worth keeping under test rather than discovering in a
+    Since 1.41 the default headline is fixest's ``summary(agg = "att")``,
+    which weights by treated cohort size; before 1.41 it equal-weighted
+    event times (``aggregation='event_time'``). On this unbalanced panel
+    the two differ by about 2x (-0.0400 against -0.0772), a real migration
+    footgun worth keeping under test rather than discovering in a
     replication.
     """
     default = sp.sun_abraham(mpdta, y="lemp", g="first_treat", t="year", i="countyreal")
     post = default.detail.loc[default.detail["relative_time"] >= 0, "att"]
 
-    assert default.estimate == pytest.approx(float(post.mean()), rel=1e-12)
-    assert default.model_info["summary_aggregation"] == "event_time"
+    assert default.model_info["summary_aggregation"] == "fixest_att"
+    assert default.estimate == pytest.approx(R_SUNAB_AGG_ATT[0], abs=1e-8)
     # Both conventions are carried on the result so either can be reported.
-    assert default.model_info["att_fixest_att"] == pytest.approx(
-        R_SUNAB_AGG_ATT[0], abs=1e-8
+    assert default.model_info["att_event_time"] == pytest.approx(
+        float(post.mean()), rel=1e-12
     )
+    old = sp.sun_abraham(
+        mpdta,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
+        aggregation="event_time",
+    )
+    assert old.estimate == default.model_info["att_event_time"]
+    assert round(old.estimate, 4) == -0.0772
 
 
 # ===========================================================================

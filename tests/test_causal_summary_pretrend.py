@@ -42,7 +42,8 @@ def test_summary_without_pretrend_test(panel):
     assert res.model_info.get("pretrend_test") is None
     text = res.summary()
     assert "Pre-trend Test" not in text
-    assert f"{res.estimate:.4f}" in text
+    # the headline line (the summary prints 3 decimals here)
+    assert f"ATT:       {res.estimate:.3f}" in text
 
 
 def test_summary_reports_the_stored_pretrend_test(panel):

@@ -2510,7 +2510,12 @@ _add(
                 "tests/reference_parity/test_es_crit_parity.py)",
             ),
         },
-        defaults={"share_variance": "estimated", "crit_dist": "normal"},
+        # the 1.41 defaults with a unit id: fixest_att headline, t(G-1)
+        defaults={
+            "share_variance": "estimated",
+            "aggregation": "fixest_att",
+            "crit_dist": "t_cluster",
+        },
         note="window_rule only matters with event_window=; 'report' fits the "
         "saturated regression and is what every row without a window runs. "
         "'reference' (the behaviour before 1.39.0) is kept to reproduce "
@@ -3194,10 +3199,11 @@ _add(
         "and weights varying within a unit were demeaned by one pass of "
         "unit and time means, which is not the two-way projection; the "
         "option fixture pins the corrected fit. crit_dist is the "
-        "distribution of the p-values and intervals: 'normal' is the default "
-        "before 1.41, 't_cluster' / 't_resid' are t(G-1) / t(N-K) "
-        "(parity='stata' / 'r' or crit_dist='t'); rows that compare only "
-        "coefficients and SEs ran the default.",
+        "distribution of the p-values and intervals: 't_cluster' / "
+        "'t_resid' are t(G-1) / t(N-K) (the default since 1.41, "
+        "parity='stata' / 'r' or crit_dist='t'), 'normal' is "
+        "crit_dist='normal' (the default before 1.41); rows that compare "
+        "only coefficients and SEs ran 'normal'.",
         invariant={
             "crit_dist": (
                 ("estimate", "se", "vcov", "joint_test"),
@@ -3207,7 +3213,8 @@ _add(
                 "in tests/reference_parity/test_es_crit_parity.py)",
             ),
         },
-        defaults={"crit_dist": "normal"},
+        # every fit clusters, so the default (crit_dist='t', 1.41) is t(G-1)
+        defaults={"crit_dist": "t_cluster"},
     )
 )
 

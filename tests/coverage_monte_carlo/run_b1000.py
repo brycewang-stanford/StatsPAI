@@ -417,7 +417,17 @@ def coverage_sun_abraham() -> dict:
                 y = 0.2 * t + truth * post + ui + rng.normal(scale=0.8)
                 rows.append({"i": i, "t": t, "g": g, "y": y})
         df = pd.DataFrame(rows)
-        r = sp.sun_abraham(df, y="y", g="g", t="t", i="i")
+        # The committed B=1,000 row ran the pre-1.41 defaults (equal-weight
+        # event-time headline, normal intervals); pinned so it reproduces.
+        r = sp.sun_abraham(
+            df,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            aggregation="event_time",
+            crit_dist="normal",
+        )
         acc.add(r.estimate, r.se, r.ci)
     return acc.summary("sp.sun_abraham overall ATT (staggered)")
 

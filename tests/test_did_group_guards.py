@@ -354,10 +354,22 @@ def test_did_parity_2x2_equals_direct_call(two_by_two):
         time="post",
         method="2x2",
         cluster="unit",
+        crit_dist="residual",
     )
-    # t(G-1) under parity versus the normal default: same point, wider CI.
+    # t(G-1) under parity versus the pre-1.41 t(N-K): same point, wider CI.
     assert a.estimate == off.estimate
     assert a.ci[1] - a.ci[0] > off.ci[1] - off.ci[0]
+    # since 1.41 the default is parity's t(G-1)
+    default = _quiet(
+        sp.did,
+        two_by_two,
+        y="y",
+        treat="treated",
+        time="post",
+        method="2x2",
+        cluster="unit",
+    )
+    assert default.ci == a.ci
 
 
 @pytest.mark.parametrize("method", ["bjs", "ddd", "sdid"])
@@ -441,19 +453,17 @@ def test_did_crit_dist_sun_abraham_equals_direct_call(staggered):
         assert (a.ci, a.pvalue) == (b.ci, b.pvalue)
 
 
-def test_did_without_crit_dist_warns_at_the_caller(two_by_two):
-    with pytest.warns(FutureWarning, match="crit_dist") as rec:
-        sp.did(
-            two_by_two,
-            y="y",
-            treat="treated",
-            time="post",
-            method="2x2",
-            cluster="unit",
-        )
-    assert any(
-        w.filename == __file__ for w in rec if issubclass(w.category, FutureWarning)
-    )
+def test_did_without_crit_dist_uses_the_t_default_silently(two_by_two):
+    # 1.40.1 warned here (FutureWarning); since 1.41 the default is 't'.
+    kw = dict(y="y", treat="treated", time="post", method="2x2", cluster="unit")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        default = sp.did(two_by_two, **kw)
+        t = sp.did(two_by_two, crit_dist="t", **kw)
+    _same(default, t)
+    assert (default.ci, default.pvalue) == (t.ci, t.pvalue)
+    g = two_by_two["unit"].nunique()
+    assert default.model_info["conventions"]["crit_df"] == g - 1
 
 
 def test_did_crit_dist_legacy_is_the_pre_141_rule_for_any_method(two_by_two, staggered):

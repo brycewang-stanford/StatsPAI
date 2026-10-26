@@ -169,17 +169,20 @@ def test_sun_abraham_no_never_treated_points_to_lastcohort():
 
 def test_sun_abraham_headline_names_both_aggregations():
     df = _panel()
-    r = _quiet(FITS["sun_abraham"], df)
+    # the pre-1.41 equal-weight headline, named explicitly
+    r = _quiet(
+        lambda d: sp.sun_abraham(d, "y", "g", "t", "id", aggregation="event_time"),
+        df,
+    )
     mi = r.model_info
     assert r.estimate == mi["att_event_time"]
     assert "equal-weight" in mi["headline"]
     assert f"{mi['att_fixest_att']:.6g}" in mi["other_aggregation"]
-    r2 = _quiet(
-        lambda d: sp.sun_abraham(d, "y", "g", "t", "id", aggregation="fixest_att"),
-        df,
-    )
+    # the default since 1.41 is the cell-weighted ATT
+    r2 = _quiet(FITS["sun_abraham"], df)
     assert r2.estimate == mi["att_fixest_att"]
     assert "cell-weighted" in r2.model_info["headline"]
+    assert f"{mi['att_event_time']:.6g}" in r2.model_info["other_aggregation"]
     assert "Other Aggregation" in str(r.summary())
 
 

@@ -1228,10 +1228,6 @@ def _dispatch_estimator(
             did_columns.append(q.id)
         _require_columns_present(data, did_columns, "did")
         did_kwargs = dict(kwargs)
-        if "crit_dist" not in did_kwargs and "parity" not in did_kwargs:
-            # Pin today's critical values: no FutureWarning users cannot
-            # act on. Switch with the crit_dist default (planned 1.41).
-            did_kwargs["crit_dist"] = "legacy"
         res = sp.did(
             data=data,
             y=q.outcome,
@@ -1357,10 +1353,6 @@ def _dispatch_estimator(
             data, [q.outcome, treat_time, q.time, q.id], "event_study"
         )
         es_kwargs = dict(kwargs)
-        if "crit_dist" not in es_kwargs and "parity" not in es_kwargs:
-            # Pin today's critical values: no FutureWarning users cannot
-            # act on. Switch with the crit_dist default (planned 1.41).
-            es_kwargs["crit_dist"] = "normal"
         res = sp.event_study(
             data=data,
             y=q.outcome,

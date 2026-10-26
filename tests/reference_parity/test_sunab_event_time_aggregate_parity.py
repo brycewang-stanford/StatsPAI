@@ -1,11 +1,14 @@
 """``sp.sun_abraham``'s default overall aggregate vs ``fixest::sunab``.
 
 Track A module 05 pins the cohort-size-weighted ATT
-(``aggregation="fixest_att"``) and every per-period effect. The default
-headline number, however, is ``aggregation="event_time"``: the
-equal-weighted average of the post-treatment event-time effects. No row
-compared that aggregate with a reference, so ``sp.validation_scope``
-could not honestly call a default fit covered.
+(``aggregation="fixest_att"``) and every per-period effect. The headline
+before 1.41 was ``aggregation="event_time"`` (since 1.41 it is
+``"fixest_att"``; the event-time aggregate is still reported in
+``model_info`` and selected by passing it): the equal-weighted average of
+the post-treatment event-time effects. No row compared that aggregate with
+a reference, so ``sp.validation_scope`` could not honestly call such a fit
+covered. The fits below name ``aggregation="event_time"`` and the pre-1.41
+``crit_dist="normal"`` explicitly.
 
 Reference: the same linear combination of ``fixest``'s own event-time
 coefficients, with SE ``sqrt(w' V w)`` from ``fixest``'s covariance
@@ -45,11 +48,18 @@ def _fit(**kw):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return sp.sun_abraham(
-            DATA, y="lemp", g="first_treat", t="year", i="countyreal", **kw
+            DATA,
+            y="lemp",
+            g="first_treat",
+            t="year",
+            i="countyreal",
+            aggregation="event_time",
+            crit_dist="normal",
+            **kw,
         )
 
 
-def test_default_event_time_aggregate_matches_fixest_linear_combination():
+def test_event_time_aggregate_matches_fixest_linear_combination():
     fit = _fit()
     assert fit.model_info["summary_aggregation"] == "event_time"
     assert float(fit.estimate) == pytest.approx(REF["att_event_time"], rel=RTOL)
@@ -62,7 +72,7 @@ def test_headline_aggregate_se_does_not_depend_on_share_variance(share_variance)
     assert float(fit.se) == pytest.approx(REF["se_event_time"], rel=RTOL)
 
 
-def test_scope_map_covers_the_default_fit():
+def test_scope_map_covers_the_event_time_fit():
     scope = sp.validation_scope(_fit())
     assert scope["configuration"]["aggregation"] == "event_time"
     assert scope["status"] == "covered"

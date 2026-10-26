@@ -158,9 +158,6 @@ def _fit_sa(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
         i=_ID,
         control_group="nevertreated",
         aggregation="fixest_att",
-        # Only the estimate and SE are read; the critical values are
-        # irrelevant. Passing the value keeps the FutureWarning away.
-        crit_dist="normal",
     )
     return (
         float(r.model_info["att_fixest_att"]),

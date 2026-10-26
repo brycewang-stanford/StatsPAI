@@ -141,15 +141,16 @@ SPECS: List[Dict[str, Any]] = [
                 "aggregation": {
                     "type": "string",
                     "enum": ["event_time", "fixest_att"],
-                    "description": "Headline ATT; omitted = event_time "
-                    "(FutureWarning: fixest_att later).",
+                    "description": "Headline ATT; omitted = fixest_att "
+                    "(fixest agg='att'); event_time = equal weight per "
+                    "relative time (pre-1.41 default).",
                 },
                 "crit_dist": {
                     "type": "string",
                     "enum": ["t", "normal"],
                     "description": "Critical values: 't' = t(G-1) as Stata "
-                    "and fixest; omitted = normal (FutureWarning: 't' in "
-                    "1.41).",
+                    "and fixest (omitted = 't'); 'normal' = the pre-1.41 "
+                    "default.",
                 },
             },
             "required": ["y", "g", "t", "i"],
