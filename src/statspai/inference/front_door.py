@@ -90,6 +90,10 @@ def front_door(
         Pre-treatment covariates to condition on (entered additively in
         the outcome and mediator models). **Covariates must be pre-D**;
         including post-treatment controls will re-open the back-door.
+        With covariates the formula is the conditional front door,
+        ``sum_x P(x) sum_m P(m | d, x) sum_d' P(d' | x) E[Y | d', m, x]``:
+        the arms of the inner sum are weighted by ``P(D=d' | X)`` from a
+        logit of the treatment on the covariates.
     mediator_type : {'auto', 'binary', 'continuous'}, default 'auto'
         How to model the mediator. ``'auto'`` detects binary if M takes
         only {0,1} values, else continuous.
@@ -228,12 +232,12 @@ def front_door(
         D_: np.ndarray,
         M_: np.ndarray,
         X_: Optional[np.ndarray],
-    ) -> Tuple[float, int]:
+    ) -> Tuple[float, int, int]:
         return _front_door_ate(
             Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by, outcome_model
         )
 
-    point, point_logit_fallback = _point(Y, D, M, X)
+    point, point_logit_fallback, point_ps_fallback = _point(Y, D, M, X)
 
     # If the covariate-adjusted mediator logit failed on the *main* sample we
     # silently reverted to the unadjusted marginal P(M=1) — i.e. the reported
@@ -249,6 +253,16 @@ def front_door(
             RuntimeWarning,
             stacklevel=2,
         )
+    if point_ps_fallback:
+        warnings.warn(
+            "Front-door: the logit of the treatment on the covariates failed "
+            "to fit (singular / separated design or non-convergence). The "
+            "reported ATE weights the arms by the marginal P(D=1) instead of "
+            "P(D=1 | X); it is no longer covariate-adjusted. Inspect "
+            "treatment/covariate overlap.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Bootstrap — failures leave NaN, we track and warn rather than
     # silently replace with the point estimate (which would shrink SE).
@@ -259,7 +273,7 @@ def front_door(
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
-            boot[b], _fb = _point(
+            boot[b], _fb, _ = _point(
                 Y[idx], D[idx], M[idx], X[idx] if X is not None else None
             )
             if _fb > 0:
@@ -318,6 +332,7 @@ def front_door(
         "mediator_model_degraded": bool(point_logit_fallback > 0),
         "mediator_model_fallback_arms": int(point_logit_fallback),
         "n_boot_mediator_fallback": int(n_boot_logit_fallback),
+        "treatment_model_degraded": bool(point_ps_fallback > 0),
     }
     if n_failed > 0:
         model_info["first_bootstrap_error"] = first_err
@@ -401,6 +416,13 @@ def _logit_fit(y: np.ndarray, X: np.ndarray) -> Any:
     return safe_logit_fit(y, X)
 
 
+def _treatment_logit_fit(d: np.ndarray, X: np.ndarray) -> Any:
+    """Logit of the treatment on the covariates, for P(D=1 | X)."""
+    from ..core._glm_fit import safe_logit_fit
+
+    return safe_logit_fit(d, X)
+
+
 def _logit_predict(fit: Any, X: np.ndarray, fallback: float) -> np.ndarray:
     from ..core._glm_fit import safe_logit_predict
 
@@ -417,14 +439,27 @@ def _front_door_ate(
     rng: np.random.Generator,
     integrate_by: str = "marginal",
     outcome_model: str = "by_arm",
-) -> Tuple[float, int]:
+) -> Tuple[float, int, int]:
     """
     Compute front-door ATE on a single (bootstrap or original) sample.
+
+    Returns the ATE, the number of mediator logits that fell back to the
+    marginal P(M=1), and whether the treatment logit fell back to P(D=1).
     """
     n = len(Y)
 
-    # P(D=d') — marginal treatment distribution (over full sample)
-    p_d1 = float(np.mean(D))
+    # P(D=d' | X): the inner sum over d' of the front-door formula weights
+    # E[Y | D=d', M=m, X] by the treatment probability given the covariates
+    # (the conditional front door). The marginal P(D=d') is right only when
+    # X does not predict D; with covariates that do, it gave 0.78 for an
+    # ATE of 1.13 (tests/test_inference_estimators_scan_oct2026.py).
+    # Without covariates it is the marginal share, as before.
+    p_d1: Any = float(np.mean(D))
+    n_ps_fallback = 0
+    if X is not None:
+        fit_d = _treatment_logit_fit(D, X)
+        n_ps_fallback = int(fit_d is None)
+        p_d1 = _logit_predict(fit_d, X, float(p_d1))
     p_d0 = 1.0 - p_d1
 
     # Build feature matrices for outcome and mediator regressions.
@@ -545,7 +580,7 @@ def _front_door_ate(
         mu_m0 = p_d0 * mu_Y_given_d0_m0 + p_d1 * mu_Y_given_d1_m0
 
         ate = float(np.mean((p_m_d1 - p_m_d0) * (mu_m1 - mu_m0)))
-        return ate, n_logit_fallback
+        return ate, n_logit_fallback, n_ps_fallback
 
     # ------------------------------------------------------------------
     # Continuous mediator: Gaussian conditional model
@@ -593,12 +628,17 @@ def _front_door_ate(
         mu0_under_d0 = mu_dprime(beta_y0, m_samples_d0, X_rep)
         mu1_under_d0 = mu_dprime(beta_y1, m_samples_d0, X_rep)
 
-        inner_d1 = p_d0 * mu0_under_d1 + p_d1 * mu1_under_d1
-        inner_d0 = p_d0 * mu0_under_d0 + p_d1 * mu1_under_d0
+        if X is None:
+            q1: Any = p_d1
+        else:
+            q1 = np.repeat(p_d1, n_mc)
+        q0 = 1.0 - q1
+        inner_d1 = q0 * mu0_under_d1 + q1 * mu1_under_d1
+        inner_d0 = q0 * mu0_under_d0 + q1 * mu1_under_d0
 
         inner_d1 = inner_d1.reshape(n, n_mc).mean(axis=1)
         inner_d0 = inner_d0.reshape(n, n_mc).mean(axis=1)
-        return float(np.mean(inner_d1 - inner_d0)), n_logit_fallback
+        return float(np.mean(inner_d1 - inner_d0)), n_logit_fallback, n_ps_fallback
 
     # 'marginal' — Pearl aggregate formulation. One global pool of
     # (x, m)-pairs drawn from the population-marginal distributions.
@@ -616,9 +656,11 @@ def _front_door_ate(
     mu0_d0_pool = mu_dprime(beta_y0, m_pool_d0, X_pool)
     mu1_d0_pool = mu_dprime(beta_y1, m_pool_d0, X_pool)
 
-    e_y_d1 = float(np.mean(p_d0 * mu0_d1_pool + p_d1 * mu1_d1_pool))
-    e_y_d0 = float(np.mean(p_d0 * mu0_d0_pool + p_d1 * mu1_d0_pool))
-    return e_y_d1 - e_y_d0, n_logit_fallback
+    p1_pool = p_d1[sample_idx]
+    p0_pool = 1.0 - p1_pool
+    e_y_d1 = float(np.mean(p0_pool * mu0_d1_pool + p1_pool * mu1_d1_pool))
+    e_y_d0 = float(np.mean(p0_pool * mu0_d0_pool + p1_pool * mu1_d0_pool))
+    return e_y_d1 - e_y_d0, n_logit_fallback, n_ps_fallback
 
 
 # Citation
