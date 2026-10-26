@@ -4,8 +4,90 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+Two pieces of work. The defaults that 1.40.0 and 1.40.1 announced with a
+`FutureWarning` take effect ("Changed" below). And an option scan of
+eighteen modules that had never been tested option by option: `spatial`,
+`bartik`, `survival`, `epi`, `mendelian`, `qte`, `bounds`, `selection`,
+`postestimation`, `inference`, `robustness`, `survey`, `multilevel`, `gmm`,
+`metalearners`, `tmle`, `conformal_causal` and `policy_learning`. Each
+defect was reproduced before it was fixed, against a reference
+implementation, a known truth or an identity; the tests are in
+`tests/test_*_scan_oct2026.py`. The ⚠️ entries change numbers.
+
+### Changed (defaults announced for 1.41)
+
+The defaults that 1.40.0 and 1.40.1 announced with a `FutureWarning` take
+effect, and the warnings are gone. Calls that named the argument are
+unaffected. See MIGRATION.md, "1.40.2 → 1.41".
+
+- ⚠️ **`crit_dist='t'` is the default of `sp.event_study`, `sp.sun_abraham`
+  and `sp.did_2x2`** (owner decision 2026-10-21). P-values and intervals
+  use t(G-1) with cluster-robust SEs and t(N-K) otherwise, as Stata
+  `reghdfe` / `regress` / `eventstudyinteract` and R `fixest` report.
+  Estimates, SEs and the pre-trend tests do not change. On the
+  castle-doctrine panel the `sp.event_study` lead at -3 moves from p =
+  0.0467 to 0.0523 and the headline ATT interval from [0.05067, 0.14474]
+  to [0.04948, 0.14593], equal to Stata `reghdfe` / `lincom` to 1e-10;
+  the clustered `sp.did_2x2` interval moves from [-0.09716, 0.23364] to
+  [-0.10174, 0.23821] (Stata `regress, vce(cluster)`). `crit_dist='normal'`
+  (event studies) / `'residual'` (`did_2x2`) keeps the 1.40 numbers.
+  Library entry points that pinned the old value now follow the default:
+  `sp.did_analysis`, `sp.did_summary`, `sp.auto_did`,
+  `sp.compare_event_study_conventions`, `sp.causal_question`,
+  `CausalWorkflow`, `sp.compare_estimators` and the calibrated simulation.
+  `sp.did(crit_dist='legacy')` still selects the pre-1.41 rule.
+- ⚠️ **`sp.sun_abraham` reports the cell-weighted ATT by default**
+  (`aggregation='fixest_att'`, `fixest::summary(agg = "att")`; owner
+  decision 2026-10-20, item 3). On `mpdta` the headline moves from
+  -0.0772 (equal-weight mean of the post event-time effects) to -0.0400
+  (R fixest -0.03995). `aggregation='event_time'` keeps the 1.40 headline;
+  both numbers stay in `model_info`. `sp.did(method='sun_abraham')`,
+  `sp.did_analysis(method='sa')` and `sp.auto_did` follow.
+- ⚠️ **`sp.hdfe_ols` multi-way clustering uses `cluster_df='min'` by
+  default** (item 2): every term of the inclusion-exclusion sum carries
+  G_min/(G_min-1), as Stata `reghdfe` and R `fixest` do, instead of its own
+  G/(G-1) (R `sandwich::vcovCL`). On the weighted two-way fixture of
+  `test_panel_absorb_ols_parity.py` the x2 SE moves from 0.038146 to
+  0.038382, equal to reghdfe to 1e-10. One-way clustering, fits without
+  absorbed effects and the IV path are unchanged; `cluster_df='per_term'`
+  keeps the 1.40 SEs. `sp.psm_did(fixed_effects=, cluster=[...])` and
+  `sp.panel(method='hdfe')`, which call `sp.hdfe_ols`, follow.
+  `sp.absorb_ols` keeps `'per_term'`.
+- **`sp.bcf` is `sp.bart_causal(method='bcf')`** (item 4): the Bayesian
+  causal forest with BART priors and an MCMC posterior, with `sp.bcf`'s
+  argument names (`n_trees_mu`, `n_trees_tau`, `alpha`, `random_state` /
+  `seed`; other options such as `draws=` / `chains=` pass through). It
+  returns a `BayesCausalResult` (`.cate` is a DataFrame; there is no
+  `model_info['cate']`). `n_bootstrap=` / `n_folds=` belonged to the old
+  random-forest / boosting approximation and now raise
+  `MethodIncompatibility`; that approximation, and its numbers, is
+  `sp.BayesianCausalForest(...).fit()`. `sp.bcf_ordinal`,
+  `sp.bcf_factor_exposure` and `sp.did_bcf` keep it and are unchanged
+  (`sp.did_bcf` no longer emits the `sp.bcf` notice).
+- **`sp.interference('partial' | 'hudgens_halloran')` is the
+  Hudgens-Halloran two-stage estimator** (`sp.two_stage_interference`,
+  `group=` and `saturation=`), the same as `'two_stage'`. Through 1.40 the
+  two names routed to `sp.spillover`; a call that still passes
+  `sp.spillover`'s arguments under them raises `MethodIncompatibility`
+  pointing to `'spillover'`.
+- **Removed**: the fitted-value keys of `diagnostics` of `sp.zip_model`,
+  `sp.zinb` and `sp.hurdle` (`predicted_overall`, `predicted_count`,
+  `predicted_structural_zero`, `predicted_hurdle_prob`,
+  `predicted_count_mean`), deprecated in 1.39.0. Read them from
+  `data_info`. Results pickled by 1.39 / 1.40 still load.
+
 ### ⚠️ Correctness
 
+- `sp.hdfe_ols` / `sp.absorb_ols` without the Rust extension
+  (`STATSPAI_SKIP_RUST=1`, or a platform without a `statspai-hdfe` wheel):
+  the pure-Python demean stops each column on step size, so on a slowly
+  converging fixed-effect graph `y` could stop short while `X` went to the
+  sparse direct solve. The slope was right and the residual variance was
+  not: on the weighted chain design of `tests/test_fe_direct_fallback.py`
+  the SE of x was 0.0361215 against 0.0361189 for the dummy-variable
+  regression. `y` and `X` are now demeaned together, and when the direct
+  solve has to finish any column it finishes all of them. Fits whose
+  projections converge are unchanged.
 - `sp.impacts` simulated its standard errors from `diag(se^2)`, dropping the
   covariance between the coefficients and `rho` that the indirect and total
   effects depend on. It now draws from the joint covariance, which `sp.sar`
@@ -53,8 +135,6 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.slx` reported a log-likelihood with the df-corrected `sigma^2`; it is
   now the Gaussian ML log-likelihood (-82.192 to -82.153 on the fixture),
   equal to R `logLik(lmSLX)` to 1e-4.
-Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
-
 - `sp.cohen_kappa` (unweighted, the default): the standard error used
   `1 - p_i.` where Fleiss, Cohen & Everitt (1969) have `p_.i`, plus a stray
   constant. On a 40/10/10/40 table it was 0.060; it is now 0.080, the value of
@@ -240,6 +320,97 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
   covariates. `sp.metalearner` now records its estimation rows
   (`model_info['estimation_rows']`) and the diagnostics use them; a frame
   that cannot be paired row by row raises.
+- `sp.selection_bounds` now runs the `sp.lee_bounds` code (trimming
+  `'quantile'`). The unconditional bounds kept `floor((1 - p) n)`
+  observations, the rule `sp.lee_bounds` dropped in 1.29, so each bound was
+  off by one observation's mass. The conditional bounds weighted covariate
+  strata by their share of the whole sample and dropped strata missing an
+  arm; Lee's tightened bounds weight by the always-observed. On a 1,203-row
+  example the unconditional lower bound moves from -0.06854 to -0.06479 and
+  the conditional one from -0.01186 to 0.00072, each now equal to
+  `sp.lee_bounds` (which matches Stata `leebounds`) to 1e-12. Rows with a
+  missing treatment or selection indicator, or selected with a missing
+  outcome, are dropped with a warning as in `sp.lee_bounds`.
+- `sp.iv_bounds(assumption='monotone_iv')` returned `[min(OLS, IV),
+  max(OLS, IV)]`. When the instrument and the treatment are positively
+  correlated both estimates are biased the same way and the true slope lies
+  outside that interval (OLS 1.50, IV 1.20, truth 1.00 on the test design).
+  It now returns the Nevo-Rosen identified set under their A3 and A4
+  (working paper Propositions 2 and 3, `nevo2012identification`): the IV
+  estimates with `z` and with `V(1) = sd(z) x - sd(x) z` as endpoints, a
+  closed interval when `cov(z, x) < 0` after the controls and a half-line
+  otherwise. New `xu_sign=` states the assumed sign of `corr(x, u)`.
+  `model_info['first_stage_f']` was `n corr(z, x)^2` (1508.5 on a 3,000-row
+  example) and is now the first-stage F (3028.2).
+- `sp.balke_pearl`: the monotone bounds always took `Z = 1` as the arm with
+  more take-up. With an instrument that lowers take-up they came out wider
+  than the bounds without monotonicity ([-0.85, 0.95] against [0.29, 0.49]).
+  The direction is now read from the first stage (`detail['z_hi']`).
+- `sp.qte(method='conditional_qr')` solved the quantile regression by an
+  iteratively reweighted least-squares loop that stops near the minimiser,
+  not on it. It now uses the exact solver of `sp.qreg` (= `quantreg::rq`):
+  on a 500-row example the 0.75 effect moves from 1.1121 to 1.0943.
+- `sp.best_subset` never compared the model without candidates, so it
+  selected at least one variable even when none helps (BIC 1133.79 for a
+  noise regressor against 1128.64 for the intercept alone). The empty model
+  now competes; its statistics are in `history.attrs['null_model']`.
+- `sp.stepwise(criterion='pvalue')` also required each move to lower the
+  BIC, so at n = 2000 a term needed p < 0.006 to enter whatever `alpha_in`
+  said. Moves now follow the p-values alone: the least significant term
+  leaves while p >= `alpha_out`, else the most significant candidate enters
+  while p < `alpha_in`.
+- `horowitz_manski` / `iv_bounds` / `oster_delta` / `selection_bounds`
+  (`BoundsResult`): each bound's interval was centred on the median of the
+  bootstrap draws rather than on the estimate (lower-bound interval of a
+  `horowitz_manski` example [-8.470, -7.062] becomes [-8.481, -7.073]);
+  fewer than two usable draws gave an SE of 0, now NaN. `summary()` and
+  `plot()` printed `lower - z se, upper + z se` with the two-sided z under
+  the label Imbens-Manski; they now use the Imbens-Manski critical value
+  (`BoundsResult.parameter_ci()`), as `sp.lee_bounds` does.
+- `sp.mixed(group=[outer, inner])`: random effects were keyed by the inner
+  label alone. When class ids repeat across schools (class 1, 2, ... in every
+  school) the classes merged and every one got the first school's random
+  effect, so `predict(data)` and `random_effects` were wrong (up to 3.84 on
+  the test panel); estimates were not affected. Keys are now the
+  `(outer, inner)` pair and `random_effects` has a two-level index.
+  `predict()` without data dropped the random part altogether and returned
+  `X b`; it now adds it.
+- `sp.mixed` "LR test vs. linear model" (`summary()`, `_lr_test`): with one
+  variance parameter the p-value was the chi2(1) tail, twice Stata's
+  chibar2(01); under REML the statistic compared the ML likelihood at the
+  REML estimates with the OLS likelihood. It now compares REML with REML and
+  ML with ML and uses chibar2(01) for one parameter, chi2(k) otherwise, as
+  Stata 18 `mixed`. On the test fixture: ML p 8.72e-5 to 4.36e-5, REML
+  statistic 15.378 to 15.902 (Stata 15.901683, 4.35977e-5 and 3.33597e-5).
+- `sp.xtlsdvc(bootstrap=)`: the parametric bootstrap regenerated `y` as
+  `rho y_{t-1} + e` over consecutive rows, without the regressors, the unit
+  effects or gaps, contrary to its docstring. It now draws
+  `rho y_{t-1} + x'b + eta_i + e` on the cells the estimation used. On a
+  simulated panel (N = 150, T = 8) the SE of rho moves from 0.0339 to
+  0.0268; the Monte Carlo SD of the estimator is 0.0272. Failed replications
+  are counted (`model_info['bootstrap_failed']`) and warned about instead of
+  being skipped silently.
+- `sp.gmm(vcov='hac')` without `hac_bandwidth` used bandwidth 1, which
+  weights no lag, so it equalled `vcov='mds'`. The default is now
+  `floor(4 (n/100)^(2/9))` lags, the rule `sp.regress` / `sp.glm` use
+  (`model_info['hac_lags']`). On n = 400: SEs 0.07107 / 0.07856 to
+  0.07653 / 0.07645.
+- `sp.gmm(method='onestep')` reported Hansen's J with a chi2 p-value at any
+  weight; it is chi2 only at the efficient one, and Stata 18 `estat overid`
+  is "not available after one-step estimation". `J_stat` / `J_p` are now
+  `None` with `J_note`.
+- `sp.meglm(family='binomial', trials=)`: `n_obs` was the total number of
+  trials, so BIC used it (1500 trials on 300 rows: BIC 913.15 to 908.32).
+  It is the number of rows, as Stata `meglm` and lme4 count.
+- `MEGLMResult.conf_int()`, `odds_ratios()`, `incidence_rate_ratios()`
+  ignored the fit's `alpha` and always gave 95% intervals (`summary()` did
+  use it). They now default to the fit's level.
+- `sp.svymean` / `sp.svytotal` / `sp.svyglm` `subpop=` as an array or Series:
+  a missing value counted as inside the domain (`NaN` cast to `True`); it is
+  now outside, as for a column name and Stata `subpop()`. A string column
+  ("yes" / "no") put every row in the domain and is now refused.
+- `sp.svydesign(cluster=)` with a missing PSU id: with `nest=True` it became
+  the PSU "stratum__nan". It is refused, as a missing stratum already was.
 
 ### Fixed
 
@@ -342,118 +513,6 @@ Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
 - `sp.cluster_cate` returned an empty table for a treatment not coded 0/1;
   it now raises, and warns when clusters are left out.
 - `sp.cate_eval` now validates `target=`.
-
-### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
-
-- `sp.selection_bounds` now runs the `sp.lee_bounds` code (trimming
-  `'quantile'`). The unconditional bounds kept `floor((1 - p) n)`
-  observations, the rule `sp.lee_bounds` dropped in 1.29, so each bound was
-  off by one observation's mass. The conditional bounds weighted covariate
-  strata by their share of the whole sample and dropped strata missing an
-  arm; Lee's tightened bounds weight by the always-observed. On a 1,203-row
-  example the unconditional lower bound moves from -0.06854 to -0.06479 and
-  the conditional one from -0.01186 to 0.00072, each now equal to
-  `sp.lee_bounds` (which matches Stata `leebounds`) to 1e-12. Rows with a
-  missing treatment or selection indicator, or selected with a missing
-  outcome, are dropped with a warning as in `sp.lee_bounds`.
-- `sp.iv_bounds(assumption='monotone_iv')` returned `[min(OLS, IV),
-  max(OLS, IV)]`. When the instrument and the treatment are positively
-  correlated both estimates are biased the same way and the true slope lies
-  outside that interval (OLS 1.50, IV 1.20, truth 1.00 on the test design).
-  It now returns the Nevo-Rosen identified set under their A3 and A4
-  (working paper Propositions 2 and 3, `nevo2012identification`): the IV
-  estimates with `z` and with `V(1) = sd(z) x - sd(x) z` as endpoints, a
-  closed interval when `cov(z, x) < 0` after the controls and a half-line
-  otherwise. New `xu_sign=` states the assumed sign of `corr(x, u)`.
-  `model_info['first_stage_f']` was `n corr(z, x)^2` (1508.5 on a 3,000-row
-  example) and is now the first-stage F (3028.2).
-- `sp.balke_pearl`: the monotone bounds always took `Z = 1` as the arm with
-  more take-up. With an instrument that lowers take-up they came out wider
-  than the bounds without monotonicity ([-0.85, 0.95] against [0.29, 0.49]).
-  The direction is now read from the first stage (`detail['z_hi']`).
-- `sp.qte(method='conditional_qr')` solved the quantile regression by an
-  iteratively reweighted least-squares loop that stops near the minimiser,
-  not on it. It now uses the exact solver of `sp.qreg` (= `quantreg::rq`):
-  on a 500-row example the 0.75 effect moves from 1.1121 to 1.0943.
-- `sp.best_subset` never compared the model without candidates, so it
-  selected at least one variable even when none helps (BIC 1133.79 for a
-  noise regressor against 1128.64 for the intercept alone). The empty model
-  now competes; its statistics are in `history.attrs['null_model']`.
-- `sp.stepwise(criterion='pvalue')` also required each move to lower the
-  BIC, so at n = 2000 a term needed p < 0.006 to enter whatever `alpha_in`
-  said. Moves now follow the p-values alone: the least significant term
-  leaves while p >= `alpha_out`, else the most significant candidate enters
-  while p < `alpha_in`.
-- `horowitz_manski` / `iv_bounds` / `oster_delta` / `selection_bounds`
-  (`BoundsResult`): each bound's interval was centred on the median of the
-  bootstrap draws rather than on the estimate (lower-bound interval of a
-  `horowitz_manski` example [-8.470, -7.062] becomes [-8.481, -7.073]);
-  fewer than two usable draws gave an SE of 0, now NaN. `summary()` and
-  `plot()` printed `lower - z se, upper + z se` with the two-sided z under
-  the label Imbens-Manski; they now use the Imbens-Manski critical value
-  (`BoundsResult.parameter_ci()`), as `sp.lee_bounds` does.
-
-### Deprecated
-
-- `sp.iv_bounds(assumption='less_than_late')`: `Wald +/- |OLS - Wald|` has
-  no source and can exclude the true slope under the assumption it was
-  described with. It warns and keeps its numbers until removal, no earlier
-  than the next minor release.
-
-### Option scan of `survey/`, `multilevel/`, `gmm/` (Oct 2026)
-
-The modules had never been scanned option by option. Tests in
-`tests/test_{survey,multilevel,gmm}_scan_oct2026.py`.
-
-#### ⚠️ Correctness
-
-- `sp.mixed(group=[outer, inner])`: random effects were keyed by the inner
-  label alone. When class ids repeat across schools (class 1, 2, ... in every
-  school) the classes merged and every one got the first school's random
-  effect, so `predict(data)` and `random_effects` were wrong (up to 3.84 on
-  the test panel); estimates were not affected. Keys are now the
-  `(outer, inner)` pair and `random_effects` has a two-level index.
-  `predict()` without data dropped the random part altogether and returned
-  `X b`; it now adds it.
-- `sp.mixed` "LR test vs. linear model" (`summary()`, `_lr_test`): with one
-  variance parameter the p-value was the chi2(1) tail, twice Stata's
-  chibar2(01); under REML the statistic compared the ML likelihood at the
-  REML estimates with the OLS likelihood. It now compares REML with REML and
-  ML with ML and uses chibar2(01) for one parameter, chi2(k) otherwise, as
-  Stata 18 `mixed`. On the test fixture: ML p 8.72e-5 to 4.36e-5, REML
-  statistic 15.378 to 15.902 (Stata 15.901683, 4.35977e-5 and 3.33597e-5).
-- `sp.xtlsdvc(bootstrap=)`: the parametric bootstrap regenerated `y` as
-  `rho y_{t-1} + e` over consecutive rows, without the regressors, the unit
-  effects or gaps, contrary to its docstring. It now draws
-  `rho y_{t-1} + x'b + eta_i + e` on the cells the estimation used. On a
-  simulated panel (N = 150, T = 8) the SE of rho moves from 0.0339 to
-  0.0268; the Monte Carlo SD of the estimator is 0.0272. Failed replications
-  are counted (`model_info['bootstrap_failed']`) and warned about instead of
-  being skipped silently.
-- `sp.gmm(vcov='hac')` without `hac_bandwidth` used bandwidth 1, which
-  weights no lag, so it equalled `vcov='mds'`. The default is now
-  `floor(4 (n/100)^(2/9))` lags, the rule `sp.regress` / `sp.glm` use
-  (`model_info['hac_lags']`). On n = 400: SEs 0.07107 / 0.07856 to
-  0.07653 / 0.07645.
-- `sp.gmm(method='onestep')` reported Hansen's J with a chi2 p-value at any
-  weight; it is chi2 only at the efficient one, and Stata 18 `estat overid`
-  is "not available after one-step estimation". `J_stat` / `J_p` are now
-  `None` with `J_note`.
-- `sp.meglm(family='binomial', trials=)`: `n_obs` was the total number of
-  trials, so BIC used it (1500 trials on 300 rows: BIC 913.15 to 908.32).
-  It is the number of rows, as Stata `meglm` and lme4 count.
-- `MEGLMResult.conf_int()`, `odds_ratios()`, `incidence_rate_ratios()`
-  ignored the fit's `alpha` and always gave 95% intervals (`summary()` did
-  use it). They now default to the fit's level.
-- `sp.svymean` / `sp.svytotal` / `sp.svyglm` `subpop=` as an array or Series:
-  a missing value counted as inside the domain (`NaN` cast to `True`); it is
-  now outside, as for a column name and Stata `subpop()`. A string column
-  ("yes" / "no") put every row in the domain and is now refused.
-- `sp.svydesign(cluster=)` with a missing PSU id: with `nest=True` it became
-  the PSU "stratum__nan". It is refused, as a missing stratum already was.
-
-#### Fixed
-
 - `sp.svyglm`, `sp.meologit` and `sp.mixed` / `sp.meglm` with a categorical
   group raised `InvalidIndexError` on data with repeated index labels; rows
   are now located by position.
@@ -478,73 +537,18 @@ The modules had never been scanned option by option. Tests in
   `sp.linear_calibration` inputs; `sp.lrtest` on mixed fits with different
   samples or REML against ML; `sp.gmm(vcov='cluster')` with missing labels.
 
-#### Added
+### Added
 
 - `sp.gmm(small=True)`: `False` refers t statistics, p-values and intervals
   to the normal, as Stata `gmm` and R `gmm::summary`; the default keeps
   t(n - k), as `sp.iv(small=True)`. `result.inference_rule()` states which.
 
-### Changed (defaults announced for 1.41)
+### Deprecated
 
-The defaults that 1.40.0 and 1.40.1 announced with a `FutureWarning` take
-effect, and the warnings are gone. Calls that named the argument are
-unaffected. See MIGRATION.md, "1.40.2 → 1.41".
-
-- ⚠️ **`crit_dist='t'` is the default of `sp.event_study`, `sp.sun_abraham`
-  and `sp.did_2x2`** (owner decision 2026-10-21). P-values and intervals
-  use t(G-1) with cluster-robust SEs and t(N-K) otherwise, as Stata
-  `reghdfe` / `regress` / `eventstudyinteract` and R `fixest` report.
-  Estimates, SEs and the pre-trend tests do not change. On the
-  castle-doctrine panel the `sp.event_study` lead at -3 moves from p =
-  0.0467 to 0.0523 and the headline ATT interval from [0.05067, 0.14474]
-  to [0.04948, 0.14593], equal to Stata `reghdfe` / `lincom` to 1e-10;
-  the clustered `sp.did_2x2` interval moves from [-0.09716, 0.23364] to
-  [-0.10174, 0.23821] (Stata `regress, vce(cluster)`). `crit_dist='normal'`
-  (event studies) / `'residual'` (`did_2x2`) keeps the 1.40 numbers.
-  Library entry points that pinned the old value now follow the default:
-  `sp.did_analysis`, `sp.did_summary`, `sp.auto_did`,
-  `sp.compare_event_study_conventions`, `sp.causal_question`,
-  `CausalWorkflow`, `sp.compare_estimators` and the calibrated simulation.
-  `sp.did(crit_dist='legacy')` still selects the pre-1.41 rule.
-- ⚠️ **`sp.sun_abraham` reports the cell-weighted ATT by default**
-  (`aggregation='fixest_att'`, `fixest::summary(agg = "att")`; owner
-  decision 2026-10-20, item 3). On `mpdta` the headline moves from
-  -0.0772 (equal-weight mean of the post event-time effects) to -0.0400
-  (R fixest -0.03995). `aggregation='event_time'` keeps the 1.40 headline;
-  both numbers stay in `model_info`. `sp.did(method='sun_abraham')`,
-  `sp.did_analysis(method='sa')` and `sp.auto_did` follow.
-- ⚠️ **`sp.hdfe_ols` multi-way clustering uses `cluster_df='min'` by
-  default** (item 2): every term of the inclusion-exclusion sum carries
-  G_min/(G_min-1), as Stata `reghdfe` and R `fixest` do, instead of its own
-  G/(G-1) (R `sandwich::vcovCL`). On the weighted two-way fixture of
-  `test_panel_absorb_ols_parity.py` the x2 SE moves from 0.038146 to
-  0.038382, equal to reghdfe to 1e-10. One-way clustering, fits without
-  absorbed effects and the IV path are unchanged; `cluster_df='per_term'`
-  keeps the 1.40 SEs. `sp.psm_did(fixed_effects=, cluster=[...])` and
-  `sp.panel(method='hdfe')`, which call `sp.hdfe_ols`, follow.
-  `sp.absorb_ols` keeps `'per_term'`.
-- **`sp.bcf` is `sp.bart_causal(method='bcf')`** (item 4): the Bayesian
-  causal forest with BART priors and an MCMC posterior, with `sp.bcf`'s
-  argument names (`n_trees_mu`, `n_trees_tau`, `alpha`, `random_state` /
-  `seed`; other options such as `draws=` / `chains=` pass through). It
-  returns a `BayesCausalResult` (`.cate` is a DataFrame; there is no
-  `model_info['cate']`). `n_bootstrap=` / `n_folds=` belonged to the old
-  random-forest / boosting approximation and now raise
-  `MethodIncompatibility`; that approximation, and its numbers, is
-  `sp.BayesianCausalForest(...).fit()`. `sp.bcf_ordinal`,
-  `sp.bcf_factor_exposure` and `sp.did_bcf` keep it and are unchanged
-  (`sp.did_bcf` no longer emits the `sp.bcf` notice).
-- **`sp.interference('partial' | 'hudgens_halloran')` is the
-  Hudgens-Halloran two-stage estimator** (`sp.two_stage_interference`,
-  `group=` and `saturation=`), the same as `'two_stage'`. Through 1.40 the
-  two names routed to `sp.spillover`; a call that still passes
-  `sp.spillover`'s arguments under them raises `MethodIncompatibility`
-  pointing to `'spillover'`.
-- **Removed**: the fitted-value keys of `diagnostics` of `sp.zip_model`,
-  `sp.zinb` and `sp.hurdle` (`predicted_overall`, `predicted_count`,
-  `predicted_structural_zero`, `predicted_hurdle_prob`,
-  `predicted_count_mean`), deprecated in 1.39.0. Read them from
-  `data_info`. Results pickled by 1.39 / 1.40 still load.
+- `sp.iv_bounds(assumption='less_than_late')`: `Wald +/- |OLS - Wald|` has
+  no source and can exclude the true slope under the assumption it was
+  described with. It warns and keeps its numbers until removal, no earlier
+  than the next minor release.
 
 ## [1.40.2] — 2026-10-27
 
