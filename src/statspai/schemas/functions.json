@@ -64585,7 +64585,7 @@
           "x-statspai-role": "dataframe"
         },
         "hac_bandwidth": {
-          "description": "Bartlett bandwidth for ``vcov='hac'``; the kernel vanishes at ``lag == hac_bandwidth``.",
+          "description": "Bartlett bandwidth for ``vcov='hac'``; the kernel vanishes at ``lag == hac_bandwidth``, so ``hac_bandwidth = L + 1`` weights ``L`` lags. Default (``None``): ``L = floor(4 (n/100)^(2/9))``, the lag rule the library's other HAC variances use (recorded in ``model_info['hac_lags']``). Until 1.40.2 the default was bandwidth 1, which weights no lag, so ``'hac'`` equalled ``'mds'``.",
           "type": "integer"
         },
         "jacobian": {
@@ -64636,6 +64636,11 @@
             "unadjusted"
           ],
           "type": "string"
+        },
+        "small": {
+          "default": true,
+          "description": "Reference distribution of the reported t statistics, p-values and intervals. ``True``: t with ``n - k`` degrees of freedom (as :func:`sp.iv` with ``small=True``). ``False``: the normal, as Stata ``gmm`` and R ``gmm::summary`` report. The variance is the same; ``result.inference_rule()`` states which applies.",
+          "type": "boolean"
         },
         "theta0": {
           "description": "Starting values. Also the expansion point for the closed form when the moments are affine.",

@@ -100,8 +100,13 @@ def build_panel_arrays(
     id_col: str,
     time_col: str,
     variables: Sequence[str],
+    labels: Sequence[str] = (),
 ) -> PanelArrays:
     """Pivot ``data`` into :class:`PanelArrays`.
+
+    ``labels`` names variables that are group labels (the ``cluster=``
+    column): a non-numeric one is replaced by integer codes, as numeric
+    coercion would turn every string label into ``NaN``.
 
     Rows with a missing ``id`` or ``time`` are dropped (they cannot be
     placed on the panel grid); missing *values* are preserved as ``NaN`` so
@@ -151,7 +156,14 @@ def build_panel_arrays(
     values: Dict[str, np.ndarray] = {}
     for var in dict.fromkeys(variables):
         arr = np.full((units.size, times.size), np.nan, dtype=float)
-        arr[ui, ti] = pd.to_numeric(df[var], errors="coerce").to_numpy(dtype=float)
+        col = df[var]
+        if var in labels and not (
+            pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col)
+        ):
+            codes = pd.factorize(col, sort=True)[0].astype(float)
+            codes[codes < 0] = np.nan
+            col = pd.Series(codes, index=col.index)
+        arr[ui, ti] = pd.to_numeric(col, errors="coerce").to_numpy(dtype=float)
         values[var] = arr
 
     return PanelArrays(values=values, units=units, times=times)

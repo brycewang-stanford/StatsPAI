@@ -117,6 +117,7 @@ def _omega(
         return S_mean
 
     if vcov == "hac":
+        # resolved by gmm(): never None here
         bw = int(hac_bandwidth) if hac_bandwidth else 1
         S = M.T @ M / n
         # Bartlett weights evaluated at lag / bandwidth, so the weight
@@ -166,6 +167,7 @@ def gmm(
     hac_bandwidth: Optional[int] = None,
     center: bool = False,
     sandwich_weight: str = "reestimated",
+    small: bool = True,
 ) -> EconometricResults:
     """
     General GMM estimator for arbitrary moment conditions.
@@ -207,7 +209,12 @@ def gmm(
         Group labels, one per moment row. Required when ``vcov='cluster'``.
     hac_bandwidth : int, optional
         Bartlett bandwidth for ``vcov='hac'``; the kernel vanishes at
-        ``lag == hac_bandwidth``.
+        ``lag == hac_bandwidth``, so ``hac_bandwidth = L + 1`` weights
+        ``L`` lags. Default (``None``): ``L = floor(4 (n/100)^(2/9))``, the lag
+        rule the library's other HAC variances use
+        (recorded in ``model_info['hac_lags']``). Until 1.40.2 the default
+        was bandwidth 1, which weights no lag, so ``'hac'`` equalled
+        ``'mds'``.
     center : bool, default False
         Centre the moments before forming ``S``. ``False`` matches Stata,
         ``True`` matches R's ``gmm``.
@@ -221,12 +228,21 @@ def gmm(
         Stata's ``gmm`` documents in its Methods and formulas.  The two
         coincide for the iterated estimator at convergence and for the
         one-step estimator; for two-step they differ at order 1/n.
+    small : bool, default True
+        Reference distribution of the reported t statistics, p-values and
+        intervals. ``True``: t with ``n - k`` degrees of freedom (as
+        :func:`sp.iv` with ``small=True``). ``False``: the normal, as Stata
+        ``gmm`` and R ``gmm::summary`` report. The variance is the same;
+        ``result.inference_rule()`` states which applies.
 
     Returns
     -------
     EconometricResults
         ``diagnostics`` carries ``J_stat`` / ``J_df`` / ``J_p``,
         ``converged``, and ``n_iter`` (0 when the closed form was used).
+        ``J_stat`` / ``J_p`` are ``None`` after ``method='onestep'`` (with
+        ``J_note``): J is chi2 only at the efficient weight, and Stata's
+        ``estat overid`` is not available after one-step estimation.
 
     Examples
     --------
@@ -267,6 +283,11 @@ def gmm(
             "gmm: sandwich_weight must be 'reestimated' or 'estimation', got "
             f"{sandwich_weight!r}."
         )
+    if not isinstance(small, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"gmm: small must be True or False, got {small!r}.",
+            recovery_hint="small=True: t(n - k); small=False: z (Stata gmm).",
+        )
 
     theta0 = np.asarray(theta0, dtype=float).ravel()
     k = theta0.size
@@ -289,6 +310,26 @@ def gmm(
                 f"gmm: `cluster` has {cluster.size} entries but the moment "
                 f"function returned {n} rows."
             )
+        if pd.isna(pd.Series(cluster)).any():
+            # ``codes == nan`` never matches: those rows left S silently.
+            raise MethodIncompatibility(
+                "gmm: `cluster` has missing labels.",
+                recovery_hint="Give every moment row a cluster label.",
+                diagnostics={"n_missing": int(pd.isna(pd.Series(cluster)).sum())},
+            )
+
+    hac_lags: Optional[int] = None
+    if vcov == "hac":
+        if hac_bandwidth is None:
+            hac_lags = int(np.floor(4 * (n / 100) ** (2 / 9)))
+            hac_bandwidth = hac_lags + 1
+        else:
+            if int(hac_bandwidth) < 1:
+                raise MethodIncompatibility(
+                    f"gmm: hac_bandwidth must be >= 1, got {hac_bandwidth!r}.",
+                    recovery_hint="hac_bandwidth = L + 1 weights L lags.",
+                )
+            hac_lags = int(hac_bandwidth) - 1
 
     def G_mat(theta: np.ndarray) -> np.ndarray:
         return _as_moments(moment_fn, theta, data)
@@ -452,12 +493,40 @@ def gmm(
     se_hat = np.sqrt(np.abs(np.diag(V)))
 
     # ---- Over-identification test -----------------------------------------
-    J_stat = float(n * objective(theta_hat, W_est))
     J_df = q - k
-    J_p = float(stats.chi2.sf(J_stat, J_df)) if J_df > 0 else float("nan")
+    J_stat: Optional[float]
+    J_p: Optional[float]
+    J_note: Optional[str] = None
+    if method == "onestep":
+        # n gbar'W gbar is chi2(q - k) only at the efficient weight; Stata's
+        # `estat overid` is "not available after one-step estimation".
+        # Until 1.40.2 it was reported with a chi2 p-value at any weight.
+        J_stat = J_p = None
+        J_note = (
+            "Hansen's J is not reported after one-step estimation: at a "
+            "weight other than S^-1 it is not chi2(q - k) (Stata: not "
+            "available after one-step). Use method='twostep' for the test."
+        )
+    else:
+        J_stat = float(n * objective(theta_hat, W_est))
+        J_p = float(stats.chi2.sf(J_stat, J_df)) if J_df > 0 else float("nan")
 
     if param_names is None:
         param_names = [f"theta_{i}" for i in range(k)]
+
+    vcov_text = {
+        "mds": "heteroskedasticity-robust S",
+        "iid": "outer-product S",
+        "hac": f"HAC S (Bartlett, {hac_lags} lags)",
+        "cluster": "cluster-robust S",
+    }[vcov]
+    se_label = (
+        f"GMM {'sandwich' if se == 'robust' else 'efficient'} variance, " f"{vcov_text}"
+    )
+    data_info: dict = {"n_obs": n, "df_resid": n - k}
+    if not small:
+        # Stata gmm / R gmm::summary: z statistics and normal intervals
+        data_info["inference"] = "z"
 
     return EconometricResults(
         params=pd.Series(theta_hat, index=param_names),
@@ -473,12 +542,17 @@ def gmm(
             "sandwich_weight": sandwich_weight,
             "affine": is_affine,
             "analytic_jacobian": jacobian is not None,
+            "se_type": se_label,
+            "hac_lags": hac_lags,
+            "hac_bandwidth": None if vcov != "hac" else int(hac_bandwidth or 1),
+            "gmm_small": bool(small),
         },
-        data_info={"n_obs": n, "df_resid": n - k},
+        data_info=data_info,
         diagnostics={
             "J_stat": J_stat,
             "J_df": J_df,
             "J_p": J_p,
+            "J_note": J_note,
             "gmm_objective": float(objective(theta_hat, W_est)),
             "converged": bool(converged),
             "n_iter": int(n_iter_total),

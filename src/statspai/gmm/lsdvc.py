@@ -42,7 +42,7 @@ Nickell, S. (1981). *Econometrica*, 49(6), 1417-1426. [@nickell1981biases]
 from __future__ import annotations
 
 import warnings
-from typing import Any, List, Optional, Sequence
+from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -316,8 +316,21 @@ def xtlsdvc(
     se = np.sqrt(np.maximum(np.diag(s2 * XtX_inv), 0.0))
     se_source = "LSDV (analytic; does not reflect the bias correction)"
 
+    boot_failed = 0
     if bootstrap and bootstrap > 0:
-        se = _bootstrap_se(
+        # Unit effects at the corrected coefficients: the mean residual of
+        # each unit over the rows the estimation used.
+        fitted_resid = Y - b_corrected[0] * Ly
+        for j, grid in enumerate(X_grids):
+            fitted_resid = fitted_resid - b_corrected[1 + j] * grid
+        fitted_resid = np.where(usable, fitted_resid, np.nan)
+        counts = usable.sum(axis=1)
+        eta = np.where(
+            counts > 0,
+            np.nansum(fitted_resid, axis=1) / np.maximum(counts, 1),
+            0.0,
+        )
+        se, boot_failed = _bootstrap_se(
             data,
             y,
             list(x or []),
@@ -329,6 +342,11 @@ def xtlsdvc(
             s2,
             bootstrap,
             seed,
+            panel=panel,
+            Y=Y,
+            X_grids=X_grids,
+            usable=usable,
+            eta=eta,
         )
         se_source = f"parametric bootstrap ({bootstrap} replications)"
     else:
@@ -378,6 +396,7 @@ def xtlsdvc(
             "sigma2": sigma2,
             "se_source": se_source,
             "bootstrap": int(bootstrap),
+            "bootstrap_failed": int(boot_failed),
         },
         _citation_key="lsdvc",
     )
@@ -395,33 +414,58 @@ def _bootstrap_se(
     s2: Any,
     reps: Any,
     seed: Any,
-) -> np.ndarray:
+    *,
+    panel: Any,
+    Y: np.ndarray,
+    X_grids: List[np.ndarray],
+    usable: np.ndarray,
+    eta: np.ndarray,
+) -> Tuple[np.ndarray, int]:
     """Parametric bootstrap over the fitted dynamic process.
 
-    Resamples idiosyncratic errors, regenerates ``y`` recursively from the
-    corrected coefficients while holding the unit effects and regressors
-    fixed, and re-runs the whole LSDVC pipeline. This is the only honest way
-    to price the correction: the analytic LSDV variance treats the
-    subtracted bias as known.
+    Draws normal errors with the LSDV residual variance and regenerates
+    ``y_it = rho y_i,t-1 + x_it'b + eta_i + e_it`` from the corrected
+    coefficients, holding the regressors and the estimated unit effects
+    ``eta_i`` fixed, on the periods the estimation used (``usable``). Other
+    observed values of ``y`` -- each unit's first period, and the period
+    after a gap, which has no lag -- are kept as initial conditions, and a
+    missing ``y`` stays missing. The whole LSDVC pipeline is then re-run.
+    This is the only honest way to price the correction: the analytic LSDV
+    variance treats the subtracted bias as known.
+
+    Until 1.40.2 the regeneration was ``y_t = rho y_{t-1} + e_t`` over
+    consecutive rows: no regressors, no unit effects, across gaps, and it
+    filled in missing outcomes.
+
+    Returns the standard errors and the number of replications that failed.
     """
     rng = np.random.default_rng(seed)
-    frame = data[[id, time, y] + list(dict.fromkeys(_base_vars(x)))].copy()
-    frame = frame.sort_values([id, time])
-    units = frame[id].to_numpy()
-    draws: List[np.ndarray] = []
     sigma = np.sqrt(max(s2, 0.0))
+    rho = float(beta[0])
+    mean_part = np.zeros_like(Y)
+    for j, grid in enumerate(X_grids):
+        mean_part = mean_part + float(beta[1 + j]) * np.nan_to_num(grid, nan=0.0)
+    mean_part = mean_part + eta[:, None]
 
+    ui = pd.Index(panel.units).get_indexer(data[id])
+    ti = pd.Index(panel.times).get_indexer(data[time])
+    placed = (ui >= 0) & (ti >= 0)
+    rows = np.flatnonzero(placed)
+    y_values = pd.to_numeric(data[y], errors="coerce").to_numpy(dtype=float)
+
+    draws: List[np.ndarray] = []
+    failed = 0
     for _ in range(int(reps)):
-        boot = frame.copy()
-        noise = rng.normal(scale=sigma, size=len(boot))
-        # Recursive regeneration within unit, holding the first observation.
-        values = boot[y].to_numpy(dtype=float).copy()
-        start = 0
-        for u in pd.unique(units):
-            rows = np.flatnonzero(units == u)
-            for pos in rows[1:]:
-                values[pos] = beta[0] * values[pos - 1] + noise[pos]
-            start += rows.size
+        noise = rng.normal(scale=sigma, size=Y.shape)
+        Yb = Y.copy()
+        for t in range(1, Y.shape[1]):
+            cells = usable[:, t]
+            Yb[cells, t] = (
+                rho * Yb[cells, t - 1] + mean_part[cells, t] + noise[cells, t]
+            )
+        values = y_values.copy()
+        values[rows] = Yb[ui[rows], ti[rows]]
+        boot = data.copy()
         boot[y] = values
         try:
             with warnings.catch_warnings():
@@ -437,22 +481,26 @@ def _bootstrap_se(
                     bootstrap=0,
                 )
             draws.append(fit.detail["coefficient"].to_numpy(float))
-        except Exception:  # pragma: no cover - a degenerate resample
-            continue
+        except (ValueError, RuntimeError, np.linalg.LinAlgError):
+            # a degenerate replication; counted and reported, not hidden
+            failed += 1
 
+    if failed:
+        warnings.warn(
+            f"The LSDVC bootstrap could not refit {failed} of {int(reps)} "
+            "replications; the standard errors use the other "
+            f"{int(reps) - failed}.",
+            stacklevel=3,
+        )
     if len(draws) < 2:
         warnings.warn(
             "The LSDVC bootstrap produced fewer than two usable replications; "
-            "falling back to the uncorrected LSDV standard errors.",
+            "the standard errors are reported as missing.",
             stacklevel=3,
         )
-        return np.full(len(beta), np.nan)
+        return np.full(len(beta), np.nan), failed
     _ret: np.ndarray = np.asarray(draws).std(axis=0, ddof=1)
-    return _ret
-
-
-def _base_vars(x: Any) -> List[str]:
-    return [t.var for t in parse_terms(list(x or []))]
+    return _ret, failed
 
 
 CausalResult._CITATIONS["lsdvc"] = (

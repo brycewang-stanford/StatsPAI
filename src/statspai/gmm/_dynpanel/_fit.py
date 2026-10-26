@@ -13,7 +13,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ...exceptions import IdentificationFailure
+from ...exceptions import IdentificationFailure, MethodIncompatibility
 from ._data import add_time_dummies, build_panel_arrays, unit_cluster_codes
 from ._diagnostics import (
     check_instrument_count,
@@ -100,6 +100,18 @@ def fit_dynamic_panel(
             "ah_instrument must be 'levels' (instrument L2.y) or 'differences' "
             f"(instrument D.L2.y), got {ah_instrument!r}."
         )
+    if cluster is not None and not robust:
+        # One-step returned sigma2 * Minv (cluster ignored without a word);
+        # two-step the uncorrected variance. xtabond2's help: cluster()
+        # "implies robust", including the Windmeijer correction.
+        raise MethodIncompatibility(
+            f"cluster={cluster!r} asks for cluster-robust standard errors, "
+            "and robust=False for classical ones; the two contradict each "
+            "other (xtabond2: cluster() implies robust).",
+            recovery_hint="Drop robust=False to cluster (Windmeijer-corrected "
+            "for two-step), or drop cluster= for classical standard errors.",
+            diagnostics={"cluster": cluster, "robust": False},
+        )
     system = method == "system"
     anderson_hsiao = method == "ah"
     steps = _resolve_steps(steps, twostep)
@@ -143,7 +155,9 @@ def fit_dynamic_panel(
     cluster_is_unit = cluster is not None and cluster == id
     if cluster is not None and not cluster_is_unit and cluster not in needed:
         needed = needed + [cluster]
-    panel = build_panel_arrays(data, id, time, needed)
+    panel = build_panel_arrays(
+        data, id, time, needed, labels=[cluster] if cluster is not None else ()
+    )
 
     dummy_names: List[str] = []
     if time_dummies:
