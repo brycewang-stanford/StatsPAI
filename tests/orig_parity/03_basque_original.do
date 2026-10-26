@@ -7,16 +7,19 @@
 * Writes results/03_basque_original_Stata.json.
 *
 * The point of this artifact: on the *original* Synth::basque bytes the
-* three implementations sit within ~4e-4 of one another
-* (sp -0.8945886, R Synth -0.8944272, Stata synth -0.8942570), whereas
-* on the calibrated replica of r_parity module 07 the R and Stata
-* references split by 2.3e-2. The SCM non-uniqueness disclosure in the
-* JSS paper cites both facts.
+* three implementations sit within ~4e-4 of one another, whereas on the
+* calibrated replica of r_parity module 07 the R and Stata references split
+* by 2.3e-2. The SCM non-uniqueness disclosure in the JSS paper cites both
+* facts. Stata synth builds e(Y_synthetic) from weights rounded to 0.001
+* (synth.ado `roundmat`), so its gap is that of the rounded weights.
 
 version 18
 clear all
 
 capture cd "`c(pwd)'"
+* Without this, import delimited stores gdppc as float and synth runs on
+* single-precision data (a 5e-8 relative effect on the gap, found 2026-10).
+set type double
 import delimited "data/03_basque_original.csv", clear case(preserve)
 capture confirm numeric variable gdppc
 if _rc destring gdppc, replace force
@@ -61,7 +64,10 @@ file write `fh' "    {" _n
 file write `fh' `"      "module": "03_basque_original","' _n
 file write `fh' `"      "side": "Stata","' _n
 file write `fh' `"      "statistic": "avg_post_gap","' _n
-local est : display %20.15f avg_post_gap
+* %21.17g drops the leading zero (-.894...), which is not valid JSON.
+local est = strofreal(avg_post_gap, "%21.17g")
+if substr("`est'", 1, 2) == "-." local est = "-0." + substr("`est'", 3, .)
+else if substr("`est'", 1, 1) == "." local est = "0" + "`est'"
 file write `fh' `"      "estimate": `=trim("`est'")',"' _n
 file write `fh' `"      "se": null,"' _n
 file write `fh' `"      "n": `n_obs',"' _n

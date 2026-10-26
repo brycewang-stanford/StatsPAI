@@ -6,7 +6,7 @@
       "module": "03_basque_original",
       "side": "Stata",
       "statistic": "avg_post_gap",
-      "estimate": -0.894257048351424,
+      "estimate": -0.89425700355754323,
       "se": null,
       "n": 731,
       "published": -0.855,
