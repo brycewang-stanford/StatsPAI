@@ -97,6 +97,24 @@ def _resolve_vars(
     return variables, vals
 
 
+def _refuse_missing(
+    vals: np.ndarray, names: List[str], dom: Optional[np.ndarray], function: str
+) -> None:
+    """A missing value inside the domain would make the estimate NaN."""
+    inside = vals if dom is None else vals[dom]
+    bad = ~np.isfinite(inside)
+    if bad.any():
+        cols = [n for n, b in zip(names, bad.any(axis=0)) if b]
+        raise MethodIncompatibility(
+            f"{function}: {int(bad.any(axis=1).sum())} row(s) have a missing "
+            f"value in {cols}; the estimate would be NaN.",
+            recovery_hint="Treat them as outside the domain with "
+            "subpop=data[col].notna() (keeps their strata and PSUs in the "
+            "variance, as R svymean(na.rm=TRUE)), or impute them.",
+            diagnostics={"columns": cols},
+        )
+
+
 def _design_vcov(scores: np.ndarray, design: "SurveyDesign") -> np.ndarray:
     """
     First-stage Taylor-linearisation (ultimate-cluster) covariance.
@@ -215,15 +233,34 @@ def _domain_mask(design: "SurveyDesign", subpop: Any) -> Optional[np.ndarray]:
     if isinstance(subpop, str):
         check_columns(design.data, {"subpop": subpop})
         col = design.data[subpop]
-        mask = col.notna().to_numpy() & (col.fillna(0).to_numpy() != 0)
     else:
-        mask = np.asarray(subpop)
-        if mask.shape != (design.n,):
+        if isinstance(subpop, pd.Series):
+            col = subpop.reset_index(drop=True)
+        else:
+            arr = np.asarray(subpop)
+            if arr.shape != (design.n,):
+                raise MethodIncompatibility(
+                    f"subpop has shape {arr.shape}; expected ({design.n},)"
+                )
+            col = pd.Series(arr)
+        if col.shape != (design.n,):
             raise MethodIncompatibility(
-                f"subpop has shape {mask.shape}; expected ({design.n},)"
+                f"subpop has shape {col.shape}; expected ({design.n},)"
             )
-        mask = mask.astype(bool)
-    out: np.ndarray = mask
+    # Stata svy, subpop(): non-zero = in the domain, zero or missing = out.
+    # Only numbers and booleans carry that meaning; "yes" != 0 would put
+    # every row in the domain.
+    kind = pd.api.types.infer_dtype(col, skipna=True)
+    if kind not in ("boolean", "integer", "floating", "mixed-integer-float", "empty"):
+        raise MethodIncompatibility(
+            f"subpop must be numeric or boolean (non-zero = in the domain); "
+            f"got values of type {kind!r}.",
+            recovery_hint="Pass a 0/1 or boolean indicator, e.g. "
+            "subpop=(df['group'] == 'yes').",
+            diagnostics={"inferred_type": kind},
+        )
+    num = col.to_numpy(dtype=float, na_value=np.nan)
+    out: np.ndarray = np.isfinite(num) & (num != 0)
     if not out.any():
         raise DataInsufficient("subpop selects no observations")
     return out
@@ -368,6 +405,7 @@ def svymean(
         return rep_mean_total(variables, design, alpha, subpop, total=False)
     var_names, vals = _resolve_vars(variables, design.data, "sp.svymean")
     dom = _domain_mask(design, subpop)
+    _refuse_missing(vals, var_names, dom, "sp.svymean")
     w = design.weights if dom is None else design.weights * dom
     vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)
     w_sum = w.sum()
@@ -472,6 +510,7 @@ def svytotal(
         return rep_mean_total(variables, design, alpha, subpop, total=True)
     var_names, vals = _resolve_vars(variables, design.data, "sp.svytotal")
     dom = _domain_mask(design, subpop)
+    _refuse_missing(vals, var_names, dom, "sp.svytotal")
     w = design.weights if dom is None else design.weights * dom
     vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)
 
@@ -587,6 +626,9 @@ def svyglm(
 
     # pandas >= 3.0 string columns are StringDtype, which patsy cannot sniff.
     _data = _coerce_string_extension_dtypes(design.data, r_formula_idioms(formula))
+    # Positions, not labels: a repeated index label (pd.concat without
+    # ignore_index) cannot be looked up, and the design is positional.
+    _data = _data.reset_index(drop=True)
     y_df, X_df = dmatrices(
         r_formula_idioms(formula),
         data=_data,
@@ -595,7 +637,7 @@ def svyglm(
     )
     # Rows patsy kept (complete cases), intersected with the domain; the
     # rest of the design contributes zero scores but keeps its PSUs.
-    pos = _data.index.get_indexer(X_df.index)
+    pos = np.asarray(X_df.index, dtype=np.intp)
     dom = _domain_mask(design, subpop)
     if dom is not None:
         keep = dom[pos]
@@ -618,6 +660,19 @@ def svyglm(
         design_info=getattr(X_df, "design_info", None),
     )
     n, k = X.shape
+    if family == "binomial" and not np.all((y >= 0) & (y <= 1)):
+        raise MethodIncompatibility(
+            "svyglm(family='binomial'): the outcome must lie in [0, 1] (a 0/1 "
+            f"indicator or a proportion); it ranges over [{y.min():g}, "
+            f"{y.max():g}].",
+            recovery_hint="Recode the outcome to 0/1 (e.g. y - 1 for 1/2 coding).",
+        )
+    if family == "poisson" and np.any(y < 0):
+        raise MethodIncompatibility(
+            "svyglm(family='poisson'): the outcome has negative values.",
+            recovery_hint="Use family='gaussian', or check the outcome.",
+            diagnostics={"n_negative": int((y < 0).sum())},
+        )
     if getattr(design, "is_replicate_design", False):
         from ._replicate_stats import rep_glm
 

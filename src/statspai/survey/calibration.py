@@ -260,6 +260,19 @@ def linear_calibration(
     var_names = list(totals.keys())
     T_pop = np.array([totals[v] for v in var_names])
     X = data[var_names].to_numpy(dtype=float)
+    if not np.all(np.isfinite(d)) or np.any(d <= 0):
+        raise MethodIncompatibility(
+            "design weights must be finite and strictly positive",
+            recovery_hint="Drop rows with a missing or non-positive weight.",
+        )
+    if not np.all(np.isfinite(X)):
+        bad = [v for v, b in zip(var_names, ~np.isfinite(X).all(axis=0)) if b]
+        raise MethodIncompatibility(
+            f"calibration variables {bad} have missing values; the calibrated "
+            "weights would be NaN.",
+            recovery_hint="Impute the auxiliary variables or drop those rows.",
+            diagnostics={"columns": bad},
+        )
 
     # Current weighted totals
     T_current = (d[:, None] * X).sum(axis=0)

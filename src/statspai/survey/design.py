@@ -152,6 +152,15 @@ class SurveyDesign:
         # PSU / cluster
         self.cluster_col = cluster
         if cluster is not None:
+            if data[cluster].isna().any():
+                # With nest=True the id became the string "s__nan", an
+                # ordinary PSU; refuse it like a missing stratum.
+                raise MethodIncompatibility(
+                    f"cluster column '{cluster}' has "
+                    f"{int(data[cluster].isna().sum())} missing PSU id(s).",
+                    recovery_hint="Fill in the PSU ids or drop those rows "
+                    "before building the design.",
+                )
             psu = data[cluster].values
             if nest and strata is not None:
                 # Make PSU ids unique within strata
