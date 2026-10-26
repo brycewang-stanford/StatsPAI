@@ -144,3 +144,43 @@ def test_front_door_covariates_use_conditional_treatment_probability():
     # sampling SD of the estimate at n = 200k is ~0.01; the marginal-P(d')
     # functional is 0.35 away, so 0.05 separates the two by a wide margin
     assert abs(r.estimate - truth) < 0.05
+
+
+def _suest_frame(seed: int = 4) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    n = 200
+    df = pd.DataFrame({"x": rng.normal(size=n), "c": np.repeat(np.arange(20), 10)})
+    u = rng.normal(size=20)[df.c]
+    df["y1"] = 0.5 * df.x + u + rng.normal(size=n)
+    df["y2"] = 0.2 * df.x + u + rng.normal(size=n)
+    return df
+
+
+def _with_unused_rows(df: pd.DataFrame, cluster_values) -> pd.DataFrame:
+    extra = pd.DataFrame(
+        {
+            "x": np.linspace(-1, 1, len(cluster_values)),
+            "c": cluster_values,
+            "y1": np.nan,
+            "y2": np.nan,
+        }
+    )
+    return pd.concat([df, extra], ignore_index=True)
+
+
+def test_suest_cluster_count_ignores_rows_outside_every_sample():
+    df = _suest_frame()
+    base = sp.suest(df, ["y1 ~ x", "y2 ~ x"], cluster="c")
+    padded = _with_unused_rows(df, [100, 101, 102, 103, 104])
+    more = sp.suest(padded, ["y1 ~ x", "y2 ~ x"], cluster="c")
+    # rows that no equation uses cannot change the estimator
+    assert more.n_clusters == base.n_clusters == 20
+    np.testing.assert_allclose(more.vcov.to_numpy(), base.vcov.to_numpy(), rtol=1e-12)
+
+
+def test_suest_missing_cluster_on_unused_rows_is_dropped_not_refused():
+    df = _suest_frame()
+    base = sp.suest(df, ["y1 ~ x", "y2 ~ x"], cluster="c")
+    padded = _with_unused_rows(df, [np.nan, np.nan])
+    more = sp.suest(padded, ["y1 ~ x", "y2 ~ x"], cluster="c")
+    np.testing.assert_allclose(more.vcov.to_numpy(), base.vcov.to_numpy(), rtol=1e-12)

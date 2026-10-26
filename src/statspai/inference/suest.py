@@ -175,12 +175,14 @@ def suest(
     missing = {k: c for k, c in named.items() if c not in data.columns}
     if missing:
         raise ColumnNotFound.from_missing(missing, data.columns, context="sp.suest")
-    if cluster is not None and data[cluster].isna().any():
-        raise MethodIncompatibility("cluster has missing values.")
 
     blocks, coefs, labels, n_obs = [], [], [], {}
+    # rows in at least one equation's estimation sample (Stata's union of
+    # the e(sample)s): the clusters and the robust n are counted on them
+    used = np.zeros(n, dtype=bool)
     for y, xs in specs:
         sub = data[[y] + xs].notna().all(axis=1).to_numpy()
+        used |= sub
         X = np.column_stack([data[xs].to_numpy(dtype=float), np.ones(n)])
         Xs, ys = X[sub], data[y].to_numpy(dtype=float)[sub]
         XtX_inv = np.linalg.inv(Xs.T @ Xs)
@@ -194,17 +196,23 @@ def suest(
         n_obs[y] = int(sub.sum())
     IF = np.hstack(blocks)
     if cluster is not None:
-        codes = pd.factorize(data[cluster])[0]
+        # A row that no equation uses carries no score: neither its cluster
+        # nor a missing cluster value on it enters the count. Counting every
+        # cluster of data inflated G (G/(G-1) too small) and a missing value
+        # there was refused.
+        keys = data[cluster].to_numpy()[used]
+        if pd.isna(keys).any():
+            raise MethodIncompatibility(
+                "cluster has missing values on the estimation sample."
+            )
+        codes = pd.factorize(keys)[0]
         G = int(codes.max()) + 1
         S = np.zeros((G, IF.shape[1]))
-        np.add.at(S, codes, IF)
+        np.add.at(S, codes, IF[used])
         V = (G / (G - 1)) * (S.T @ S)
         vce = f"cluster({cluster})"
     else:
-        rows = np.zeros(n, dtype=bool)
-        for F in blocks:
-            rows |= np.any(F != 0, axis=1)
-        m = int(rows.sum())
+        m = int(used.sum())
         V = (m / (m - 1)) * (IF.T @ IF)
         G = None
         vce = "robust"
