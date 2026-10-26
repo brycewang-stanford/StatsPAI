@@ -4,6 +4,81 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- `sp.impacts` simulated its standard errors from `diag(se^2)`, dropping the
+  covariance between the coefficients and `rho` that the indirect and total
+  effects depend on. It now draws from the joint covariance, which `sp.sar`
+  and `sp.sdm` store in `model_info['vcov']` (so `result.vcov()` works for
+  them too) and `sp.sac` already stored. On a 150-unit SAR fixture
+  (`tests/test_spatial_scan_oct2026.py`) the SEs of the direct / indirect /
+  total effect move from 0.124 / 0.332 / 0.428 to 0.084 / 0.203 / 0.197;
+  `spatialreg::impacts(R = 20000)` gives 0.084 / 0.203 / 0.195. Point
+  impacts are unchanged. Draws that leave the stable range are still
+  discarded, now with a warning and a count in `attrs`.
+- `sp.SpatialModel(...).fit()` kept its own fit with the standard-error
+  formulas `sp.sar` / `sp.sem` / `sp.sdm` had replaced (the `rho` SE without
+  `tr(G'G)`, `beta` SEs that treat `rho` as known, the old `lambda` SE) and
+  ignored `alpha`. It now calls those functions, so the class and the
+  functions give one set of numbers. On an 80-unit fixture the SAR `rho` SE
+  moves from 0.109 to 0.031 and the SDM intercept SE from 0.113 to 0.201.
+- `sp.moran_local` permuted all n values, `z_i` included, so its replicates
+  were centred at 0 instead of `E[I_i] = -z_i^2 w_i. / ((n - 1) m2)`. It now
+  uses conditional randomisation (Anselin 1995): `z_i` stays put and the
+  neighbours draw from the other n - 1 values. On a 150-unit field the
+  largest gap between the replicate mean and `spdep::localmoran_perm`'s
+  `E.Ii` falls from 0.077 to 0.018 (9999 draws each); `p_sim` changes
+  everywhere (one test unit: 0.818 to 0.621). `Is` is unchanged.
+- `sp.spatial_did` dropped rows with a missing outcome before it built the
+  spillover exposure `WD`, so a unit-period with an observed treatment but a
+  missing outcome counted as untreated for its neighbours (and could move a
+  unit's event time). `WD` and event time now come from every observed
+  treatment value. With one missing outcome on a 12-unit ring the direct and
+  spillover effects move from 1.188 / 0.314 to 1.162 / 0.420, equal to the
+  dummy-variable regression on the same rows (truth 1.0 / 0.5). Complete
+  panels are unchanged.
+- `sp.bartik` paired `shares` rows with `data` rows by position although its
+  docstring asks for aligned indexes; a reordered `data` paired regions with
+  other regions' shares (estimate -4.90 against 1.55 on the test fixture).
+  Rows are now matched by label when both carry the same labels, a partial
+  overlap is refused, and disjoint labels keep the positional contract.
+  `sp.ssaggregate` does the same for `shares`, and matches a labelled
+  `shocks` Series to the share columns (reversing the Series moved the
+  estimate from 1.55 to 1.98).
+- `sp.shift_share_political` built long differences with
+  `groupby().first()` / `last()`, which skip NaN column by column: a unit
+  whose outcome was missing in the first period was differenced from a
+  later one. A missing endpoint is now refused (the estimate on the fixture
+  was 2.092 against 2.110 without that unit).
+- `sp.slx` reported a log-likelihood with the df-corrected `sigma^2`; it is
+  now the Gaussian ML log-likelihood (-82.192 to -82.153 on the fixture),
+  equal to R `logLik(lmSLX)` to 1e-4.
+
+### Fixed
+
+- `sp.geary` and `sp.join_counts` crashed (`operands could not be
+  broadcast`) on weights that store a zero, such as adaptive bisquare
+  `sp.kernel_weights`: they paired `S.nonzero()` with `S.data`.
+- `sp.join_counts` cast `y` to int before checking it was binary, so 0.5 and
+  1.7 passed as 0 and 1. Non-binary values are now refused.
+- `sp.sem_gmm` / `sp.sar_gmm` read every `robust` value except `'het'`
+  (`True`, `'hc1'`) as the classical variance. `robust` is now `None` or
+  `'het'` in any case, anything else raises; `sar_gmm(w_lags=0)` raises.
+- `sp.spatial_iv` returned a minimum-norm `pinv` solution with finite SEs
+  when the instruments could not identify the regressors (no exogenous
+  regressor and no excluded instrument). It now raises
+  `IdentificationFailure`.
+- `sp.gwr` replaced a singular local design by its pseudo-inverse and
+  returned arbitrary local coefficients. It now raises
+  `NumericalInstability`, as `GWmodel::gwr.basic` errors;
+  `sp.gwr_bandwidth` already scores such bandwidths `+inf`.
+- `sp.spatial_panel` (fixed effects) with a regressor the within transform
+  removes (time-invariant under `effects='fe'`) returned a coefficient fitted
+  to round-off. It now raises `MethodIncompatibility` naming the regressor.
+- `sp.bartik` and `sp.ssaggregate` returned NaN estimates on missing values
+  in the outcome, regressor, shares or controls; they now raise
+  `DataInsufficient`.
+
 ## [1.40.2] — 2026-10-27
 
 A patch release: one correctness fix to `sp.iv` GMM and two to the frontier

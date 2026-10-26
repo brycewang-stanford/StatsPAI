@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → unreleased: ⚠️ spatial impacts, `SpatialModel`, local Moran, spatial DiD, shift-share alignment
+
+Numbers change in these calls; there is no option to restore the old ones,
+which were wrong.
+
+- `sp.impacts(...)`: simulated SEs now use the joint covariance of the
+  coefficients and `rho` (as `spatialreg::impacts`), not their variances
+  alone. Indirect and total SEs typically shrink (0.428 to 0.197 for the
+  total effect on the test fixture). Point impacts are unchanged.
+- `sp.SpatialModel(...).fit()`: now identical to `sp.sar` / `sp.sem` /
+  `sp.sdm` on the same arguments, standard errors and `alpha` included.
+- `sp.moran_local(...)`: `p_sim` and `simulations` come from conditional
+  randomisation; the same `seed` gives different replicates than before.
+- `sp.spatial_did(...)` with missing outcomes or covariates: the spillover
+  exposure now counts every observed treatment. Complete panels are
+  unchanged.
+- `sp.bartik` / `sp.ssaggregate`: a `shares` frame whose index holds the
+  same labels as `data.index` in another order is now aligned by label; a
+  partial overlap raises. A labelled `shocks` Series in `sp.ssaggregate` is
+  aligned to the share columns. Missing values raise `DataInsufficient`.
+- `sp.shift_share_political`: a unit with a missing outcome or regressor in
+  its first or last period now raises instead of being differenced over a
+  shorter window. Drop or impute it first.
+- `sp.slx`: `diagnostics['Log-Likelihood']` is the ML log-likelihood.
+
+---
+
 ## 1.40.1 → 1.40.2: ⚠️ `sp.frontier` / `sp.xtfrontier` standard errors
 
 The observed-information SEs were inverted from a central-difference Hessian
