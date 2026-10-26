@@ -1,9 +1,14 @@
-"""Reference parity: ``sp.bcf`` posterior ATE vs R ``bcf`` package.
+"""Reference screen: ``sp.bcf`` posterior ATE vs R ``bcf`` package.
 
 Hahn-Murray-Carvalho (2020) Bayesian Causal Forests.  R ``bcf`` is
-the canonical implementation.  ``sp.bcf`` is NOT a port: it is a
-random-forest + boosting approximation (no BART prior, no MCMC), so this
-file is a screen of its ATE against R `bcf`, not a parity claim.
+the canonical implementation.  Since 1.41 ``sp.bcf`` is
+``sp.bart_causal(method='bcf')``, an independent sampler of the same
+model (not a port; R ``bcf`` is GPL and was run as a black box); through
+1.40 it was a random-forest + boosting approximation, kept as
+``sp.BayesianCausalForest`` and screened here too. Either way this file is
+a single-seed screen of the ATE against R ``bcf`` (tier S), not a parity
+claim; the seed-replicated comparison is
+``test_bart_causal_seed_screen.py``.
 
 Caveat: BCF is Bayesian + MCMC.  Posterior means agree well across
 implementations *given enough samples* but draw-level noise means
@@ -26,8 +31,8 @@ from __future__ import annotations
 
 import json
 import pathlib
+import warnings
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -49,8 +54,7 @@ def r_reference():
 
 @pytest.fixture(scope="module")
 def py_result(bcf_data):
-    """Fit once.  BCF MCMC is slow, so we keep nburn/nsim modest."""
-    np.random.seed(42)
+    """Fit once.  BCF MCMC is slow, so we keep burn-in / draws modest."""
     return sp.bcf(
         data=bcf_data,
         y="y",
@@ -58,11 +62,28 @@ def py_result(bcf_data):
         covariates=[f"X{i}" for i in range(1, 6)],
         n_trees_mu=200,
         n_trees_tau=50,
-        # NB: n_bootstrap=0 crashes the current build (empty-array
-        # indexing in the SE-quantile path).  Use a small number.
-        n_bootstrap=20,
+        draws=500,
+        burnin=500,
+        chains=1,
         random_state=42,
     )
+
+
+def test_pre_141_approximation_stays_within_the_screen(bcf_data, r_reference):
+    """The ensemble approximation sp.bcf was through 1.40
+    (sp.BayesianCausalForest) keeps the 15% screen it was held to."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        old = sp.BayesianCausalForest(
+            data=bcf_data,
+            y="y",
+            treat="W",
+            covariates=[f"X{i}" for i in range(1, 6)],
+            n_bootstrap=20,
+            random_state=42,
+        ).fit()
+    r_ate = r_reference["ate"]["mean"]
+    assert abs(float(old.estimate) - r_ate) / abs(r_ate) < 0.15
 
 
 def test_bcf_ate_matches_R(py_result, r_reference):

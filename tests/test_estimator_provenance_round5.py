@@ -200,13 +200,15 @@ class TestMetalearnerProvenance:
 
 class TestBcfProvenance:
     def test_attached(self, binary_df):
+        # since 1.41 sp.bcf is sp.bart_causal(method='bcf'); a short chain
         r = sp.bcf(
             binary_df,
             y="y",
             treat="d",
             covariates=["x1", "x2"],
-            n_bootstrap=20,
-            n_folds=2,
+            draws=20,
+            burnin=20,
+            chains=1,
         )
         prov = sp.get_provenance(r)
         assert prov is not None

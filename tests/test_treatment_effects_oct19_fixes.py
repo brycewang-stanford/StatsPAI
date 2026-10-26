@@ -212,12 +212,15 @@ def test_optimal_match_more_treated_than_controls_is_the_exhaustive_optimum():
 # --------------------------------------------------------------------------
 
 
-def test_bcf_warns_that_it_is_an_approximation():
-    from statspai.bcf.bcf import BCFApproximationWarning
+def test_bcf_approximation_warns_that_it_is_an_approximation():
+    # sp.bcf was this approximation through 1.40; since 1.41 it is
+    # sp.bart_causal(method='bcf'). The fit sp.bcf_ordinal /
+    # sp.bcf_factor_exposure / sp.did_bcf use still says what it is.
+    from statspai.bcf.bcf import BCFApproximationWarning, _bcf_fit
 
     df = _design(n=200, seed=4)
     with pytest.warns(BCFApproximationWarning, match="not Bayesian Causal Forest"):
-        r = sp.bcf(
+        r = _bcf_fit(
             df,
             y="y",
             treat="d",

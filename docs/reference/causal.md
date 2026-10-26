@@ -97,6 +97,7 @@ sp.policy_value(tree, df_test)
 ```python
 sp.bcf(df, y='y', treat='d', covariates=[...],
        n_trees_mu=200, n_trees_tau=50)               # Hahn, Murray, Carvalho 2020
+# since 1.41 the same as sp.bart_causal(df, 'y', 'd', [...], method='bcf')
 ```
 
 ## Conformal causal inference + matrix completion

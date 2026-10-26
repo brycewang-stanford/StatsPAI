@@ -4,9 +4,10 @@
 ``g`` it forms, for cohort ``g`` and never-treated units alike, the long
 difference between the unit's average outcome over the cohort's post
 periods (``t >= g``) and over its pre periods (``t < g``), and fits the
-BCF-style ensemble of :func:`statspai.bcf` (a prognostic forest on controls
-plus a treatment-effect booster on treated residuals, with a bootstrap for
-uncertainty -- not an MCMC posterior) to that long difference.  Conditional
+BCF-style ensemble (``sp.BayesianCausalForest``, which ``sp.bcf`` was
+before 1.41: a prognostic forest on controls plus a treatment-effect
+booster on treated residuals, with a bootstrap for uncertainty -- not an
+MCMC posterior) to that long difference.  Conditional
 parallel trends make the conditional mean contrast of the long difference
 the cohort's conditional ATT averaged over its post periods.
 
@@ -196,7 +197,10 @@ def did_bcf(
             contrib[float(g)] = inf
             se_by[float(g)] = float(np.sqrt(np.sum(inf**2)))
         else:
-            from ..bcf import bcf as bcf_fit
+            # The ensemble fit sp.bcf ran through 1.40 (the one with
+            # bootstrap draws); sp.bcf itself samples the BCF posterior
+            # since 1.41, which this cohort-by-cohort estimator does not use.
+            from ..bcf.bcf import _bcf_fit as bcf_fit
 
             idx = np.flatnonzero(treated | control)
             block = pd.DataFrame(X_units[idx], columns=cov)

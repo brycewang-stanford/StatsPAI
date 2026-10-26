@@ -202,7 +202,8 @@ def bcf_ordinal(
         Dose level used as the reference ``k=0``.  Defaults to the
         smallest observed value of ``treat``.
     n_trees_mu, n_trees_tau, n_bootstrap, n_folds, alpha, random_state
-        Forwarded to :func:`sp.bcf.bcf` for each incremental BCF fit.
+        Forwarded to the BCF-style ensemble fit
+        (``sp.BayesianCausalForest``) for each incremental fit.
 
     Returns
     -------

@@ -91,8 +91,11 @@ eight seeds a side: BCF's posterior mean of the ATE is 0.06 posterior SDs
 from bcf's and the posterior SDs agree to 1.2%; the BART version is 0.21
 posterior SDs from bartCause's (more than seed noise; the two BART
 specifications differ in a detail that has not been located) with SDs
-within 3.3%. `sp.bcf` is unchanged: it remains the ensemble approximation
-and warns so.
+within 3.3%. Since 1.41 `sp.bcf` is `sp.bart_causal(method='bcf')` with
+`sp.bcf`'s argument names (`n_trees_mu`, `n_trees_tau`, `alpha`,
+`random_state`); through 1.40 it was a random-forest / boosting
+approximation, which `sp.BayesianCausalForest(...).fit()` still gives and
+which warns that it is one.
 
 ## A regression
 

@@ -168,7 +168,8 @@ def bcf_factor_exposure(
         provided, overrides PCA; useful when the user has a theoretical
         factor structure (dietary patterns, polygenic scores, etc.).
     n_trees_mu, n_trees_tau, n_bootstrap, n_folds, alpha, random_state
-        Forwarded to :func:`sp.bcf.bcf` for each factor's BCF.
+        Forwarded to the BCF-style ensemble fit
+        (``sp.BayesianCausalForest``) for each factor.
 
     Returns
     -------

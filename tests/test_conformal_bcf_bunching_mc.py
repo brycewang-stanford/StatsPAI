@@ -6,7 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.bcf import BayesianCausalForest, bcf
+from statspai.bcf import BayesianCausalForest
+
+# The ensemble approximation (sp.bcf through 1.40; since 1.41 sp.bcf is
+# sp.bart_causal(method="bcf"), covered in tests/test_owner_decisions_oct20.py).
+from statspai.bcf.bcf import _bcf_fit as bcf
 from statspai.bunching import BunchingEstimator, bunching
 from statspai.conformal_causal import ConformalCATE, conformal_cate
 from statspai.core.results import CausalResult
