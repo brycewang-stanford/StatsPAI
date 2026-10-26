@@ -37,8 +37,9 @@ def best_subset(
 
     Finds, for each number of regressors, the subset with the smallest
     residual sum of squares, and returns the size that optimises
-    ``criterion``. Unlike ``sp.stepwise`` the search is exact: no model of
-    any size with a smaller RSS exists among the candidates.
+    ``criterion``, size 0 (the intercept and ``force`` only) included.
+    Unlike ``sp.stepwise`` the search is exact: no model of any size with
+    a smaller RSS exists among the candidates.
 
     Parameters
     ----------
@@ -68,7 +69,9 @@ def best_subset(
         ``selected`` and ``dropped`` for the chosen size; ``history`` has
         one row per size with ``variables``, ``rss``, ``r_squared``,
         ``adj_r_squared``, ``aic``, ``bic`` and ``cp``; ``coefficients``
-        are the OLS estimates of the chosen model.
+        are the OLS estimates of the chosen model. The size-0 model is not a
+        row of ``history`` (whose rows match ``leaps::regsubsets``); its
+        statistics are in ``history.attrs["null_model"]``.
 
     Notes
     -----
@@ -221,29 +224,43 @@ def best_subset(
     top = p if max_vars is None else max(1, min(int(max_vars), p))
     tss_total = float(np.sum((yv - yv.mean()) ** 2))
     sigma2_full = rss_full / (n - q - p)
-    rows: List[Dict[str, object]] = []
-    for size in range(1, top + 1):
+
+    def _row(size: int) -> Dict[str, object]:
         idx = best_set[size]
         rss = best_rss[size]
         k = q + size
         ll = -0.5 * n * (np.log(2 * np.pi * rss / n) + 1.0)
         r2 = 1.0 - rss / tss_total
-        rows.append(
-            {
-                "size": size,
-                "variables": [cand[j] for j in sorted(idx)],
-                "rss": rss,
-                "r_squared": r2,
-                "adj_r_squared": 1.0 - (1.0 - r2) * (n - 1) / (n - k),
-                "aic": -2 * ll + 2 * k,
-                "bic": -2 * ll + k * np.log(n),
-                "cp": rss / sigma2_full - n + 2 * k,
-            }
-        )
-    history = pd.DataFrame(rows)
+        return {
+            "size": size,
+            "variables": [cand[j] for j in sorted(idx)],
+            "rss": rss,
+            "r_squared": r2,
+            "adj_r_squared": 1.0 - (1.0 - r2) * (n - 1) / (n - k),
+            "aic": -2 * ll + 2 * k,
+            "bic": -2 * ll + k * np.log(n),
+            "cp": rss / sigma2_full - n + 2 * k,
+        }
+
+    history = pd.DataFrame([_row(size) for size in range(1, top + 1)])
+    # The model with no candidate (intercept and forced regressors only)
+    # competes too; until 2026-10-27 it never did, so uninformative
+    # candidates always yielded at least one "selected" variable. It is
+    # kept out of ``history`` (whose rows match leaps::regsubsets, sizes
+    # 1..p) and reported in ``history.attrs["null_model"]``.
+    null = _row(0)
     col = {"bic": "bic", "aic": "aic", "adjr2": "adj_r_squared", "cp": "cp"}[crit]
     pick = int(history[col].idxmax() if crit == "adjr2" else history[col].idxmin())
-    chosen = list(history.loc[pick, "variables"])
+    best_val = float(history.loc[pick, col])
+    null_val = float(null[col])  # type: ignore[arg-type]
+    null_wins = null_val > best_val if crit == "adjr2" else null_val < best_val
+    history.attrs["null_model"] = null
+    if null_wins:
+        chosen: List[str] = []
+        stats_row: Dict[str, object] = null
+    else:
+        chosen = list(history.loc[pick, "variables"])
+        stats_row = history.loc[pick].to_dict()
     # report candidates in the order the caller gave them
     selected = forced + [c for c in cand if c in chosen]
     dropped = [c for c in cand if c not in chosen]
@@ -252,10 +269,10 @@ def best_subset(
     final = {
         "n": int(n),
         "k": int(Xf.shape[1]),
-        "r_squared": float(history.loc[pick, "r_squared"]),
-        "adj_r_squared": float(history.loc[pick, "adj_r_squared"]),
-        "aic": float(history.loc[pick, "aic"]),
-        "bic": float(history.loc[pick, "bic"]),
+        "r_squared": float(stats_row["r_squared"]),  # type: ignore[arg-type]
+        "adj_r_squared": float(stats_row["adj_r_squared"]),  # type: ignore[arg-type]
+        "aic": float(stats_row["aic"]),  # type: ignore[arg-type]
+        "bic": float(stats_row["bic"]),  # type: ignore[arg-type]
     }
     res = SelectionResult(
         selected=selected,

@@ -363,9 +363,17 @@ def stepwise(
     criterion : {"aic", "bic", "adjr2", "pvalue"}
         Optimisation criterion. Default ``"bic"``.
     alpha_in : float
-        p-value threshold for variable entry (when ``criterion="pvalue"``).
+        p-value threshold for variable entry (when ``criterion="pvalue"``):
+        the candidate with the smallest p-value enters while it is below
+        ``alpha_in``, the rule of Stata ``stepwise, pe()``. No information
+        criterion is consulted.
     alpha_out : float
-        p-value threshold for variable removal (when ``criterion="pvalue"``).
+        p-value threshold for variable removal (when ``criterion="pvalue"``):
+        the included term with the largest p-value leaves while it is at
+        least ``alpha_out`` (Stata ``pr()``). Removals are tried before
+        entries at every step, which can order the steps differently from
+        Stata's forward-stepwise mode; on the test design the selections
+        agree in all four modes. Must not be smaller than ``alpha_in``.
     verbose : bool
         Print step-by-step progress.
     start : {"empty", "full"}, optional
@@ -407,6 +415,19 @@ def stepwise(
     # Validate
     if len(candidates) == 0:
         raise ValueError("x must contain at least one variable name.")
+    if method not in ("forward", "backward", "both"):
+        # an unknown method used to stop at the starting model silently
+        raise MethodIncompatibility(
+            f"stepwise: method must be 'forward', 'backward' or 'both', got "
+            f"{method!r}.",
+            recovery_hint="Pass one of the three methods (lower case).",
+        )
+    if criterion not in ("aic", "bic", "adjr2", "pvalue"):
+        raise MethodIncompatibility(
+            f"stepwise: criterion must be 'aic', 'bic', 'adjr2' or 'pvalue', "
+            f"got {criterion!r}.",
+            recovery_hint="Pass one of the four criteria (lower case).",
+        )
 
     # Choose comparator
     if criterion in ("aic", "bic"):
@@ -421,7 +442,7 @@ def stepwise(
             return new > old
 
         worse_init = -np.inf
-    else:  # pvalue — use BIC internally for tie-breaking, but gate on p-value
+    else:  # pvalue: moves are chosen by _pvalue_move; BIC is only logged
 
         def is_better(new: float, old: float) -> bool:
             return new < old
@@ -434,7 +455,7 @@ def stepwise(
         if criterion == "adjr2":
             return float(st["adj_r_squared"])
         elif criterion == "pvalue":
-            return float(st["bic"])  # use BIC as tiebreaker
+            return float(st["bic"])  # logged in the history only
         return float(st[criterion])
 
     # Initialise
@@ -491,28 +512,65 @@ def stepwise(
     current_stats = _eval_model(included)
     current_crit = _criterion_value(current_stats)
 
+    def _pvalue_move() -> Tuple[Optional[str], Optional[str]]:
+        """Drop the least significant term while its p-value is at least
+        ``alpha_out``, otherwise add the most significant candidate while its
+        p-value is below ``alpha_in`` (the rules of Stata ``stepwise, pr()
+        pe()``; ``tests/test_selection_scan_oct2026.py`` checks one design
+        against Stata 18 in all four modes).
+
+        Until 2026-10-27 a move also had to lower the BIC, so at large n the
+        entry threshold was far below ``alpha_in`` (about 0.006 at n = 2000).
+        """
+        if method in ("backward", "both") and included and current_stats:
+            pv = current_stats["pvalues"][1 : 1 + len(included)]
+            j = int(np.argmax(pv))
+            if pv[j] >= alpha_out:
+                return "remove", included[j]
+        if method in ("forward", "both"):
+            best, best_p = None, alpha_in
+            for var in candidates:
+                if var in included:
+                    continue
+                st = _eval_model(included + [var])
+                if st is None:
+                    continue
+                p_new = float(st["pvalues"][len(included) + 1])
+                if p_new < best_p:
+                    best, best_p = var, p_new
+            if best is not None:
+                return "add", best
+        return None, None
+
+    if criterion == "pvalue" and alpha_in > alpha_out:
+        raise MethodIncompatibility(
+            f"stepwise: alpha_in={alpha_in} exceeds alpha_out={alpha_out}; a "
+            "term could enter and leave in turn forever.",
+            recovery_hint="Use alpha_in <= alpha_out (Stata requires pe < pr).",
+        )
+
     improved = True
-    while improved:
+    # Information criteria improve at every move, so they cannot cycle; the
+    # p-value rules can (a term entering at p < alpha_in can push another
+    # out), so they get a step budget.
+    max_steps = 4 * len(candidates) + 10 if criterion == "pvalue" else np.inf
+    while improved and step < max_steps:
         improved = False
         best_crit = current_crit
         best_action: Optional[str] = None
         best_var: Optional[str] = None
 
+        if criterion == "pvalue":
+            best_action, best_var = _pvalue_move()
+
         # --- Try adding ---
-        if method in ("forward", "both"):
+        if criterion != "pvalue" and method in ("forward", "both"):
             remaining = [v for v in candidates if v not in included]
             for var in remaining:
                 trial = included + [var]
                 st = _eval_model(trial)
                 if st is None:
                     continue
-
-                if criterion == "pvalue":
-                    # Only add if the variable's p-value < alpha_in
-                    idx = len(trial)  # index in beta (0 = intercept)
-                    pval = st["pvalues"][idx]
-                    if pval >= alpha_in:
-                        continue
 
                 cval = _criterion_value(st)
                 if is_better(cval, best_crit):
@@ -521,24 +579,12 @@ def stepwise(
                     best_var = var
 
         # --- Try removing ---
-        if method in ("backward", "both") and len(included) > 0:
+        if criterion != "pvalue" and method in ("backward", "both") and included:
             for var in list(included):
                 trial = [v for v in included if v != var]
                 st = _eval_model(trial)
                 if st is None:
                     continue
-
-                if criterion == "pvalue":
-                    # Gate removal on the current model's variable p-value.
-                    cur_idx = included.index(var) + 1  # +1 for intercept
-                    if current_stats is not None and cur_idx < len(
-                        current_stats["pvalues"]
-                    ):
-                        pval = current_stats["pvalues"][cur_idx]
-                        if pval <= alpha_out:
-                            continue
-                    else:
-                        continue
 
                 cval = _criterion_value(st)
                 if is_better(cval, best_crit):
@@ -557,6 +603,13 @@ def stepwise(
             _log_step(step, best_action, best_var, current_stats)
             improved = True
 
+    if improved:
+        warnings.warn(
+            f"stepwise: stopped after {step} steps without settling; the "
+            "search keeps adding and dropping the same terms.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if verbose:
         print(f"Step {step + 1}: No improvement possible. Stopping.\n")
         print(f"Selected: {', '.join(included) if included else '(none)'}")
@@ -810,6 +863,12 @@ def lasso_select(
 
     if p == 0:
         raise ValueError("x must contain at least one variable name.")
+    if method not in ("cv", "bic", "aic"):
+        # anything else used to fall through to the AIC branch
+        raise MethodIncompatibility(
+            f"lasso_select: method must be 'cv', 'bic' or 'aic', got {method!r}.",
+            recovery_hint="Pass method='cv', 'bic' or 'aic' (lower case).",
+        )
 
     # Standardise X and centre y
     X_mean = X_raw.mean(axis=0)
