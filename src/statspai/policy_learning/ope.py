@@ -98,7 +98,6 @@ def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
         lr = LogisticRegression(solver="lbfgs", max_iter=500)
         lr.fit(X, A)
         probs = lr.predict_proba(X)
-        return probs[np.arange(len(A)), A], False
     except Exception as exc:
         warnings.warn(
             "off-policy evaluation: behavior-policy logistic regression "
@@ -109,6 +108,12 @@ def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
             stacklevel=3,
         )
         return np.full(len(A), 1.0 / len(np.unique(A))), True
+    # Columns follow ``classes_``, not the action labels: with actions not
+    # coded 0..K-1 indexing by label raised inside the try above and the
+    # uniform fallback ran (before the Oct 2026 scan), or picked another
+    # action's column.
+    col = np.searchsorted(lr.classes_, A)
+    return probs[np.arange(len(A)), col], False
 
 
 def _behaviour_ratio(pi_t: np.ndarray, pi_b: Any, n: int, clip: float) -> np.ndarray:

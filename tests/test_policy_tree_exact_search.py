@@ -128,9 +128,13 @@ def test_exact_beats_greedy_on_a_two_dimensional_rule():
         max_depth=2,
         min_leaf_size=1,
         scores=gamma,
+        # The two searches are compared on the objective they maximise.
+        value_evaluation="in_sample",
     )
-    exact = sp.policy_tree(df, search="exact", **kwargs)
-    greedy = sp.policy_tree(df, search="greedy", **kwargs)
+    with pytest.warns(UserWarning, match="optimistic"):
+        exact = sp.policy_tree(df, search="exact", **kwargs)
+    with pytest.warns(UserWarning, match="optimistic"):
+        greedy = sp.policy_tree(df, search="greedy", **kwargs)
 
     assert exact["search_mode"] == "exact"
     assert greedy["search_mode"] == "greedy"
@@ -159,6 +163,7 @@ def test_supplied_scores_bypass_the_cross_fitted_aipw_step():
         max_depth=1,
         min_leaf_size=1,
         scores=gamma,
+        value_evaluation="in_sample",
     )
     np.testing.assert_allclose(np.asarray(res["scores"]), gamma)
     # With Gamma = sign(x), the optimal stump is exactly 1{x > 0}.

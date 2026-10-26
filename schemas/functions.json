@@ -3387,6 +3387,117 @@
     }
   },
   {
+    "description": "Doubly-robust policy tree (Athey-Wager 2021; policytree): a depth-limited treatment rule maximising the mean of cross-fitted AIPW scores, exact for depth <= 2. Binary or multi-action treatment. The rule is grown on all rows; its value and gain over the best uniform action are, by default, cross-fitted (tree grown on the other folds, each row scored by a tree that did not see it), because a rule priced on the scores it maximised is priced on its own noise. Validation: certified parity evidence.",
+    "name": "policy_tree",
+    "parameters": {
+      "properties": {
+        "X": {
+          "description": "Alias of covariates=.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "covariates": {
+          "description": "Covariates of the doubly-robust score's nuisance models. X= is the article alias.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "d": {
+          "description": "Alias of treat=.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "depth": {
+          "description": "Alias of max_depth=.",
+          "type": "integer"
+        },
+        "max_depth": {
+          "description": "Tree depth (2 when unset).",
+          "type": "integer"
+        },
+        "min_leaf_size": {
+          "default": 25,
+          "description": "min_leaf_size parameter (int).",
+          "type": "integer"
+        },
+        "n_folds": {
+          "default": 5,
+          "description": "Folds of the AIPW cross-fit and of the cross-fitted policy value.",
+          "type": "integer"
+        },
+        "policy_covariates": {
+          "description": "Covariates the tree splits on; default covariates.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "random_state": {
+          "default": 42,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "scores": {
+          "description": "Precomputed doubly-robust scores (n,) or reward matrix (n, A); skips the internal AIPW step.",
+          "type": "string"
+        },
+        "search": {
+          "default": "auto",
+          "description": "Exact search for depth <= 2 or greedy.",
+          "enum": [
+            "auto",
+            "exact",
+            "greedy"
+          ],
+          "type": "string"
+        },
+        "split_step": {
+          "default": 1,
+          "description": "Consider every split_step-th distinct value of each policy covariate.",
+          "type": "integer"
+        },
+        "treat": {
+          "description": "Treatment column: 0/1 for treat / don't treat, any other coding for a multi-action tree. d= is the article alias.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "value_evaluation": {
+          "default": "cross_fit",
+          "description": "How value_policy / value_gain and their SEs are computed. 'cross_fit' grows the tree on the other folds and scores the held-out rows: unbiased for the value of the procedure (95% intervals covered 92-97% with heterogeneity, 81-85% at an exact null). 'in_sample' scores the full-sample tree on the scores it maximised (policytree's objective); optimistic, warns.",
+          "enum": [
+            "cross_fit",
+            "in_sample"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Instrumental forest (grf::instrumental_forest): heterogeneous local average treatment effects tau(x) = Cov[Y,Z|x]/Cov[W,Z|x] from an honest generalized random forest that splits on the IV gradient and uses the instrument in its split constraints. Reports out-of-bag CATEs with little-bag variances and the doubly-robust average conditional LATE (compliance-weighted scores). Given grf's forest, the local solve, scores, average and BLP match grf to 1e-13 (T2); the forest itself is checked only statistically (a stochastic screen against grf on known-truth designs, not a seed-replicated equivalence test). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "iv_forest",
     "parameters": {
@@ -27090,7 +27201,7 @@
       "properties": {
         "alpha": {
           "default": 0.1,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Miscoverage of the effect interval. Within each protected group, each arm's residuals get a split-conformal quantile at ``1 - alpha / 2`` and the half-width is their sum, so the interval targets coverage of ``Y(1) - Y(0)`` of at least ``1 - alpha`` in each group (union bound; conservative) when treatment is randomised given the covariates.",
           "type": "number"
         },
         "covariates": {
@@ -51617,7 +51728,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for both learner confidence intervals and the BLP-beta1 acceptance region used by the selection rule.",
+          "description": "Significance level of the learners' confidence intervals. It does not enter the selection rule.",
           "type": "number"
         },
         "cate_model": {
@@ -51793,7 +51904,7 @@
         },
         "tune": {
           "default": "nuisance",
-          "description": "Tuning regime: - ``'nuisance'`` -- tune the shared outcome / propensity GBMs against held-out R-loss, then hand them to ``auto_cate``. (v0.9.5 behaviour.) - ``'per_learner'`` -- keep default nuisance models; for each learner, tune its final-stage CATE model against held-out R-loss. - ``'both'`` -- run ``'nuisance'`` first, then ``'per_learner'`` using the tuned nuisance. Most expensive; most thorough.",
+          "description": "Tuning regime: - ``'nuisance'`` -- tune the shared outcome / propensity GBMs, then hand them to ``auto_cate``. The outcome model is chosen by held-out R-loss at ``tau = 0`` (its cross-fitted squared error), the propensity model by its cross-fitted log loss (``best_propensity_log_loss``); the R-loss at ``tau = 0`` does not depend on the propensity, so before the Oct 2026 scan the propensity hyperparameters were whatever the sampler drew with the best outcome model. - ``'per_learner'`` -- keep default nuisance models; for each learner, tune its final-stage CATE model against held-out R-loss. - ``'both'`` -- run ``'nuisance'`` first, then ``'per_learner'`` using the tuned nuisance. Most expensive; most thorough.",
           "enum": [
             "nuisance",
             "per_learner",
@@ -52680,62 +52791,6 @@
       },
       "required": [
         "X",
-        "y"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: certified parity evidence.",
-    "name": "policy_tree",
-    "parameters": {
-      "properties": {
-        "X": {
-          "description": "Feature matrix or covariate DataFrame.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "covariates": {
-          "description": "Covariate matrix, DataFrame, or column names.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "x-statspai-role": "columns"
-        },
-        "d": {
-          "description": "d parameter (Optional[str]).",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
-          "type": "object",
-          "x-statspai-role": "dataframe"
-        },
-        "depth": {
-          "description": "depth parameter (Optional[int]).",
-          "type": "integer"
-        },
-        "max_depth": {
-          "description": "max_depth parameter (Optional[int]).",
-          "type": "integer"
-        },
-        "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "y": {
-          "description": "Outcome variable column name or outcome array.",
-          "type": "string",
-          "x-statspai-role": "column"
-        }
-      },
-      "required": [
-        "data",
         "y"
       ],
       "type": "object"

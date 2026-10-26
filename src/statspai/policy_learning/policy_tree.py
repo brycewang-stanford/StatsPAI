@@ -52,9 +52,11 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
     also exposing rich attribute access plus methods:
 
     * :attr:`value_policy_se` — influence-function SE of the policy value,
-      computed from the AIPW scores :math:`\\Gamma_i` and the binary
-      policy :math:`\\hat\\pi(X_i)`. Under the standard cross-fit /
-      overlap conditions this is asymptotically valid.
+      computed from the AIPW scores :math:`\\Gamma_i` and the policy's
+      assignments. With ``value_evaluation='cross_fit'`` (default) each
+      unit is assigned by a tree grown without it, so the SE describes the
+      reported value; with ``'in_sample'`` it ignores the search and the
+      value is optimistic.
     * :meth:`summary` / :meth:`plot_tree` / :meth:`to_latex` / :meth:`cite`
       that match the Stata / R reporting idioms.
     * :meth:`to_excel` for publication exports.
@@ -417,6 +419,7 @@ def policy_tree(
     scores: Optional[np.ndarray] = None,
     search: str = "auto",
     split_step: int = 1,
+    value_evaluation: str = "cross_fit",
 ) -> Dict[str, Any]:
     """
     Learn an optimal treatment assignment policy.
@@ -480,6 +483,29 @@ def policy_tree(
         approximation in the spirit of ``policytree``'s ``split.step``,
         which thins by sample rather than by distinct value, so the two
         agree only at 1.
+    value_evaluation : {'cross_fit', 'in_sample'}, default 'cross_fit'
+        How ``value_policy`` / ``value_gain`` and their standard errors are
+        computed. ``'cross_fit'`` splits the rows into ``n_folds`` folds,
+        grows the tree on the other folds and evaluates its assignments
+        (and the best uniform action of those folds) on the held-out rows,
+        so every unit is scored by a policy that did not see it: the value
+        of the learning procedure, unbiased for it, with an
+        influence-function interval. That interval treats the folds as
+        independent, while each fold's tree is grown on the other folds'
+        scores; with real heterogeneity this is second order (95% intervals
+        covered 92% at n = 400 and 97% at n = 1600 in a simulation); at an
+        exact null of no heterogeneity it is not (81% at n = 400, 85% at
+        n = 1600).
+        ``'in_sample'`` scores the full-sample tree on the scores
+        it was chosen to maximise (``policytree``'s objective); that value
+        is optimistic -- with no heterogeneity at all its gain over the
+        best uniform action is positive by construction -- and a warning
+        says so. The returned ``policy`` / ``tree`` are always the
+        full-sample fit, and ``value_policy_in_sample`` /
+        ``value_gain_in_sample`` are always reported. ``'cross_fit'``
+        became the default in the Oct 2026 scan; earlier releases
+        reported the in-sample value with an interval that ignored the
+        search.
 
     Returns
     -------
@@ -503,6 +529,8 @@ def policy_tree(
         'n_obs' : int
         'search_mode' : str
             ``'exact'`` or ``'greedy'`` -- which search actually ran.
+        'value_evaluation' : str
+            ``'cross_fit'`` or ``'in_sample'`` (see the parameter).
 
     Examples
     --------
@@ -522,7 +550,7 @@ def policy_tree(
     ...                         min_leaf_size=20, n_folds=3, random_state=0)
     >>> isinstance(result, sp.PolicyTreeResult)
     True
-    >>> bool(result["value_gain"] >= 0)
+    >>> bool(result["value_gain_in_sample"] >= 0)  # by construction
     True
     """
     est = PolicyTree(
@@ -539,6 +567,7 @@ def policy_tree(
         scores=scores,
         search=search,
         split_step=split_step,
+        value_evaluation=value_evaluation,
     )
     return est.fit()
 
@@ -609,6 +638,20 @@ def policy_value(
     return float(np.mean(scores * policy))
 
 
+def _warn_in_sample_value() -> None:
+    import warnings
+
+    warnings.warn(
+        "policy_tree(value_evaluation='in_sample'): the policy value and its "
+        "gain are computed on the same scores the tree was chosen to "
+        "maximise, so they are optimistic and their intervals do not account "
+        "for the search. Use value_evaluation='cross_fit' (the default) for "
+        "an honest value.",
+        UserWarning,
+        stacklevel=4,
+    )
+
+
 # ======================================================================
 # Policy Tree class
 # ======================================================================
@@ -650,7 +693,7 @@ class PolicyTree:
     ...                      covariates=["x1", "x2"], max_depth=2,
     ...                      min_leaf_size=30, n_folds=3, random_state=0)
     >>> res = tree.fit()
-    >>> bool(res["value_gain"] >= 0)
+    >>> bool(res["value_gain_in_sample"] >= 0)  # by construction
     True
     >>> rec = tree.predict(np.array([[1.5, 0.0], [-1.5, 0.0]]))
     >>> int(rec.shape[0])
@@ -674,6 +717,7 @@ class PolicyTree:
         scores: Optional[np.ndarray] = None,
         search: str = "auto",
         split_step: int = 1,
+        value_evaluation: str = "cross_fit",
     ):
         self.data = data
         self.y = y
@@ -697,6 +741,18 @@ class PolicyTree:
                 recovery_hint="Use split_step=1 to search the complete grid.",
             )
         self.split_step = int(split_step)
+        if value_evaluation not in ("cross_fit", "in_sample"):
+            raise MethodIncompatibility(
+                f"policy_tree: unknown value_evaluation={value_evaluation!r}.",
+                recovery_hint="Use value_evaluation='cross_fit' (honest) or "
+                "'in_sample'.",
+            )
+        if value_evaluation == "cross_fit" and int(n_folds) < 2:
+            raise MethodIncompatibility(
+                "policy_tree: value_evaluation='cross_fit' needs n_folds >= 2.",
+                recovery_hint="Raise n_folds, or pass value_evaluation='in_sample'.",
+            )
+        self.value_evaluation = value_evaluation
         self.scores = None if scores is None else np.asarray(scores, dtype=np.float64)
 
     def fit(self) -> Dict[str, Any]:
@@ -790,14 +846,35 @@ class PolicyTree:
         gain_se = (
             float(np.std(contrib_gain, ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
         )
+        value_gain = value_policy - max(value_all, value_none)
+        in_sample = {"value_policy": value_policy, "value_gain": value_gain}
+        if self.value_evaluation == "cross_fit":
+            from ._multi_action import honest_value_summary
 
-        return PolicyTreeResult(
+            hv = honest_value_summary(
+                lambda Xf, Rf: self._build_tree(Xf, Rf[:, 1])[0],
+                self._predict_tree,
+                X_pol,
+                np.column_stack([np.zeros(n), scores]),
+                int(self.n_folds),
+                self.random_state,
+                self.alpha,
+            )
+            value_policy, v_se, v_ci = (
+                hv["value_policy"],
+                hv["value_policy_se"],
+                hv["value_policy_ci"],
+            )
+            value_gain, gain_se = hv["value_gain"], hv["value_gain_se"]
+        else:
+            _warn_in_sample_value()
+        res = PolicyTreeResult(
             tree=self,
             policy=policy_decisions,
             value_treat_all=value_all,
             value_treat_none=value_none,
             value_policy=value_policy,
-            value_gain=value_policy - max(value_all, value_none),
+            value_gain=value_gain,
             fraction_treated=fraction_treated,
             rules=rules,
             n_obs=n,
@@ -809,6 +886,12 @@ class PolicyTree:
             max_depth=self.max_depth,
             search_mode=search_mode,
         )
+        res.update(
+            value_evaluation=self.value_evaluation,
+            value_policy_in_sample=in_sample["value_policy"],
+            value_gain_in_sample=in_sample["value_gain"],
+        )
+        return res
 
     def _fit_multi_action(
         self,
@@ -855,6 +938,36 @@ class PolicyTree:
             extra.update(info)
             extra["score_source"] = "cross-fitted AIPW (gradient boosting)"
         out = fit_multi_action(self, X_pol, R, list(levels), extra)
+        in_sample = {
+            "value_policy": out["value_policy"],
+            "value_gain": out["value_gain"],
+        }
+        if self.value_evaluation == "cross_fit":
+            from ._multi_action import (
+                grow_multi_action_tree,
+                honest_value_summary,
+                predict_actions,
+            )
+
+            hv = honest_value_summary(
+                lambda Xf, Rf: grow_multi_action_tree(self, Xf, Rf)[0],
+                predict_actions,
+                X_pol,
+                R,
+                int(self.n_folds),
+                self.random_state,
+                self.alpha,
+            )
+            for key in (
+                "value_policy",
+                "value_policy_se",
+                "value_policy_ci",
+                "value_gain",
+                "value_gain_se",
+            ):
+                out[key] = hv[key]
+        else:
+            _warn_in_sample_value()
         self._tree = out["tree"]
         self._scores = R
         self._n_policy_features = X_pol.shape[1]
@@ -886,6 +999,9 @@ class PolicyTree:
             action_values={str(lv): float(v) for lv, v in zip(levels, av)},
             action_shares=out["action_shares"],
             best_uniform_action=levels[best],
+            value_evaluation=self.value_evaluation,
+            value_policy_in_sample=in_sample["value_policy"],
+            value_gain_in_sample=in_sample["value_gain"],
             **extra,
         )
         return res

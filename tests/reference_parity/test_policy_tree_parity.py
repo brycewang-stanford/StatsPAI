@@ -39,7 +39,12 @@ def fitted():
     d = rng.integers(0, 2, n)
     y = x * d + 0.5 * x + rng.normal(0, 0.5, n)
     df = pd.DataFrame({"y": y, "d": d, "x": x})
-    return x, sp.policy_tree(df, y="y", d="d", X=["x"], depth=2)
+    # The identities below are those of the in-sample objective.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return x, sp.policy_tree(
+            df, y="y", d="d", X=["x"], depth=2, value_evaluation="in_sample"
+        )
 
 
 def test_value_accounting_identities_exact(fitted):

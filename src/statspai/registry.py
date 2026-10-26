@@ -4724,6 +4724,117 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="policy_tree",
+            category="causal",
+            description=(
+                "Doubly-robust policy tree (Athey-Wager 2021; policytree): "
+                "a depth-limited treatment rule maximising the mean of "
+                "cross-fitted AIPW scores, exact for depth <= 2. Binary or "
+                "multi-action treatment. The rule is grown on all rows; its "
+                "value and gain over the best uniform action are, by "
+                "default, cross-fitted (tree grown on the other folds, each "
+                "row scored by a tree that did not see it), because a rule "
+                "priced on the scores it maximised is priced on its own "
+                "noise."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column."),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    None,
+                    "Treatment column: 0/1 for treat / don't treat, any other "
+                    "coding for a multi-action tree. d= is the article alias.",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates of the doubly-robust score's nuisance models. "
+                    "X= is the article alias.",
+                ),
+                ParamSpec("d", "str", False, None, "Alias of treat=."),
+                ParamSpec("X", "list", False, None, "Alias of covariates=."),
+                ParamSpec(
+                    "policy_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates the tree splits on; default covariates.",
+                ),
+                ParamSpec(
+                    "max_depth", "int", False, None, "Tree depth (2 when unset)."
+                ),
+                ParamSpec("depth", "int", False, None, "Alias of max_depth=."),
+                ParamSpec("min_leaf_size", "int", False, 25),
+                ParamSpec(
+                    "n_folds",
+                    "int",
+                    False,
+                    5,
+                    "Folds of the AIPW cross-fit and of the cross-fitted "
+                    "policy value.",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("random_state", "int", False, 42),
+                ParamSpec(
+                    "scores",
+                    "array",
+                    False,
+                    None,
+                    "Precomputed doubly-robust scores (n,) or reward matrix "
+                    "(n, A); skips the internal AIPW step.",
+                ),
+                ParamSpec(
+                    "search",
+                    "str",
+                    False,
+                    "auto",
+                    "Exact search for depth <= 2 or greedy.",
+                    enum=["auto", "exact", "greedy"],
+                ),
+                ParamSpec(
+                    "split_step",
+                    "int",
+                    False,
+                    1,
+                    "Consider every split_step-th distinct value of each "
+                    "policy covariate.",
+                ),
+                ParamSpec(
+                    "value_evaluation",
+                    "str",
+                    False,
+                    "cross_fit",
+                    "How value_policy / value_gain and their SEs are "
+                    "computed. 'cross_fit' grows the tree on the other folds "
+                    "and scores the held-out rows: unbiased for the value of "
+                    "the procedure (95% intervals covered 92-97% with "
+                    "heterogeneity, 81-85% at an exact null). 'in_sample' "
+                    "scores the full-sample tree on the scores it maximised "
+                    "(policytree's objective); optimistic, warns.",
+                    enum=["cross_fit", "in_sample"],
+                ),
+            ],
+            returns=(
+                "PolicyTreeResult (a dict): policy, tree, rules, "
+                "value_policy / _se / _ci, value_gain / _se, value_treat_all, "
+                "value_treat_none, fraction_treated, value_evaluation, "
+                "value_policy_in_sample, value_gain_in_sample, search_mode, "
+                "scores."
+            ),
+            example='sp.policy_tree(df, y="y", treat="d", covariates=["x1", "x2"])',
+            tags=["causal", "policy_learning"],
+            reference="[@athey2021policy], [@zhou2023offline]",
+            alternatives=["policy_value", "forest_policy_tree", "policy_targeting"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="iv_forest",
             category="causal",
             description=(

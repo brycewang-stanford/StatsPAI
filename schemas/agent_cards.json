@@ -6672,6 +6672,247 @@
   {
     "alias_of": null,
     "alternatives": [
+      "policy_value",
+      "forest_policy_tree",
+      "policy_targeting",
+      "sp.causal_forest",
+      "sp.metalearner",
+      "sp.dml",
+      "did_forest",
+      "multi_arm_forest",
+      "iv_forest"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
+      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
+      "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
+      "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
+      "fe=: conditional parallel trends and no anticipation; treatment varies within units",
+      "Honest splitting: splits and estimates use disjoint samples (enforced by default)"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Doubly-robust policy tree (Athey-Wager 2021; policytree): a depth-limited treatment rule maximising the mean of cross-fitted AIPW scores, exact for depth <= 2. Binary or multi-action treatment. The rule is grown on all rows; its value and gain over the best uniform action are, by default, cross-fitted (tree grown on the other folds, each row scored by a tree that did not see it), because a rule priced on the scores it maximised is priced on its own noise. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "recorded",
+      "module_id": "70_policy_tree",
+      "reference": "policytree::policy_tree",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "policytree": "1.2.4"
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "tests": [
+        "tests/r_parity/70_policy_tree.py",
+        "tests/r_parity/70_policy_tree.R",
+        "tests/stata_parity/70_policy_tree.do"
+      ],
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    "example": "sp.policy_tree(df, y=\"y\", treat=\"d\", covariates=[\"x1\", \"x2\"])",
+    "failure_modes": [
+      {
+        "alternative": "sp.calibrate_cate",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
+        "symptom": "sp.calibration_test differential_forest_prediction p_one_sided > 0.05"
+      },
+      {
+        "alternative": "sp.forest_group_effects",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support).",
+        "symptom": "average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest"
+      },
+      {
+        "alternative": "sp.causal_forest",
+        "exception": "statspai.AssumptionViolation",
+        "remedy": "Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units.",
+        "symptom": "Panel data fitted without clusters= (units repeat across rows)"
+      },
+      {
+        "alternative": "sp.trimming",
+        "exception": "statspai.AssumptionViolation",
+        "remedy": "Use average_treatment_effect(target_sample='overlap') or trim to overlap.",
+        "symptom": "Extreme propensity scores in part of the covariate space"
+      }
+    ],
+    "inherits_from": "causal_forest",
+    "limitations": [],
+    "name": "policy_tree",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "Out-of-bag or cross-fitted scores; never evaluate a learner on its own training predictions",
+      "treatment is binary 0/1 (continuous allowed with discrete_treatment=False)",
+      "covariates are numeric and finite; encode categoricals beforehand",
+      "n >= ~1000 for stable CATE -- forests are data-hungry",
+      "repeated observations of a unit: pass clusters= (or fe= with unit=)"
+    ],
+    "provenance": {
+      "alternatives": "curated+family",
+      "assumptions": "family",
+      "example": "curated",
+      "failure_modes": "family",
+      "pre_conditions": "family",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "family"
+    },
+    "reference": "[@athey2021policy], [@zhou2023offline]",
+    "returns": {
+      "class": "PolicyTreeResult",
+      "description": "PolicyTreeResult (a dict): policy, tree, rules, value_policy / _se / _ci, value_gain / _se, value_treat_all, value_treat_none, fraction_treated, value_evaluation, value_policy_in_sample, value_gain_in_sample, search_mode, scores.",
+      "fields": {
+        "fraction_treated": "float",
+        "max_depth": "int",
+        "n_obs": "int",
+        "policy": "ndarray",
+        "policy_covariates": "Tuple[str, ...]",
+        "rules": "str",
+        "scores": "Optional[numpy.ndarray]",
+        "search_mode": "str",
+        "tree": "PolicyTree",
+        "value_gain": "float",
+        "value_gain_se": "float",
+        "value_policy": "float",
+        "value_policy_ci": "Tuple[float, float]",
+        "value_policy_se": "float",
+        "value_treat_all": "float",
+        "value_treat_none": "float"
+      }
+    },
+    "signature": {
+      "description": "Doubly-robust policy tree (Athey-Wager 2021; policytree): a depth-limited treatment rule maximising the mean of cross-fitted AIPW scores, exact for depth <= 2. Binary or multi-action treatment. The rule is grown on all rows; its value and gain over the best uniform action are, by default, cross-fitted (tree grown on the other folds, each row scored by a tree that did not see it), because a rule priced on the scores it maximised is priced on its own noise. Validation: certified parity evidence.",
+      "name": "policy_tree",
+      "parameters": {
+        "properties": {
+          "X": {
+            "description": "Alias of covariates=.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Covariates of the doubly-robust score's nuisance models. X= is the article alias.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "d": {
+            "description": "Alias of treat=.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "depth": {
+            "description": "Alias of max_depth=.",
+            "type": "integer"
+          },
+          "max_depth": {
+            "description": "Tree depth (2 when unset).",
+            "type": "integer"
+          },
+          "min_leaf_size": {
+            "default": 25,
+            "description": "min_leaf_size parameter (int).",
+            "type": "integer"
+          },
+          "n_folds": {
+            "default": 5,
+            "description": "Folds of the AIPW cross-fit and of the cross-fitted policy value.",
+            "type": "integer"
+          },
+          "policy_covariates": {
+            "description": "Covariates the tree splits on; default covariates.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "random_state": {
+            "default": 42,
+            "description": "Random seed or RandomState for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "scores": {
+            "description": "Precomputed doubly-robust scores (n,) or reward matrix (n, A); skips the internal AIPW step.",
+            "type": "string"
+          },
+          "search": {
+            "default": "auto",
+            "description": "Exact search for depth <= 2 or greedy.",
+            "enum": [
+              "auto",
+              "exact",
+              "greedy"
+            ],
+            "type": "string"
+          },
+          "split_step": {
+            "default": 1,
+            "description": "Consider every split_step-th distinct value of each policy covariate.",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "Treatment column: 0/1 for treat / don't treat, any other coding for a multi-action tree. d= is the article alias.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "value_evaluation": {
+            "default": "cross_fit",
+            "description": "How value_policy / value_gain and their SEs are computed. 'cross_fit' grows the tree on the other folds and scores the held-out rows: unbiased for the value of the procedure (95% intervals covered 92-97% with heterogeneity, 81-85% at an exact null). 'in_sample' scores the full-sample tree on the scores it maximised (policytree's objective); optimistic, warns.",
+            "enum": [
+              "cross_fit",
+              "in_sample"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 1000,
+    "validation_notes": [
+      "R parity module 70_policy_tree",
+      "Stata parity module 70_policy_tree",
+      "Cross-language parity (bit-exact) vs policytree::policy_tree [R version 4.5.2 (2025-10-31), policytree 1.2.4]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 70_policy_tree -- tests/r_parity/70_policy_tree.py",
+      "tests/reference_parity/test_policy_tree_parity.py",
+      "tests/reference_parity/test_policytree_multi_action_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "ivreg",
       "dml",
       "causal_forest"
@@ -59992,7 +60233,7 @@
         "properties": {
           "alpha": {
             "default": 0.1,
-            "description": "Significance level for confidence intervals and tests.",
+            "description": "Miscoverage of the effect interval. Within each protected group, each arm's residuals get a split-conformal quantile at ``1 - alpha / 2`` and the half-width is their sum, so the interval targets coverage of ``Y(1) - Y(0)`` of at least ``1 - alpha`` in each group (union bound; conservative) when treatment is randomised given the covariates.",
             "type": "number"
           },
           "covariates": {
@@ -108041,7 +108282,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for both learner confidence intervals and the BLP-beta1 acceptance region used by the selection rule.",
+            "description": "Significance level of the learners' confidence intervals. It does not enter the selection rule.",
             "type": "number"
           },
           "cate_model": {
@@ -108195,7 +108436,7 @@
     "reference": "",
     "returns": {
       "class": "AutoCATEResult",
-      "description": "AutoCATEResult: With winner's model_info populated based on tune: - 'nuisance' / 'both': tuned_params (nuisance) + n_trials + best_r_loss_nuisance.",
+      "description": "AutoCATEResult: With winner's model_info populated based on tune: - 'nuisance' / 'both': tuned_params (nuisance) + n_trials + best_r_loss_nuisance + best_propensity_log_loss.",
       "fields": {
         "agreement": "pd.DataFrame",
         "best_learner": "str",
@@ -108296,7 +108537,7 @@
           },
           "tune": {
             "default": "nuisance",
-            "description": "Tuning regime: - ``'nuisance'`` -- tune the shared outcome / propensity GBMs against held-out R-loss, then hand them to ``auto_cate``. (v0.9.5 behaviour.) - ``'per_learner'`` -- keep default nuisance models; for each learner, tune its final-stage CATE model against held-out R-loss. - ``'both'`` -- run ``'nuisance'`` first, then ``'per_learner'`` using the tuned nuisance. Most expensive; most thorough.",
+            "description": "Tuning regime: - ``'nuisance'`` -- tune the shared outcome / propensity GBMs, then hand them to ``auto_cate``. The outcome model is chosen by held-out R-loss at ``tau = 0`` (its cross-fitted squared error), the propensity model by its cross-fitted log loss (``best_propensity_log_loss``); the R-loss at ``tau = 0`` does not depend on the propensity, so before the Oct 2026 scan the propensity hyperparameters were whatever the sampler drew with the best outcome model. - ``'per_learner'`` -- keep default nuisance models; for each learner, tune its final-stage CATE model against held-out R-loss. - ``'both'`` -- run ``'nuisance'`` first, then ``'per_learner'`` using the tuned nuisance. Most expensive; most thorough.",
             "enum": [
               "nuisance",
               "per_learner",
@@ -110779,170 +111020,6 @@
   {
     "alias_of": null,
     "alternatives": [
-      "sp.causal_forest",
-      "sp.metalearner",
-      "sp.dml",
-      "did_forest",
-      "multi_arm_forest",
-      "iv_forest"
-    ],
-    "api_contract": "deprecation-cycle",
-    "assumptions": [
-      "Unconfoundedness and overlap as for the CATE learner that produced the scores; calibration, BLP and policy evaluation are only as valid as the doubly-robust scores fed to them",
-      "Policy trees are evaluated honestly only on data not used to grow them -- use the split / cross-fitted variants",
-      "Unconfoundedness: Y(d) independent of D given X (pooled forest)",
-      "Overlap: 0 < P(D=1 | X) < 1 for the estimand support",
-      "fe=: conditional parallel trends and no anticipation; treatment varies within units",
-      "Honest splitting: splits and estimates use disjoint samples (enforced by default)"
-    ],
-    "category": "causal",
-    "cost_profile": "",
-    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: certified parity evidence.",
-    "evidence": {
-      "grade": "T2",
-      "grade_basis": "recorded",
-      "module_id": "70_policy_tree",
-      "reference": "policytree::policy_tree",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)",
-        "policytree": "1.2.4"
-      },
-      "sides": [
-        "py",
-        "R",
-        "Stata"
-      ],
-      "source": "track_a",
-      "status": "bit-exact",
-      "tests": [
-        "tests/r_parity/70_policy_tree.py",
-        "tests/r_parity/70_policy_tree.R",
-        "tests/stata_parity/70_policy_tree.do"
-      ],
-      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
-    },
-    "example": "res = sp.policy_tree(df, \"y\", \"d\", [\"x1\", \"x2\", \"x3\"], depth=2)",
-    "failure_modes": [
-      {
-        "alternative": "sp.calibrate_cate",
-        "exception": "statspai.AssumptionWarning",
-        "remedy": "No detectable heterogeneity: report the average effect, not the CATE ranking.",
-        "symptom": "sp.calibration_test differential_forest_prediction p_one_sided > 0.05"
-      },
-      {
-        "alternative": "sp.forest_group_effects",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support).",
-        "symptom": "average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest"
-      },
-      {
-        "alternative": "sp.causal_forest",
-        "exception": "statspai.AssumptionViolation",
-        "remedy": "Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units.",
-        "symptom": "Panel data fitted without clusters= (units repeat across rows)"
-      },
-      {
-        "alternative": "sp.trimming",
-        "exception": "statspai.AssumptionViolation",
-        "remedy": "Use average_treatment_effect(target_sample='overlap') or trim to overlap.",
-        "symptom": "Extreme propensity scores in part of the covariate space"
-      }
-    ],
-    "inherits_from": "causal_forest",
-    "limitations": [],
-    "name": "policy_tree",
-    "not_recommended_when": [],
-    "pre_conditions": [
-      "Out-of-bag or cross-fitted scores; never evaluate a learner on its own training predictions",
-      "treatment is binary 0/1 (continuous allowed with discrete_treatment=False)",
-      "covariates are numeric and finite; encode categoricals beforehand",
-      "n >= ~1000 for stable CATE -- forests are data-hungry",
-      "repeated observations of a unit: pass clusters= (or fe= with unit=)"
-    ],
-    "provenance": {
-      "alternatives": "family",
-      "assumptions": "family",
-      "example": "docstring",
-      "failure_modes": "family",
-      "pre_conditions": "family",
-      "typical_n_min": "family"
-    },
-    "reference": "",
-    "returns": {
-      "class": null,
-      "description": "",
-      "fields": {}
-    },
-    "signature": {
-      "description": "Doubly-robust policy-tree -- article-facing alias. Validation: certified parity evidence.",
-      "name": "policy_tree",
-      "parameters": {
-        "properties": {
-          "X": {
-            "description": "Feature matrix or covariate DataFrame.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "covariates": {
-            "description": "Covariate matrix, DataFrame, or column names.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "x-statspai-role": "columns"
-          },
-          "d": {
-            "description": "d parameter (Optional[str]).",
-            "type": "string",
-            "x-statspai-role": "column"
-          },
-          "data": {
-            "description": "pandas DataFrame containing the variables used by the estimator.",
-            "type": "object",
-            "x-statspai-role": "dataframe"
-          },
-          "depth": {
-            "description": "depth parameter (Optional[int]).",
-            "type": "integer"
-          },
-          "max_depth": {
-            "description": "max_depth parameter (Optional[int]).",
-            "type": "integer"
-          },
-          "treat": {
-            "description": "Treatment indicator or first-treatment-period column.",
-            "type": "string",
-            "x-statspai-role": "column"
-          },
-          "y": {
-            "description": "Outcome variable column name or outcome array.",
-            "type": "string",
-            "x-statspai-role": "column"
-          }
-        },
-        "required": [
-          "data",
-          "y"
-        ],
-        "type": "object"
-      }
-    },
-    "stability": "stable",
-    "typical_n_min": 1000,
-    "validation_notes": [
-      "R parity module 70_policy_tree",
-      "Stata parity module 70_policy_tree",
-      "Cross-language parity (bit-exact) vs policytree::policy_tree [R version 4.5.2 (2025-10-31), policytree 1.2.4]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 70_policy_tree -- tests/r_parity/70_policy_tree.py",
-      "tests/reference_parity/test_policy_tree_parity.py",
-      "tests/reference_parity/test_policytree_multi_action_parity.py"
-    ],
-    "validation_status": "certified"
-  },
-  {
-    "alias_of": null,
-    "alternatives": [
       "synth",
       "sdid",
       "gsynth"
@@ -111232,7 +111309,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: Includes CATE point estimates and prediction intervals. model_info contains: - 'cate': point estimates - 'cate_lower': lower bounds of prediction intervals - 'cate_upper': upper bounds of prediction intervals - 'interval_width...",
+      "description": "CausalResult: estimate / se are the average treatment effect and its standard error from the cross-fitted AIPW score (model for the outcome in each arm, a gradient-boosting propensity, 5 folds), as in :func:`sp.metalearner`.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",

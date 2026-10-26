@@ -361,6 +361,27 @@ def fit_multi_action(
     extra: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Grow, predict and summarise; returns the fields of the result."""
+    tree, mode = grow_multi_action_tree(est, X_pol, R)
+    actions = predict_actions(tree, X_pol)
+    out = value_summary(R, actions, est.alpha)
+    out.update(
+        tree=tree,
+        search_mode=mode,
+        actions=actions,
+        policy=np.asarray(labels, dtype=object)[actions],
+        action_shares={
+            str(lab): float(np.mean(actions == a)) for a, lab in enumerate(labels)
+        },
+        rules=tree_rules(tree, est.policy_covariates, labels),
+    )
+    out.update(extra)
+    return out
+
+
+def grow_multi_action_tree(
+    est: Any, X_pol: np.ndarray, R: np.ndarray
+) -> Tuple[TreeNode, str]:
+    """The multi-action tree for ``est``'s settings and its search mode."""
     n, p = X_pol.shape
     if est.max_depth <= 2 and est.search != "greedy":
         from ._exact_tree import exact_search_is_affordable, warn_greedy_fallback
@@ -401,17 +422,60 @@ def fit_multi_action(
             ),
             "greedy",
         )
-    actions = predict_actions(tree, X_pol)
-    out = value_summary(R, actions, est.alpha)
-    out.update(
-        tree=tree,
-        search_mode=mode,
-        actions=actions,
-        policy=np.asarray(labels, dtype=object)[actions],
-        action_shares={
-            str(lab): float(np.mean(actions == a)) for a, lab in enumerate(labels)
-        },
-        rules=tree_rules(tree, est.policy_covariates, labels),
-    )
-    out.update(extra)
-    return out
+    return tree, mode
+
+
+def honest_value_summary(
+    grow: Any,
+    predict: Any,
+    X: np.ndarray,
+    R: np.ndarray,
+    n_folds: int,
+    random_state: int,
+    alpha: float,
+) -> Dict[str, Any]:
+    """Cross-fitted value of the policy-learning procedure.
+
+    The rows are split into ``n_folds`` folds; on each, the tree is grown on
+    the other folds (``grow(X, R) -> tree``) and its actions on the held-out
+    rows are evaluated with their own rewards, and so is the best uniform
+    action of the training folds. A policy chosen to maximise the in-sample
+    mean of ``R[i, pi(X_i)]`` and evaluated on the same rows overstates its
+    value (under rewards that do not depend on the action, the in-sample
+    gain over the best uniform action is positive by construction); every
+    unit here is evaluated by a policy that did not see it, so the
+    influence-function standard error describes the estimate.
+    """
+    import warnings
+
+    from scipy import stats
+    from sklearn.model_selection import KFold
+
+    n = R.shape[0]
+    actions = np.empty(n, dtype=int)
+    uniform = np.empty(n, dtype=int)
+    for tr, te in KFold(
+        n_splits=n_folds, shuffle=True, random_state=random_state
+    ).split(X):
+        with warnings.catch_warnings():
+            # The full-sample fit has already reported any search fallback.
+            warnings.simplefilter("ignore")
+            tree = grow(X[tr], R[tr])
+        actions[te] = predict(tree, X[te])
+        uniform[te] = int(np.argmax(R[tr].mean(axis=0)))
+    rows = np.arange(n)
+    contrib = R[rows, actions]
+    gain_contrib = contrib - R[rows, uniform]
+    v = float(contrib.mean())
+    se = float(contrib.std(ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+    z = float(stats.norm.ppf(1 - alpha / 2))
+    return {
+        "value_policy": v,
+        "value_policy_se": se,
+        "value_policy_ci": (v - z * se, v + z * se),
+        "value_gain": float(gain_contrib.mean()),
+        "value_gain_se": (
+            float(gain_contrib.std(ddof=1) / np.sqrt(n)) if n > 1 else float("nan")
+        ),
+        "oof_actions": actions,
+    }

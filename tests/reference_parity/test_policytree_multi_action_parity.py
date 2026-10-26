@@ -45,6 +45,7 @@ def _fit(case):
             min_leaf_size=case["mns"],
             split_step=case["step"],
             search="exact",
+            value_evaluation="in_sample",  # policytree's objective
         )
     return d, G, res
 
