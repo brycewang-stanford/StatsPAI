@@ -209,12 +209,25 @@ def _make_results(
     )
 
 
+def _attach_vcov(
+    res: EconometricResults, vcov: Optional[np.ndarray], names: List[str]
+) -> None:
+    """Store the joint covariance of ``params`` (read by ``vcov()`` and
+    ``sp.impacts``); absent on the large-``n`` path, which has none."""
+    if vcov is not None:
+        res.model_info["vcov"] = pd.DataFrame(vcov, index=names, columns=names)
+
+
 def _sar_information_ses(
     M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray, rho: float, sigma2: float
-) -> Tuple[np.ndarray, float]:
+) -> Tuple[np.ndarray, float, Optional[np.ndarray]]:
     """Full-information asymptotic SEs of ``(beta, rho)`` for a SAR/SDM ML fit.
 
-    Returns ``(se_beta, se_rho)`` where ``se_beta`` is a length-``k`` array.
+    Returns ``(se_beta, se_rho, V)`` where ``se_beta`` is a length-``k``
+    array and ``V`` the ``(k + 1) x (k + 1)`` covariance of ``(beta, rho)``
+    (the leading block of the inverted information matrix; ``None`` on the
+    large-``n`` path, which has no joint covariance). ``sp.impacts`` draws
+    from ``V``.
 
     Uses the SAR information matrix (Ord 1975; Anselin 1988, *Spatial
     Econometrics*). With ``G = W (I - rho W)^{-1}`` and ``Xb = X @ beta`` the
@@ -253,10 +266,10 @@ def _sar_information_ses(
             Vc = np.linalg.inv(Info)
             se_beta = np.sqrt(np.clip(np.diag(Vc)[:k], 1e-12, None))
             se_rho = float(np.sqrt(max(Vc[k, k], 1e-12)))
-            return se_beta, se_rho
+            return se_beta, se_rho, Vc[: k + 1, : k + 1]
         except np.linalg.LinAlgError:
             se_beta = np.sqrt(np.diag(sigma2 * np.linalg.inv(X.T @ X)))
-            return se_beta, float("nan")
+            return se_beta, float("nan"), None
     # Large-n sparse path: the full-information Var(beta) needs a dense
     # (I - rho W)^{-1}, which is intractable at scale, so beta falls back to
     # the concentrated conditional SE (documented approximation). The rho SE
@@ -284,7 +297,7 @@ def _sar_information_ses(
     GXb = M @ lu.solve(Xb)
     I_rho = tr_G2 + tr_GtG + float(GXb @ GXb) / sigma2
     se_rho = float(1.0 / np.sqrt(max(I_rho, 1e-10)))
-    return se_beta, se_rho
+    return se_beta, se_rho, None
 
 
 def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
@@ -431,7 +444,7 @@ def sar(
     e = y_star - X @ beta
     sigma2 = float(e @ e) / n
 
-    se_beta, se_rho = _sar_information_ses(M, X, beta, rho_hat, sigma2)
+    se_beta, se_rho, vcov = _sar_information_ses(M, X, beta, rho_hat, sigma2)
 
     var_names = ["const"] + list(indep) + ["rho"]
     params_vec = np.append(beta, rho_hat)
@@ -439,7 +452,7 @@ def sar(
     fitted = y - e
     log_lik = _full_loglik(n, sigma2, _logdet(M, rho_hat, eigvals))
 
-    return _make_results(
+    res = _make_results(
         alpha=alpha,
         model_type="sar",
         spatial_param_name="rho",
@@ -455,6 +468,8 @@ def sar(
         log_lik=log_lik,
         _w_sparse=M,
     )
+    _attach_vcov(res, vcov, var_names)
+    return res
 
 
 # ====================================================================== #
@@ -656,7 +671,7 @@ def sdm(
     e = y_star - X_aug @ beta_aug
     sigma2 = float(e @ e) / n
 
-    se_beta, se_rho = _sar_information_ses(M, X_aug, beta_aug, rho_hat, sigma2)
+    se_beta, se_rho, vcov = _sar_information_ses(M, X_aug, beta_aug, rho_hat, sigma2)
 
     lag_names = [f"W_{v}" for v in indep]
     var_names = ["const"] + list(indep) + lag_names + ["rho"]
@@ -687,7 +702,7 @@ def sdm(
             "Total effects": dict(zip(indep, np.round(total, 6))),
         }
 
-    return _make_results(
+    res = _make_results(
         alpha=alpha,
         model_type="sdm",
         spatial_param_name="rho",
@@ -704,6 +719,8 @@ def sdm(
         extra_diag=extra,
         _w_sparse=M,
     )
+    _attach_vcov(res, vcov, var_names)
+    return res
 
 
 # --------------------------------------------------------------------- #
@@ -760,9 +777,9 @@ def slx(
     lag_names = [f"W_{v}" for v in indep]
     var_names = ["const"] + list(indep) + lag_names
     fitted = y - e
-    log_lik = (
-        -n / 2 * np.log(2 * np.pi) - n / 2 * np.log(sigma2) - (e @ e) / (2 * sigma2)
-    )
+    # Gaussian ML log-likelihood, sigma^2 = RSS / n (R logLik(lmSLX)). Through
+    # 1.40.2 the df-corrected sigma2 above was plugged in instead.
+    log_lik = -n / 2 * (np.log(2 * np.pi * float(e @ e) / n) + 1.0)
 
     return _make_results(
         alpha=alpha,

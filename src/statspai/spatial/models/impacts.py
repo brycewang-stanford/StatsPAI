@@ -11,13 +11,17 @@ Summary measures:
     total_k    = (1/n) sum(S_k)
     indirect_k = total_k - direct_k
 
-Confidence intervals are produced by Monte-Carlo simulation from the
-estimator's asymptotic distribution (multivariate normal centred at the
-point estimate with covariance diag(se²)).
+Standard errors are produced by Monte-Carlo simulation from the
+estimator's asymptotic distribution: a multivariate normal centred at the
+point estimate with the fitted covariance of the coefficients and the
+spatial parameter, as ``spatialreg::impacts`` draws. Through 1.40.2 the
+draws used ``diag(se^2)``, which drops the covariance between ``beta``
+and ``rho`` that the indirect and total effects depend on.
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
@@ -142,9 +146,9 @@ def impacts(result: Any, n_sim: int = 1000, seed: Optional[int] = None) -> pd.Da
     direct_pt, total_pt = point
     indirect_pt = total_pt - direct_pt
 
-    # Monte-Carlo for SEs
+    # Monte-Carlo for SEs, from the joint covariance of the estimates.
     rng = np.random.default_rng(seed)
-    cov = np.diag(se**2)  # diagonal approximation
+    cov = _joint_covariance(result, se)
     draws = rng.multivariate_normal(params, cov, size=n_sim)
     d_draws: List[np.ndarray] = []
     t_draws: List[np.ndarray] = []
@@ -157,8 +161,17 @@ def impacts(result: Any, n_sim: int = 1000, seed: Optional[int] = None) -> pd.Da
     d_draws_arr = np.asarray(d_draws, dtype=float)
     t_draws_arr = np.asarray(t_draws, dtype=float)
     i_draws_arr = t_draws_arr - d_draws_arr
+    n_dropped = int(n_sim - len(d_draws))
+    if n_dropped:
+        warnings.warn(
+            f"impacts(): {n_dropped} of {n_sim} draws put the spatial "
+            "parameter outside (-0.999, 0.999) and were discarded, which "
+            "truncates the simulated distribution.",
+            UserWarning,
+            stacklevel=2,
+        )
 
-    return pd.DataFrame(
+    out = pd.DataFrame(
         {
             "Direct": direct_pt,
             "SE_Direct": (
@@ -175,6 +188,8 @@ def impacts(result: Any, n_sim: int = 1000, seed: Optional[int] = None) -> pd.Da
         },
         index=covariate_names,
     )
+    out.attrs["n_draws_discarded"] = n_dropped
+    return out
 
 
 def _fetch_W_from_result(result: Any) -> np.ndarray:
@@ -193,3 +208,27 @@ def _fetch_W_from_result(result: Any) -> np.ndarray:
     if sparse.issparse(W):
         return np.asarray(W.toarray(), dtype=float)
     return np.asarray(W, dtype=float)
+
+
+def _joint_covariance(result: Any, se: np.ndarray) -> np.ndarray:
+    """Covariance of ``result.params`` for the impact draws.
+
+    The full matrix the estimator stored (``sp.sar`` / ``sp.sdm`` /
+    ``sp.sac``; checked against the reported SEs by
+    ``coefficient_covariance``). Without one -- the stochastic large-``n``
+    path of ``sp.sar`` / ``sp.sdm`` -- the diagonal is the only thing left,
+    and a warning says the impact SEs ignore the covariances.
+    """
+    from ...postestimation._covariance import coefficient_covariance
+
+    V, _ = coefficient_covariance(result)
+    if V is not None:
+        return np.asarray(V, dtype=float)
+    warnings.warn(
+        "impacts(): the result stores no joint covariance of the "
+        "coefficients and the spatial parameter (large-n fit), so the "
+        "simulated SEs use the variances alone and ignore their covariances.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return np.diag(se**2)
