@@ -726,7 +726,8 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
         args["cluster"] = clusters[0] if len(clusters) == 1 else clusters
         if len(clusters) > 1 and fe_list:
             # reghdfe scales every term of the multi-way sum by
-            # G_min/(G_min - 1); sp.hdfe_ols's default is per term.
+            # G_min/(G_min - 1), sp.hdfe_ols's default since 1.41; spelled
+            # out so the translation does not depend on the version.
             args["cluster_df"] = "min"
     elif robust:
         args["vce"] = "robust"

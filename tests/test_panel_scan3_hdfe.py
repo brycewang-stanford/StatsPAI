@@ -122,8 +122,9 @@ class TestOLSAgainstDummies:
         assert res.df_inference == G - 1
 
     def test_two_way_cluster_is_inclusion_exclusion_per_term(self):
-        """Two-way clustering: each of the three sandwiches carries its own
-        G/(G-1) (first way, second way, their intersection, subtracted)."""
+        """Two-way clustering, cluster_df='per_term' (the default before
+        1.41): each of the three sandwiches carries its own G/(G-1) (first
+        way, second way, their intersection, subtracted)."""
         df = _data()
         _, bread, scores, _, rank_d = _ols_pieces(df)
         inter = df.cl.astype(str) + "_" + df.cl2.astype(str)
@@ -134,8 +135,23 @@ class TestOLSAgainstDummies:
             - g12 / (g12 - 1) * _meat(scores, inter)
         )
         cov = bread @ meat @ bread * (N - 1) / (N - 2 - rank_d)
+        res = _fit(FORMULA, df, cluster=["cl", "cl2"], cluster_df="per_term")
+        np.testing.assert_allclose(np.diag(res.cov_params()), np.diag(cov), rtol=RTOL)
+
+    def test_two_way_cluster_default_is_g_min_on_every_term(self):
+        """The default since 1.41 (cluster_df='min', reghdfe / fixest): one
+        G_min/(G_min-1) on the whole inclusion-exclusion sum."""
+        df = _data()
+        _, bread, scores, _, rank_d = _ols_pieces(df)
+        inter = df.cl.astype(str) + "_" + df.cl2.astype(str)
+        g_min = min(df.cl.nunique(), df.cl2.nunique())
+        meat = (_meat(scores, df.cl) + _meat(scores, df.cl2) - _meat(scores, inter)) * (
+            g_min / (g_min - 1)
+        )
+        cov = bread @ meat @ bread * (N - 1) / (N - 2 - rank_d)
         res = _fit(FORMULA, df, cluster=["cl", "cl2"])
         np.testing.assert_allclose(np.diag(res.cov_params()), np.diag(cov), rtol=RTOL)
+        assert res.cluster_info["cluster_df"] == "min"
 
     @pytest.mark.parametrize("vce,scaled", [("robust", True), ("hc0", False)])
     def test_heteroskedasticity_robust(self, vce, scaled):

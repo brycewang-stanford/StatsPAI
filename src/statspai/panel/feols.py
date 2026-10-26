@@ -887,26 +887,24 @@ def feols(
         the slopes and standard errors are then those of
         ``sp.regress('y ~ x + C(g)')`` without building the dummies. OLS
         with one-way clustering only.
-    cluster_df : {'per_term', 'min'}, optional
+    cluster_df : {'min', 'per_term'}, optional
         Small-sample factor of a multi-way cluster variance (the
         inclusion-exclusion sum ``V_a + V_b - V_ab``). ``None`` (the
-        default) is ``'per_term'`` in this release and warns
-        (``FutureWarning``) when two or more cluster variables are given:
-        the default will become ``'min'`` in a later minor release. Pass
-        either value to silence the warning. ``'per_term'`` scales
-        each term by its own ``G/(G - 1)``, as R ``sandwich::vcovCL`` does;
-        ``'min'`` scales every term by ``G_min/(G_min - 1)``, the smallest
-        cluster count, which is what Stata ``reghdfe`` and R ``fixest`` (and
-        so ``sp.feols(vcov={'CRV1': 'a + b'})``) report: pass it to
-        reproduce their numbers. The two differ by a few percent with few
-        clusters in one dimension (0.00935 against 0.00856 on one 40 x 15
-        panel); one-way clustering is the same either way. The choice is
-        recorded in ``cluster_info['cluster_df']``. OLS with fixed effects
-        only.
+        default) is ``'min'``: every term is scaled by
+        ``G_min/(G_min - 1)``, the smallest cluster count, which is what
+        Stata ``reghdfe`` and R ``fixest`` (and so
+        ``sp.feols(vcov={'CRV1': 'a + b'})``) report. ``'per_term'``
+        scales each term by its own ``G/(G - 1)``, as R
+        ``sandwich::vcovCL`` does (the default before 1.41). The two
+        differ by a few percent with few clusters in one dimension;
+        one-way clustering is the same either way. The choice is recorded
+        in ``cluster_info['cluster_df']``. Explicit values apply to OLS
+        with fixed effects only; without absorbed effects or with
+        instruments the multi-way factor is per term.
 
-        .. deprecated:: 1.40.0
-           The implicit ``'per_term'`` default for multi-way clustering;
-           it becomes ``'min'`` (see MIGRATION.md).
+        .. versionchanged:: 1.41
+           The default for multi-way clustering is ``'min'`` (was
+           ``'per_term'``; see MIGRATION.md).
 
     Returns
     -------
@@ -957,8 +955,10 @@ def feols(
             diagnostics={"weights_as": "sampling", "cluster": None},
         )
 
-    # cluster_df=None is today's 'per_term'; the multi-way default moves to
-    # reghdfe's 'min' after a FutureWarning cycle (warned at the fit below).
+    # cluster_df=None is reghdfe's 'min' on the fixed-effects OLS path (the
+    # default since 1.41; resolved at the fit below). The paths without
+    # absorbed effects and with instruments keep their own per-term factor
+    # and refuse only an explicit 'min'.
     _cluster_df_given = cluster_df is not None
     if cluster_df is None:
         cluster_df = "per_term"
@@ -1240,17 +1240,8 @@ def feols(
             cluster_arr = cluster_arr[0]
 
     if not _cluster_df_given and isinstance(cluster_arr, list) and len(cluster_arr) > 1:
-        warnings.warn(
-            "hdfe_ols: multi-way clustering without cluster_df= uses "
-            "cluster_df='per_term' (each term's own G/(G-1), R "
-            "sandwich::vcovCL). A later minor release switches the default "
-            "to 'min' (G_min/(G_min-1) on every term, as Stata reghdfe and "
-            "R fixest do), which changes these standard errors. Pass "
-            "cluster_df='per_term' to keep them or cluster_df='min' to "
-            "adopt the new default now; see MIGRATION.md.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        # Since 1.41: reghdfe / fixest's G_min/(G_min-1) on every term.
+        cluster_df = "min"
     result = absorb_ols(
         y=y_arr,
         X=X_arr,

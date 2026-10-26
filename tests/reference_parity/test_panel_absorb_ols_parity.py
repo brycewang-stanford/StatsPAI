@@ -134,8 +134,9 @@ def test_one_way_is_invariant_to_cluster_df():
 
 
 def test_hdfe_ols_cluster_df_min_matches_reghdfe_two_way():
-    """``sp.hdfe_ols(cluster_df='min')`` reports reghdfe's two-way SEs; the
-    default keeps the per-term factor and says which it used."""
+    """``sp.hdfe_ols(cluster_df='min')`` reports reghdfe's two-way SEs, and
+    so does the default since 1.41; ``'per_term'`` (the 1.40 default) is
+    ``sp.absorb_ols``'s default factor."""
     import warnings
 
     with warnings.catch_warnings():
@@ -155,14 +156,26 @@ def test_hdfe_ols_cluster_df_min_matches_reghdfe_two_way():
             cluster=["firm", "year"],
             tol=1e-12,
         )
+        per_term = sp.hdfe_ols(
+            "y ~ x1 + x2 | firm + year",
+            D,
+            weights="w",
+            cluster=["firm", "year"],
+            cluster_df="per_term",
+            tol=1e-12,
+        )
     ref = S["reghdfe_aw_cl_firm_year"]["se"]
     np.testing.assert_allclose(
         fit.std_errors.to_numpy(), [ref["x1"], ref["x2"]], rtol=1e-10
     )
     assert fit.cluster_info["cluster_df"] == "min"
-    assert default.cluster_info["cluster_df"] == "per_term"
+    assert default.cluster_info["cluster_df"] == "min"
+    np.testing.assert_array_equal(
+        default.std_errors.to_numpy(), fit.std_errors.to_numpy()
+    )
+    assert per_term.cluster_info["cluster_df"] == "per_term"
     np.testing.assert_allclose(
-        default.std_errors.to_numpy(),
+        per_term.std_errors.to_numpy(),
         _fit(
             weights=D["w"].to_numpy(),
             cluster=[D["firm"].to_numpy(), D["year"].to_numpy()],

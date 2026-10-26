@@ -1,9 +1,10 @@
 """Owner decisions of 2026-10-20 (docs/dev/2026-10-20-owner-decisions.md).
 
-Defaults that changed without changing a number, deprecations announced
-with ``FutureWarning`` (numbers unchanged in this release), the public
-reset of the spec-search counter, the opt-in summary text block of the MCP
-server, and the cobalt convention for the SMD of a categorical level.
+Defaults that changed without changing a number, the three deprecations
+announced with ``FutureWarning`` in 1.40 and switched in 1.41 (items 2-4),
+the public reset of the spec-search counter, the opt-in summary text block
+of the MCP server, and the cobalt convention for the SMD of a categorical
+level.
 """
 
 from __future__ import annotations
@@ -46,7 +47,7 @@ def test_causal_forest_default_threads_is_all_cores_and_changes_nothing():
 
 
 # --------------------------------------------------------------------------
-# 2. sp.hdfe_ols: multi-way cluster_df default announced, numbers unchanged
+# 2. sp.hdfe_ols: multi-way cluster_df default is 'min' since 1.41
 # --------------------------------------------------------------------------
 
 
@@ -60,27 +61,39 @@ def panel():
     return pd.DataFrame({"y": y, "x": x, "firm": firm, "year": year})
 
 
-def test_hdfe_ols_multiway_default_warns_and_keeps_per_term(panel):
+def test_hdfe_ols_multiway_default_is_min_and_per_term_keeps_the_old_se(panel):
     f = "y ~ x | firm + year"
-    with pytest.warns(FutureWarning, match="cluster_df="):
-        default = sp.hdfe_ols(f, data=panel, cluster=["firm", "year"])
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
+        default = sp.hdfe_ols(f, data=panel, cluster=["firm", "year"])
         per_term = sp.hdfe_ols(
             f, data=panel, cluster=["firm", "year"], cluster_df="per_term"
         )
         g_min = sp.hdfe_ols(f, data=panel, cluster=["firm", "year"], cluster_df="min")
-        sp.hdfe_ols(f, data=panel, cluster="firm")  # one-way: no warning
-    # The implicit default is exactly today's per-term factor.
-    assert default.std_errors["x"] == per_term.std_errors["x"]
-    assert default.cluster_info["cluster_df"] == "per_term"
-    # And 'min' is a different documented convention (reghdfe / fixest):
-    # every term carries G_min/(G_min-1), here G_min = 15 (years).
-    assert g_min.cluster_info["cluster_df"] == "min"
+        one_way = sp.hdfe_ols(f, data=panel, cluster="firm")
+        one_way_min = sp.hdfe_ols(f, data=panel, cluster="firm", cluster_df="min")
+    # The implicit default is exactly reghdfe's / fixest's G_min/(G_min-1)
+    # on every term, here G_min = 15 (years).
+    assert default.std_errors["x"] == g_min.std_errors["x"]
+    assert default.cluster_info["cluster_df"] == "min"
+    # 'per_term' (R sandwich::vcovCL) is the pre-1.41 number, a different
+    # documented convention (its gap to reghdfe is pinned in
+    # tests/reference_parity/test_panel_absorb_ols_parity.py).
+    assert per_term.cluster_info["cluster_df"] == "per_term"
+    # One-way clustering is the same under either factor.
+    assert one_way.std_errors["x"] == one_way_min.std_errors["x"]
+
+
+def test_hdfe_ols_cluster_df_without_fixed_effects_or_with_iv_still_refused(panel):
+    # The default resolves on the fixed-effects OLS path only; elsewhere an
+    # explicit 'min' is refused as before and the default does not raise.
+    sp.hdfe_ols("y ~ x", data=panel, cluster=["firm", "year"])
+    with pytest.raises(sp.MethodIncompatibility, match="cluster_df"):
+        sp.hdfe_ols("y ~ x", data=panel, cluster=["firm", "year"], cluster_df="min")
 
 
 # --------------------------------------------------------------------------
-# 3. sp.sun_abraham: headline deprecation, numbers unchanged
+# 3. sp.sun_abraham: the headline is fixest's agg='att' since 1.41
 # --------------------------------------------------------------------------
 
 
@@ -89,36 +102,36 @@ def staggered():
     return sp.dgp_did(n_units=80, n_periods=8, staggered=True, seed=3)
 
 
-def test_sun_abraham_without_aggregation_warns_and_is_event_time(staggered):
+def test_sun_abraham_without_aggregation_is_fixest_att(staggered):
     # crit_dist is named so that only the aggregation default is under test
     kw = dict(y="y", g="first_treat", t="time", i="unit", crit_dist="normal")
-    with pytest.warns(FutureWarning, match="aggregation="):
-        implicit = sp.sun_abraham(staggered, **kw)
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
-        explicit = sp.sun_abraham(staggered, aggregation="event_time", **kw)
-        fixest = sp.sun_abraham(staggered, aggregation="fixest_att", **kw)
+        implicit = sp.sun_abraham(staggered, **kw)
+        explicit = sp.sun_abraham(staggered, aggregation="fixest_att", **kw)
+        old = sp.sun_abraham(staggered, aggregation="event_time", **kw)
     assert implicit.estimate == explicit.estimate
     assert implicit.se == explicit.se
-    assert implicit.model_info["summary_aggregation"] == "event_time"
-    # The future headline is already reported alongside, identically.
-    assert fixest.estimate == implicit.model_info["att_fixest_att"]
+    assert implicit.model_info["summary_aggregation"] == "fixest_att"
+    # The pre-1.41 headline is still reported alongside, identically.
+    assert old.estimate == implicit.model_info["att_event_time"]
+    post = old.detail.loc[old.detail["relative_time"] >= 0, "att"]
+    assert old.estimate == pytest.approx(float(post.mean()), rel=1e-12)
 
 
 def test_sp_did_forwards_the_missing_aggregation(staggered):
-    with pytest.warns(FutureWarning, match="aggregation="):
-        sp.did(
-            staggered,
-            y="y",
-            treat="first_treat",
-            time="time",
-            id="unit",
-            method="sun_abraham",
-        )
+    kw = dict(y="y", treat="first_treat", time="time", id="unit")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        via_did = sp.did(staggered, method="sun_abraham", **kw)
+    direct = sp.sun_abraham(staggered, y="y", g="first_treat", t="time", i="unit")
+    assert via_did.estimate == direct.estimate and via_did.se == direct.se
+    assert via_did.model_info["summary_aggregation"] == "fixest_att"
 
 
 # --------------------------------------------------------------------------
-# 4. sp.bcf: rerouting announced; bcf_ordinal / factor_exposure untouched
+# 4. sp.bcf routes to sp.bart_causal(method='bcf') since 1.41;
+#    bcf_ordinal / factor_exposure keep the ensemble fit
 # --------------------------------------------------------------------------
 
 
@@ -132,17 +145,82 @@ def _bcf_frame(n=200, seed=0):
     return df
 
 
-def test_bcf_announces_rerouting_and_keeps_its_numbers():
+def test_bcf_is_bart_causal_bcf():
+    """sp.bcf(...) is sp.bart_causal(method='bcf') with its argument names:
+    the same posterior draws, bit for bit, and the same result type."""
+    df = _bcf_frame()
+    mcmc = dict(draws=60, burnin=60, chains=2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        pub = sp.bcf(
+            df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            n_trees_mu=40,
+            n_trees_tau=20,
+            alpha=0.1,
+            random_state=7,
+            **mcmc,
+        )
+    direct = sp.bart_causal(
+        df,
+        "y",
+        "d",
+        ["x1", "x2"],
+        method="bcf",
+        n_trees_control=40,
+        n_trees_moderate=20,
+        level=0.9,
+        seed=7,
+        **mcmc,
+    )
+    assert type(pub) is type(direct)
+    assert type(pub).__name__ == "BayesCausalResult"
+    pd.testing.assert_series_equal(pub.draws, direct.draws)
+    assert (pub.estimate, pub.se, pub.ci) == (direct.estimate, direct.se, direct.ci)
+    pd.testing.assert_frame_equal(pub.cate, direct.cate)
+    # seed= is the alias of random_state=, as before
+    again = sp.bcf(
+        df,
+        y="y",
+        treat="d",
+        covariates=["x1", "x2"],
+        n_trees_mu=40,
+        n_trees_tau=20,
+        alpha=0.1,
+        seed=7,
+        **mcmc,
+    )
+    pd.testing.assert_series_equal(again.draws, pub.draws)
+    assert sp.get_provenance(pub).function == "sp.bcf"
+
+
+def test_bcf_refuses_the_options_of_the_old_approximation():
+    df = _bcf_frame()
+    kw = dict(y="y", treat="d", covariates=["x1", "x2"])
+    for bad in ({"n_bootstrap": 5}, {"n_folds": 3}):
+        with pytest.raises(sp.MethodIncompatibility, match="pre-1.41") as ei:
+            sp.bcf(df, **kw, **bad)
+        assert "BayesianCausalForest" in ei.value.recovery_hint
+    with pytest.raises(sp.MethodIncompatibility, match="set by sp.bcf"):
+        sp.bcf(df, **kw, method="bart")
+    with pytest.raises(sp.MethodIncompatibility, match="alpha"):
+        sp.bcf(df, **kw, alpha=1.5)
+
+
+def test_pre_141_bcf_numbers_are_the_ensemble_class():
+    """sp.BayesianCausalForest(...).fit() is what sp.bcf returned through 1.40
+    (the same private fit sp.bcf_ordinal uses)."""
     from statspai.bcf.bcf import _bcf_fit
 
     df = _bcf_frame()
     kw = dict(y="y", treat="d", covariates=["x1", "x2"], n_bootstrap=5)
-    with pytest.warns(FutureWarning, match="bart_causal"):
-        pub = sp.bcf(df, **kw)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        direct = _bcf_fit(df, **kw)
-    assert pub.estimate == direct.estimate and pub.se == direct.se
+        old = _bcf_fit(df, **kw)
+        cls = sp.BayesianCausalForest(data=df, **kw).fit()
+    assert (old.estimate, old.se, old.ci) == (cls.estimate, cls.se, cls.ci)
 
 
 def test_bcf_ordinal_does_not_emit_the_bcf_rerouting_warning():
@@ -391,8 +469,8 @@ def test_balance_table_level_smd_separating_level_uses_whole_sample_sd():
 
 def test_internal_sun_abraham_wrappers_do_not_leak_the_futurewarning():
     """did_summary / did_analysis / auto_did call sun_abraham for the user,
-    who cannot pass aggregation= through them, so they pin today's default
-    and must not surface the headline FutureWarning."""
+    who cannot pass aggregation= through them; no headline FutureWarning
+    may surface (1.40 pinned the old default, 1.41 has no warning)."""
     import warnings
 
     import numpy as np
