@@ -114,9 +114,19 @@ def cluster_cate(
     """
     from sklearn.cluster import KMeans
 
+    from ..exceptions import MethodIncompatibility
+
     df = data[[y, treat] + list(covariates)].dropna().reset_index(drop=True)
     if df[treat].nunique() != 2:
         raise ValueError("Cluster-CATE requires binary treatment.")
+    if not set(np.unique(df[treat].to_numpy(dtype=float))) <= {0.0, 1.0}:
+        # Any other coding made ``D == 0`` empty: every cluster was skipped
+        # and an empty table came back without a word.
+        raise MethodIncompatibility(
+            f"cluster_cate: treatment {treat!r} must be coded 0/1; got "
+            f"{sorted(np.unique(df[treat]).tolist())}.",
+            recovery_hint="Recode the treatment as 0 (control) / 1 (treated).",
+        )
     Y = df[y].to_numpy(float)
     D = df[treat].to_numpy(int)
     X = df[covariates].to_numpy(float)
@@ -150,6 +160,16 @@ def cluster_cate(
             }
         )
 
+    if len(rows) < n_clusters:
+        import warnings
+
+        warnings.warn(
+            f"cluster_cate: {n_clusters - len(rows)} of {n_clusters} clusters "
+            "have fewer than 5 units or lack a treated or a control unit and "
+            "are left out of the table.",
+            UserWarning,
+            stacklevel=2,
+        )
     return ClusterCATEResult(
         cluster_table=pd.DataFrame(rows),
         n_clusters=len(rows),

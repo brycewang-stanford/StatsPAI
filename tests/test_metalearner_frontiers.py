@@ -65,7 +65,9 @@ def test_focal_cate(functional_data):
     assert res.cate_grid.shape == (len(df), 5)
     # Mean CATE should be around (1.0 + 0.2*2) ≈ 1.4
     np.testing.assert_allclose(res.cate_grid.mean(), 1.39341894)
-    np.testing.assert_allclose(res.se_grid.mean(), 0.80039643)
+    # Oct 2026 scan: the HC1 SE of the linear CATE prediction; before, the
+    # residual SD of the pseudo-outcome regression (0.80039643).
+    np.testing.assert_allclose(res.se_grid.mean(), 0.112968420538373)
     assert 0.5 < res.cate_grid.mean() < 2.5
 
 

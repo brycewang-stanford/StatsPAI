@@ -24,7 +24,8 @@ class FunctionalCATEResult(ResultProtocolMixin):
 
     Returned by :func:`focal_cate`. Holds the estimated CATE surface
     ``cate_grid`` of shape ``(n_test, n_function_points)`` together with
-    matching standard errors and the function-evaluation grid.
+    ``se_grid``, the HC1 standard error of each linear CATE prediction
+    (nuisances treated as known), and the function-evaluation grid.
 
     Examples
     --------
@@ -71,6 +72,26 @@ class FunctionalCATEResult(ResultProtocolMixin):
             f"  Min / Max τ  : {self.cate_grid.min():+.4f} /"
             f" {self.cate_grid.max():+.4f}\n"
         )
+
+
+def _linear_prediction_se(
+    X: np.ndarray, resid: np.ndarray, Xt: np.ndarray
+) -> np.ndarray:
+    """HC1 standard error of ``x' beta`` from the OLS of the pseudo-outcome
+    on ``[1, X]``, at each row of ``Xt``.
+
+    Treats the nuisance fits behind the pseudo-outcome as known (first-order
+    correct for the doubly robust score). Before the Oct 2026 scan the
+    reported value was the residual standard deviation of the pseudo-outcome
+    regression, a spread of individual scores that does not shrink with n.
+    """
+    Z = np.column_stack([np.ones(len(X)), X])
+    Zt = np.column_stack([np.ones(len(Xt)), Xt])
+    n, k = Z.shape
+    bread = np.linalg.pinv(Z.T @ Z)
+    meat = (Z * (resid**2)[:, None]).T @ Z
+    V = bread @ meat @ bread * (n / max(n - k, 1))
+    return np.asarray(np.sqrt(np.einsum("ij,jk,ik->i", Zt, V, Zt)), dtype=float)
 
 
 def focal_cate(
@@ -169,10 +190,7 @@ def focal_cate(
         try:
             cate_model = LinearRegression().fit(X, psi)
             cate_grid[:, j] = cate_model.predict(Xt)
-            # Approx SE: std of psi residuals
-            se_grid[:, j] = float(
-                np.std(psi - cate_model.predict(X), ddof=1)
-            ) * np.ones(n_test)
+            se_grid[:, j] = _linear_prediction_se(X, psi - cate_model.predict(X), Xt)
         except Exception as exc:
             from ..core._fallback import warn_fallback
 

@@ -355,6 +355,13 @@ def cate_eval(
     >>> tau_hat = ml.predict(X)                       # doctest: +SKIP
     >>> sp.cate_eval(tau_hat, Y, T, X=X).summary()    # doctest: +SKIP
     """
+    if str(target).upper() not in ("AUTOC", "QINI"):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"cate_eval: target must be 'AUTOC' or 'QINI'; got {target!r}.",
+            recovery_hint="Use target='AUTOC' or target='QINI'.",
+        )
     cate = np.asarray(cate, dtype=float).ravel()
     Y = np.asarray(Y, dtype=float).ravel()
     T = np.asarray(T, dtype=float).ravel()
@@ -426,6 +433,6 @@ def cate_eval(
         qini_ci=(qini - z * se_qini, qini + z * se_qini),
         toc_curve=toc_df,
         n_obs=n,
-        target=target.upper(),
+        target=str(target).upper(),
         alpha=alpha,
     )
