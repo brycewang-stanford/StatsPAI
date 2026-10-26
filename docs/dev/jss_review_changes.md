@@ -5706,3 +5706,26 @@ The freeze is inactive (not submitted); recorded for the re-anchor to 1.40.1.
   - `tests/perf/results/perf_table.tex`
   - `tests/perf/figures/track_c_loglog.pdf`
   - `tests/perf/figures/track_c_loglog.png`
+
+### 2026-10-27 — trace ledgers re-recorded after the option scan of 18 modules
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `593bb19fb`, `7482f61e7`, `402c525e0`, `1f2480bd7`.
+- **Reason.** The option scan (spatial, bartik, survival, epi, mendelian,
+  qte, bounds, selection, postestimation, inference, robustness, survey,
+  multilevel, gmm, metalearners, tmle, conformal_causal, policy_learning),
+  the 1.41 default switches, and fixes in `core/results.py`,
+  `postestimation/_covariance.py` and `panel/hdfe.py` changed source files
+  on the estimation paths of most Track A and all original-data modules.
+  Each module was re-run first: `verify_reproduce_py.py` reports 89
+  reproduce, 0 drift, and the original-data results moved by at most 2e-11
+  relative (restored). Module 70's script now passes
+  `value_evaluation="in_sample"` (the `sp.policy_tree` default became
+  cross-fitted in 1.41); its committed result reproduces byte for byte.
+- **Effect on the paper.** None. No committed parity result changed.
+  Track C is stale on main because `core/results.py` changed (it backs the
+  v1.40.2 numbers; not re-timed).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
