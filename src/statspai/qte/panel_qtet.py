@@ -57,6 +57,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from ..exceptions import MethodIncompatibility
 from .qte import QTEResult
 
 __all__ = ["panel_qtet"]
@@ -176,6 +177,17 @@ def _prepare(
     df = data[cols].dropna()
     periods = [tmin2, tmin1, t]
     df = df[df[time].isin(periods)]
+    # A unit listed twice in a period would pass the balance check below and
+    # be counted twice (or, with unequal duplication, misalign the periods).
+    dup = df.duplicated(subset=[unit, time], keep=False)
+    if dup.any():
+        shown = df.loc[dup, unit].unique()[:5].tolist()
+        raise MethodIncompatibility(
+            f"panel_qtet: {int(dup.sum())} rows share a ({unit}, {time}) pair "
+            f"with another row (units {shown}). Each unit needs exactly one "
+            "row per period.",
+            recovery_hint="Drop or aggregate the duplicated unit-period rows.",
+        )
 
     # Keep only units observed in all three periods.
     counts = df.groupby(unit)[time].nunique()

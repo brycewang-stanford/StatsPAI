@@ -521,34 +521,18 @@ def qdid(
 # ══════════════════════════════════════════════════════════════════════
 
 
-def _qreg_coef(
-    y: np.ndarray, X: np.ndarray, tau: float, max_iter: int = 500, tol: float = 1e-6
-) -> np.ndarray:
-    """Interior-point quantile regression via iteratively reweighted LS.
+def _qreg_coef(y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
+    """Quantile-regression coefficients: the exact check-function minimiser.
 
-    Minimises  sum rho_tau(y - X beta)  where rho_tau(u) = u*(tau - I(u<0)).
-    Uses the IRLS algorithm of Koenker & d'Orey (1987).
+    Delegates to the solver of ``sp.qreg`` (``regression.quantile._qreg_fit``,
+    the dual LP finished at its vertex), which matches ``quantreg::rq``. Until
+    2026-10-27 this was an iteratively reweighted least-squares loop stopped
+    at a coefficient change of 1e-6, which lands near the minimiser but not
+    on it (off by up to 0.04 on a 500-row example).
     """
-    n, k = X.shape
-    # OLS start
-    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    from ..regression.quantile import _qreg_fit
 
-    for _ in range(max_iter):
-        resid = y - X @ beta
-        # Weights: avoid division by zero
-        w = np.where(resid > 0, tau, 1 - tau) / np.maximum(np.abs(resid), 1e-8)
-        # X'W without the n x n diagonal; row-major, as X.T @ diag(w) returns it,
-        # so the products below round the same way
-        XtW = np.ascontiguousarray(X.T * w)
-        try:
-            beta_new = np.linalg.solve(XtW @ X, XtW @ y)
-        except np.linalg.LinAlgError:
-            break
-        if np.max(np.abs(beta_new - beta)) < tol:
-            beta = beta_new
-            break
-        beta = beta_new
-    return np.asarray(beta)
+    return np.asarray(_qreg_fit(np.asarray(y, float), np.asarray(X, float), tau))
 
 
 _QTE_METHODS = ("firpo_qte", "firpo_qtt", "conditional_qr", "distribution")
@@ -669,9 +653,11 @@ def qte(
     cols = [y, treatment] + (controls or [])
     df = data[cols].dropna()
     yv = df[y].values.astype(float)
-    dv = df[treatment].astype(int).values
-    if not np.all(np.isin(dv, (0, 1))):
+    # check before converting: astype(int) would truncate 0.6 to 0
+    dv_raw = df[treatment].to_numpy(dtype=float)
+    if not np.all(np.isin(dv_raw, (0.0, 1.0))):
         raise ValueError("treatment must be binary (0/1).")
+    dv = dv_raw.astype(int)
 
     if method in ("firpo_qte", "firpo_qtt"):
         return _qte_firpo(

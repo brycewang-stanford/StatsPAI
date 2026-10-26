@@ -14,6 +14,7 @@ Athey, S. & Imbens, G. W. (2006).
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -22,6 +23,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 # numpy 2.0 renamed ``trapz`` to ``trapezoid``; the project supports numpy 1.x
 # on older Pythons, so bind whichever exists.
@@ -486,9 +488,33 @@ def distributional_te(
         raise ValueError("Covariates (x) required for DR method.")
 
     rng = np.random.default_rng(seed)
-    Y_vec = data[y].values.astype(float)
-    D_vec = data[treatment].values.astype(int)
-    X_mat = data[x].values.astype(float) if x is not None else None
+    cols = [y, treatment] + list(x or [])
+    frame = data[cols].dropna()
+    if len(frame) < len(data):
+        # Until 2026-10-27 a single missing value turned the evaluation grid
+        # and every reported number into NaN, without a message.
+        warnings.warn(
+            f"distributional_te: dropped {len(data) - len(frame)} row(s) with "
+            "missing values.",
+            UserWarning,
+            stacklevel=2,
+        )
+    Y_vec = frame[y].to_numpy(dtype=float)
+    D_raw = frame[treatment].to_numpy(dtype=float)
+    codes = (0.0, 1.0, 2.0, 3.0) if method == "cic" else (0.0, 1.0)
+    if not np.isin(D_raw, codes).all():
+        coding = (
+            "0-3 (ctrl-pre, ctrl-post, treat-pre, treat-post)"
+            if method == "cic"
+            else "0/1"
+        )
+        raise MethodIncompatibility(
+            f"distributional_te(method={method!r}): treatment must be coded "
+            f"{coding}; found {sorted(np.unique(D_raw).tolist())[:6]}.",
+            recovery_hint=f"Recode {treatment!r} as {coding}.",
+        )
+    D_vec = D_raw.astype(int)
+    X_mat = frame[list(x)].to_numpy(dtype=float) if x is not None else None
     n = len(Y_vec)
 
     taus = np.asarray(quantiles if quantiles else [0.1, 0.25, 0.5, 0.75, 0.9])
