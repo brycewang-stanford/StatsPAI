@@ -89,6 +89,94 @@
       "ci_hi": null,
       "n": 1000,
       "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "power_slope_0p02_t196",
+      "estimate": 0.3316343334177826,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "bayes_factor_slope_0p02_t196",
+      "estimate": 0.7675451946792229,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "likelihood_ratio_slope_0p02_t196",
+      "estimate": 0.3691806693974927,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "power_slope_0p05_t196",
+      "estimate": 0.9014943929982057,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "bayes_factor_slope_0p05_t196",
+      "estimate": 0.11312296440768599,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "likelihood_ratio_slope_0p05_t196",
+      "estimate": 0.004482694940487286,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "slope_for_power_0p5_t196",
+      "estimate": 0.027914304047844472,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    },
+    {
+      "module": "76_pretrends",
+      "side": "py",
+      "statistic": "slope_for_power_0p8_t196",
+      "estimate": 0.042435113157097026,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
     }
   ],
   "extra": {

@@ -74,6 +74,65 @@ for (target in c(0.5, 0.8)) {
   )
 }
 
+# Rows *_t196: the same quantities computed deterministically, as a
+# documented modification of the package's numerics only. The rows above
+# differ from StatsPAI's default for two reasons, neither of them the
+# estimator: pretrends fixes the pre-test threshold at 1.96 (StatsPAI's
+# default is qnorm(0.975)), and it calls mvtnorm::pmvnorm at its default
+# abseps = 1e-3 and locates slope_for_power with uniroot's default tolerance
+# (1.2e-4). Here pmvnorm runs Miwa's deterministic algorithm and the root is
+# found with pretrends' own rejection-probability function at tol = 1e-14.
+# StatsPAI joins these rows with threshold = 1.96.
+.pmvnorm_default <- mvtnorm::pmvnorm
+utils::assignInNamespace(
+  "pmvnorm",
+  function(..., algorithm = NULL) {
+    .pmvnorm_default(..., algorithm = mvtnorm::Miwa(steps = 4096, checkCorr = FALSE))
+  },
+  ns = "mvtnorm"
+)
+for (slope in c(0.02, 0.05)) {
+  r <- pretrends(
+    betahat = beta, sigma = sigma, deltatrue = slope * (tVec + 1),
+    tVec = tVec, referencePeriod = -1
+  )
+  vals <- c(
+    power = r$df_power$Power,
+    bayes_factor = r$df_power$Bayes.Factor,
+    likelihood_ratio = r$df_power$Likelihood.Ratio
+  )
+  for (nm in names(vals)) {
+    rows[[length(rows) + 1]] <- parity_row(
+      module    = MODULE,
+      statistic = sprintf("%s_slope_%s_t196", nm, tag(slope)),
+      estimate  = unname(vals[[nm]]),
+      se        = NA_real_,
+      n         = 1000L
+    )
+  }
+}
+pre_idx <- which(tVec < -1)
+for (target in c(0.5, 0.8)) {
+  sl <- stats::uniroot(
+    function(s) {
+      pretrends:::rejectionProbability_NIS(
+        betaPre = (tVec[pre_idx] + 1) * s,
+        SigmaPre = sigma[pre_idx, pre_idx],
+        thresholdTstat.Pretest = 1.96
+      ) - target
+    },
+    lower = 0, upper = 8 * max(se[pre_idx]), tol = 1e-14, maxiter = 1000
+  )$root
+  rows[[length(rows) + 1]] <- parity_row(
+    module    = MODULE,
+    statistic = sprintf("slope_for_power_%s_t196", tag(target)),
+    estimate  = as.numeric(sl),
+    se        = NA_real_,
+    n         = 1000L
+  )
+}
+utils::assignInNamespace("pmvnorm", .pmvnorm_default, ns = "mvtnorm")
+
 write_results(MODULE, rows, extra = list(
   reference = "pretrends::pretrends / pretrends::slope_for_power",
   pretrends = as.character(utils::packageVersion("pretrends"))

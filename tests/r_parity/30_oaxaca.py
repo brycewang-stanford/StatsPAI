@@ -76,7 +76,28 @@ def main() -> None:
         ParityRecord(MODULE, "py", "beta_b_exper",
                      estimate=float(gs["beta_b"]["exper"]),
                      n=int(len(df))),
+        # Threefold components, point estimates only: R bootstraps their SEs
+        # and Stata's default treats the covariate means as random, so the
+        # SEs are compared below under the convention StatsPAI uses.
+        ParityRecord(MODULE, "py", "explained_threefold_endowments",
+                     estimate=float(overall["endowments"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "interaction_threefold",
+                     estimate=float(overall["interaction"]),
+                     n=int(len(df))),
     ]
+
+    # StatsPAI's delta-method SEs use HC1 group regressions and hold the
+    # covariate means fixed. Stata `oaxaca, vce(robust) fixed` computes
+    # exactly that, so these rows pin the SE convention itself; the default
+    # `unexplained` SE above differs from Stata's default (classical
+    # regressions, stochastic means) by that convention only.
+    for comp in ("endowments", "coefficients", "interaction"):
+        rows.append(ParityRecord(
+            MODULE, "py", f"{comp}_hc1_fixed",
+            estimate=float(overall[comp]),
+            se=float(overall[f"{comp}_se"]),
+            n=int(len(df))))
 
     # Detailed contributions.
     for _, row in res.detailed.iterrows():

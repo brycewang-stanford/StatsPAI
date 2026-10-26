@@ -199,6 +199,28 @@
       "ci_hi": null,
       "n": 731,
       "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "avg_post_gap_w3dp",
+      "estimate": -0.7039505357142865,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
+    },
+    {
+      "module": "07_scm",
+      "side": "py",
+      "statistic": "pre_treatment_rmse_w3dp",
+      "estimate": 0.07921006397548237,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 731,
+      "extra": {}
     }
   ],
   "extra": {

@@ -33,6 +33,17 @@ output did not state, and the output now states them.
   under z (`xtreg, re` with `ssc='stata'`, Stata 21.516). Classical-variance
   fits keep linearmodels' F, which is the same number.
 
+- `sp.frontier` and `sp.xtfrontier` (Pitt-Lee `ti`, Battese-Coelli `tvd`)
+  standard errors came from a plain central-difference Hessian with step
+  1e-5, whose round-off is about 1e-5 relative: on Track A module 28,
+  perturbing the outcome by one ulp moved the intercept SE by 1.7e-5, and the
+  reported SE sat 1.3e-5 from R `sfaR` and Stata `frontier`, which agree with
+  each other to 1e-8. Both now use the Richardson-extrapolated Hessian the
+  mixture models already used, and finish the quasi-Newton search with Newton
+  steps. SEs move by up to about 2e-5 relative and estimates by up to about
+  3e-6; module 28 now agrees with both references to 1e-8 and module 29 with
+  Stata `xtfrontier, ti` to 2e-10 (estimates) and 8e-10 (SEs), from 3e-6.
+
 ### Announced for 1.42 (owner decisions 2026-10-24)
 
 - **`sp.iv(method='gmm')` defaults to the robust weight matrix.** Without
@@ -61,6 +72,38 @@ output did not state, and the output now states them.
 
 ### Fixed
 
+- Parity harness (Track A). Every gap above 1e-6 now has a written reason,
+  row by row (`compare.py::ROW_GAP_NOTES`), on both reference sides and for
+  estimates and SEs, and a convention gap must come with rows that reproduce
+  the reference's convention at 1e-6 or better. Building the table found:
+  - The Python side fitted the in-memory frame, while R and Stata parsed the
+    `%.16g` CSV, which does not round-trip every double. `dump_csv` now
+    replaces the float columns with the correctly rounded parse, which is
+    also what Stata reads, so Python and Stata see identical doubles. R's
+    `read.csv` differs in the last bit on 10-36% of fixture values; the
+    harness records this and does not hide it. Six results moved beyond the
+    1e-9 reproducibility floor: the forest's single draw, frontier ×2, ARIMA,
+    CR2 and spatial.
+  - Module 76's 4e-4 gap, put down to `mvtnorm`'s randomised integrator, was
+    mostly `pretrends`' fixed 1.96 cutoff, plus `uniroot`'s default tolerance.
+    New `*_t196` rows join at 1.6e-8; the module moves to the machine tier.
+  - The Oaxaca Stata SE (1.2%) sat under a budget written for R's bootstrap.
+    It is two conventions: classical vs HC1 group regressions, and
+    stochastic vs fixed covariate means. `oaxaca, vce(robust) fixed` now
+    joins StatsPAI at 2e-14 on all three threefold components.
+  - Convention rows also pin `glm`'s expected information for probit
+    (against `sampleSelection::probit`, 1e-12), `glm.nb`'s conditional-on-θ
+    SEs (3e-13), `betareg`'s expected information (`hessian = TRUE`,
+    1.2e-7), and Stata `newey`'s N/(N-K) (`hac_small=True`, 4e-16).
+  - `fixest` at `glm.tol = 1e-12` removes module 67's 1e-5 SE gap (1e-15
+    logit, 1e-7 Poisson).
+  - Stata `synth` builds its synthetic path from weights rounded to 0.001,
+    so module 07's Stata gap is that rounding. StatsPAI's weights rounded the
+    same way reproduce Stata's gap to 5e-16 (`*_w3dp` rows).
+  - Stata `sdid`'s `e(ATT)` keeps 7 significant digits. The do-file now
+    reads the full value and agrees to 1e-15.
+  - SE budgets of 18 modules tightened to 1e-6; the tier census is 82
+    machine / 5 iterative (was 80 / 7).
 - `sp.recommend(design='did', treat_time=...)` with a time-invariant group
   indicator as `treatment` on a panel: the Callaway-Sant'Anna card derived
   each unit's cohort as its first "treated" period, which for a group
@@ -85,6 +128,11 @@ output did not state, and the output now states them.
 
 ### Added
 
+- `sp.pretrends_power(threshold=)` and `sp.pretrends_slope_for_power(threshold=)`:
+  the critical |t| of the coefficient-by-coefficient pre-test. The default
+  stays `qnorm(1 - alpha/2)`; Roth's `pretrends` package fixes it at 1.96,
+  and `threshold=1.96` reproduces that package (Track A module 76, 1.6e-8
+  against `pretrends` with an exact integrator).
 - `sp.iv(method='gmm', wmatrix=)`: the weight matrix (`'robust'`,
   `'unadjusted'`, `'cluster'`) separately from the variance, as
   `ivregress gmm`'s `wmatrix()` and `vce()`. `wmatrix='robust', cluster='g'`

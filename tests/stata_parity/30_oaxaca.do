@@ -47,7 +47,19 @@ stata_parity_row, stat(unexplained) est(`unexplained') std(`se_unexplained') nob
 stata_parity_row, stat(mean_y_a) est(`mean_y_1') nob(`n')
 stata_parity_row, stat(mean_y_b) est(`mean_y_2') nob(`n')
 
+* The SE convention StatsPAI uses: HC1 group regressions with the covariate
+* means held fixed. The default run above uses classical regressions and
+* treats the means as random (paper.bib: jann2008blinder), which is the whole of its SE gap.
+quietly oaxaca log_wage educ exper, by(female) vce(robust) fixed
+matrix BF = e(b)
+matrix VF = e(V)
+foreach comp in endowments coefficients interaction {
+    local bc = BF[1, "overall:`comp'"]
+    local sc = sqrt(VF["overall:`comp'", "overall:`comp'"])
+    stata_parity_row, stat(`comp'_hc1_fixed) est(`bc') std(`sc') nob(`n')
+}
+
 stata_parity_extra, key(decomposition) val(threefold)
-stata_parity_extra, key(stata_command) val("oaxaca log_wage educ exper, by(female)")
+stata_parity_extra, key(stata_command) val("oaxaca log_wage educ exper, by(female) [vce(robust) fixed]")
 
 stata_parity_close, module(30_oaxaca)

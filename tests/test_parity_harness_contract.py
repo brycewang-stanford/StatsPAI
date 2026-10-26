@@ -200,9 +200,13 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # the randomisation-adjusted standard error, worst row 3.5e-15. It is the
     # only design-based module in the harness -- identification is random
     # adoption timing, not parallel trends.
-    # 79_didff sits in the iterative tier for one row per design -- its
-    # p-value is a 100k-draw simulation on each side; the sixteen
-    # implied-density bins themselves agree at 1.2e-15.
+    # 79_didff joined the machine tier in 2026-10: its simulated p-value
+    # (one row per design) is a registered stochastic-screen row, and the
+    # sixteen implied-density bins agree at 1.2e-15.
+    # 76_pretrends joined the machine tier in 2026-10: the headline is the
+    # threshold=1.96 rows against pretrends with an exact integrator
+    # (1.6e-8); its old iterative budget had absorbed pretrends' fixed 1.96
+    # cutoff as if it were integrator noise.
     # 84_bjs_pretrends joins the machine tier on point estimates: the three
     # leads reproduce Stata did_imputation, pretrends(3) at ~1e-15 on both
     # coefficient and SE, and the four horizons reproduce both references
@@ -246,8 +250,8 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # quantile and against the closed form at M = 0, and the old 5e-4 budget
     # only ever covered HonestDiD's simulated quantile.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 80,
-        "iterative": 7,
+        "machine": 82,
+        "iterative": 5,
         "moderate": 1,
         "methodological": 1,
     }
@@ -409,8 +413,12 @@ def test_mediation_point_effects_are_exact_with_se_convention_guard():
 
     assert compare.TOLERANCES["36_mediation"] == {
         "rel_est": 1e-6,
-        "rel_se": 0.10,
+        "rel_se": 1e-6,
     }
+    for side in ("R", "Stata"):
+        for statistic in ("acme", "ade"):
+            note = compare.row_gap_note("36_mediation", side, "se", statistic)
+            assert note and note["kind"] == "stochastic_reference"
     assert compare.tolerance_tier("36_mediation") == "machine"
     assert "bootstrap" in py_payload["extra"]["se_note"]
     assert r_payload["extra"]["method"] == ["mediation::mediate"]
@@ -438,7 +446,7 @@ def test_glmm_parity_uses_tight_optimizer_solution_with_se_convention_guard():
         rows = {row.statistic: row for row in compare.collect(module)}
 
         assert compare.TOLERANCES[module]["rel_est"] == rel_tol
-        assert compare.TOLERANCES[module]["rel_se"] == 1e-2
+        assert compare.TOLERANCES[module]["rel_se"] == 1e-6
         assert compare.tolerance_tier(module) == "iterative"
         assert py_payload["extra"]["optimizer_tol"] == 1e-8
         assert (
@@ -463,7 +471,7 @@ def test_glmm_parity_uses_tight_optimizer_solution_with_se_convention_guard():
     # melogit (mvaghermite) sits 2e-8 from StatsPAI. The logLik row is
     # the proof that the likelihood itself is shared (rel 1e-13 vs R).
     assert compare.TOLERANCES["27_glmm_aghq"]["rel_est"] == 5e-6
-    assert compare.TOLERANCES["27_glmm_aghq"]["rel_se"] == 2e-5
+    assert compare.TOLERANCES["27_glmm_aghq"]["rel_se"] == 1e-6
     assert compare.tolerance_tier("27_glmm_aghq") == "iterative"
     assert py_payload["extra"]["optimizer_tol"] == 1e-12
     assert py_payload["extra"]["optimizer_maxiter"] == 5000
@@ -1029,6 +1037,7 @@ def test_every_r_se_row_is_inside_budget():
             (row.statistic, row.rel_se)
             for row in compare.collect(module)
             if row.rel_se is not None
+            and compare.row_gap_note(module, "R", "se", row.statistic) is None
         ]
         over = [(s, v) for s, v in values if v > budget]
         assert not over, f"{module}: R SE rows over rel_se={budget:g}: {over}"
@@ -1050,7 +1059,9 @@ def test_every_stata_se_row_is_inside_budget_or_registered():
         over = [
             (row.statistic, row.rel_se_st)
             for row in rows
-            if row.rel_se_st is not None and row.rel_se_st > budget
+            if row.rel_se_st is not None
+            and row.rel_se_st > budget
+            and compare.row_gap_note(module, "Stata", "se", row.statistic) is None
         ]
         registered = (
             module in compare.STATA_HEADLINE_GAP_EXCEPTIONS
@@ -1064,6 +1075,113 @@ def test_every_stata_se_row_is_inside_budget_or_registered():
             assert (
                 over
             ), f"{module}: STATA_SE_GAP_NOTES entry is stale (no row over budget)"
+
+
+def _rows_over_machine_level(compare: ModuleType):
+    """(module, side, quantity, statistic, rel) for every joined row of a T2
+    module whose gap exceeds machine level."""
+    out = []
+    for module in sorted(_module_stems(R_RESULTS, "_py")):
+        if compare.evidence_grade(module) != "T2":
+            continue
+        for row in compare.collect(module):
+            for side, quantity, rel, abs_gap in (
+                ("R", "est", row.rel_est, row.abs_est),
+                ("R", "se", row.rel_se, row.abs_se),
+                ("Stata", "est", row.rel_est_st, row.abs_est_st),
+                ("Stata", "se", row.rel_se_st, row.abs_se_st),
+            ):
+                if compare.over_machine_level(rel, abs_gap):
+                    out.append((module, side, quantity, row.statistic, rel))
+    return out
+
+
+def _registered_elsewhere(compare: ModuleType, module, side, quantity) -> bool:
+    """Stata gaps registered in the two older, module-level tables."""
+    if side != "Stata":
+        return False
+    if quantity == "se" and module in compare.STATA_SE_GAP_NOTES:
+        return True
+    return quantity == "est" and module in compare.STATA_HEADLINE_GAP_EXCEPTIONS
+
+
+def test_every_gap_over_machine_level_is_registered():
+    """No joined row of a T2 module differs by more than machine level
+    without a written reason.
+
+    A module budget bounds how far rows may drift; it does not say why a
+    row is not at machine level, and a budget justified by one row can
+    silently cover another (the Oaxaca Stata SE sat 1.2% away under a 5e-2
+    budget written for the R bootstrap). Every such row, on either side,
+    for the estimate or the SE, must match a ROW_GAP_NOTES entry.
+    """
+    compare = _load_compare()
+    unexplained = [
+        item
+        for item in _rows_over_machine_level(compare)
+        if compare.row_gap_note(*item[:4]) is None
+        and not _registered_elsewhere(compare, *item[:3])
+    ]
+    assert not unexplained, (
+        "rows over machine level without a ROW_GAP_NOTES entry: " f"{unexplained}"
+    )
+
+
+def test_row_gap_notes_are_not_stale():
+    """Each ROW_GAP_NOTES entry still explains at least one row."""
+    compare = _load_compare()
+    over = _rows_over_machine_level(compare)
+    for module, entries in compare.ROW_GAP_NOTES.items():
+        assert module in compare.TOLERANCES, module
+        for entry in entries:
+            assert entry["kind"] in {
+                "convention",
+                "reference_numerics",
+                "stochastic_reference",
+            }, (module, entry["kind"])
+            assert entry["note"].strip(), module
+            hits = [
+                item
+                for item in over
+                if item[0] == module and compare.row_gap_note(*item[:4]) is entry
+            ]
+            assert hits, f"{module}: stale ROW_GAP_NOTES entry {entry['rows']!r}"
+
+
+def test_registered_pins_join_at_machine_level():
+    """A pinned mechanism is demonstrated: the pinning rows join their side
+    at machine level on the registered quantity."""
+    compare = _load_compare()
+    for module, entries in compare.ROW_GAP_NOTES.items():
+        rows = compare.collect(module)
+        for entry in entries:
+            pin = entry.get("pinned_by")
+            if entry["kind"] == "convention" and module not in {
+                "17_etwfe",
+                "27_glmm_aghq",
+            }:
+                # Every convention gap carries rows that reproduce it, except
+                # the two whose reconstruction is a different fit (jwdid
+                # without ivar(); 30 quadrature points), recorded in the note.
+                assert pin, f"{module}: convention entry without pinned_by"
+            if not pin:
+                continue
+            side = entry["pin_side"]
+            pinned = [r for r in rows if re.search(pin, r.statistic)]
+            joined = []
+            for r in pinned:
+                for quantity in entry["quantity"].split("|"):
+                    rel, abs_gap = {
+                        ("R", "est"): (r.rel_est, r.abs_est),
+                        ("R", "se"): (r.rel_se, r.abs_se),
+                        ("Stata", "est"): (r.rel_est_st, r.abs_est_st),
+                        ("Stata", "se"): (r.rel_se_st, r.abs_se_st),
+                    }[(side, quantity)]
+                    if rel is not None:
+                        joined.append((r.statistic, quantity, rel, abs_gap))
+            assert joined, f"{module}: pin {pin!r} joins nothing on {side}"
+            bad = [j for j in joined if compare.over_machine_level(j[2], j[3])]
+            assert not bad, f"{module}: pinning rows over machine level: {bad}"
 
 
 def test_stata_headline_over_budget_modules_are_explicitly_registered():

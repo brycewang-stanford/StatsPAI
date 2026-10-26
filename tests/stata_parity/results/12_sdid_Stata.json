@@ -6,13 +6,14 @@
       "module": "12_sdid",
       "side": "Stata",
       "statistic": "att_sdid",
-      "estimate": -15.94839,
+      "estimate": -15.94838884672097,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 1209,
       "extra": {}
-    },
+    }
+,
     {
       "module": "12_sdid",
       "side": "Stata",

@@ -29,6 +29,18 @@ def main():
                 estimate=float(res.params[nm]),
                 se=float(res.std_errors[nm]),
                 n=int(len(df))))
+    # MASS::glm.nb reports the beta SEs of the IRLS fit with the dispersion
+    # held at its estimate (the expected information, block-diagonal in
+    # beta and theta); sp.nbreg's default is the joint observed information
+    # (as Stata nbreg). The fit also carries the conditional SEs, which pin
+    # glm.nb's convention on the *_condse rows.
+    cond = res.model_info["se_conditional_on_dispersion"]
+    for nm, label in [("_cons", "intercept"), ("x1", "x1"), ("x2", "x2")]:
+        rows.append(ParityRecord(MODULE, "py",
+            f"beta_{label}_condse",
+            estimate=float(res.params[nm]),
+            se=float(cond[nm]),
+            n=int(len(df))))
     write_results(MODULE, "py", rows, extra={"dispersion": "mean", "engine": "statsmodels"})
 
 if __name__ == "__main__":

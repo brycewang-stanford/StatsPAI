@@ -38445,6 +38445,10 @@
             "joint"
           ],
           "type": "string"
+        },
+        "threshold": {
+          "description": "Critical ``|t|`` of the coefficient-by-coefficient pre-test (``test=\"individual\"``). Default ``z_{1-alpha/2}`` (1.959964 at ``alpha=0.05``). Roth's ``pretrends`` package fixes it at 1.96, which moves the power in the fifth digit; ``threshold=1.96`` reproduces that package.",
+          "type": "number"
         }
       },
       "required": [
@@ -38492,6 +38496,10 @@
             "joint"
           ],
           "type": "string"
+        },
+        "threshold": {
+          "description": "Critical ``|t|`` of the coefficient-by-coefficient pre-test; see :func:`pretrends_power` (``pretrends`` uses 1.96).",
+          "type": "number"
         }
       },
       "required": [

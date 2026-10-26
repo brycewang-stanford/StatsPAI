@@ -26,7 +26,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{10\_honest\_did} & Honest DiD bounds & abs $\le 1.41e-08$ {\footnotesize (native FLCI; vs HonestDiD with exact quantile, and closed form at M=0; shipped HonestDiD's simulated quantile shown separately)} & \textbf{PASS} \\
 \code{11\_psm} & PSM 1:1 NN & rel $\le 1.2e-15$ {\footnotesize (se\_teffects\_ai joins Stata teffects psmatch's Abadie-Imbens 2016 estimated-score variance at rel 7e-8 via the abadie\_imbens\_2016 SE option; the default psmatch2 ai(1) SE is a documented convention (sample vs population ATT, no score term))} & \textbf{PASS} \\
 \code{12\_sdid} & Synthetic DID & rel $\le 7.8e-16$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & \textbf{PASS} \\
-\code{13\_causal\_forest} & Causal forest (AIPW) & rel $\le 0.00026$ {\footnotesize (T3; single draw per engine, graded by seed-replicated equivalence within 0.1 sampling SE)} & \textbf{PASS} \\
+\code{13\_causal\_forest} & Causal forest (AIPW) & rel $\le 0.00081$ {\footnotesize (T3; single draw per engine, graded by seed-replicated equivalence within 0.1 sampling SE)} & \textbf{PASS} \\
 \code{14\_ols\_cluster} & OLS + cluster-robust SE & rel $\le 3e-14$ & \textbf{PASS} \\
 \code{15\_hdfe\_cluster} & HDFE + cluster SE & rel $\le 5.2e-15$ {\footnotesize (fixest/reghdfe nested-FE cluster correction)} & \textbf{PASS} \\
 \code{16\_bjs} & BJS imputation & rel $\le 4.8e-08$ {\footnotesize (R/Stata simple-ATT point parity; SE rows side-specific)} & \textbf{PASS} \\
@@ -41,9 +41,9 @@ Module & Method & Worst headline diff & Verdict \\
 \code{25\_lmm} & Linear mixed model & rel $\le 2.6e-12$ & \textbf{PASS} \\
 \code{26\_glmm\_logit} & GLMM logit (Laplace) & rel $\le 0.00017$ & \textbf{PASS} \\
 \code{27\_glmm\_aghq} & GLMM logit (AGHQ, n=8) & rel $\le 1.7e-07$ {\footnotesize (same 8-point AGQ likelihood (logLik rel 1e-13); intercept within reference optimiser scatter on a flat objective)} & \textbf{PASS} \\
-\code{28\_frontier} & Stochastic frontier (cross-sec.) & rel $\le 4.1e-08$ & \textbf{PASS} \\
-\code{29\_panel\_sfa} & Panel SFA (Pitt--Lee) & rel $\le 2.8e-06$ {\footnotesize (slope parity; intercept/sigma rows are scale diagnostics)} & \textbf{PASS} \\
-\code{30\_oaxaca} & Blinder--Oaxaca decomposition & rel $\le 6.3e-16$ {\footnotesize (twofold vs threefold split convention)} & \textbf{PASS} \\
+\code{28\_frontier} & Stochastic frontier (cross-sec.) & rel $\le 1.6e-09$ & \textbf{PASS} \\
+\code{29\_panel\_sfa} & Panel SFA (Pitt--Lee) & rel $\le 9.7e-07$ {\footnotesize (slope parity; intercept/sigma rows are scale diagnostics)} & \textbf{PASS} \\
+\code{30\_oaxaca} & Blinder--Oaxaca decomposition & rel $\le 2.6e-15$ {\footnotesize (twofold vs threefold split convention)} & \textbf{PASS} \\
 \code{31\_dfl} & DFL reweighting & rel $\le 1.2e-09$ & \textbf{PASS} \\
 \code{32\_rif} & RIF / UQR (median) & rel $\le 2.2e-15$ & \textbf{PASS} \\
 \code{33\_var} & VAR (vars::VAR) & rel $\le 3.1e-15$ & \textbf{PASS} \\
@@ -52,16 +52,16 @@ Module & Method & Worst headline diff & Verdict \\
 \code{36\_mediation} & Causal mediation (IKT) & rel $\le 6.7e-15$ & \textbf{PASS} \\
 \code{37\_ppmlhdfe} & PPML + HDFE & rel $\le 4.9e-13$ {\footnotesize (post PPML FE-score fix; robust SE within 0.5\% of fixest)} & \textbf{PASS} \\
 \code{38\_drdid} & DR-DID (SZ 2020) & rel $\le 2.6e-15$ {\footnotesize (panel DR-DID calibrated propensity parity with R/Stata)} & \textbf{PASS} \\
-\code{39\_arima} & ARIMA(2,0,0) & rel $\le 7.4e-07$ {\footnotesize (stats::arima ML / tightly converged Stata arima)} & \textbf{PASS} \\
+\code{39\_arima} & ARIMA(2,0,0) & rel $\le 7.6e-07$ {\footnotesize (stats::arima ML / tightly converged Stata arima)} & \textbf{PASS} \\
 \code{40\_qreg} & Quantile reg (median) & rel $\le 1e-15$ {\footnotesize (Hendricks-Koenker nid sandwich (1.32))} & \textbf{PASS} \\
 \code{41\_tobit} & Tobit (left-censored) & rel $\le 1.1e-13$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\
-\code{42\_nbreg} & Negative binomial & rel $\le 5.1e-10$ & \textbf{PASS} \\
+\code{42\_nbreg} & Negative binomial & rel $\le 1e-13$ & \textbf{PASS} \\
 \code{43\_heckman} & Heckman 2-step & rel $\le 1e-11$ & \textbf{PASS} \\
 \code{44\_mlogit} & Multinomial logit & rel $\le 2.6e-07$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\
 \code{45\_ologit} & Ordered logit & rel $\le 1.5e-07$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\
 \code{46\_clogit} & Conditional logit & rel $\le 2e-13$ & \textbf{PASS} \\
 \code{47\_ppmlhdfe\_3fe} & PPML + 3-way HDFE & rel $\le 1.2e-15$ {\footnotesize (Post Gauss-Seidel multi-FE fix; sp matches at 1e-15)} & \textbf{PASS} \\
-\code{48\_probit} & Binary probit & rel $\le 3.1e-07$ & \textbf{PASS} \\
+\code{48\_probit} & Binary probit & rel $\le 9.8e-10$ & \textbf{PASS} \\
 \code{49\_oprobit} & Ordered probit & rel $\le 3.7e-07$ & \textbf{PASS} \\
 \code{50\_xtabond} & Arellano-Bond GMM & rel $\le 9e-16$ {\footnotesize (R/Stata dynamic-panel fixture; block-diagonal instruments and one-step GMM weights match)} & \textbf{PASS} \\
 \code{51\_newey} & Newey-West HAC OLS & rel $\le 1.4e-15$ {\footnotesize (post HAC sandwich sqrt(n) scaling fix)} & \textbf{PASS} \\
@@ -74,13 +74,13 @@ Module & Method & Worst headline diff & Verdict \\
 \code{58\_poisson} & Poisson ML & rel $\le 9.2e-15$ & \textbf{PASS} \\
 \code{59\_liml} & LIML k-class IV & rel $\le 1.7e-15$ {\footnotesize (ivregress runs with `small` (RSS/(n-k)))} & \textbf{PASS} \\
 \code{60\_sureg} & SUR one-step FGLS & rel $\le 1.5e-14$ {\footnotesize (Sigma divisor n (sureg default / noDfCor))} & \textbf{PASS} \\
-\code{61\_betareg} & Beta regression ML & rel $\le 2.2e-12$ {\footnotesize (betareg SEs are expected-information (documented))} & \textbf{PASS} \\
+\code{61\_betareg} & Beta regression ML & rel $\le 3.1e-08$ {\footnotesize (betareg SEs are expected-information (documented))} & \textbf{PASS} \\
 \code{62\_truncreg} & Truncated regression ML & rel $\le 3.5e-10$ & \textbf{PASS} \\
 \code{63\_zip} & Zero-inflated Poisson & rel $\le 1.2e-07$ & \textbf{PASS} \\
 \code{64\_zinb} & Zero-inflated NB & rel $\le 9.5e-07$ {\footnotesize (flat ZINB likelihood near optimum (1e-5 budget))} & \textbf{PASS} \\
-\code{65\_spatial} & Spatial ML (SAR/SEM/SDM) & rel $\le 8.3e-08$ {\footnotesize (vs spatialreg::lagsarlm/errorsarlm/Durbin, row-std rook W)} & \textbf{PASS} \\
+\code{65\_spatial} & Spatial ML (SAR/SEM/SDM) & rel $\le 4.1e-08$ {\footnotesize (vs spatialreg::lagsarlm/errorsarlm/Durbin, row-std rook W)} & \textbf{PASS} \\
 \code{66\_spatial\_gmm} & Spatial GMM (SAR-2SLS/SEM-GMM) & rel $\le 4.6e-08$ {\footnotesize (vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only)} & \textbf{PASS} \\
-\code{67\_panel\_glm} & Panel GLM (feglm / fepois) & rel $\le 9.7e-09$ {\footnotesize (vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5)} & \textbf{PASS} \\
+\code{67\_panel\_glm} & Panel GLM (feglm / fepois) & rel $\le 3.8e-15$ {\footnotesize (vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5)} & \textbf{PASS} \\
 \code{68\_demean\_within} & Within transformation & rel $\le 3.5e-15$ {\footnotesize (sp.demean(solver='map') vs textbook mean-within)} & \textbf{PASS} \\
 \code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance\_panel vs base R counts == n\_periods)} & \textbf{PASS} \\
 \code{70\_policy\_tree} & Policy tree (exact, depth 1--2) & rel $\le 9.6e-16$ {\footnotesize (shared AIPW scores; exact welfare optimum vs policytree, all 1200 per-row policy decisions identical at both depths)} & \textbf{PASS} \\
@@ -89,10 +89,10 @@ Module & Method & Worst headline diff & Verdict \\
 \code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (estimate rel 4.8e-8 and SE rel 2.7e-10 against did2s (Stata did2s: 2.4e-12 / 1.3e-14); vce='analytic' is the did2s corrected two-stage clustered variance, so stage-1 estimation error is propagated on all three sides)} & \textbf{PASS} \\
 \code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
 \code{75\_stacked} & Stacked DiD (never-treated controls) & rel $\le 3.6e-13$ {\footnotesize (rel < 1e-6 vs a hand-written fixest stack)} & \textbf{PASS} \\
-\code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 4e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
+\code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 1.6e-08$ {\footnotesize (threshold=1.96 rows vs pretrends with an exact integrator (1.6e-8); default rows differ by pretrends' fixed 1.96 cutoff)} & \textbf{PASS} \\
 \code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 5.7e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-12), estimates and analytic SEs, across dr / ipw / reg)} & \textbf{PASS} \\
 \code{78\_multiplegt\_dyn} & dCDH intertemporal event study & rel $\le 3.3e-15$ {\footnotesize (machine precision vs DIDmultiplegtDYN (worst 5e-15), across absorbing and switch-off designs)} & \textbf{PASS} \\
-\code{79\_didff} & Functional-form test (Roth--Sant'Anna) & rel $\le 1.3e-14$ {\footnotesize (machine precision vs didFF (worst 1.2e-15); the module's 1e-3 budget covers only the simulated p-value)} & \textbf{PASS} \\
+\code{79\_didff} & Functional-form test (Roth--Sant'Anna) & rel $\le 1.3e-14$ {\footnotesize (machine precision vs didFF (worst 1.2e-15); the simulated p-value row is a stochastic screen)} & \textbf{PASS} \\
 \code{80\_contdid} & Continuous-treatment DiD (CGS) & rel $\le 2.4e-14$ {\footnotesize (machine precision vs contdid::cont\_did (worst 1e-12))} & \textbf{PASS} \\
 \code{81\_didm} & dCDH 2020 DID_M (on/off switching) & rel $\le 3.9e-15$ {\footnotesize (machine precision vs archived DIDmultiplegt 0.1.4)} & \textbf{PASS} \\
 \code{82\_staggered} & Design-based staggered rollout (Roth-Sant'Anna) & rel $\le 9.1e-16$ {\footnotesize (machine precision on all 33 rows (worst 3.7e-15) against both staggered 1.2.2 in R and the SSC staggered port in Stata, including both the Neyman and adjusted standard errors)} & \textbf{PASS} \\

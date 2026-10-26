@@ -2746,7 +2746,7 @@
         "tests/r_parity/42_nbreg.R",
         "tests/stata_parity/42_nbreg.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.005"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.datasets.castle_doctrine()\ndf[\"n_homicide\"] = (df.homicide * df.population / 1e5).round().astype(int)\nr = sp.nbreg(\"n_homicide ~ post + unemployrt\", data=df, cluster=\"state\")",
     "failure_modes": [
@@ -2913,7 +2913,7 @@
     "validation_notes": [
       "R parity module 42_nbreg",
       "Stata parity module 42_nbreg",
-      "Cross-language parity (bit-exact) vs MASS::glm.nb [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=0.005; parity module 42_nbreg -- tests/r_parity/42_nbreg.py",
+      "Cross-language parity (bit-exact) vs MASS::glm.nb [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 42_nbreg -- tests/r_parity/42_nbreg.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_count_weights_stata_parity.py",
@@ -10048,7 +10048,7 @@
         "tests/r_parity/35_panel.R",
         "tests/stata_parity/35_panel.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.dgp_panel(seed=0)\nr = sp.panel(df, \"y ~ x\", id=\"unit\", time=\"time\", method=\"fe\")",
     "failure_modes": [
@@ -10207,7 +10207,7 @@
     "validation_notes": [
       "R parity module 35_panel",
       "Stata parity module 35_panel",
-      "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
+      "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
       "tests/reference_parity/test_hansen_methods_stata_parity.py",
       "tests/reference_parity/test_hausman_stata_parity.py",
       "tests/reference_parity/test_inference_conventions_stata_parity.py",
@@ -31696,7 +31696,7 @@
         "tests/stata_parity/36_mediation.do",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\nr = sp.mediate(\n df, y=\"log_wage\", treat=\"union\", mediator=\"tenure\",\n covariates=[\"education\"], n_boot=100, seed=0,\n)",
     "failure_modes": [
@@ -31883,7 +31883,7 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
+      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 36_mediation -- tests/r_parity/36_mediation.py",
       "tests/external_parity/test_ding_first_course.py",
       "tests/reference_parity/test_mediate_design_Stata_parity.py",
       "tests/reference_parity/test_mediate_nonlinear_stata_parity.py",
@@ -68368,7 +68368,7 @@
         "tests/r_parity/05_sunab.R",
         "tests/stata_parity/05_sunab.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.03"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.datasets.castle_doctrine()\nr = sp.sun_abraham(\n df, y=\"l_homicide\", g=\"effyear\", t=\"year\", i=\"sid\",\n aggregation=\"fixest_att\", crit_dist=\"t\",\n)",
     "failure_modes": [
@@ -68641,7 +68641,7 @@
     "validation_notes": [
       "R parity module 05_sunab",
       "Stata parity module 05_sunab",
-      "Cross-language parity (bit-exact) vs fixest::sunab [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=0.03; parity module 05_sunab -- tests/r_parity/05_sunab.py",
+      "Cross-language parity (bit-exact) vs fixest::sunab [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 05_sunab -- tests/r_parity/05_sunab.py",
       "tests/external_parity/test_dcdh_did_textbook.py",
       "tests/reference_parity/test_dcdh_textbook_stata_parity.py",
       "tests/reference_parity/test_did_validation_parity.py",
@@ -69833,7 +69833,7 @@
         "tests/r_parity/17_etwfe.R",
         "tests/stata_parity/17_etwfe.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.datasets.castle_doctrine()\nr = sp.wooldridge_did(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\",\n)",
     "failure_modes": [
@@ -69969,7 +69969,7 @@
     "validation_notes": [
       "R parity module 17_etwfe",
       "Stata parity module 17_etwfe",
-      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
+      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_did_variants_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
@@ -70020,7 +70020,7 @@
         "tests/r_parity/17_etwfe.R",
         "tests/stata_parity/17_etwfe.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.datasets.castle_doctrine()\nr = sp.etwfe(\n df, y=\"l_homicide\", group=\"sid\", time=\"year\",\n first_treat=\"effyear\",\n)",
     "failure_modes": [
@@ -70287,7 +70287,7 @@
     "validation_notes": [
       "R parity module 17_etwfe",
       "Stata parity module 17_etwfe",
-      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
+      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_etwfe_glm_parity.py",
       "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
       "tests/reference_parity/test_etwfe_options_parity.py",
@@ -79628,12 +79628,12 @@
         "R"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "tests": [
         "tests/r_parity/79_didff.py",
         "tests/r_parity/79_didff.R"
       ],
-      "tolerance": "rel_est<=0.001"
+      "tolerance": "rel_est<=1e-06"
     },
     "example": "sp.functional_form_test(df, y=\"lemp\", g=\"first_treat\", t=\"year\", i=\"countyreal\", n_bins=10)",
     "failure_modes": [
@@ -79849,7 +79849,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "R parity module 79_didff",
-      "Cross-language parity (aligned) vs didFF::didFF [R version 4.5.2 (2025-10-31), didFF 0.1.0]; tolerance rel_est<=0.001; parity module 79_didff -- tests/r_parity/79_didff.py",
+      "Cross-language parity (bit-exact) vs didFF::didFF [R version 4.5.2 (2025-10-31), didFF 0.1.0]; tolerance rel_est<=1e-06; parity module 79_didff -- tests/r_parity/79_didff.py",
       "tests/reference_parity/test_functional_form_extended_parity.py",
       "tests/reference_parity/test_functional_form_parity.py"
     ],
@@ -83460,13 +83460,13 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "tests": [
         "tests/r_parity/76_pretrends.py",
         "tests/r_parity/76_pretrends.R",
         "tests/stata_parity/76_pretrends.do"
       ],
-      "tolerance": "rel_est<=0.001"
+      "tolerance": "rel_est<=1e-06"
     },
     "example": "pw = sp.pretrends_power(es)",
     "failure_modes": [
@@ -83582,6 +83582,10 @@
               "joint"
             ],
             "type": "string"
+          },
+          "threshold": {
+            "description": "Critical ``|t|`` of the coefficient-by-coefficient pre-test (``test=\"individual\"``). Default ``z_{1-alpha/2}`` (1.959964 at ``alpha=0.05``). Roth's ``pretrends`` package fixes it at 1.96, which moves the power in the fifth digit; ``threshold=1.96`` reproduces that package.",
+            "type": "number"
           }
         },
         "required": [
@@ -83595,7 +83599,7 @@
     "validation_notes": [
       "R parity module 76_pretrends",
       "Stata parity module 76_pretrends",
-      "Cross-language parity (aligned) vs pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) [R version 4.5.2 (2025-10-31), pretrends 0.1.0]; tolerance rel_est<=0.001; parity module 76_pretrends -- tests/r_parity/76_pretrends.py",
+      "Cross-language parity (bit-exact) vs pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) [R version 4.5.2 (2025-10-31), pretrends 0.1.0]; tolerance rel_est<=1e-06; parity module 76_pretrends -- tests/r_parity/76_pretrends.py",
       "tests/reference_parity/test_pretrends_from_moments_stata.py",
       "tests/reference_parity/test_pretrends_power_parity.py"
     ],
@@ -83640,13 +83644,13 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "tests": [
         "tests/r_parity/76_pretrends.py",
         "tests/r_parity/76_pretrends.R",
         "tests/stata_parity/76_pretrends.do"
       ],
-      "tolerance": "rel_est<=0.001"
+      "tolerance": "rel_est<=1e-06"
     },
     "example": "out = sp.pretrends_slope_for_power(es)",
     "failure_modes": [
@@ -83759,6 +83763,10 @@
               "joint"
             ],
             "type": "string"
+          },
+          "threshold": {
+            "description": "Critical ``|t|`` of the coefficient-by-coefficient pre-test; see :func:`pretrends_power` (``pretrends`` uses 1.96).",
+            "type": "number"
           }
         },
         "required": [
@@ -83772,7 +83780,7 @@
     "validation_notes": [
       "R parity module 76_pretrends",
       "Stata parity module 76_pretrends",
-      "Cross-language parity (aligned) vs pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) [R version 4.5.2 (2025-10-31), pretrends 0.1.0]; tolerance rel_est<=0.001; parity module 76_pretrends -- tests/r_parity/76_pretrends.py",
+      "Cross-language parity (bit-exact) vs pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) [R version 4.5.2 (2025-10-31), pretrends 0.1.0]; tolerance rel_est<=1e-06; parity module 76_pretrends -- tests/r_parity/76_pretrends.py",
       "tests/reference_parity/test_pretrends_power_parity.py"
     ],
     "validation_status": "certified"
@@ -84141,7 +84149,7 @@
         "tests/r_parity/17_etwfe.R",
         "tests/stata_parity/17_etwfe.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "evt = sp.etwfe_emfx(fit, type='event')",
     "failure_modes": [
@@ -84266,7 +84274,7 @@
     "validation_notes": [
       "R parity module 17_etwfe",
       "Stata parity module 17_etwfe",
-      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
+      "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_etwfe_glm_parity.py",
       "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
       "tests/reference_parity/test_etwfe_options_parity.py",
@@ -99884,7 +99892,7 @@
         "tests/r_parity/48_probit.R",
         "tests/stata_parity/48_probit.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\nr = sp.probit(\"union ~ education + experience\", data=df)",
     "failure_modes": [
@@ -100035,7 +100043,7 @@
     "validation_notes": [
       "R parity module 48_probit",
       "Stata parity module 48_probit",
-      "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 48_probit -- tests/r_parity/48_probit.py",
+      "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"probit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 48_probit -- tests/r_parity/48_probit.py",
       "tests/external_parity/test_gow_ding_accounting.py",
       "tests/reference_parity/test_binary_r2_and_scls_parity.py",
       "tests/reference_parity/test_cmtest_micsr_parity.py",
@@ -115650,7 +115658,7 @@
         "tests/stata_parity/30_oaxaca.do",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\nr = sp.oaxaca(\n df, y=\"log_wage\", group=\"female\",\n x=[\"education\", \"experience\", \"tenure\"],\n)",
     "failure_modes": [
@@ -115755,7 +115763,7 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=0.05; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
+      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
       "tests/reference_parity/test_oaxaca_threefold_r_parity.py"
     ],
     "validation_status": "certified"
@@ -117325,7 +117333,7 @@
         "tests/r_parity/44_mlogit.R",
         "tests/stata_parity/44_mlogit.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\ndf[\"edu_level\"] = (df.education >= 12).astype(int) + (df.education >= 16)\nr = sp.mlogit(\"edu_level ~ experience + female\", data=df, base=0)",
     "failure_modes": [
@@ -117453,7 +117461,7 @@
     "validation_notes": [
       "R parity module 44_mlogit",
       "Stata parity module 44_mlogit",
-      "Cross-language parity (bit-exact) vs nnet::multinom [R version 4.5.2 (2025-10-31), nnet 7.3.20]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 44_mlogit -- tests/r_parity/44_mlogit.py",
+      "Cross-language parity (bit-exact) vs nnet::multinom [R version 4.5.2 (2025-10-31), nnet 7.3.20]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 44_mlogit -- tests/r_parity/44_mlogit.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
@@ -117499,7 +117507,7 @@
         "tests/r_parity/45_ologit.R",
         "tests/stata_parity/45_ologit.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\ndf[\"edu_level\"] = (df.education >= 12).astype(int) + (df.education >= 16)\nr = sp.ologit(\"edu_level ~ experience + female\", data=df)",
     "failure_modes": [
@@ -117617,7 +117625,7 @@
     "validation_notes": [
       "R parity module 45_ologit",
       "Stata parity module 45_ologit",
-      "Cross-language parity (bit-exact) vs MASS::polr(method=\"logistic\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-05; parity module 45_ologit -- tests/r_parity/45_ologit.py",
+      "Cross-language parity (bit-exact) vs MASS::polr(method=\"logistic\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 45_ologit -- tests/r_parity/45_ologit.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/external_parity/test_gelman_ros_examples.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py",
@@ -118428,7 +118436,7 @@
         "tests/r_parity/63_zip.R",
         "tests/stata_parity/63_zip.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.0001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "result = sp.zip_model(data=df, y='visits', x=['age'],\n inflate=['chronic'])",
     "failure_modes": [
@@ -118552,7 +118560,7 @@
     "validation_notes": [
       "R parity module 63_zip",
       "Stata parity module 63_zip",
-      "Cross-language parity (bit-exact) vs pscl::zeroinfl(dist=\"poisson\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-06, rel_se<=0.0001; parity module 63_zip -- tests/r_parity/63_zip.py",
+      "Cross-language parity (bit-exact) vs pscl::zeroinfl(dist=\"poisson\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 63_zip -- tests/r_parity/63_zip.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
@@ -118597,7 +118605,7 @@
         "tests/r_parity/64_zinb.R",
         "tests/stata_parity/64_zinb.do"
       ],
-      "tolerance": "rel_est<=1e-05, rel_se<=0.001"
+      "tolerance": "rel_est<=3e-06, rel_se<=1e-06"
     },
     "example": "result = sp.zinb(data=df, y='visits', x=['age'],\n inflate=['chronic'])",
     "failure_modes": [
@@ -118715,7 +118723,7 @@
     "validation_notes": [
       "R parity module 64_zinb",
       "Stata parity module 64_zinb",
-      "Cross-language parity (aligned) vs pscl::zeroinfl(dist=\"negbin\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=1e-05, rel_se<=0.001; parity module 64_zinb -- tests/r_parity/64_zinb.py",
+      "Cross-language parity (aligned) vs pscl::zeroinfl(dist=\"negbin\") [R version 4.5.2 (2025-10-31), pscl 1.5.9]; tolerance rel_est<=3e-06, rel_se<=1e-06; parity module 64_zinb -- tests/r_parity/64_zinb.py",
       "tests/external_parity/test_ding_linear_model.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
@@ -120761,7 +120769,7 @@
         "tests/r_parity/67_panel_glm.R",
         "tests/stata_parity/67_panel_glm.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.datasets.castle_doctrine()\nr = sp.fepois(\n \"homicide ~ post | state + year\", data=df, vcov={\"CRV1\": \"state\"},\n)",
     "failure_modes": [
@@ -120920,7 +120928,7 @@
     "validation_notes": [
       "R parity module 67_panel_glm",
       "Stata parity module 67_panel_glm",
-      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
+      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
       "tests/reference_parity/test_fast_fepois_fixest_parity.py",
       "tests/reference_parity/test_feglm_native_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py",
@@ -120964,7 +120972,7 @@
         "tests/r_parity/67_panel_glm.R",
         "tests/stata_parity/67_panel_glm.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "df = sp.cps_wage()\nr = sp.feglm(\n \"union ~ education + experience | female\", data=df, family=\"logit\",\n)",
     "failure_modes": [
@@ -121094,7 +121102,7 @@
     "validation_notes": [
       "R parity module 67_panel_glm",
       "Stata parity module 67_panel_glm",
-      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
+      "Cross-language parity (bit-exact) vs fixest::feglm (family=\"logit\") / fixest::fepois [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 67_panel_glm -- tests/r_parity/67_panel_glm.py",
       "tests/reference_parity/test_feglm_biascorr_parity.py",
       "tests/reference_parity/test_feglm_native_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py",
@@ -129307,7 +129315,7 @@
         "tests/r_parity/61_betareg.R",
         "tests/stata_parity/61_betareg.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "result = sp.betareg(df, y='share', x=['price', 'quality'])",
     "failure_modes": [
@@ -129428,7 +129436,7 @@
     "validation_notes": [
       "R parity module 61_betareg",
       "Stata parity module 61_betareg",
-      "Cross-language parity (bit-exact) vs betareg::betareg(link.phi=\"log\") [R version 4.5.2 (2025-10-31), betareg 3.2.4]; tolerance rel_est<=1e-06, rel_se<=0.01; parity module 61_betareg -- tests/r_parity/61_betareg.py",
+      "Cross-language parity (bit-exact) vs betareg::betareg(link.phi=\"log\") [R version 4.5.2 (2025-10-31), betareg 3.2.4]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 61_betareg -- tests/r_parity/61_betareg.py",
       "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"
@@ -131917,7 +131925,7 @@
         "tests/r_parity/26_glmm_logit.R",
         "tests/stata_parity/26_glmm_logit.do"
       ],
-      "tolerance": "rel_est<=0.0002, rel_se<=0.01"
+      "tolerance": "rel_est<=0.0002, rel_se<=1e-06"
     },
     "example": "res = sp.melogit(df, y=\"y\", x_fixed=[\"x\"], group=\"gid\")",
     "failure_modes": [
@@ -132032,7 +132040,7 @@
     "validation_notes": [
       "R parity module 26_glmm_logit",
       "Stata parity module 26_glmm_logit",
-      "Cross-language parity (aligned) vs lme4::glmer [R version 4.5.2 (2025-10-31), lme4 2.0.1]; tolerance rel_est<=0.0002, rel_se<=0.01; parity module 26_glmm_logit -- tests/r_parity/26_glmm_logit.py",
+      "Cross-language parity (aligned) vs lme4::glmer [R version 4.5.2 (2025-10-31), lme4 2.0.1]; tolerance rel_est<=0.0002, rel_se<=1e-06; parity module 26_glmm_logit -- tests/r_parity/26_glmm_logit.py",
       "tests/r_parity/27_glmm_aghq.py",
       "tests/r_parity/27_glmm_aghq.R",
       "tests/stata_parity/27_glmm_aghq.do",
@@ -132919,7 +132927,7 @@
         "tests/r_parity/28_frontier.R",
         "tests/stata_parity/28_frontier.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "res = sp.frontier(df, y='log_y', x=['log_k', 'log_l'])",
     "failure_modes": [
@@ -133097,7 +133105,7 @@
     "validation_notes": [
       "R parity module 28_frontier",
       "Stata parity module 28_frontier",
-      "Cross-language parity (bit-exact) vs sfaR::sfacross [R version 4.5.2 (2025-10-31), sfaR 1.0.1]; tolerance rel_est<=1e-06, rel_se<=5e-05; parity module 28_frontier -- tests/r_parity/28_frontier.py",
+      "Cross-language parity (bit-exact) vs sfaR::sfacross [R version 4.5.2 (2025-10-31), sfaR 1.0.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 28_frontier -- tests/r_parity/28_frontier.py",
       "tests/reference_parity/test_closed_form_identities.py",
       "tests/reference_parity/test_frontier_struct_R_parity.py"
     ],
@@ -133140,7 +133148,7 @@
         "tests/r_parity/29_panel_sfa.R",
         "tests/stata_parity/29_panel_sfa.do"
       ],
-      "tolerance": "rel_est<=0.001, rel_se<=0.05"
+      "tolerance": "rel_est<=5e-06, rel_se<=1e-06"
     },
     "example": "res = sp.xtfrontier(\n df, y=\"log_y\", x=[\"log_k\", \"log_l\"],\n id=\"firm\", time=\"year\", model=\"ti\")",
     "failure_modes": [
@@ -133316,7 +133324,7 @@
     "validation_notes": [
       "R parity module 29_panel_sfa",
       "Stata parity module 29_panel_sfa",
-      "Cross-language parity (aligned) vs frontier::sfa [R version 4.5.2 (2025-10-31), frontier 1.1.8]; tolerance rel_est<=0.001, rel_se<=0.05; parity module 29_panel_sfa -- tests/r_parity/29_panel_sfa.py"
+      "Cross-language parity (aligned) vs frontier::sfa [R version 4.5.2 (2025-10-31), frontier 1.1.8]; tolerance rel_est<=5e-06, rel_se<=1e-06; parity module 29_panel_sfa -- tests/r_parity/29_panel_sfa.py"
     ],
     "validation_status": "certified"
   },
@@ -142848,7 +142856,7 @@
         "tests/r_parity/30_oaxaca.R",
         "tests/stata_parity/30_oaxaca.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "r = sp.decompose('oaxaca', data=df, y='log_wage', group='female',\n x=['education', 'experience', 'tenure'])",
     "failure_modes": [
@@ -142946,7 +142954,7 @@
     "validation_notes": [
       "R parity module 30_oaxaca",
       "Stata parity module 30_oaxaca",
-      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=0.05; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
+      "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
       "tests/r_parity/31_dfl.py",
       "tests/r_parity/31_dfl.R",
       "tests/stata_parity/31_dfl.do",
@@ -150627,7 +150635,7 @@
         "tests/r_parity/36_mediation.R",
         "tests/stata_parity/36_mediation.do"
       ],
-      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "",
     "failure_modes": [
@@ -150720,7 +150728,7 @@
     "validation_notes": [
       "R parity module 36_mediation",
       "Stata parity module 36_mediation",
-      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 36_mediation -- tests/r_parity/36_mediation.py",
+      "Cross-language parity (bit-exact) vs mediation::mediate [R version 4.5.2 (2025-10-31), mediation 4.5.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 36_mediation -- tests/r_parity/36_mediation.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
     "validation_status": "certified"

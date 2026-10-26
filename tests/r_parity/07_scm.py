@@ -18,6 +18,7 @@ separately certified on the uniquely identified SCM DGP in module
 
 from __future__ import annotations
 
+import numpy as np
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
@@ -88,6 +89,27 @@ def main() -> None:
                 n=int(len(df)),
             )
         )
+
+    # Stata's synth rounds the donor weights to 0.001 (synth.ado,
+    # `roundmat`) *before* it builds e(Y_synthetic), so its gap is the gap of
+    # the rounded weights. These rows apply the same rounding to StatsPAI's
+    # weights; joined with Stata they compare the two weight solutions
+    # rather than one solution with the other's display rounding.
+    w3 = {
+        unit: np.floor(weight_map.get(unit, 0.0) * 1000.0 + 0.5) / 1000.0
+        for unit in donor_pool
+    }
+    panel = df.pivot(index="year", columns="region", values="gdppc").sort_index()
+    synth_w3 = sum(w3[u] * panel[u].to_numpy() for u in donor_pool)
+    gap_w3 = panel["Basque Country"].to_numpy() - synth_w3
+    years = panel.index.to_numpy()
+    rows.append(ParityRecord(
+        module=MODULE, side="py", statistic="avg_post_gap_w3dp",
+        estimate=float(gap_w3[years >= 1970].mean()), n=int(len(df))))
+    rows.append(ParityRecord(
+        module=MODULE, side="py", statistic="pre_treatment_rmse_w3dp",
+        estimate=float(np.sqrt(np.mean(gap_w3[years < 1970] ** 2))),
+        n=int(len(df))))
 
     write_results(
         MODULE,

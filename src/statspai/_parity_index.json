@@ -548,8 +548,8 @@
       "function": "arima",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 7.362248486107534e-07,
-        "rel_vs_Stata": 9.270983902140011e-09,
+        "rel_vs_R": 7.596553271125607e-07,
+        "rel_vs_Stata": 1.4159477132356082e-08,
         "statistic": [
           "ar1",
           "ar2"
@@ -562,8 +562,8 @@
       "module_id": "39_arima",
       "notes": [],
       "point_estimate_rel": {
-        "R": 7.362248486107534e-07,
-        "Stata": 9.270983902140011e-09
+        "R": 7.596553271125607e-07,
+        "Stata": 1.4159477132356082e-08
       },
       "python_call": "sp.arima",
       "reference": "stats::arima",
@@ -1911,13 +1911,16 @@
       "function": "betareg",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 2.2229366110368733e-12,
-        "rel_vs_Stata": 2.1090786061182065e-08,
+        "rel_vs_R": 3.0638908041197774e-08,
+        "rel_vs_Stata": 2.109078635186931e-08,
         "statistic": [
           "beta_intercept",
           "beta_x1",
           "beta_x2",
-          "ln_phi"
+          "ln_phi",
+          "beta_intercept_oim",
+          "beta_x1_oim",
+          "beta_x2_oim"
         ],
         "tolerance": 1e-06
       },
@@ -1927,8 +1930,8 @@
       "module_id": "61_betareg",
       "notes": [],
       "point_estimate_rel": {
-        "R": 2.2229366110368733e-12,
-        "Stata": 2.1090786061182065e-08
+        "R": 3.0638908041197774e-08,
+        "Stata": 2.109078635186931e-08
       },
       "python_call": "sp.betareg",
       "reference": "betareg::betareg(link.phi=\"log\")",
@@ -1937,8 +1940,8 @@
         "betareg": "3.2.4"
       },
       "se_rel": {
-        "R": 0.006673306552902033,
-        "Stata": 6.599596052948647e-09
+        "R": 0.0066733065525028815,
+        "Stata": 6.638508428075211e-09
       },
       "sides": [
         "py",
@@ -1953,7 +1956,7 @@
         "tests/stata_parity/61_betareg.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "also_verified_by": [
@@ -3060,7 +3063,7 @@
       "function": "causal_forest",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 0.0002647160750271421,
+        "rel_vs_R": 0.000807964935056055,
         "rel_vs_Stata": null,
         "statistic": [
           "ate_causal_forest"
@@ -3075,7 +3078,7 @@
         "Factored evidence: the AIPW operator -- the closed-form map from (Y, W, tau.hat, Y.hat, W.hat) to the score vector, point estimate and standard error -- is pinned exactly. Fed grf's own forest outputs, StatsPAI reproduces grf::get_scores elementwise to 2.3e-14 and grf's reported ATE and ATT (estimate and std.err) to 1e-15 (tests/reference_parity/test_grf_aipw_operator_parity.py). The module tolerance below covers the forest itself, which is not pinnable across implementations; its calibration is evidenced by the Track B coverage sweep."
       ],
       "point_estimate_rel": {
-        "R": 0.0002647160750271421,
+        "R": 0.000807964935056055,
         "Stata": null
       },
       "python_call": "sp.causal_forest",
@@ -3085,7 +3088,7 @@
         "grf": "2.6.1"
       },
       "se_rel": {
-        "R": 0.0015783465479781312,
+        "R": 0.0016977812883877744,
         "Stata": null
       },
       "sides": [
@@ -4598,8 +4601,8 @@
       "module_id": "53_cr2",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.004090126434373e-14,
-        "Stata": 3.2148655638131635e-10
+        "R": 2.965576150454445e-14,
+        "Stata": 3.214861712415564e-10
       },
       "python_call": "sp.cr2_se",
       "reference": "clubSandwich::vcovCR(type=\"CR2\"/\"CR3\")",
@@ -4975,8 +4978,8 @@
       "function": "decompose",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 6.272984425624262e-16,
-        "rel_vs_Stata": 1.2545968851248518e-16,
+        "rel_vs_R": 2.63465345876219e-15,
+        "rel_vs_Stata": 2.132814704712248e-15,
         "statistic": [
           "gap"
         ],
@@ -4990,8 +4993,8 @@
         "Grade is variant-specific: certified for the tested calls (sp.decompose(\"dfl\"), sp.decompose(\"oaxaca\")); other decompose() methods/variants may differ."
       ],
       "point_estimate_rel": {
-        "R": 6.272984425624262e-16,
-        "Stata": 1.2545968851248518e-16
+        "R": 2.63465345876219e-15,
+        "Stata": 2.132814704712248e-15
       },
       "python_call": "sp.decompose(\"oaxaca\")",
       "reference": "oaxaca::oaxaca",
@@ -5016,7 +5019,7 @@
         "tests/stata_parity/30_oaxaca.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "deepiv",
@@ -7123,7 +7126,7 @@
         "tests/stata_parity/17_etwfe.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -7181,7 +7184,7 @@
         "tests/stata_parity/17_etwfe.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -7719,7 +7722,7 @@
       "function": "feglm",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 9.728099018844314e-09,
+        "rel_vs_R": 3.8457615405909784e-15,
         "rel_vs_Stata": 1.7937687209868933e-09,
         "statistic": [
           "feglm_logit_x1",
@@ -7735,7 +7738,7 @@
       "module_id": "67_panel_glm",
       "notes": [],
       "point_estimate_rel": {
-        "R": 9.728099018844314e-09,
+        "R": 3.8457615405909784e-15,
         "Stata": 1.7937687209868933e-09
       },
       "python_call": "sp.feglm / sp.fepois",
@@ -7745,7 +7748,7 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 1.9194012690801436e-05,
+        "R": 1.1170145681091369e-07,
         "Stata": null
       },
       "sides": [
@@ -7761,7 +7764,7 @@
         "tests/stata_parity/67_panel_glm.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -7859,7 +7862,7 @@
       "function": "fepois",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 9.728099018844314e-09,
+        "rel_vs_R": 3.8457615405909784e-15,
         "rel_vs_Stata": 1.7937687209868933e-09,
         "statistic": [
           "feglm_logit_x1",
@@ -7875,7 +7878,7 @@
       "module_id": "67_panel_glm",
       "notes": [],
       "point_estimate_rel": {
-        "R": 9.728099018844314e-09,
+        "R": 3.8457615405909784e-15,
         "Stata": 1.7937687209868933e-09
       },
       "python_call": "sp.feglm / sp.fepois",
@@ -7885,7 +7888,7 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 1.9194012690801436e-05,
+        "R": 1.1170145681091369e-07,
         "Stata": null
       },
       "sides": [
@@ -7901,7 +7904,7 @@
         "tests/stata_parity/67_panel_glm.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -8325,8 +8328,8 @@
       "function": "frontier",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 4.114714358537101e-08,
-        "rel_vs_Stata": 3.986891614268755e-08,
+        "rel_vs_R": 1.5559905416522108e-09,
+        "rel_vs_Stata": 1.0672267022026534e-09,
         "statistic": [
           "beta_intercept",
           "beta_lnk",
@@ -8340,8 +8343,8 @@
       "module_id": "28_frontier",
       "notes": [],
       "point_estimate_rel": {
-        "R": 4.114714358537101e-08,
-        "Stata": 3.986891614268755e-08
+        "R": 1.5559905416522108e-09,
+        "Stata": 1.0672267022026534e-09
       },
       "python_call": "sp.frontier",
       "reference": "sfaR::sfacross",
@@ -8350,8 +8353,8 @@
         "sfaR": "1.0.1"
       },
       "se_rel": {
-        "R": 1.2675649744094256e-05,
-        "Stata": 1.2661595215062564e-05
+        "R": 1.5538869834640296e-09,
+        "Stata": 1.2500820178934614e-08
       },
       "sides": [
         "py",
@@ -8366,7 +8369,7 @@
         "tests/stata_parity/28_frontier.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "also_verified_by": [
@@ -8427,7 +8430,7 @@
           "rej_density_7",
           "rej_density_8"
         ],
-        "tolerance": 0.001
+        "tolerance": 1e-06
       },
       "implementation": "native",
       "label": "Functional-form test for parallel trends",
@@ -8453,13 +8456,13 @@
         "R"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "test": [
         "tests/r_parity/79_didff.py",
         "tests/r_parity/79_didff.R"
       ],
-      "tier": "iterative",
-      "tolerance": "rel_est<=0.001"
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "additional_tests": [
@@ -13377,7 +13380,7 @@
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -13503,7 +13506,7 @@
         "tests/stata_parity/36_mediation.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -13668,7 +13671,7 @@
         "tests/stata_parity/26_glmm_logit.do"
       ],
       "tier": "iterative",
-      "tolerance": "rel_est<=0.0002, rel_se<=0.01"
+      "tolerance": "rel_est<=0.0002, rel_se<=1e-06"
     },
     {
       "also_verified_by": [
@@ -14115,7 +14118,7 @@
         "tests/stata_parity/44_mlogit.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "mmhc",
@@ -15130,12 +15133,15 @@
       "function": "nbreg",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 5.144028789888387e-10,
+        "rel_vs_R": 1.0213322464888927e-13,
         "rel_vs_Stata": 1.04695214840825e-11,
         "statistic": [
           "beta_intercept",
           "beta_x1",
-          "beta_x2"
+          "beta_x2",
+          "beta_intercept_condse",
+          "beta_x1_condse",
+          "beta_x2_condse"
         ],
         "tolerance": 1e-06
       },
@@ -15145,7 +15151,7 @@
       "module_id": "42_nbreg",
       "notes": [],
       "point_estimate_rel": {
-        "R": 5.144028789888387e-10,
+        "R": 1.0213322464888927e-13,
         "Stata": 1.04695214840825e-11
       },
       "python_call": "sp.nbreg",
@@ -15155,7 +15161,7 @@
         "R": "R version 4.5.2 (2025-10-31)"
       },
       "se_rel": {
-        "R": 0.0013646433544134671,
+        "R": 0.0013646412114706984,
         "Stata": 3.2848158474590855e-11
       },
       "sides": [
@@ -15171,7 +15177,7 @@
         "tests/stata_parity/42_nbreg.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.005"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -15666,8 +15672,8 @@
       "function": "oaxaca",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 6.272984425624262e-16,
-        "rel_vs_Stata": 1.2545968851248518e-16,
+        "rel_vs_R": 2.63465345876219e-15,
+        "rel_vs_Stata": 2.132814704712248e-15,
         "statistic": [
           "gap"
         ],
@@ -15681,8 +15687,8 @@
         "Alias of sp.decompose('oaxaca') -- proven equivalent on the committed 30_oaxaca bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
       ],
       "point_estimate_rel": {
-        "R": 6.272984425624262e-16,
-        "Stata": 1.2545968851248518e-16
+        "R": 2.63465345876219e-15,
+        "Stata": 2.132814704712248e-15
       },
       "python_call": "sp.decompose(\"oaxaca\")",
       "reference": "oaxaca::oaxaca",
@@ -15708,7 +15714,7 @@
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "also_verified_by": [
@@ -15836,7 +15842,7 @@
         "tests/stata_parity/45_ologit.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -16220,7 +16226,7 @@
         "tests/stata_parity/35_panel.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "panel_compare",
@@ -17364,13 +17370,13 @@
       "function": "pretrends_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 4.0491305649240525e-05,
-        "rel_vs_Stata": 0.00013798878538657147,
+        "rel_vs_R": 1.5945823955717316e-08,
+        "rel_vs_Stata": null,
         "statistic": [
-          "power_slope_0p02",
-          "power_slope_0p05"
+          "power_slope_0p02_t196",
+          "power_slope_0p05_t196"
         ],
-        "tolerance": 0.001
+        "tolerance": 1e-06
       },
       "implementation": "native",
       "label": "Pre-trends power (Roth 2022)",
@@ -17378,8 +17384,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 4.0491305649240525e-05,
-        "Stata": 0.00013798878538657147
+        "R": 1.5945823955717316e-08,
+        "Stata": null
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -17397,14 +17403,14 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "test": [
         "tests/r_parity/76_pretrends.py",
         "tests/r_parity/76_pretrends.R",
         "tests/stata_parity/76_pretrends.do"
       ],
-      "tier": "iterative",
-      "tolerance": "rel_est<=0.001"
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "additional_tests": [
@@ -17417,13 +17423,13 @@
       "function": "pretrends_slope_for_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 4.0491305649240525e-05,
-        "rel_vs_Stata": 0.00013798878538657147,
+        "rel_vs_R": 1.5945823955717316e-08,
+        "rel_vs_Stata": null,
         "statistic": [
-          "power_slope_0p02",
-          "power_slope_0p05"
+          "power_slope_0p02_t196",
+          "power_slope_0p05_t196"
         ],
-        "tolerance": 0.001
+        "tolerance": 1e-06
       },
       "implementation": "native",
       "label": "Pre-trends power (Roth 2022)",
@@ -17431,8 +17437,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 4.0491305649240525e-05,
-        "Stata": 0.00013798878538657147
+        "R": 1.5945823955717316e-08,
+        "Stata": null
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -17450,14 +17456,14 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "test": [
         "tests/r_parity/76_pretrends.py",
         "tests/r_parity/76_pretrends.R",
         "tests/stata_parity/76_pretrends.do"
       ],
-      "tier": "iterative",
-      "tolerance": "rel_est<=0.001"
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "function": "pretrends_summary",
@@ -17590,11 +17596,15 @@
       "function": "probit",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.0911331087801263e-07,
+        "rel_vs_R": 9.776586512759254e-10,
         "rel_vs_Stata": 1.587531218330286e-08,
         "statistic": [
+          "beta_intercept",
           "beta_x1",
-          "beta_x2"
+          "beta_x2",
+          "beta_intercept_oim",
+          "beta_x1_oim",
+          "beta_x2_oim"
         ],
         "tolerance": 1e-06
       },
@@ -17604,7 +17614,7 @@
       "module_id": "48_probit",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.0911331087801263e-07,
+        "R": 9.776586512759254e-10,
         "Stata": 1.587531218330286e-08
       },
       "python_call": "sp.probit",
@@ -17614,7 +17624,7 @@
         "stats": "4.5.2"
       },
       "se_rel": {
-        "R": 0.0030065310247617714,
+        "R": 0.003350989320633644,
         "Stata": 3.4968962507259757e-09
       },
       "sides": [
@@ -17630,7 +17640,7 @@
         "tests/stata_parity/48_probit.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "prod_fn",
@@ -20640,8 +20650,8 @@
       "function": "sar",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": 5.074172683884777e-08,
+        "rel_vs_R": 4.098058520137123e-08,
+        "rel_vs_Stata": 3.64520026380561e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -20666,8 +20676,8 @@
       "module_id": "65_spatial",
       "notes": [],
       "point_estimate_rel": {
-        "R": 8.288407604807484e-08,
-        "Stata": 5.074172683884777e-08
+        "R": 4.098058520137123e-08,
+        "Stata": 3.64520026380561e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -20676,7 +20686,7 @@
         "spatialreg": "1.4.3"
       },
       "se_rel": {
-        "R": 1.9665191253248252e-08,
+        "R": 1.579984844791378e-08,
         "Stata": null
       },
       "sides": [
@@ -20997,7 +21007,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 7.796711000282824e-16,
-        "rel_vs_Stata": 7.231319348505668e-08,
+        "rel_vs_Stata": 1.1138158571832627e-15,
         "statistic": [
           "att_sdid"
         ],
@@ -21010,7 +21020,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 7.796711000282824e-16,
-        "Stata": 7.231319348505668e-08
+        "Stata": 1.1138158571832627e-15
       },
       "python_call": "sp.sdid(backend=\"native\")",
       "reference": "synthdid::synthdid_estimate",
@@ -21042,8 +21052,8 @@
       "function": "sdm",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": 5.074172683884777e-08,
+        "rel_vs_R": 4.098058520137123e-08,
+        "rel_vs_Stata": 3.64520026380561e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -21068,8 +21078,8 @@
       "module_id": "65_spatial",
       "notes": [],
       "point_estimate_rel": {
-        "R": 8.288407604807484e-08,
-        "Stata": 5.074172683884777e-08
+        "R": 4.098058520137123e-08,
+        "Stata": 3.64520026380561e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -21078,7 +21088,7 @@
         "spatialreg": "1.4.3"
       },
       "se_rel": {
-        "R": 1.9665191253248252e-08,
+        "R": 1.579984844791378e-08,
         "Stata": null
       },
       "sides": [
@@ -21169,8 +21179,8 @@
       "function": "sem",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": 5.074172683884777e-08,
+        "rel_vs_R": 4.098058520137123e-08,
+        "rel_vs_Stata": 3.64520026380561e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -21195,8 +21205,8 @@
       "module_id": "65_spatial",
       "notes": [],
       "point_estimate_rel": {
-        "R": 8.288407604807484e-08,
-        "Stata": 5.074172683884777e-08
+        "R": 4.098058520137123e-08,
+        "Stata": 3.64520026380561e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -21205,7 +21215,7 @@
         "spatialreg": "1.4.3"
       },
       "se_rel": {
-        "R": 1.9665191253248252e-08,
+        "R": 1.579984844791378e-08,
         "Stata": null
       },
       "sides": [
@@ -22701,7 +22711,7 @@
         "tests/stata_parity/05_sunab.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.03"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "super_learner",
@@ -23482,7 +23492,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 7.796711000282824e-16,
-        "rel_vs_Stata": 7.231319348505668e-08,
+        "rel_vs_Stata": 1.1138158571832627e-15,
         "statistic": [
           "att_sdid"
         ],
@@ -23498,7 +23508,7 @@
       ],
       "point_estimate_rel": {
         "R": 7.796711000282824e-16,
-        "Stata": 7.231319348505668e-08
+        "Stata": 1.1138158571832627e-15
       },
       "python_call": "sp.sdid(backend=\"native\")",
       "reference": "synthdid::synthdid_estimate",
@@ -25106,7 +25116,7 @@
         "tests/stata_parity/17_etwfe.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -25302,13 +25312,13 @@
       "function": "xtfrontier",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 2.7751828581190894e-06,
-        "rel_vs_Stata": 1.8062106880297192e-06,
+        "rel_vs_R": 9.689759287837197e-07,
+        "rel_vs_Stata": 5.926840475132294e-12,
         "statistic": [
           "beta_lnk",
           "beta_lnl"
         ],
-        "tolerance": 0.001
+        "tolerance": 5e-06
       },
       "implementation": "native",
       "label": "Panel SFA Pitt-Lee",
@@ -25316,8 +25326,8 @@
       "module_id": "29_panel_sfa",
       "notes": [],
       "point_estimate_rel": {
-        "R": 2.7751828581190894e-06,
-        "Stata": 1.8062106880297192e-06
+        "R": 9.689759287837197e-07,
+        "Stata": 5.926840475132294e-12
       },
       "python_call": "sp.xtfrontier",
       "reference": "frontier::sfa",
@@ -25326,8 +25336,8 @@
         "frontier": "1.1.8"
       },
       "se_rel": {
-        "R": 0.009844970892137693,
-        "Stata": 2.9612305739601393e-06
+        "R": 0.009847800764526835,
+        "Stata": 1.6074232903762954e-11
       },
       "sides": [
         "py",
@@ -25342,7 +25352,7 @@
         "tests/stata_parity/29_panel_sfa.do"
       ],
       "tier": "iterative",
-      "tolerance": "rel_est<=0.001, rel_se<=0.05"
+      "tolerance": "rel_est<=5e-06, rel_se<=1e-06"
     },
     {
       "function": "xthtaylor",
@@ -25564,7 +25574,7 @@
           "beta_inflate_intercept",
           "beta_inflate_z"
         ],
-        "tolerance": 1e-05
+        "tolerance": 3e-06
       },
       "implementation": "native",
       "label": "Zero-inflated NB",
@@ -25598,7 +25608,7 @@
         "tests/stata_parity/64_zinb.do"
       ],
       "tier": "iterative",
-      "tolerance": "rel_est<=1e-05, rel_se<=0.001"
+      "tolerance": "rel_est<=3e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -25659,7 +25669,7 @@
         "tests/stata_parity/63_zip.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.0001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [

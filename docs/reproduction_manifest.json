@@ -6,11 +6,11 @@
   "sides": {
     "R": {
       "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
-      "report_sha256": "2816ae8a1507db94f8b9c4ed89d29ea16067094fe29490c731d56ed44d7734b4",
+      "report_sha256": "70cccead20bdc65153e09a4d42e5c5207791b0d040bfb055e20c9b8ab3909eeb",
       "rederive_with": "python tests/r_parity/verify_reproduce.py",
       "last_reproduced": {
-        "commit": "4cddc069",
-        "date": "2026-09-26T13:52:35+08:00"
+        "commit": "4ca82f1c3",
+        "date": "2026-10-06T15:11:26+08:00"
       },
       "n_modules": 89,
       "n_reproduce": 89,
@@ -632,15 +632,15 @@
         },
         "42_nbreg": {
           "status": "reproduces",
-          "statistics_shared": "3/3",
+          "statistics_shared": "6/6",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "b475c80a08f32e1790bbf3d1d0a2ec8bfb41f5c589799a7c5f610c504f879f68",
+          "golden_sha256": "f4854ce6b9eb92299908003c49e8b490726c87ad9b8b8f4aa24a541412d9c62e",
           "input_sha256": "5314bb1244ee819a35bf354cb3c4fb9cac485e5e0e7f14a0b28978e44e2db79f",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 3
           },
           "rederived_in_ci": true
@@ -722,16 +722,16 @@
         },
         "48_probit": {
           "status": "reproduces",
-          "statistics_shared": "3/3",
+          "statistics_shared": "6/6",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "144ec2d2114bc21d46e11f63c0493a33a159e1c2f78bd331bb98059721b1d609",
+          "golden_sha256": "1797059b093324972512c86a317b0fc34927716fbbfe22240d126ab8bc2dd6ad",
           "input_sha256": "5d87ac56e632536807ce53d24672ad4244b8f90fb2033a9d295a9a5285c4c639",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5",
-            "n_packages": 2
+            "running": "macOS Tahoe 26.6.2",
+            "n_packages": 23
           },
           "rederived_in_ci": true
         },
@@ -767,15 +767,15 @@
         },
         "51_newey": {
           "status": "reproduces",
-          "statistics_shared": "2/2",
+          "statistics_shared": "4/4",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "9a14bcc713d7853acddd5e2f8f29eb8a245c8da6f1d2d0612eea23f4d49fb387",
+          "golden_sha256": "c5444f338a642e743edd62b968a9f239d71dfd8144f4fbf977ff58c385c71a12",
           "input_sha256": "85c3c04cbda0277e5c8eb8d5ad0dd99b5abb7bc74408fff39759dbed83f13b48",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 7
           },
           "rederived_in_ci": true
@@ -917,15 +917,15 @@
         },
         "61_betareg": {
           "status": "reproduces",
-          "statistics_shared": "4/4",
+          "statistics_shared": "8/8",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "0b425c028f42945c84a00f4e42b1b8eab92114348e29d4f58b71a340bffba94b",
+          "golden_sha256": "6f1e8a470b2ac11a5a9dcc5c2a4757d43480eebd2ee1b495796b0a83b92abb6a",
           "input_sha256": "89663225487c44828af8b25fe0f6535f193f5533cff18918890b97ccfae76f9a",
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 13
           },
           "rederived_in_ci": false
@@ -1010,12 +1010,12 @@
           "statistics_shared": "4/4",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "3188d5a759af1208811e5d3582fd1352781b6e8ff4e2fb3b4e91ec738c35952c",
+          "golden_sha256": "383569937ff6cf6eb288d4f78718c29f86f2a29aec29eabdf6a9cf352c6464bf",
           "input_sha256": null,
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5.1",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 28
           },
           "rederived_in_ci": false
@@ -1142,15 +1142,15 @@
         },
         "76_pretrends": {
           "status": "reproduces",
-          "statistics_shared": "8/8",
-          "worst_rel_estimate": 0.000665,
+          "statistics_shared": "16/16",
+          "worst_rel_estimate": 0.000434,
           "worst_rel_se": 0.0,
-          "golden_sha256": "79e6e7e86844d3f8ade0be3515679c7037979b63c6831b87ce8856c64e84a4c8",
+          "golden_sha256": "82e3e68fdff72db098968a6d3a3ebe93c66ab80e895863909de5fd33d9f08274",
           "input_sha256": null,
           "reference": {
             "r_version": "R version 4.5.2 (2025-10-31)",
             "platform": "aarch64-apple-darwin20",
-            "running": "macOS Tahoe 26.5.2",
+            "running": "macOS Tahoe 26.6.2",
             "n_packages": 31
           },
           "rederived_in_ci": false
@@ -1354,10 +1354,10 @@
     },
     "Stata": {
       "report": "tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md",
-      "report_sha256": "1d0883a4fb6eea3a81c5c959099db030a3282b3f2c2a6e42cd9ef037bd307aa4",
+      "report_sha256": "7b3573990dbde1d9d069dffc3a752ea96e55b5212e91e35854f3bbe8dc99b047",
       "rederive_with": "python tests/stata_parity/verify_reproduce_stata.py",
       "last_reproduced": {
-        "commit": "14a0bff8",
+        "commit": "14a0bff8d",
         "date": "2026-09-22T22:16:38+08:00"
       },
       "n_modules": 85,
@@ -1443,10 +1443,10 @@
         },
         "07_scm": {
           "status": "reproduces",
-          "statistics_shared": "18/18",
+          "statistics_shared": "20/20",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "69eb0a09b71330c6d26e4648a2f31dce19397529a344896b115b1f75b055ec73",
+          "golden_sha256": "eb5a93ddd923b653dc25c6c38d965bec0e236e1e6d7b1a69c68a42620be77854",
           "input_sha256": "099f33c84b7379923af72bab0b58f82c3cab1eadf874df39f7816658e468c64e",
           "reference": {
             "stata_version": 18,
@@ -1511,7 +1511,7 @@
           "statistics_shared": "2/2",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "dfc43bc2164138c0239b42d144d2c9c4dadd15c0cd90b702983bcc4f0ecc2e81",
+          "golden_sha256": "eed2c30fb5dcea50645cf8305b768ecfaac57bede6ab6d6ec9d6b1b20055de60",
           "input_sha256": "43d2e8961f9fc2abf92176dbcbf4aa63eae7cd470d1a14e5b4735e4ccb4bc9aa",
           "reference": {
             "stata_version": 18,
@@ -1733,10 +1733,10 @@
         },
         "30_oaxaca": {
           "status": "reproduces",
-          "statistics_shared": "7/7",
+          "statistics_shared": "10/10",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "ae124cf551d53bea430924de46528051155100de3f78193014d4397768c99345",
+          "golden_sha256": "af6a05815a982e99598151ee588b89911689506f8df08a9b455649671953ae19",
           "input_sha256": "6c790d07f2258c568deb95f3217d04c4fb7d95d12490a59dad27937167746e37",
           "reference": {
             "stata_version": 18,
@@ -2006,10 +2006,10 @@
         },
         "51_newey": {
           "status": "reproduces",
-          "statistics_shared": "2/2",
+          "statistics_shared": "4/4",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0,
-          "golden_sha256": "5f8e309f84665d10e86bfc9c188e5f109a5ef26c8b41fbbadec48d51ed58c8c2",
+          "golden_sha256": "b708dea93906c48089ae09792e18321e0a1439700089c74112359f6b1e5bffef",
           "input_sha256": "85c3c04cbda0277e5c8eb8d5ad0dd99b5abb7bc74408fff39759dbed83f13b48",
           "reference": {
             "stata_version": 18,
@@ -2488,10 +2488,10 @@
     },
     "py": {
       "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT_PY.md",
-      "report_sha256": "a35b7e50af57b41258b20048b78720d9e5b17eead422704ff9e88aa7d7922103",
+      "report_sha256": "9e47bd6c4610dec3a0203d6d28f28c9052070bb43191feedc86c64b4a9e4a702",
       "rederive_with": "python tests/r_parity/verify_reproduce_py.py",
       "last_reproduced": {
-        "commit": "f99e3441",
+        "commit": "f99e3441f",
         "date": "2026-09-25T10:53:04+08:00"
       },
       "n_modules": 89,
@@ -2501,54 +2501,54 @@
           "status": "reproduces",
           "statistics_shared": "7/7",
           "worst_rel_estimate": 2.32e-13,
-          "worst_rel_se": 8.6e-15
+          "worst_rel_se": 8.19e-15
         },
         "02_iv": {
           "status": "reproduces",
           "statistics_shared": "7/7",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 1.11e-15
+          "worst_rel_estimate": 5.24e-12,
+          "worst_rel_se": 1.44e-12
         },
         "03_hdfe": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 5.48e-15,
+          "worst_rel_se": 1.39e-17
         },
         "04_csdid": {
           "status": "reproduces",
           "statistics_shared": "19/19",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.73e-17,
+          "worst_rel_se": 3.47e-18
         },
         "05_sunab": {
           "status": "reproduces",
           "statistics_shared": "16/16",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 5.55e-17,
+          "worst_rel_se": 3.47e-18
         },
         "06_rd": {
           "status": "reproduces",
           "statistics_shared": "10/10",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 2.8e-13,
+          "worst_rel_se": 1.23e-13
         },
         "07_scm": {
           "status": "reproduces",
-          "statistics_shared": "18/18",
+          "statistics_shared": "20/20",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "08_dml": {
           "status": "reproduces",
           "statistics_shared": "1/1",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 1.39e-17,
           "worst_rel_se": 0.0
         },
         "09_rddensity": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 8.36e-12,
           "worst_rel_se": 0.0
         },
         "10_honest_did": {
@@ -2560,7 +2560,7 @@
         "11_psm": {
           "status": "reproduces",
           "statistics_shared": "5/5",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 9.14e-16,
           "worst_rel_se": 0.0
         },
         "12_sdid": {
@@ -2578,32 +2578,32 @@
         "14_ols_cluster": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.85e-16,
+          "worst_rel_se": 2.48e-13
         },
         "15_hdfe_cluster": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 5.48e-15,
+          "worst_rel_se": 2.6e-17
         },
         "16_bjs": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 9.78e-15,
           "worst_rel_se": 0.0
         },
         "17_etwfe": {
           "status": "reproduces",
           "statistics_shared": "8/8",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.47e-17,
+          "worst_rel_se": 6.28e-16
         },
         "18_augsynth": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 4.77e-14,
-          "worst_rel_se": 1.35e-14
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
         },
         "19_gsynth": {
           "status": "reproduces",
@@ -2614,7 +2614,7 @@
         "20_bacon": {
           "status": "reproduces",
           "statistics_shared": "12/12",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 2.78e-17,
           "worst_rel_se": 0.0
         },
         "21_honest_relmags": {
@@ -2626,38 +2626,38 @@
         "22_sensemakr": {
           "status": "reproduces",
           "statistics_shared": "7/7",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 7.47e-15,
+          "worst_rel_se": 4.07e-15
         },
         "23_evalue": {
           "status": "reproduces",
           "statistics_shared": "26/26",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 5.68e-14,
           "worst_rel_se": 0.0
         },
         "24_coxph": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 6.66e-16,
+          "worst_rel_se": 5.55e-17
         },
         "25_lmm": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.69e-10,
+          "worst_rel_se": 5e-11
         },
         "26_glmm_logit": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 5.1e-11,
+          "worst_rel_se": 2.38e-10
         },
         "27_glmm_aghq": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 4.12e-11,
+          "worst_rel_se": 4.71e-10
         },
         "28_frontier": {
           "status": "reproduces",
@@ -2673,51 +2673,51 @@
         },
         "30_oaxaca": {
           "status": "reproduces",
-          "statistics_shared": "11/11",
+          "statistics_shared": "16/16",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "31_dfl": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 4.44e-16,
           "worst_rel_se": 0.0
         },
         "32_rif": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 2.78e-17,
           "worst_rel_se": 0.0
         },
         "33_var": {
           "status": "reproduces",
           "statistics_shared": "21/21",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.67e-16,
+          "worst_rel_se": 2.78e-17
         },
         "34_lp": {
           "status": "reproduces",
           "statistics_shared": "12/12",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 4.44e-16,
+          "worst_rel_se": 2.78e-17
         },
         "35_panel": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 5.92e-14,
+          "worst_rel_se": 3.47e-18
         },
         "36_mediation": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 2.22e-16,
+          "worst_rel_se": 6.94e-18
         },
         "37_ppmlhdfe": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 2.22e-16,
+          "worst_rel_se": 6.94e-18
         },
         "38_drdid": {
           "status": "reproduces",
@@ -2734,80 +2734,80 @@
         "40_qreg": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 6.66e-16,
+          "worst_rel_se": 1.39e-17
         },
         "41_tobit": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 8.23e-14
         },
         "42_nbreg": {
           "status": "reproduces",
-          "statistics_shared": "3/3",
+          "statistics_shared": "6/6",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "43_heckman": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 4.08e-16,
+          "worst_rel_se": 3.05e-16
         },
         "44_mlogit": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 1.39e-17
         },
         "45_ologit": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 5.55e-17,
           "worst_rel_se": 0.0
         },
         "46_clogit": {
           "status": "reproduces",
           "statistics_shared": "1/1",
           "worst_rel_estimate": 0.0,
-          "worst_rel_se": 3.82e-10
+          "worst_rel_se": 1.39e-17
         },
         "47_ppmlhdfe_3fe": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 8.88e-16,
+          "worst_rel_se": 4.22e-14
         },
         "48_probit": {
           "status": "reproduces",
-          "statistics_shared": "2/2",
+          "statistics_shared": "6/6",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "49_oprobit": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 5.55e-17,
           "worst_rel_se": 0.0
         },
         "50_xtabond": {
           "status": "reproduces",
           "statistics_shared": "2/2",
           "worst_rel_estimate": 1.11e-16,
-          "worst_rel_se": 2.08e-17
+          "worst_rel_se": 1.39e-17
         },
         "51_newey": {
           "status": "reproduces",
-          "statistics_shared": "2/2",
+          "statistics_shared": "4/4",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "52_scm_unique": {
           "status": "reproduces",
           "statistics_shared": "7/7",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.97e-14,
+          "worst_rel_se": 8.5e-16
         },
         "53_cr2": {
           "status": "reproduces",
@@ -2818,68 +2818,68 @@
         "54_twoway_cluster": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 5.55e-16,
-          "worst_rel_se": 6.94e-18
+          "worst_rel_estimate": 3.33e-16,
+          "worst_rel_se": 1.04e-17
         },
         "55_hc2_hc3": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.85e-16,
+          "worst_rel_se": 2.67e-10
         },
         "56_multiway_cluster": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 7.77e-16,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 8.88e-16,
+          "worst_rel_se": 1.39e-17
         },
         "57_logit": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 1.11e-16,
           "worst_rel_se": 0.0
         },
         "58_poisson": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.78e-15,
+          "worst_rel_se": 1.39e-17
         },
         "59_liml": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 6.56e-15,
+          "worst_rel_se": 1.94e-16
         },
         "60_sureg": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.33e-16,
+          "worst_rel_se": 6.94e-18
         },
         "61_betareg": {
           "status": "reproduces",
-          "statistics_shared": "4/4",
+          "statistics_shared": "8/8",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "62_truncreg": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.11e-15,
+          "worst_rel_se": 1.01e-12
         },
         "63_zip": {
           "status": "reproduces",
           "statistics_shared": "5/5",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.33e-16,
+          "worst_rel_se": 2.12e-13
         },
         "64_zinb": {
           "status": "reproduces",
           "statistics_shared": "6/6",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 8.55e-15,
+          "worst_rel_se": 4.63e-11
         },
         "65_spatial": {
           "status": "reproduces",
@@ -2890,19 +2890,19 @@
         "66_spatial_gmm": {
           "status": "reproduces",
           "statistics_shared": "8/8",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 2.22e-15,
+          "worst_rel_se": 1.67e-16
         },
         "67_panel_glm": {
           "status": "reproduces",
           "statistics_shared": "4/4",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 2.78e-17
         },
         "68_demean_within": {
           "status": "reproduces",
           "statistics_shared": "10/10",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 4.2e-16,
           "worst_rel_se": 0.0
         },
         "69_balance_panel": {
@@ -2920,116 +2920,116 @@
         "71_dml_family": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_se": 2.78e-17
         },
         "72_tmle": {
           "status": "reproduces",
           "statistics_shared": "1/1",
           "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_se": 6.94e-18
         },
         "73_did2s": {
           "status": "reproduces",
           "statistics_shared": "2/2",
-          "worst_rel_estimate": 5.52e-15,
-          "worst_rel_se": 1.73e-18
+          "worst_rel_estimate": 1.57e-12,
+          "worst_rel_se": 5.87e-14
         },
         "74_cic": {
           "status": "reproduces",
           "statistics_shared": "10/10",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 3.97e-16,
           "worst_rel_se": 0.0
         },
         "75_stacked": {
           "status": "reproduces",
           "statistics_shared": "14/14",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 4.72e-16,
+          "worst_rel_se": 4.16e-17
         },
         "76_pretrends": {
           "status": "reproduces",
-          "statistics_shared": "8/8",
+          "statistics_shared": "16/16",
           "worst_rel_estimate": 0.0,
           "worst_rel_se": 0.0
         },
         "77_ddd": {
           "status": "reproduces",
           "statistics_shared": "29/29",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 7.54e-16,
+          "worst_rel_se": 1.67e-16
         },
         "78_multiplegt_dyn": {
           "status": "reproduces",
           "statistics_shared": "11/11",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 9.02e-17,
           "worst_rel_se": 0.0
         },
         "79_didff": {
           "status": "reproduces",
           "statistics_shared": "18/18",
-          "worst_rel_estimate": 5.55e-17,
+          "worst_rel_estimate": 8.33e-17,
           "worst_rel_se": 0.0
         },
         "80_contdid": {
           "status": "reproduces",
           "statistics_shared": "30/30",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 8.25e-14,
           "worst_rel_se": 0.0
         },
         "81_didm": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 1.11e-16,
+          "worst_rel_estimate": 6.25e-17,
           "worst_rel_se": 0.0
         },
         "82_staggered": {
           "status": "reproduces",
           "statistics_shared": "33/33",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 4.44e-16,
           "worst_rel_se": 0.0
         },
         "83_lpdid": {
           "status": "reproduces",
           "statistics_shared": "5/5",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 6.11e-16,
+          "worst_rel_se": 4.16e-17
         },
         "84_bjs_pretrends": {
           "status": "reproduces",
           "statistics_shared": "7/7",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 4e-15,
+          "worst_rel_se": 2.36e-16
         },
         "85_twfe_event_study": {
           "status": "reproduces",
           "statistics_shared": "8/8",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 2.67e-16,
+          "worst_rel_se": 4.16e-17
         },
         "86_fect": {
           "status": "reproduces",
           "statistics_shared": "105/105",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 2.09e-15,
           "worst_rel_se": 0.0
         },
         "87_interflex": {
           "status": "reproduces",
           "statistics_shared": "26/26",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.49e-15,
+          "worst_rel_se": 9.44e-16
         },
         "88_rdbwselect": {
           "status": "reproduces",
           "statistics_shared": "68/68",
-          "worst_rel_estimate": 0.0,
+          "worst_rel_estimate": 1.41e-10,
           "worst_rel_se": 0.0
         },
         "89_rdms": {
           "status": "reproduces",
           "statistics_shared": "15/15",
-          "worst_rel_estimate": 0.0,
-          "worst_rel_se": 0.0
+          "worst_rel_estimate": 3.84e-12,
+          "worst_rel_se": 1.85e-12
         }
       }
     }

@@ -23,6 +23,28 @@
       "ci_hi": null,
       "n": 200,
       "extra": []
+    },
+    {
+      "module": "51_newey",
+      "side": "R",
+      "statistic": "beta_intercept_small",
+      "estimate": 0.0286618145541452,
+      "se": 0.12248332789826,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 200,
+      "extra": []
+    },
+    {
+      "module": "51_newey",
+      "side": "R",
+      "statistic": "beta_x_small",
+      "estimate": 0.308565263148507,
+      "se": 0.106745732392595,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 200,
+      "extra": []
     }
   ],
   "extra": {
@@ -33,7 +55,7 @@
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",
     "platform": "aarch64-apple-darwin20",
-    "running": "macOS Tahoe 26.5",
+    "running": "macOS Tahoe 26.6.2",
     "captured_via": "tests/r_parity/_common.R::write_results",
     "packages": {
       "lmtest": "0.9-40",

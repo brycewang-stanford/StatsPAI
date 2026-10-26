@@ -205,7 +205,14 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
 #: Modules whose Stata artifact deliberately joins no *headline* row. A Stata
 #: column that compares nothing is a finding, not coverage, so the audit
 #: demands the reason be written down rather than inferred from a blank cell.
-STATA_NO_HEADLINE_JOIN_REASON: dict[str, str] = {}
+STATA_NO_HEADLINE_JOIN_REASON: dict[str, str] = {
+    "76_pretrends": (
+        "the headline is the threshold=1.96 rows, computed in R with an exact "
+        "integrator; Stata's pretrends port integrates numerically and joins "
+        "the default rows only, ~1e-4 from both conventions (a registered "
+        "stochastic-reference row)."
+    ),
+}
 
 #: Python statistics with no counterpart on either reference side. Not an
 #: error -- some are Python-only diagnostics -- but they must be visible,
@@ -256,6 +263,207 @@ STATA_SE_GAP_NOTES: dict[str, str] = {
         "orthogonalised score has no such factor."
     ),
 }
+
+
+#: Machine level for a single joined row: the gap a row may carry without a
+#: registered reason. A near-zero reference makes the relative gap
+#: meaningless, so a row is also at machine level when the absolute gap is
+#: below ``MACHINE_ABS``.
+MACHINE_REL = 1e-6
+MACHINE_ABS = 1e-8
+
+#: Every joined row whose gap exceeds machine level, on either reference side,
+#: for the point estimate or the SE, outside the T3/T4 modules. A module
+#: budget says how far a row may drift; this table says *why* it is not at
+#: machine level, row by row, so no gap hides under a budget registered for
+#: a different row (the Oaxaca Stata SE sat for months under a budget written
+#: for the R bootstrap). Kinds:
+#:
+#: * ``convention`` -- both sides correct, different documented quantity.
+#:   ``pinned_by`` names rows, on ``pin_side``, that run StatsPAI under the
+#:   reference's convention and must join at machine level, so the mechanism
+#:   is demonstrated, not asserted.
+#: * ``reference_numerics`` -- the reference stops short (optimizer or root
+#:   tolerance, approximate covariance, numerical derivatives). ``pinned_by``
+#:   names the rows of a second reference or a converged run that sit at
+#:   machine level, when one exists.
+#: * ``stochastic_reference`` -- a simulated or resampled quantity on at least
+#:   one side. Reported as a stochastic screen (S); never a parity fact.
+#:
+#: Each entry: ``side`` ("R" / "Stata"), ``quantity`` ("est" / "se"),
+#: ``rows`` (regex on the statistic), ``kind``, ``note``, and optionally
+#: ``pinned_by`` (regex) with ``pin_side``. Enforced by
+#: tests/test_parity_harness_contract.py::test_every_gap_over_machine_level_is_registered
+#: and its two companions (no stale entry, every pin at machine level).
+ROW_GAP_NOTES: dict[str, list[dict[str, str]]] = {
+    "05_sunab": [{
+        "side": "R", "quantity": "se", "rows": r"^att_rel_-?\d+$",
+        "kind": "convention", "pinned_by": r"^att_rel_-?\d+_fixedshare$",
+        "pin_side": "R",
+        "note": "fixest::sunab holds the cohort shares fixed; the default "
+                "rows add the Sun-Abraham Prop. 3 share-estimation term "
+                "(Stata eventstudyinteract's convention, 8e-12 on every "
+                "row). share_variance=False reproduces fixest.",
+    }],
+    "10_honest_did": [
+        {"side": "R", "quantity": "est", "rows": r"^shipped_ci_",
+         "kind": "stochastic_reference",
+         "note": "HonestDiD as shipped draws the folded-normal quantile by "
+                 "simulation; the ci_* rows use the exact quantile."},
+        {"side": "R", "quantity": "est", "rows": r"^ci_(lower|upper)_M_0$",
+         "kind": "reference_numerics",
+         "pinned_by": r"^analytic_ci_(lower|upper)_M_0$", "pin_side": "R",
+         "note": "At M=0 the interval is the closed-form GLS extrapolation "
+                 "(analytic_* rows, 2e-9); HonestDiD's cone solver stops "
+                 "5.7e-6 from it."},
+        {"side": "Stata", "quantity": "est", "rows": r"^ci_lower_M_0$",
+         "kind": "reference_numerics",
+         "note": "Stata honestdid's solver at M=0, 5.5e-7 absolute from the "
+                 "closed form the R analytic_* rows pin."},
+    ],
+    "17_etwfe": [
+        {"side": "R", "quantity": "se", "rows": r"^att_",
+         "kind": "reference_numerics",
+         "note": "etwfe::emfx forms the delta-method Jacobian by finite "
+                 "differences (marginaleffects); worst 5.5e-6."},
+        {"side": "Stata", "quantity": "se",
+         "rows": r"^att_(etwfe|etwfe_never|group_notyet_\d+)$",
+         "kind": "convention",
+         "note": "jwdid's ivar() absorbs unit effects nested in the "
+                 "cluster and leaves them out of K (17); StatsPAI and R etwfe "
+                 "fit cohort and period effects and count them (20), and "
+                 "sqrt((2500-17)/(2500-20)) = 1.000605 is the whole gap. The "
+                 "per-cohort never-treated rows join at 2e-15."},
+    ],
+    "18_augsynth": [{
+        "side": "R", "quantity": "est", "rows": r"^(att_augmented|pre_rmspe)$",
+        "kind": "reference_numerics",
+        "pinned_by": r"^(att_augmented|pre_rmspe)$", "pin_side": "Stata",
+        "note": "augsynth::synth_qp stops at OSQP's eps = 1e-8; with eps = "
+                "1e-13 it agrees with StatsPAI's exact simplex QP and with "
+                "the audited Stata/Mata bridge (1e-11).",
+    }],
+    "26_glmm_logit": [{
+        "side": "R", "quantity": "est|se", "rows": r"^beta_",
+        "kind": "reference_numerics",
+        "pinned_by": r"^beta_", "pin_side": "Stata",
+        "note": "lme4's Laplace optimum sits 1.5e-4 away in beta with a "
+                "logLik 2.8e-7 lower; Stata melogit, laplace agrees with "
+                "StatsPAI to 1.4e-8 (estimate) and 1.6e-7 (SE).",
+    }],
+    "27_glmm_aghq": [{
+        "side": "Stata", "quantity": "se", "rows": r"^beta_intercept$",
+        "kind": "convention",
+        "note": "Stata's default mvaghermite grid is a different 8-point "
+                "approximation from lme4's; all three sides agree to 3e-8 at "
+                "30 points (docs/dev/r_parity_tolerances.md).",
+    }],
+    "29_panel_sfa": [{
+        "side": "R", "quantity": "est|se", "rows": r"^(beta_|sigma_u$)",
+        "kind": "reference_numerics",
+        "pinned_by": r"^(beta_|sigma_u$)", "pin_side": "Stata",
+        "note": "frontier::sfa stops ~1e-6 from the optimum and reports "
+                "FRONTIER 4.1's approximate covariance (0.1-1.8%); Stata "
+                "xtfrontier, ti with mu = 0 agrees with StatsPAI to 2e-10 "
+                "(estimates) and 8e-10 (SEs).",
+    }],
+    "30_oaxaca": [
+        {"side": "R", "quantity": "se", "rows": r"^unexplained$",
+         "kind": "stochastic_reference",
+         "note": "oaxaca::oaxaca reports bootstrap SEs (R = 100)."},
+        {"side": "Stata", "quantity": "se", "rows": r"^unexplained$",
+         "kind": "convention",
+         "pinned_by": r"_hc1_fixed$", "pin_side": "Stata",
+         "note": "Stata oaxaca's default uses classical group regressions "
+                 "and stochastic covariate means; StatsPAI uses HC1 and "
+                 "holds the means fixed, which oaxaca, vce(robust) fixed "
+                 "reproduces on all three threefold components."},
+    ],
+    "36_mediation": [{
+        "side": "R|Stata", "quantity": "se", "rows": r"^(acme|ade)$",
+        "kind": "stochastic_reference",
+        "note": "StatsPAI bootstraps (B = 1000), mediation::mediate draws "
+                "quasi-Bayesian simulations (sims = 200) and the Stata "
+                "bridge reports delta-method SEs; point effects agree at "
+                "1e-15.",
+    }],
+    "42_nbreg": [{
+        "side": "R", "quantity": "se", "rows": r"^beta_(intercept|x1|x2)$",
+        "kind": "convention",
+        "pinned_by": r"_condse$", "pin_side": "R",
+        "note": "MASS::glm.nb reports the beta SEs with the dispersion held "
+                "at its estimate; StatsPAI and Stata nbreg report the joint "
+                "observed information. sp.nbreg exposes the conditional SEs "
+                "as model_info['se_conditional_on_dispersion'].",
+    }],
+    "48_probit": [{
+        "side": "R", "quantity": "se", "rows": r"^beta_(intercept|x1|x2)$",
+        "kind": "convention",
+        "pinned_by": r"_oim$", "pin_side": "R",
+        "note": "stats::glm reports the expected information, which differs "
+                "from the observed information for the probit link; "
+                "sampleSelection::probit reports the observed information "
+                "(StatsPAI's and Stata probit's convention).",
+    }],
+    "51_newey": [{
+        "side": "Stata", "quantity": "se", "rows": r"^beta_(intercept|x)$",
+        "kind": "convention",
+        "pinned_by": r"_small$", "pin_side": "Stata",
+        "note": "Stata newey scales the HAC covariance by N/(N-K); "
+                "hac_small=True (and sandwich adjust=TRUE) does the same.",
+    }],
+    "61_betareg": [{
+        "side": "R", "quantity": "se",
+        "rows": r"^(beta_(intercept|x1|x2)|ln_phi)$",
+        "kind": "convention",
+        "pinned_by": r"_oim$", "pin_side": "R",
+        "note": "betareg's default SEs are the analytic expected "
+                "information; hessian = TRUE reports the observed "
+                "information (StatsPAI's and Stata betareg's convention), "
+                "to the ~1e-7 accuracy of optim's numerical Hessian.",
+    }],
+    "76_pretrends": [
+        {"side": "R", "quantity": "est",
+         "rows": r"^(power|bayes_factor|slope_for_power)_[0-9p_slope]+$",
+         "kind": "convention",
+         "pinned_by": r"_t196$", "pin_side": "R",
+         "note": "pretrends fixes the pre-test threshold at 1.96 (StatsPAI "
+                 "default qnorm(0.975)), integrates with pmvnorm's default "
+                 "abseps = 1e-3 and finds slope_for_power with uniroot's "
+                 "default tolerance; the *_t196 rows run threshold = 1.96 "
+                 "against an exact integrator and a 1e-14 root."},
+        {"side": "Stata", "quantity": "est",
+         "rows": r"^(power|bayes_factor|slope_for_power)_",
+         "kind": "stochastic_reference",
+         "note": "Stata pretrends integrates the rectangle probability "
+                 "numerically; its rows sit ~1e-4 from both conventions."},
+    ],
+    "79_didff": [{
+        "side": "R", "quantity": "est", "rows": r"^pt_pvalue$",
+        "kind": "stochastic_reference",
+        "note": "didFF's p-value is simulated; every density row agrees at "
+                "1.2e-15.",
+    }],
+}
+
+
+def row_gap_note(
+    module: str, side: str, quantity: str, statistic: str
+) -> dict[str, str] | None:
+    """The ``ROW_GAP_NOTES`` entry that explains one joined row, if any."""
+    for entry in ROW_GAP_NOTES.get(module, []):
+        if side in entry["side"].split("|") and quantity in entry[
+            "quantity"
+        ].split("|") and re.search(entry["rows"], statistic):
+            return entry
+    return None
+
+
+def over_machine_level(rel: float | None, abs_gap: float | None) -> bool:
+    """True when a joined row's gap exceeds machine level."""
+    if rel is None or abs_gap is None:
+        return False
+    return rel > MACHINE_REL and abs_gap > MACHINE_ABS
 
 
 #: What the StatsPAI side of each Track A module actually executes. A parity
@@ -488,13 +696,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # layer, which is not replicated.
     "80_contdid": {"rel_est": 1e-6},
     # Functional-form test: the sixteen implied-density bins across both
-    # designs agree at 1.2e-15. The 1e-3 budget exists for ONE row per
-    # design -- the p-value, which is a 100k-draw simulation of the
+    # designs agree at 1.2e-15. The p-value is a 100k-draw simulation of the
     # least-favourable critical value on each side with different RNGs
-    # (observed gap 2e-5, i.e. two draws; 1e-5 against did 2.3.0). Iterative
-    # tier for that reason alone; the substantive quantities are
-    # machine-exact.
-    "79_didff": {"rel_est": 1e-3},
+    # (observed gap 2e-5); it is a registered stochastic-screen row
+    # (ROW_GAP_NOTES), so the budget is the machine one.
+    "79_didff": {"rel_est": 1e-6},
     # dCDH intertemporal event study: across TWO designs -- absorbing, and
     # one where treatment switches off as well as on -- every effect,
     # placebo, aggregate and switcher count matches DIDmultiplegtDYN at
@@ -511,13 +717,15 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # variance the reference does; the unconditional rows emit no SE
     # because that path reports a cluster bootstrap instead.
     "77_ddd": {"rel_est": 1e-6, "rel_se": 1e-6},
-    # Pre-trends power: iterative tier on purpose. pretrends gets its
-    # rejection probability from mvtnorm::pmvnorm, whose Genz-Bretz
-    # integrator is randomised -- twenty repeated R calls on this fixture
-    # spread over ~5e-4 (sd 1.3e-4). Worst observed gap 4.3e-4, on
-    # slope_for_power, which root-finds through that same noise. The
-    # likelihood ratio is closed-form and agrees at 1e-15.
-    "76_pretrends": {"rel_est": 1e-3},
+    # Pre-trends power. The default rows differ from pretrends by its fixed
+    # 1.96 pre-test cutoff (StatsPAI: qnorm(0.975)), its randomised pmvnorm
+    # integrator (abseps 1e-3) and uniroot's default tolerance; before
+    # 2026-10 the whole gap was put down to the integrator and given an
+    # iterative 1e-3 budget. The *_t196 rows run threshold=1.96 against
+    # pretrends with an exact integrator and a 1e-14 root (worst 1.3e-7, the
+    # StatsPAI integrator's 1e-7 tolerance) and carry the headline; the
+    # default rows are a registered convention (ROW_GAP_NOTES).
+    "76_pretrends": {"rel_est": 1e-6},
     # Stacked DiD: event-study coefficients and the post mean match a
     # hand-written fixest stack at 1.3e-13 under both control-group
     # conventions. No rel_se -- the R side clusters on the raw unit id
@@ -576,8 +784,9 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # att_rel_<e>_fixedshare rows re-run with share_variance=False and
     # pin the fixest convention itself to 8e-12, which is what closes the
     # mechanism. Degrees of freedom follow the fixest/reghdfe nested K
-    # rule on both sides. Budget = ~3x the worst share-term gap.
-    "05_sunab": {"rel_est": 1e-6, "rel_se": 3e-2},
+    # rule on both sides. The default rows are a registered convention
+    # (ROW_GAP_NOTES), so the budget binds every other SE row at 1e-6.
+    "05_sunab": {"rel_est": 1e-6, "rel_se": 1e-6},
     "06_rd": {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
@@ -653,8 +862,9 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "rel_se": 1e-6,  # sentinel (was 0.25): SE rows are side-specific
         # (se_cluster_if / se_didimputation / se_stata_did_imputation).
     },  # point row; side-specific SE diagnostics
-    "17_etwfe": {"rel_est": 1e-6, "rel_se": 1e-3},  # emfx + cluster SE
-    # parity. R side <= 5.5e-6 (marginaleffects' forward-difference emfx;
+    "17_etwfe": {"rel_est": 1e-6, "rel_se": 1e-6},  # emfx + cluster SE
+    # parity. Both SE gaps below are registered rows (ROW_GAP_NOTES).
+    # R side <= 5.5e-6 (marginaleffects' forward-difference emfx;
     # see the module note). A: the 6.0e-4 Stata rows (simple ATT on both
     # control groups, not-yet cohort rows; 1.7x margin) are a K convention,
     # reconstructed exactly: jwdid ivar() absorbs unit effects nested in the
@@ -696,8 +906,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # log-likelihood, the Stata melogit vce(oim) construction; py == Stata
     # to 3.5e-6 on both SE rows. lme4's nAGQ=1 optimum sits 1.5e-4 away in
     # beta (logLik 2.8e-7 higher on the Python/Stata side) and its SEs are
-    # 0.12%-0.27% off that optimum; 3.7x margin on the R side.
-    "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 1e-2},  # tightened GLMM optimiser tol
+    # 0.12%-0.27% off that optimum. Those R SE rows are registered
+    # reference numerics pinned by Stata (ROW_GAP_NOTES); the point budget
+    # still covers lme4's optimum on the headline.
+    "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 1e-6},
     # A (machine): same OIM construction as above at the tight AGHQ
     # optimum; observed 4.8e-7 (R) / 4.2e-6 (Stata) SE, ~5x margin. Was
     # 5e-2 with a 1.9% "information-matrix convention" gap that turned
@@ -716,28 +928,33 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # 3e-8 at 30 points). The budget is therefore optimiser noise on the
     # reference side, measured, not a convention: 5e-6 = ~3x the widest
     # lme4-vs-lme4 spread that still reproduces the deviance to 1e-10.
-    # SE budget unchanged (2e-5; observed 4.8e-7 R / 4.2e-6 Stata).
+    # SE: 4.8e-7 against R; the 4.2e-6 Stata row is the quadrature-grid
+    # convention above, registered in ROW_GAP_NOTES (budget 2e-5 until
+    # 2026-10).
     "27_glmm_aghq": {
         "rel_est": 5e-6,
-        "rel_se": 2e-5,
+        "rel_se": 1e-6,
     },  # AGHQ tight optimiser, full OIM covariance
     "28_frontier": {
         "rel_est": 1e-6,
-        "rel_se": 5e-5,
-    },  # obs worst 1.3e-5, ~4x margin; 2026-06 tighten
+        "rel_se": 1e-6,
+    },  # 1.3e-5 until 2026-10: a plain h=1e-5 central-difference Hessian;
+    #     Richardson extrapolation + Newton polish give 1.6e-9 (R) / 1.3e-8
     # B: all three sides now fit the same half-normal Pitt-Lee model
     # (the Stata do-file constrains xtfrontier's truncated-normal mu to
     # 0; before 2026-09 the Stata rows were a different likelihood and
-    # were mislabelled as a "scale" difference). Stata's analytic-Hessian
-    # OIM matches the StatsPAI central-difference OIM to 3e-6 on every SE
-    # row, which pins the Python Hessian; frontier::sfa's mleCov (Coelli's
-    # FRONTIER 4.1 routine) is 0.1%-1.8% off on the R side (worst: the
-    # intercept). Budget = ~3x the worst R-side row.
-    "29_panel_sfa": {"rel_est": 1e-3, "rel_se": 5e-2},
-    # A (tightened 2026-06-10 from 1.0): sp reports closed-form
-    # delta-method SEs while oaxaca::oaxaca reports seeded R=100
-    # bootstrap SEs; observed 1.25% (R) / 1.22% (Stata), 4x margin.
-    "30_oaxaca": {"rel_est": 1e-6, "rel_se": 0.05},  # gap-only headline
+    # were mislabelled as a "scale" difference). Since 2026-10 (Newton
+    # polish + Richardson Hessian) py == Stata to 2e-10 / 8e-10.
+    # frontier::sfa stops ~1e-6 from the optimum (point budget 5e-6) and its
+    # mleCov (Coelli's FRONTIER 4.1 routine) is 0.1%-1.8% off; those R SE
+    # rows are registered reference numerics pinned by Stata.
+    "29_panel_sfa": {"rel_est": 5e-6, "rel_se": 1e-6},
+    # sp reports delta-method SEs (HC1 regressions, covariate means fixed).
+    # oaxaca::oaxaca bootstraps (R=100): a stochastic-reference row. Stata
+    # oaxaca's default (classical, stochastic means) differs by convention,
+    # and oaxaca, vce(robust) fixed pins StatsPAI's at 2e-14 (*_hc1_fixed).
+    # The 1.22% Stata gap used to sit under the R bootstrap's 5e-2 budget.
+    "30_oaxaca": {"rel_est": 1e-6, "rel_se": 1e-6},  # gap-only headline
     # rel_se sentinel (was 1.0): point-only decomposition rows.
     "31_dfl": {"rel_est": 1e-6, "rel_se": 1e-6},  # ddecompose reference_0 mapping
     "32_rif": {
@@ -750,13 +967,13 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # own convention, so every compared SE is like-for-like (obs 1e-15).
     "33_var": {"rel_est": 1e-6, "rel_se": 1e-6},
     "34_lp": {"rel_est": 1e-6, "rel_se": 1e-6},  # lpirfs Cholesky/unit shock
-    "35_panel": {"rel_est": 1e-6, "rel_se": 1e-3},  # FE/RE + plm-style Hausman
-    # A: sp bootstrap B=1000 vs mediate's quasi-Bayesian MC (sims=200,
-    # ~5% MC noise by itself); observed 7.0% (1.4x margin). Frozen by
-    # the contract test.
+    "35_panel": {"rel_est": 1e-6, "rel_se": 1e-6},  # FE/RE + plm-style Hausman
+    # sp bootstrap B=1000 vs mediate's quasi-Bayesian MC (sims=200) and the
+    # Stata bridge's delta method: both SE rows are registered stochastic
+    # screens (ROW_GAP_NOTES), so the SE budget binds nothing else.
     "36_mediation": {
         "rel_est": 1e-6,
-        "rel_se": 0.10,
+        "rel_se": 1e-6,
     },  # point exact; bootstrap/delta SE convention
     # Modules added in the 2026-05-28 parity expansion session.
     # A (machine on both sides): beta_* rows use ssc="stata" (N/(N-1),
@@ -779,8 +996,8 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # 1.1e-11 (Stata), was 2.0e-6 with the 2nd-difference Hessian
     "42_nbreg": {
         "rel_est": 1e-6,
-        "rel_se": 5e-3,
-    },  # obs worst 1.4e-3, 3x margin (2026-06 tighten)
+        "rel_se": 1e-6,
+    },  # default rows: glm.nb's conditional SEs, pinned by *_condse (3e-13)
     "43_heckman": {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
@@ -789,13 +1006,12 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # expected-information matrix, not noise
     "44_mlogit": {
         "rel_est": 1e-6,
-        "rel_se": 5e-5,
-    },  # multinom tight optimiser + observed-info Hessian; obs 1.2e-5 (2026-06 tighten)
+        "rel_se": 1e-6,
+    },  # multinom tight optimiser + observed-info Hessian; obs 4e-9
     "45_ologit": {
         "rel_est": 1e-6,
-        "rel_se": 1e-5,
-    },  # polr tight optimiser + observed-info Hessian; obs 2.0e-6, 5.1x
-    #     (at rule boundary)
+        "rel_se": 1e-6,
+    },  # polr tight optimiser + observed-info Hessian; obs 7e-8
     "46_clogit": {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
@@ -806,13 +1022,13 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # / 1.1e-8 (R). The old 1.8% (R) / 0.10% (Stata) gaps were StatsPAI
     # applying (N-1)/(N-k) with k = slopes only, matching neither.
     "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 1e-6},
-    "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
+    "48_probit": {"rel_est": 1e-6, "rel_se": 1e-6},
     "49_oprobit": {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
     },  # obs worst 3.0e-7 (machine floor); 2026-06 tighten
     "50_xtabond": {"rel_est": 1e-6, "rel_se": 1e-6},  # R/Stata dynamic-panel fixture
-    "51_newey": {"rel_est": 1e-6, "rel_se": 1e-2},  # post HAC fix
+    "51_newey": {"rel_est": 1e-6, "rel_se": 1e-6},  # post HAC fix
     # Unique-solution SCM: strict-parity counterpart to module 07.
     "52_scm_unique": {
         "rel_est": 1e-6,
@@ -850,12 +1066,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # default; systemfit methodResidCov='noDfCor', maxiter=1).
     "60_sureg": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Beta regression (logit mean link, log-link precision). Point
-    # estimates are machine-level across all three sides; the SE budget
-    # is 1e-2 because betareg reports expected-(Fisher-)information SEs
-    # while sp/Stata report observed-information SEs (documented
-    # convention gap <=0.7% on this fixture; py<->Stata SEs agree at
-    # ~1e-6).
-    "61_betareg": {"rel_est": 1e-6, "rel_se": 1e-2},
+    # estimates are machine-level across all three sides. betareg's default
+    # SEs are expected information (<=0.7% off); its hessian=TRUE rows
+    # (*_oim) report observed information and join at 1.2e-7, py<->Stata
+    # at 7e-9.
+    "61_betareg": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Left-truncated normal regression. truncreg runs maxLik method='NR'
     # to converge past the BFGS default stopping point; sigma rows are
     # compared on the natural scale (sp delta-maps exp(ln_sigma)).
@@ -866,13 +1081,13 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # finite-difference Hessian.
     "62_truncreg": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Zero-inflated Poisson (logit inflation). zeroinfl runs at
-    # reltol=1e-14; worst observed gap ~1e-7 est / ~6e-6 SE.
-    "63_zip": {"rel_est": 1e-6, "rel_se": 1e-4},
+    # reltol=1e-14; worst observed gap 1.2e-7 est / 2.4e-7 SE.
+    "63_zip": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Zero-inflated negative binomial. The ZINB likelihood is flat near
     # the optimum (R EM vs BFGS refinements move coefficients ~3e-7 at
-    # identical logLik to 1e-10), so the point budget is 1e-5 instead of
-    # machine; worst observed gap is ~1.1e-6 est / ~4e-5 SE.
-    "64_zinb": {"rel_est": 1e-5, "rel_se": 1e-3},
+    # identical logLik to 1e-10), so the point budget is 3e-6 instead of
+    # machine; worst observed gap is 9.5e-7 est / 3.3e-7 SE.
+    "64_zinb": {"rel_est": 3e-6, "rel_se": 1e-6},
     # Spatial ML: SAR/SEM/SDM coefficients, spatial parameter (rho/lambda),
     # and full-information asymptotic SEs vs spatialreg::lagsarlm /
     # errorsarlm / lagsarlm(Durbin=TRUE) on a 12x12 row-standardised rook
@@ -887,9 +1102,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "66_spatial_gmm": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Panel GLM: sp.feglm(family='logit') vs fixest::feglm and sp.fepois vs
     # fixest::fepois, both absorbing a single entity FE (id). Coefficients
-    # agree to ~1e-8 (machine); SEs differ at ~1e-5 because the two IWLS
-    # implementations iterate to slightly different working-weight roots.
-    "67_panel_glm": {"rel_est": 1e-6, "rel_se": 5e-5},
+    # agree to 1e-15 and SEs to 1.1e-7 with fixest run to glm.tol = 1e-12
+    # (until 2026-10 the R side stopped at fixest's default 1e-8 and the SEs
+    # sat 1e-5 apart).
+    "67_panel_glm": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Within transformation (sp.demean solver='map') vs textbook mean-within.
     # Pure algorithmic, agrees to machine tier (~3.5e-15 worst on a 20x8
     # balanced panel). Emitted point-only (no SE — it's a linear projection).
@@ -1438,8 +1654,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "machine precision vs didFF (worst 1.2e-15); the module's 1e-3 "
-            "budget covers only the simulated p-value"
+            "machine precision vs didFF (worst 1.2e-15); the simulated "
+            "p-value row is a stochastic screen"
         ),
     },
     "78_multiplegt_dyn": {
@@ -1466,12 +1682,14 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "76_pretrends": {
         "name": "Pre-trends power (Roth 2022)",
-        "headline_filter": lambda d: d.statistic.startswith("power_slope_"),
+        "headline_filter": lambda d: (
+            d.statistic.startswith("power_slope_") and d.statistic.endswith("_t196")
+        ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": (
-            "rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers "
-            "mvtnorm::pmvnorm's randomised integrator"
+            "threshold=1.96 rows vs pretrends with an exact integrator "
+            "(1.6e-8); default rows differ by pretrends' fixed 1.96 cutoff"
         ),
     },
     "75_stacked": {

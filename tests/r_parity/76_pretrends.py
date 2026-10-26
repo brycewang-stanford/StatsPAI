@@ -99,6 +99,43 @@ def main() -> None:
             )
         )
 
+    # pretrends fixes the pre-test threshold at 1.96; the *_t196 rows run
+    # StatsPAI at that threshold and join the R rows computed with an exact
+    # integrator and a tight root (see 76_pretrends.R).
+    for slope in SLOPES:
+        tag = f"{slope:g}".replace(".", "p")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = sp.pretrends_power(
+                res, delta=slope * (t[pre] + 1.0), threshold=1.96
+            )
+        for key in ("power", "bayes_factor", "likelihood_ratio"):
+            rows.append(
+                ParityRecord(
+                    module=MODULE,
+                    side="py",
+                    statistic=f"{key}_slope_{tag}_t196",
+                    estimate=float(out[key]),
+                    n=1000,
+                )
+            )
+    for target in TARGET_POWERS:
+        tag = f"{target:g}".replace(".", "p")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = sp.pretrends_slope_for_power(
+                res, target_power=target, threshold=1.96
+            )
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"slope_for_power_{tag}_t196",
+                estimate=float(out["slope"]),
+                n=1000,
+            )
+        )
+
     write_results(MODULE, "py", rows, extra={"estimator": "pretrends_power"})
 
 

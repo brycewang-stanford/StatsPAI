@@ -77,6 +77,26 @@ def _require_open_unit_float(value: Any, name: str, context: str) -> float:
     return out
 
 
+def _require_positive_float(value: Any, name: str, context: str) -> float:
+    """Return ``value`` as a finite float > 0, or raise."""
+    if isinstance(value, (bool, np.bool_)) or not isinstance(
+        value, (int, float, np.number)
+    ):
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be a positive number.",
+            diagnostics={"context": context, name: repr(value)},
+            recovery_hint=f"Pass `{name}` as a finite number > 0, e.g. 1.96.",
+        )
+    out = float(value)
+    if not np.isfinite(out) or out <= 0:
+        raise MethodIncompatibility(
+            f"{context}: `{name}` must be finite and > 0, got {out!r}.",
+            diagnostics={"context": context, name: out},
+            recovery_hint=f"Pass `{name}` as a finite number > 0, e.g. 1.96.",
+        )
+    return out
+
+
 def _require_int_at_least(
     value: Any,
     name: str,
@@ -701,6 +721,7 @@ def pretrends_power(
     sigma: Any = None,
     event_times: Any = None,
     num_pre_periods: Optional[int] = None,
+    threshold: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Power of the pre-trend test against a hypothesised violation.
 
@@ -762,6 +783,12 @@ def pretrends_power(
            number matches Roth's ``pretrends`` package. This changes the
            returned ``power`` for existing calls -- see MIGRATION.md.
            Pass ``test="joint"`` to recover the previous behaviour.
+    threshold : float, optional
+        Critical ``|t|`` of the coefficient-by-coefficient pre-test
+        (``test="individual"``). Default ``z_{1-alpha/2}`` (1.959964 at
+        ``alpha=0.05``). Roth's ``pretrends`` package fixes it at 1.96,
+        which moves the power in the fifth digit; ``threshold=1.96``
+        reproduces that package.
 
     Returns
     -------
@@ -874,7 +901,10 @@ def pretrends_power(
     ncp = float(delta @ vcv_inv @ delta)
     crit = float(sp_stats.chi2.ppf(1.0 - alpha, df=K))
     joint_power = float(sp_stats.ncx2.sf(crit, df=K, nc=ncp))
-    thresh = float(sp_stats.norm.ppf(1.0 - alpha / 2.0))
+    if threshold is None:
+        thresh = float(sp_stats.norm.ppf(1.0 - alpha / 2.0))
+    else:
+        thresh = _require_positive_float(threshold, "threshold", context)
 
     if test == "joint":
         power = joint_power
@@ -947,6 +977,7 @@ def pretrends_slope_for_power(
     sigma: Any = None,
     event_times: Any = None,
     num_pre_periods: Optional[int] = None,
+    threshold: Optional[float] = None,
 ) -> Dict[str, Any]:
     """Slope of a linear pre-trend the pre-test would detect ``target_power``
     of the time.
@@ -979,6 +1010,9 @@ def pretrends_slope_for_power(
     sigma, event_times, num_pre_periods : optional
         Coefficients and covariance instead of a StatsPAI result, as in
         :func:`pretrends_power`.
+    threshold : float, optional
+        Critical ``|t|`` of the coefficient-by-coefficient pre-test; see
+        :func:`pretrends_power` (``pretrends`` uses 1.96).
 
     Returns
     -------
@@ -1049,6 +1083,7 @@ def pretrends_slope_for_power(
                     delta=slope * (times - (-1.0)),
                     alpha=alpha,
                     test=test,
+                    threshold=threshold,
                 )["power"]
             )
 

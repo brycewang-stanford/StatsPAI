@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.1 → unreleased: ⚠️ `sp.frontier` / `sp.xtfrontier` standard errors
+
+The observed-information SEs were inverted from a central-difference Hessian
+with a fixed 1e-5 step, whose round-off was about 1e-5 relative. They now use
+a Richardson-extrapolated Hessian, and the optimisation finishes with Newton
+steps. SEs move by up to about 2e-5 relative and estimates by up to about
+3e-6; both now agree with Stata `frontier` / `xtfrontier` to 1e-8 or better.
+There is no option to restore the old numbers, which were round-off.
+
+---
+
 ## 1.40.1 → unreleased: defaults announced for 1.42 (`sp.iv` GMM weight matrix, `sp.panel` `ssc`)
 
 Nothing changes numerically in this release; calls whose numbers will

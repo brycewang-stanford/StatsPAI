@@ -34,6 +34,39 @@
       "ci_hi": null,
       "n": 600,
       "extra": {}
+    },
+    {
+      "module": "42_nbreg",
+      "side": "py",
+      "statistic": "beta_intercept_condse",
+      "estimate": 0.834494088805077,
+      "se": 0.067741441535541,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 600,
+      "extra": {}
+    },
+    {
+      "module": "42_nbreg",
+      "side": "py",
+      "statistic": "beta_x1_condse",
+      "estimate": 0.5412558108471365,
+      "se": 0.052240883254094844,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 600,
+      "extra": {}
+    },
+    {
+      "module": "42_nbreg",
+      "side": "py",
+      "statistic": "beta_x2_condse",
+      "estimate": -0.4962310868805453,
+      "se": 0.10049680561016258,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 600,
+      "extra": {}
     }
   ],
   "extra": {

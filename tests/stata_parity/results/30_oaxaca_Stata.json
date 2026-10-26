@@ -18,7 +18,7 @@
       "module": "30_oaxaca",
       "side": "Stata",
       "statistic": "explained_twofold",
-      "estimate": 0.038581819402427,
+      "estimate": 0.038581819402426998,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -85,10 +85,46 @@
       "n": 1000,
       "extra": {}
     }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "endowments_hc1_fixed",
+      "estimate": 0.041071522057750401,
+      "se": 0.0051267639964209999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "coefficients_hc1_fixed",
+      "estimate": 0.1826492066324161,
+      "se": 0.019661233581160401,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
+,
+    {
+      "module": "30_oaxaca",
+      "side": "Stata",
+      "statistic": "interaction_hc1_fixed",
+      "estimate": -0.0024897026553234,
+      "se": 0.0072078203074084999,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1000,
+      "extra": {}
+    }
   ],
   "extra": {
     "decomposition": "threefold",
-    "stata_command": "oaxaca log_wage educ exper, by(female)"
+    "stata_command": "oaxaca log_wage educ exper, by(female) [vce(robust) fixed]"
   },
   "provenance": {
     "stata_version": 18,

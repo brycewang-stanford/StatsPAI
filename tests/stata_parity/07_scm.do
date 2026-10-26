@@ -68,6 +68,11 @@ local n = r(N)
 
 stata_parity_row, stat(avg_post_gap) est(`avg_post_gap') nob(`n')
 stata_parity_row, stat(pre_treatment_rmse) est(`pre_rmse') nob(`n')
+* synth builds e(Y_synthetic) from weights rounded to 0.001 (synth.ado
+* `roundmat`), so these are also the *_w3dp rows: the Python side applies
+* the same rounding to its own weights.
+stata_parity_row, stat(avg_post_gap_w3dp) est(`avg_post_gap') nob(`n')
+stata_parity_row, stat(pre_treatment_rmse_w3dp) est(`pre_rmse') nob(`n')
 
 local unit_label : value label unit_num
 local n_weights = rowsof(W)

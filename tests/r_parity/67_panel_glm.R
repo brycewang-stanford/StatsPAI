@@ -27,8 +27,12 @@ df_pois  <- read_csv_strict(paste0(MODULE, "_poisson"))
 n_logit <- nrow(df_logit)
 n_pois  <- nrow(df_pois)
 
-m_logit <- fixest::feglm(y ~ x1 + x2 | id, data = df_logit, family = "logit")
-m_pois  <- fixest::fepois(y ~ x1 + x2 | id, data = df_pois)
+# IWLS run to glm.tol = 1e-12 / fixef.tol = 1e-11 (defaults 1e-8 / 1e-6)
+# so the fixest SEs are those of the converged fit, not of the last step.
+m_logit <- fixest::feglm(y ~ x1 + x2 | id, data = df_logit, family = "logit",
+                         glm.tol = 1e-12, fixef.tol = 1e-11)
+m_pois  <- fixest::fepois(y ~ x1 + x2 | id, data = df_pois,
+                          glm.tol = 1e-12, fixef.tol = 1e-11)
 
 l_co <- coef(m_logit)
 l_se <- se(m_logit)

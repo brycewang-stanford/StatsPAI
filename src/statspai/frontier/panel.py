@@ -564,6 +564,10 @@ def _fit_ti_tvd(
             ):
                 continue
 
+    # Finish the quasi-Newton search with Newton steps (see frontier/sfa.py).
+    theta_hat = _fc.newton_polish(neg_loglik, theta_hat, bounds)
+    ll_val = -neg_loglik(theta_hat)
+
     beta_hat = theta_hat[:k_beta]
     sigma_v = float(np.exp(theta_hat[idx_ln_sv]))
     sigma_u = float(np.exp(theta_hat[idx_ln_su]))
@@ -571,8 +575,8 @@ def _fit_ti_tvd(
     eta_hat = float(theta_hat[idx_eta]) if has_eta else 0.0
     a_vec = compute_a(eta_hat)
 
-    # SE
-    H = _fc.numerical_hessian(neg_loglik, theta_hat)
+    # SE (Richardson-extrapolated Hessian; see frontier/sfa.py)
+    H = _fc.richardson_hessian(neg_loglik, theta_hat)
     vcov_oim = _fc.safe_invert_hessian(H)
     if vce == "oim":
         vcov = vcov_oim

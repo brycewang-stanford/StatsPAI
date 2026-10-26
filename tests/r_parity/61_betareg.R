@@ -30,6 +30,21 @@ rows <- list(
   parity_row(MODULE, "beta_x2",        estimate = unname(co["x2"]),          se = unname(se["x2"]),          n = nrow(df)),
   parity_row(MODULE, "ln_phi",         estimate = unname(co["(phi)_(Intercept)"]), se = unname(se["(phi)_(Intercept)"]), n = nrow(df))
 )
+# The default vcov is the analytic expected information. hessian = TRUE
+# replaces it with the observed information from optim's numerical Hessian
+# at the optimum, the convention of sp.betareg and Stata betareg; it agrees
+# with them to ~1e-7, the accuracy of that numerical Hessian.
+fit_oim <- betareg(y ~ x1 + x2, data = df, link = "logit", link.phi = "log",
+                   control = betareg.control(reltol = 1e-14, maxit = 5000,
+                                             hessian = TRUE))
+co_o <- coef(fit_oim); se_o <- sqrt(diag(vcov(fit_oim)))
+oim_names <- c(beta_intercept = "(Intercept)", beta_x1 = "x1", beta_x2 = "x2",
+               ln_phi = "(phi)_(Intercept)")
+for (lab in names(oim_names)) {
+  nm <- oim_names[[lab]]
+  rows[[length(rows) + 1L]] <- parity_row(MODULE, paste0(lab, "_oim"),
+    estimate = unname(co_o[nm]), se = unname(se_o[nm]), n = nrow(df))
+}
 write_results(MODULE, rows,
               extra = list(package = "betareg::betareg",
                            link = "logit", phi_link = "log",

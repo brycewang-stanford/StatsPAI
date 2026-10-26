@@ -25,6 +25,30 @@
       "n": 200,
       "extra": {}
     }
+,
+    {
+      "module": "51_newey",
+      "side": "Stata",
+      "statistic": "beta_intercept_small",
+      "estimate": 0.028661814554145199,
+      "se": 0.1224833278982603,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 200,
+      "extra": {}
+    }
+,
+    {
+      "module": "51_newey",
+      "side": "Stata",
+      "statistic": "beta_x_small",
+      "estimate": 0.30856526314850652,
+      "se": 0.1067457323925954,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 200,
+      "extra": {}
+    }
   ],
   "extra": {
     "vcov": "NeweyWest",

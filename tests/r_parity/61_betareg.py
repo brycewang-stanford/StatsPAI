@@ -41,6 +41,12 @@ def main():
             estimate=float(res.params["_cons_phi"]),
             se=float(res.std_errors["_cons_phi"]),
             n=int(len(df))))
+    # betareg's default SEs are the analytic expected information; with
+    # hessian = TRUE it reports the observed information (the convention of
+    # sp.betareg and Stata betareg), which the *_oim rows join.
+    for r in list(rows):
+        rows.append(ParityRecord(MODULE, "py", f"{r.statistic}_oim",
+            estimate=r.estimate, se=r.se, n=r.n))
     write_results(MODULE, "py", rows,
                   extra={"link": "logit", "phi_link": "log"})
 

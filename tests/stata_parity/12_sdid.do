@@ -22,7 +22,10 @@ import delimited "${STATA_PARITY_DATA}/12_sdid.csv", clear case(preserve) ///
 sdid cigsale state year treated, vce(placebo) seed(42)
 
 local n = e(N)
-local att = e(ATT)
+* e(ATT) passes through strofreal() inside sdid.ado and keeps 7 significant
+* digits; the Mata global ATT it was formatted from is still in memory.
+mata: st_local("att", strofreal(ATT, "%21.17g"))
+assert reldif(`att', e(ATT)) < 1e-6
 local se  = e(se)
 stata_parity_row, stat(att_sdid) est(`att') nob(`n')
 stata_parity_row, stat(se_stata_sdid_placebo) est(`se') nob(`n')

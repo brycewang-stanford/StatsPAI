@@ -89,9 +89,21 @@ class ParityRecord:
 
 def dump_csv(df: pd.DataFrame, name: str) -> Path:
     """Dump a calibrated replica to data/<name>.csv with a fixed
-    floating-point precision so R reads identical bytes."""
+    floating-point precision so R reads identical bytes.
+
+    ``%.16g`` does not round-trip every double, so the float columns of
+    ``df`` are replaced *in place* by the values parsed back from the file
+    (correctly rounded, as R's and Stata's readers parse them). Without
+    this the Python side fitted the unrounded in-memory frame while R and
+    Stata fitted the bytes, and the "same bytes" claim held only to about
+    one ulp of the inputs.
+    """
     path = DATA_DIR / f"{name}.csv"
     df.to_csv(path, index=False, float_format="%.16g")
+    parsed = pd.read_csv(path, float_precision="round_trip")
+    for col in df.columns:
+        if pd.api.types.is_float_dtype(df[col].dtype):
+            df[col] = parsed[col].to_numpy(dtype=df[col].dtype)
     return path
 
 

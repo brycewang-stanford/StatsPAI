@@ -42,6 +42,16 @@ def main():
                 estimate=float(res.params[nm]),
                 se=float(res.std_errors[nm]),
                 n=int(len(df))))
+    # Stata's `newey` and sandwich::NeweyWest(adjust=TRUE) scale the HAC
+    # covariance by N/(N-K); hac_small=True does the same, so the small-sample
+    # convention is pinned on rows of its own instead of read off a budget.
+    small = sp.regress("y ~ x", df, robust="hac", hac_small=True)
+    for nm, lab in [("Intercept", "intercept"), ("x", "x")]:
+        if nm in small.params.index:
+            rows.append(ParityRecord(MODULE, "py", f"beta_{lab}_small",
+                estimate=float(small.params[nm]),
+                se=float(small.std_errors[nm]),
+                n=int(len(df))))
     write_results(MODULE, "py", rows, extra={"vcov": "HAC", "lags": R_SIDE_LAGS, "lag_source": "newey_west_rule"})
 
 if __name__ == "__main__":
