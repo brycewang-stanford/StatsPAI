@@ -122,6 +122,9 @@ def main() -> None:
             min_leaf_size=MIN_NODE_SIZE,
             scores=gamma,
             search="exact",
+            # policytree::policy_tree reports the in-sample objective; the
+            # default became a cross-fitted value in 1.41.
+            value_evaluation="in_sample",
         )
         assert res["search_mode"] == "exact", res["search_mode"]
         policy = np.asarray(res["policy"], dtype=int)

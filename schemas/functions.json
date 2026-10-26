@@ -17301,7 +17301,7 @@
           "type": "string"
         },
         "n_samples": {
-          "description": "Exposure GWAS sample size. If provided, each variant's R^2 is ``F / (F + n - 2)`` and ``r2_mean`` their mean; otherwise ``r2_mean`` is NaN (R^2 needs the sample size; the F-statistics do not). .. versionchanged:: 1.40.3 Without ``n_samples`` the number of variants used to stand in for the sample size.",
+          "description": "Exposure GWAS sample size. If provided, each variant's R^2 is ``F / (F + n - 2)`` and ``r2_mean`` their mean; otherwise ``r2_mean`` is NaN (R^2 needs the sample size; the F-statistics do not). .. versionchanged:: 1.41 Without ``n_samples`` the number of variants used to stand in for the sample size.",
           "type": "integer"
         },
         "se_exposure": {
@@ -48986,7 +48986,7 @@
           "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``)."
         },
         "result": {
-          "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix.",
+          "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix. After a fit reported as incidence-rate ratios (``irr=True``) the restrictions are on the coefficients ``b``, not on ``exp(b)``, as Stata's ``test`` after ``poisson, irr``.",
           "type": "string"
         }
       },
@@ -49012,7 +49012,7 @@
           "type": "string"
         },
         "result": {
-          "description": "Fitted model.",
+          "description": "Fitted model. After ``irr=True`` the combination is of the coefficients ``b`` (Stata's ``lincom`` without its ``irr`` option).",
           "type": "string"
         }
       },
@@ -49942,7 +49942,7 @@
           "type": "number"
         },
         "se": {
-          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value. For ratio measures (``RR`` / ``OR`` / ``HR``) it is the standard error of ``log(estimate)``, as logit / Poisson / Cox fits report it, and the CI built from it when ``ci`` is not given is ``estimate * exp(+/- z se)``. .. versionchanged:: 1.40.3 For ratio measures ``se`` used to be applied on the ratio scale (``estimate +/- z se``).",
+          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value. For ratio measures (``RR`` / ``OR`` / ``HR``) it is the standard error of ``log(estimate)``, as logit / Poisson / Cox fits report it, and the CI built from it when ``ci`` is not given is ``estimate * exp(+/- z se)``. .. versionchanged:: 1.41 For ratio measures ``se`` used to be applied on the ratio scale (``estimate +/- z se``).",
           "type": "number"
         },
         "true": {
@@ -73840,7 +73840,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Level of the adjusted confidence interval.",
+          "description": "Level of the adjusted confidence interval, referred to t with ``dof`` degrees of freedom as R ``sensemakr::ovb_bounds`` reports it (sensemakr's stand-alone ``adjusted_ci`` uses ``dof - 1``).",
           "type": "number"
         },
         "dof": {
