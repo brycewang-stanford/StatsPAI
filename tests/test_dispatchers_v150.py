@@ -358,20 +358,47 @@ class TestConformalDispatcher:
 
 
 class TestInterferenceDispatcher:
-    @pytest.mark.parametrize("design", ["spillover", "partial", "hudgens_halloran"])
-    def test_spillover_aliases_match_direct_call(self, design):
+    def test_spillover_matches_direct_call(self):
         df = _spillover_df(n_households=60)
         kw = dict(data=df, y="y", treat="d", cluster="h", n_bootstrap=50)
-        if design == "spillover":
-            with warnings.catch_warnings():
-                warnings.simplefilter("error", FutureWarning)
-                r_disp = sp.interference(design, random_state=0, **kw)
-        else:
-            # Deprecated: these names will route to sp.two_stage_interference.
-            with pytest.warns(FutureWarning, match="two_stage_interference"):
-                r_disp = sp.interference(design, random_state=0, **kw)
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            r_disp = sp.interference("spillover", random_state=0, **kw)
         r_direct = sp.spillover(random_state=0, **kw)
         assert r_disp.estimate == pytest.approx(r_direct.estimate, rel=1e-14)
+
+    @pytest.mark.parametrize("design", ["two_stage", "partial", "hudgens_halloran"])
+    def test_hudgens_halloran_aliases_match_two_stage(self, design):
+        # Since 1.41 'partial' / 'hudgens_halloran' are the Hudgens-Halloran
+        # two-stage estimator (through 1.40 they routed to sp.spillover).
+        rng = np.random.default_rng(3)
+        sat = np.repeat([0.25, 0.5, 0.75, 0.25, 0.5, 0.75], 8)
+        group = np.repeat(np.arange(6), 8)
+        d = np.concatenate(
+            [
+                rng.permutation([1] * int(8 * s) + [0] * (8 - int(8 * s)))
+                for s in sat[::8]
+            ]
+        )
+        y = 1.0 + 0.5 * d + 0.8 * sat + rng.normal(0, 0.3, d.size)
+        df = pd.DataFrame({"y": y, "d": d, "g": group, "a": sat})
+        kw = dict(data=df, y="y", treat="d", group="g", saturation="a")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            r_disp = sp.interference(design, **kw)
+        r_direct = sp.two_stage_interference(**kw)
+        assert r_disp.estimate == r_direct.estimate and r_disp.se == r_direct.se
+        pd.testing.assert_frame_equal(r_disp.detail, r_direct.detail)
+
+    @pytest.mark.parametrize("design", ["partial", "hudgens_halloran"])
+    def test_retargeted_aliases_refuse_spillover_arguments(self, design):
+        df = _spillover_df(n_households=20)
+        with pytest.raises(sp.MethodIncompatibility, match="two_stage") as ei:
+            sp.interference(
+                design, data=df, y="y", treat="d", cluster="h", n_bootstrap=10
+            )
+        assert "spillover" in ei.value.recovery_hint
+        assert ei.value.diagnostics["spillover_arguments"] == ["cluster", "n_bootstrap"]
 
     def test_default_design_is_spillover_without_warning(self):
         df = _spillover_df(n_households=40)

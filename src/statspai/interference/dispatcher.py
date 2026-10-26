@@ -25,17 +25,19 @@ A fully runnable example appears in :func:`statspai.interference` below.
 
 from __future__ import annotations
 
-import warnings
 from typing import Any, Dict, Tuple
 
 _REGISTRY: Dict[str, Tuple[str, str]] = {
     # -- Partial interference ------------------------------------- #
-    # 'partial' / 'hudgens_halloran' are deprecated aliases of 'spillover'
-    # (see _RETARGETED_ALIASES): sp.spillover is not the Hudgens-Halloran
-    # estimator, and the next minor release points them to two_stage.
-    "partial": ("statspai.interference.spillover", "spillover"),
+    # 'partial' / 'hudgens_halloran' name the Hudgens-Halloran two-stage
+    # estimator since 1.41 (see _RETARGETED_ALIASES); through 1.40 they
+    # routed to sp.spillover, which is not that estimator.
+    "partial": ("statspai.interference.two_stage", "two_stage_interference"),
     "spillover": ("statspai.interference.spillover", "spillover"),
-    "hudgens_halloran": ("statspai.interference.spillover", "spillover"),
+    "hudgens_halloran": (
+        "statspai.interference.two_stage",
+        "two_stage_interference",
+    ),
     "two_stage": ("statspai.interference.two_stage", "two_stage_interference"),
     "saturation": ("statspai.interference.two_stage", "two_stage_interference"),
     # -- Network interference ------------------------------------- #
@@ -95,8 +97,13 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "dnc": ("statspai.interference.dnc_gnn_did", "dnc_gnn_did"),
 }
 
-# Aliases whose target changes in the next minor release (MIGRATION.md).
+# Aliases whose target changed in 1.41 (sp.spillover -> two_stage; see
+# MIGRATION.md). A call that still passes sp.spillover's arguments is
+# refused with a pointer to 'spillover' rather than a bare TypeError.
 _RETARGETED_ALIASES = frozenset({"partial", "hudgens_halloran"})
+_SPILLOVER_ONLY_KWARGS = frozenset(
+    {"cluster", "covariates", "exposure_fn", "n_bootstrap", "random_state", "seed"}
+)
 
 
 def available_designs() -> list[str]:
@@ -126,13 +133,18 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
         The interference design to estimate under.  Supported values are
         listed by ``sp.interference_available_designs()``.
 
-        ``"partial"`` and ``"hudgens_halloran"`` currently route to
-        :func:`sp.spillover`, which is *not* the Hudgens-Halloran (2008)
-        estimator, and emit a ``FutureWarning``: in the next minor release
-        they will route to :func:`sp.two_stage_interference` (the
-        Hudgens-Halloran two-stage estimator, which needs a ``group`` and
-        a ``saturation`` column). Use ``"spillover"`` to keep the current
-        estimator or ``"two_stage"`` for Hudgens-Halloran.
+        ``"partial"`` and ``"hudgens_halloran"`` route to
+        :func:`sp.two_stage_interference` (the Hudgens-Halloran two-stage
+        estimator, which needs a ``group`` and a ``saturation`` column),
+        the same as ``"two_stage"``.
+
+        .. versionchanged:: 1.41
+           Through 1.40 these two names routed to :func:`sp.spillover`,
+           which is not the Hudgens-Halloran estimator. A call that passes
+           :func:`sp.spillover`'s arguments (``cluster=``,
+           ``n_bootstrap=`` ...) under either name raises
+           ``MethodIncompatibility``; use ``"spillover"`` for that
+           estimator.
     **kwargs
         Passed through unchanged to the target function.
 
@@ -168,16 +180,27 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
         )
 
     if design in _RETARGETED_ALIASES:
-        warnings.warn(
-            f"sp.interference({design!r}) routes to sp.spillover, which is not "
-            "the Hudgens-Halloran estimator. In the next minor release "
-            f"{design!r} will route to sp.two_stage_interference (Hudgens-"
-            "Halloran two-stage designs; needs group= and saturation=). Pass "
-            "'spillover' to keep the current estimator, or 'two_stage' for "
-            "Hudgens-Halloran.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        stale = sorted(_SPILLOVER_ONLY_KWARGS & set(kwargs))
+        if stale:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"sp.interference({design!r}) is the Hudgens-Halloran "
+                "two-stage estimator (sp.two_stage_interference) since 1.41; "
+                f"{stale} are arguments of sp.spillover, which this name "
+                "routed to through 1.40.",
+                recovery_hint=(
+                    "For the exposure-split estimator call "
+                    "sp.interference('spillover', ...) or sp.spillover(...). "
+                    "For a two-stage randomized design pass group= and "
+                    "saturation= instead."
+                ),
+                diagnostics={"design": design, "spillover_arguments": stale},
+                alternative_functions=[
+                    "sp.spillover",
+                    "sp.two_stage_interference",
+                ],
+            )
     module_path, fn_name = _REGISTRY[design]
     import importlib
 
