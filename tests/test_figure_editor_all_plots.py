@@ -23,6 +23,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pytest  # noqa: E402
+from matplotlib.backends.backend_agg import FigureCanvasAgg  # noqa: E402
 
 import statspai as sp  # noqa: E402
 from statspai.plots.interactive import FigureEditor  # noqa: E402
@@ -60,8 +61,14 @@ def _run_example(name):
 
 
 def _pixels(fig):
-    fig.canvas.draw()
-    return np.asarray(fig.canvas.buffer_rgba()).copy()
+    # Drawing the fresh copy runs plt.close("all"), which also closes ``fig``;
+    # from matplotlib 3.11 a closed figure is left with a bare
+    # FigureCanvasBase, so give it an Agg canvas again (same renderer).
+    canvas = fig.canvas
+    if not hasattr(canvas, "buffer_rgba"):
+        canvas = FigureCanvasAgg(fig)
+    canvas.draw()
+    return np.asarray(canvas.buffer_rgba()).copy()
 
 
 def _edit(ed, fig):

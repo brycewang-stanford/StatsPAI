@@ -88,6 +88,10 @@ def test_native_value_and_its_defining_property(key):
     # gives other draws on Linux / Windows and M* moves (castle C-LF:
     # 0.405815 on macOS, 0.406076 on Linux, relative 6.4e-4). The C-LF
     # values are held to the 3% band within which R HonestDiD brackets
-    # them (test above).
-    rel = 0.03 if c["hm"] == "C-LF" else 1e-9
+    # them (test above). The FLCI set is deterministic but its half-length
+    # comes from an SLSQP solve (did/_flci.py, ftol 1e-12) whose iterates
+    # follow the LAPACK build: castle FLCI M* is 0.008059515159 on macOS
+    # and 0.008059515105 on Linux (relative 6.7e-9), so FLCI gets 1e-7.
+    # The Conditional set has no inner optimiser and keeps 1e-9.
+    rel = {"C-LF": 0.03, "FLCI": 1e-7}.get(c["hm"], 1e-9)
     assert m_star == pytest.approx(c["mstar"], rel=rel)
