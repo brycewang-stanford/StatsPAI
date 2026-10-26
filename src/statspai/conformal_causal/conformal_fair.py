@@ -15,7 +15,9 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 
 
 @dataclass
@@ -88,6 +90,12 @@ def conformal_fair_ite(
         Protected attribute column (categorical).
     test_data : pd.DataFrame, optional
     alpha : float, default 0.1
+        Miscoverage of the effect interval. Within each protected group,
+        each arm's residuals get a split-conformal quantile at
+        ``1 - alpha / 2`` and the half-width is their sum, so the interval
+        targets coverage of ``Y(1) - Y(0)`` of at least ``1 - alpha`` in
+        each group (union bound; conservative) when treatment is
+        randomised given the covariates.
     seed : int
 
     Returns
@@ -142,48 +150,42 @@ def conformal_fair_ite(
     m1 = LinearRegression().fit(X[train][D[train] == 1], Y[train][D[train] == 1])
     m0 = LinearRegression().fit(X[train][D[train] == 0], Y[train][D[train] == 0])
 
-    # Per-group calibration quantile.  When a group has too few
-    # calibration points to support the per-group quantile, we fall
-    # back to the *conservative* pooled quantile — the max across
-    # groups with sufficient data — rather than blending arms.  Blending
-    # would destroy the group-specific coverage guarantee exactly for
-    # the small groups that fair conformal is designed to protect.
+    # Per-group calibration. An interval for the effect Y(1) - Y(0) has to
+    # hold both potential outcomes: each arm gets its own split-conformal
+    # quantile of |Y - mu_d(X)| at level 1 - alpha/2, and the half-width is
+    # their sum (union bound), as in sp.conformal_cate. Before the Oct 2026
+    # scan one quantile of the pooled single-arm residuals at 1 - alpha was
+    # used, which bounds one potential outcome only: a nominal 90% interval
+    # covered the effect about 74% of the time with equal-variance noise.
+    #
+    # A group with fewer than 5 calibration points in an arm falls back to
+    # the *conservative* value -- the largest half-width among the groups
+    # that have enough data -- rather than blending groups, which would
+    # destroy the group-specific coverage exactly for the small groups fair
+    # conformal is designed to protect.
+    def _arm_quantile(resid: np.ndarray) -> float:
+        k = int(np.ceil((len(resid) + 1) * (1 - alpha / 2)))
+        return float(np.sort(resid)[min(k, len(resid)) - 1])
+
+    def _half_width(mask_cal: np.ndarray) -> Optional[float]:
+        q = 0.0
+        for arm, model in ((1, m1), (0, m0)):
+            sel = mask_cal & (D[cal] == arm)
+            if sel.sum() < 5:
+                return None
+            q += _arm_quantile(np.abs(Y[cal][sel] - model.predict(X[cal][sel])))
+        return q
+
     group_q: Dict = {}
     group_widths: Dict[str, float] = {}
     group_fallback: Dict[str, bool] = {}
-
-    # First pass: compute per-group quantiles where we have enough data.
     for g in np.unique(G):
-        mask_cal = G[cal] == g
-        if mask_cal.sum() < 5:
-            group_q[g] = None  # placeholder, fill in pass 2
-            group_fallback[str(g)] = True
-            continue
-        resid_g = np.concatenate(
-            [
-                np.abs(
-                    Y[cal][mask_cal & (D[cal] == 1)]
-                    - m1.predict(X[cal][mask_cal & (D[cal] == 1)])
-                ),
-                np.abs(
-                    Y[cal][mask_cal & (D[cal] == 0)]
-                    - m0.predict(X[cal][mask_cal & (D[cal] == 0)])
-                ),
-            ]
-        )
-        if len(resid_g) < 5:
-            q_g = float(np.std(resid_g)) if len(resid_g) else 1.0
-        else:
-            idx = min(int(np.ceil((len(resid_g) + 1) * (1 - alpha))), len(resid_g)) - 1
-            q_g = float(np.sort(resid_g)[idx])
+        q_g = _half_width(G[cal] == g)
         group_q[g] = q_g
-        group_widths[str(g)] = 2 * q_g
-        group_fallback[str(g)] = False
+        group_fallback[str(g)] = q_g is None
+        if q_g is not None:
+            group_widths[str(g)] = 2 * q_g
 
-    # Second pass: for small groups, use the max quantile across
-    # well-covered groups (conservative upper bound that maintains the
-    # marginal 1 - alpha coverage guarantee).  If *all* groups are
-    # small, fall back to a pooled quantile and emit a warning.
     valid_qs = [q for q in group_q.values() if q is not None]
     if valid_qs:
         fallback_q = float(max(valid_qs))
@@ -191,22 +193,19 @@ def conformal_fair_ite(
         import warnings as _warnings
 
         _warnings.warn(
-            "conformal_fair_ite: every group has fewer than 5 "
-            "calibration points; falling back to pooled quantile. "
+            "conformal_fair_ite: every group has fewer than 5 calibration "
+            "points in an arm; falling back to the pooled quantile. "
             "Per-group coverage guarantee does NOT hold.",
             stacklevel=2,
         )
-        pooled = np.concatenate(
-            [
-                np.abs(Y[cal] - m1.predict(X[cal])),
-                np.abs(Y[cal] - m0.predict(X[cal])),
-            ]
-        )
-        if len(pooled) < 5:
-            fallback_q = float(np.std(pooled)) if len(pooled) else 1.0
-        else:
-            idx = min(int(np.ceil((len(pooled) + 1) * (1 - alpha))), len(pooled)) - 1
-            fallback_q = float(np.sort(pooled)[idx])
+        pooled = _half_width(np.ones(len(cal), dtype=bool))
+        if pooled is None:
+            raise DataInsufficient(
+                "conformal_fair_ite: fewer than 5 calibration points in a "
+                "treatment arm.",
+                recovery_hint="Use more data or a larger calibration share.",
+            )
+        fallback_q = pooled
     for g, q in list(group_q.items()):
         if q is None:
             group_q[g] = fallback_q

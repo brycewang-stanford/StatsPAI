@@ -75,7 +75,12 @@ def conformal_cate(
     Returns
     -------
     CausalResult
-        Includes CATE point estimates and prediction intervals.
+        ``estimate`` / ``se`` are the average treatment effect and its
+        standard error from the cross-fitted AIPW score (``model`` for the
+        outcome in each arm, a gradient-boosting propensity, 5 folds), as in
+        :func:`sp.metalearner`. The mean of the split-sample CATE
+        predictions is ``model_info['cate_mean']`` and has no standard
+        error. Includes CATE point estimates and prediction intervals.
         model_info contains:
         - 'cate': point estimates
         - 'cate_lower': lower bounds of prediction intervals
@@ -286,14 +291,31 @@ class ConformalCATE:
         cate_lower = cate - (q1 + q0)
         cate_upper = cate + (q1 + q0)
 
-        ate = float(np.mean(cate))
         interval_width = float(np.mean(cate_upper - cate_lower))
 
-        # Bootstrap SE for ATE
-        boot_means = np.array(
-            [rng.choice(cate, size=n, replace=True).mean() for _ in range(500)]
+        # ATE and its standard error from the cross-fitted AIPW score, the
+        # convention sp.metalearner has used since 1.11.4. The intervals
+        # above are about individual effects; the average needs a sampling
+        # SE. Before the Oct 2026 scan ``estimate`` was mean(cate) and
+        # ``se`` a bootstrap of the fitted CATEs, which treats the fitted
+        # effect function as data: with a flat fit the SE was near zero
+        # whatever the sampling error of the average.
+        from ..metalearners.metalearners import (
+            _cross_fit_aipw_phi,
+            _default_propensity_model,
         )
-        se = float(np.std(boot_means, ddof=1))
+
+        phi, aipw_diag = _cross_fit_aipw_phi(
+            X,
+            Y,
+            D,
+            self.model,
+            _default_propensity_model(),
+            n_folds=5,
+            seed=self.random_state,
+        )
+        ate = float(np.mean(phi))
+        se = float(np.std(phi, ddof=1) / np.sqrt(n))
 
         if se > 0:
             z_stat = ate / se
@@ -316,6 +338,14 @@ class ConformalCATE:
             "n_train": len(train_idx),
             "coverage_level": 1 - self.alpha,
             "cate_mean": float(np.mean(cate)),
+            "ate_method": "aipw_dr_pseudo_outcome",
+            "se_method": "aipw_influence_function",
+            "se_refers_to": "estimate (AIPW average), not cate_mean",
+            "aipw_diagnostics": {
+                "n_clipped_below": aipw_diag["n_clipped_below"],
+                "n_clipped_above": aipw_diag["n_clipped_above"],
+                "clip": aipw_diag["clip"],
+            },
             "cate_std": float(np.std(cate)),
             "n_treated": int(np.sum(D == 1)),
             "n_control": int(np.sum(D == 0)),

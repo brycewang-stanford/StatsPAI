@@ -246,7 +246,9 @@ Citation: arXiv:2604.03772 (2026).
 
 Adds a fairness constraint: **coverage must be the same across
 protected subgroups** (race, sex, SES). Computes calibration quantiles
-**per group** and reports both per-group and pooled intervals:
+**per group and per arm** (each at `1 - alpha/2`; the half-width is their
+sum, so the interval covers the effect `Y(1) - Y(0)`, not one potential
+outcome) and reports both per-group and pooled intervals:
 
 ```python
 r = sp.conformal_fair_ite(

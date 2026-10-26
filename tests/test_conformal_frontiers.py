@@ -90,12 +90,15 @@ def test_conformal_fair(cf_data):
         alpha=0.1,
     )
     assert res.intervals.shape == (len(cf_data), 2)
+    # Oct 2026 scan: the half-width is the sum of per-arm quantiles at
+    # 1 - alpha/2 (an interval for the effect, not one potential outcome);
+    # before it was one pooled single-arm quantile (1.7498, 1.6598; 1.7048).
     np.testing.assert_allclose(
         [res.group_widths["A"], res.group_widths["B"]],
-        [1.74982442, 1.65977858],
+        [5.078984626148794, 4.24421511169997],
     )
     np.testing.assert_allclose(
-        np.mean(res.intervals[:, 1] - res.intervals[:, 0]), 1.7048015
+        np.mean(res.intervals[:, 1] - res.intervals[:, 0]), 4.661599868924382
     )
     assert set(res.group_widths.keys()) == {"A", "B"}
 
