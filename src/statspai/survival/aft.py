@@ -146,7 +146,7 @@ def aft(
         durations, lower by the sum of ``log t`` over the events.
         ``log_likelihood_scale`` names the convention.
 
-        .. versionchanged:: 1.40.3
+        .. versionchanged:: 1.41
             The fit is the exact MLE of ``sp.survreg``. Before, L-BFGS-B
             stopped about 1e-5 from it and the standard errors came from a
             finite-difference Hessian; zero durations were clamped to 1e-12

@@ -362,7 +362,7 @@ def mr_f_statistic(
         ``r2_mean`` is NaN (R^2 needs the sample size; the F-statistics do
         not).
 
-        .. versionchanged:: 1.40.3
+        .. versionchanged:: 1.41
             Without ``n_samples`` the number of variants used to stand in
             for the sample size.
 

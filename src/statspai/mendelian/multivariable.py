@@ -271,7 +271,7 @@ def mr_multivariable(
         exposures: R ``MVMR::strength_mvmr(gencov = 0)``. Values below 10
         flag weak instruments conditional on the other exposures.
 
-        .. versionchanged:: 1.40.3
+        .. versionchanged:: 1.41
             ``conditional_f_stats`` used to be the F of regressing ``b_k``
             on the other exposures (with an intercept and outcome weights),
             which is large, or infinite, exactly when the exposures are

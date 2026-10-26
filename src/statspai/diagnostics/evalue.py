@@ -175,7 +175,7 @@ def evalue(
         logit / Poisson / Cox fits report it, and the CI built from it when
         ``ci`` is not given is ``estimate * exp(+/- z se)``.
 
-        .. versionchanged:: 1.40.3
+        .. versionchanged:: 1.41
             For ratio measures ``se`` used to be applied on the ratio
             scale (``estimate +/- z se``).
     ci : tuple (lower, upper), optional
