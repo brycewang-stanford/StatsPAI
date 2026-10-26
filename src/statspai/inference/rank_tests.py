@@ -907,7 +907,9 @@ def oneway(
                 if compare == "bonferroni":
                     p = min(1.0, p * pairs)
                 elif compare == "sidak":
-                    p = 1 - (1 - p) ** pairs
+                    # 1 - (1 - p)^m cancels to 0 below p ~ 1e-17; the
+                    # log1p / expm1 form keeps full precision
+                    p = float(-np.expm1(pairs * np.log1p(-p)))
                 else:
                     p = float(stats.f.sf(t**2 / (k - 1), k - 1, n - k))
                 diff.iloc[i, j], pval.iloc[i, j] = d, p
