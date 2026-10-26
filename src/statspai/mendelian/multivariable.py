@@ -82,6 +82,9 @@ class MVMRResult(ResultProtocolMixin):
             "Conditional F-statistics (strength of each exposure):",
         ]
         for exp, f in self.conditional_f_stats.items():
+            if np.isnan(f):
+                lines.append(f"  {exp}: not computed (pass exposure_se=)")
+                continue
             flag = " (weak)" if f < 10 else ""
             lines.append(f"  {exp}: {f:.2f}{flag}")
         return "\n".join(lines)
@@ -188,6 +191,36 @@ def _ivw(
     return float(numerator / denominator)
 
 
+def _conditional_f(X: np.ndarray, SX: np.ndarray) -> List[float]:
+    """Two-sample conditional F of each exposure (Sanderson, Spiller &
+    Bowden 2021, eqs. 4-7), exposure associations taken as uncorrelated.
+
+    ``X`` / ``SX``: variants x exposures associations and standard errors.
+    For exposure ``k``, ``d`` is the least-squares regression (no intercept,
+    unweighted) of ``X[:, k]`` on the other columns, as the authors' R
+    package ``MVMR::strength_mvmr`` estimates it (matched on its outputs);
+    ``Q_k = sum_j (X_jk - X_j,-k d)^2 / s2_j`` with
+    ``s2_j = SX_jk^2 + sum_m d_m^2 SX_jm^2``; ``F_k = Q_k / (L - K + 1)``.
+    """
+    L, K = X.shape
+    if not (np.isfinite(SX).all() and (SX > 0).all()):
+        raise MethodIncompatibility(
+            "mr_multivariable: exposure standard errors must be finite and "
+            "positive.",
+            recovery_hint="Drop the variants with missing or zero standard errors.",
+        )
+    out: List[float] = []
+    for k in range(K):
+        others = [m for m in range(K) if m != k]
+        y = X[:, k]
+        Z = X[:, others]
+        d = np.linalg.lstsq(Z, y, rcond=None)[0]
+        s2 = SX[:, k] ** 2 + (SX[:, others] ** 2) @ (d**2)
+        q = float(np.sum((y - Z @ d) ** 2 / s2))
+        out.append(q / (L - K + 1))
+    return out
+
+
 # -------------------------------------------------------------------------
 # 1) Multivariable MR
 # -------------------------------------------------------------------------
@@ -201,6 +234,7 @@ def mr_multivariable(
     outcome_se: str = "se_y",
     exposures: Optional[Sequence[str]] = None,
     alpha: float = 0.05,
+    exposure_se: Optional[Sequence[str]] = None,
 ) -> MVMRResult:
     """Multivariable Mendelian Randomization (Sanderson et al. 2019).
 
@@ -218,13 +252,31 @@ def mr_multivariable(
         Exposure-beta column names. If omitted, all ``beta_*`` columns
         other than the outcome are used.
     alpha : float, default 0.05
+    exposure_se : sequence of str, optional
+        Columns of the variant-exposure standard errors, in the order of
+        ``exposures``. Needed for the conditional F-statistics; without
+        them those are NaN.
 
     Returns
     -------
     MVMRResult
-        Contains direct-effect estimates for each exposure and
-        conditional F-statistics (Sanderson-Windmeijer instrument-strength
-        diagnostic).
+        Contains direct-effect estimates for each exposure and the
+        two-sample conditional F-statistics of Sanderson, Spiller & Bowden
+        (2021): for exposure ``k``, ``Q_k = sum_j (b_kj - d' b_-k,j)^2 /
+        s2_kj`` with ``d`` the least-squares regression (no intercept)
+        of ``b_k`` on the other exposures' associations,
+        ``s2_kj = se_kj^2 + sum_m d_m^2 se_mj^2`` (the exposure
+        associations taken as uncorrelated, as from separate samples), and
+        ``F_k = Q_k / (L - K + 1)`` for ``L`` variants and ``K``
+        exposures: R ``MVMR::strength_mvmr(gencov = 0)``. Values below 10
+        flag weak instruments conditional on the other exposures.
+
+        .. versionchanged:: 1.40.3
+            ``conditional_f_stats`` used to be the F of regressing ``b_k``
+            on the other exposures (with an intercept and outcome weights),
+            which is large, or infinite, exactly when the exposures are
+            collinear and the conditional F should be small. It is now the
+            statistic above, and NaN without ``exposure_se``.
 
     Notes
     -----
@@ -279,10 +331,27 @@ def mr_multivariable(
         {"outcome": outcome, "outcome_se": outcome_se, "exposures": exposures},
         function="sp.mr_multivariable",
     )
+    se_cols: List[str] = []
+    if exposure_se is not None:
+        se_cols = [exposure_se] if isinstance(exposure_se, str) else list(exposure_se)
+        if len(se_cols) != len(exposures):
+            raise MethodIncompatibility(
+                f"mr_multivariable: exposure_se has {len(se_cols)} column(s) "
+                f"for {len(exposures)} exposures.",
+                recovery_hint="Give one standard-error column per exposure, "
+                "in the order of exposures=.",
+                diagnostics={"exposures": exposures, "exposure_se": se_cols},
+            )
+        check_columns(
+            snp_associations,
+            {"exposure_se": se_cols},
+            function="sp.mr_multivariable",
+        )
+        exposure_se = se_cols
 
-    df = snp_associations.dropna(subset=[outcome, outcome_se] + exposures).reset_index(
-        drop=True
-    )
+    df = snp_associations.dropna(
+        subset=[outcome, outcome_se] + exposures + se_cols
+    ).reset_index(drop=True)
     n = len(df)
     if n < len(exposures) + 5:
         raise ValueError(
@@ -328,44 +397,16 @@ def mr_multivariable(
         )
     direct = pd.DataFrame(rows)
 
-    # Conditional F-stats (Sanderson-Windmeijer 2016).  For exposure j,
-    # regress beta_Xj on the OTHER exposures (weighted by IVW weights).
-    # The F-stat is the SS explained by the residual exposure, divided
-    # by the SS unexplained, scaled by degrees of freedom.
-    #
-    # Correct partition uses *mean-centered* SS, not the raw SS of X[:,j].
-    # The numerator is the increment from adding X_j to a model that
-    # already contains the other exposures (SS_reg_full − SS_reg_others),
-    # which equals SS_resid_others − SS_resid_full.  We evaluate SS
-    # weighted by ``w`` to match the WLS framework used for ``direct``.
-    f_stats: Dict[str, float] = {}
-    n_exp = len(exposures)
-    sqrt_w = np.sqrt(w)
-    for j, exp in enumerate(exposures):
-        others = [k for k in range(n_exp) if k != j]
-        if not others:
-            f_stats[exp] = np.nan
-            continue
-        # WLS: regress sqrt(w) * X[:, j] on sqrt(w) * X[:, others] (with
-        # intercept) so the F-stat matches the MVMR weighting scheme.
-        y_j = sqrt_w * X[:, j]
-        X_o = sqrt_w[:, None] * np.column_stack([np.ones(n), X[:, others]])
-        coef, *_ = np.linalg.lstsq(X_o, y_j, rcond=None)
-        pred = X_o @ coef
-        resid_j = y_j - pred
-        # SS explained by full model (weighted): SS_total_centered − SS_resid
-        y_mean = float(np.mean(y_j))
-        ss_total = float(((y_j - y_mean) ** 2).sum())
-        ss_resid = float((resid_j**2).sum())
-        # F-stat for "X_j has non-zero explanatory power given others":
-        #   F = (SS_total - SS_resid) / 1  ÷  (SS_resid / df2)
-        df1 = 1
-        df2 = max(n - n_exp, 1)
-        if ss_resid < 1e-12 or df2 <= 0:
-            f_stats[exp] = np.inf
-        else:
-            ss_explained = max(ss_total - ss_resid, 0.0)
-            f_stats[exp] = float(ss_explained / df1 / (ss_resid / df2))
+    # Two-sample conditional F-statistics (Sanderson, Spiller & Bowden
+    # 2021, eqs. 4-7). They need the variant-exposure standard errors.
+    # Until 1.40.2 this reported, under the same name, the F of regressing
+    # beta_Xj on the OTHER exposures: large (inf) when the exposures are
+    # collinear, the opposite of what the statistic measures.
+    if exposure_se is None:
+        f_stats: Dict[str, float] = {exp: float("nan") for exp in exposures}
+    else:
+        SX = df[list(exposure_se)].to_numpy(dtype=float)
+        f_stats = dict(zip(exposures, _conditional_f(X, SX)))
 
     return MVMRResult(
         exposures=exposures,

@@ -724,8 +724,11 @@ def incidence_rate_ratio(
         Person-time at risk in each group (any time unit, as long as
         consistent).
     method : {"exact", "wald"}
-        "exact" uses the F-distribution-based Poisson CI (Breslow-Day);
-        "wald" uses log-rate SE.
+        "exact": the exact conditional (Clopper-Pearson) interval and the
+        exact conditional binomial test, as R ``poisson.test(c(D1, D0),
+        c(PT1, PT0))``; with non-integer counts the p-value is the Wald one.
+        "wald": ``log IRR +/- z se`` with ``se = sqrt(1/D1 + 1/D0)`` and the
+        Wald test, a zero count replaced by 0.5 in both.
 
     Examples
     --------
@@ -824,10 +827,18 @@ def incidence_rate_ratio(
     e0 = max(events_unexposed, 0.5)
     se_log = float(np.sqrt(1 / e1 + 1 / e0))
 
+    # The Wald log-IRR on the same 0.5-floored counts as its SE. With both
+    # counts positive this is log(irr) exactly; with a zero count it stays
+    # finite (until 1.40.2 a zero count gave log(inf) or log(0): p = 0 for
+    # 3 vs 0 events and p = 1 for 0 vs 3).
+    log_irr_w = float(np.log((e1 / pt_exposed) / (e0 / pt_unexposed)))
+
     if method == "wald":
         z = _z_crit(alpha)
-        log_irr = np.log(irr) if irr > 0 else np.nan
-        ci = (float(np.exp(log_irr - z * se_log)), float(np.exp(log_irr + z * se_log)))
+        ci = (
+            float(np.exp(log_irr_w - z * se_log)),
+            float(np.exp(log_irr_w + z * se_log)),
+        )
     else:
         # Conditional on total events, D1 ~ Binomial(D, pi) where
         # pi = (lambda1 * PT1) / (lambda1*PT1 + lambda0*PT0)
@@ -854,10 +865,26 @@ def incidence_rate_ratio(
             hi_irr = (hi_pi / (1 - hi_pi)) * ratio if hi_pi < 1 else np.inf
             ci = (float(lo_irr), float(hi_irr))
 
-    # Two-sided Wald p-value on log-IRR
-    log_irr = np.log(irr) if irr > 0 else 0.0
-    z_stat = log_irr / se_log if se_log > 0 else 0.0
-    p = float(2 * stats.norm.sf(abs(z_stat)))
+    integer_counts = (
+        float(events_exposed).is_integer() and float(events_unexposed).is_integer()
+    )
+    if method == "exact" and integer_counts:
+        # Exact conditional test, the companion of the exact interval:
+        # D1 ~ Binomial(D1 + D0, PT1 / (PT1 + PT0)) under IRR = 1, two-sided
+        # as R poisson.test(c(D1, D0), c(PT1, PT0)). Until 1.40.2 the exact
+        # method reported the Wald p-value.
+        p = float(
+            stats.binomtest(
+                int(events_exposed),
+                int(events_exposed + events_unexposed),
+                pt_exposed / (pt_exposed + pt_unexposed),
+            ).pvalue
+        )
+    else:
+        # Two-sided Wald p-value on log-IRR (non-integer counts have no
+        # exact binomial test)
+        z_stat = log_irr_w / se_log if se_log > 0 else 0.0
+        p = float(2 * stats.norm.sf(abs(z_stat)))
 
     return IRRResult(
         estimate=float(irr),

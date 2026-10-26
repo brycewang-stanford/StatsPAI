@@ -37,10 +37,17 @@ def test_mr_multivariable_recovers_direct_effects():
     de = res.direct_effect.set_index("exposure")
     assert abs(de.loc["beta_x1", "estimate"] - 0.5) < 0.1, de.loc["beta_x1"]
     assert abs(de.loc["beta_x2", "estimate"] - 0.2) < 0.1, de.loc["beta_x2"]
-    # F-stat should be non-trivial (weak-instrument threshold varies by
-    # correlation; we just require it to be finite and positive).
+    # Without exposure standard errors there is no conditional F.
+    assert all(np.isnan(f) for f in res.conditional_f_stats.values())
+    # With them: associations of size ~1 measured with SE 0.05 are strong
+    # instruments conditionally on each other (beta_x2 is 0.3 beta_x1 plus
+    # independent N(0, 1) variation), so each conditional F is large.
+    df = df.assign(se_x1=0.05, se_x2=0.05)
+    res = sp.mr_multivariable(
+        df, exposures=["beta_x1", "beta_x2"], exposure_se=["se_x1", "se_x2"]
+    )
     for exp in ["beta_x1", "beta_x2"]:
-        assert res.conditional_f_stats[exp] > 1.0, res.conditional_f_stats
+        assert res.conditional_f_stats[exp] > 10.0, res.conditional_f_stats
     # Summary renders
     assert "Multivariable" in res.summary()
 

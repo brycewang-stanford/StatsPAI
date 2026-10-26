@@ -92,6 +92,8 @@ def test_mvmr_conditional_f_stats_positive():
             "beta_x2": rng.normal(0.10, 0.05, n),
             "beta_y": rng.normal(0.08, 0.03, n),
             "se_y": np.full(n, 0.02),
+            "se_x1": np.full(n, 0.01),
+            "se_x2": np.full(n, 0.01),
         }
     )
     res = sp.mr_multivariable(
@@ -99,10 +101,11 @@ def test_mvmr_conditional_f_stats_positive():
         outcome="beta_y",
         outcome_se="se_y",
         exposures=["beta_x1", "beta_x2"],
+        exposure_se=["se_x1", "se_x2"],
     )
     for exp, f in res.conditional_f_stats.items():
         assert f >= 0, f"F-stat for {exp} should be non-negative, got {f}"
-        assert np.isfinite(f) or f == float("inf")
+        assert np.isfinite(f)
 
 
 # ---------------------------------------------------------------------------

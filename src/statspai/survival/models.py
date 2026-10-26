@@ -495,7 +495,13 @@ class KMResult(ResultProtocolMixin):
 
     @property
     def median_survival(self) -> Union[float, Dict[str, float]]:
-        """Median survival time (scalar or dict by group)."""
+        """Median survival time (scalar or dict by group).
+
+        The first time at which ``S(t) <= 0.5``, as Stata ``stci`` reports
+        it. When ``S(t)`` equals 0.5 exactly on a step, R ``survfit``
+        reports the midpoint between that time and the next event time
+        instead (deaths at 1, 2, 3, 4: Stata 2, R 2.5).
+        """
         result = {}
         for g, df in self._tables.items():
             below = df.loc[df["survival"] <= 0.5]
@@ -1201,7 +1207,10 @@ def cox(
     strata : str, optional
         Column name for stratification variable.
     robust : str, default ``'nonrobust'``
-        ``'hc0'`` for sandwich SE.
+        ``'hc0'`` (or ``'robust'`` / ``True``) for the sandwich SE of R
+        ``coxph(robust = TRUE)``; with ``ssc='stata'`` it carries Stata's
+        ``N/(N-1)``. Other values raise (``'cluster'`` only together with
+        ``cluster=``).
     cluster : str, optional
         Column name for cluster-robust SE.
     hazard_ratio : bool, default True
@@ -1348,6 +1357,25 @@ def cox(
         entry="sp.cox",
     )
     ssc = resolve_cox_ssc(ssc)
+    if robust is True:
+        robust = "hc0"  # R coxph(robust = TRUE)
+    elif robust is False:
+        robust = "nonrobust"
+    if robust is not None and not (
+        str(robust).lower() in ("nonrobust", "hc0", "robust")
+        or (str(robust).lower() == "cluster" and cluster is not None)
+    ):
+        # Until 1.40.2 any other value ('hc1', 'HC3', 'cluster' without
+        # cluster=) silently gave the model-based variance.
+        raise MethodIncompatibility(
+            f"sp.cox: robust={robust!r} is not available.",
+            recovery_hint=(
+                "Use robust='hc0' (R coxph(robust=TRUE)); add ssc='stata' for "
+                "Stata's stcox, vce(robust) (the HC1-type N/(N-1)); pass "
+                "cluster=<column> for the clustered variance."
+            ),
+            diagnostics={"robust": robust},
+        )
     if weights_as == "sampling" and cluster is None and robust in ("nonrobust", None):
         robust = "hc0"
 
@@ -1429,8 +1457,47 @@ def cox(
         result = optimize.minimize(neg_logpl, beta, method="L-BFGS-B")
         beta = result.x
 
+    # Monotone partial likelihood: a covariate that separates the failures
+    # (the Cox analogue of separation in logit) sends its coefficient to
+    # +/- infinity while the likelihood flattens. Newton then either fails
+    # to converge or "converges" through the regularised step once the
+    # information has vanished. Until 1.40.2 both were silent; R coxph
+    # warns "coefficient may be infinite". The check compares each
+    # coefficient's information at the estimate with its information at
+    # zero (scale-free); a collapse by eight orders of magnitude is not
+    # reached by an interior maximum.
+    convergence_note: Optional[str] = None
+    _, _hess_hat = kern.score_hessian(beta)
+    _score_zero, _hess_zero = kern.score_hessian(np.zeros(p))
+    _info_hat = -np.diag(_hess_hat)
+    _info_zero = -np.diag(_hess_zero)
+    runaway = [
+        x[j]
+        for j in range(p)
+        if _info_zero[j] > 0 and _info_hat[j] < 1e-8 * _info_zero[j]
+    ]
+    if runaway or not converged:
+        convergence_note = (
+            (
+                f"the partial likelihood is monotone in {runaway}: the "
+                "coefficient may be infinite (a covariate separates the "
+                "failures). Estimates and standard errors are not "
+                "meaningful for it."
+            )
+            if runaway
+            else (
+                "Newton-Raphson did not converge in 50 iterations; the "
+                "estimates come from an L-BFGS-B fallback."
+            )
+        )
+        import warnings
+
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn("sp.cox: " + convergence_note, ConvergenceWarning, stacklevel=2)
+
     # ---- Variance estimation ------------------------------------------
-    _, hessian = kern.score_hessian(beta)
+    hessian = _hess_hat
     neg_H = -hessian
     try:
         info_inv = np.linalg.inv(neg_H)
@@ -1446,7 +1513,7 @@ def cox(
         score_i = kern.score_residuals(beta) * w_arr[:, None]
         var_beta = info_inv @ design_vcov(score_i, svy, svy_rows) @ info_inv
         svy_df = design_df(svy, svy_rows)
-    elif cluster is not None or robust in ("hc0", "HC0", "robust"):
+    elif cluster is not None or str(robust).lower() in ("hc0", "robust"):
         from ._cox_inputs import cox_robust_vcov
 
         score_i = kern.score_residuals(beta)
@@ -1527,7 +1594,7 @@ def cox(
         wald = float(beta @ np.linalg.solve(var_beta, beta))
     except np.linalg.LinAlgError:
         wald = float("nan")
-    score0, hess0 = kern.score_hessian(np.zeros(p))
+    score0, hess0 = _score_zero, _hess_zero
     try:
         score_stat = float(score0 @ np.linalg.solve(-hess0, score0))
     except np.linalg.LinAlgError:
@@ -1549,6 +1616,9 @@ def cox(
     if w_arr is not None:
         # the model-based Wald / score / LR tests assume frequency weights
         diagnostics["Sum of weights"] = float(w_arr.sum())
+    if convergence_note is not None:
+        diagnostics["Converged"] = False
+        model_info["convergence_warning"] = convergence_note
 
     model_info["alpha"] = alpha
     _result = CoxResult(
@@ -1764,7 +1834,9 @@ def survreg(
         the likelihood of the durations, as R ``survival::survreg``
         reports it; ``model_info['ll_log_time']`` is the likelihood of the
         log durations, which is what Stata's ``streg`` prints (the two
-        differ by the sum of ``log(t)`` over the events).
+        differ by the sum of ``log(t)`` over the events), and what
+        :func:`sp.aft` reports for the same fit. ``model_info
+        ['ll_scale']`` names the convention of ``'Log-likelihood'``.
 
     Examples
     --------
@@ -1824,7 +1896,6 @@ def survreg(
     data = data.dropna(subset=cols_needed).copy()
 
     T = data[duration].values.astype(float)
-    E = data[event].values.astype(float)
     if np.any(T <= 0):
         raise MethodIncompatibility(
             f"survreg: {int(np.sum(T <= 0))} durations are zero or negative; "
@@ -1832,6 +1903,12 @@ def survreg(
             "rows or shift the time origin.",
             diagnostics={"n_nonpositive": int(np.sum(T <= 0))},
         )
+    from ._validate import check_duration_event
+
+    # 0/1 only, as sp.cox / sp.kaplan_meier: until 1.40.2 any positive code
+    # was read as an event (Stata's rule, the opposite of R's 1/2 coding)
+    check_duration_event(data[duration], data[event], "survreg")
+    E = data[event].values.astype(float)
     # Design matrix with intercept
     X = np.column_stack([np.ones(len(T)), data[x].values.astype(float)])
     n, p = X.shape  # p includes intercept
@@ -1958,6 +2035,7 @@ def survreg(
         "cluster": cluster if se_kind == "cluster" else None,
         "ll": loglik_val,
         "ll_log_time": float(loglik_val + np.sum(log_t[events])),
+        "ll_scale": "duration t (R survreg); ll_log_time is Stata streg's",
         "gradient_norm": grad_norm,
         "converged": bool(grad_norm < 1e-5 * max(1.0, n**0.5)),
         **frailty_info,

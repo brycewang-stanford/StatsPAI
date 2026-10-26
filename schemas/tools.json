@@ -295,7 +295,7 @@
           "type": "string"
         },
         "formula": {
-          "description": "``\"duration + event ~ x1 + x2\"``.",
+          "description": "``\"duration + event ~ x1 + x2\"``. Durations must be positive and the event coded 0/1.",
           "type": "string",
           "x-statspai-role": "formula"
         }
@@ -7741,7 +7741,7 @@
         },
         "robust": {
           "default": "nonrobust",
-          "description": "``'hc0'`` for sandwich SE.",
+          "description": "``'hc0'`` (or ``'robust'`` / ``True``) for the sandwich SE of R ``coxph(robust = TRUE)``; with ``ssc='stata'`` it carries Stata's ``N/(N-1)``. Other values raise (``'cluster'`` only together with ``cluster=``).",
           "type": "string",
           "x-aliases": [
             "vce"
@@ -13921,7 +13921,7 @@
           "type": "number"
         },
         "se": {
-          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value; for ratio measures it is used (with ``alpha``) to build a CI when ``ci`` is not given.",
+          "description": "Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to obtain a confidence-interval E-value. For ratio measures (``RR`` / ``OR`` / ``HR``) it is the standard error of ``log(estimate)``, as logit / Poisson / Cox fits report it, and the CI built from it when ``ci`` is not given is ``estimate * exp(+/- z se)``. .. versionchanged:: 1.40.3 For ratio measures ``se`` used to be applied on the ratio scale (``estimate +/- z se``).",
           "type": "number"
         },
         "true": {

@@ -23819,6 +23819,16 @@ def _build_registry() -> None:
                 ParamSpec("outcome", "str", False, "beta_y"),
                 ParamSpec("outcome_se", "str", False, "se_y"),
                 ParamSpec("exposures", "list", False),
+                ParamSpec(
+                    "exposure_se",
+                    "list",
+                    False,
+                    None,
+                    "Columns of the variant-exposure standard errors, one per "
+                    "exposure in the order of ``exposures``. Needed for the "
+                    "two-sample conditional F-statistics (Sanderson, Spiller & "
+                    "Bowden 2021); without them ``conditional_f_stats`` is NaN.",
+                ),
             ],
             returns="MVMRResult",
             example=(

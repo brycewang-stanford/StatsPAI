@@ -53,6 +53,53 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.slx` reported a log-likelihood with the df-corrected `sigma^2`; it is
   now the Gaussian ML log-likelihood (-82.192 to -82.153 on the fixture),
   equal to R `logLik(lmSLX)` to 1e-4.
+Found by the 2026-10 option scan of `survival/`, `epi/` and `mendelian/`.
+
+- `sp.cohen_kappa` (unweighted, the default): the standard error used
+  `1 - p_i.` where Fleiss, Cohen & Everitt (1969) have `p_.i`, plus a stray
+  constant. On a 40/10/10/40 table it was 0.060; it is now 0.080, the value of
+  R `vcd::Kappa` and `psych::cohen.kappa`. The CI and p-value follow. Weighted
+  kappas were right and are unchanged.
+- `sp.mantel_haenszel`: the continuity-corrected chi-square subtracted 0.5
+  from `|sum a - sum E[a]|` even when that was below 0.5. On strata whose
+  exposed-case total equals its expectation the p-value was 0.813; it is now
+  1, as R `mantelhaen.test`. Other tables are unchanged.
+- `sp.epi.incidence_rate_ratio`: `method="exact"` (the default) paired the
+  exact interval with the Wald p-value. It now reports the exact conditional
+  binomial test of R `poisson.test`: 40 vs 20 events in equal person-time
+  gives 0.01349 (was 0.01137). A zero count made the Wald statistic infinite
+  or zero: 3 vs 0 events gave p = 0 and 0 vs 3 gave p = 1. Exact now gives
+  0.25; Wald uses the same 0.5-floored counts as its standard error.
+- `sp.aft` is now fitted by `sp.survreg`'s exact maximum likelihood. It
+  stopped L-BFGS-B about 1e-5 (relative) from the MLE and took standard
+  errors from a finite-difference Hessian (7e-6 off). Coefficients, standard
+  errors and the log-likelihood now equal Stata `streg` to 1e-6 / 1e-8. It
+  also refused nothing: a zero duration was clamped to 1e-12 and an event
+  coded 2 entered the likelihood as `2 log f - log S`. Both now raise.
+- `sp.mr_multivariable`: `conditional_f_stats` was the F of regressing one
+  exposure's associations on the others, which is large (infinite) exactly
+  when the exposures are collinear and instruments are conditionally weak.
+  It is now the two-sample conditional F of Sanderson, Spiller & Bowden
+  (2021), equal to their R package `MVMR::strength_mvmr(gencov = 0)` to
+  1e-12. It needs the new `exposure_se=`; without it the entries are NaN.
+- `sp.evalue(measure='RR' | 'OR' | 'HR', se=...)` without `ci=` built the
+  interval as `estimate +/- z se` on the ratio scale. `se` is now read as
+  the standard error of `log(estimate)`, what logit / Poisson / Cox report,
+  and the interval is `estimate * exp(+/- z se)`. For RR = 2, se = 0.15 the
+  lower limit moves from 1.706 to 1.491 and the E-value for the interval
+  from 2.803 to 2.346. Calls that pass `ci=` are unchanged.
+- `sp.causal(...).sensitivity_panel()`: the E-value row passed the
+  workflow's estimate, a difference on the outcome's scale, to `sp.evalue`
+  as a risk ratio, so it changed with the units of `y`: 1.83 on a simulated
+  OLS fit, 15.37 on the same data with `y` multiplied by 10. It now goes
+  through `sp.evalue_from_result` as a mean difference standardised by
+  `sd(y)` (2.99 in both units). A result whose scale cannot be established
+  (a logit or Cox coefficient) is skipped and recorded in `degradations` with a
+  `WorkflowDegradedWarning`.
+- `sp.mr_f_statistic`: without `n_samples` the number of variants stood in
+  for the GWAS sample size in `R^2 = F / (F + n - 2)` (R^2 0.8 for F = 100
+  and 25 variants). `r2_mean` is now NaN unless `n_samples` is given. The
+  F-statistics are unchanged.
 
 ### Fixed
 
@@ -97,6 +144,25 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.iv_bounds` as Review of Economic Studies 79(3), 1104-1127; it is Review
   of Economics and Statistics 94(3), 659-671 (refs verified via Crossref,
   cemmap).
+- `sp.cox(robust=)`: values other than `'nonrobust'` / `'hc0'` / `'robust'`
+  (`'hc1'`, `'HC3'`, `'cluster'` without `cluster=`) silently gave the
+  model-based variance. They now raise, with a hint (`ssc='stata'` gives
+  Stata's `N/(N-1)`). `robust=True` is R's `coxph(robust=TRUE)`.
+- `sp.cox`: when Newton-Raphson does not converge (a monotone partial
+  likelihood, the coefficient running off to infinity) the L-BFGS-B fallback
+  was silent. It now warns (`ConvergenceWarning`, naming the covariate, as R
+  `coxph` does) and records `diagnostics['Converged'] = False` and
+  `model_info['convergence_warning']`.
+- `sp.survreg` and `sp.cox_frailty` refuse event codes other than 0/1, like
+  `sp.cox` and `sp.kaplan_meier`. `survreg` read any positive code as an
+  event, `cox_frailty` read 2 as censored.
+- `sp.mendelian_randomization(methods=)` refuses unknown method names; it
+  skipped them. `sp.mr_ivw` refuses missing values and unequal lengths:
+  pandas inputs skipped NaN in the sums while the degrees of freedom counted
+  them.
+- `sp.aft` / `sp.survreg` state their log-likelihood scale:
+  `AFTResult.log_likelihood_scale` (log time, Stata `streg`) and
+  `model_info['ll_scale']` (time, R `survreg`).
 
 ### ⚠️ Correctness (option scan of `qte/`, `bounds/`, `selection/`, 2026-10-27)
 

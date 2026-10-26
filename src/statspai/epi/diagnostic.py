@@ -731,31 +731,21 @@ def cohen_kappa(
         se = float("nan")
     else:
         kappa = (po - pe) / (1 - pe)
-        # Standard error (Fleiss 1981 approximation for unweighted)
+        # Large-sample standard error of Fleiss, Cohen & Everitt (1969),
+        # written with the agreement weights v = 1 - w (the identity for the
+        # unweighted kappa): v_bar_i = sum_j p_.j v_ij, v_bar_j = sum_i p_i.
+        # v_ij. Until 1.40.2 the unweighted kappa had its own branch with
+        # 1 - p_i. in place of p_.i and a stray constant; on a 40/10/10/40
+        # table it gave 0.060 where vcd::Kappa / psych::cohen.kappa give 0.080.
         var_num = 0.0
         for i in range(K):
             for j in range(K):
-                if weights == "unweighted":
-                    w_bar_i = 1 - marg_a[i] / n
-                    w_bar_j = 1 - marg_b[j] / n
-                    var_num += (
-                        conf[i, j]
-                        / n
-                        * (
-                            (1 - int(i == j))
-                            - (w_bar_i + w_bar_j) * (1 - kappa)
-                            - kappa
-                            + pe
-                        )
-                        ** 2
-                    )
-                else:
-                    w_ij = 1 - w[i, j]
-                    w_bar_i = 1 - np.sum(w[i, :] * marg_b) / n
-                    w_bar_j = 1 - np.sum(w[:, j] * marg_a) / n
-                    var_num += (conf[i, j] / n) * (
-                        w_ij - (w_bar_i + w_bar_j) * (1 - kappa)
-                    ) ** 2
+                w_ij = 1 - w[i, j]
+                w_bar_i = 1 - np.sum(w[i, :] * marg_b) / n
+                w_bar_j = 1 - np.sum(w[:, j] * marg_a) / n
+                var_num += (conf[i, j] / n) * (
+                    w_ij - (w_bar_i + w_bar_j) * (1 - kappa)
+                ) ** 2
         var = (var_num - (kappa - pe * (1 - kappa)) ** 2) / (n * (1 - pe) ** 2)
         se = float(np.sqrt(max(var, 0.0)))
 

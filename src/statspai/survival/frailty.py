@@ -434,6 +434,10 @@ def cox_frailty(
         )
     duration_col, event_col = lhs_parts[0], lhs_parts[1]
     df = data[[duration_col, event_col, cluster] + covariates].dropna()
+    from ._validate import check_duration_event
+
+    # until 1.40.2 an event code of 2 was silently read as censored
+    check_duration_event(df[duration_col], df[event_col], "cox_frailty")
     T = df[duration_col].to_numpy(float)
     E = df[event_col].to_numpy(float).astype(int)
     X = df[covariates].to_numpy(float)

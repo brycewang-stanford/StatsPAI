@@ -30,39 +30,12 @@ from typing import List, Literal
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from scipy.optimize import minimize
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 from .models import _parse_formula
 
 AFTFamily = Literal["exponential", "weibull", "lognormal", "loglogistic"]
-
-
-def _aft_log_likelihood(
-    beta: np.ndarray,
-    sigma: float,
-    X: np.ndarray,
-    logT: np.ndarray,
-    E: np.ndarray,
-    family: AFTFamily,
-) -> float:
-    """AFT log-likelihood with right-censoring."""
-    eta = X @ beta
-    z = (logT - eta) / sigma
-    if family in ("exponential", "weibull"):
-        # Gumbel (minimum): f(z) = exp(z - exp(z)), S(z) = exp(-exp(z))
-        log_f = z - np.exp(z) - np.log(sigma)
-        log_S = -np.exp(z)
-    elif family == "lognormal":
-        log_f = sp_stats.norm.logpdf(z) - np.log(sigma)
-        log_S = sp_stats.norm.logsf(z)
-    elif family == "loglogistic":
-        log_f = sp_stats.logistic.logpdf(z) - np.log(sigma)
-        log_S = sp_stats.logistic.logsf(z)
-    else:
-        raise ValueError(f"unknown family {family!r}")
-    ll = float(np.sum(E * log_f + (1 - E) * log_S))
-    return ll
 
 
 @dataclass
@@ -78,6 +51,10 @@ class AFTResult(ResultProtocolMixin):
     n: int
     n_events: int
     se_log_sigma: float | None = None
+    #: ``log_likelihood`` is of the log durations (Stata ``streg``); R
+    #: ``survreg`` and ``sp.survreg`` report the likelihood of the
+    #: durations, lower by the sum of ``log t`` over the events.
+    log_likelihood_scale: str = "log time (Stata streg)"
 
     # ------------------------------------------------------------------
     # Agent-native accessors (consistent with EconometricResults /
@@ -154,8 +131,26 @@ def aft(
     Parameters
     ----------
     formula : str
-        ``"duration + event ~ x1 + x2"``.
+        ``"duration + event ~ x1 + x2"``. Durations must be positive and
+        the event coded 0/1.
     family : {"exponential", "weibull", "lognormal", "loglogistic"}
+
+    Returns
+    -------
+    AFTResult
+        Coefficients and standard errors are those of :func:`sp.survreg`
+        (the same model and maximum-likelihood fit). ``log_likelihood``
+        (and the AIC / BIC built on it) is the likelihood of the log
+        durations, as Stata ``streg`` prints it; ``sp.survreg``'s
+        ``'Log-likelihood'`` is R ``survreg``'s likelihood of the
+        durations, lower by the sum of ``log t`` over the events.
+        ``log_likelihood_scale`` names the convention.
+
+        .. versionchanged:: 1.40.3
+            The fit is the exact MLE of ``sp.survreg``. Before, L-BFGS-B
+            stopped about 1e-5 from it and the standard errors came from a
+            finite-difference Hessian; zero durations were clamped to 1e-12
+            and an event code of 2 entered the likelihood, both now refused.
 
     Examples
     --------
@@ -183,52 +178,41 @@ def aft(
         raise ValueError("formula LHS must be 'duration + event'")
     dur_col, event_col = lhs_parts
 
-    df = data[[dur_col, event_col] + covariates].dropna()
-    T_raw = df[dur_col].to_numpy(float)
-    E = df[event_col].to_numpy(float).astype(int)
-    X = np.column_stack(
-        [np.ones(len(df))] + [df[c].to_numpy(float) for c in covariates]
+    if family not in ("exponential", "weibull", "lognormal", "loglogistic"):
+        raise MethodIncompatibility(
+            f"aft: unknown family {family!r}.",
+            recovery_hint="Use 'exponential', 'weibull', 'lognormal' or "
+            "'loglogistic'.",
+            diagnostics={"family": family},
+        )
+    # The same model as sp.survreg, fitted by its exact maximum likelihood
+    # (Newton-polished, observed-information SEs; Stata streg / R survreg
+    # parity). Until 1.40.2 this ran L-BFGS-B at its default tolerance
+    # (coefficients ~1e-5 from the MLE) with SEs from a finite-difference
+    # Hessian of finite-difference gradients, clamped zero durations to
+    # 1e-12 and read an event code of 2 into the likelihood; sp.survreg
+    # refuses both.
+    from .models import survreg
+
+    fit = survreg(
+        data=data, duration=dur_col, event=event_col, x=covariates, dist=family
     )
-    n, k = X.shape
-    logT = np.log(np.maximum(T_raw, 1e-12))
-    n_events = int(E.sum())
-
     fix_sigma = family == "exponential"
+    k = len(covariates) + 1
+    est = fit.params.to_numpy(dtype=float)
+    se_all = fit.std_errors.to_numpy(dtype=float)
+    beta = est[:k]
+    se = se_all[:k]
+    sigma = 1.0 if fix_sigma else float(np.exp(est[k]))
+    se_log_sigma = None if fix_sigma else float(se_all[k])
+    n = int(fit.data_info["nobs"])
+    n_events = int(fit.data_info["n_events"])
+    n_params = k + (0 if fix_sigma else 1)
 
-    def neg_ll(theta: np.ndarray) -> float:
-        beta = theta[:k]
-        sigma = 1.0 if fix_sigma else np.exp(theta[k])
-        return -_aft_log_likelihood(beta, sigma, X, logT, E, family)
-
-    beta0 = np.linalg.lstsq(X, logT, rcond=None)[0]
-    sigma0 = float(np.std(logT - X @ beta0))
-    x0 = np.concatenate([beta0, [] if fix_sigma else [np.log(max(sigma0, 0.1))]])
-    opt = minimize(neg_ll, x0, method="L-BFGS-B", options={"maxiter": 500})
-    beta = opt.x[:k]
-    sigma = 1.0 if fix_sigma else float(np.exp(opt.x[k]))
-
-    # SE from Hessian
-    from scipy.optimize import approx_fprime
-
-    n_params = len(opt.x)
-    H = np.zeros((n_params, n_params))
-    h = 1e-5
-    for i in range(n_params):
-        e = np.zeros(n_params)
-        e[i] = h
-        H[i] = (
-            approx_fprime(opt.x + e, neg_ll, h) - approx_fprime(opt.x - e, neg_ll, h)
-        ) / (2 * h)
-    try:
-        V = np.linalg.inv(H)
-        se_full = np.sqrt(np.maximum(np.diag(V), 0))
-        se = se_full[:k]
-        se_log_sigma = float(se_full[k]) if not fix_sigma else None
-    except np.linalg.LinAlgError:
-        se = np.full(k, np.nan)
-        se_log_sigma = None
-
-    ll = float(-opt.fun)
+    # Log-likelihood of the log durations, the scale Stata streg prints
+    # (sp.survreg's 'Log-likelihood' is R survreg's, of the durations; the
+    # two differ by the sum of log t over the events).
+    ll = float(fit.model_info["ll_log_time"])
     aic = -2 * ll + 2 * n_params
     bic = -2 * ll + n_params * np.log(n)
 

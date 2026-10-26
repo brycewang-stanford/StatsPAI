@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 class MRResult(ResultProtocolMixin):
@@ -177,6 +178,26 @@ def mr_ivw(
     """
     if model not in ("default", "fixed", "random"):
         raise ValueError(f"model must be 'default', 'fixed' or 'random', got {model!r}")
+    # Positional arrays: pandas Series would align on their labels and their
+    # sums skip NaN while n still counted the row.
+    beta_exposure = np.asarray(beta_exposure, dtype=float)
+    beta_outcome = np.asarray(beta_outcome, dtype=float)
+    se_outcome = np.asarray(se_outcome, dtype=float)
+    if not (beta_exposure.shape == beta_outcome.shape == se_outcome.shape):
+        raise MethodIncompatibility(
+            "mr_ivw: beta_exposure, beta_outcome and se_outcome must have the "
+            "same length.",
+            recovery_hint="Pass one value per variant in each array.",
+        )
+    if not (
+        np.isfinite(beta_exposure).all()
+        and np.isfinite(beta_outcome).all()
+        and np.isfinite(se_outcome).all()
+    ):
+        raise MethodIncompatibility(
+            "mr_ivw: the associations and standard errors must be finite.",
+            recovery_hint="Drop the variants with missing summary statistics.",
+        )
     # Weighted regression of beta_Y on beta_X through the origin.
     w = 1 / se_outcome**2
     n = len(beta_exposure)
@@ -550,6 +571,20 @@ def mendelian_randomization(
         )
     if methods is None:
         methods = ["ivw", "egger", "weighted_median"]
+    known = ("ivw", "egger", "weighted_median", "penalized_median")
+    unknown = [m for m in methods if m not in known]
+    if unknown:
+        # these used to be skipped without a word, so the table silently
+        # lacked the rows the caller asked for
+        raise MethodIncompatibility(
+            f"mendelian_randomization: unknown method(s) {unknown}; "
+            f"methods= takes {list(known)}.",
+            recovery_hint=(
+                "Use those names, or sp.mr(method=...) / sp.mr_mode for the "
+                "other estimators."
+            ),
+            diagnostics={"unknown": unknown, "known": list(known)},
+        )
 
     bx = data[beta_exposure].values.astype(float)
     by = data[beta_outcome].values.astype(float)

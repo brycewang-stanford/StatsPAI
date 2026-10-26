@@ -5,6 +5,37 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ survival, epidemiology and Mendelian-randomization statistics (2026-10 option scan)
+
+None of these has an option that restores the old number; each old number
+was wrong for the quantity it was labelled as.
+
+- `sp.cohen_kappa` (unweighted): standard errors, CIs and p-values change
+  (0.060 → 0.080 on a 40/10/10/40 table; now equal to R `vcd::Kappa`).
+- `sp.mantel_haenszel`: the chi-square p-value changes only when the
+  exposed-case total is within 0.5 of its expectation (it now goes to 1).
+- `sp.epi.incidence_rate_ratio(method="exact")` (the default): the p-value
+  is now the exact conditional binomial test (R `poisson.test`). For the old
+  Wald p-value pass `method="wald"` (whose interval is the Wald one too).
+  A zero event count no longer yields p = 0 or p = 1.
+- `sp.aft`: estimates move by up to about 1e-5 relative and standard errors
+  by up to about 7e-6, to `sp.survreg`'s exact MLE. A zero duration or an
+  event code other than 0/1 now raises.
+- `sp.mr_multivariable`: `conditional_f_stats` is NaN unless you pass
+  `exposure_se=[...]` (one standard-error column per exposure); with it, it
+  is the conditional F of Sanderson, Spiller & Bowden (2021). The old values
+  measured the opposite of instrument strength and should not be reused.
+- `sp.mr_f_statistic`: `r2_mean` is NaN unless `n_samples=` is given.
+- `sp.evalue(measure='RR' | 'OR' | 'HR', se=...)`: `se` is the standard
+  error of `log(estimate)`. If you passed a ratio-scale SE, pass the
+  interval instead (`ci=(lo, hi)`), which is unchanged.
+- `sp.cox(robust='hc1' | 'HC3' | 'cluster' without cluster=)` and
+  `sp.mendelian_randomization(methods=[unknown])` now raise; they used to
+  fall back silently. `sp.survreg` / `sp.cox_frailty` refuse event codes
+  other than 0/1: recode explicitly (`event = (status == k)`).
+
+---
+
 ## Unreleased: ⚠️ bounds, quantile and selection fixes (option scan, 2026-10-27)
 
 Numbers change in these calls; there is no option to restore the old ones,

@@ -33,6 +33,7 @@ import numpy as np
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 __all__ = [
     "ModeBasedResult",
@@ -356,9 +357,14 @@ def mr_f_statistic(
     Parameters
     ----------
     n_samples : int, optional
-        GWAS sample size. If provided, R^2 is reported via
-        R^2 = F / (F + n - 2); otherwise a small-sample approximation
-        ``R^2 ≈ F / (F + n_snps - 2)`` is used.
+        Exposure GWAS sample size. If provided, each variant's R^2 is
+        ``F / (F + n - 2)`` and ``r2_mean`` their mean; otherwise
+        ``r2_mean`` is NaN (R^2 needs the sample size; the F-statistics do
+        not).
+
+        .. versionchanged:: 1.40.3
+            Without ``n_samples`` the number of variants used to stand in
+            for the sample size.
 
     References
     ----------
@@ -379,12 +385,33 @@ def mr_f_statistic(
     """
     bx = np.asarray(beta_exposure, dtype=float)
     sx = np.asarray(se_exposure, dtype=float)
+    if bx.shape != sx.shape or bx.size == 0:
+        raise MethodIncompatibility(
+            "mr_f_statistic: beta_exposure and se_exposure must be non-empty "
+            "and of the same length.",
+            recovery_hint="Pass one association and one standard error per variant.",
+        )
+    if not (np.isfinite(bx).all() and np.isfinite(sx).all()) or (sx <= 0).any():
+        raise MethodIncompatibility(
+            "mr_f_statistic: associations must be finite and standard errors "
+            "finite and positive.",
+            recovery_hint="Drop the variants with missing or zero standard errors.",
+        )
     f_per = (bx / sx) ** 2
-    n = n_samples if n_samples is not None else len(bx)
-    if n > 2:
-        r2_per = f_per / (f_per + n - 2)
+    if n_samples is None:
+        # R^2 needs the GWAS sample size. Until 1.40.2 the number of
+        # variants stood in for it, which gave a meaningless R^2 (0.8 for
+        # F = 100 with 25 variants).
+        r2_per = np.full_like(f_per, np.nan)
     else:
-        r2_per = f_per * 0.0
+        n = float(n_samples)
+        if not np.isfinite(n) or n <= 2:
+            raise MethodIncompatibility(
+                f"mr_f_statistic: n_samples must be a sample size above 2; "
+                f"got {n_samples!r}.",
+                recovery_hint="Pass the exposure GWAS sample size.",
+            )
+        r2_per = f_per / (f_per + n - 2)
     return FStatisticResult(
         f_mean=float(np.mean(f_per)),
         f_min=float(np.min(f_per)),

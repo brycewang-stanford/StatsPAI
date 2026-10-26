@@ -181,7 +181,12 @@ def mantel_haenszel(
         # M-H chi-square test (with continuity correction)
         expected_a = n1 * (a + c) / n
         var_a = (n1 * n0 * (a + c) * (b + d)) / (n**2 * (n - 1 + (n == 1)))
-        chi2_mh = (abs(a.sum() - expected_a.sum()) - 0.5) ** 2 / var_a.sum()
+        # Yates term min(0.5, |delta|), as R mantelhaen.test(correct=TRUE):
+        # a bare -0.5 turned |delta| < 0.5 into a positive statistic (p 0.81
+        # instead of 1 on strata whose exposed-case total equals its
+        # expectation; until 1.40.2).
+        delta = abs(a.sum() - expected_a.sum())
+        chi2_mh = (delta - min(0.5, delta)) ** 2 / var_a.sum()
         p = float(stats.chi2.sf(chi2_mh, 1))
 
     else:  # RR

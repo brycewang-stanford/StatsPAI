@@ -170,8 +170,14 @@ def evalue(
           prefer :func:`evalue_rd` with cell counts for the exact value).
     se : float, optional
         Standard error of ``estimate``. Required for ``MD`` / ``OLS`` to
-        obtain a confidence-interval E-value; for ratio measures it is
-        used (with ``alpha``) to build a CI when ``ci`` is not given.
+        obtain a confidence-interval E-value. For ratio measures (``RR`` /
+        ``OR`` / ``HR``) it is the standard error of ``log(estimate)``, as
+        logit / Poisson / Cox fits report it, and the CI built from it when
+        ``ci`` is not given is ``estimate * exp(+/- z se)``.
+
+        .. versionchanged:: 1.40.3
+            For ratio measures ``se`` used to be applied on the ratio
+            scale (``estimate +/- z se``).
     ci : tuple (lower, upper), optional
         Confidence interval on the ``measure`` scale. Takes precedence
         over ``se`` for ratio measures.
@@ -260,8 +266,15 @@ def evalue(
                 diagnostics={"context": context, "true": true_native},
             )
         if ci is None and se is not None:
+            # se is the standard error of log(estimate), what logit /
+            # poisson / cox report for a coefficient. Until 1.40.2 it was
+            # applied on the ratio scale (estimate +/- z se), which for
+            # RR = 2, se = 0.15 gave a lower limit of 1.71 instead of 1.49.
             z = sp_stats.norm.ppf(1 - alpha / 2)
-            ci = (estimate - z * se, estimate + z * se)
+            ci = (
+                float(estimate * np.exp(-z * se)),
+                float(estimate * np.exp(z * se)),
+            )
         rr = _ratio_to_rr(estimate, measure, rare)
         true_rr = _ratio_to_rr(true_native, measure, rare) if true_native > 0 else 0.0
         if ci is not None:

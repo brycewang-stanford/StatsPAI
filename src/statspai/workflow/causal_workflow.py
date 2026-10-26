@@ -996,6 +996,55 @@ class CausalWorkflow:
     # Stage 4c: sensitivity-analysis triad
     # ------------------------------------------------------------------
 
+    #: model_type prefixes of the linear estimators whose treatment
+    #: coefficient is a difference on the outcome's scale
+    _LINEAR_MODEL_TYPES = ("OLS", "WLS", "2SLS", "IV", "LIML", "GMM", "FE", "PANEL")
+
+    def _evalue_input(self, result: Any) -> tuple:
+        """What ``sp.evalue_from_result`` needs, or why it cannot be had.
+
+        Returns ``((obj, sd_y), None)`` with ``obj`` carrying ``estimate`` /
+        ``se`` / ``ci`` on the outcome's scale (a mean difference) and
+        ``sd_y`` the outcome's standard deviation, or ``(None, reason)``.
+        """
+        from types import SimpleNamespace
+
+        sd_y = float(pd.to_numeric(self.data[self.y], errors="coerce").std())
+        if not np.isfinite(sd_y) or sd_y <= 0:
+            return None, f"sd({self.y}) is not a positive number"
+        est = getattr(result, "estimate", None)
+        if est is not None and np.ndim(est) == 0 and np.isfinite(float(est)):
+            import re
+
+            estimand = str(getattr(result, "estimand", "")).upper()
+            words = set(re.split(r"[^A-Z0-9]+", estimand))
+            if words & {"RR", "OR", "HR"} or any(
+                w in estimand for w in ("RATIO", "ODDS", "HAZARD")
+            ):
+                return None, (
+                    f"estimand {estimand!r} is a ratio; its standard error's "
+                    "scale is not known here (call sp.evalue_from_result "
+                    "with measure='RR' / 'OR' / 'HR')"
+                )
+            return (result, sd_y), None
+        params = getattr(result, "params", None)
+        if params is None or not self.treatment or self.treatment not in params.index:
+            return None, "the result has no scalar estimate or treatment coefficient"
+        model_type = str(getattr(result, "model_info", {}).get("model_type", ""))
+        if not model_type.upper().startswith(self._LINEAR_MODEL_TYPES):
+            return None, (
+                f"model_type {model_type!r} is not known to be linear, so the "
+                "coefficient's scale (difference, log odds, log hazard) is "
+                "unknown"
+            )
+        obj = SimpleNamespace(
+            estimate=float(params[self.treatment]),
+            se=float(result.std_errors[self.treatment]),
+            ci=None,
+            alpha=0.05,
+        )
+        return (obj, sd_y), None
+
     def sensitivity_panel(self) -> pd.DataFrame:
         """Stack E-value + Rosenbaum Γ + Oster δ for one-page sensitivity.
 
@@ -1014,45 +1063,53 @@ class CausalWorkflow:
         rows: List[Dict[str, Any]] = []
 
         # ── E-value ──────────────────────────────────────────────────
+        # Until 1.40.2 the estimate (a difference on the outcome's scale for
+        # every estimator this workflow fits) was passed to sp.evalue as a
+        # risk ratio, so an ATE of 2.0 read as RR = 2.0 whatever the units
+        # of y. It now goes through sp.evalue_from_result as a mean
+        # difference standardised by sd(y); a scale that cannot be
+        # established is skipped and recorded, not guessed.
+        from ._degradation import record_degradation
+
         try:
-            est, se = None, None
-            r = result
-            if (
-                hasattr(r, "estimate")
-                and r.estimate is not None
-                and not (isinstance(r.estimate, float) and np.isnan(r.estimate))
-            ):
-                est = float(r.estimate)
-                se = float(getattr(r, "se", np.nan))
-            elif (
-                hasattr(r, "params")
-                and self.treatment
-                and self.treatment in r.params.index
-            ):
-                est = float(r.params[self.treatment])
-                se = float(r.std_errors[self.treatment])
-            if est is not None and se is not None and se > 0:
-                ev = sp.evalue(estimate=est, se=se, measure="RR", rare_outcome=True)
-                val = None
-                if isinstance(ev, dict):
-                    val = (
-                        ev.get("evalue")
-                        or ev.get("evalue_estimate")
-                        or ev.get("evalue_point")
-                    )
-                else:
-                    val = getattr(ev, "evalue_estimate", getattr(ev, "evalue", None))
-                if val is not None:
-                    rows.append(
-                        {
-                            "method": "E-value (VanderWeele–Ding 2017)",
-                            "statistic": float(val),
-                            "interpretation": "unmeasured confounder must relate to both T and Y "
-                            f"on the RR scale ≥ {float(val):.2f} to null out "
-                            "the effect",
-                        }
-                    )
-        except Exception as exc:  # pragma: no cover
+            ev_input, why_not = self._evalue_input(result)
+            if ev_input is None:
+                from ..exceptions import MethodIncompatibility
+
+                record_degradation(
+                    self,
+                    section="sensitivity_panel: E-value",
+                    exc=MethodIncompatibility(why_not or "E-value not computed"),
+                    detail="E-value skipped",
+                )
+                rows.append(
+                    {
+                        "method": "E-value",
+                        "statistic": np.nan,
+                        "interpretation": f"not computed: {why_not}",
+                    }
+                )
+            else:
+                obj, sd_y = ev_input
+                ev = sp.evalue_from_result(obj, measure="SMD", sd=sd_y)
+                val = float(ev["evalue_estimate"])
+                rows.append(
+                    {
+                        "method": "E-value (VanderWeele–Ding 2017)",
+                        "statistic": val,
+                        "interpretation": "unmeasured confounder must relate to "
+                        f"both T and Y on the RR scale ≥ {val:.2f} to null out "
+                        "the effect (estimate read as a mean difference, "
+                        "standardised by sd(y))",
+                    }
+                )
+        except Exception as exc:
+            record_degradation(
+                self,
+                section="sensitivity_panel: E-value",
+                exc=exc,
+                detail="E-value failed",
+            )
             rows.append(
                 {
                     "method": "E-value",
