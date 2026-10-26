@@ -752,6 +752,8 @@ def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
 
     if not hasattr(statspai_hdfe, "fepois_irls"):
         pytest.skip("statspai_hdfe wheel pre-dates B1.4 (no fepois_irls)")
+    if _fepois_mod._rust_hdfe is None:  # STATSPAI_SKIP_RUST=1
+        pytest.skip("the Rust backend is switched off")
 
     df = _make_synthetic_panel(seed=2026)
 

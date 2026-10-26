@@ -858,6 +858,14 @@ class Absorber:
         """
         bad = [j for j, ok in enumerate(flags) if not ok]
         if bad:
+            # The iterations stop on step size, not on the distance to the
+            # projection: on a graph slow enough to leave one column
+            # unconverged, a column that "converged" can still be off by
+            # an error in the fixed-effect space. The slope is immune (x is
+            # residualised exactly) but the residual variance is not: the
+            # pure-Python path gave a weighted SE 7e-5 off the dummy
+            # regression. Finish every column with the direct solve.
+            bad = list(range(x.shape[1]))
             from ..fast._fe_direct import residualise
 
             n = x.shape[0]
@@ -1195,8 +1203,10 @@ def absorb_ols(
         slopes=slopes,
         n_obs=n,
     )
-    yw = ab.demean(y)
-    Xw = ab.demean(X)
+    # One call, so that when the direct solve has to finish any column it
+    # finishes y and X alike (see Absorber._finish_unconverged).
+    yX = ab.demean(np.column_stack([y, X]))
+    yw, Xw = np.ascontiguousarray(yX[:, 0]), np.ascontiguousarray(yX[:, 1:])
     w = ab.weights
 
     # Regressors collinear with the FEs or with each other are omitted, as
