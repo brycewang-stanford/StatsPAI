@@ -956,14 +956,14 @@
    "result_sha256": "849e3154f5a319c42462151cf017556e7e2afc8fa191ec5b4477c912a2681d62"
   },
   "23_evalue": {
-   "seconds": 2.55,
+   "seconds": 1.99,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/diagnostics/evalue.py": "e9db32b7dee36793d044f557de6143a5c390da08852b58f13bb884407b9bceae",
+    "src/statspai/diagnostics/evalue.py": "a26bfb0cb8364bb8af6b9bcf358214aa92ac462ab05f211dc5f8046d1ef1ed37",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {
@@ -976,7 +976,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 1.29,
+   "seconds": 3.48,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1023,11 +1023,11 @@
     "src/statspai/survival/_cox_core.py": "0a9874dd3cd6ccd24716eca46c192104da46575467daf730cdcad6b1cd5d4e9b",
     "src/statspai/survival/_cox_inputs.py": "573bee8d031c3ea8c1cdf903a3b6ef9561a02d1dbcd6bfe805094fc8ba056d6b",
     "src/statspai/survival/_validate.py": "a01fa4f07f10ff6442d399a1b93c204966fcff9474c23551a48e378a13887343",
-    "src/statspai/survival/aft.py": "ffd2c54ec73fafd83d209ea922f1f6e373944507ad2e3bf1d78ae3c97a1af069",
+    "src/statspai/survival/aft.py": "cd473f9577584a88d47f564894a77995a8a5777d4141ec1d5e8c78efc55eada3",
     "src/statspai/survival/causal_forest.py": "37f1666f41e518f82dabf5122987545a29489b08ecc61623a23a16237dcf4fda",
     "src/statspai/survival/competing_risks.py": "1266690d46f30a040566e8a067276a5f97641f3a7ecec62dad3da4541f8305b8",
-    "src/statspai/survival/frailty.py": "1032fad2702e4be1115b5047726fed0cd45323d9d2de8d6656cb2ec3de71523e",
-    "src/statspai/survival/models.py": "4a6e946067b9df9610c3a8f38d52ee14331b6a48c35b65264c478e054fcf9304",
+    "src/statspai/survival/frailty.py": "5378ba16094a10b8b068feaa86e5b68b7719aac34525151a261a6231266961c2",
+    "src/statspai/survival/models.py": "c945c8da2435de9a338b398eda60232a8b2cd2180009ebd4d1208f9fdea916b8",
     "src/statspai/utils/_attrs.py": "1f02a82073a223f190963759f9a71b1fea32d03e8ce7442cc17a4647aceae958"
    },
    "dependency_versions": {
