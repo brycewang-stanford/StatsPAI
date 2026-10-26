@@ -1223,14 +1223,34 @@ def test_zero_inflated_fitted_vectors_moved_out_of_diagnostics(df):
     assert "predicted_overall" not in list(fit.diagnostics)
     assert all(np.ndim(v) == 0 for v in fit.diagnostics.values())
     assert len(fit.data_info["predicted_overall"]) == len(df)
-    with pytest.warns(DeprecationWarning, match="data_info"):
-        old = fit.diagnostics["predicted_overall"]
-    close(old, fit.data_info["predicted_overall"], 1e-12)
+    # the deprecated keys (1.39, DeprecationWarning) were removed in 1.41
+    for key in ("predicted_overall", "predicted_count", "predicted_structural_zero"):
+        assert key not in fit.diagnostics
+        assert fit.diagnostics.get(key) is None
+        with pytest.raises(KeyError):
+            fit.diagnostics[key]
     import pickle
 
     again = pickle.loads(pickle.dumps(fit))
-    with pytest.warns(DeprecationWarning):
-        assert len(again.diagnostics.get("predicted_count")) == len(df)
+    assert dict(again.diagnostics) == dict(fit.diagnostics)
+    np.testing.assert_array_equal(
+        again.data_info["predicted_overall"], fit.data_info["predicted_overall"]
+    )
+
+
+def test_zero_inflated_diagnostics_pickled_by_140_still_load():
+    """A 1.39 / 1.40 pickle of ``diagnostics`` unpickles as
+    ``_FittedArraysDict(scalars, arrays)``; it loads with the scalars kept
+    and the vectors (also in data_info) dropped, and re-pickles as a dict."""
+    import pickle
+
+    from statspai.regression.zeroinflated import _FittedArraysDict
+
+    back = _FittedArraysDict({"ll": -1.5, "aic": 7.0}, {"predicted_overall": [1.0]})
+    assert dict(back) == {"ll": -1.5, "aic": 7.0}
+    assert "predicted_overall" not in back
+    again = pickle.loads(pickle.dumps(back))
+    assert type(again) is dict and again == {"ll": -1.5, "aic": 7.0}
 
 
 # ---------------------------------------------------------------- sp.stata

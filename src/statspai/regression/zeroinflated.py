@@ -55,47 +55,25 @@ from ._optim_helpers import (
 
 
 class _FittedArraysDict(Dict[str, Any]):
-    """``diagnostics`` of the zero-inflated and hurdle fits.
+    """Unpickling shim for zero-inflated / hurdle results saved by 1.39-1.40.
 
-    Through 1.38 it also held three vectors of fitted values, one entry
-    per observation, which every summary, JSON export and agent payload
-    then carried along. They live in ``data_info`` now. The old keys still
-    answer here, with a ``DeprecationWarning``, but are no longer listed
-    when the dictionary is iterated or printed.
+    Those releases kept the fitted-value vectors (``predicted_*``) in
+    ``diagnostics`` as hidden keys that warned (``DeprecationWarning``)
+    and pointed to ``data_info``, where the vectors live. The keys were
+    removed in 1.41: new fits store a plain ``dict`` of scalars, and a
+    pickled 1.39 / 1.40 result still loads, its ``diagnostics`` keeping
+    the scalars and dropping the vectors (they are in ``data_info``).
     """
 
-    def __init__(self, scalars: Dict[str, Any], arrays: Dict[str, Any]):
-        super().__init__(scalars)
-        self._arrays = dict(arrays)
-
-    def _legacy(self, key: Any) -> Any:
-        import warnings
-
-        warnings.warn(
-            f"diagnostics[{key!r}] is deprecated and will be removed in "
-            f"StatsPAI 1.41; read data_info[{key!r}] instead.",
-            DeprecationWarning,
-            stacklevel=3,
-        )
-        return self._arrays[key]
-
-    def __missing__(self, key: Any) -> Any:
-        if key in self._arrays:
-            return self._legacy(key)
-        raise KeyError(key)
-
-    def get(self, key: Any, default: Any = None) -> Any:
-        if dict.__contains__(self, key):
-            return dict.__getitem__(self, key)
-        if key in self._arrays:
-            return self._legacy(key)
-        return default
-
-    def __contains__(self, key: object) -> bool:
-        return dict.__contains__(self, key) or key in self._arrays
+    def __init__(
+        self,
+        scalars: Optional[Dict[str, Any]] = None,
+        arrays: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(scalars or {})
 
     def __reduce__(self) -> Any:
-        return (_FittedArraysDict, (dict(self), self._arrays))
+        return (dict, (dict(self),))
 
 
 # ---------------------------------------------------------------------------
@@ -629,20 +607,19 @@ def zip_model(
         "predicted_overall": pred_overall,
     }
     data_info.update(fitted_arrays)
-    diagnostics = _FittedArraysDict(
-        {
-            "vuong_stat": vuong["vuong_stat"],
-            "vuong_p": vuong["vuong_p"],
-            "ll": ll_zip,
-            "aic": model_info["aic"],
-            "bic": model_info["bic"],
-            # the same three under the names the other count models use
-            "Log-Likelihood": ll_zip,
-            "AIC": model_info["aic"],
-            "BIC": model_info["bic"],
-        },
-        fitted_arrays,
-    )
+    # scalars only: the fitted-value vectors are in data_info (since 1.41
+    # no longer reachable through diagnostics)
+    diagnostics: Dict[str, Any] = {
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "ll": ll_zip,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_zip,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
+    }
 
     model_info["alpha"] = alpha
     return EconometricResults(
@@ -982,21 +959,18 @@ def zinb(
         "predicted_overall": pred_overall,
     }
     data_info.update(fitted_arrays)
-    diagnostics = _FittedArraysDict(
-        {
-            "alpha_dispersion": float(alpha_hat),
-            "vuong_stat": vuong["vuong_stat"],
-            "vuong_p": vuong["vuong_p"],
-            "ll": ll_zinb,
-            "aic": model_info["aic"],
-            "bic": model_info["bic"],
-            # the same three under the names the other count models use
-            "Log-Likelihood": ll_zinb,
-            "AIC": model_info["aic"],
-            "BIC": model_info["bic"],
-        },
-        fitted_arrays,
-    )
+    diagnostics: Dict[str, Any] = {
+        "alpha_dispersion": float(alpha_hat),
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "ll": ll_zinb,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_zinb,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
+    }
 
     model_info["alpha"] = alpha
     return EconometricResults(
@@ -1382,18 +1356,15 @@ def hurdle(
         "predicted_overall": pred_overall,
     }
     data_info.update(fitted_arrays)
-    diagnostics = _FittedArraysDict(
-        {
-            "ll": ll_hurdle,
-            "aic": model_info["aic"],
-            "bic": model_info["bic"],
-            # the same three under the names the other count models use
-            "Log-Likelihood": ll_hurdle,
-            "AIC": model_info["aic"],
-            "BIC": model_info["bic"],
-        },
-        fitted_arrays,
-    )
+    diagnostics: Dict[str, Any] = {
+        "ll": ll_hurdle,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
+        # the same three under the names the other count models use
+        "Log-Likelihood": ll_hurdle,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
+    }
     if use_negbin:
         assert alpha_hat is not None
         diagnostics["alpha_dispersion"] = float(alpha_hat)
