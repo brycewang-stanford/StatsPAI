@@ -35,6 +35,7 @@ from .margins import (
     pwcompare,
 )
 from .nlcom import nlcom
+from .standardize import standardize_coefs
 
 __all__ = [
     "margins",
@@ -48,6 +49,7 @@ __all__ = [
     "test",
     "lincom",
     "nlcom",
+    "standardize_coefs",
     "predictions",
     "avg_predictions",
     "comparisons",

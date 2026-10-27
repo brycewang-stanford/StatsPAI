@@ -14,6 +14,32 @@ from __future__ import annotations
 from typing import Dict, List
 
 SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
+    "akm": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'kss', 'homoskedastic', 'plugin' or 'none'.",
+            "symptom": "akm: variance=<variance> is not one of <_VARIANCES>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'largest', 'leave_one_out' or 'all'.",
+            "symptom": "akm: connected=<connected> is not one of <_CONNECTED>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'auto', 'exact' or 'jla'.",
+            "symptom": "akm: leverage=<leverage> is not one of <_LEVERAGE>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop connected= (the default selects the leave-one-out "
+            "set) or use variance='plugin'.",
+            "symptom": "akm: variance=<variance> needs "
+            "connected='leave_one_out'; on the <connected> set some "
+            "observations have leverage 1 (a worker seen once, a "
+            "firm's only link) and no leave-one-out residual.",
+        },
+    ],
     "ardl": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -64,6 +90,33 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Use type='JKn'.",
             "symptom": "as_svrepdesign: JK1 is for unstratified "
             "designs; this one has <H> strata.",
+        },
+    ],
+    "assign_placebo_dates": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='empirical' (independent " "draws).",
+            "symptom": "assign_placebo_dates: method must be "
+            "'empirical' or 'proportional'; got "
+            "<method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the period column as time=.",
+            "symptom": "assign_placebo_dates: require_observed " "needs time=.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='empirical' with " "require_observed=True.",
+            "symptom": "assign_placebo_dates: require_observed "
+            "restricts each unit to its own set of "
+            "dates, which a proportional allocation "
+            "cannot respect.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Check the column names.",
+            "symptom": "assign_placebo_dates: columns not " "found: <missing>.",
         },
     ],
     "bagged_forecast": [
@@ -326,6 +379,31 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "Unknown causal_discovery method <method>. "
             "Expected one of: <sorted(valid)>.",
         }
+    ],
+    "choo_siow": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "alpha=0.05 gives 95% intervals.",
+            "symptom": "choo_siow: alpha must be in (0, 1), got <alpha>.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Need at least one man type and one woman type.",
+            "symptom": "choo_siow: no couples table.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Merge sparse types, or drop the type from the " "market.",
+            "symptom": "choo_siow: some types have no singles (men "
+            "<zero_single_m>, women <zero_single_w>); their "
+            "surplus is +inf in the data, so the model is not "
+            "estimable for them.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "The surplus is identified from couples relative to " "singles.",
+            "symptom": "choo_siow: no couples in the data.",
+        },
     ],
     "chow_test": [
         {
@@ -659,6 +737,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "undefined.",
         },
     ],
+    "expected_instrument": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the unit-level data as a DataFrame.",
+            "symptom": "data must be a pandas DataFrame.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass a function building the instrument " "from shocks.",
+            "symptom": "instrument_fn must be callable as "
+            "instrument_fn(data, shocks).",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Pass a non-empty DataFrame.",
+            "symptom": "data has no rows.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use keep_draws=False for large n * " "n_draws.",
+            "symptom": "keep_draws must be True, False or " "'auto'.",
+        },
+    ],
     "factor": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -745,6 +846,32 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use 'propensity', 'logit', 'mahalanobis' or " "'euclidean'.",
             "symptom": "full_match: unknown distance <distance>.",
+        },
+    ],
+    "fuzzy_did": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. estimators=('did', 'tc').",
+            "symptom": "fuzzy_did: estimators must be among "
+            "<list(_ORDER)>; got <list(estimators)>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use se_method='bootstrap' (fuzzydid's default).",
+            "symptom": "fuzzy_did: se_method must be 'bootstrap', "
+            "'analytic' or 'none'; got <se_method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'exact' (default) or 'stata' to reproduce " "fuzzydid.",
+            "symptom": "fuzzy_did: cic_quantile must be 'exact' or "
+            "'stata'; got <cic_quantile>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "E.g. modelx=('ols', 'logit').",
+            "symptom": "fuzzy_did: modelx takes two or three of "
+            "<list(_MODELS)>; got <list(modelx)>.",
         },
     ],
     "glmnet": [
@@ -949,6 +1076,23 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Check the variable.",
             "symptom": "kwallis: every value is the same.",
         }
+    ],
+    "leave_out_mean": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the column(s) that define the peer " "groups.",
+            "symptom": "leave_out_mean: group= needs at least one " "column.",
+        },
+        {
+            "exception": "statspai.ColumnNotFound",
+            "remedy": "Pass existing column names.",
+            "symptom": "leave_out_mean: column(s) <missing> not in " "data.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop or fix the negative weights.",
+            "symptom": "leave_out_mean: weights must be " "non-negative.",
+        },
     ],
     "ljungbox": [
         {
@@ -1757,6 +1901,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "not all equal.",
         }
     ],
+    "smm": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Wrap the model simulator in a function of (theta, rng).",
+            "symptom": "smm: `simulate` must be callable as simulate(theta, " "rng).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "n_sim is S, the number of simulated data sets.",
+            "symptom": "smm: n_sim must be a positive integer, got <n_sim>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use n_sim >= 1 (10 or more is typical).",
+            "symptom": "smm: n_sim must be >= 1, got <S>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "'L-BFGS-B' for smooth simulators; 'Nelder-Mead' when the "
+            "objective is rough.",
+            "symptom": "smm: optimizer must be one of <_VALID_OPTIMIZERS>, got "
+            "<optimizer>.",
+        },
+    ],
     "spatial_treatment": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -2073,6 +2241,34 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "two groups at saturation(s) "
             "<thin.index.tolist()>; the "
             "group-level variance needs two.",
+        },
+    ],
+    "two_step_bootstrap": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass functions, e.g. step1=lambda d: "
+            "d.assign(...), step2=lambda d: "
+            "sp.regress('y ~ x', data=d).",
+            "symptom": "two_step_bootstrap: step1 and step2 must "
+            "be callables (DataFrame -> DataFrame and "
+            "DataFrame -> result).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use a few hundred replications or more.",
+            "symptom": "two_step_bootstrap: n_boot=<n_boot>; at "
+            "least 10 replications are needed for a "
+            "standard error.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass cluster= or drop idcluster=.",
+            "symptom": "two_step_bootstrap: idcluster= requires " "cluster=.",
+        },
+        {
+            "exception": "statspai.ColumnNotFound",
+            "remedy": "Pass an existing cluster column.",
+            "symptom": "two_step_bootstrap: cluster=<cluster> is " "not a column.",
         },
     ],
     "unitroot": [

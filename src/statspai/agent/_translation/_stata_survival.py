@@ -15,7 +15,10 @@ written out); ``vce(cluster c)`` is ``sp.cox(cluster=c, ssc='stata')``
 (or ``enter(time t0)``) adds ``weights=w, weights_as='sampling'`` (robust
 variance, as ``[pw=]`` forces), ``start=t0``, and clusters the robust
 variance on the ``stset`` id, as ``stcox`` does. Stata refuses
-``[pw=]`` with ``efron``, and so does the translation. ``stcrreg`` is
+``[pw=]`` with ``efron``, and so does the translation. ``tvc(varlist)
+texp(exp)`` is ``sp.cox(tvc=[...], texp='exp')`` (``exp`` passes through
+as a Stata expression in ``_t``; pinned against Stata 18 in
+``tests/reference_parity/test_cox_tvc_parity.py``). ``stcrreg`` is
 ``sp.finegray(small_sample=True)``: its default robust variance carries
 the same N/(N-1).
 
@@ -63,6 +66,54 @@ def _covariates(cmd: StataCommand, name: str) -> Any:
     return xs
 
 
+def _stcox_tvc(opts: Any) -> Dict[str, Any]:
+    """``tvc(varlist) texp(exp)`` -> ``{'tvc': [...], 'texp': 'exp'}``.
+
+    ``texp`` is a Stata expression in ``_t``; ``stset`` declarations with
+    ``origin()`` / ``scale()`` are refused upstream, so ``_t`` is the
+    declared time variable and the expression passes through unchanged.
+    It is read here with the same parser ``sp.cox`` uses, so an
+    expression the fit cannot evaluate fails at translation. Returns an
+    ``_emit_error`` payload (which carries ``ok``) when the options cannot
+    be translated, and ``{}`` when neither is given.
+    """
+    raw_tvc = opts.get("tvc")
+    raw_texp = opts.get("texp")
+    if raw_tvc is None and raw_texp is None:
+        return {}
+    if raw_tvc is None:
+        return _emit_error(
+            "stcox, texp() without tvc(): Stata refuses it too.",
+            command="stcox",
+            suggestions=[],
+        )
+    tvc = str(raw_tvc).split()
+    if not tvc or any(not re.fullmatch(r"[A-Za-z_]\w*", v) for v in tvc):
+        return _emit_error(
+            f"stcox, tvc(): only plain variable names are translated (got "
+            f"tvc({raw_tvc})).",
+            command="stcox",
+            suggestions=[],
+        )
+    out: Dict[str, Any] = {"tvc": tvc}
+    if raw_texp is not None:
+        texp = " ".join(str(raw_texp).split())
+        from ...exceptions import MethodIncompatibility
+        from ...survival._cox_tvc import resolve_texp
+
+        try:
+            resolve_texp(texp)
+        except MethodIncompatibility as exc:
+            return _emit_error(
+                f"stcox, texp({texp}) is not translated: {exc}",
+                command="stcox",
+                suggestions=[],
+            )
+        if texp != "_t":
+            out["texp"] = texp
+    return out
+
+
 def _h_stcox(cmd: StataCommand) -> Dict[str, Any]:
     """``stcox x1 x2 [, efron strata(s) vce(cluster c)]`` -> ``sp.cox``."""
     xs = _covariates(cmd, "stcox")
@@ -77,13 +128,16 @@ def _h_stcox(cmd: StataCommand) -> Dict[str, Any]:
                 command="stcox",
                 suggestions=[],
             )
-    for unsupported in ("shared", "tvc", "texp", "offset"):
+    for unsupported in ("shared", "offset"):
         if unsupported in opts:
             return _emit_error(
                 f"stcox, {unsupported}() is not translated to sp.cox.",
                 command="stcox",
                 suggestions=[],
             )
+    tvc_out = _stcox_tvc(opts)
+    if isinstance(tvc_out, dict) and "ok" in tvc_out:
+        return tvc_out
     ties = "efron" if "efron" in opts else "breslow"
     opts.get("breslow")  # the default, written out below either way
     duration, event = _stset(cmd)
@@ -105,6 +159,8 @@ def _h_stcox(cmd: StataCommand) -> Dict[str, Any]:
         )
     if strata:
         args["strata"] = strata[0]
+    if tvc_out:
+        args.update(tvc_out)
     weight = (opts.get("stset_weight") or "").strip()
     time0 = (opts.get("stset_time0") or "").strip()
     st_id = (opts.get("stset_id") or "").strip()
@@ -136,16 +192,16 @@ def _h_stcox(cmd: StataCommand) -> Dict[str, Any]:
     if duration.startswith("<"):
         notes.append(_NEEDS_STSET.format(cmd="stcox"))
     code = ", ".join(["data=df"] + [f"{k}={v!r}" for k, v in args.items()])
-    out = _emit(
-        "cox",
-        args,
-        f"sp.cox({code})",
-        notes,
-        semantics=[
-            f"stcox breaks ties with Breslow's method unless `efron` is "
-            f"given; sp.cox defaults to Efron, so ties={ties!r} is written out."
-        ],
-    )
+    semantics = [
+        f"stcox breaks ties with Breslow's method unless `efron` is "
+        f"given; sp.cox defaults to Efron, so ties={ties!r} is written out."
+    ]
+    if "tvc" in args:
+        semantics.append(
+            "tvc(): the coefficients of z*g(_t) are named 'tvc:z' (Stata's tvc "
+            "equation); texp() defaults to _t in both."
+        )
+    out = _emit("cox", args, f"sp.cox({code})", notes, semantics=semantics)
     if untranslated:
         out["untranslated_options"] = untranslated
     return out

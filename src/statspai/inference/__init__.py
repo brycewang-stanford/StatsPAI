@@ -11,10 +11,12 @@ from .basic_tests import ci, prtest, sktest, swilk
 from .bitest import BiTestResult, bitest
 from .bootstrap import BootstrapResult, bootstrap
 from .conley import conley
+from .conley_sensitivity import ConleySensitivityResult, conley_sensitivity
 from .difference_in_means import difference_in_means
 from .effect_size import cor_test, esize
 from .front_door import front_door
 from .g_computation import g_computation
+from .ibragimov_mueller import IbragimovMuellerResult, ibragimov_mueller
 from .ipw import ipw
 from .iv_wild import iv_wild_bootstrap
 from .jackknife import cr2_se, jackknife_se, wild_cluster_boot
@@ -68,6 +70,10 @@ __all__ = [
     "vcov",
     "vcov_compare",
     "conley",
+    "conley_sensitivity",
+    "ConleySensitivityResult",
+    "ibragimov_mueller",
+    "IbragimovMuellerResult",
     "pate",
     "PATEEstimator",
     "jackknife_se",

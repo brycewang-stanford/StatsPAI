@@ -7917,6 +7917,185 @@
     }
   },
   {
+    "description": "Abowd-Kramarz-Margolis worker and firm fixed effects on the connected set of a worker-firm panel, and the variance decomposition of the outcome into var(worker), var(firm), 2cov and residual: plug-in, homoskedastic (Andrews et al.) and Kline-Saggio-Solvsten leave-out bias corrections (exact leverages, or seeded random projections for large data). Not the Adao-Kolesar-Morales shift-share SE (sp.shift_share_se). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "akm",
+    "parameters": {
+      "properties": {
+        "cluster": {
+          "description": "Cluster for the covariate standard errors",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "connected": {
+          "description": "Estimation sample: largest connected set of firms, its leave-one-observation-out subset (needed for the corrected variances), or all rows with effects normalised per connected set (felsdvreg's sample). Default: leave_one_out with a corrected variance, largest otherwise",
+          "enum": [
+            "largest",
+            "leave_one_out",
+            "all"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Time-varying controls, partialled out using the full two-way model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Person-period panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "firm": {
+          "description": "Firm identifier",
+          "type": "string"
+        },
+        "leverage": {
+          "default": "auto",
+          "description": "Leverages and bias weights: exact (dense firm-by-firm matrices) or jla (random projections); auto is exact up to 3000 firms",
+          "enum": [
+            "auto",
+            "exact",
+            "jla"
+          ],
+          "type": "string"
+        },
+        "n_draws": {
+          "default": 200,
+          "description": "Random projections for leverage='jla'",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the random projections",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Period column; its effects enter as indicators and are partialled out with the covariates",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "variance": {
+          "default": "kss",
+          "description": "Variance decomposition; the plug-in is always reported alongside",
+          "enum": [
+            "kss",
+            "homoskedastic",
+            "plugin",
+            "none"
+          ],
+          "type": "string"
+        },
+        "worker": {
+          "description": "Worker identifier",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome (e.g. log wage)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "worker",
+        "firm"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Per-row mean of a variable over the other rows of its group (peer / coworker average), excluding the row itself and the rows flagged by exclude= from every peer pool; NaN with a warning when no peer is left. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "leave_out_mean",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Input data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "exclude": {
+          "description": "Boolean column (or one flag per row) of rows kept out of every peer pool, e.g. focal entrants",
+          "type": "string"
+        },
+        "group": {
+          "description": "Group column or columns (one group per combination)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "value": {
+          "description": "Column to average",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Non-negative weights",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "value",
+        "group"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Cluster (or row) bootstrap of a two-step estimator: re-runs the generated-regressor step and the model of interest on every resample, so the standard errors include the noise of the first step; reports the second step's own SEs next to them. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "two_step_bootstrap",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of percentile intervals",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Resample whole clusters (pairs cluster bootstrap)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "Data to resample",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "idcluster": {
+          "description": "New column giving every drawn cluster its own id (Stata idcluster())",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Replications",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Resampling seed",
+          "type": "integer"
+        },
+        "step1": {
+          "description": "DataFrame -> DataFrame: builds the generated regressor",
+          "type": "string"
+        },
+        "step2": {
+          "description": "DataFrame -> fitted result with .params (or a Series)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "step1",
+        "step2",
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
     "name": "xttobit",
     "parameters": {
@@ -26520,6 +26699,57 @@
     }
   },
   {
+    "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
+    "name": "expected_instrument",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Unit-level data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "instrument_fn": {
+          "description": "instrument_fn(data, shocks) -> one instrument value per row of data; NaN only where undefined whatever the shocks",
+          "type": "string"
+        },
+        "keep_draws": {
+          "default": "auto",
+          "description": "Keep the (n, n_draws) draws matrix; 'auto' keeps it up to 256 MiB, False streams the mean and variance",
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "n_draws": {
+          "default": 1000,
+          "description": "Shock redraws (at least 2)",
+          "type": "integer"
+        },
+        "observed_shocks": {
+          "description": "Realised shocks; the observed instrument is returned too",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed; None draws fresh entropy, recorded in seed_entropy",
+          "type": "integer",
+          "x-aliases": [
+            "random_state"
+          ]
+        },
+        "shock_sampler": {
+          "description": "shock_sampler(rng) -> one counterfactual shock vector, or {'kind': 'bernoulli', 'p': p, 'size': m} / {'kind': 'permute', 'shocks': g, 'strata': s}",
+          "type": "object"
+        }
+      },
+      "required": [
+        "data",
+        "instrument_fn",
+        "shock_sampler"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence. Do NOT use when: a quick point estimate is all that is needed -- this is the full reporting bundle (bootstrap SEs, tF, AR / CLR / K sets, LTZ) and costs many fits. Cost: n_boot bootstrap fits plus grid_size test inversions per confidence set; minutes on n ~ 10^5.",
     "name": "iv_diag",
     "parameters": {
@@ -30928,6 +31158,192 @@
     }
   },
   {
+    "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged.",
+    "name": "standardize_coefs",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "Estimation-sample frame; required when fixed effects were absorbed (sds of the raw columns)",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "result": {
+          "description": "Fit from sp.regress, sp.iv / sp.ivreg, sp.feols or sp.hdfe_ols",
+          "type": "string"
+        },
+        "scale_y": {
+          "default": true,
+          "description": "Also divide by sd(y); False gives the effect of a one-sd change in units of y",
+          "type": "boolean"
+        },
+        "variables": {
+          "description": "Regressors to standardise (default all but the intercept); the others are scaled by 1/sd(y) only",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weights": {
+          "description": "Weights of the moments for weighted fits that do not carry them (column of data or array); Stata summarize [aw=] convention",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
+    "name": "ibragimov_mueller",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Interval level; the size guarantee holds up to 0.083",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column defining the q groups",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "coef": {
+          "description": "Coefficient to test; required unless the callable returns a float",
+          "type": "string"
+        },
+        "data": {
+          "description": "Input data",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimator": {
+          "default": "ols",
+          "description": "'ols', 'iv', or a callable(group_frame) returning the estimate or a fitted result",
+          "type": "string"
+        },
+        "fit_kwargs": {
+          "description": "Extra arguments for sp.regress / sp.iv in each group",
+          "type": "object"
+        },
+        "formula": {
+          "description": "Formula for estimator='ols' (sp.regress) or 'iv' (sp.iv); omit with a callable estimator",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "h0": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "min_group_size": {
+          "default": 2,
+          "description": "Smallest group allowed (smaller groups raise)",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data",
+        "cluster"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
+    "name": "conley_sensitivity",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Interval level",
+          "type": "number"
+        },
+        "cutoffs": {
+          "description": "Distance cutoffs in km (positive)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "Frame aligned with the estimation sample, with the coordinates",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "distance": {
+          "default": "planar",
+          "description": "'planar' = acreg's 111 km/degree (as sp.iv(vce='conley')); 'haversine' = great circle",
+          "enum": [
+            "planar",
+            "haversine"
+          ],
+          "type": "string"
+        },
+        "fit_kwargs": {
+          "description": "Extra arguments for that fit",
+          "type": "object"
+        },
+        "inference": {
+          "default": "normal",
+          "description": "Reference distribution: 'normal' (acreg) or 't' (n-k, as sp.conley)",
+          "enum": [
+            "normal",
+            "t"
+          ],
+          "type": "string"
+        },
+        "kernel": {
+          "default": "uniform",
+          "description": "Spatial kernel (acreg without / with bartlett)",
+          "enum": [
+            "uniform",
+            "bartlett"
+          ],
+          "type": "string"
+        },
+        "lat": {
+          "description": "Latitude column (degrees)",
+          "type": "string"
+        },
+        "lon": {
+          "description": "Longitude column (degrees)",
+          "type": "string"
+        },
+        "method": {
+          "default": "ols",
+          "description": "Estimator when result is a formula",
+          "enum": [
+            "ols",
+            "iv"
+          ],
+          "type": "string"
+        },
+        "result": {
+          "description": "OLS / 2SLS fit, or a formula fitted with method=",
+          "type": "string"
+        },
+        "terms": {
+          "description": "Coefficients to report (default all but the intercept)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "result",
+        "data",
+        "lat",
+        "lon",
+        "cutoffs"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [formulas unverified] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits.",
     "name": "continuous_did",
     "parameters": {
@@ -33308,6 +33724,212 @@
     }
   },
   {
+    "description": "Fuzzy difference-in-differences (de Chaisemartin & D'Haultfoeuille 2018; Stata fuzzydid): LATE of a treatment whose rate rises more in some groups than in others. Wald-DID (DiD of the outcome over DiD of the treatment, = 2SLS with group x period as instrument), Wald-TC (time-corrected: control-group trends conditional on treatment) and Wald-CIC (changes in changes), for binary or ordered treatments, two or more groups and periods (increasing / decreasing / stable groups), covariates (OLS / logit / probit), bootstrap or influence-function SEs. Point estimates equal Stata fuzzydid to 1e-13 (logit / probit models: 1e-8, Stata's ML stopping rule). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: fuzzydid lqte (quantile effects), partial (bounds without a stable group) and sieves are not implemented. Do NOT use when: Staggered adoption of a binary treatment by whole units -- use sp.callaway_santanna or sp.did_multiplegt_dyn; Treatment switches on and off within a panel of groups -- use sp.did_multiplegt_dyn.",
+    "name": "fuzzy_did",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level",
+          "type": "number"
+        },
+        "cic_quantile": {
+          "default": "exact",
+          "description": "Wald-CIC quantile rule: exact integer arithmetic, or fuzzydid's floating-point ceil (differs by ~1e-5 when u * n is an integer)",
+          "enum": [
+            "exact",
+            "stata"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Block-bootstrap / CR0 cluster column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Covariates; 'C(x)' / 'i.x' as indicators (fuzzydid continuous() / qualitative()); not with 'cic'",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Individual rows",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "eqtest": {
+          "default": false,
+          "description": "Test equality of each pair of requested estimators",
+          "type": "boolean"
+        },
+        "estimators": {
+          "default": [
+            "did",
+            "tc",
+            "cic"
+          ],
+          "description": "Any of 'did' (Wald-DID), 'tc' (Wald-TC), 'cic' (Wald-CIC)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "group_change": {
+          "description": "Stata G: 0/1 switching-group indicator (two periods), or with group_change_next the change of the group's treatment into the row's period (-1 / 0 / 1)",
+          "type": "string"
+        },
+        "group_change_next": {
+          "description": "Stata G_F: change of the group's treatment out of the row's period (-1 / 0 / 1); needed for >2 periods or decreasing groups",
+          "type": "string"
+        },
+        "modelx": {
+          "default": [
+            "ols",
+            "ols",
+            "ols"
+          ],
+          "description": "fuzzydid modelx(): models of E(Y|X), E(D|X), P(D=d|X); each 'ols', 'logit' or 'probit'",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "n_boot": {
+          "default": 50,
+          "description": "Bootstrap replications",
+          "type": "integer"
+        },
+        "newcateg": {
+          "description": "Upper bounds of pooled treatment-value sets for TC / CIC",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "numerator": {
+          "default": false,
+          "description": "Report only the numerators (placebo tests); one comparison",
+          "type": "boolean"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "Bootstrap (fuzzydid), influence-function delta method (DID / TC without covariates) or none",
+          "enum": [
+            "bootstrap",
+            "analytic",
+            "none"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Bootstrap seed",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Period",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "Treatment D (binary or ordered)",
+          "type": "string",
+          "x-aliases": [
+            "treatment"
+          ],
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-aliases": [
+            "outcome"
+          ],
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "group_change",
+        "time",
+        "treat"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order.",
+    "name": "assign_placebo_dates",
+    "parameters": {
+      "properties": {
+        "column": {
+          "default": "placebo_event_time",
+          "description": "Name of the date column",
+          "type": "string"
+        },
+        "data": {
+          "description": "Panel or unit rows",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "event_time": {
+          "description": "Event date, constant within unit; missing for never-treated units",
+          "type": "string"
+        },
+        "flag": {
+          "default": "placebo",
+          "description": "Name of the placebo flag",
+          "type": "string"
+        },
+        "id": {
+          "description": "Unit id",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "default": "empirical",
+          "description": "Independent draws, or proportional allocation (exact frequencies when never-treated = k x treated)",
+          "enum": [
+            "empirical",
+            "proportional"
+          ],
+          "type": "string"
+        },
+        "require_observed": {
+          "default": false,
+          "description": "Draw only dates at which the unit has a row (needs time)",
+          "type": "boolean"
+        },
+        "seed": {
+          "description": "Seed",
+          "type": "integer"
+        },
+        "strata": {
+          "description": "Unit-constant column; dates drawn within each stratum",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "time": {
+          "description": "Period column: adds <column>_rel = time - date",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "id",
+        "event_time"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Matching on treatment history for panel data with a binary treatment that switches on and off (R PanelMatch; Imai, Kim & Wang 2023): each switch into treatment is matched to units with the same treatment history over the previous `lag` periods, the match is refined on covariates (Mahalanobis, propensity score or CBPS weighting / matching), and the effect at each lead is a weighted DiD averaged over matched sets. ATT, ATC, ATE and ART; unit bootstrap or analytic (conditional / unconditional) SEs; covariate balance; placebo test. Sets, weights, estimates and analytic SEs equal R PanelMatch 3.1.5 to 1e-10 apart from documented departures where R's output is wrong (ATC propensity weights, tied propensity scores, treatment-reversal filtering). Validation: certified parity evidence.",
     "name": "panel_match",
     "parameters": {
@@ -35243,6 +35865,186 @@
       "required": [
         "data"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
+    "name": "smm",
+    "parameters": {
+      "properties": {
+        "W": {
+          "default": "optimal",
+          "description": "Weighting matrix (as in sp.gmm): 'optimal' = (c Sigma)^-1 (J test reported), 'identity', or a q x q positive-definite matrix (sandwich SEs, no J)",
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the intervals",
+          "type": "number"
+        },
+        "bounds": {
+          "description": "Box constraints, one (low, high) pair per parameter; None = open",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cluster": {
+          "description": "Cluster labels of the data rows",
+          "type": "string"
+        },
+        "data_moment_cov": {
+          "description": "Covariance of the data moment vector (q x q) when data_moments is (q,)",
+          "type": "string"
+        },
+        "data_moments": {
+          "description": "Observed moments (q,), or per-observation contributions (N, q) from which the moments and their covariance are estimated",
+          "type": "string"
+        },
+        "hac_bandwidth": {
+          "description": "Bartlett bandwidth L + 1 for vcov='hac' (default L = floor(4 (N/100)^(2/9)))",
+          "type": "integer"
+        },
+        "jac_step": {
+          "default": 1e-05,
+          "description": "Relative finite-difference step: h_j = jac_step * max(1, |theta_j|), central differences",
+          "type": "number"
+        },
+        "maxiter": {
+          "default": 2000,
+          "description": "Optimiser iterations",
+          "type": "integer"
+        },
+        "moment_names": {
+          "description": "Moment labels",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "n_obs": {
+          "description": "Data sample size N when data_moments is (q,); needed to simulate the covariance or when N_s differs from N",
+          "type": "integer"
+        },
+        "n_sim": {
+          "default": 10,
+          "description": "S, number of simulated data sets",
+          "type": "integer"
+        },
+        "optimizer": {
+          "default": "L-BFGS-B",
+          "description": "scipy.optimize.minimize method, followed by a Gauss-Newton finish",
+          "enum": [
+            "L-BFGS-B",
+            "BFGS",
+            "Nelder-Mead",
+            "Powell"
+          ],
+          "type": "string"
+        },
+        "param_names": {
+          "description": "Parameter labels",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "seed": {
+          "description": "Seed of the common random numbers; None draws entropy, recorded in model_info['seed_entropy']",
+          "type": "integer"
+        },
+        "sim_n_obs": {
+          "description": "Simulated sample size N_s when simulate returns a vector (default N, i.e. c = 1 + 1/S)",
+          "type": "integer"
+        },
+        "simulate": {
+          "description": "simulate(theta, rng) -> moment vector (q,) of one simulated data set, or its per-observation contributions (N_s, q); draw only from rng",
+          "type": "string"
+        },
+        "theta0": {
+          "description": "Starting values (k,)",
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-10,
+          "description": "Optimiser tolerance",
+          "type": "number"
+        },
+        "vcov": {
+          "default": "iid",
+          "description": "Estimator of the moment covariance from contributions",
+          "enum": [
+            "iid",
+            "hac",
+            "cluster"
+          ],
+          "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
+          "x-canonical": "vce"
+        }
+      },
+      "required": [
+        "simulate",
+        "data_moments",
+        "theta0"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Choo-Siow transferable-utility marriage-market model with logit (type-I extreme value) heterogeneity. From household data or a couples table with singles: the nonparametric joint surplus Phi_xy = log(mu_xy^2 / (mu_x0 mu_0y)) with delta-method SEs, or a parametric Phi = sum_k beta_k phi_k by the weighted Poisson GLM of Galichon and Salanie; .counterfactual() re-solves the equilibrium by IPFP for new type margins or a new surplus. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Singles are not observed -- Phi is then identified only up to additive man- and woman-type terms; this model needs singles; Many empty couple cells with no basis -- pass basis= for a parametric surplus instead of -inf cells.",
+    "name": "choo_siow",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the intervals",
+          "type": "number"
+        },
+        "basis": {
+          "description": "Basis functions name -> (X, Y) matrix (or an (X, Y, K) array) for a parametric surplus; omitted = nonparametric",
+          "type": "object"
+        },
+        "data": {
+          "description": "Household data: one row per couple, single man (woman type missing) or single woman (man type missing)",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "man": {
+          "description": "Man's type column",
+          "type": "string"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "Newton iterations (parametric fit)",
+          "type": "integer"
+        },
+        "mu": {
+          "description": "Couples table mu_xy (men's types in rows), instead of data",
+          "type": "string"
+        },
+        "singles_men": {
+          "description": "Single men by type (mu_x0)",
+          "type": "string"
+        },
+        "singles_women": {
+          "description": "Single women by type (mu_0y)",
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-12,
+          "description": "Newton tolerance (parametric fit)",
+          "type": "number"
+        },
+        "woman": {
+          "description": "Woman's type column",
+          "type": "string"
+        }
+      },
+      "required": [],
       "type": "object"
     }
   },
@@ -37744,10 +38546,25 @@
     }
   },
   {
-    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws.",
+    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "recentered_iv",
     "parameters": {
       "properties": {
+        "absorb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Fixed effects to absorb ('f', ['firm', 'year'], 'prov^year'); estimate and SE via sp.iv(absorb=) (ivreghdfe conventions), RI statistic residualised on the same fixed effects; not combinable with weights",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Level",
@@ -37784,6 +38601,10 @@
           "description": "Input data",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "expected": {
+          "description": "Closed-form expected instrument mu (column or length-n array), e.g. the stratum mean under within-stratum permutation; replaces the row mean of the draws, and every draw is centred at it in the RI test",
+          "type": "string"
         },
         "exposure": {
           "description": "Realised instrument z_i = f_i(g, w) computed from the realised shocks",
@@ -59617,6 +60438,10 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "texp": {
+          "description": "The function ``g`` of analysis time multiplying the ``tvc`` covariates, Stata ``texp()``; default ``'_t'``. A string is a Stata expression in ``_t`` (``'ln(_t)'``, ``'_t^2'``, ``'_t > 5'``, ``'min(_t, 10)'``); a callable maps an array of times to an array. It must be finite at every failure time.",
+          "type": "string"
+        },
         "ties": {
           "default": "efron",
           "description": "Tie-handling method: ``'efron'`` or ``'breslow'``.",
@@ -59625,6 +60450,20 @@
             "breslow"
           ],
           "type": "string"
+        },
+        "tvc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Covariates whose log hazard ratio varies with time, as Stata ``stcox, tvc(varlist)``: each adds the regressor ``z * g(t)``, reported as ``tvc:z`` (Stata's ``tvc`` equation; the other coefficients keep their names). A ``tvc`` variable need not be among ``x``. Estimated exactly by splitting every row at the failure times of its stratum and fitting the counting-process likelihood, as ``stcox`` and R ``coxph(tt=)`` do; the robust variance treats each input row as the unit. ``ph_test()`` is refused on such fits."
         },
         "weights": {
           "description": "Column of non-negative case weights (inverse-probability-of- treatment weights, survey weights, frequency counts). Weighted partial likelihood as in R ``coxph(weights=)``: risk sets sum ``w_k exp(x_k'b)`` and each Efron term of an event time carries the mean weight of its deaths. The model-based variance reads the weights as frequencies; for sampling / IPT weights pass ``weights_as='sampling'`` (or ``robust='hc0'`` / ``cluster=``), which is what R reports by default for non-integer weights and Stata ``stcox [pw=]`` always does.",

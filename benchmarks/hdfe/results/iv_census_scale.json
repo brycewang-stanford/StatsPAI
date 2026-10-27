@@ -1,0 +1,470 @@
+{
+  "benchmark": "iv_census_scale",
+  "formula": "married ~ x | grp^tract^sex | tight ~ z",
+  "stata": "ivreghdfe married x (tight = z), absorb(grp#tract#sex) cluster(county)",
+  "r": "feols(married ~ x | grp^tract^sex | tight ~ z, cluster = ~county)",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M3",
+    "ncpu": "8",
+    "mem_bytes": 25769803776,
+    "python": "3.10.20",
+    "loadavg_at_start": [
+      106.9580078125,
+      94.64697265625,
+      118.501953125
+    ]
+  },
+  "records": [
+    {
+      "size": 1000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 7.822762166033499,
+      "peak_rss_bytes": 770883584,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 0.18288895790465176,
+      "fit_s": 1.258418207988143,
+      "rss_after_load_bytes": 360382464,
+      "coef": {
+        "tight": -0.006375414936407941,
+        "x": -2.047174317649125e-05
+      },
+      "se": {
+        "tight": 0.00531640471336357,
+        "x": 1.2648548194926395e-05
+      },
+      "n_obs": 999775,
+      "n_singletons_dropped": 225,
+      "n_fe": [
+        13708
+      ],
+      "n_clusters": 152,
+      "first_stage_F": 933.8956104074151,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        89.2978515625,
+        102.9072265625,
+        138.26708984375
+      ]
+    },
+    {
+      "size": 1000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 7.955287124961615,
+      "peak_rss_bytes": 725270528,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 0.1310930420877412,
+      "fit_s": 1.1889770000707358,
+      "rss_after_load_bytes": 369721344,
+      "coef": {
+        "tight": -0.006375414936407941,
+        "x": -2.047174317649125e-05
+      },
+      "se": {
+        "tight": 0.00531640471336357,
+        "x": 1.2648548194926395e-05
+      },
+      "n_obs": 999775,
+      "n_singletons_dropped": 225,
+      "n_fe": [
+        13708
+      ],
+      "n_clusters": 152,
+      "first_stage_F": 933.8956104074151,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        88.47314453125,
+        102.51025390625,
+        137.91943359375
+      ]
+    },
+    {
+      "size": 1000000,
+      "engine": "fixest",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 7.62852612498682,
+      "peak_rss_bytes": 731774976,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 0.768,
+      "fit_s": 3.206,
+      "rss_after_load_bytes": 307167232,
+      "coef": {
+        "tight": -0.00637541493640814,
+        "x": -2.04717431764916e-05
+      },
+      "se": {
+        "tight": 0.00531640471336391,
+        "x": 1.26485481949266e-05
+      },
+      "n_obs": 999775,
+      "n_fe": {
+        "grp^tract^sex": 13708
+      },
+      "first_stage_F": 933.895610407387,
+      "fixest_version": "0.14.0",
+      "r_version": "R version 4.5.2 (2025-10-31)",
+      "loadavg_after": [
+        90.60986328125,
+        102.49560546875,
+        137.49951171875
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 18.332779541029595,
+      "peak_rss_bytes": 2492776448,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 1.3680308749899268,
+      "fit_s": 11.017644040985033,
+      "rss_after_load_bytes": 967999488,
+      "coef": {
+        "tight": 0.005010152428168458,
+        "x": -2.7971673902389596e-06
+      },
+      "se": {
+        "tight": 0.0022742098082463944,
+        "x": 5.756612340705051e-06
+      },
+      "n_obs": 4998997,
+      "n_singletons_dropped": 1003,
+      "n_fe": [
+        68693
+      ],
+      "n_clusters": 762,
+      "first_stage_F": 4377.445344773464,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        92.43505859375,
+        101.7119140625,
+        135.806640625
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 17.376632374944165,
+      "peak_rss_bytes": 3199041536,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 1.2585656250594184,
+      "fit_s": 9.087110334075987,
+      "rss_after_load_bytes": 1353891840,
+      "coef": {
+        "tight": 0.005010152428168458,
+        "x": -2.7971673902389596e-06
+      },
+      "se": {
+        "tight": 0.0022742098082463944,
+        "x": 5.756612340705051e-06
+      },
+      "n_obs": 4998997,
+      "n_singletons_dropped": 1003,
+      "n_fe": [
+        68693
+      ],
+      "n_clusters": 762,
+      "first_stage_F": 4377.445344773464,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        89.9609375,
+        100.73828125,
+        134.86474609375
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "fixest",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 14.412655374966562,
+      "peak_rss_bytes": 2028912640,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 2.721,
+      "fit_s": 7.866,
+      "rss_after_load_bytes": 498171904,
+      "coef": {
+        "tight": 0.00501015242816631,
+        "x": -2.7971673902412e-06
+      },
+      "se": {
+        "tight": 0.00227420980824507,
+        "x": 5.75661234071027e-06
+      },
+      "n_obs": 4998997,
+      "n_fe": {
+        "grp^tract^sex": 68693
+      },
+      "first_stage_F": 4377.44534477317,
+      "fixest_version": "0.14.0",
+      "r_version": "R version 4.5.2 (2025-10-31)",
+      "loadavg_after": [
+        85.689453125,
+        99.2646484375,
+        133.7421875
+      ]
+    },
+    {
+      "size": 20000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 63.14772400003858,
+      "peak_rss_bytes": 4736221184,
+      "stderr_tail": null,
+      "n_rows": 20000000,
+      "load_s": 7.950703208101913,
+      "fit_s": 47.27404054196086,
+      "rss_after_load_bytes": 3144581120,
+      "coef": {
+        "tight": 0.0026860657323121446,
+        "x": 3.0403645901573264e-06
+      },
+      "se": {
+        "tight": 0.0011720886854959512,
+        "x": 2.8068375009044017e-06
+      },
+      "n_obs": 19996012,
+      "n_singletons_dropped": 3988,
+      "n_fe": [
+        274779
+      ],
+      "n_clusters": 3051,
+      "first_stage_F": 18510.302566858165,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        72.8271484375,
+        91.5478515625,
+        126.787109375
+      ]
+    },
+    {
+      "size": 20000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 50.81095674994867,
+      "peak_rss_bytes": 7280312320,
+      "stderr_tail": null,
+      "n_rows": 20000000,
+      "load_s": 5.584802917088382,
+      "fit_s": 37.91352070798166,
+      "rss_after_load_bytes": 5085511680,
+      "coef": {
+        "tight": 0.0026860657323121446,
+        "x": 3.0403645901573264e-06
+      },
+      "se": {
+        "tight": 0.0011720886854959512,
+        "x": 2.8068375009044017e-06
+      },
+      "n_obs": 19996012,
+      "n_singletons_dropped": 3988,
+      "n_fe": [
+        274779
+      ],
+      "n_clusters": 3051,
+      "first_stage_F": 18510.302566858165,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/Users/brycewang/Documents/GitHub/StatsPAI/.claude/worktrees/agent-a59b99219ea973259/src/statspai/__init__.py",
+      "loadavg_after": [
+        84.77783203125,
+        91.58984375,
+        124.58544921875
+      ]
+    },
+    {
+      "size": 20000000,
+      "engine": "fixest",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 49.74111241695937,
+      "peak_rss_bytes": 6771654656,
+      "stderr_tail": null,
+      "n_rows": 20000000,
+      "load_s": 6.9,
+      "fit_s": 39.424,
+      "rss_after_load_bytes": 1223081984,
+      "coef": {
+        "tight": 0.00268606573230445,
+        "x": 3.04036459016511e-06
+      },
+      "se": {
+        "tight": 0.00117208868549294,
+        "x": 2.80683750091307e-06
+      },
+      "n_obs": 19996012,
+      "n_fe": {
+        "grp^tract^sex": 274779
+      },
+      "first_stage_F": 18510.3025668617,
+      "fixest_version": "0.14.0",
+      "r_version": "R version 4.5.2 (2025-10-31)",
+      "loadavg_after": [
+        89.17236328125,
+        91.5908203125,
+        122.86865234375
+      ]
+    },
+    {
+      "size": 1000000,
+      "engine": "stata",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 18.682917000027373,
+      "peak_rss_bytes": 962641920,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 3.632,
+      "fit_s": 12.739,
+      "n_obs": 999775,
+      "n_clusters": 152,
+      "first_stage_F": 933.8956104074151,
+      "coef": {
+        "tight": -0.006375414936407928,
+        "x": -2.047174317649127e-05
+      },
+      "se": {
+        "tight": 0.0053164047133636115,
+        "x": 1.26485481949264e-05
+      },
+      "stata_version": 18,
+      "processors": 2,
+      "loadavg_after": [
+        103.12353515625,
+        94.6103515625,
+        117.93603515625
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "stata",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 75.6335029999027,
+      "peak_rss_bytes": 2930343936,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 12.91,
+      "fit_s": 60.521,
+      "n_obs": 4998997,
+      "n_clusters": 762,
+      "first_stage_F": 4377.445344773464,
+      "coef": {
+        "tight": 0.005010152428168775,
+        "x": -2.7971673902408828e-06
+      },
+      "se": {
+        "tight": 0.002274209808246375,
+        "x": 5.7566123407096945e-06
+      },
+      "stata_version": 18,
+      "processors": 2,
+      "loadavg_after": [
+        81.77001953125,
+        90.587890625,
+        114.48193359375
+      ]
+    }
+  ],
+  "comparison": [
+    {
+      "size": 1000000,
+      "engine": "fixest",
+      "vs": "rust",
+      "rel_coef_tight": 3.115496637953025e-14,
+      "rel_coef_x": 1.7046793292596623e-14,
+      "rel_se_tight": 6.395408544364565e-14,
+      "rel_se_x": 1.6205968469785597e-14
+    },
+    {
+      "size": 1000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    },
+    {
+      "size": 1000000,
+      "engine": "stata",
+      "vs": "rust",
+      "rel_coef_tight": 2.040718321803292e-15,
+      "rel_coef_x": 9.930170850056286e-16,
+      "rel_se_tight": 7.831112503303549e-15,
+      "rel_se_x": 4.01800871151709e-16
+    },
+    {
+      "size": 5000000,
+      "engine": "fixest",
+      "vs": "rust",
+      "rel_coef_tight": 4.286471707297681e-13,
+      "rel_coef_x": 8.009539054780088e-13,
+      "rel_se_tight": 5.823831069172824e-13,
+      "rel_se_x": 9.065348992033379e-13
+    },
+    {
+      "size": 5000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    },
+    {
+      "size": 5000000,
+      "engine": "stata",
+      "vs": "rust",
+      "rel_coef_tight": 6.33622231369528e-14,
+      "rel_coef_x": 6.875485226418976e-13,
+      "rel_se_tight": 8.581283500745812e-15,
+      "rel_se_x": 8.066262485688522e-13
+    },
+    {
+      "size": 20000000,
+      "engine": "fixest",
+      "vs": "rust",
+      "rel_coef_tight": 2.8647101096593413e-12,
+      "rel_coef_x": 2.5600172352740786e-12,
+      "rel_se_tight": 2.5691427202772378e-12,
+      "rel_se_x": 3.088212859823163e-12
+    },
+    {
+      "size": 20000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    }
+  ]
+}

@@ -88,6 +88,7 @@ from .functional_form import (
     distributional_did,
     functional_form_test,
 )
+from .fuzzy_did import FuzzyDiDResult, fuzzy_did
 from .gardner_2s import did_2stage, gardner_did
 from .harvest import HarvestDIDResult, harvest_did
 from .honest_did import (
@@ -100,6 +101,7 @@ from .influence import aggte_from_influence, influence_functions
 from .jwdid import jwdid
 from .misclassified import did_misclassified
 from .overlap_did import dl_propensity_score, overlap_weighted_did
+from .placebo_dates import assign_placebo_dates
 from .plots import bacon_plot, cohort_event_study_plot, did_plot, did_summary_plot
 from .plots import event_study_plot as enhanced_event_study_plot
 from .plots import (
@@ -1216,6 +1218,9 @@ __all__ = [
     "cdlz_bunching",
     "xtevent",
     "xtevent_smpath",
+    "fuzzy_did",
+    "FuzzyDiDResult",
+    "assign_placebo_dates",
     "panel_match",
     "gardner_did",
     "did_2stage",

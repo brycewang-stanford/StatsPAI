@@ -1,0 +1,7 @@
+{
+  "n": 1000000,
+  "seed": 21261028,
+  "n_tracts": 3508,
+  "n_counties": 152,
+  "outcome_rate": 0.0295
+}

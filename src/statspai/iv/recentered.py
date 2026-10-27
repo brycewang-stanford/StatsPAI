@@ -52,6 +52,7 @@ from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionViolation,
     AssumptionWarning,
+    ConvergenceWarning,
     DataInsufficient,
     MethodIncompatibility,
 )
@@ -122,6 +123,47 @@ def _wls_residualize(V: np.ndarray, C: np.ndarray, w: np.ndarray) -> np.ndarray:
     sw = np.sqrt(w)[:, None]
     coef, *_ = np.linalg.lstsq(C * sw, V * sw, rcond=None)
     return V - C @ coef
+
+
+def _absorb_terms(absorb: Any) -> List[List[str]]:
+    """``absorb=`` as a list of terms, each a list of columns (``a^b``)."""
+    from ..regression.iv import _normalise_absorb
+
+    return [
+        [p.strip() for p in term.split("^") if p.strip()]
+        for term in _normalise_absorb(absorb)
+    ]
+
+
+def _fe_codes(data: pd.DataFrame, idx: np.ndarray, parts: List[str]) -> np.ndarray:
+    """Integer codes of one (possibly interacted) fixed effect on rows ``idx``."""
+    sub = data.iloc[idx][parts].reset_index(drop=True)
+    if len(parts) == 1:
+        codes, _ = pd.factorize(sub[parts[0]], sort=True)
+    else:
+        codes, _ = pd.factorize(pd.MultiIndex.from_frame(sub), sort=True)
+    return codes.astype(np.int64)
+
+
+def _fe_demean(V: np.ndarray, fe: pd.DataFrame) -> np.ndarray:
+    """Within-transform the columns of ``V`` by the fixed effects ``fe``.
+
+    Singletons are kept: their within value is zero, so they drop out of
+    every inner product the randomization statistic is built from.
+    """
+    from ..fast.demean import demean
+
+    V = np.asarray(V, dtype=float)
+    out, info = demean(V, fe, drop_singletons=False, tol=1e-13, max_iter=100_000)
+    if not all(info.converged):
+        warnings.warn(
+            "recentered_iv(absorb=...): the fixed-effect sweep for the "
+            f"randomization statistic did not converge (max |dx| = "
+            f"{max(info.max_dx):.2e}); the RI p-value and set are approximate.",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
+    return np.asarray(out, dtype=float).reshape(V.shape)
 
 
 def _wvar(v: np.ndarray, w: np.ndarray) -> float:
@@ -266,6 +308,8 @@ def recentered_iv(
     ri_null: float = 0.0,
     balance: Optional[Sequence[str]] = None,
     alpha: float = 0.05,
+    absorb: Optional[Union[str, Sequence[str]]] = None,
+    expected: Optional[Union[str, np.ndarray, pd.Series]] = None,
 ) -> CausalResult:
     """Recentered IV for treatments built from exogenous shocks (Borusyak-Hull).
 
@@ -313,6 +357,26 @@ def recentered_iv(
         ``E[(z - mu) r] = 0`` (one test per variable and a joint test).
     alpha : float, default 0.05
         Level of the confidence intervals.
+    absorb : str or list of str, optional
+        Fixed effects to absorb (``"f"``, ``["firm", "year"]``,
+        ``"firm + year"``, or ``"prov^year"`` for an interaction). The
+        point estimate and standard error come from ``sp.iv(absorb=...)``
+        (ivreghdfe conventions: singletons dropped, fixed effects nested
+        in the cluster not charged), and the randomization statistic is
+        residualised on the same fixed effects (Frisch-Waugh-Lovell), so
+        the Hodges-Lehmann identity still holds. Not combinable with
+        ``weights``.
+    expected : str or array of length n, optional
+        The expected instrument ``mu`` when it is known in closed form
+        (for example the stratum mean when the shocks are permuted
+        within strata, or the mean of known assignment probabilities).
+        It replaces the row mean of ``counterfactual`` in the estimator,
+        and the randomization statistic of every draw is centred at it,
+        ``(z_s - mu)' M (y - b x)``; because ``mu`` does not depend on
+        the draws, the RI test stays exact for any ``S``. The draws are
+        still needed for randomization inference;
+        ``diagnostics['expected_draw_gap']`` reports the largest gap
+        between ``mu`` and their row mean.
 
     Returns
     -------
@@ -337,9 +401,21 @@ def recentered_iv(
     counterfactual draws are exchangeable (for example independent
     random permutations of the shocks). With ``method='control'`` the
     control ``mu`` excludes the realised draw, so exactness holds only
-    as ``S`` grows. With heterogeneous effects the IV estimand is a
-    convex average of effects and the asymptotic standard error is the
-    one to report.
+    as ``S`` grows. With ``expected`` given, every draw (the realised
+    one included) is centred at that fixed ``mu`` instead, which keeps the
+    test exact for either method. With heterogeneous effects the IV
+    estimand is a convex average of effects and the asymptotic standard
+    error is the one to report.
+
+    With ``absorb`` the expected instrument enters net of the fixed
+    effects: a ``mu`` that is constant within them (for example the
+    stratum mean when the shocks are permuted within the absorbed
+    strata) is absorbed, and both methods then equal the unadjusted
+    estimate.
+
+    To simulate the counterfactual draws from a shock process instead of
+    building them by hand, use ``sp.expected_instrument`` and pass its
+    ``draws`` here.
 
     The paper's spatial (Conley) standard errors are not offered here;
     use ``cluster`` or compute them with ``sp.conley`` on the
@@ -361,6 +437,19 @@ def recentered_iv(
     >>> df = pd.DataFrame({"y": y, "z": z})
     >>> res = sp.recentered_iv(df, "y", "z", "z", cf)
     >>> abs(res.estimate - 1.0) < 0.5
+    True
+
+    Two steps, with the draws simulated from the shock process by
+    ``sp.expected_instrument`` (here: fair coins hitting exposed units):
+
+    >>> units = pd.DataFrame({"expo": expo})
+    >>> ei = sp.expected_instrument(
+    ...     units,
+    ...     instrument_fn=lambda d, g: d["expo"].to_numpy() * g,
+    ...     shock_sampler={"kind": "bernoulli", "p": 0.5, "size": n},
+    ...     n_draws=S, seed=1)
+    >>> res2 = sp.recentered_iv(df, "y", "z", "z", counterfactual=ei.draws)
+    >>> abs(res2.estimate - 1.0) < 0.5
     True
 
     References
@@ -389,9 +478,23 @@ def recentered_iv(
         )
     covariates = list(covariates or [])
     balance = list(balance or [])
-    named = {"y": y, "treat": treat, "exposure": exposure}
+    fe_terms = _absorb_terms(absorb)
+    fe_cols = list(dict.fromkeys(c for term in fe_terms for c in term))
+    if fe_terms and weights is not None:
+        raise MethodIncompatibility(
+            "recentered_iv(absorb=..., weights=...) is not supported: the "
+            "absorbed IV path (sp.iv) has no weighted fixed-effect sweep.",
+            recovery_hint=(
+                "Drop weights=, or add the fixed effects as dummy columns in "
+                "covariates= and keep weights=."
+            ),
+            diagnostics={"absorb": fe_cols, "weights": weights},
+        )
+    named: Dict[str, Any] = {"y": y, "treat": treat, "exposure": exposure}
     if covariates:
         named["covariates"] = covariates
+    if fe_cols:
+        named["absorb"] = fe_cols
     if balance:
         named["balance"] = balance
     if weights is not None:
@@ -401,6 +504,20 @@ def recentered_iv(
     check_columns(data, named, function="recentered_iv")
 
     Zcf, cf_names = _counterfactual_matrix(data, counterfactual)
+    mu_given: Optional[np.ndarray] = None
+    if expected is not None:
+        if isinstance(expected, str):
+            check_columns(data, {"expected": expected}, function="recentered_iv")
+            raw = pd.to_numeric(data[expected], errors="coerce")
+        else:
+            raw = expected
+        mu_given = np.asarray(raw, dtype=float).reshape(-1)
+        if mu_given.size != len(data):
+            raise MethodIncompatibility(
+                f"expected has {mu_given.size} values but data has {len(data)} " "rows",
+                recovery_hint="Pass one expected instrument per row of data.",
+                diagnostics={"len_expected": int(mu_given.size)},
+            )
     S = Zcf.shape[1]
     if S < 2:
         raise DataInsufficient(
@@ -417,13 +534,19 @@ def recentered_iv(
     frame = data[list(dict.fromkeys(numeric))].apply(pd.to_numeric, errors="coerce")
     keep = np.isfinite(frame.to_numpy(dtype=float)).all(axis=1)
     keep &= np.isfinite(Zcf).all(axis=1)
+    if mu_given is not None:
+        keep &= np.isfinite(mu_given)
     if cluster is not None:
         keep &= data[cluster].notna().to_numpy()
+    if fe_cols:
+        keep &= data[fe_cols].notna().all(axis=1).to_numpy()
     n_dropped = int((~keep).sum())
     if n_dropped:
         warnings.warn(
             f"recentered_iv dropped {n_dropped} rows with missing values in "
-            "the outcome, treatment, exposure, controls or counterfactual draws.",
+            "the outcome, treatment, exposure, controls"
+            + (", fixed effects" if fe_cols else "")
+            + " or counterfactual draws.",
             AssumptionWarning,
             stacklevel=2,
         )
@@ -451,7 +574,7 @@ def recentered_iv(
         frame[covariates].to_numpy(dtype=float)[idx] if covariates else np.empty((n, 0))
     )
 
-    mu = Zc.mean(axis=1)
+    mu = Zc.mean(axis=1) if mu_given is None else mu_given[idx]
     zt = zv - mu
     zscale = max(float(np.max(np.abs(zv))), float(np.max(np.abs(Zc))), 1e-300)
     if float(np.max(np.abs(zt))) <= 1e-12 * zscale:
@@ -473,6 +596,34 @@ def recentered_iv(
             AssumptionWarning,
             stacklevel=2,
         )
+    fe_frame: Optional[pd.DataFrame] = None
+    if fe_terms:
+        fe_frame = pd.DataFrame(
+            {
+                f"_rc_fe{k}": _fe_codes(data, idx, term)
+                for k, term in enumerate(fe_terms)
+            }
+        )
+        within = _fe_demean(np.column_stack([zt, mu]), fe_frame)
+        if float(np.max(np.abs(within[:, 0]))) <= 1e-10 * zscale:
+            raise AssumptionViolation(
+                "the recentered exposure z - mu does not vary within the "
+                "absorbed fixed effects, so no first stage is left",
+                recovery_hint=(
+                    "Absorb coarser fixed effects, or check that the shocks "
+                    "vary within them."
+                ),
+                diagnostics={"absorb": [("^".join(t)) for t in fe_terms]},
+            )
+        if not mu_constant and float(np.max(np.abs(within[:, 1]))) <= (1e-10 * zscale):
+            mu_constant = True
+            warnings.warn(
+                "The expected exposure is constant within the absorbed fixed "
+                "effects, so they already absorb it and the adjusted "
+                "estimate equals the unadjusted one.",
+                AssumptionWarning,
+                stacklevel=2,
+            )
 
     same = treat == exposure
     # Working frame with safe names so any column name works in a formula.
@@ -488,6 +639,10 @@ def recentered_iv(
     if cluster is not None:
         work["_rc_g"] = data[cluster].to_numpy()[idx]
         fit_kw["cluster"] = "_rc_g"
+    if fe_frame is not None:
+        for nm in fe_frame.columns:
+            work[nm] = fe_frame[nm].to_numpy()
+        fit_kw["absorb"] = list(fe_frame.columns)
 
     from ..regression.iv import iv as _iv_api
     from ..regression.ols import regress as _regress
@@ -509,6 +664,11 @@ def recentered_iv(
             )
 
     def _fit_ols(controls: str) -> Any:
+        if fe_frame is not None:
+            # sp.regress has no absorb=; 2SLS with the regressor as its own
+            # instrument is OLS (same estimate, sandwich and DOF charge).
+            work["_rc_xi"] = work["_rc_x"]
+            return _fit_iv("_rc_xi", controls)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             return _regress(f"_rc_y ~ _rc_x{controls}", data=work, **fit_kw)
@@ -558,6 +718,14 @@ def recentered_iv(
         else None
     )
     model_info["first_stage_f"] = None if fs_f is None else float(fs_f)
+    if mu_given is not None:
+        model_info["expected_given"] = True
+        model_info["expected_draw_gap"] = float(np.max(np.abs(Zc.mean(axis=1) - mu)))
+    if fe_frame is not None:
+        n_single = int(main.model_info.get("n_dropped_singletons", 0) or 0)
+        model_info["absorb"] = ["^".join(t) for t in fe_terms]
+        model_info["fe_cardinality"] = list(main.model_info.get("fe_cardinality", []))
+        model_info["n_dropped_singletons"] = n_single
     if use_mu:
         model_info["mu_coefficient"] = float(main.params["_rc_mu"])
         model_info["mu_se"] = float(main.std_errors["_rc_mu"])
@@ -576,11 +744,22 @@ def recentered_iv(
     # Randomization inference treats the realised draw as one of S + 1
     # equally likely draws and centres all of them at their common mean,
     # so the reference set does not depend on which draw was realised.
-    mu_all = (zv + Zc.sum(axis=1)) / (S + 1.0)
+    # A given (closed-form) mu does not depend on the draws, so centring at
+    # it keeps the test exact without the common-mean construction.
+    mu_all = (zv + Zc.sum(axis=1)) / (S + 1.0) if mu_given is None else mu
     zt_all = zv - mu_all
     if ri:
-        C = np.column_stack([np.ones(n), Xc] + ([mu] if use_mu else []))
-        resid = _wls_residualize(np.column_stack([yv, xv]), C, wv)
+        if fe_frame is None:
+            C = np.column_stack([np.ones(n), Xc] + ([mu] if use_mu else []))
+            resid = _wls_residualize(np.column_stack([yv, xv]), C, wv)
+        else:
+            # FWL: sweep the fixed effects (they span the constant) out of
+            # y, x and the controls, then project on the swept controls.
+            Cfe = np.column_stack([Xc] + ([mu] if use_mu else []))
+            swept = _fe_demean(np.column_stack([yv, xv, Cfe]), fe_frame)
+            resid = swept[:, :2]
+            if Cfe.shape[1]:
+                resid = _wls_residualize(resid, swept[:, 2:], wv)
         y_r, x_r = resid[:, 0], resid[:, 1]
         Zt_s = Zc - mu_all[:, None]
         a = float(np.sum(wv * zt_all * y_r))
@@ -595,6 +774,7 @@ def recentered_iv(
             sets and np.isfinite(sets[0][0]) and np.isfinite(sets[-1][1])
         )
         model_info["ri_hodges_lehmann"] = a / c if abs(c) > 0 else float("nan")
+        model_info["ri_statistic"] = a - float(ri_null) * c
         if not model_info["ri_ci_bounded"]:
             warnings.warn(
                 "The randomization confidence set is unbounded: the "
@@ -622,7 +802,7 @@ def recentered_iv(
         pvalue=pval,
         ci=ci,
         alpha=float(alpha),
-        n_obs=int(n),
+        n_obs=int(n - model_info.get("n_dropped_singletons", 0)),
         detail=detail,
         model_info=model_info,
         _citation_key="borusyak2023nonrandom",

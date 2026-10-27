@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ `sp.hdfe_ols` nested-cluster IV dof, Bartlett Conley kernel (AER 116(10) batch)
+
+- `sp.hdfe_ols("y ~ x | fe | d ~ z", cluster=c)` where every absorbed
+  fixed effect is nested in `c` now charges one degree of freedom for the
+  swept constant, as Stata `ivreghdfe` does. Clustered SEs and the
+  first-stage / KP / CD statistics grow by about 1/(2N) relative. There is no
+  switch back; the old numbers disagreed with both `ivreghdfe` and `fixest`.
+- `sp.hdfe_ols(..., vce='conley', conley_kernel='bartlett')` without
+  `conley_time` returned uniform-kernel SEs through 1.41.x and now applies
+  the Bartlett kernel. Pass `conley_kernel='uniform'` to reproduce the old
+  numbers. Unknown kernel names now raise `MethodIncompatibility` instead
+  of being ignored.
+
 ## 1.41 → 1.42: ⚠️ Bayesian options (option scan round 6, `mcmc` and `bayes`)
 
 - `sp.bayes_dml(random_state=)` now also seeds the cross-fitting split of

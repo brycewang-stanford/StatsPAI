@@ -52,15 +52,23 @@ from ..exceptions import MethodIncompatibility
 from .hdfe import Absorber, _absorbed_total_dof, _cluster_effective_fe_dof
 
 
-def _meat(A: np.ndarray, e: np.ndarray, groups: Optional[np.ndarray]) -> np.ndarray:
-    """``Σ_g (A_g'e_g)(A_g'e_g)'`` (``groups=None``: one row per group)."""
+def _meat(A: np.ndarray, e: np.ndarray, codes: Optional[np.ndarray]) -> np.ndarray:
+    """``Σ_g (A_g'e_g)(A_g'e_g)'`` (``codes=None``: one row per group).
+
+    ``codes`` are the cluster labels factorised once per fit
+    (``pd.factorize(groups)[0]``, first-appearance order), so the cluster
+    sums come out in the order they always have.
+    """
     U = A * e[:, None]
-    if groups is None:
+    if codes is None:
         M: np.ndarray = U.T @ U
         return M
-    codes = pd.factorize(groups)[0]
-    S = np.zeros((codes.max() + 1, A.shape[1]))
-    np.add.at(S, codes, U)
+    G = int(codes.max()) + 1
+    # bincount adds each cluster's rows in row order -- the same sequence
+    # of additions as the np.add.at it replaces (bit-identical), ~10x faster
+    S = np.empty((G, U.shape[1]))
+    for j in range(U.shape[1]):
+        S[:, j] = np.bincount(codes, weights=U[:, j], minlength=G)
     return S.T @ S
 
 
@@ -173,7 +181,11 @@ def hdfe_iv(
     )
     k_ex = exog.shape[1]
     stacked = np.column_stack([y, endog, exog, inst])
-    M = ab.demean(stacked)
+    # demean() selects the kept rows by boolean mask -- always a fresh
+    # array -- so the sweep can run in place on it (copy=True would copy it
+    # a second time); the unswept stack is not needed afterwards
+    M = ab.demean(stacked, copy=False)
+    del stacked
     keep = ab.keep_mask
     yt = M[:, 0]
     D = M[:, 1 : 1 + K1]
@@ -200,10 +212,16 @@ def hdfe_iv(
         dof_fe_cl, nested = _cluster_effective_fe_dof(
             ab.fe_codes, list(ab.n_fe), groups, ab.slope_ops
         )
-        sdof = dof_fe_cl - 1 if any(nested) else dof_fe_cl
+        # ivreghdfe charges at least the constant: with every absorbed FE
+        # nested in the cluster reghdfe's e(df_a) is 0 and e(sdofminus) is 1
+        # (Stata 18, ivreghdfe 1.1.4; until 1.41 this was 0 here, SEs too
+        # small by ~1/(2N) relative -- test_hdfe_iv_ivreghdfe.py)
+        sdof = max(dof_fe_cl - 1, 1) if any(nested) else dof_fe_cl
     else:
         sdof = dof_fe
-    n_clusters = int(pd.Series(groups).nunique()) if groups is not None else None
+    # factorised once: every cluster sum below reuses these codes
+    gcodes = pd.factorize(groups)[0] if groups is not None else None
+    n_clusters = int(gcodes.max()) + 1 if gcodes is not None else None
     G = n_clusters if n_clusters is not None else 0  # used only when clustered
 
     # --- 2SLS ------------------------------------------------------------
@@ -215,7 +233,7 @@ def hdfe_iv(
     B = np.linalg.inv(Xhat.T @ Xhat)
     dfr = N - K - sdof
     if groups is not None:
-        V = B @ _meat(Xhat, e, groups) @ B * ((N - 1) / dfr * G / (G - 1))
+        V = B @ _meat(Xhat, e, gcodes) @ B * ((N - 1) / dfr * G / (G - 1))
         se_type = "cluster"
     elif vce is not None:
         V = B @ _meat(Xhat, e, None) @ B * (N / dfr)
@@ -254,7 +272,7 @@ def hdfe_iv(
             chi2 = float(pi @ (Zt.T @ Zt) @ pi) / s2n
             F = float(pi @ (Zt.T @ Zt) @ pi) / L1 / (float(u @ u) / dfr_fs)
             return pi, u, chi2, F
-        Vn = ZtZt_inv @ _meat(Zt, u, groups) @ ZtZt_inv
+        Vn = ZtZt_inv @ _meat(Zt, u, gcodes) @ ZtZt_inv
         chi2 = _wald(pi, Vn)
         return pi, u, chi2, chi2 / L1 / q_fs
 
@@ -295,7 +313,7 @@ def hdfe_iv(
         else:
             kp_f = F
             s = Zt.T @ d1
-            kp_lm = _wald(s, _meat(Zt, d1, groups))
+            kp_lm = _wald(s, _meat(Zt, d1, gcodes))
     lm_df = L1 - K1 + 1
 
     # Anderson-Rubin: excluded instruments in the reduced form of y
@@ -308,7 +326,7 @@ def hdfe_iv(
             Pe = Zf @ np.linalg.solve(ZtZ, Zf.T @ e)
             j_stat = N * float(e @ Pe) / rss
         else:
-            Winv = np.linalg.inv(_meat(Zf, e, groups))
+            Winv = np.linalg.inv(_meat(Zf, e, gcodes))
             A = X.T @ Zf @ Winv
             b2 = np.linalg.solve(A @ Zf.T @ X, A @ Zf.T @ yt)
             g2 = Zf.T @ (yt - X @ b2)

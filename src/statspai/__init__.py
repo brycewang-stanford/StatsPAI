@@ -150,11 +150,13 @@ from .did import (
     CSReport,
     DIDAnalysis,
     DIDForestResult,
+    FuzzyDiDResult,
     HarvestDIDResult,
     ParallelTrendsRobustnessResult,
     SensitivityResult,
     aggte,
     aggte_from_influence,
+    assign_placebo_dates,
     bacon_decomposition,
     bacon_plot,
     bjs,
@@ -204,6 +206,7 @@ from .did import (
     event_study_convention,
     event_study_vcov,
     functional_form_test,
+    fuzzy_did,
     gardner_did,
     ggdid,
     group_time_plot,
@@ -276,7 +279,9 @@ from .inference import (
     BiTestResult,
     BootstrapResult,
     ClassicTestResult,
+    ConleySensitivityResult,
     FisherResult,
+    IbragimovMuellerResult,
     MetaAnalysisResult,
     PATEEstimator,
     RITestResult,
@@ -289,6 +294,7 @@ from .inference import (
     ci,
     cluster_robust_se,
     conley,
+    conley_sensitivity,
     cor_test,
     cr2_se,
     cr3_jackknife_vcov,
@@ -297,6 +303,7 @@ from .inference import (
     fisher_exact,
     front_door,
     g_computation,
+    ibragimov_mueller,
     ipw,
     iv_wild_bootstrap,
     jackknife_se,
@@ -465,6 +472,7 @@ from .postestimation import (
     predictions,
     pwcompare,
     slopes,
+    standardize_coefs,
     test,
 )
 
@@ -833,7 +841,7 @@ from .frontier import (
 )
 
 # General GMM
-from .gmm import gmm, xtabond, xtdpdsys, xtlsdvc
+from .gmm import gmm, smm, xtabond, xtdpdsys, xtlsdvc
 
 # Unified help entry point (aggregates registry + docstring + category + search)
 from .help import HelpResult, help
@@ -1502,6 +1510,9 @@ __all__ = [
     "stacked_did",
     "xtevent",
     "xtevent_smpath",
+    "fuzzy_did",
+    "FuzzyDiDResult",
+    "assign_placebo_dates",
     "panel_match",
     "cdlz_bunching",
     "gardner_did",
@@ -1696,6 +1707,11 @@ __all__ = [
     # Inference primitives
     "subcluster_wild_bootstrap",
     "wild_cluster_ci_inv",
+    "ibragimov_mueller",
+    "IbragimovMuellerResult",
+    "conley_sensitivity",
+    "ConleySensitivityResult",
+    "standardize_coefs",
     "multiway_cluster_vcov",
     "cluster_robust_se",
     "cr3_jackknife_vcov",
@@ -2443,6 +2459,10 @@ __all__ = [
     "xtregar",
     "mmqreg",
     "xttobit",
+    "akm",
+    "AKMResult",
+    "leave_out_mean",
+    "two_step_bootstrap",
     "model_average",
     "ModelAverageResult",
     "jackknife",
@@ -2510,6 +2530,9 @@ __all__ = [
     "blp",
     "blp_instruments",
     "BLPResult",
+    "choo_siow",
+    "ChooSiowResult",
+    "MatchingEquilibrium",
     "path_analysis",
     "PathAnalysisResult",
     # Production functions (proxy-variable estimators)
@@ -2595,6 +2618,7 @@ __all__ = [
     "te_summary",
     "te_rank",
     "gmm",
+    "smm",
     # ---- v0.9.3 __all__ completeness pass ----
     # Items below were imported at the top of the file but previously
     # missing from __all__, breaking `from statspai import *` and some
@@ -2782,6 +2806,8 @@ __all__ = [
     "kernel_iv",
     "zero_first_stage",
     "ZeroFirstStageResult",
+    "expected_instrument",
+    "ExpectedInstrumentResult",
     "KernelIVResult",
     "continuous_iv_late",
     "ContinuousLATEResult",
@@ -3451,6 +3477,10 @@ _LAZY_ATTRS: dict = {}
 # that ``import statspai`` does not import numba.
 _register_lazy("timeseries._ets", "ets", "ETSResult")
 _register_lazy("timeseries.tvp_var_sv", "tvp_var_sv", "TVPVARSVResult")
+# Design-based recentred formula instruments (Borusyak-Hull 2023).
+_register_lazy(
+    "iv.expected_instrument", "expected_instrument", "ExpectedInstrumentResult"
+)
 _register_lazy("agent._translation._stata", "from_stata")
 _register_lazy("agent._translation._stata_run", "stata")
 _register_lazy("agent._translation._r", "from_r")
@@ -3469,6 +3499,11 @@ _register_lazy("panel.xtpcse", "xtpcse")
 _register_lazy("panel.xtintreg", "xtintreg")
 _register_lazy("panel.xtregar", "xtregar")
 _register_lazy("panel.mmqreg", "mmqreg")
+# AKM worker-firm effects (KSS leave-out variances), peer leave-out means and
+# the two-step generated-regressor bootstrap (AER 116(10) batch, 2026-10).
+_register_lazy("panel.akm", "akm", "AKMResult")
+_register_lazy("panel.leave_out", "leave_out_mean")
+_register_lazy("inference.two_step_bootstrap", "two_step_bootstrap")
 _register_lazy("panel.xtintreg", "xttobit")
 _register_lazy("regression.model_average", "model_average", "ModelAverageResult")
 _register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")
@@ -4039,6 +4074,9 @@ _register_lazy(
     "blp",
     "blp_instruments",
     "BLPResult",
+    "choo_siow",
+    "ChooSiowResult",
+    "MatchingEquilibrium",
     "path_analysis",
     "PathAnalysisResult",
     "prod_fn",

@@ -210,7 +210,26 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
         )
     if cmd.in_range:
         notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
-    return _emit("regress", args, python, notes, semantics=semantics)
+    beta = "beta" in cmd.options
+    if beta:
+        semantics.append(
+            "beta -> sp.standardize_coefs(result): the Beta column Stata "
+            "prints is b * sd(x) / sd(y) on the estimation sample (its "
+            "e(beta)). As in Stata the fit itself (e(b), later test / "
+            "predict) stays unstandardised; sp.stata returns that fit with "
+            "e(beta) in model_info['beta']. The call below is the fit; "
+            "report_code gives the standardised table."
+        )
+    out = _emit("regress", args, python, notes, semantics=semantics)
+    if beta:
+        out["postprocess"] = {
+            "tool": "standardize_coefs",
+            "arguments": {},
+            "attach": "beta",
+            "drop": ["Intercept"],
+        }
+        out["report_code"] = f"sp.standardize_coefs({python})"
+    return out
 
 
 def _h_qreg(cmd: StataCommand) -> Dict[str, Any]:
@@ -536,8 +555,10 @@ def _absorb_terms(absorb: str) -> Tuple[List[str], Optional[str]]:
 
     ``a#b`` / ``i.a#i.b`` -> ``a^b`` (one FE per combination);
     ``i.g#c.x`` / ``c.x#i.g`` -> ``i.g#c.x`` (slope only) and ``##`` ->
-    ``i.g##c.x`` (FE and slope); ``name=term`` (saved FE) and the
-    ``, savefe`` suboptions are dropped. Returns ``(terms, error)``.
+    ``i.g##c.x`` (FE and slope). The ``name=`` of a saved effect and the
+    ``, savefe`` suboption are read by ``_stata_akm.plan_saved_effects``
+    (the handler carries them over or reports them). Returns
+    ``(terms, error)``.
     """
     spec = absorb.split(",", 1)[0]
     out: List[str] = []
@@ -720,12 +741,25 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     fe_list, err = _absorb_terms(absorb)
     if err is not None:
         return _emit_error(err, command="reghdfe", suggestions=[])
+    from ._stata_akm import plan_saved_effects
+
+    save_fe, save_err = plan_saved_effects(absorb, fe_list)
     clusters = _cluster_vars(cmd)
     robust = "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust")
     if cmd.weight is not None and robust and not clusters:
-        return _weighted_robust_feols(
+        out = _weighted_robust_feols(
             cmd, "reghdfe", _build_formula(y, list(xs)), fe_list
         )
+        if out.get("ok") and (save_fe or save_err):
+            out["untranslated_options"] = list(
+                out.get("untranslated_options") or []
+            ) + ["absorb(name=...) / savefe"]
+            out["notes"].append(
+                "The saved fixed effects are not created: this weighted robust "
+                "fit runs in sp.feols, whose fixef() uses fixest's "
+                "normalisation, not reghdfe's."
+            )
+        return out
     err, xs = _hdfe_terms(list(xs), "reghdfe")
     if err is not None:
         return _emit_error(err, command="reghdfe", suggestions=[])
@@ -763,7 +797,21 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
             f"`df = df.query({cmd.if_cond!r})` before calling (Stata treats "
             "missing as +infinity in comparisons; pandas does not)."
         )
-    return _emit("hdfe_ols", args, python, notes)
+    out = _emit("hdfe_ols", args, python, notes)
+    if save_err is not None:
+        out["untranslated_options"] = ["absorb(name=...) / savefe"]
+        out["notes"].append(save_err)
+    elif save_fe:
+        out["save_fe"] = dict(save_fe)
+        out["notes"].append(
+            "Saved fixed effects "
+            + ", ".join(f"{v} <- {t}" for v, t in save_fe.items())
+            + ": fit.fixef(absorb_constant=False) is reghdfe's normalisation "
+            "(_cons in .attrs['constant']). reghdfe leaves them missing "
+            "outside e(sample); the code maps every row whose level was "
+            "estimated (sp.stata reproduces the missing rows)."
+        )
+    return out
 
 
 def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
@@ -1564,6 +1612,26 @@ def _ivregress_gmm(cmd: StataCommand, formula: str) -> Dict[str, Any]:
 
 
 def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
+    """``ivreghdfe``; saved fixed effects (``absorb(name=var)`` /
+    ``savefe``) of the IV fit are reported, not created: the IV path of
+    ``sp.hdfe_ols`` keeps no fixed-effect state."""
+    out = _h_ivreghdfe_fit(cmd)
+    if out.get("ok") and any("=" in tok for tok in cmd.varlist):
+        from ._stata_akm import saved_effects
+
+        named, savefe = saved_effects(cmd.options.get("absorb") or "")
+        if named or savefe:
+            out["untranslated_options"] = list(
+                out.get("untranslated_options") or []
+            ) + ["absorb(name=...) / savefe"]
+            out["notes"].append(
+                "The saved fixed effects of ivreghdfe are not created: the IV "
+                "fit of sp.hdfe_ols has no fixef()."
+            )
+    return out
+
+
+def _h_ivreghdfe_fit(cmd: StataCommand) -> Dict[str, Any]:
     """``ivreghdfe y x (d = z), absorb(id year)`` -> ``sp.hdfe_ols`` IV part.
 
     ``sp.hdfe_ols("y ~ x | fe | d ~ z")`` absorbs with the reghdfe engine and
@@ -3936,7 +4004,12 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
     if y is None:
         return _emit_error("ppmlhdfe requires an outcome variable", command="ppmlhdfe")
     absorb = cmd.options.get("absorb") or ""
-    fe_list = [v for v in absorb.split() if v]
+    from ._stata_akm import saved_effects
+
+    saved, savefe = saved_effects(absorb)
+    # `name=var` saves the effect; the column is `var`. Suboptions after
+    # the comma (`, savefe`) are not fixed effects.
+    fe_list = [v.split("=", 1)[-1] for v in absorb.split(",", 1)[0].split() if v]
     cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
     if cluster:
         cluster = cluster.split()[0]
@@ -3970,7 +4043,14 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
         # written out when Stata names it (a [pw=] implies it too).
         args["robust"] = "robust"
         python = python[:-1] + ", robust='robust')"
-    return _emit("ppmlhdfe", args, python, notes)
+    out = _emit("ppmlhdfe", args, python, notes)
+    if saved or savefe:
+        out["untranslated_options"] = ["absorb(name=...) / savefe"]
+        out["notes"].append(
+            "The saved fixed effects of ppmlhdfe are not created by this "
+            "translation."
+        )
+    return out
 
 
 def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
@@ -5496,11 +5576,13 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
 
 # Handlers kept in their own modules register here. They import the helpers
 # above, so the import has to come after them.
+from . import _stata_akm as _akm  # noqa: E402
 from . import _stata_basics as _basics  # noqa: E402
 from . import _stata_design as _design  # noqa: E402
 from . import _stata_did as _did  # noqa: E402
 from . import _stata_extra as _extra  # noqa: E402
 from . import _stata_gs as _gs  # noqa: E402
+from . import _stata_ivinfer as _ivinfer  # noqa: E402
 from . import _stata_matching as _matching  # noqa: E402
 from . import _stata_mht as _mht  # noqa: E402
 from . import _stata_models as _models  # noqa: E402
@@ -5525,6 +5607,8 @@ STATA_COMMAND_MAP.update(_survival.HANDLERS)
 STATA_COMMAND_MAP.update(_extra.HANDLERS)
 STATA_COMMAND_MAP.update(_gs.HANDLERS)
 STATA_COMMAND_MAP.update(_mht.HANDLERS)
+STATA_COMMAND_MAP.update(_ivinfer.HANDLERS)
+STATA_COMMAND_MAP.update(_akm.HANDLERS)
 
 _POSTEST_HANDLERS = frozenset(
     {
@@ -5678,6 +5762,7 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         or handler in _extra.LITERAL
         or handler in _gs.LITERAL
         or handler in _mht.LITERAL
+        or handler in _ivinfer.LITERAL
     ):
         # postestimation commands take variable names / expressions, which
         # their handlers interpret themselves (``contrast i.g`` -> ``g``);
@@ -5725,6 +5810,8 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         payload = _report_options(
             payload, tracked, dict(canonical), expanded, prefixes, parsed
         )
+        # the saved fixed effects: python_script = fit + fixef + columns
+        _akm.saved_effects_code(payload)
     return mark_completeness(payload)
 
 

@@ -283,6 +283,37 @@ class FEOLSResult(ResultProtocolMixin):
     def se(self) -> pd.Series:
         return self.std_errors
 
+    def fixef(self, absorb_constant: bool = True) -> Dict[str, pd.Series]:
+        """Estimated absorbed fixed effects (Stata ``reghdfe, savefe``).
+
+        One Series per absorbed term, indexed by its levels; an interaction
+        is keyed ``"a^b"`` (however written) with a MultiIndex. Recovered
+        exactly from the fitted values and normalised as ``reghdfe`` saves
+        them: every effect after the first averages zero over the rows of
+        each connected set it forms with the first. With
+        ``absorb_constant=True`` (default) the first effect also carries the
+        level, so ``x'b`` plus the row's effects is the
+        fitted value. With ``False`` it averages zero too and the constant
+        ``reghdfe`` prints as ``_cons`` (``ybar - xbar'b``) is in each
+        Series' ``.attrs['constant']``: these are the variables
+        ``absorb(name=var)`` saves. Available for OLS fits whose absorbed
+        terms are factors (not slopes, no instruments).
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> d = pd.DataFrame({"g": rng.integers(0, 5, 200), "x": rng.normal(size=200)})
+        >>> d["y"] = d.g + 0.5 * d.x + rng.normal(size=200)
+        >>> fe = sp.hdfe_ols("y ~ x | g", data=d).fixef()["g"]
+        >>> len(fe)
+        5
+        """
+        from ._hdfe_fixef import fixef as _fixef
+
+        return _fixef(self, absorb_constant=absorb_constant)
+
 
 # ======================================================================
 # Formula parsing
@@ -1090,6 +1121,15 @@ def feols(
             "hdfe_ols vce='conley' requires conley_lat=, conley_lon= and "
             "conley_cutoff= (km)."
         )
+    if _vce == "conley" and (
+        conley_kernel not in ("uniform", "bartlett")
+        or conley_time_kernel not in ("uniform", "bartlett")
+    ):
+        raise MethodIncompatibility(
+            f"hdfe_ols: conley_kernel={conley_kernel!r} / conley_time_kernel="
+            f"{conley_time_kernel!r}; each must be 'uniform' or 'bartlett'.",
+            recovery_hint="conley_kernel='bartlett' is acreg's bartlett option.",
+        )
     _conley_panel = [conley_time, conley_unit, conley_lag]
     if _vce == "conley" and any(v is not None for v in _conley_panel):
         if any(v is None for v in _conley_panel):
@@ -1223,8 +1263,10 @@ def feols(
     if iv_part is not None:
         from ._hdfe_iv import hdfe_iv
 
+        # the exogenous regressors are the X_arr built above (not rebuilt:
+        # an extra N x k copy at census scale)
         exog_arr, exog_names = (
-            _materialize_rhs(df, x_terms) if x_terms else (np.empty((len(df), 0)), [])
+            (X_arr, x_names) if x_terms else (np.empty((len(df), 0)), [])
         )
         if absorb_dof != "reghdfe":
             raise MethodIncompatibility(
@@ -1542,14 +1584,46 @@ def feols(
                     UserWarning,
                     stacklevel=2,
                 )
-            vcov = conley_vcov_matrix(
-                Xw,
-                yw,
-                lat_v,
-                lon_v,
-                float(conley_cutoff),
+            if conley_kernel == "uniform":
+                vcov = conley_vcov_matrix(
+                    Xw,
+                    yw,
+                    lat_v,
+                    lon_v,
+                    float(conley_cutoff),
+                )
+            else:
+                # Bartlett spatial kernel (acreg ..., bartlett). Through
+                # 1.41 this path ignored conley_kernel and returned the
+                # uniform-kernel SEs. Every row is its own location, as
+                # in sp.conley's planar cross-section.
+                from ..inference.conley import _spatiotemporal_meat
+
+                bread = np.linalg.inv(Xw.T @ Xw)
+                e_w = yw - Xw @ (bread @ (Xw.T @ yw))
+                meat = _spatiotemporal_meat(
+                    Xw * e_w[:, None],
+                    lat_v,
+                    lon_v,
+                    np.arange(n_w, dtype=np.int64),
+                    np.zeros(n_w, dtype=np.int64),
+                    n_w,
+                    1,
+                    float(conley_cutoff),
+                    conley_kernel,
+                    conley_time_kernel,
+                    0,
+                    0,
+                    "planar",
+                )
+                vcov = bread @ meat @ bread
+                vcov = 0.5 * (vcov + vcov.T)
+            se_type = (
+                f"Conley spatial HAC (acreg planar, {conley_kernel}, "
+                f"{conley_cutoff} km)"
+                if conley_kernel != "uniform"
+                else f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
             )
-            se_type = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
             df_infer = n_w - k_w
         if df_inference is not None:
             df_infer = _resolve_df_inference(df_inference, df_infer, df_infer)
@@ -1639,6 +1713,21 @@ def feols(
         df_a_nested=df_a_nested,
         weight_info=weight_info,
     )
+    if fe_terms and not slope_specs:
+        # the absorbed effects themselves, for out.fixef() (reghdfe savefe)
+        from ._hdfe_fixef import attach as _attach_fixef
+
+        _attach_fixef(
+            out,
+            df,
+            result["absorber"].keep_mask,
+            [t for t in fe_terms if t.kind != "slope"],
+            y_arr,
+            X_arr,
+            np.asarray(result["coef"], dtype=float),
+            result["resid"],
+            w_arr,
+        )
     from ..core._design_guardrails import check_design
 
     check_design(

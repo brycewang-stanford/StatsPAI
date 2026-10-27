@@ -4,6 +4,112 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### AER 116(10) batch (methods from the October 2026 AER issue)
+
+Methods that the six empirical papers of AER Vol. 116 No. 10 use and
+StatsPAI lacked. Evidence summaries and open items for each line are in
+`docs/dev/aer-oct-2026/`.
+
+#### ⚠️ Correctness
+
+- ⚠️ **`sp.hdfe_ols` IV with every absorbed effect nested in the cluster
+  charged no degree of freedom for the swept constant.** `ivreghdfe`
+  charges one (`e(sdofminus) = 1`). Clustered SEs and the finite-sample
+  factor of the first-stage, KP and CD statistics were too small by about
+  1/(2N) relative (6.4e-4 at N = 785, 5e-7 at 1M rows). Census-style designs
+  such as `absorb(group#tract#sex)` with tracts nested in counties are of
+  this kind. Partially nested and unnested designs were already right. Now
+  equal to Stata 18 `ivreghdfe` on four absorb designs
+  (`tests/reference_parity/test_hdfe_iv_nested_sdof.py`) and, at 1M / 5M /
+  20M rows, to Stata and `fixest` within 3e-12.
+- ⚠️ **`sp.hdfe_ols(vce='conley', conley_kernel='bartlett')` without the
+  panel options returned uniform-kernel SEs.** The spatial-only path never
+  read `conley_kernel`. It now applies the Bartlett kernel (acreg
+  `pfe1() bartlett` to 1e-12; on the test fixture the SE of `x` moves from
+  0.05031 to 0.04171). An unknown kernel name now raises.
+
+#### Added
+
+- **`sp.akm`**: Abowd-Kramarz-Margolis worker and firm effects on the
+  largest or the leave-one-out connected set, with the variance
+  decomposition (plug-in, homoskedastic correction of Andrews et al., and
+  the Kline-Saggio-Solvsten leave-out correction; exact leverages or seeded
+  random projections). Matches pytwoway 0.3.21 to 4e-13 on the plug-in,
+  homoskedastic and KSS components it computes exactly (its homoskedastic
+  var(alpha) trace drops `(n_w - 1)/n`, pinned as an identity); a fixed-design
+  Monte Carlo confirms that KSS is unbiased where the plug-in is not.
+- **`sp.leave_out_mean`**: per-row mean over the other members of a group,
+  with an `exclude=` flag for rows that never count as peers (focal
+  entrants). **`sp.two_step_bootstrap`**: cluster bootstrap that re-runs a
+  generated-regressor step and the second step on each resample.
+- **`sp.hdfe_ols(...).fixef()`**: absorbed effects recovered exactly and
+  normalised as `reghdfe` saves them (Stata 18 reghdfe 6.13.1, effects to
+  1.2e-7, which is reghdfe's own precision).
+- **`sp.standardize_coefs`**: standardised (beta) coefficients after
+  `sp.regress`, `sp.iv`, `sp.feols` and `sp.hdfe_ols`, equal to re-fitting
+  on z-scored variables (Stata `e(beta)` and regress / ivreg2 / reghdfe /
+  ivreghdfe on z-scored data to 1e-13). t statistics and p-values unchanged.
+- **`sp.ibragimov_mueller`**: Ibragimov-Mueller group t-test for few
+  heterogeneous clusters (OLS, IV or any callable estimator).
+- **`sp.conley_sensitivity`**: Conley SEs and intervals across distance
+  cutoffs for OLS and 2SLS (Stata `acreg` at four cutoffs, both kernels, to
+  6e-13).
+- **`sp.fuzzy_did`**: fuzzy DiD of de Chaisemartin and D'Haultfoeuille
+  (Wald-DID, Wald-TC, Wald-CIC; binary or ordered treatment; several groups
+  and periods; covariates; bootstrap or influence-function SEs). Point
+  estimates equal Stata `fuzzydid` to 1e-14 on three fixtures (1e-8 with
+  logit / probit models, Stata's ML stopping rule); `cic_quantile='stata'`
+  reproduces fuzzydid's floating-point quantile rounding. The 2x2 Wald-DID
+  equals the group-level 2SLS identity to 1e-14.
+- **`sp.assign_placebo_dates`**: placebo event dates for never-treated
+  units drawn from the treated units' event-date distribution (strata,
+  observed-date restriction, row-order-free seeding).
+- **`sp.smm`**: simulated method of moments with fixed common random
+  numbers, efficient weighting, sandwich SEs with the `1 + N/(S N_s)`
+  simulation correction and a corrected J test; shares `sp.gmm`'s moment
+  covariance code (SEs equal `sp.gmm`'s times sqrt(1 + 1/S) to 1e-10).
+- **`sp.choo_siow`**: Choo-Siow transferable-utility matching (nonparametric
+  surplus with delta-method SEs; parametric surplus by the Poisson GLM of
+  Galichon and Salanie; `.counterfactual()` re-solves the equilibrium by
+  IPFP). Equal to cupid_matching 1.3 to 1e-11.
+- **`sp.cox(tvc=, texp=)`**: Stata `stcox, tvc() texp()` time-varying
+  coefficients by exact episode splitting (Efron / Breslow, weights,
+  strata, delayed entry, robust / cluster). Stata 18 to 3.3e-7 on ten
+  specifications, R `coxph(tt=)` to 2.5e-8 on six.
+- **`sp.expected_instrument`**: simulates the expected instrument
+  `mu_i = E[z_i | exposure]` of a formula instrument built from
+  as-good-as-random shocks by redrawing the shocks (callable, Bernoulli or
+  within-strata permutation); its `(n, n_draws)` draws feed
+  `sp.recentered_iv(counterfactual=)`. **`sp.recentered_iv(absorb=,
+  expected=)`**: absorbed fixed effects (Stata `ivreghdfe` to 3e-15, the
+  randomisation statistic residualised on the same effects) and a
+  closed-form expected instrument that keeps the RI test exact (counts on
+  200 fixed permutations equal Stata `ritest`). Results without the new
+  arguments are unchanged.
+- **Translations** (`sp.from_stata` / `sp.stata`): `felsdvreg`, `weakiv`,
+  `acreg`, `fuzzydid`, `stcox, tvc() texp()`; `regress, beta` now carries
+  Stata's `e(beta)` instead of dropping the option.
+- `benchmarks/hdfe/iv_census_scale_bench.py`: census-scale absorbed 2SLS at
+  1M / 5M / 20M rows against `fixest` and Stata `ivreghdfe`.
+
+#### Fixed
+
+- `sp.from_stata('reghdfe y x, absorb(wfe=worker ffe=firm)')` and
+  `absorb(..., savefe)` silently dropped the saved fixed effects while
+  reporting `complete=True`. The translation now carries them
+  (`python_script` adds `fit.fixef()` and the columns; `sp.stata` creates the
+  variables); unrecoverable cases are listed in `dropped` with
+  `complete=False`.
+- `sp.from_stata('ppmlhdfe y x, absorb(fe=id year)')` passed `fe=id` to
+  `sp.ppmlhdfe` as a column name; it now passes the column and reports the
+  saved effects as not translated.
+
+#### Changed
+
+- `sp.hdfe_ols` with clusters is faster at scale with bit-identical output:
+  the nested-in-cluster check is vectorised (51 s to 1.6 s at 20M rows), the
+  IV path factorises the cluster column once and sums with `np.bincount`.
+
 ### ⚠️ Correctness
 
 Option scan round 6: `output/`, `plots/` and `fast/` (tests in

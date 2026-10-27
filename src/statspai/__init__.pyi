@@ -434,6 +434,8 @@ from .did.event_study import event_study as event_study
 from .did.few_treated import did_few_treated as did_few_treated
 from .did.functional_form import distributional_did as distributional_did
 from .did.functional_form import functional_form_test as functional_form_test
+from .did.fuzzy_did import FuzzyDiDResult as FuzzyDiDResult
+from .did.fuzzy_did import fuzzy_did as fuzzy_did
 from .did.gardner_2s import gardner_did as did_2stage
 from .did.gardner_2s import gardner_did as gardner_did
 from .did.harvest import HarvestDIDResult as HarvestDIDResult
@@ -446,6 +448,7 @@ from .did.lp_did import lp_did as lp_did
 from .did.misclassified import did_misclassified as did_misclassified
 from .did.overlap_did import dl_propensity_score as dl_propensity_score
 from .did.overlap_did import overlap_weighted_did as overlap_weighted_did
+from .did.placebo_dates import assign_placebo_dates as assign_placebo_dates
 from .did.plots import bacon_plot as bacon_plot
 from .did.plots import cohort_event_study_plot as cohort_event_study_plot
 from .did.plots import did_plot as did_plot
@@ -678,6 +681,7 @@ from .gmm.arellano_bond import xtabond as xtabond
 from .gmm.arellano_bond import xtdpdsys as xtdpdsys
 from .gmm.general_gmm import gmm as gmm
 from .gmm.lsdvc import xtlsdvc as xtlsdvc
+from .gmm.smm import smm as smm
 from .help import HelpResult as HelpResult
 from .help import help as help
 from .imputation._mi_test import mi_test as mi_test
@@ -696,11 +700,19 @@ from .inference.bitest import bitest as bitest
 from .inference.bootstrap import BootstrapResult as BootstrapResult
 from .inference.bootstrap import bootstrap as bootstrap
 from .inference.conley import conley as conley
+from .inference.conley_sensitivity import (
+    ConleySensitivityResult as ConleySensitivityResult,
+)
+from .inference.conley_sensitivity import conley_sensitivity as conley_sensitivity
 from .inference.difference_in_means import difference_in_means as difference_in_means
 from .inference.effect_size import cor_test as cor_test
 from .inference.effect_size import esize as esize
 from .inference.front_door import front_door as front_door
 from .inference.g_computation import g_computation as g_computation
+from .inference.ibragimov_mueller import (
+    IbragimovMuellerResult as IbragimovMuellerResult,
+)
+from .inference.ibragimov_mueller import ibragimov_mueller as ibragimov_mueller
 from .inference.ipw import ipw as ipw
 from .inference.iv_wild import iv_wild_bootstrap as iv_wild_bootstrap
 from .inference.jackknife import cr2_se as cr2_se
@@ -738,6 +750,7 @@ from .inference.suest import SuestResult as SuestResult
 from .inference.suest import suest as suest
 from .inference.ttest import TTestResult as TTestResult
 from .inference.ttest import ttest as ttest
+from .inference.two_step_bootstrap import two_step_bootstrap as two_step_bootstrap
 from .inference.twoway_cluster import twoway_cluster as twoway_cluster
 from .inference.vcov_refit import vcov as vcov
 from .inference.vcov_refit import vcov_compare as vcov_compare
@@ -785,6 +798,8 @@ from .interference.spillover import spillover as spillover
 from .interference.two_stage import two_stage_interference as two_stage_interference
 from .iv.continuous_late import ContinuousLATEResult as ContinuousLATEResult
 from .iv.continuous_late import continuous_iv_late as continuous_iv_late
+from .iv.expected_instrument import ExpectedInstrumentResult as ExpectedInstrumentResult
+from .iv.expected_instrument import expected_instrument as expected_instrument
 from .iv.iv_diag import IVDiagResult as IVDiagResult
 from .iv.iv_diag import iv_compare as iv_compare
 from .iv.iv_diag import iv_diag as iv_diag
@@ -1135,6 +1150,8 @@ from .output.sumstats import balance_table as balance_table
 from .output.sumstats import sumstats as sumstats
 from .output.tab import tab as tab
 from .panel import panel as panel
+from .panel.akm import AKMResult as AKMResult
+from .panel.akm import akm as akm
 from .panel.fama_macbeth import fama_macbeth as fama_macbeth
 from .panel.feols import FEOLSResult as FEOLSResult
 from .panel.feols import feols as hdfe_ols
@@ -1144,6 +1161,7 @@ from .panel.hdfe import SlopeSpec as SlopeSpec
 from .panel.hdfe import absorb_ols as absorb_ols
 from .panel.hdfe import demean as demean
 from .panel.interactive_fe import interactive_fe as interactive_fe
+from .panel.leave_out import leave_out_mean as leave_out_mean
 from .panel.mmqreg import mmqreg as mmqreg
 from .panel.panel_binary import panel_logit as panel_logit
 from .panel.panel_binary import panel_probit as panel_probit
@@ -1204,6 +1222,7 @@ from .postestimation.margins import margins_table as margins_table
 from .postestimation.margins import marginsplot as marginsplot
 from .postestimation.margins import pwcompare as pwcompare
 from .postestimation.nlcom import nlcom as nlcom
+from .postestimation.standardize import standardize_coefs as standardize_coefs
 from .power.design_analysis import RetrodesignResult as RetrodesignResult
 from .power.design_analysis import retrodesign as retrodesign
 from .power.power import PowerResult as PowerResult
@@ -1514,8 +1533,11 @@ from .spatial.weights.distance import distance_band as distance_band
 from .spatial.weights.distance import kernel_weights as kernel_weights
 from .spatial.weights.distance import knn_weights as knn_weights
 from .structural._blp_result import BLPResult as BLPResult
+from .structural._choo_siow_result import ChooSiowResult as ChooSiowResult
+from .structural._choo_siow_result import MatchingEquilibrium as MatchingEquilibrium
 from .structural.blp import blp as blp
 from .structural.blp import blp_instruments as blp_instruments
+from .structural.choo_siow import choo_siow as choo_siow
 from .structural.ddc._result import DDCResult as DDCResult
 from .structural.ddc.estimate import ddc as ddc
 from .structural.ddc.simulate import dgp_ddc as dgp_ddc

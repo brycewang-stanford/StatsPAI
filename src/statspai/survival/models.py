@@ -233,6 +233,17 @@ class CoxResult(EconometricResults):
         ----------
         [@grambsch1994proportional]
         """
+        if self.model_info.get("tvc") is not None:
+            # R cox.zph refuses tt() terms for the same reason: the model
+            # already has coefficients that vary with time, and its rows
+            # are the split episodes, not the observations.
+            raise MethodIncompatibility(
+                "ph_test: this fit has time-varying coefficients (tvc=); the "
+                "Grambsch-Therneau test is defined for the proportional model.",
+                recovery_hint="Test the tvc coefficients themselves (their "
+                "z statistics test proportionality against g(t)), or refit "
+                "without tvc= and call ph_test().",
+            )
         if self.model_info.get("survey_design") is not None:
             raise MethodIncompatibility(
                 "ph_test: this fit used design= (a complex survey design); "
@@ -1185,6 +1196,8 @@ def cox(
     ssc: Optional[str] = None,
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
+    tvc: Optional[Union[str, List[str]]] = None,
+    texp: Optional[Any] = None,
 ) -> CoxResult:
     """
     Cox Proportional Hazards model via partial likelihood.
@@ -1263,6 +1276,21 @@ def cox(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
+    tvc : str or list of str, optional
+        Covariates whose log hazard ratio varies with time, as Stata
+        ``stcox, tvc(varlist)``: each adds the regressor ``z * g(t)``,
+        reported as ``tvc:z`` (Stata's ``tvc`` equation; the other
+        coefficients keep their names). A ``tvc`` variable need not be among
+        ``x``. Estimated exactly by splitting every row at the failure times
+        of its stratum and fitting the counting-process likelihood, as
+        ``stcox`` and R ``coxph(tt=)`` do; the robust variance treats each
+        input row as the unit. ``ph_test()`` is refused on such fits.
+    texp : str or callable, optional
+        The function ``g`` of analysis time multiplying the ``tvc``
+        covariates, Stata ``texp()``; default ``'_t'``. A string is a Stata
+        expression in ``_t`` (``'ln(_t)'``, ``'_t^2'``, ``'_t > 5'``,
+        ``'min(_t, 10)'``); a callable maps an array of times to an array.
+        It must be finite at every failure time.
 
     Returns
     -------
@@ -1298,6 +1326,18 @@ def cox(
     >>> bool(isinstance(res.summary(), str))
     True
     """
+    if texp is not None and tvc is None:
+        raise MethodIncompatibility(
+            "sp.cox: texp= requires tvc= (Stata: texp() only with tvc()).",
+            recovery_hint="Pass tvc=<covariates> together with texp=, or drop texp=.",
+        )
+    if tvc is not None and design is not None:
+        raise MethodIncompatibility(
+            "sp.cox: tvc= cannot be combined with design=.",
+            recovery_hint="Fit the time-varying coefficients with weights=<design "
+            "weight> and cluster=<PSU> instead, or split the data with start= and "
+            "build the z*g(t) column yourself.",
+        )
     if design is not None and getattr(design, "is_replicate_design", False):
         _args = dict(locals())
         from ..survey._replicate_refit import replicate_refit
@@ -1341,6 +1381,12 @@ def cox(
         cols_needed.append(weights)
     if start is not None:
         cols_needed.append(start)
+    tvc_cols: Optional[List[str]] = None
+    if tvc is not None:
+        from ._cox_tvc import resolve_tvc
+
+        tvc_cols = resolve_tvc(tvc, data)
+        cols_needed += [c for c in tvc_cols if c not in cols_needed]
     from ._validate import check_duration_event, warn_missing_weights
 
     warn_missing_weights(data, weights, "sp.cox")
@@ -1405,6 +1451,27 @@ def cox(
 
     strata_arr = data[strata].values if strata else None
     cluster_arr = data[cluster].values if cluster else None
+
+    n_input = n
+    tvc_origin: Optional[np.ndarray] = None
+    texp_label: Optional[str] = None
+    if tvc_cols is not None:
+        from ._cox_tvc import resolve_texp, split_at_failures, tvc_labels
+
+        g_fun, texp_label = resolve_texp(texp)
+        split = split_at_failures(T, E, start_arr, strata_arr, g_fun, texp_label)
+        tvc_origin = split.origin
+        Z = data[tvc_cols].values.astype(float)[tvc_origin] * split.g[:, None]
+        X = np.column_stack([X[tvc_origin], Z])
+        x = list(x) + tvc_labels(tvc_cols)
+        T, E, start_arr = split.stop, split.event, split.start
+        if w_arr is not None:
+            w_arr = w_arr[tvc_origin]
+        if strata_arr is not None:
+            strata_arr = strata_arr[tvc_origin]
+        if cluster_arr is not None:
+            cluster_arr = cluster_arr[tvc_origin]
+        n, p = X.shape
 
     # ---- Optimization (Newton-Raphson) --------------------------------
     beta0 = np.zeros(p)
@@ -1519,6 +1586,12 @@ def cox(
         score_i = kern.score_residuals(beta)
         if w_arr is not None:
             score_i = score_i * w_arr[:, None]
+        if tvc_origin is not None and cluster_arr is None:
+            # the unit of the robust variance is the input row, not the
+            # episode: sum each row's pieces (N in N/(N-1) counts rows)
+            by_row = np.zeros((n_input, score_i.shape[1]))
+            np.add.at(by_row, tvc_origin, score_i)
+            score_i = by_row
         var_beta = cox_robust_vcov(info_inv, score_i, cluster_arr, ssc)
     else:
         var_beta = info_inv
@@ -1563,6 +1636,9 @@ def cox(
         model_info["start"] = start
     if ssc is not None:
         model_info["ssc"] = ssc
+    if tvc_cols is not None:
+        model_info["tvc"] = list(tvc_cols)
+        model_info["texp"] = texp_label
     if svy is not None:
         from ..survey.linearization import design_info
 
@@ -1574,7 +1650,7 @@ def cox(
         model_info["survey_design"] = design_info(svy, svy_df)
 
     data_info = {
-        "nobs": n,
+        "nobs": n_input,
         "n_events": int(E.sum()),
         "dependent_var": duration,
         "event_var": event,
@@ -1585,6 +1661,8 @@ def cox(
     }
     if svy_df is not None:
         data_info["df_inference"] = svy_df
+    if tvc_origin is not None:
+        data_info["n_episodes"] = n
 
     # The other two tests of beta = 0 that survival::coxph prints. The Wald
     # statistic uses the reported covariance (robust when one was asked
@@ -1674,6 +1752,8 @@ def cox(
                 "ssc": ssc,
                 "weights_as": weights_as,
                 "design": None if design is None else repr(design),
+                "tvc": tvc_cols,
+                "texp": texp_label,
             },
             data=data,
             overwrite=False,

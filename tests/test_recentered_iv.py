@@ -239,3 +239,236 @@ def test_bad_method_and_missing_column():
         sp.recentered_iv(df, "y", "x", "z", cf, method="bogus")
     with pytest.raises(sp.StatsPAIError):
         sp.recentered_iv(df, "y", "nope", "z", cf)
+
+
+# --------------------------------------------------------------------
+# absorb= (high-dimensional fixed effects) and expected= (closed-form mu)
+# --------------------------------------------------------------------
+
+
+def _fe_panel(seed=0, n=240, G=12, two_way=False):
+    """Market-access DGP plus FE that load on the outcome and the treatment."""
+    rng = np.random.default_rng(seed)
+    df, cf = _market_access_draw(rng, n_units=n, n_lines=120)
+    df["f"] = rng.integers(0, G, n)
+    df["h"] = rng.integers(0, 5, n)
+    df["cl"] = rng.integers(0, 30, n)
+    df["c1"] = rng.normal(size=n)
+    fe = 0.4 * df["f"].to_numpy() + (0.3 * df["h"].to_numpy() if two_way else 0.0)
+    df["x"] = df["x"] + 0.5 * fe
+    df["y"] = df["y"] + fe + 0.2 * df["c1"]
+    return df, cf
+
+
+def _dummies(df, cols):
+    out = df.copy()
+    names = []
+    for c in cols:
+        d = pd.get_dummies(df[c], prefix=f"D{c}", drop_first=True, dtype=float)
+        out = pd.concat([out, d], axis=1)
+        names += list(d.columns)
+    return out, names
+
+
+@pytest.mark.parametrize("method", ["recenter", "control"])
+@pytest.mark.parametrize("treat", ["x", "z"])
+@pytest.mark.parametrize("kw", [{}, {"cluster": "cl"}])
+def test_absorb_equals_fe_dummies_as_covariates(method, treat, kw):
+    # FWL identity: absorbing a FE equals entering its dummies as controls,
+    # for the estimate, the SE (same DOF charge) and the RI statistic, set
+    # and Hodges-Lehmann root. treat="z" covers the OLS paths.
+    df, cf = _fe_panel(seed=1)
+    dd, names = _dummies(df, ["f"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        a = sp.recentered_iv(
+            df, "y", treat, "z", cf, covariates=["c1"], absorb="f", method=method, **kw
+        )
+        b = sp.recentered_iv(
+            dd, "y", treat, "z", cf, covariates=["c1"] + names, method=method, **kw
+        )
+    assert a.estimate == pytest.approx(b.estimate, abs=1e-10)
+    assert a.se == pytest.approx(b.se, abs=1e-10)
+    da, db = a.diagnostics, b.diagnostics
+    assert da["unadjusted_estimate"] == pytest.approx(
+        db["unadjusted_estimate"], abs=1e-10
+    )
+    assert da["unadjusted_se"] == pytest.approx(db["unadjusted_se"], abs=1e-10)
+    assert da["ri_pvalue"] == db["ri_pvalue"]
+    assert da["ri_statistic"] == pytest.approx(db["ri_statistic"], rel=1e-10)
+    np.testing.assert_allclose(np.ravel(da["ri_ci"]), np.ravel(db["ri_ci"]), rtol=1e-9)
+    assert da["ri_hodges_lehmann"] == pytest.approx(a.estimate, rel=1e-9)
+
+
+def test_absorb_two_way_equals_dummies():
+    # Two FE are swept iteratively; the identity then holds to the sweep
+    # tolerance (1e-13 relative), checked at 1e-8.
+    df, cf = _fe_panel(seed=2, two_way=True)
+    dd, names = _dummies(df, ["f", "h"])
+    a = sp.recentered_iv(df, "y", "x", "z", cf, absorb=["f", "h"], cluster="cl")
+    b = sp.recentered_iv(dd, "y", "x", "z", cf, covariates=names, cluster="cl")
+    assert a.estimate == pytest.approx(b.estimate, rel=1e-8)
+    assert a.se == pytest.approx(b.se, rel=1e-8)
+    assert a.diagnostics["ri_pvalue"] == b.diagnostics["ri_pvalue"]
+    assert a.diagnostics["ri_statistic"] == pytest.approx(
+        b.diagnostics["ri_statistic"], rel=1e-8
+    )
+    # "f + h" and an interaction "f^h" are accepted spellings.
+    c = sp.recentered_iv(df, "y", "x", "z", cf, absorb="f + h", cluster="cl")
+    assert c.estimate == a.estimate
+    df["fh"] = df["f"] * 10 + df["h"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        i1 = sp.recentered_iv(df, "y", "x", "z", cf, absorb="f^h", ri=False)
+        i2 = sp.recentered_iv(df, "y", "x", "z", cf, absorb="fh", ri=False)
+    assert i1.estimate == pytest.approx(i2.estimate, rel=1e-12)
+    assert i1.se == pytest.approx(i2.se, rel=1e-12)
+
+
+def test_absorb_singletons_are_dropped_without_changing_results():
+    # Singleton FE groups are perfectly fit: ivreghdfe drops them, and they
+    # contribute nothing to the RI statistic. Results equal the fit without
+    # those rows; n_obs counts the kept rows.
+    df, cf = _fe_panel(seed=3)
+    df.loc[:2, "f"] = [100, 101, 102]
+    a = sp.recentered_iv(df, "y", "x", "z", cf, absorb="f", ri_null=0.5)
+    b = sp.recentered_iv(
+        df.iloc[3:].reset_index(drop=True),
+        "y",
+        "x",
+        "z",
+        cf[3:],
+        absorb="f",
+        ri_null=0.5,
+    )
+    assert a.n_obs == len(df) - 3 == b.n_obs
+    assert a.diagnostics["n_dropped_singletons"] == 3
+    assert a.estimate == pytest.approx(b.estimate, rel=1e-10)
+    assert a.se == pytest.approx(b.se, rel=1e-10)
+    assert a.diagnostics["ri_statistic"] == pytest.approx(
+        b.diagnostics["ri_statistic"], rel=1e-9
+    )
+
+
+def test_absorb_ri_is_exact_under_within_stratum_permutation():
+    # Shocks permuted within strata that also shift the outcome; the strata
+    # are absorbed. Under the sharp null the realised and permuted draws are
+    # exchangeable, so P(p <= 0.1) <= 0.1 (3 binomial SDs, R = 120).
+    rng = np.random.default_rng(31)
+    n, S, R = 120, 49, 120
+    strata = np.repeat(np.arange(4), n // 4)
+    pvals = []
+    for _ in range(R):
+        base = rng.gamma(2.0, 1.0, n) * (1 + strata)
+
+        def permute():
+            out = base.copy()
+            for s in range(4):
+                idx = np.flatnonzero(strata == s)
+                out[idx] = base[idx[rng.permutation(idx.size)]]
+            return out
+
+        z = permute()
+        cf = np.column_stack([permute() for _ in range(S)])
+        df = pd.DataFrame({"z": z, "s": strata})
+        df["y"] = 0.8 * strata + rng.normal(size=n)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = sp.recentered_iv(df, "y", "z", "z", cf, absorb="s")
+        pvals.append(res.diagnostics["ri_pvalue"])
+    pvals = np.asarray(pvals)
+    assert np.mean(pvals <= 0.1) <= 0.1 + 3 * np.sqrt(0.09 / R)
+    assert 0.3 < np.median(pvals) < 0.7
+
+
+def test_mu_constant_within_fe_is_absorbed_and_warned():
+    df, cf = _fe_panel(seed=4)
+    # Expected instrument that only varies across FE groups.
+    mu = df.groupby("f")["z"].transform("mean").to_numpy()
+    with pytest.warns(sp.AssumptionWarning, match="constant within the absorbed"):
+        r = sp.recentered_iv(
+            df, "y", "x", "z", cf, absorb="f", expected=mu, method="control", ri=False
+        )
+    assert r.estimate == r.diagnostics["unadjusted_estimate"]
+    assert "mu_coefficient" not in r.diagnostics
+
+
+def test_no_within_fe_variation_raises():
+    df, cf = _fe_panel(seed=5)
+    df["z"] = df.groupby("f")["z"].transform("mean")
+    mu = df.groupby("f")["z"].transform("mean") - 0.1 * df["f"]
+    with pytest.raises(sp.AssumptionViolation, match="within the absorbed"):
+        sp.recentered_iv(df, "y", "x", "z", cf, absorb="f", expected=mu)
+
+
+def test_absorb_with_weights_or_missing_fe_column():
+    df, cf = _fe_panel(seed=6)
+    df["w"] = 1.0
+    with pytest.raises(sp.MethodIncompatibility, match="weights"):
+        sp.recentered_iv(df, "y", "x", "z", cf, absorb="f", weights="w")
+    with pytest.raises(sp.StatsPAIError):
+        sp.recentered_iv(df, "y", "x", "z", cf, absorb="nope")
+    df.loc[[0, 1], "f"] = np.nan
+    with pytest.warns(sp.AssumptionWarning, match="dropped 2 rows"):
+        r = sp.recentered_iv(df, "y", "x", "z", cf, absorb="f", ri=False)
+    assert r.n_obs == len(df) - 2
+
+
+def test_expected_equal_to_draw_mean_reproduces_the_default_estimate():
+    rng = np.random.default_rng(8)
+    df, cf = _market_access_draw(rng)
+    df["mu"] = cf.mean(axis=1)
+    base = sp.recentered_iv(df, "y", "x", "z", cf)
+    for given in ("mu", df["mu"].to_numpy()):
+        r = sp.recentered_iv(df, "y", "x", "z", cf, expected=given)
+        assert r.estimate == base.estimate and r.se == base.se
+        assert r.diagnostics["expected_given"]
+        assert r.diagnostics["expected_draw_gap"] == 0.0
+        # Centring at a fixed mu: the HL root is still the estimate.
+        assert r.diagnostics["ri_hodges_lehmann"] == pytest.approx(r.estimate, rel=1e-9)
+
+
+@pytest.mark.parametrize("method", ["recenter", "control"])
+def test_expected_ri_statistic_is_the_fixed_mu_formula(method):
+    # T(b) = (z - mu)' M (y - b x), M the residual maker of 1, c1 (and mu
+    # under 'control'); the draws enter as (z_s - mu)' M (y - b x).
+    rng = np.random.default_rng(12)
+    df, cf = _market_access_draw(rng)
+    df["c1"] = rng.normal(size=len(df))
+    mu = 0.3 * df["cen"].to_numpy() + cf.mean(axis=1)
+    r = sp.recentered_iv(
+        df,
+        "y",
+        "x",
+        "z",
+        cf,
+        covariates=["c1"],
+        expected=mu,
+        method=method,
+        ri_null=0.25,
+    )
+    C = np.column_stack(
+        [np.ones(len(df)), df["c1"]] + ([mu] if method == "control" else [])
+    )
+    e = df["y"].to_numpy() - 0.25 * df["x"].to_numpy()
+    e = e - C @ np.linalg.lstsq(C, e, rcond=None)[0]
+    zt = df["z"].to_numpy() - mu
+    t_obs = zt @ e
+    t_s = (cf - mu[:, None]).T @ e
+    assert r.diagnostics["ri_statistic"] == pytest.approx(t_obs, rel=1e-10)
+    count = np.sum(np.abs(t_s) >= abs(t_obs) * (1 - 1e-12))
+    assert r.diagnostics["ri_pvalue"] == pytest.approx((1 + count) / 200, abs=1e-15)
+
+
+def test_expected_bad_inputs():
+    df = _small_data()
+    cf = np.random.default_rng(0).normal(size=(len(df), 5))
+    with pytest.raises(sp.MethodIncompatibility, match="expected has"):
+        sp.recentered_iv(df, "y", "x", "z", cf, expected=np.zeros(3))
+    with pytest.raises(sp.StatsPAIError):
+        sp.recentered_iv(df, "y", "x", "z", cf, expected="nope")
+    mu = df["mu"].to_numpy().copy()
+    mu[4] = np.nan
+    with pytest.warns(sp.AssumptionWarning, match="dropped 1 rows"):
+        r = sp.recentered_iv(df, "y", "x", "z", cf, expected=mu, ri=False)
+    assert r.n_obs == len(df) - 1

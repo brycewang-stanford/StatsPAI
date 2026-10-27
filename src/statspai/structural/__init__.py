@@ -1,6 +1,7 @@
 """Structural estimation methods."""
 
 from .blp import BLPResult, blp, blp_instruments
+from .choo_siow import ChooSiowResult, MatchingEquilibrium, choo_siow
 from .path_analysis import PathAnalysisResult, path_analysis
 from .production import (
     ProductionResult,
@@ -31,4 +32,7 @@ __all__ = [
     "wooldridge_prod",
     "markup",
     "ProductionResult",
+    "choo_siow",
+    "ChooSiowResult",
+    "MatchingEquilibrium",
 ]

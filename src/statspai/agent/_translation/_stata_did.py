@@ -1,6 +1,7 @@
 """Translations of the user-written difference-in-differences commands.
 
-``drdid`` maps to ``sp.drdid``; ``did2s`` to the general form of
+``drdid`` maps to ``sp.drdid``; ``fuzzydid`` to ``sp.fuzzy_did`` (handler
+in ``_stata_fuzzydid``); ``did2s`` to the general form of
 ``sp.gardner_did``; ``jwdid`` to ``sp.jwdid``; ``csdid_estat`` and the
 ``estat simple | group | calendar | event`` that both ``csdid`` and ``jwdid``
 define map to ``sp.estat``, which aggregates with the conventions of the
@@ -13,6 +14,7 @@ import re
 from typing import Any, Callable, Dict, FrozenSet, List, Optional
 
 from ._stata import _emit, _emit_error, _expand_abbreviations, _numlist
+from ._stata_fuzzydid import _h_fuzzydid
 from ._stata_lexer import StataCommand
 
 __all__ = ["HANDLERS", "POSTEST", "did_aggregation"]
@@ -760,6 +762,7 @@ HANDLERS: Dict[str, Callable[[StataCommand], Dict[str, Any]]] = {
     "drdid": _h_drdid,
     "jwdid": _h_jwdid,
     "csdid_estat": _h_csdid_estat,
+    "fuzzydid": _h_fuzzydid,
 }
 POSTEST: FrozenSet[Callable[[StataCommand], Dict[str, Any]]] = frozenset(
     {_h_csdid_estat}

@@ -1623,6 +1623,24 @@ class StataSession:
                     diagnostics={"command": line, "translation": out},
                 )
             lost.remove("varlist")
+        if out.get("from_previous_iv") and "model" in lost:
+            # bare `weakiv`: the model is the IV fit before it, tested on
+            # that fit's estimation sample
+            from ._stata_ivinfer import fill_from_previous_iv
+
+            filled = fill_from_previous_iv(getattr(self, "_last_call", None))
+            if isinstance(filled, str) or self.last_data is None:
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: "
+                    + (filled if isinstance(filled, str) else "no data")
+                    + ".",
+                    recovery_hint="Write the model into the line: `weakiv "
+                    "ivreg2 y x (d = z), robust`, or call sp.weakrobust.",
+                    diagnostics={"command": line, "translation": out},
+                )
+            out["arguments"] = {**filled, **dict(out.get("arguments") or {})}
+            lost.remove("model")
+            data = self.last_data
         sample = out.get("unapplied_sample")
         code = str(out.get("python_code") or "")
         chained = out["tool"] == "marginsplot" or code.startswith(
@@ -1794,6 +1812,21 @@ class StataSession:
                 estimation_macros(self, typed_line, logistic is not None)
                 if out["tool"] == "hdfe_ols":
                     absorbed_constant(self, out, run_data)
+                if out.get("save_fe") or out.get("akm_generate"):
+                    from ._stata_akm import felsdvreg_after, saved_effects_after
+
+                    try:
+                        if out.get("save_fe"):
+                            saved_effects_after(self, out, run_data)
+                        else:
+                            felsdvreg_after(self, out, run_data)
+                    except StataExprError as exc:
+                        raise MethodIncompatibility(
+                            f"sp.stata: cannot run {line!r}: {exc}.",
+                            recovery_hint="Drop or rename the variable the "
+                            "command saves into, or reset the index.",
+                            diagnostics={"command": line},
+                        ) from exc
                 if out["tool"] == "psmatch2":
                     psmatch2_after(self, run_data)
                 kept = re.search(r",.*\bkeep\(\s*\"?([^)\"]+?)\"?\s*\)", line, re.S)
@@ -1820,6 +1853,23 @@ class StataSession:
                         ) from exc
             else:
                 self._store_r(str(out["tool"]), arguments, run_data)
+            post = out.get("postprocess")
+            if post and self.last is self.output:
+                # `regress, beta`: e(b) stays unstandardised and Stata stores
+                # the Beta column as e(beta); the fit is returned as is and
+                # carries e(beta) in model_info['beta'].
+                post_fn: Any = sp
+                for part in str(post["tool"]).split("."):
+                    post_fn = getattr(post_fn, part)
+                derived = post_fn(self.output, **dict(post.get("arguments") or {}))
+                key = post.get("attach")
+                if key:
+                    drop = post.get("drop") or ()
+                    self.output.model_info[key] = {
+                        str(k): float(v)
+                        for k, v in derived.params.items()
+                        if str(k) not in drop
+                    }
         return True
 
     def _results_in_macros(self, line: str) -> str:

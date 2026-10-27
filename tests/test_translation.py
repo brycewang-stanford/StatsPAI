@@ -972,6 +972,46 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
+    # 2026-10-28: weakiv and acreg (numbers against Stata 18 in
+    # tests/reference_parity/test_ivreport_stata_parity.py)
+    (
+        "weakiv ivreg2 y w (x = z1 z2), robust null(0.5)",
+        "weakrobust",
+        {
+            "y": "y",
+            "endog": "x",
+            "instruments": ["z1", "z2"],
+            "exog": ["w"],
+            "test_vcov": "robust",
+            "h0": 0.5,
+        },
+    ),
+    (
+        "acreg y x w, spatial latitude(lat) longitude(lon) dist(100)",
+        "regress",
+        {
+            "formula": "y ~ x + w",
+            "vce": "conley",
+            "conley_lat": "lat",
+            "conley_lon": "lon",
+            "conley_cutoff": 100.0,
+        },
+    ),
+    # 2026-10-28: felsdvreg -> sp.akm (numbers against Stata felsdvreg in
+    # tests/test_stata_translation_akm.py)
+    (
+        "felsdvreg lnw x, ivar(worker) jvar(firm) feff(ff) peff(pf) xb(xb) "
+        "res(r) mover(m) mnum(mn) pobs(po) group(g)",
+        "akm",
+        {
+            "y": "lnw",
+            "worker": "worker",
+            "firm": "firm",
+            "covariates": ["x"],
+            "connected": "all",
+            "variance": "none",
+        },
+    ),
     # 2026-10-19: group sequential bounds and wyoung (numbers against Stata
     # 18 in tests/reference_parity/test_group_sequential_stata_parity.py and
     # test_westfall_young_wyoung_parity.py)
@@ -1501,6 +1541,20 @@ TIER3_ROUND_TRIPS = [
         "did_multiplegt_old y g t d, placebo(1) breps(0)",
         "did_multiplegt",
         {"y": "y", "treatment": "d", "placebo": 1, "placebo_sign": "r"},
+    ),
+    # fuzzydid (numbers against Stata: tests/test_stata_translation_fuzzydid.py)
+    (
+        "fuzzydid y gt gf t d, did tc nose",
+        "fuzzy_did",
+        {
+            "y": "y",
+            "group_change": "gt",
+            "group_change_next": "gf",
+            "time": "t",
+            "treat": "d",
+            "estimators": ["did", "tc"],
+            "se_method": "none",
+        },
     ),
 ]
 

@@ -9532,6 +9532,222 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="akm",
+            category="panel",
+            description=(
+                "Abowd-Kramarz-Margolis worker and firm fixed effects on the "
+                "connected set of a worker-firm panel, and the variance "
+                "decomposition of the outcome into var(worker), var(firm), "
+                "2cov and residual: plug-in, homoskedastic (Andrews et al.) "
+                "and Kline-Saggio-Solvsten leave-out bias corrections "
+                "(exact leverages, or seeded random projections for large "
+                "data). Not the Adao-Kolesar-Morales shift-share SE "
+                "(sp.shift_share_se)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Person-period panel"),
+                ParamSpec("y", "str", True, None, "Outcome (e.g. log wage)"),
+                ParamSpec("worker", "str", True, None, "Worker identifier"),
+                ParamSpec("firm", "str", True, None, "Firm identifier"),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Period column; its effects enter as indicators and are "
+                    "partialled out with the covariates",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Time-varying controls, partialled out using the full "
+                    "two-way model",
+                ),
+                ParamSpec(
+                    "connected",
+                    "str",
+                    False,
+                    None,
+                    "Estimation sample: largest connected set of firms, its "
+                    "leave-one-observation-out subset (needed for the "
+                    "corrected variances), or all rows with effects "
+                    "normalised per connected set (felsdvreg's sample). "
+                    "Default: leave_one_out with a corrected variance, "
+                    "largest otherwise",
+                    ["largest", "leave_one_out", "all"],
+                ),
+                ParamSpec(
+                    "variance",
+                    "str",
+                    False,
+                    "kss",
+                    "Variance decomposition; the plug-in is always reported "
+                    "alongside",
+                    ["kss", "homoskedastic", "plugin", "none"],
+                ),
+                ParamSpec(
+                    "leverage",
+                    "str",
+                    False,
+                    "auto",
+                    "Leverages and bias weights: exact (dense firm-by-firm "
+                    "matrices) or jla (random projections); auto is exact up "
+                    "to 3000 firms",
+                    ["auto", "exact", "jla"],
+                ),
+                ParamSpec(
+                    "n_draws",
+                    "int",
+                    False,
+                    200,
+                    "Random projections for leverage='jla'",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the random projections"),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster for the covariate standard errors",
+                ),
+            ],
+            returns=(
+                "AKMResult (worker_effects, firm_effects, decomposition, "
+                "shares, coefficients, sample, leverage, data; fixef(), "
+                "felsdvreg_variables())"
+            ),
+            example='sp.akm(df, "lnw", "worker", "firm", time="year")',
+            tags=[
+                "akm",
+                "two-way fixed effects",
+                "worker effects",
+                "firm effects",
+                "variance decomposition",
+                "limited mobility bias",
+                "kss",
+                "leave-out",
+                "felsdvreg",
+                "linked employer-employee",
+            ],
+            reference="abowd1999high; andrews2008high; kline2020leave",
+            assumptions=[
+                "Exogenous mobility: moves do not depend on the error given "
+                "worker and firm effects",
+                "Additively separable worker and firm effects",
+                "KSS: errors independent across observations (heteroskedastic "
+                "allowed); serial correlation within a worker-firm match "
+                "biases the observation-level correction",
+            ],
+            alternatives=["hdfe_ols", "feols"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="leave_out_mean",
+            category="panel",
+            description=(
+                "Per-row mean of a variable over the other rows of its group "
+                "(peer / coworker average), excluding the row itself and the "
+                "rows flagged by exclude= from every peer pool; NaN with a "
+                "warning when no peer is left."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec("value", "str", True, None, "Column to average"),
+                ParamSpec(
+                    "group",
+                    "list",
+                    True,
+                    None,
+                    "Group column or columns (one group per combination)",
+                ),
+                ParamSpec(
+                    "exclude",
+                    "str",
+                    False,
+                    None,
+                    "Boolean column (or one flag per row) of rows kept out of "
+                    "every peer pool, e.g. focal entrants",
+                ),
+                ParamSpec("weights", "str", False, None, "Non-negative weights"),
+            ],
+            returns="pd.Series aligned with data (attrs: n_no_peers)",
+            example=(
+                'sp.leave_out_mean(df, "worker_fe", ["firm", "occ", "year"], '
+                'exclude="entrant")'
+            ),
+            tags=["peer effects", "leave-out mean", "coworkers", "jackknife"],
+            alternatives=["egen"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="two_step_bootstrap",
+            category="inference",
+            description=(
+                "Cluster (or row) bootstrap of a two-step estimator: re-runs "
+                "the generated-regressor step and the model of interest on "
+                "every resample, so the standard errors include the noise of "
+                "the first step; reports the second step's own SEs next to "
+                "them."
+            ),
+            params=[
+                ParamSpec(
+                    "step1",
+                    "callable",
+                    True,
+                    None,
+                    "DataFrame -> DataFrame: builds the generated regressor",
+                ),
+                ParamSpec(
+                    "step2",
+                    "callable",
+                    True,
+                    None,
+                    "DataFrame -> fitted result with .params (or a Series)",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "Data to resample"),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Resample whole clusters (pairs cluster bootstrap)",
+                ),
+                ParamSpec("n_boot", "int", False, 999, "Replications"),
+                ParamSpec("seed", "int", False, None, "Resampling seed"),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Level of percentile intervals"
+                ),
+                ParamSpec(
+                    "idcluster",
+                    "str",
+                    False,
+                    None,
+                    "New column giving every drawn cluster its own id (Stata "
+                    "idcluster())",
+                ),
+            ],
+            returns=(
+                "EconometricResults (bootstrap SEs; model_info: naive_se, "
+                "se_ratio, percentile_ci, boot_distribution, n_failed)"
+            ),
+            example=(
+                "sp.two_step_bootstrap(add_fe, lambda d: sp.regress('y ~ fe', "
+                "data=d), df, cluster='firm', n_boot=499, seed=1)"
+            ),
+            tags=["bootstrap", "generated regressor", "two-step", "cluster"],
+            reference="cameron2008bootstrap",
+            alternatives=["bootstrap"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="xttobit",
             category="panel",
             description=(
@@ -25721,6 +25937,88 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="expected_instrument",
+            category="causal",
+            description=(
+                "Expected value mu_i = E[z_i | exposure] of a formula "
+                "instrument built from as-good-as-random shocks and "
+                "non-random exposure (share of opposite-sex neighbours, "
+                "market access, shift-share), simulated by redrawing the "
+                "shocks from their known assignment process. Returns mu with "
+                "its Monte Carlo SE and, memory permitting, the (n, n_draws) "
+                "draws matrix, which sp.recentered_iv takes as "
+                "counterfactual= (Borusyak-Hull recentring and randomization "
+                "inference)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Unit-level data"),
+                ParamSpec(
+                    "instrument_fn",
+                    "callable",
+                    True,
+                    None,
+                    "instrument_fn(data, shocks) -> one instrument value per row "
+                    "of data; NaN only where undefined whatever the shocks",
+                ),
+                ParamSpec(
+                    "shock_sampler",
+                    "callable | dict",
+                    True,
+                    None,
+                    "shock_sampler(rng) -> one counterfactual shock vector, or "
+                    "{'kind': 'bernoulli', 'p': p, 'size': m} / "
+                    "{'kind': 'permute', 'shocks': g, 'strata': s}",
+                ),
+                ParamSpec("n_draws", "int", False, 1000, "Shock redraws (at least 2)"),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    None,
+                    "Seed; None draws fresh entropy, recorded in seed_entropy",
+                ),
+                ParamSpec(
+                    "keep_draws",
+                    "bool | str",
+                    False,
+                    "auto",
+                    "Keep the (n, n_draws) draws matrix; 'auto' keeps it up to "
+                    "256 MiB, False streams the mean and variance",
+                ),
+                ParamSpec(
+                    "observed_shocks",
+                    "any",
+                    False,
+                    None,
+                    "Realised shocks; the observed instrument is returned too",
+                ),
+            ],
+            returns="ExpectedInstrumentResult",
+            example=(
+                "ei = sp.expected_instrument(df, instrument_fn=share_fn, "
+                "shock_sampler={'kind': 'bernoulli', 'p': 0.5, 'size': m}, "
+                "n_draws=1000, seed=0); "
+                "sp.recentered_iv(df, 'y', 'd', 'z', counterfactual=ei.draws)"
+            ),
+            tags=["iv", "shift_share", "recentering", "design_based", "simulation"],
+            reference="borusyak2023nonrandom",
+            assumptions=[
+                "The shock sampler draws from the process that assigned the "
+                "realised shocks, conditional on whatever the design "
+                "conditions on (e.g. permute within the randomisation strata)",
+                "Exposure (everything instrument_fn reads from data) is fixed "
+                "when the shocks are redrawn",
+            ],
+            cost_profile=(
+                "n_draws calls of instrument_fn; the kept draws matrix is "
+                "8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws)."
+            ),
+            alternatives=["recentered_iv", "bartik", "shift_share_se"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="iv_diag",
             category="causal",
             description=(
@@ -29605,6 +29903,300 @@ def _build_registry() -> None:
     )
 
     # ------------------------------------------------------------------
+    # IV / spatial reporting (AER Oct 2026 batch, line `ivreport`)
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="standardize_coefs",
+            category="postestimation",
+            description=(
+                "Standardised (beta) coefficients of an OLS, 2SLS or "
+                "fixed-effects fit: each slope times sd(x)/sd(y) (Stata "
+                "regress, beta), equal to re-running the estimator on "
+                "z-scored variables. SEs and interval ends scale by the same "
+                "factor; t statistics and p-values are unchanged."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "EconometricResults",
+                    True,
+                    None,
+                    "Fit from sp.regress, sp.iv / sp.ivreg, sp.feols or " "sp.hdfe_ols",
+                ),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Estimation-sample frame; required when fixed effects "
+                    "were absorbed (sds of the raw columns)",
+                ),
+                ParamSpec(
+                    "variables",
+                    "list",
+                    False,
+                    None,
+                    "Regressors to standardise (default all but the "
+                    "intercept); the others are scaled by 1/sd(y) only",
+                ),
+                ParamSpec(
+                    "scale_y",
+                    "bool",
+                    False,
+                    True,
+                    "Also divide by sd(y); False gives the effect of a one-sd "
+                    "change in units of y",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Weights of the moments for weighted fits that do not "
+                    "carry them (column of data or array); Stata summarize "
+                    "[aw=] convention",
+                ),
+            ],
+            returns="EconometricResults",
+            example="sp.standardize_coefs(sp.regress('y ~ x + w', data=df))",
+            tags=["standardized", "beta", "postestimation", "iv", "reporting"],
+            reference="Stata regress, beta; exact reparametrisation",
+            assumptions=[
+                "Standard deviations are taken on the estimation sample; with "
+                "absorbed fixed effects they are those of the raw variables, "
+                "as when variables are z-scored before reghdfe / ivreghdfe",
+                "Each design column is standardised as a column: a dummy or "
+                "an interaction uses its own sd, as Stata's beta does",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="fixed effects absorbed and no data=",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Pass data= (the frame the model was fitted on).",
+                ),
+                FailureMode(
+                    symptom="data rows do not match the estimation sample",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Restrict data to the rows the fit used.",
+                ),
+            ],
+            alternatives=["regress", "iv", "hdfe_ols"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="ibragimov_mueller",
+            category="inference",
+            description=(
+                "Ibragimov-Mueller t-statistic inference with few "
+                "heterogeneous groups: estimate the coefficient separately in "
+                "each of q groups (clusters, spatial blocks) and t-test the q "
+                "estimates with q-1 degrees of freedom."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec(
+                    "formula",
+                    "str",
+                    False,
+                    None,
+                    "Formula for estimator='ols' (sp.regress) or 'iv' "
+                    "(sp.iv); omit with a callable estimator",
+                ),
+                ParamSpec("cluster", "str", True, None, "Column defining the q groups"),
+                ParamSpec(
+                    "coef",
+                    "str",
+                    False,
+                    None,
+                    "Coefficient to test; required unless the callable "
+                    "returns a float",
+                ),
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    "ols",
+                    "'ols', 'iv', or a callable(group_frame) returning the "
+                    "estimate or a fitted result",
+                ),
+                ParamSpec("h0", "float", False, 0.0, "Null value"),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Interval level; the size guarantee holds up to 0.083",
+                ),
+                ParamSpec(
+                    "min_group_size",
+                    "int",
+                    False,
+                    2,
+                    "Smallest group allowed (smaller groups raise)",
+                ),
+                ParamSpec(
+                    "fit_kwargs",
+                    "dict",
+                    False,
+                    None,
+                    "Extra arguments for sp.regress / sp.iv in each group",
+                ),
+            ],
+            returns="IbragimovMuellerResult",
+            example=(
+                'sp.ibragimov_mueller(df, "y ~ (x ~ z) + w", cluster="region", '
+                'coef="x", estimator="iv")'
+            ),
+            tags=["inference", "few_clusters", "spatial", "robust", "iv"],
+            reference="Ibragimov & Mueller (2010) JBES; (2016) REStat "
+            "[@ibragimov2010tstatistic; @ibragimov2016inference]",
+            assumptions=[
+                "Group estimates are approximately independent across groups "
+                "and approximately normal (each group large enough for its "
+                "own estimator)",
+                "Every group identifies the coefficient on its own",
+                "The test is conservative under heterogeneous group variances "
+                "at two-sided levels up to about 0.083",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="fewer than two groups, or a group too small",
+                    exception="statspai.DataInsufficient",
+                    remedy="Use a coarser grouping with at least two groups "
+                    "that each identify the coefficient.",
+                ),
+                FailureMode(
+                    symptom="a group fit fails (named in the message)",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Merge or drop groups without variation in the "
+                    "regressor or without a first stage.",
+                ),
+            ],
+            alternatives=["wild_cluster_bootstrap", "conley", "conley_sensitivity"],
+            not_recommended_when=[
+                "Many large clusters with homogeneous designs — a cluster-"
+                "robust SE (cluster=) is more powerful",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="conley_sensitivity",
+            category="inference",
+            description=(
+                "Conley spatial HAC standard errors, intervals and p-values of "
+                "an OLS or 2SLS fit across several distance cutoffs, as a "
+                "table with a plot; each row is sp.conley at that cutoff."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "EconometricResults",
+                    True,
+                    None,
+                    "OLS / 2SLS fit, or a formula fitted with method=",
+                ),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    True,
+                    None,
+                    "Frame aligned with the estimation sample, with the " "coordinates",
+                ),
+                ParamSpec("lat", "str", True, None, "Latitude column (degrees)"),
+                ParamSpec("lon", "str", True, None, "Longitude column (degrees)"),
+                ParamSpec(
+                    "cutoffs", "list", True, None, "Distance cutoffs in km (positive)"
+                ),
+                ParamSpec(
+                    "terms",
+                    "list",
+                    False,
+                    None,
+                    "Coefficients to report (default all but the intercept)",
+                ),
+                ParamSpec(
+                    "kernel",
+                    "str",
+                    False,
+                    "uniform",
+                    "Spatial kernel (acreg without / with bartlett)",
+                    ["uniform", "bartlett"],
+                ),
+                ParamSpec(
+                    "distance",
+                    "str",
+                    False,
+                    "planar",
+                    "'planar' = acreg's 111 km/degree (as sp.iv(vce='conley')); "
+                    "'haversine' = great circle",
+                    ["planar", "haversine"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Interval level"),
+                ParamSpec(
+                    "inference",
+                    "str",
+                    False,
+                    "normal",
+                    "Reference distribution: 'normal' (acreg) or 't' (n-k, "
+                    "as sp.conley)",
+                    ["normal", "t"],
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "ols",
+                    "Estimator when result is a formula",
+                    ["ols", "iv"],
+                ),
+                ParamSpec(
+                    "fit_kwargs",
+                    "dict",
+                    False,
+                    None,
+                    "Extra arguments for that fit",
+                ),
+            ],
+            returns="ConleySensitivityResult",
+            example=(
+                'sp.conley_sensitivity(fit, df, "lat", "lon", [25, 50, 100, 200])'
+            ),
+            tags=["inference", "spatial", "conley", "hac", "robustness", "iv"],
+            reference="Conley (1999) [@conley1999estimation]",
+            assumptions=[
+                "Spatial dependence vanishes beyond the cutoff; the table "
+                "shows how much the inference depends on that choice",
+                "data rows line up with the estimation sample",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="data rows do not match the fitted design",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Drop incomplete rows before fitting and pass the "
+                    "same frame.",
+                ),
+                FailureMode(
+                    symptom="NaN standard error at a wide cutoff",
+                    exception="RuntimeWarning",
+                    remedy="The uniform kernel is not PSD there; use "
+                    "kernel='bartlett' or a smaller cutoff.",
+                ),
+            ],
+            alternatives=["conley", "ibragimov_mueller", "wild_cluster_bootstrap"],
+            cost_profile=(
+                "One sp.conley call per cutoff; the planar path builds an "
+                "n x n distance matrix, so beyond ~20,000 rows prefer "
+                "distance='haversine' (KD-tree)."
+            ),
+        )
+    )
+
+    # ------------------------------------------------------------------
     # DiD frontier: continuous treatment + on/off switching
     # ------------------------------------------------------------------
     register(
@@ -32589,6 +33181,231 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="fuzzy_did",
+            category="causal",
+            description=(
+                "Fuzzy difference-in-differences (de Chaisemartin & "
+                "D'Haultfoeuille 2018; Stata fuzzydid): LATE of a treatment whose "
+                "rate rises more in some groups than in others. Wald-DID (DiD of "
+                "the outcome over DiD of the treatment, = 2SLS with group x period "
+                "as instrument), Wald-TC (time-corrected: control-group trends "
+                "conditional on treatment) and Wald-CIC (changes in changes), for "
+                "binary or ordered treatments, two or more groups and periods "
+                "(increasing / decreasing / stable groups), covariates (OLS / "
+                "logit / probit), bootstrap or influence-function SEs. Point "
+                "estimates equal Stata fuzzydid to 1e-13 (logit / probit models: "
+                "1e-8, Stata's ML stopping rule)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Individual rows"),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec(
+                    "group_change",
+                    "str",
+                    True,
+                    description="Stata G: 0/1 switching-group indicator (two "
+                    "periods), or with group_change_next the change of the "
+                    "group's treatment into the row's period (-1 / 0 / 1)",
+                ),
+                ParamSpec("time", "str", True, description="Period"),
+                ParamSpec(
+                    "treat", "str", True, description="Treatment D (binary or ordered)"
+                ),
+                ParamSpec(
+                    "group_change_next",
+                    "str",
+                    False,
+                    None,
+                    "Stata G_F: change of the group's treatment out of the "
+                    "row's period (-1 / 0 / 1); needed for >2 periods or "
+                    "decreasing groups",
+                ),
+                ParamSpec(
+                    "estimators",
+                    "list",
+                    False,
+                    ["did", "tc", "cic"],
+                    "Any of 'did' (Wald-DID), 'tc' (Wald-TC), 'cic' (Wald-CIC)",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates; 'C(x)' / 'i.x' as indicators (fuzzydid "
+                    "continuous() / qualitative()); not with 'cic'",
+                ),
+                ParamSpec(
+                    "modelx",
+                    "list",
+                    False,
+                    ["ols", "ols", "ols"],
+                    "fuzzydid modelx(): models of E(Y|X), E(D|X), P(D=d|X); "
+                    "each 'ols', 'logit' or 'probit'",
+                ),
+                ParamSpec(
+                    "newcateg",
+                    "list",
+                    False,
+                    None,
+                    "Upper bounds of pooled treatment-value sets for TC / CIC",
+                ),
+                ParamSpec(
+                    "numerator",
+                    "bool",
+                    False,
+                    False,
+                    "Report only the numerators (placebo tests); one comparison",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "Bootstrap (fuzzydid), influence-function delta method "
+                    "(DID / TC without covariates) or none",
+                    ["bootstrap", "analytic", "none"],
+                ),
+                ParamSpec("n_boot", "int", False, 50, "Bootstrap replications"),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Block-bootstrap / CR0 cluster column",
+                ),
+                ParamSpec(
+                    "eqtest",
+                    "bool",
+                    False,
+                    False,
+                    "Test equality of each pair of requested estimators",
+                ),
+                ParamSpec(
+                    "cic_quantile",
+                    "str",
+                    False,
+                    "exact",
+                    "Wald-CIC quantile rule: exact integer arithmetic, or "
+                    "fuzzydid's floating-point ceil (differs by ~1e-5 when "
+                    "u * n is an integer)",
+                    ["exact", "stata"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec("seed", "int", False, None, "Bootstrap seed"),
+            ],
+            returns="FuzzyDiDResult",
+            example=(
+                "sp.fuzzy_did(df, 'y', 'g', 't', 'd', estimators=('did', 'tc'), "
+                "se_method='analytic')"
+            ),
+            tags=["did", "fuzzy", "late", "wald", "changes_in_changes", "iv"],
+            reference="[@dechaisemartin2018fuzzy]; [@dechaisemartin2019fuzzy]",
+            assumptions=[
+                "Wald-DID: treatment effects stable over time and equal across "
+                "groups; common trends of the untreated outcome across groups",
+                "Wald-TC / Wald-CIC: in the stable group, units with the same "
+                "treatment follow the trend (mean / distribution) the switching "
+                "group's units with that treatment would have followed",
+                "A stable (group_change == 0) group exists in every compared "
+                "pair of periods",
+            ],
+            pre_conditions=[
+                "Every treatment value of the switching group before the change "
+                "is present in the stable group in both periods (else newcateg)",
+            ],
+            not_recommended_when=[
+                "Staggered adoption of a binary treatment by whole units — use "
+                "sp.callaway_santanna or sp.did_multiplegt_dyn",
+                "Treatment switches on and off within a panel of groups — "
+                "use sp.did_multiplegt_dyn",
+            ],
+            alternatives=["did_multiplegt_dyn", "iv", "continuous_did", "did"],
+            limitations=[
+                "fuzzydid lqte (quantile effects), partial (bounds without a "
+                "stable group) and sieves are not implemented",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="assign_placebo_dates",
+            category="causal",
+            description=(
+                "Placebo event dates for never-treated units: each unit without "
+                "an event date gets one drawn from the treated units' event-date "
+                "distribution (within strata; optionally only among dates at "
+                "which the unit is observed), so an event study can line up "
+                "treated and never-treated units in event time and compare them "
+                "symmetrically. Reproducible for a seed whatever the row order."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Panel or unit rows"),
+                ParamSpec("id", "str", True, description="Unit id"),
+                ParamSpec(
+                    "event_time",
+                    "str",
+                    True,
+                    description="Event date, constant within unit; missing "
+                    "for never-treated units",
+                ),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Period column: adds <column>_rel = time - date",
+                ),
+                ParamSpec(
+                    "strata",
+                    "str",
+                    False,
+                    None,
+                    "Unit-constant column; dates drawn within each stratum",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "empirical",
+                    "Independent draws, or proportional allocation (exact "
+                    "frequencies when never-treated = k x treated)",
+                    ["empirical", "proportional"],
+                ),
+                ParamSpec(
+                    "require_observed",
+                    "bool",
+                    False,
+                    False,
+                    "Draw only dates at which the unit has a row (needs time)",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed"),
+                ParamSpec(
+                    "column",
+                    "str",
+                    False,
+                    "placebo_event_time",
+                    "Name of the date column",
+                ),
+                ParamSpec("flag", "str", False, "placebo", "Name of the placebo flag"),
+            ],
+            returns="DataFrame",
+            example=(
+                "sp.assign_placebo_dates(df, 'id', 'move_year', time='year', "
+                "strata='cohort', seed=1)"
+            ),
+            tags=["did", "event_study", "placebo", "never_treated", "preprocessing"],
+            assumptions=[
+                "Never-treated units are comparable to treated units once lined "
+                "up at a date with the same distribution (within strata)",
+            ],
+            alternatives=["event_study", "stacked_did", "callaway_santanna"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="panel_match",
             category="causal",
             description=(
@@ -34342,6 +35159,275 @@ def _build_registry() -> None:
                     typical_n_min=base.typical_n_min,
                 )
             )
+
+    # ------------------------------------------------------------------
+    # Simulated method of moments and the Choo-Siow matching model
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="smm",
+            category="structural",
+            description=(
+                "Simulated method of moments: matches data moments to the "
+                "average of the same moments over S data sets simulated from "
+                "the model, with common random numbers held fixed across theta "
+                "(seeded). Efficient weighting, sandwich SEs with the "
+                "simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal "
+                "sizes), finite-difference Jacobian, Hansen J test with the "
+                "same correction, convergence diagnostics in the result."
+            ),
+            params=[
+                ParamSpec(
+                    "simulate",
+                    "callable",
+                    True,
+                    None,
+                    "simulate(theta, rng) -> moment vector (q,) of one simulated "
+                    "data set, or its per-observation contributions (N_s, q); draw "
+                    "only from rng",
+                ),
+                ParamSpec(
+                    "data_moments",
+                    "array",
+                    True,
+                    None,
+                    "Observed moments (q,), or per-observation contributions (N, q) "
+                    "from which the moments and their covariance are estimated",
+                ),
+                ParamSpec("theta0", "array", True, None, "Starting values (k,)"),
+                ParamSpec(
+                    "n_sim", "int", False, 10, "S, number of simulated data sets"
+                ),
+                ParamSpec(
+                    "W",
+                    "str",
+                    False,
+                    "optimal",
+                    "Weighting matrix (as in sp.gmm): 'optimal' = (c Sigma)^-1 (J "
+                    "test reported), 'identity', or a q x q positive-definite "
+                    "matrix (sandwich SEs, no J)",
+                ),
+                ParamSpec(
+                    "bounds",
+                    "list",
+                    False,
+                    None,
+                    "Box constraints, one (low, high) pair per parameter; None = open",
+                ),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    None,
+                    "Seed of the common random numbers; None draws entropy, recorded "
+                    "in model_info['seed_entropy']",
+                ),
+                ParamSpec(
+                    "data_moment_cov",
+                    "array",
+                    False,
+                    None,
+                    "Covariance of the data moment vector (q x q) when data_moments "
+                    "is (q,)",
+                ),
+                ParamSpec(
+                    "n_obs",
+                    "int",
+                    False,
+                    None,
+                    "Data sample size N when data_moments is (q,); needed to simulate "
+                    "the covariance or when N_s differs from N",
+                ),
+                ParamSpec(
+                    "sim_n_obs",
+                    "int",
+                    False,
+                    None,
+                    "Simulated sample size N_s when simulate returns a vector "
+                    "(default N, i.e. c = 1 + 1/S)",
+                ),
+                ParamSpec(
+                    "vcov",
+                    "str",
+                    False,
+                    "iid",
+                    "Estimator of the moment covariance from contributions",
+                    ["iid", "hac", "cluster"],
+                ),
+                ParamSpec(
+                    "cluster", "array", False, None, "Cluster labels of the data rows"
+                ),
+                ParamSpec(
+                    "hac_bandwidth",
+                    "int",
+                    False,
+                    None,
+                    "Bartlett bandwidth L + 1 for vcov='hac' (default "
+                    "L = floor(4 (N/100)^(2/9)))",
+                ),
+                ParamSpec(
+                    "jac_step",
+                    "float",
+                    False,
+                    1e-5,
+                    "Relative finite-difference step: h_j = jac_step * max(1, "
+                    "|theta_j|), central differences",
+                ),
+                ParamSpec(
+                    "optimizer",
+                    "str",
+                    False,
+                    "L-BFGS-B",
+                    "scipy.optimize.minimize method, followed by a Gauss-Newton "
+                    "finish",
+                    ["L-BFGS-B", "BFGS", "Nelder-Mead", "Powell"],
+                ),
+                ParamSpec("maxiter", "int", False, 2000, "Optimiser iterations"),
+                ParamSpec("tol", "float", False, 1e-10, "Optimiser tolerance"),
+                ParamSpec("param_names", "list", False, None, "Parameter labels"),
+                ParamSpec("moment_names", "list", False, None, "Moment labels"),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the intervals"),
+            ],
+            returns="EconometricResults",
+            example=(
+                "sp.smm(simulate, contrib, theta0=[0.0, 1.0], n_sim=10, seed=0, "
+                "bounds=[(None, None), (1e-6, None)])"
+            ),
+            tags=["smm", "simulation", "gmm", "structural", "method_of_moments"],
+            reference=(
+                "[@mcfadden1989method] [@pakes1989simulation] [@lee1991simulation]"
+            ),
+            assumptions=[
+                "The model is correctly specified at the true theta (the "
+                "simulation correction and the J test use the data moment "
+                "covariance for the simulated moments too)",
+                "Simulation draws are independent of the data and reused at "
+                "every theta (common random numbers)",
+                "The simulated moments are smooth in theta (a frequency "
+                "simulator is a step function and has no usable derivative)",
+                "theta is in the interior of the parameter space",
+            ],
+            pre_conditions=[
+                "At least as many moments as parameters",
+                "simulate draws every random number from its rng argument",
+            ],
+            not_recommended_when=[
+                "The moments have a closed form in theta -- use sp.gmm, which "
+                "has no simulation noise",
+                "The simulator is a frequency (0/1) count -- smooth it first, "
+                "or the derivative and the standard errors are degenerate",
+            ],
+            cost_profile=(
+                "Each objective evaluation runs simulate S times; the "
+                "finite-difference Jacobian adds 2k evaluations per Gauss-Newton "
+                "step."
+            ),
+            alternatives=["gmm", "blp"],
+            validation_status="validated",
+            validation_notes=[
+                "tests/test_smm.py: estimate and SEs equal sp.gmm's x sqrt(1 + 1/S) "
+                "under standardised draws (1e-6); AR(1) SMM vs MLE; J-size "
+                "Monte Carlo screen (S)",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="choo_siow",
+            category="structural",
+            description=(
+                "Choo-Siow transferable-utility marriage-market model with logit "
+                "(type-I extreme value) heterogeneity. From household data or a "
+                "couples table with singles: the nonparametric joint surplus "
+                "Phi_xy = log(mu_xy^2 / (mu_x0 mu_0y)) with delta-method SEs, or "
+                "a parametric Phi = sum_k beta_k phi_k by the weighted Poisson GLM "
+                "of Galichon and Salanie; .counterfactual() re-solves the "
+                "equilibrium by IPFP for new type margins or a new surplus."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Household data: one row per couple, single man (woman type "
+                    "missing) or single woman (man type missing)",
+                ),
+                ParamSpec("man", "str", False, None, "Man's type column"),
+                ParamSpec("woman", "str", False, None, "Woman's type column"),
+                ParamSpec(
+                    "mu",
+                    "array",
+                    False,
+                    None,
+                    "Couples table mu_xy (men's types in rows), instead of data",
+                ),
+                ParamSpec(
+                    "singles_men", "array", False, None, "Single men by type (mu_x0)"
+                ),
+                ParamSpec(
+                    "singles_women",
+                    "array",
+                    False,
+                    None,
+                    "Single women by type (mu_0y)",
+                ),
+                ParamSpec(
+                    "basis",
+                    "dict",
+                    False,
+                    None,
+                    "Basis functions name -> (X, Y) matrix (or an (X, Y, K) array) "
+                    "for a parametric surplus; omitted = nonparametric",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the intervals"),
+                ParamSpec(
+                    "tol", "float", False, 1e-12, "Newton tolerance (parametric fit)"
+                ),
+                ParamSpec(
+                    "maxiter", "int", False, 200, "Newton iterations (parametric fit)"
+                ),
+            ],
+            returns="ChooSiowResult",
+            example=(
+                'sp.choo_siow(df, man="husband_educ", woman="wife_educ")'
+                ".counterfactual(new_margins=(men, women))"
+            ),
+            tags=["matching", "marriage", "structural", "transferable_utility", "ipfp"],
+            reference="[@choo2006who] [@galichon2022cupid] [@galichon2024estimating]",
+            assumptions=[
+                "Transferable utility and a large market (continuum of agents "
+                "within each type)",
+                "Separability: idiosyncratic tastes depend on the partner's type, "
+                "not on the individual partner",
+                "Tastes are type-I extreme value with the same scale for both "
+                "sexes (homoskedastic Choo-Siow)",
+                "Households are a random sample (multinomial) for the standard "
+                "errors",
+            ],
+            pre_conditions=[
+                "Every type has some singles in the data",
+                "Each household row has at least one of the two type columns set",
+            ],
+            not_recommended_when=[
+                "Singles are not observed -- Phi is then identified only up to "
+                "additive man- and woman-type terms; this model needs singles",
+                "Many empty couple cells with no basis -- pass basis= for a "
+                "parametric surplus instead of -inf cells",
+            ],
+            alternatives=["smm"],
+            validation_status="validated",
+            validation_notes=[
+                "tests/reference_parity/test_choo_siow_cupid_parity.py: beta and "
+                "its covariance vs cupid_matching 1.3 (MIT) with a Newton solver "
+                "to 1e-9; IPFP equilibrium to 1e-10",
+                "tests/test_choo_siow.py: identities (margins, moment matching, "
+                "saturated basis = nonparametric) and a Gumbel large-market "
+                "simulation recovering Phi",
+            ],
+        )
+    )
 
     register(
         FunctionSpec(
@@ -37443,11 +38529,32 @@ def _build_registry() -> None:
                     "E[(z - mu) r] = 0, one per variable plus a joint test",
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "absorb",
+                    "str | list",
+                    False,
+                    None,
+                    "Fixed effects to absorb ('f', ['firm', 'year'], "
+                    "'prov^year'); estimate and SE via sp.iv(absorb=) "
+                    "(ivreghdfe conventions), RI statistic residualised on the "
+                    "same fixed effects; not combinable with weights",
+                ),
+                ParamSpec(
+                    "expected",
+                    "str | array",
+                    False,
+                    None,
+                    "Closed-form expected instrument mu (column or length-n "
+                    "array), e.g. the stratum mean under within-stratum "
+                    "permutation; replaces the row mean of the draws, and "
+                    "every draw is centred at it in the RI test",
+                ),
             ],
             returns="CausalResult",
             example=(
                 'sp.recentered_iv(df, "y", "market_access", "market_access", '
-                "counterfactual=cf_draws)"
+                "counterfactual=sp.expected_instrument(df, fn, sampler, "
+                'seed=0).draws, absorb="region")'
             ),
             tags=[
                 "iv",
@@ -37467,7 +38574,14 @@ def _build_registry() -> None:
                 "The RI test is for the sharp null of a constant effect; with "
                 "heterogeneous effects report the asymptotic standard error",
             ],
-            alternatives=["iv", "bartik", "shift_share_se", "ri_test", "conley"],
+            alternatives=[
+                "expected_instrument",
+                "iv",
+                "bartik",
+                "shift_share_se",
+                "ri_test",
+                "conley",
+            ],
         )
     )
 

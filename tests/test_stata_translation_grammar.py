@@ -102,7 +102,6 @@ def test_an_option_that_is_not_carried_over_is_reported(line, lost):
         ("reghdfe y x, absorb(id) noheader", ["noheader"]),
         ("logit y x, or", ["or"]),
         ("poisson y x, irr", ["irr"]),
-        ("reg y x, beta", ["beta"]),
         ("rdrobust y x, all", ["all"]),
         ("rdplot y x, graph_options(title(RD))", ["graph_options"]),
         ("rddensity x, plot", ["plot"]),

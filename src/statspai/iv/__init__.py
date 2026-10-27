@@ -122,6 +122,9 @@ from . import plot  # noqa: F401
 from .bayesian_iv import BayesianIVResult, bayesian_iv
 from .continuous_late import ContinuousLATEResult, continuous_iv_late
 
+# ─── Design-based recentred formula instruments (Borusyak-Hull) ─────────
+from .expected_instrument import ExpectedInstrumentResult, expected_instrument
+
 # ─── v1.14 modern reporting bundle (R `ivDiag` analogue) ─────────────────
 from .iv_diag import IVDiagResult, iv_compare, iv_diag
 from .ivdml import IVDMLResult, ivdml
@@ -954,6 +957,8 @@ __all__ = [
     "fit",
     "zero_first_stage",
     "ZeroFirstStageResult",
+    "expected_instrument",
+    "ExpectedInstrumentResult",
     # core estimators
     "iv",
     "ivreg",

@@ -216,6 +216,9 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
         ("onesided", 6),
         ("nopvalues", 6),
     ),
+    # acreg (Colella et al.): LAGDISTcutoff, LAGcutoff, DISTcutoff; the
+    # longer name first so that lagdist() is not read as lag().
+    "acreg": (("lagdistcutoff", 7), ("lagcutoff", 3), ("distcutoff", 4)),
     # [R] qreg: quantile(#), minimum abbreviation q(#).
     "qreg": (("quantile", 1),),
     # leebounds (SSC): SELect(), TIGht(), CIEffect.
@@ -333,6 +336,21 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
     "xtqreg": (("quantile", 1),),
     # [CAUSAL] etpoisson: treat(), intpoints().
     "etpoisson": (("treat", 2), ("intpoints", 4)),
+    # felsdvreg (Stata Journal st0143): Ivar() Jvar() Feff() Peff() Res()
+    # Mover() Group() NORMalize CHOLsolve NOCOMPress. Res() is written
+    # res(): `r()` is robust in the common table.
+    "felsdvreg": (
+        ("ivar", 1),
+        ("jvar", 1),
+        ("feff", 1),
+        ("peff", 1),
+        ("res", 3),
+        ("mover", 1),
+        ("group", 1),
+        ("normalize", 4),
+        ("cholsolve", 4),
+        ("nocompress", 6),
+    ),
 }
 
 
@@ -379,11 +397,30 @@ DISPLAY_OPTIONS = frozenset(
 
 
 #: Reporting options of specific commands: they change how coefficients
-#: are printed (odds ratios, incidence-rate ratios, standardised betas),
-#: not the fit.
+#: are printed (odds ratios, incidence-rate ratios), not the fit.
+#: ``regress, beta`` is not here: it prints numbers the fit does not, and
+#: the regress handler translates it (sp.standardize_coefs).
 _DISPLAY_BY_COMMAND = {
-    "regress": {"beta"},
-    "reg": {"beta"},
+    # weakiv: what it prints and stores, not the tests
+    "weakiv": {
+        "noci",
+        "graph",
+        "graphxrange",
+        "graphopt",
+        "contouropt",
+        "surfaceopt",
+        "contouronly",
+        "surfaceonly",
+        "eststorewald",
+        "displaywald",
+        "estadd1",
+        "estadd2",
+        "exportmats",
+        "nooutput",
+    },
+    # acreg: correctr2 changes only the R-squared; the store* options save
+    # the weight / distance matrices
+    "acreg": {"correctr2", "storeweights", "storedistances"},
     "logit": {"or"},
     "ologit": {"or"},
     "mlogit": {"rrr"},
@@ -479,6 +516,9 @@ _DISPLAY_BY_COMMAND = {
     # noconstant: the constant is absorbed with the fixed effects, so the
     # option only removes the _cons row Stata prints
     "reghdfe": {"noabsorb", "noconstant"},
+    # felsdvreg: compressing the data and the memory-saving path change no
+    # estimate
+    "felsdvreg": {"nocompress", "mem"},
     # the plots and their axes; r2yz() only sets the scenarios of extremeplot
     "sensemakr": {
         "contourplot",
@@ -578,6 +618,8 @@ _SE_ARGUMENTS = (
     "se_type",
     "cov_type",
     "se_method",
+    # the variance of weak-IV-robust tests (sp.weakrobust, from weakiv)
+    "test_vcov",
 )
 
 

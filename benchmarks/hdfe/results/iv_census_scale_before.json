@@ -1,0 +1,266 @@
+{
+  "benchmark": "iv_census_scale",
+  "formula": "married ~ x | grp^tract^sex | tight ~ z",
+  "stata": "ivreghdfe married x (tight = z), absorb(grp#tract#sex) cluster(county)",
+  "r": "feols(married ~ x | grp^tract^sex | tight ~ z, cluster = ~county)",
+  "machine": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M3",
+    "ncpu": "8",
+    "mem_bytes": 25769803776,
+    "python": "3.10.20",
+    "loadavg_at_start": [
+      88.91796875,
+      91.49755859375,
+      122.65234375
+    ]
+  },
+  "records": [
+    {
+      "size": 1000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 8.437785541987978,
+      "peak_rss_bytes": 757481472,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 0.2911704999860376,
+      "fit_s": 2.3938627910101786,
+      "rss_after_load_bytes": 368672768,
+      "coef": {
+        "tight": -0.006375414936407941,
+        "x": -2.047174317649125e-05
+      },
+      "se": {
+        "tight": 0.005316402054557,
+        "x": 1.2648541869214782e-05
+      },
+      "n_obs": 999775,
+      "n_singletons_dropped": 225,
+      "n_fe": [
+        13708
+      ],
+      "n_clusters": 152,
+      "first_stage_F": 933.8965445160022,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        92.34423828125,
+        102.46533203125,
+        137.0791015625
+      ]
+    },
+    {
+      "size": 1000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 8.473100165952928,
+      "peak_rss_bytes": 752517120,
+      "stderr_tail": null,
+      "n_rows": 1000000,
+      "load_s": 0.30374474998097867,
+      "fit_s": 2.13414154201746,
+      "rss_after_load_bytes": 361381888,
+      "coef": {
+        "tight": -0.006375414936407941,
+        "x": -2.047174317649125e-05
+      },
+      "se": {
+        "tight": 0.005316402054557,
+        "x": 1.2648541869214782e-05
+      },
+      "n_obs": 999775,
+      "n_singletons_dropped": 225,
+      "n_fe": [
+        13708
+      ],
+      "n_clusters": 152,
+      "first_stage_F": 933.8965445160022,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        91.595703125,
+        102.14208984375,
+        136.76220703125
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 19.919037292012945,
+      "peak_rss_bytes": 3259498496,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 1.1831207500072196,
+      "fit_s": 13.029979625018314,
+      "rss_after_load_bytes": 1346338816,
+      "coef": {
+        "tight": 0.005010152428168458,
+        "x": -2.7971673902389596e-06
+      },
+      "se": {
+        "tight": 0.0022742095807796814,
+        "x": 5.7566117649280576e-06
+      },
+      "n_obs": 4998997,
+      "n_singletons_dropped": 1003,
+      "n_fe": [
+        68693
+      ],
+      "n_clusters": 762,
+      "first_stage_F": 4377.446220438716,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        87.7587890625,
+        98.81884765625,
+        132.77880859375
+      ]
+    },
+    {
+      "size": 5000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 21.972276083077304,
+      "peak_rss_bytes": 3180625920,
+      "stderr_tail": null,
+      "n_rows": 5000000,
+      "load_s": 1.5426512920530513,
+      "fit_s": 13.04325487499591,
+      "rss_after_load_bytes": 1352482816,
+      "coef": {
+        "tight": 0.005010152428168458,
+        "x": -2.7971673902389596e-06
+      },
+      "se": {
+        "tight": 0.0022742095807796814,
+        "x": 5.7566117649280576e-06
+      },
+      "n_obs": 4998997,
+      "n_singletons_dropped": 1003,
+      "n_fe": [
+        68693
+      ],
+      "n_clusters": 762,
+      "first_stage_F": 4377.446220438716,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        86.083984375,
+        97.56982421875,
+        131.34619140625
+      ]
+    },
+    {
+      "size": 20000000,
+      "engine": "rust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 82.75752570806071,
+      "peak_rss_bytes": 6023512064,
+      "stderr_tail": null,
+      "n_rows": 20000000,
+      "load_s": 5.787576291942969,
+      "fit_s": 68.5869362920057,
+      "rss_after_load_bytes": 5082906624,
+      "coef": {
+        "tight": 0.0026860657323121446,
+        "x": 3.0403645901573264e-06
+      },
+      "se": {
+        "tight": 0.0011720886561878867,
+        "x": 2.8068374307194617e-06
+      },
+      "n_obs": 19996012,
+      "n_singletons_dropped": 3988,
+      "n_fe": [
+        274779
+      ],
+      "n_clusters": 3051,
+      "first_stage_F": 18510.303492558014,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        87.33203125,
+        89.99169921875,
+        119.25537109375
+      ]
+    },
+    {
+      "size": 20000000,
+      "engine": "norust",
+      "threads": 4,
+      "returncode": 0,
+      "process_wall_s": 75.78796812496148,
+      "peak_rss_bytes": 7146291200,
+      "stderr_tail": null,
+      "n_rows": 20000000,
+      "load_s": 5.479383333935402,
+      "fit_s": 62.399343125056475,
+      "rss_after_load_bytes": 5085298688,
+      "coef": {
+        "tight": 0.0026860657323121446,
+        "x": 3.0403645901573264e-06
+      },
+      "se": {
+        "tight": 0.0011720886561878867,
+        "x": 2.8068374307194617e-06
+      },
+      "n_obs": 19996012,
+      "n_singletons_dropped": 3988,
+      "n_fe": [
+        274779
+      ],
+      "n_clusters": 3051,
+      "first_stage_F": 18510.303492558014,
+      "demean_iters": 1,
+      "statspai_version": "1.41.0",
+      "statspai_file": "/private/tmp/claude-501/-Users-brycewang-Documents-GitHub-StatsPAI/1fa5dffb-febf-47fe-927b-e5f7bf5319d2/scratchpad/orig_src/statspai/__init__.py",
+      "loadavg_after": [
+        106.9580078125,
+        94.64697265625,
+        118.501953125
+      ]
+    }
+  ],
+  "comparison": [
+    {
+      "size": 1000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    },
+    {
+      "size": 5000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    },
+    {
+      "size": 20000000,
+      "engine": "norust",
+      "vs": "rust",
+      "rel_coef_tight": 0.0,
+      "rel_coef_x": 0.0,
+      "rel_se_tight": 0.0,
+      "rel_se_x": 0.0
+    }
+  ]
+}
