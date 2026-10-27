@@ -1,0 +1,58 @@
+{
+  "small": {
+    "nominal": {
+      "alpha": 0.743421052631579,
+      "nmatchval": 40,
+      "subjects": 12,
+      "raters": 4
+    },
+    "ordinal": {
+      "alpha": 0.815387503754881,
+      "nmatchval": 40,
+      "subjects": 12,
+      "raters": 4
+    },
+    "interval": {
+      "alpha": 0.849107142857143,
+      "nmatchval": 40,
+      "subjects": 12,
+      "raters": 4
+    },
+    "ratio": {
+      "alpha": 0.797402774711612,
+      "nmatchval": 40,
+      "subjects": 12,
+      "raters": 4
+    }
+  },
+  "data": {
+    "nominal": {
+      "alpha": 0.353809816936088,
+      "nmatchval": 300,
+      "subjects": 80,
+      "raters": 5
+    },
+    "ordinal": {
+      "alpha": 0.764253860474695,
+      "nmatchval": 300,
+      "subjects": 80,
+      "raters": 5
+    },
+    "interval": {
+      "alpha": 0.766643619640257,
+      "nmatchval": 300,
+      "subjects": 80,
+      "raters": 5
+    },
+    "ratio": {
+      "alpha": 0.678935294582202,
+      "nmatchval": 300,
+      "subjects": 80,
+      "raters": 5
+    }
+  },
+  "versions": {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "irr": "0.85"
+  }
+}
