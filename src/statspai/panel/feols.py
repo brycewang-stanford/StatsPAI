@@ -19,6 +19,7 @@ The same term grammar is accepted on **both** sides of ``|``:
     x            bare column
     c.x          explicit continuous marker
     i.f / i(f)   explicit categorical marker (base level omitted)
+    C(f)         same as i.f (the patsy spelling ``sp.regress`` uses)
     a:b          interaction of a and b
     a*b          a + b + a:b (full factorial)
     f1^f2        interacted categorical — one group per level combination
@@ -296,6 +297,7 @@ _SUPPORTED_SYNTAX = (
     "  x                bare column\n"
     "  c.x              explicit continuous marker\n"
     "  i.f  / i(f)      explicit categorical marker\n"
+    "  C(f)             same as i.f (patsy spelling, as in sp.regress)\n"
     "  a:b              interaction of a and b\n"
     "  a*b              a + b + a:b (full factorial)\n"
     "  f1^f2            interacted categorical (combined group)\n"
@@ -430,6 +432,23 @@ def _parse_atom(tok: str, side: str) -> _Term:
     m = re.match(rf"^i\.({_NAME})$", t) or re.match(rf"^i\(\s*({_NAME})\s*\)$", t)
     if m:
         return _Term(kind="inter", atoms=(_Atom(m.group(1), True),))
+    # patsy C(f) is i.f, so formulas written for sp.regress also run here;
+    # C(f, Treatment(k)) / C(f, Treatment(reference=k)) is ib<k>.f
+    m = re.match(rf"^C\(\s*({_NAME})\s*\)$", t)
+    if m:
+        return _Term(kind="inter", atoms=(_Atom(m.group(1), True),))
+    m = re.match(
+        rf"^C\(\s*({_NAME})\s*,\s*Treatment\(\s*(?:reference\s*=\s*)?"
+        r"(-?\d+(?:\.\d+)?)\s*\)\s*\)$",
+        t,
+    )
+    if m:
+        if side != "left":
+            raise ValueError(
+                f"feols: {t!r} names a base level, which only a regressor has; "
+                f"an absorbed factor is written C({m.group(1)}) or {m.group(1)}."
+            )
+        return _Term(kind="inter", atoms=(_Atom(m.group(1), True, float(m.group(2))),))
     m = re.match(rf"^ib(\d+(?:\.\d+)?)\.({_NAME})$", t)
     if m:
         if side != "left":
