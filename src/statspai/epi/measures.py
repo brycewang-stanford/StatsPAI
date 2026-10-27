@@ -204,7 +204,8 @@ class OR2x2Result(ResultProtocolMixin):
         lo, hi = self.ci
         text = (
             f"Odds Ratio ({self.method})\n"
-            f"  OR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
+            f"  OR = {self.estimate:.4f}"
+            f"   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
         )
         if self.conditional_mle is not None:
@@ -234,7 +235,8 @@ class RR2x2Result(ResultProtocolMixin):
         lo, hi = self.ci
         return (
             f"Relative Risk ({self.method})\n"
-            f"  RR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
+            f"  RR = {self.estimate:.4f}"
+            f"   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
             f"  Risk (exposed)   = {self.risk_exposed:.4f}\n"
             f"  Risk (unexposed) = {self.risk_unexposed:.4f}"
@@ -260,7 +262,8 @@ class RD2x2Result(ResultProtocolMixin):
         lo, hi = self.ci
         return (
             f"Risk Difference ({self.method})\n"
-            f"  RD = {self.estimate:+.4f}   {_ci_label(self.level)} [{lo:+.4f}, {hi:+.4f}]   "
+            f"  RD = {self.estimate:+.4f}"
+            f"   {_ci_label(self.level)} [{lo:+.4f}, {hi:+.4f}]   "
             f"p = {self.p_value:.4g}"
         )
 
@@ -284,7 +287,8 @@ class ARResult(ResultProtocolMixin):
         return (
             "Attributable Risk\n"
             f"  AF (exposed) = {self.ar_exposed:.4f}\n"
-            f"  PAF (Levin)  = {self.paf:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]\n"
+            f"  PAF (Levin)  = {self.paf:.4f}"
+            f"   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]\n"
             f"  Prevalence exposed = {self.prevalence_exposed:.4f}\n"
             f"  RR = {self.rr:.4f}"
         )
@@ -312,7 +316,8 @@ class IRRResult(ResultProtocolMixin):
         lo, hi = self.ci
         return (
             f"Incidence Rate Ratio ({self.method})\n"
-            f"  IRR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
+            f"  IRR = {self.estimate:.4f}"
+            f"   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
             f"  Rate (exposed)   = {self.rate_exposed:.6f}  "
             f"({self.events_exposed:.0f}/{self.pt_exposed:.1f} person-time)\n"
