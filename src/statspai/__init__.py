@@ -2215,6 +2215,9 @@ __all__ = [
     "bonferroni",
     "holm",
     "benjamini_hochberg",
+    "sharpened_qvalues",
+    "summary_index",
+    "SummaryIndexResult",
     # AI / Agent Registry
     "list_functions",
     "support_tier",
@@ -4033,6 +4036,9 @@ _register_lazy(
     "bonferroni",
     "holm",
     "benjamini_hochberg",
+    "sharpened_qvalues",
+    "summary_index",
+    "SummaryIndexResult",
 )
 _register_lazy(
     "robustness",

@@ -71,6 +71,7 @@ DIRECT: Dict[Key, List[str]] = {
         "hommel",
         "bh",
         "by",
+        "bky",
     ],
 }
 

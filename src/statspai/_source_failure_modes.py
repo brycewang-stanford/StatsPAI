@@ -1458,6 +1458,25 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "and n at least 1.",
         }
     ],
+    "sharpened_qvalues": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass a flat list or 1-D array of p-values.",
+            "symptom": "pvalues must be one-dimensional; got shape " "<p.shape>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use missing='count' (as sp.adjust_pvalues) "
+            "or missing='drop' (as Anderson's do-file).",
+            "symptom": "missing must be 'count' or 'drop'; got " "<missing>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Check that the input holds p-values, not "
+            "test statistics or log p-values.",
+            "symptom": "p-values must lie in [0, 1].",
+        },
+    ],
     "shrinkage": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1577,6 +1596,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "remedy": "Copy the column under a new name for a second equation.",
             "symptom": "Each equation needs a distinct dependent variable.",
         }
+    ],
+    "summary_index": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the data as a DataFrame with one row per " "unit.",
+            "symptom": "data must be a pandas DataFrame.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name at least one component column.",
+            "symptom": "outcomes is empty.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Name each component once.",
+            "symptom": "outcomes contains duplicates.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='klk' (equal weights) or "
+            "method='anderson' (inverse-covariance weights, "
+            "as swindex).",
+            "symptom": "method must be 'klk' or 'anderson'; got " "<method>.",
+        },
     ],
     "sumstats": [
         {

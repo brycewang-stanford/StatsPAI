@@ -15,9 +15,14 @@ Estimators and utilities:
   ``wyoung, permute()``.
 - **Bonferroni**, **Holm** (1979), **Benjamini-Hochberg** (1995) ---
   classical non-resampling adjustments included for comparison.
+- ``sharpened_qvalues()`` --- Benjamini-Krieger-Yekutieli (2006)
+  two-stage FDR q-values as Anderson's (2008) Stata do-file computes them.
 - ``adjust_pvalues()`` --- convenience dispatcher across all methods.
+- ``summary_index()`` --- Kling-Liebman-Katz (2007) and Anderson (2008)
+  summary indices of several outcomes (Stata ``swindex``).
 """
 
+from .index import SummaryIndexResult, summary_index
 from .romano_wolf import (
     RomanoWolfResult,
     adjust_pvalues,
@@ -26,6 +31,7 @@ from .romano_wolf import (
     holm,
     romano_wolf,
 )
+from .sharpened import sharpened_qvalues
 from .westfall_young import westfall_young
 
 __all__ = [
@@ -36,4 +42,7 @@ __all__ = [
     "holm",
     "benjamini_hochberg",
     "westfall_young",
+    "sharpened_qvalues",
+    "summary_index",
+    "SummaryIndexResult",
 ]
