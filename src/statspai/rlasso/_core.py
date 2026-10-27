@@ -158,11 +158,30 @@ def _require_finite(X: np.ndarray, y: np.ndarray, function: str) -> None:
         )
 
 
-def _default_control(user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+_ITERATIONS = ("hdm", "lassopack")
+
+
+def _default_control(
+    user: Optional[Dict[str, Any]], iteration: str = "hdm"
+) -> Dict[str, Any]:
+    """Resolve ``control``; the defaults depend on the iteration scheme.
+
+    ``"hdm"``: up to 15 Lasso fits, stop when the residual SD (``ddof=1``)
+    moves by less than ``1e-5``. ``"lassopack"``: Stata rlasso's
+    ``maxpsiiter(2)`` and ``tolpsi(1e-4)``, so at most two Lasso fits.
+    """
     user = dict(user) if user else {}
+    iteration = user.get("iteration", iteration)
+    if iteration not in _ITERATIONS:
+        raise MethodIncompatibility(
+            f"control['iteration'] must be one of {_ITERATIONS}, got {iteration!r}.",
+            recovery_hint="Use 'hdm' (R hdm) or 'lassopack' (Stata rlasso).",
+        )
+    lp = iteration == "lassopack"
     return {
-        "numIter": user.get("numIter", 15),
-        "tol": user.get("tol", 1e-5),
+        "iteration": iteration,
+        "numIter": user.get("numIter", 2 if lp else 15),
+        "tol": user.get("tol", 1e-4 if lp else 1e-5),
         "threshold": user.get("threshold", None),
     }
 
@@ -408,6 +427,10 @@ class RLassoFit(ResultProtocolMixin):
     meanx: np.ndarray
     mu: float
     colnames: List[str] = field(default_factory=list)
+    #: Levels of each factor removed by ``absorb=`` (empty without it).
+    absorb_levels: Tuple[int, ...] = ()
+    #: Penalty-loading iteration used: ``"hdm"`` or ``"lassopack"``.
+    iteration: str = "hdm"
 
     @property
     def n_selected(self) -> int:
@@ -464,6 +487,7 @@ def rlasso(
     colnames: Optional[List[str]] = None,
     rng: Optional[np.random.Generator] = None,
     cluster: Optional[Any] = None,
+    absorb: Optional[Any] = None,
 ) -> RLassoFit:
     """Rigorous Lasso / post-Lasso — a faithful port of ``hdm::rlasso``.
 
@@ -484,8 +508,18 @@ def rlasso(
         ``gamma`` (default ``0.1/log(n)``), ``lambda.start`` and
         ``numSim``.  Defaults reproduce hdm exactly.
     control : dict, optional
-        Overrides for ``numIter`` (default 15), ``tol`` (default 1e-5)
-        and ``threshold`` (default ``None``).
+        Overrides for ``numIter`` (default 15), ``tol`` (default 1e-5),
+        ``threshold`` (default ``None``) and ``iteration``. ``iteration``
+        is ``"hdm"`` (the default without ``absorb``) or ``"lassopack"``
+        (the default with it). ``"lassopack"`` follows Stata's ``rlasso``:
+        the first Lasso uses the full penalty (hdm halves it when
+        ``post=True``), the loadings are refreshed from the post-Lasso
+        residuals, at most ``numIter = 2`` Lasso fits are run
+        (``maxpsiiter``) and the iteration stops early when the residual
+        RMSE moves by less than ``tol = 1e-4`` (``tolpsi``). The two
+        schemes can stop at different supports because the loading
+        iteration may have more than one fixed point. ``"lassopack"``
+        needs the default heteroskedastic or cluster loadings.
     colnames : list of str, optional
         Names for the columns of ``X`` (default ``V1..Vp``).
     rng : numpy Generator, optional
@@ -504,6 +538,16 @@ def rlasso(
         within-transformed ``X`` and ``y`` with ``intercept=False``.
         Requires the default heteroskedastic loadings
         (``homoscedastic=False``, no ``X.dependent.lambda``).
+    absorb : array-like, optional
+        Fixed effects to absorb: one identifier per row, a 2-D array with
+        one column per factor, or a list of such arrays. ``X`` and ``y``
+        are within-transformed (projected off the dummies of every factor)
+        and the Lasso is run without an intercept, as Stata's ``rlasso,
+        fe`` does [@belloni2016inference]; the penalty level still uses
+        all ``n`` rows. ``intercept`` is ignored, and ``control`` defaults
+        to ``iteration="lassopack"``. With one factor this reproduces
+        ``rlasso ..., fe``; with two, ``rlasso ..., fe partial(i.<f2>)``.
+        Coefficients, residuals and ``predict`` are on the within scale.
 
     Returns
     -------
@@ -532,11 +576,35 @@ def rlasso(
     if colnames is None:
         colnames = [f"V{j + 1}" for j in range(p)]
 
+    absorb_levels: Tuple[int, ...] = ()
+    default_iteration = "hdm"
+    if absorb is not None:
+        from ._absorb import absorb_codes, absorbed_levels, within
+
+        fe_codes = absorb_codes(absorb, n)
+        absorb_levels = absorbed_levels(fe_codes)
+        X = within(X, fe_codes)
+        y = within(y, fe_codes)
+        intercept = False
+        default_iteration = "lassopack"
+
     codes: Optional[np.ndarray] = None
     n_clusters: Optional[int] = None
     if cluster is not None:
         codes, n_clusters = _cluster_codes(cluster, n)
-    pen = _default_penalty(n, post, penalty, n_clusters=n_clusters)
+    ctrl = _default_control(control, default_iteration)
+    lassopack = ctrl["iteration"] == "lassopack"
+    # hdm switches c to 0.5 without post-Lasso; lassopack keeps c = 1.1.
+    pen = _default_penalty(n, post or lassopack, penalty, n_clusters=n_clusters)
+    if lassopack and (
+        pen["homoscedastic"] is not False or pen["X.dependent.lambda"] is True
+    ):
+        raise MethodIncompatibility(
+            "control iteration='lassopack' supports the heteroskedastic and "
+            "cluster loadings only.",
+            recovery_hint="Drop the homoscedastic / X.dependent.lambda penalty, "
+            "or use control={'iteration': 'hdm'}.",
+        )
     if codes is not None and (
         pen["homoscedastic"] is True or pen["X.dependent.lambda"] is True
     ):
@@ -545,7 +613,6 @@ def rlasso(
             "combined with penalty={'homoscedastic': True} or "
             "{'X.dependent.lambda': True}."
         )
-    ctrl = _default_control(control)
 
     if intercept:
         meanx = X.mean(axis=0)
@@ -562,27 +629,14 @@ def rlasso(
     XX = Xc.T @ Xc
     Xy = Xc.T @ yc
 
-    startingval = _init_values(Xc, yc)["residuals"]
-    pencalc = _lambda_calculation(pen, y=startingval, X=Xc, rng=rng, codes=codes)
-    lam = pencalc["lambda"].copy()
-    lambda0 = pencalc["lambda0"]
-    Ups1 = np.atleast_1d(pencalc["Ups0"]).astype(float)
-
-    s0 = float(np.sqrt(np.var(yc, ddof=1)))
-    mm = 1
-    coefTemp = np.zeros(p)
-    ind1 = np.zeros(p, dtype=bool)
-    e1 = yc - yc.mean()
-
-    while mm <= ctrl["numIter"]:
-        lam_used = lam / 2.0 if (mm == 1 and post) else lam
-        coefTemp = _lasso_shooting(Xc, yc, lam_used, XX, Xy)
-        coefTemp = np.nan_to_num(coefTemp, nan=0.0)
-        ind1 = np.abs(coefTemp) > 0
-        x1 = Xc[:, ind1]
-
-        if x1.shape[1] == 0:
-            # hdm early-return: nothing selected.
+    if lassopack:
+        lp = _lassopack_iterate(Xc, yc, pen, ctrl, post, XX, Xy, codes)
+        coefTemp, ind1, e1, Ups1, lam, lambda0, mm = lp
+    else:
+        coefTemp, ind1, e1, Ups1, lam, lambda0, mm, early = _hdm_iterate(
+            Xc, yc, pen, ctrl, post, XX, Xy, Psi, rng, codes, n, p
+        )
+        if early:
             intercept_value = float((yc + mu).mean()) if intercept else float(yc.mean())
             beta_full = np.zeros(p)
             resid = yc - yc.mean()
@@ -609,7 +663,66 @@ def rlasso(
                 meanx=meanx,
                 mu=mu,
                 colnames=list(colnames),
+                absorb_levels=absorb_levels,
+                iteration=ctrl["iteration"],
             )
+    return _package(
+        coefTemp,
+        ind1,
+        e1,
+        Ups1,
+        lam,
+        lambda0,
+        mm,
+        ctrl,
+        intercept,
+        meanx,
+        mu,
+        n,
+        p,
+        post,
+        colnames,
+        absorb_levels,
+    )
+
+
+def _hdm_iterate(
+    Xc: np.ndarray,
+    yc: np.ndarray,
+    pen: Dict[str, Any],
+    ctrl: Dict[str, Any],
+    post: bool,
+    XX: np.ndarray,
+    Xy: np.ndarray,
+    Psi: np.ndarray,
+    rng: Optional[np.random.Generator],
+    codes: Optional[np.ndarray],
+    n: int,
+    p: int,
+) -> tuple:
+    """hdm's penalty-loading loop (``rlasso.default``), unchanged."""
+    startingval = _init_values(Xc, yc)["residuals"]
+    pencalc = _lambda_calculation(pen, y=startingval, X=Xc, rng=rng, codes=codes)
+    lam = pencalc["lambda"].copy()
+    lambda0 = pencalc["lambda0"]
+    Ups1 = np.atleast_1d(pencalc["Ups0"]).astype(float)
+
+    s0 = float(np.sqrt(np.var(yc, ddof=1)))
+    mm = 1
+    coefTemp = np.zeros(p)
+    ind1 = np.zeros(p, dtype=bool)
+    e1 = yc - yc.mean()
+
+    while mm <= ctrl["numIter"]:
+        lam_used = lam / 2.0 if (mm == 1 and post) else lam
+        coefTemp = _lasso_shooting(Xc, yc, lam_used, XX, Xy)
+        coefTemp = np.nan_to_num(coefTemp, nan=0.0)
+        ind1 = np.abs(coefTemp) > 0
+        x1 = Xc[:, ind1]
+
+        if x1.shape[1] == 0:
+            # hdm early-return: nothing selected.
+            return coefTemp, ind1, e1, Ups1, lam, lambda0, mm, True
 
         if post:
             coefT, *_ = np.linalg.lstsq(x1, yc, rcond=None)
@@ -628,6 +741,111 @@ def rlasso(
             break
         s0 = s1
 
+    return coefTemp, ind1, e1, Ups1, lam, lambda0, mm, False
+
+
+def _lassopack_init_residuals(
+    X: np.ndarray, y: np.ndarray, number: int = 5
+) -> np.ndarray:
+    """Residuals of an OLS of ``y`` on its ``number`` most correlated columns.
+
+    lassopack's ``InitialResiduals`` for a model without a constant (or with
+    data that were demeaned or within-transformed): the correlations are
+    uncentred and the OLS has no intercept.
+    """
+    kx = X.shape[1]
+    num = float(np.sqrt(y @ y))
+    den = np.sqrt((X**2).sum(axis=0))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        corr = np.abs((y @ X) / (num * den))
+    key = np.where(np.isnan(corr), -np.inf, corr)
+    index = np.argsort(-key, kind="stable")[: min(number, kx)]
+    b, *_ = np.linalg.lstsq(X[:, index], y, rcond=None)
+    out: np.ndarray = y - X[:, index] @ b
+    return out
+
+
+def _lassopack_fit(
+    Xc: np.ndarray,
+    yc: np.ndarray,
+    lam: np.ndarray,
+    XX: np.ndarray,
+    Xy: np.ndarray,
+    post: bool,
+) -> tuple:
+    """One Lasso fit and the residuals the next loading update uses."""
+    coef = np.nan_to_num(_lasso_shooting(Xc, yc, lam, XX, Xy), nan=0.0)
+    ind = np.abs(coef) > 0
+    if not ind.any():
+        return coef, ind, yc.copy()
+    x1 = Xc[:, ind]
+    if post:
+        coefT, *_ = np.linalg.lstsq(x1, yc, rcond=None)
+        coef[ind] = np.nan_to_num(coefT, nan=0.0)
+    return coef, ind, yc - x1 @ coef[ind]
+
+
+def _lassopack_iterate(
+    Xc: np.ndarray,
+    yc: np.ndarray,
+    pen: Dict[str, Any],
+    ctrl: Dict[str, Any],
+    post: bool,
+    XX: np.ndarray,
+    Xy: np.ndarray,
+    codes: Optional[np.ndarray],
+) -> tuple:
+    """Stata lassopack's loading loop (``RLasso`` in ``lassoutils``).
+
+    Re-implemented from the documented behaviour (help file and verbose
+    output of ``rlasso``), not from its source. Initial loadings from the
+    residuals of the five most correlated columns; first Lasso with the full
+    penalty; then, while fewer than ``numIter`` fits have been run and the
+    RMSE of the residuals moved by more than ``tol``, refresh the loadings
+    from the latest (post-)Lasso residuals and refit. The reported loadings
+    are the ones the final fit used.
+    """
+    n = Xc.shape[0]
+    # On centred data (intercept, or within-transformed) this is the centred
+    # correlation and OLS; without an intercept lassopack uses neither.
+    v = _lassopack_init_residuals(Xc, yc)
+    s1 = float(np.sqrt(np.mean(v**2)))
+    pencalc = _lambda_calculation(pen, y=v, X=Xc, codes=codes)
+    lambda0 = pencalc["lambda0"]
+    Ups = np.atleast_1d(pencalc["Ups0"]).astype(float)
+    lam = pencalc["lambda"].copy()
+    coef, ind, e = _lassopack_fit(Xc, yc, lam, XX, Xy, post)
+    it = 1
+    delta = np.inf
+    while it < ctrl["numIter"] and delta > ctrl["tol"]:
+        s0 = s1
+        s1 = float(np.sqrt(np.mean(e**2)))
+        delta = abs(s1 - s0)
+        Ups = _score_norm(Xc, e, codes) / np.sqrt(n)
+        lam = lambda0 * Ups
+        coef, ind, e = _lassopack_fit(Xc, yc, lam, XX, Xy, post)
+        it += 1
+    return coef, ind, e, Ups, lam, lambda0, it
+
+
+def _package(
+    coefTemp: np.ndarray,
+    ind1: np.ndarray,
+    e1: np.ndarray,
+    Ups1: np.ndarray,
+    lam: np.ndarray,
+    lambda0: float,
+    mm: int,
+    ctrl: Dict[str, Any],
+    intercept: bool,
+    meanx: np.ndarray,
+    mu: float,
+    n: int,
+    p: int,
+    post: bool,
+    colnames: List[str],
+    absorb_levels: Tuple[int, ...],
+) -> RLassoFit:
     threshold = ctrl["threshold"]
     if threshold is not None:
         coefTemp[np.abs(coefTemp) < threshold] = 0.0
@@ -658,4 +876,6 @@ def rlasso(
         meanx=meanx,
         mu=mu,
         colnames=list(colnames),
+        absorb_levels=absorb_levels,
+        iteration=ctrl["iteration"],
     )

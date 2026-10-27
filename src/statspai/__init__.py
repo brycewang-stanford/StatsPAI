@@ -380,8 +380,10 @@ from .matching import (
 )
 from .mediation import (
     FourWayResult,
+    IVMediateResult,
     MediationAnalysis,
     four_way_decomposition,
+    iv_mediate,
     mediate,
     mediate_interventional,
     mediate_paths,
@@ -3209,6 +3211,8 @@ __all__ = [
     "mediate_paths",
     "four_way_decomposition",
     "FourWayResult",
+    "iv_mediate",
+    "IVMediateResult",
     # Interrupted time series
     "its",
     "ITSResult",

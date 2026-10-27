@@ -20,6 +20,7 @@ Baron, R.M. and Kenny, D.A. (1986).
 """
 
 from .four_way import FourWayResult, four_way_decomposition
+from .iv_mediate import IVMediateResult, iv_mediate
 from .mediate import MediationAnalysis, mediate, mediate_interventional
 from .paths import mediate_paths
 from .sensitivity import MediateSensitivityResult, mediate_sensitivity
@@ -33,4 +34,6 @@ __all__ = [
     "MediateSensitivityResult",
     "four_way_decomposition",
     "FourWayResult",
+    "iv_mediate",
+    "IVMediateResult",
 ]

@@ -16758,6 +16758,121 @@ def _build_registry() -> None:
         )
     )
 
+    # --- iv_mediate (Dippel, Ferrara & Heblich IV mediation; QJE-gap line) ---
+    register(
+        FunctionSpec(
+            name="iv_mediate",
+            category="causal",
+            description=(
+                "Causal mediation with one instrument (Dippel, Ferrara and "
+                "Heblich 2020; Stata ivmediate). Treatment and mediator may "
+                "both be endogenous; the instrument for the treatment "
+                "identifies the total, direct and indirect effects through "
+                "three just-identified IV regressions on partialled-out data. "
+                "Numbers equal Stata ivmediate 1.0.4 to rounding."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec(
+                    "treat", "str", True, description="Treatment (may be endogenous)"
+                ),
+                ParamSpec(
+                    "mediator",
+                    "str",
+                    True,
+                    description="Mediator (may be endogenous)",
+                ),
+                ParamSpec(
+                    "instrument",
+                    "str",
+                    True,
+                    description="The single excluded instrument for the treatment",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Exogenous controls partialled out of every variable; "
+                    "categorical columns are expanded into dummies",
+                ),
+                ParamSpec(
+                    "absorb",
+                    "str",
+                    False,
+                    None,
+                    "One fixed-effect identifier absorbed like areg "
+                    "(ivmediate absorb())",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster variable; cluster-robust variances without a "
+                    "small-sample factor (ivmediate vce(cluster))",
+                ),
+                ParamSpec(
+                    "robust",
+                    "bool",
+                    False,
+                    False,
+                    "HC0 heteroskedasticity-robust variances (ivmediate "
+                    "vce(robust)); default is homoskedastic with e'e/n",
+                ),
+                ParamSpec(
+                    "level", "float", False, 0.95, "Confidence level for intervals"
+                ),
+            ],
+            returns=(
+                "IVMediateResult with .estimates (total / direct / indirect), "
+                ".vcov, .share_mediated, .share_direct, .fstat_treatment, "
+                ".fstat_mediator, .stages"
+            ),
+            example=(
+                'sp.iv_mediate(df, y="y", treat="t", mediator="m", '
+                'instrument="z", covariates=["w1"], absorb="g", cluster="g")'
+            ),
+            tags=["mediation", "instrumental variables", "ivmediate", "causal"],
+            reference="[@dippel2020causal]",
+            pre_conditions=[
+                "one excluded instrument that moves the treatment",
+                "mediator varies given the treatment and the controls",
+            ],
+            assumptions=[
+                "Instrument exogenous and excluded from the outcome and mediator "
+                "equations except through the treatment",
+                "The unobservables confounding treatment and mediator are not "
+                "those confounding mediator and outcome (Dippel, Ferrara and "
+                "Heblich), so the treatment is exogenous in the outcome equation "
+                "once the mediator is instrumented",
+                "Linear, constant effects",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="First-stage F below 10 for the treatment or the mediator",
+                    exception="statspai.AssumptionWarning",
+                    remedy=(
+                        "Weak instrument: effects and normal intervals are "
+                        "unreliable; report the two F statistics and consider a "
+                        "stronger instrument."
+                    ),
+                    alternative="sp.iv",
+                ),
+                FailureMode(
+                    symptom="Mediator is a linear function of treatment and controls",
+                    exception="statspai.IdentificationFailure",
+                    remedy="The mediator effect holding the treatment fixed is not "
+                    "identified; use a mediator with independent variation.",
+                    alternative="sp.mediate",
+                ),
+            ],
+            alternatives=["mediate", "iv", "mediate_paths"],
+            typical_n_min=200,
+        )
+    )
+
     register(
         FunctionSpec(
             name="bartik",
