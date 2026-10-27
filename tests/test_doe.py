@@ -9,6 +9,7 @@ sensitivity indices, and invariants.
 from __future__ import annotations
 
 import itertools
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -692,6 +693,28 @@ class TestSupportPoints:
         w = df["x"].to_numpy() ** 3
         res = sp.support_points(df, 10, weights=w, seed=1)
         assert res.points["x"].mean() > 0.7  # mean of Beta(4, 1) is 0.8
+
+    def test_weights_also_set_the_scale_of_the_columns(self):
+        """The columns are scaled by the standard deviation of the weighted
+        distribution: the fit equals one on data divided by that standard
+        deviation with ``standardize=False``."""
+        rng = np.random.default_rng(5)
+        df = pd.DataFrame({"a": rng.normal(0, 1, 400), "b": rng.gamma(2, 3, 400)})
+        w = np.exp(1.5 * df["a"].to_numpy())
+        Y = df.to_numpy()
+        mu = (w[:, None] * Y).sum(axis=0) / w.sum()
+        var = (w[:, None] * (Y - mu) ** 2).sum(axis=0)
+        sd = np.sqrt(var / (w.sum() - (w**2).sum() / w.sum()))
+        # a fixed number of iterations: the two runs follow the same path
+        # (to rounding), which a stopping rule could cut at different steps
+        kw = dict(weights=w, seed=3, max_iter=40, tol=0.0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = sp.support_points(df, 8, **kw)
+            ref = sp.support_points(df / sd, 8, standardize=False, **kw)
+        np.testing.assert_allclose(
+            res.points.to_numpy(), ref.points.to_numpy() * sd, rtol=1e-7
+        )
 
     def test_errors(self):
         df = pd.DataFrame({"x": np.arange(10.0), "g": list("ab") * 5})

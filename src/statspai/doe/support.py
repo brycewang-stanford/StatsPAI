@@ -247,8 +247,9 @@ def support_points(
         nearest row not yet taken. Use it when the points must be real
         observations.
     standardize : bool, default True
-        Scale every column by its standard deviation before measuring
-        distances. Energy distance is not invariant to the units.
+        Scale every column by its standard deviation (under ``weights``,
+        that of the weighted distribution) before measuring distances.
+        Energy distance is not invariant to the units.
     seed : int, optional
     n_starts : int, default 1
         Random starts; the lowest energy is kept.
@@ -342,8 +343,15 @@ def support_points(
         )
     if subsample and drawn:
         raise MethodIncompatibility("subsample=True needs data, not distributions.")
-    mu = Y.mean(axis=0)
-    sd = Y.std(axis=0, ddof=1)
+    if w is None:
+        mu = Y.mean(axis=0)
+        sd = Y.std(axis=0, ddof=1)
+    else:
+        # moments of the weighted distribution, the one the points represent
+        # (with equal weights these are the unweighted mean and sd, ddof=1)
+        mu = (w[:, None] * Y).sum(axis=0) / w.sum()
+        ss = (w[:, None] * (Y - mu) ** 2).sum(axis=0)
+        sd = np.sqrt(ss / (w.sum() - (w**2).sum() / w.sum()))
     if np.any(sd <= 0):
         flat = [str(c) for c, s in zip(frame.columns, sd) if s <= 0]
         raise MethodIncompatibility(f"Constant columns: {', '.join(flat)}.")
