@@ -1225,6 +1225,87 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "sp.overlap_plot(data, treatment=, covariates=).",
         ["overlap_plot"],
     ),
+    "suest": (
+        "`suest` combines stored estimates; sp.suest(data, equations=["
+        "'y1 ~ x + i.g | fe', 'y2 ~ x + i.g | fe'], cluster=['a', 'b']) fits "
+        "the equations and returns their joint covariance, with "
+        ".test_equal() / .wald() for cross-equation hypotheses (Stata's "
+        "G/(G-1) factor; absorbed effects swept per equation).",
+        ["suest"],
+    ),
+    "pdslasso": (
+        "`pdslasso y d (x1-xp)` is post-double-selection rigorous lasso: "
+        "sp.rlasso_effect(x=[controls], y=, d=, method='double selection', "
+        "data=df, cluster=). `ivlasso` has no counterpart yet.",
+        ["rlasso_effect", "rlasso_effects"],
+    ),
+    "rlasso": (
+        "lassopack's `rlasso y x1-xp` is sp.rlasso(...) (rigorous, "
+        "plug-in penalty lasso); for the effect of one regressor with "
+        "selected controls use sp.rlasso_effect.",
+        ["rlasso", "rlasso_effect"],
+    ),
+    "iebaltab": (
+        "`iebaltab x1 x2, grpvar(treat)` is the balance table "
+        "sp.balance_table(data, treat=, covariates=[...]); "
+        "sp.balance_vs_randomization adds a randomization-based test.",
+        ["balance_table", "balance_vs_randomization"],
+    ),
+    "randtreat": (
+        "`randtreat, generate(t) strata(s)` assigns treatment; use "
+        "sp.randomize(data, n_arms=, prob=, strata=, cluster=, seed=), which "
+        "returns the assignment column and its balance check. Misfit "
+        "handling follows its own rule, so assignments differ from Stata's "
+        "draw even with the same seed.",
+        ["randomize"],
+    ),
+    "shapley2": (
+        "`shapley2, stat(r2)` after regress is sp.shapley_r2(data, y=, x=[...], "
+        "groups={name: [...]}) on the same regressors (exact over all "
+        "subsets). shapley2 stores each subset R-squared as a float, so "
+        "the two agree to about 1e-7.",
+        ["shapley_r2"],
+    ),
+    "kalpha": (
+        "`kalpha c1 c2 c3, scale(n|o|i|r)` is sp.krippendorff_alpha(df[[c1, "
+        "c2, c3]], level='nominal' | 'ordinal' | 'interval' | 'ratio', "
+        "bootstrap=True, seed=) with units in rows and coders in columns.",
+        ["krippendorff_alpha"],
+    ),
+    "kappaetc": (
+        "`kappaetc` reports several agreement coefficients; Krippendorff's "
+        "alpha is sp.krippendorff_alpha and Cohen's kappa for two raters is "
+        "sp.cohen_kappa.",
+        ["krippendorff_alpha", "cohen_kappa"],
+    ),
+    "swindex": (
+        "`swindex y1 y2 y3, generate(idx) normby(treat) flip(y3)` is "
+        "sp.summary_index(data, outcomes=[...], treat=, method='anderson', "
+        "reverse=[...]); `norescale` / `fullrescale` are rescale='none' / "
+        "'full'. method='klk' gives the Kling-Liebman-Katz equal-weight index.",
+        ["summary_index"],
+    ),
+    "qqvalue": (
+        "`qqvalue p, method(m)` is sp.adjust_pvalues(p, method=): bonferroni, "
+        "sidak, holm and hochberg keep their names, simes is 'bh' and "
+        "yekutieli is 'by'. Anderson's sharpened q-values are "
+        "sp.sharpened_qvalues(p) (or method='bky').",
+        ["adjust_pvalues", "sharpened_qvalues"],
+    ),
+    "fmm": (
+        "`fmm k: regress | logit | poisson y x, lcprob(z)` is sp.fmm('y ~ x', "
+        "data, k, family='gaussian' | 'logit' | 'poisson', "
+        "class_covariates=['z'], vce=); estat lcprob / lcmean are "
+        ".class_probs / .class_means. Classes are ordered by their mean, so "
+        "the labels may be a permutation of Stata's.",
+        ["fmm"],
+    ),
+    "ivmediate": (
+        "`ivmediate y x, mediator(m) treatment(t) instrument(z) absorb(f)` is "
+        "sp.iv_mediate(data, y=, treat=, mediator=, instrument=, "
+        "covariates=[...], absorb=, cluster=).",
+        ["iv_mediate"],
+    ),
     "weakivtest": (
         "`weakivtest` is sp.effective_f_test(data, endog=, instruments=, "
         "exog=, y=), which reports the effective F and the Montiel Olea-Pflueger "
