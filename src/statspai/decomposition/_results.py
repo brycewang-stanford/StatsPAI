@@ -215,6 +215,17 @@ _CITATIONS: Dict[str, str] = {
         "Shapley value. Journal of Economic Inequality, 11(1), 99-126. "
         "doi:10.1007/s10888-011-9214-z"
     ),
+    "lipovetsky2001analysis": (
+        "Lipovetsky, S., & Conklin, M. (2001). Analysis of regression in "
+        "game theory approach. Applied Stochastic Models in Business and "
+        "Industry, 17(4), 319-330. doi:10.1002/asmb.446"
+    ),
+    "huettner2012axiomatic": (
+        "Huettner, F., & Sunder, M. (2012). Axiomatic arguments for "
+        "decomposing goodness of fit according to Shapley and Owen values. "
+        "Electronic Journal of Statistics, 6, 1239-1250. "
+        "doi:10.1214/12-EJS710"
+    ),
     "lerman1985income": (
         "Lerman, R. I. & Yitzhaki, S. (1985). Income Inequality Effects "
         "by Income Source: A New Approach and Applications to the United "

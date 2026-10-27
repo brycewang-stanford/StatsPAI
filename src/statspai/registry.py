@@ -36933,6 +36933,274 @@ def _build_registry() -> None:
         )
     )
 
+    # -- QJE gaps: Shapley R2, Krippendorff alpha, LLM text coding -------- #
+    register(
+        FunctionSpec(
+            name="shapley_r2",
+            category="decomposition",
+            description=(
+                "Exact Shapley decomposition of an OLS R-squared across "
+                "regressors or groups of regressors (Owen values within "
+                "groups), over all 2^k subsets. Same quantity as Stata "
+                "shapley2 stat(r2), R relaimpo LMG and domir general "
+                "dominance; contributions sum to the full R-squared."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Analysis data."),
+                ParamSpec("y", "str", True, description="Dependent variable."),
+                ParamSpec(
+                    "x",
+                    "list[str]",
+                    True,
+                    description=(
+                        "Regressors to decompose (at most 20 players; "
+                        "listwise deletion of missing rows)."
+                    ),
+                ),
+                ParamSpec(
+                    "groups",
+                    "dict[str, list[str]]",
+                    False,
+                    None,
+                    "Non-overlapping groups {name: [regressors]}; each group "
+                    "is one player (Stata shapley2 group(), R domir .set). "
+                    "Regressors of x in no group play alone. Adds the Owen "
+                    "value of each regressor within its group.",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str | array",
+                    False,
+                    None,
+                    "Analytic weights (column name or array), strictly "
+                    "positive; weighted R-squared as in lm(weights=).",
+                ),
+                ParamSpec(
+                    "covariates_fixed",
+                    "list[str]",
+                    False,
+                    None,
+                    "Controls in every regression (domir .all, relaimpo "
+                    "always=); players share r2 - r2_fixed.",
+                ),
+            ],
+            returns="ShapleyR2Result",
+            example=(
+                'sp.shapley_r2(df, y="fairness", x=["gdp", "trust", "religion"], '
+                'groups={"econ": ["gdp", "gdp2"]})'
+            ),
+            tags=[
+                "decomposition",
+                "shapley",
+                "owen",
+                "r_squared",
+                "relative_importance",
+            ],
+            reference=(
+                "[@shorrocks2013decomposition] [@lipovetsky2001analysis] "
+                "[@huettner2012axiomatic]"
+            ),
+            failure_modes=[
+                FailureMode(
+                    symptom="more than 20 players",
+                    exception="statspai.MethodIncompatibility",
+                    remedy=(
+                        "Combine regressors into groups= or move controls to "
+                        "covariates_fixed=."
+                    ),
+                ),
+                FailureMode(
+                    symptom="collinear regressors",
+                    exception="statspai.NumericalInstability",
+                    remedy="Drop the redundant regressor or a reference dummy.",
+                ),
+            ],
+            alternatives=["shapley_inequality", "gelbach"],
+        )
+    )
+    register(
+        FunctionSpec(
+            name="krippendorff_alpha",
+            category="epi",
+            description=(
+                "Krippendorff's alpha inter-coder reliability for a units x "
+                "coders table with missing codings, at nominal / ordinal / "
+                "interval / ratio level, with an optional seeded bootstrap "
+                "CI (Stata kalpha algorithm, or unit resampling)."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame | array",
+                    True,
+                    description=(
+                        "Codings: rows are units, columns coders (NaN = missing)."
+                    ),
+                ),
+                ParamSpec(
+                    "level",
+                    "str",
+                    False,
+                    "nominal",
+                    "Level of measurement (difference function).",
+                    enum=["nominal", "ordinal", "interval", "ratio"],
+                ),
+                ParamSpec(
+                    "layout",
+                    "str",
+                    False,
+                    "units_by_coders",
+                    "Orientation of data; 'coders_by_units' is the irr / "
+                    "kalpha (no transpose) layout.",
+                    enum=["units_by_coders", "coders_by_units"],
+                ),
+                ParamSpec("bootstrap", "bool", False, False, "Add a bootstrap CI."),
+                ParamSpec("n_boot", "int", False, 20000, "Bootstrap replications."),
+                ParamSpec(
+                    "ci_method",
+                    "str",
+                    False,
+                    "krippendorff",
+                    "'krippendorff' draws value pairs from the coincidence "
+                    "matrix (Stata kalpha); 'units' resamples units.",
+                    enum=["krippendorff", "units"],
+                ),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "1 - confidence level of the CI."
+                ),
+                ParamSpec(
+                    "min_alpha",
+                    "list[float]",
+                    False,
+                    [0.667, 0.8],
+                    "Thresholds for P(alpha* < min_alpha).",
+                ),
+                ParamSpec("seed", "int", False, None, "Bootstrap seed."),
+                ParamSpec(
+                    "draws",
+                    "int",
+                    False,
+                    None,
+                    "Pairs drawn per 'krippendorff' replication (default "
+                    "min(25 x nonzero cells, n (m - 1) / 2)).",
+                ),
+            ],
+            returns="KrippendorffAlphaResult",
+            example=(
+                'sp.krippendorff_alpha(codes_df, level="ordinal", '
+                "bootstrap=True, seed=1)"
+            ),
+            tags=[
+                "agreement",
+                "reliability",
+                "inter_coder",
+                "content_analysis",
+                "kappa",
+            ],
+            reference="[@krippendorff1970estimating] [@hayes2007answering]",
+            failure_modes=[
+                FailureMode(
+                    symptom="all pairable codings identical (D_e = 0)",
+                    exception="statspai.DataInsufficient",
+                    remedy=(
+                        "Alpha is undefined; report raw agreement or code a "
+                        "varied sample."
+                    ),
+                ),
+            ],
+            alternatives=["cohen_kappa"],
+        )
+    )
+    register(
+        FunctionSpec(
+            name="llm_code_responses",
+            category="causal_text",
+            description=(
+                "Code open-ended text responses into codebook categories "
+                "with an LLM client (no offline fallback), validating every "
+                "label strictly (one retry, then flagged), with provenance "
+                "hashes and reliability (Krippendorff alpha / Cohen kappa) "
+                "across repeated passes and against human codes."
+            ),
+            params=[
+                ParamSpec("texts", "list[str]", True, description="Responses to code."),
+                ParamSpec(
+                    "codebook",
+                    "dict | list | DataFrame",
+                    True,
+                    description=(
+                        "{label: description}, a label list, or a DataFrame "
+                        "with 'label'."
+                    ),
+                ),
+                ParamSpec(
+                    "client",
+                    "LLMClient | callable | str",
+                    False,
+                    None,
+                    "sp.causal_llm client (chat(role, prompt)), callable "
+                    "prompt -> str, or 'auto' / 'anthropic' / 'openai'. "
+                    "Required: None raises LLMClientRequired.",
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    None,
+                    "Model id (provenance; builds a string client).",
+                ),
+                ParamSpec("n_coders", "int", False, 1, "Independent coding passes."),
+                ParamSpec("temperature", "float", False, 0.0, "Sampling temperature."),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    None,
+                    "Seeds the batch order of each pass (not provider sampling).",
+                ),
+                ParamSpec(
+                    "human_codes",
+                    "list",
+                    False,
+                    None,
+                    "Human codes aligned with texts (None = not coded) for "
+                    "LLM-human agreement.",
+                ),
+                ParamSpec("batch_size", "int", False, 20, "Responses per prompt."),
+                ParamSpec(
+                    "multi_label",
+                    "bool",
+                    False,
+                    False,
+                    "Allow several labels per response.",
+                ),
+                ParamSpec(
+                    "instructions", "str", False, "", "Context added to the prompt."
+                ),
+            ],
+            returns="LLMCodingResult",
+            example=(
+                "sp.llm_code_responses(df.answer.tolist(), "
+                '{"risk": "...", "cost": "..."}, '
+                'client=sp.causal_llm.anthropic_client(model="..."), '
+                "n_coders=2, seed=1)"
+            ),
+            tags=["text", "llm", "coding", "measurement", "survey", "reliability"],
+            reference="[@hayes2007answering] [@cohen1960coefficient]",
+            failure_modes=[
+                FailureMode(
+                    symptom="no client",
+                    exception="statspai.causal_text.LLMClientRequired",
+                    remedy=(
+                        "Pass client= (an sp.causal_llm client or a callable) "
+                        "or client='auto'."
+                    ),
+                ),
+            ],
+            alternatives=["llm_annotator_correct"],
+        )
+    )
+
     _BASE_REGISTRY_BUILT = True
 
 

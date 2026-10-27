@@ -24,6 +24,7 @@ Modelled after R's ``epiR``, ``epitools``, and ``fmsb``.
 2.5
 """
 
+from .agreement import KrippendorffAlphaResult, krippendorff_alpha
 from .bradford_hill import VIEWPOINTS as BRADFORD_HILL_VIEWPOINTS
 from .bradford_hill import BradfordHillResult, bradford_hill
 from .diagnostic import (
@@ -98,4 +99,6 @@ __all__ = [
     "auc",
     "ndcg",
     "cohen_kappa",
+    "krippendorff_alpha",
+    "KrippendorffAlphaResult",
 ]
