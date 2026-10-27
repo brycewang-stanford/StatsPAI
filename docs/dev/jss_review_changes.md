@@ -5729,3 +5729,35 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-27 — Track C re-timed on 1.40.2 (JSS re-anchor); manifest re-hashed
+
+The freeze is inactive (not submitted). The manifest
+`tests/jss_review_freeze.json` was re-hashed on the v1.40.2 tag (with the
+re-timed Track C files below in place) and set back to inactive, so at
+submission the only step is `"active": true`.
+
+- **Commits.** `9d5f2a2f4`.
+- **Reason.** All four Track C modules were stale on v1.40.2
+  (`core/results.py` and `core/_agent_summary.py` gained
+  `inference_rule()` after 1.40.1, both on the timed paths). Re-timed on
+  the tag with the idle-guarded runner (peak load 0.79–1.71) and re-traced
+  there; `trace_perf_path.py --check` is OK for all four on v1.40.2.
+- **Effect on the paper.** Section 6 and the Track C table / figure carry
+  these numbers (Paper-JSS `2ba1890`): at the largest size HDFE 2.4x,
+  CS-DiD 2.3x (was 2.2x), SCM 3.5x, DML 1.09x (was 0.99x; a tie under the
+  1.5x rule).
+- **Paths.**
+  - `tests/perf/figures/track_c_loglog.pdf`
+  - `tests/perf/figures/track_c_loglog.png`
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/_timed_path.json`
+  - `tests/perf/results/perf_table.md`
+  - `tests/perf/results/perf_table.tex`

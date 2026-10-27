@@ -169,6 +169,15 @@ the fixtures measured (03, 13, 28, 89). R therefore sees an input
 perturbation of about 1e-16 relative. That is the floor below which a py–R
 agreement says nothing, and it is far below every budget.
 
+Decision (2026-10-27): leave the R side on `read.csv`. Every R reader we
+tried misparses the same values (`read.csv`, `scan` / `as.numeric`,
+`data.table::fread`; `readr` slightly more often: 42 / 42 / 42 / 53 of 1,540
+values on 43_heckman, 39 / 39 / 39 / 40 of 3,000 on 30_oaxaca, none on
+01_ols), so there is no drop-in fix. A correctly rounded R reader (e.g.
+through `Rmpfr`) would change every R golden for a gain at the 1e-16 level,
+and any row it could matter for would already show up above 1e-6 in
+`ROW_GAP_NOTES`. Revisit only if a registered row is ever traced to it.
+
 ## Reproducing the audit
 
 Run from the repository root. This recomputes, for every module, the
