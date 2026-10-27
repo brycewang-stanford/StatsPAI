@@ -4,15 +4,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-Two pieces of work. The defaults that 1.40.0 and 1.40.1 announced with a
-`FutureWarning` take effect ("Changed" below). And an option scan of
-eighteen modules that had never been tested option by option: `spatial`,
-`bartik`, `survival`, `epi`, `mendelian`, `qte`, `bounds`, `selection`,
+## [1.41.0] — 2026-10-27
+
+Three pieces of work. The defaults that 1.40.0 and 1.40.1 announced with a
+`FutureWarning` take effect ("Changed" below). Deprecations whose removal
+date has passed are removed ("Removed"). And two rounds of option scans of
+modules that had never been tested option by option: `spatial`, `bartik`,
+`survival`, `epi`, `mendelian`, `qte`, `bounds`, `selection`,
 `postestimation`, `inference`, `robustness`, `survey`, `multilevel`, `gmm`,
-`metalearners`, `tmle`, `conformal_causal` and `policy_learning`. Each
-defect was reproduced before it was fixed, against a reference
-implementation, a known truth or an identity; the tests are in
-`tests/test_*_scan_oct2026.py`. The ⚠️ entries change numbers.
+`metalearners`, `tmle`, `conformal_causal`, `policy_learning`, `power`,
+`rlasso`, `crossval` and `interference`. Each defect was reproduced before
+it was fixed, against a reference implementation, a known truth or an
+identity; the tests are in `tests/test_*_scan_oct2026*.py`,
+`tests/test_option_scan_r5_*.py` and `tests/test_te_ml_scan_round5.py`.
+The ⚠️ entries change numbers.
 
 ### Changed (defaults announced for 1.41)
 

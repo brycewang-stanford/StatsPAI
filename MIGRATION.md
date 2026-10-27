@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.2 → next: ⚠️ cluster folds in `sp.aipw`, conformal test weights, weighted R-learner (round-5 scan)
+## 1.40.2 → 1.41: ⚠️ cluster folds in `sp.aipw`, conformal test weights, weighted R-learner (round-5 scan)
 
 - `sp.aipw(cluster=)` with `cross_fit=True` (the default): folds are drawn
   over whole clusters, so estimates and SEs change. There is no option for
@@ -26,7 +26,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.2 → next: ⚠️ power, rlasso, cross_validate and interference (option scan round 5)
+## 1.40.2 → 1.41: ⚠️ power, rlasso, cross_validate and interference (option scan round 5)
 
 - `sp.cross_validate(weights=)`: engines now fit the weighted model; DoubleML
   and the DiD engines are skipped. A cross-check that said AGREE before was
@@ -60,7 +60,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.40.2 → next: ⚠️ attributable fractions, NNT intervals, NDCG ties, MR-BMA limits
+## 1.40.2 → 1.41: ⚠️ attributable fractions, NNT intervals, NDCG ties, MR-BMA limits
 
 - `sp.epi.attributable_risk` on a table with a zero cell: `rr`,
   `ar_exposed` and `paf` are the plug-in values on the raw counts (Stata
@@ -115,7 +115,7 @@ for every weight.
 
 ---
 
-## 1.40.2 → next: ⚠️ spatial ML search interval and `sp.impacts` stability interval
+## 1.40.2 → 1.41: ⚠️ spatial ML search interval and `sp.impacts` stability interval
 
 Numbers change in these calls; there is no option to restore the old ones,
 which were wrong.
@@ -138,7 +138,7 @@ which were wrong.
 
 ---
 
-## 1.40.2 → next: ⚠️ CATE, TMLE survival, conformal and policy-tree fixes (Oct 2026 scan)
+## 1.40.2 → 1.41: ⚠️ CATE, TMLE survival, conformal and policy-tree fixes (Oct 2026 scan)
 
 - `sp.ltmle_survival`: the survival curves are now the sequential-regression
   TMLE with every past treatment set to the regime. Numbers change whenever
@@ -223,7 +223,7 @@ unaffected; the last column of the table restores the 1.40 behaviour.
 
 ---
 
-## 1.40.2 → next: ⚠️ survey / multilevel / gmm option scan
+## 1.40.2 → 1.41: ⚠️ survey / multilevel / gmm option scan
 
 Numbers that change, and how to get the old ones where that makes sense:
 
@@ -252,7 +252,7 @@ Numbers that change, and how to get the old ones where that makes sense:
 
 ---
 
-## 1.40.2 → Unreleased: ⚠️ postestimation after `irr=True`, unseen factor levels, stateful transforms in new data
+## 1.40.2 → 1.41: ⚠️ postestimation after `irr=True`, unseen factor levels, stateful transforms in new data
 
 - `sp.test` / `sp.lincom` / `sp.nlcom` / `sp.hypotheses` after
   `sp.poisson` / `sp.nbreg` / `sp.xtnbreg` with `irr=True` name and test the
@@ -275,7 +275,7 @@ Numbers that change, and how to get the old ones where that makes sense:
 
 ---
 
-## 1.40.2 → Unreleased: ⚠️ `sp.twoway_cluster`, `sp.conley`, `sp.front_door(covariates=)`, `sp.suest(cluster=)`
+## 1.40.2 → 1.41: ⚠️ `sp.twoway_cluster`, `sp.conley`, `sp.front_door(covariates=)`, `sp.suest(cluster=)`
 
 - `sp.twoway_cluster`: `predict(what='confidence' / 'prediction')` use the
   two-way covariance and the error variance RSS / (n - k); p-values always
@@ -300,7 +300,7 @@ Numbers that change, and how to get the old ones where that makes sense:
 
 ---
 
-## 1.40.2 → Unreleased: ⚠️ `sp.spec_curve`, `sp.robustness_report`, sensitivity breakpoints
+## 1.40.2 → 1.41: ⚠️ `sp.spec_curve`, `sp.robustness_report`, sensitivity breakpoints
 
 - `sp.spec_curve`: `ci_lower` / `ci_upper` are `1 - alpha` intervals (they
   were 95% for every `alpha`). The `nonrobust` / `hc1` specifications keep
@@ -319,7 +319,7 @@ Numbers that change, and how to get the old ones where that makes sense:
 
 ---
 
-## 1.40.2 → next: ⚠️ survival, epidemiology and Mendelian-randomization statistics (2026-10 option scan)
+## 1.40.2 → 1.41: ⚠️ survival, epidemiology and Mendelian-randomization statistics (2026-10 option scan)
 
 None of these has an option that restores the old number; each old number
 was wrong for the quantity it was labelled as.
@@ -350,7 +350,7 @@ was wrong for the quantity it was labelled as.
 
 ---
 
-## Unreleased: ⚠️ bounds, quantile and selection fixes (option scan, 2026-10-27)
+## 1.40.2 → 1.41: ⚠️ bounds, quantile and selection fixes (option scan, 2026-10-27)
 
 Numbers change in these calls; there is no option to restore the old ones,
 which were wrong.
@@ -384,7 +384,7 @@ which were wrong.
 
 ---
 
-## 1.40.2 → unreleased: ⚠️ spatial impacts, `SpatialModel`, local Moran, spatial DiD, shift-share alignment
+## 1.40.2 → 1.41: ⚠️ spatial impacts, `SpatialModel`, local Moran, spatial DiD, shift-share alignment
 
 Numbers change in these calls; there is no option to restore the old ones,
 which were wrong.
