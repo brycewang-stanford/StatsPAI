@@ -39,32 +39,32 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 64,799 | 98 | 99 |
+| `did` | 66,187 | 101 | 102 |
 | `agent` | 52,436 | 85 | 4 |
 | `regression` | 37,257 | 52 | 67 |
 | `timeseries` | 35,418 | 64 | 88 |
 | `synth` | 33,779 | 51 | 56 |
 | `rd` | 24,616 | 43 | 57 |
 | `matching` | 21,270 | 35 | 44 |
-| `inference` | 18,961 | 36 | 60 |
+| `inference` | 19,861 | 39 | 65 |
 | `smart` | 17,041 | 21 | 31 |
 | `forest` | 16,883 | 18 | 33 |
 | `core` | 16,548 | 32 | 7 |
 | `mcmc` | 16,313 | 28 | 50 |
 | `diagnostics` | 16,014 | 28 | 47 |
-| `panel` | 15,539 | 25 | 29 |
+| `panel` | 17,317 | 31 | 32 |
 | `output` | 15,202 | 22 | 42 |
 | `dml` | 10,566 | 25 | 17 |
-| `iv` | 9,917 | 18 | 11 |
+| `iv` | 10,665 | 19 | 13 |
 | `decomposition` | 10,596 | 20 | 34 |
 | `spatial` | 9,443 | 34 | 42 |
 | `fast` | 9,403 | 20 | 0 |
 | `plots` | 8,895 | 21 | 9 |
-| `structural` | 7,541 | 21 | 18 |
+| `structural` | 8,608 | 24 | 21 |
 | `dag` | 7,264 | 13 | 27 |
 | `utils` | 6,989 | 15 | 42 |
 | `survival` | 6,982 | 13 | 18 |
-| `postestimation` | 6,696 | 12 | 20 |
+| `postestimation` | 7,236 | 13 | 21 |
 | `causal_discovery` | 6,469 | 16 | 26 |
 | `tmle` | 6,435 | 11 | 15 |
 | `mendelian` | 5,898 | 14 | 41 |
@@ -76,7 +76,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `frontier` | 5,004 | 8 | 12 |
 | `experimental` | 4,788 | 10 | 23 |
 | `workflow` | 4,620 | 5 | 3 |
-| `gmm` | 4,431 | 12 | 4 |
+| `gmm` | 5,454 | 14 | 5 |
 | `robustness` | 4,347 | 8 | 14 |
 | `qte` | 4,129 | 9 | 12 |
 | `interference` | 4,000 | 12 | 23 |

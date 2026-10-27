@@ -52,12 +52,24 @@ from ..exceptions import MethodIncompatibility
 from .hdfe import Absorber, _absorbed_total_dof, _cluster_effective_fe_dof
 
 
-def _meat(A: np.ndarray, e: np.ndarray, codes: Optional[np.ndarray]) -> np.ndarray:
-    """``Σ_g (A_g'e_g)(A_g'e_g)'`` (``codes=None``: one row per group).
+def _meat(A: np.ndarray, e: np.ndarray, groups: Optional[np.ndarray]) -> np.ndarray:
+    """``Σ_g (A_g'e_g)(A_g'e_g)'`` (``groups=None``: one row per group).
 
-    ``codes`` are the cluster labels factorised once per fit
-    (``pd.factorize(groups)[0]``, first-appearance order), so the cluster
-    sums come out in the order they always have.
+    ``groups`` are raw cluster labels; they are factorised here. Callers
+    that already hold the codes use :func:`_meat_codes`.
+    """
+    if groups is None:
+        return _meat_codes(A, e, None)
+    return _meat_codes(A, e, pd.factorize(groups)[0])
+
+
+def _meat_codes(
+    A: np.ndarray, e: np.ndarray, codes: Optional[np.ndarray]
+) -> np.ndarray:
+    """:func:`_meat` on cluster codes factorised once per fit.
+
+    ``codes`` is ``pd.factorize(groups)[0]`` (first-appearance order), so
+    the cluster sums come out in the order they always have.
     """
     U = A * e[:, None]
     if codes is None:
@@ -233,10 +245,10 @@ def hdfe_iv(
     B = np.linalg.inv(Xhat.T @ Xhat)
     dfr = N - K - sdof
     if groups is not None:
-        V = B @ _meat(Xhat, e, gcodes) @ B * ((N - 1) / dfr * G / (G - 1))
+        V = B @ _meat_codes(Xhat, e, gcodes) @ B * ((N - 1) / dfr * G / (G - 1))
         se_type = "cluster"
     elif vce is not None:
-        V = B @ _meat(Xhat, e, None) @ B * (N / dfr)
+        V = B @ _meat_codes(Xhat, e, None) @ B * (N / dfr)
         se_type = "hc_robust (ivreg2 small)"
     else:
         V = B * (rss / dfr)
@@ -272,7 +284,7 @@ def hdfe_iv(
             chi2 = float(pi @ (Zt.T @ Zt) @ pi) / s2n
             F = float(pi @ (Zt.T @ Zt) @ pi) / L1 / (float(u @ u) / dfr_fs)
             return pi, u, chi2, F
-        Vn = ZtZt_inv @ _meat(Zt, u, gcodes) @ ZtZt_inv
+        Vn = ZtZt_inv @ _meat_codes(Zt, u, gcodes) @ ZtZt_inv
         chi2 = _wald(pi, Vn)
         return pi, u, chi2, chi2 / L1 / q_fs
 
@@ -313,7 +325,7 @@ def hdfe_iv(
         else:
             kp_f = F
             s = Zt.T @ d1
-            kp_lm = _wald(s, _meat(Zt, d1, gcodes))
+            kp_lm = _wald(s, _meat_codes(Zt, d1, gcodes))
     lm_df = L1 - K1 + 1
 
     # Anderson-Rubin: excluded instruments in the reduced form of y
@@ -326,7 +338,7 @@ def hdfe_iv(
             Pe = Zf @ np.linalg.solve(ZtZ, Zf.T @ e)
             j_stat = N * float(e @ Pe) / rss
         else:
-            Winv = np.linalg.inv(_meat(Zf, e, gcodes))
+            Winv = np.linalg.inv(_meat_codes(Zf, e, gcodes))
             A = X.T @ Zf @ Winv
             b2 = np.linalg.solve(A @ Zf.T @ X, A @ Zf.T @ yt)
             g2 = Zf.T @ (yt - X @ b2)
