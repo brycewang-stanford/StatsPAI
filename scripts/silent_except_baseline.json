@@ -1,6 +1,6 @@
 {
   "note": "Per-file count of silent broad except handlers. Ratchet: counts may only go down. See scripts/silent_except_audit.py.",
-  "total": 155,
+  "total": 149,
   "files": {
     "src/statspai/_schema_enrich.py": 1,
     "src/statspai/agent/_data_loader.py": 1,
@@ -86,14 +86,9 @@
     "src/statspai/regression/selection.py": 1,
     "src/statspai/robustness/spec_curve.py": 1,
     "src/statspai/robustness/unified_sensitivity.py": 3,
-    "src/statspai/smart/brief.py": 1,
-    "src/statspai/smart/examples.py": 2,
-    "src/statspai/smart/identification.py": 1,
-    "src/statspai/smart/preflight.py": 1,
     "src/statspai/timeseries/arima.py": 1,
     "src/statspai/tmle/tmle.py": 1,
     "src/statspai/utils/_attrs.py": 1,
-    "src/statspai/utils/_rng.py": 3,
-    "src/statspai/workflow/_robustness.py": 1
+    "src/statspai/utils/_rng.py": 3
   }
 }

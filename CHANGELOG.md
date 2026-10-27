@@ -475,6 +475,74 @@ Coordinator follow-ups to the round-6 scan:
   it now gives 0, with NaN interval and p-value and a warning, as Stata 18
   `cci, woolf` (`r(or) = 0`, no interval). `correction="haldane"` keeps
   the old numbers. Same rule as `relative_risk` above.
+Option scan round 7: `smart/` and `workflow/` (tests in
+`tests/test_smart_workflow_option_scan_r7.py`). Ground truth is the
+library's own direct call on the same data.
+
+- ⚠️ **`sp.assumption_audit` read the wrong Oster number.** The
+  "Robustness to unobservables" check printed the plug-in `delta` (1.0, the
+  value `sp.oster_bounds` evaluates the bounds at) as the critical delta,
+  so every linear audit said "Oster δ = 1.00, FAIL". It now reports δ* =
+  `delta_for_zero`. On the test data the check goes from 1.00 (FAIL) to
+  1.85 (PASS), the value `sp.oster_bounds` itself returns. The "N/k > 10"
+  check never ran on `sp.regress` results (it read `n_obs`, which they
+  store as `nobs`) and now does.
+- ⚠️ **`sp.sensitivity_dashboard` never ran its default "unobservables"
+  dimension.** It called `sp.oster_bounds(result)`, which only takes raw
+  columns, so the dimension always failed with a warning; had it run it
+  would have read the same plug-in `delta`. It now rebuilds the outcome,
+  treatment and controls from the regression, checks that the long
+  regression reproduces the baseline coefficient, and reports δ* and the
+  identified set [β*, β]. Default dashboards gain this row, so the overall
+  grade can change. `alpha=` was ignored (the critical value was 1.96 at
+  every level); the baseline interval and the "significant" flags now use
+  z(1 - alpha/2), which also moves the default 95% interval by about 2e-6
+  of the SE. Requested dimensions that do not exist ("controls",
+  "functional_form", listed in the docstring) used to be ignored and now
+  warn.
+- ⚠️ **`sp.compare_estimators` and `sp.recommend` dropped covariates.**
+  `compare_estimators` passed only the first 10 covariates to OLS,
+  matching, IPW, AIPW and g-computation (5 for panel FE and MSM, 20 for
+  DML and the causal forest). The `sp.recommend` cards did the same (5 for
+  the IV formula, logit, Poisson, fracreg and panel FE; 10 for matching and
+  Oaxaca; 20 for DML). With 12 covariates and a confounder in the 12th, the
+  OLS row read 2.071 against 0.447 for `sp.regress` on all of them. Every
+  covariate is now used.
+- ⚠️ **`sp.recommend(...).run()` fitted an unadjusted regression on its
+  OLS cards.** For RCT, observational and cross-section designs the card
+  showed `sp.regress('y ~ d + x1 + ...')` as its code but `.run()` fitted
+  `y ~ d`. A continuous-treatment card described as "linear adjustment for
+  the controls" returned 2.067 instead of 0.447 on the data above. `.run()`
+  now fits the formula the card shows. `sp.causal` already refitted these
+  cards with the covariates and is unchanged.
+- ⚠️ **`sp.causal(cluster=)` / `sp.paper(cluster=)` did not cluster the
+  estimate.** The column reached only `sp.check_identification`, where it
+  silenced the advice to pass `cluster=` to the estimator, while the fit
+  reported HC1 (or unit-clustered) standard errors. It is now forwarded to
+  the headline estimator and the comparison panel (`cluster=`, or
+  `clustervars=` for `sp.callaway_santanna`). A covariate-adjusted RCT fit
+  on 30 clusters went from SE 0.2021 to 0.2219, which is `sp.regress(...,
+  cluster=)`. A staggered DiD clustered at a coarser level went from
+  0.1533 to 0.1095, which is `sp.callaway_santanna(clustervars=)`. An
+  estimator without a cluster option (matching, DML) keeps its SE and
+  raises a `WorkflowDegradedWarning`; its comparison row says "SE not
+  clustered". The regression fallback used the first five covariates and
+  the IV fallback none; both use all of them now.
+- ⚠️ **`sp.causal` comparison table: CBPS standard error changed on every
+  run.** `sp.cbps` bootstraps its SE and the workflow called it without a
+  seed. It is now seeded (`seed=0`).
+- ⚠️ **`sp.compare_estimators(alpha=)` agreement.** The "significance
+  agreement" share used 0.05 whatever `alpha` was, and the summary header
+  said "95% CI". A single successful method was reported as "ROBUST:
+  estimates are stable across methods" with sign and significance
+  agreement of 100%; the agreement metrics are now NaN and the summary
+  says they cannot be assessed.
+
+Option scan round 6: `output/`, `plots/` and `fast/` (tests in
+`tests/test_output_option_scan_r6.py`,
+`tests/test_plots_output_option_scan_r6.py` and
+`tests/test_fast_option_scan_r6.py`).
+
 
 ### Fixed
 
@@ -627,6 +695,21 @@ Coordinator follow-ups to the round-6 scan:
   adjacency ran the undirected algorithms on it silently. It now warns
   (`AssumptionWarning`) and suggests symmetrising; igraph refuses such a
   graph for Louvain and greedy.
+- Round 7 (`smart/`, `workflow/`): `sp.compare_estimators` left a failed
+  method, an unknown method name and `'panel_fe'` / `'did'` without `id=`
+  and `time=` out of the table with at most a plain warning. Each is now a
+  `WorkflowDegradedWarning` and a record in `ComparisonResult.degradations`.
+  The comparison panel, sensitivity panel and CATE stages of `sp.causal`,
+  the DAG step and `verify=True` step of `sp.recommend`, and the Oster and
+  sensemakr checks of the robustness battery record their failures the
+  same way (CLAUDE.md section 3.7).
+- `sp.brief` rounded the interval level, printing a 99.5% interval as
+  "100% CI" and a 97.5% one as "98% CI", and dropped `N=` when `n_obs` was
+  a NumPy integer (also found by the round-7 `agent/` line). The
+  robustness battery, the `sp.causal` report and the `sp.paper` results
+  section labelled every interval "95% CI" whatever the result's `alpha`.
+- `sp.recommend` listed the logit card twice for an RCT with a binary
+  outcome.
 
 ### Added
 

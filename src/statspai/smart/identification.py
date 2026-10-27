@@ -277,7 +277,7 @@ def _check_bad_controls(
                 continue
             try:
                 corr = c_series.corr(t_series)
-            except Exception:
+            except (TypeError, ValueError):
                 continue
             if pd.notna(corr) and abs(corr) > 0.5:
                 findings.append(

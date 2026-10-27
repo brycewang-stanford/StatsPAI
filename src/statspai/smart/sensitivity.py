@@ -89,8 +89,8 @@ class SensitivityDashboard:
             lines.append(f"  {dim['dimension'].upper()}")
             lines.append(f"  Variations: {dim['n_variations']}")
             lines.append(f"  Range: [{dim['min_est']:.4f}, {dim['max_est']:.4f}]")
-            lines.append(f"  Sign stable: {dim['sign_stable']:.0%}")
-            lines.append(f"  Sig. stable: {dim['sig_stable']:.0%}")
+            lines.append(f"  Sign stable: {_pct(dim['sign_stable'])}")
+            lines.append(f"  Sig. stable: {_pct(dim['sig_stable'])}")
 
             status = "✓" if dim["stable"] else "✗"
             lines.append(
@@ -102,6 +102,62 @@ class SensitivityDashboard:
 
         lines.append(f"\n{'=' * 70}")
         return "\n".join(lines)
+
+
+def _pct(x: Any) -> str:
+    """Share as a percentage; ``n/a`` when the dimension does not test it."""
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return "n/a"
+    return f"{v:.0%}" if np.isfinite(v) else "n/a"
+
+
+#: Dimension names this dashboard implements. Anything else in an explicit
+#: ``dimensions=`` list is reported as skipped, never silently ignored.
+_KNOWN_DIMENSIONS = (
+    "sample",
+    "outliers",
+    "unobservables",
+    "first_stage_f",
+    "trim_sweep",
+    "msm",
+    "monotonicity",
+    "principal_strat",
+    "proximal",
+)
+
+_INTERCEPT_NAMES = ("_cons", "Intercept", "const", "(Intercept)")
+
+
+def _oster_spec(
+    result: Any, data: Optional[pd.DataFrame], treat: Optional[str]
+) -> tuple:
+    """``(y, treat, controls)`` for ``sp.oster_bounds`` from a linear result.
+
+    Oster's bounds compare the short regression of y on the treatment with
+    the long one that adds the controls, so they need the raw columns. A
+    result whose regressors are not columns of ``data`` (formula
+    transformations, factor dummies) cannot be re-expressed and raises.
+    """
+    if data is None:
+        raise ValueError("Oster bounds need the estimation data (pass data=).")
+    info = getattr(result, "data_info", {}) or {}
+    y = info.get("dependent_var")
+    names = [str(n) for n in getattr(result, "params", pd.Series(dtype=float)).index]
+    if not y or treat is None or treat not in names:
+        raise ValueError(
+            "Oster bounds need a regression result that names its outcome "
+            "and the coefficient of interest."
+        )
+    controls = [n for n in names if n != treat and n not in _INTERCEPT_NAMES]
+    missing = [c for c in [y, treat, *controls] if c not in data.columns]
+    if missing:
+        raise ValueError(
+            f"{missing!r} are not columns of data (formula terms); "
+            "call sp.oster_bounds with explicit columns."
+        )
+    return y, treat, controls
 
 
 def _linear_design(result: Any) -> Optional[tuple]:
@@ -153,9 +209,14 @@ def sensitivity_dashboard(
         Original data (auto-extracted if possible).
     dimensions : list of str, optional
         Which dimensions to test. Default: all applicable.
-        Options: 'sample', 'controls', 'functional_form',
-        'outliers', 'unobservables'.
+        Options: 'sample', 'outliers', 'unobservables', and the
+        method-specific 'first_stage_f' (proximal), 'trim_sweep' (MSM)
+        and 'monotonicity' (principal stratification). A name the
+        dashboard does not implement is reported with a
+        ``WorkflowDegradedWarning`` rather than ignored.
     alpha : float, default 0.05
+        Two-sided level of the baseline interval and of the
+        "significant" flags (``|est / se| > z_{1-alpha/2}``).
     verbose : bool, default True
 
     Returns
@@ -237,7 +298,9 @@ def sensitivity_dashboard(
         baseline_se = result.std_errors.iloc[0]
         baseline_key = str(result.params.index[0])
 
-    z_crit = 1.96
+    from scipy import stats as _stats
+
+    z_crit = float(_stats.norm.ppf(1 - alpha / 2))
     baseline = {
         "estimate": baseline_est,
         "se": baseline_se,
@@ -293,6 +356,16 @@ def sensitivity_dashboard(
         )
     dim_results = []
 
+    if dimensions is not None:
+        dimensions = list(dimensions)
+        for _name in dimensions:
+            if _name not in _KNOWN_DIMENSIONS:
+                record_degradation(
+                    None,
+                    section=f"sensitivity_dashboard: dimension {_name!r}",
+                    exc=NotImplementedError(f"dimension {_name!r} is not implemented"),
+                    detail="known: " + ", ".join(_KNOWN_DIMENSIONS),
+                )
     if dimensions is None:
         dimensions = ["sample", "outliers", "unobservables"]
         # Auto-append Sprint-B-specific dimensions when the result
@@ -384,25 +457,45 @@ def sensitivity_dashboard(
                 )
 
     if "unobservables" in dimensions:
-        # Oster-style sensitivity
+        # Oster (2019) coefficient stability. sp.oster_bounds takes the raw
+        # columns, not a fitted result; the critical value is delta*
+        # (``delta_for_zero``), not the plug-in ``delta`` (1.0) the bounds
+        # were evaluated at. The reported range is the identified set
+        # between the bias-adjusted and the controlled coefficient.
         try:
             import statspai as sp
 
-            oster = sp.oster_bounds(result)
-            delta = oster.get("delta", oster.get("oster_delta", np.nan))
-            if np.isfinite(delta):
+            y_col, treat_col, controls = _oster_spec(result, data, baseline_key)
+            oster = sp.oster_bounds(
+                data=data, y=y_col, treat=treat_col, controls=controls or None
+            )
+            beta_long = float(oster.get("beta_long"))
+            if not np.isclose(beta_long, float(baseline_est), rtol=1e-6, atol=1e-10):
+                raise ValueError(
+                    f"the long regression gives {beta_long:.6g}, not the "
+                    f"baseline {float(baseline_est):.6g} (weights, a different "
+                    "sample or a non-OLS estimator)"
+                )
+            delta = float(oster.get("delta_for_zero", np.nan))
+            beta_adj = float(oster.get("beta_adjusted", np.nan))
+            if np.isfinite(delta) and np.isfinite(beta_adj):
+                lo, hi = sorted([beta_adj, beta_long])
                 dim_results.append(
                     {
                         "dimension": "Unobservable confounders (Oster)",
                         "n_variations": 1,
-                        "min_est": baseline_est if delta > 1 else 0,
-                        "max_est": baseline_est,
-                        "sign_stable": 1.0 if delta > 1 else 0.5,
-                        "sig_stable": 1.0 if delta > 1 else 0.0,
-                        "stable": abs(delta) > 1,
-                        "remedy": f"Oster δ = {delta:.2f}. If < 1, selection on "
-                        f"unobservables could explain the result. "
-                        f"Try sp.sensemakr() for more detail.",
+                        "min_est": lo,
+                        "max_est": hi,
+                        "sign_stable": float(
+                            np.sign(beta_adj) == np.sign(baseline_est)
+                        ),
+                        # Oster's bounds say nothing about significance.
+                        "sig_stable": float("nan"),
+                        "stable": bool(abs(delta) > 1),
+                        "remedy": f"Oster δ* = {delta:.2f} (selection ratio that "
+                        "drives β to 0). If |δ*| < 1, selection on "
+                        "unobservables weaker than on observables could "
+                        "explain the result. Try sp.sensemakr() for more detail.",
                     }
                 )
         except Exception as exc:

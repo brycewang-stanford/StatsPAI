@@ -258,15 +258,13 @@ def examples(name: str) -> Dict[str, Any]:
     # examples speculatively.
     record: Dict[str, Any] = {}
     known = False
-    try:
-        from ..registry import describe_function as _describe
+    from ..registry import describe_function as _describe
 
-        try:
-            record = _describe(key) or {}
-            known = True
-        except Exception:
-            record = {}
-    except Exception:
+    try:
+        record = _describe(key) or {}
+        known = True
+    except KeyError:
+        # not a registered name; curated snippets may still exist
         record = {}
 
     snippets = list(_CURATED.get(key, []))

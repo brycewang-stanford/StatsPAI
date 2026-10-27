@@ -878,14 +878,27 @@ def recommend(
                     )
         except Exception as e:
             warnings_list.append(f"DAG analysis failed: {e}")
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                None,
+                section="recommend: DAG adjustment set",
+                exc=e,
+                detail="falling back to the covariates= list as controls",
+            )
 
     controls = dag_adjustment if dag_adjustment else covariates
-    ctrl_str = ", ".join(f"'{c}'" for c in controls[:5])
-    if len(controls) > 5:
-        ctrl_str += ", ..."
+    # Every control goes into every card, and ``params`` (what ``.run()``
+    # fits) says the same as ``code`` (what the user is shown). Until 1.41
+    # the cards kept the first 5 / 10 / 20 controls and the regression cards
+    # ran ``y ~ treatment`` while showing the adjusted formula.
+    ctrl_str = ", ".join(f"'{c}'" for c in controls)
     # Right-hand side of a regression formula: the controls are terms, not
     # quoted strings ("y ~ d + 'x1', 'x2'" does not parse).
-    ols_formula = " + ".join([f"{y} ~ {treatment}", *map(str, controls)])
+    _ols_terms = [str(t) for t in ([treatment] if treatment else [])] + [
+        str(c) for c in controls if c not in (treatment, y)
+    ]
+    ols_formula = f"{y} ~ " + (" + ".join(_ols_terms) if _ols_terms else "1")
 
     # Missing data warning
     if profile["missing_pct"] > 0.1:
@@ -907,7 +920,7 @@ def recommend(
                 "robustness": "Check sp.balance_check() and sp.attrition_test()",
                 "code": (f"sp.regress('{ols_formula}', data=df, robust='hc1')"),
                 "params": {
-                    "formula": f"{y} ~ {treatment}",
+                    "formula": ols_formula,
                     "data": data,
                     "robust": "hc1",
                 },
@@ -920,7 +933,7 @@ def recommend(
                     "function": "logit",
                     "reason": "Binary outcome → logit for correct functional form.",
                     "code": f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls)",
-                    "params": {"data": data, "y": y, "x": [treatment] + controls[:5]},
+                    "params": {"data": data, "y": y, "x": [treatment] + controls},
                 }
             )
 
@@ -1354,7 +1367,7 @@ def recommend(
     elif design == "iv":
         z = instrument or "instrument"
         exog_controls = [c for c in controls if c not in (treatment, z)]
-        exog_str = " + ".join(exog_controls[:5]) if exog_controls else ""
+        exog_str = " + ".join(exog_controls) if exog_controls else ""
         iv_formula = (
             f"{y} ~ {exog_str} + ({treatment} ~ {z})"
             if exog_str
@@ -1562,7 +1575,7 @@ def recommend(
                         "data": data,
                         "y": y,
                         "treat": treatment,
-                        "covariates": controls[:10],
+                        "covariates": adjust_controls,
                     },
                 }
             )
@@ -1587,7 +1600,7 @@ def recommend(
                         "data": data,
                         "y": y,
                         "treat": treatment,
-                        "covariates": controls[:20],
+                        "covariates": adjust_controls,
                     },
                 }
             )
@@ -1635,7 +1648,7 @@ def recommend(
                 "robustness": _ols_robust,
                 "code": (f"sp.regress('{ols_formula}', data=df, robust='hc1')"),
                 "params": {
-                    "formula": f"{y} ~ {treatment}",
+                    "formula": ols_formula,
                     "data": data,
                     "robust": "hc1",
                 },
@@ -1644,7 +1657,7 @@ def recommend(
 
     elif design == "panel":
         panel_rhs = treatment if treatment else "1"
-        panel_controls = [c for c in controls if c != treatment][:5]
+        panel_controls = [c for c in controls if c not in (treatment, y)]
         if panel_controls:
             panel_rhs += " + " + " + ".join(panel_controls)
         panel_formula = f"{y} ~ {panel_rhs}"
@@ -1798,7 +1811,7 @@ def recommend(
         # Between-group gap decomposition (Oaxaca 1973; Blinder 1973;
         # DiNardo, Fortin & Lemieux 1996 for the distributional version).
         _grp = treatment
-        _x = [c for c in controls if c != treatment][:10]
+        _x = [c for c in controls if c not in (treatment, y)]
         recommendations.append(
             {
                 "method": "Oaxaca-Blinder decomposition (Oaxaca 1973; Blinder 1973)",
@@ -1818,20 +1831,13 @@ def recommend(
 
     else:
         # Cross-section
-        if treatment:
-            formula = f"{y} ~ {treatment}"
-        elif controls:
-            formula = f"{y} ~ {controls[0]}"
-        else:
-            formula = f"{y} ~ 1"
+        formula = ols_formula
         recommendations.append(
             {
                 "method": "OLS with robust SE",
                 "function": "regress",
                 "reason": "Cross-sectional data with continuous outcome.",
-                "code": (
-                    f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')"
-                ),
+                "code": f"sp.regress('{formula}', data=df, robust='hc1')",
                 "params": {"formula": formula, "data": data, "robust": "hc1"},
             }
         )
@@ -2091,17 +2097,18 @@ def recommend(
         )
 
     # Outcome-type-specific additions
-    if profile["y_type"] == "binary" and design not in ["rd", "did"]:
+    # the RCT branch already carries its own logit card
+    if profile["y_type"] == "binary" and design not in ["rd", "did", "rct"]:
         recommendations.append(
             {
                 "method": "Logit (binary outcome)",
                 "function": "logit",
                 "reason": "Binary dependent variable → logit for correct likelihood.",
-                "code": f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "code": f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls)",
                 "params": {
                     "data": data,
                     "y": y,
-                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                    "x": [treatment] + controls if treatment else controls,
                 },
             }
         )
@@ -2111,13 +2118,11 @@ def recommend(
                 "method": "Poisson regression (count outcome)",
                 "function": "poisson",
                 "reason": "Count outcome → Poisson with robust SE is consistent.",
-                "code": (
-                    f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls[:5])"
-                ),
+                "code": (f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls)"),
                 "params": {
                     "data": data,
                     "y": y,
-                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                    "x": [treatment] + controls if treatment else controls,
                 },
             }
         )
@@ -2127,13 +2132,11 @@ def recommend(
                 "method": "Fractional logit (outcome in [0,1])",
                 "function": "fracreg",
                 "reason": "Proportional outcome → fractional logit (Papke-Wooldridge).",
-                "code": (
-                    f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls[:5])"
-                ),
+                "code": (f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls)"),
                 "params": {
                     "data": data,
                     "y": y,
-                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                    "x": [treatment] + controls if treatment else controls,
                 },
             }
         )
@@ -2153,6 +2156,14 @@ def recommend(
                 )
             except Exception as e:
                 rec["verify"] = {"score": np.nan, "error": str(e)}
+                from ..workflow._degradation import record_degradation
+
+                record_degradation(
+                    None,
+                    section=f"recommend(verify=True): {rec.get('function')}",
+                    exc=e,
+                    detail="the card keeps its rule-based rank",
+                )
 
         # Re-rank top-k by verify score (stable sort; rest of list untouched).
         # Sort descending on score; NaN/error scores fall to the BOTTOM of

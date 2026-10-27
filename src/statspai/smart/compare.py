@@ -37,6 +37,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..workflow._degradation import record_degradation
 
 
 class ComparisonResult(ResultProtocolMixin):
@@ -79,11 +80,16 @@ class ComparisonResult(ResultProtocolMixin):
         estimates_table: pd.DataFrame,
         agreement: Dict[str, float],
         n_obs: int,
+        alpha: float = 0.05,
+        degradations: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         self.results = results  # dict: method -> result object
         self.estimates_table = estimates_table  # DataFrame
         self.agreement = agreement  # dict with agreement metrics
         self.n_obs = n_obs
+        self.alpha = alpha
+        # methods that failed or could not run, one record each
+        self.degradations: List[Dict[str, Any]] = list(degradations or [])
 
     def summary(self) -> str:
         lines = [
@@ -92,7 +98,7 @@ class ComparisonResult(ResultProtocolMixin):
             "=" * 70,
             "",
             f"{'Method':<25s} {'Estimate':>10s} {'SE':>10s} "
-            f"{'95% CI':>22s} {'p-value':>10s}",
+            f"{f'{100 * (1 - self.alpha):g}% CI':>22s} {'p-value':>10s}",
             "─" * 70,
         ]
         for _, row in self.estimates_table.iterrows():
@@ -116,15 +122,31 @@ class ComparisonResult(ResultProtocolMixin):
 
         # Agreement metrics
         lines.append("\nAGREEMENT DIAGNOSTICS")
-        lines.append(f"  Sign agreement:        {self.agreement['sign_agree']:.0%}")
-        lines.append(f"  Significance agreement: {self.agreement['sig_agree']:.0%}")
+
+        def _share(x: Any) -> str:
+            return f"{x:.0%}" if np.isfinite(x) else "n/a"
+
+        lines.append(f"  Sign agreement:        {_share(self.agreement['sign_agree'])}")
+        lines.append(
+            f"  Significance agreement: {_share(self.agreement['sig_agree'])} "
+            f"(alpha = {self.alpha:g})"
+        )
         lines.append(
             f"  Estimate range:        [{self.agreement['min_est']:.4f}, "
             f"{self.agreement['max_est']:.4f}]"
         )
         lines.append(f"  Coefficient of variation: {self.agreement['cv']:.2f}")
 
-        if self.agreement["cv"] < 0.25:
+        if self.degradations:
+            lines.append(
+                "  Not estimated: " + "; ".join(d["section"] for d in self.degradations)
+            )
+        if not np.isfinite(self.agreement["cv"]):
+            lines.append(
+                "\n  Agreement not assessable: fewer than two estimators "
+                "produced an estimate."
+            )
+        elif self.agreement["cv"] < 0.25:
             lines.append("\n  ✓ ROBUST: Estimates are stable across methods.")
         elif self.agreement["cv"] < 0.5:
             lines.append(
@@ -243,6 +265,14 @@ def compare_estimators(
         Time variable.
     instrument : str, optional
     alpha : float, default 0.05
+        Two-sided level of the intervals in the table and of the
+        "significant" read behind ``agreement['sig_agree']``.
+
+    Every covariate is passed to every method. A method that fails, needs
+    an argument it was not given (``id`` / ``time`` for ``'panel_fe'`` and
+    ``'did'``) or is not a known name is left out of the table with a
+    ``WorkflowDegradedWarning`` and a record in ``.degradations``. With
+    fewer than two estimates the agreement metrics are NaN.
 
     Returns
     -------
@@ -335,12 +365,13 @@ def compare_estimators(
 
     results: Dict[str, Any] = {}
     rows: List[Dict[str, Any]] = []
+    degradations: List[Dict[str, Any]] = []
 
     for method in methods:
         try:
             r: Any
             if method == "ols":
-                x_vars = [treatment] + covariates[:10]
+                x_vars = [treatment] + covariates
                 formula = f"{y} ~ {' + '.join(x_vars)}"
                 r = sp.regress(formula, data=df, robust="hc1")
                 est = r.params[treatment]
@@ -349,7 +380,7 @@ def compare_estimators(
                 name = "OLS (robust SE)"
 
             elif method == "matching":
-                r = sp.match(df, y=y, treat=treatment, covariates=covariates[:10])
+                r = sp.match(df, y=y, treat=treatment, covariates=covariates)
                 est = r.estimate
                 se = r.se
                 results["Matching"] = r
@@ -358,14 +389,14 @@ def compare_estimators(
             elif method == "ipw":
                 # Bootstrap SE: seeded like g_computation below so the table
                 # is reproducible.
-                r = sp.ipw(df, y=y, treat=treatment, covariates=covariates[:10], seed=0)
+                r = sp.ipw(df, y=y, treat=treatment, covariates=covariates, seed=0)
                 est = r.estimate if hasattr(r, "estimate") else r.params.iloc[0]
                 se = r.se if hasattr(r, "se") else r.std_errors.iloc[0]
                 results["IPW"] = r
                 name = "Inverse Probability Weighting"
 
             elif method == "aipw":
-                r = sp.aipw(df, y=y, treat=treatment, covariates=covariates[:10])
+                r = sp.aipw(df, y=y, treat=treatment, covariates=covariates)
                 est = r.estimate if hasattr(r, "estimate") else r.params.iloc[0]
                 se = r.se if hasattr(r, "se") else r.std_errors.iloc[0]
                 results["AIPW"] = r
@@ -393,7 +424,7 @@ def compare_estimators(
                         f"sp.g_computation() for continuous D."
                     )
                 r = sp.g_computation(
-                    df, y=y, treat=treatment, covariates=covariates[:10], seed=0
+                    df, y=y, treat=treatment, covariates=covariates, seed=0
                 )
                 est = r.estimate
                 se = r.se
@@ -401,7 +432,7 @@ def compare_estimators(
                 name = "G-computation (parametric g-formula)"
 
             elif method == "dml":
-                r = sp.dml(df, y=y, treat=treatment, covariates=covariates[:20])
+                r = sp.dml(df, y=y, treat=treatment, covariates=covariates)
                 est = r.estimate
                 se = r.se
                 results["DML"] = r
@@ -419,7 +450,7 @@ def compare_estimators(
                     data=df,
                     y=y,
                     d=treatment,
-                    x=covariates[:20],
+                    x=covariates,
                     clusters=id if id else None,
                 )
                 ate = r.average_treatment_effect()
@@ -428,11 +459,13 @@ def compare_estimators(
                 results["Causal Forest"] = r
                 name = "Causal Forest (GRF, AIPW ATE)"
 
-            elif method == "panel_fe" and id and time:
+            elif method == "panel_fe":
+                if not (id and time):
+                    raise ValueError("method='panel_fe' needs id= and time=.")
                 r = sp.panel(
                     df,
                     y=y,
-                    x=[treatment] + covariates[:5],
+                    x=[treatment] + covariates,
                     id=id,
                     time=time,
                     method="fe",
@@ -442,7 +475,9 @@ def compare_estimators(
                 results["Panel FE"] = r
                 name = "Panel Fixed Effects"
 
-            elif method == "did" and id and time:
+            elif method == "did":
+                if not (id and time):
+                    raise ValueError("method='did' needs id= and time=.")
                 r = sp.did(df, y=y, treat=treatment, time=time, id=id)
                 est = r.estimate
                 se = r.se
@@ -469,7 +504,7 @@ def compare_estimators(
                     "proximal",
                     {
                         "covariates": [
-                            c for c in covariates[:10] if c not in proxy_z + proxy_w
+                            c for c in covariates if c not in proxy_z + proxy_w
                         ],
                     },
                 )
@@ -497,7 +532,7 @@ def compare_estimators(
                 merged = _resolve_hints(
                     "msm",
                     {
-                        "baseline": [c for c in covariates[:5] if c not in tv],
+                        "baseline": [c for c in covariates if c not in tv],
                     },
                 )
                 r = sp.msm(
@@ -525,7 +560,7 @@ def compare_estimators(
                 merged = _resolve_hints(
                     "principal_strat",
                     {
-                        "covariates": covariates[:10],
+                        "covariates": covariates,
                         "method": "principal_score" if covariates else "monotonicity",
                     },
                 )
@@ -577,7 +612,7 @@ def compare_estimators(
                 merged = _resolve_hints(
                     "front_door",
                     {
-                        "covariates": [c for c in covariates[:10] if c != mediator],
+                        "covariates": [c for c in covariates if c != mediator],
                     },
                 )
                 r = sp.front_door(
@@ -603,7 +638,7 @@ def compare_estimators(
                 merged = _resolve_hints(
                     method,
                     {
-                        "covariates": [c for c in covariates[:10] if c != mediator],
+                        "covariates": [c for c in covariates if c != mediator],
                     },
                 )
                 if method == "mediate":
@@ -634,7 +669,7 @@ def compare_estimators(
                 name = label
 
             else:
-                continue
+                raise ValueError(f"unknown method {method!r}")
 
             p_val = 2 * stats.norm.sf(abs(est / se)) if se > 0 else np.nan
             rows.append(
@@ -649,7 +684,13 @@ def compare_estimators(
             )
 
         except Exception as e:
-            warnings.warn(f"{method} failed: {e}")
+            # The method is absent from the table and from the agreement
+            # metrics; say so instead of shrinking the table silently.
+            record_degradation(
+                degradations,
+                section=f"compare_estimators: {method}",
+                exc=e,
+            )
 
     estimates_table = pd.DataFrame(rows)
 
@@ -659,7 +700,7 @@ def compare_estimators(
         pvals = np.array([r["p_value"] for r in rows])
 
         sign_agree = np.mean(np.sign(ests) == np.sign(ests[0]))
-        sig_agree = np.mean((pvals < 0.05) == (pvals[0] < 0.05))
+        sig_agree = np.mean((pvals < alpha) == (pvals[0] < alpha))
         est_range = ests.max() - ests.min()
         mean_est = np.mean(ests)
         cv = np.std(ests) / abs(mean_est) if abs(mean_est) > 1e-10 else np.inf
@@ -674,14 +715,17 @@ def compare_estimators(
             "cv": cv,
         }
     else:
+        # Agreement across methods needs at least two methods. One estimate
+        # is not evidence of stability, so nothing is reported as agreeing.
+        ests = np.array([r["estimate"] for r in rows], dtype=float)
         agreement = {
-            "sign_agree": 1,
-            "sig_agree": 1,
-            "min_est": 0,
-            "max_est": 0,
-            "range": 0,
-            "mean": 0,
-            "cv": 0,
+            "sign_agree": np.nan,
+            "sig_agree": np.nan,
+            "min_est": float(ests.min()) if ests.size else np.nan,
+            "max_est": float(ests.max()) if ests.size else np.nan,
+            "range": np.nan,
+            "mean": float(ests.mean()) if ests.size else np.nan,
+            "cv": np.nan,
         }
 
     return ComparisonResult(
@@ -689,4 +733,6 @@ def compare_estimators(
         estimates_table=estimates_table,
         agreement=agreement,
         n_obs=n,
+        alpha=alpha,
+        degradations=degradations,
     )

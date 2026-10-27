@@ -371,6 +371,13 @@ def assumption_audit(
     return audit
 
 
+def _result_nobs(result: Any) -> int:
+    """Observation count from ``data_info`` (``nobs`` for sp.regress)."""
+    info = getattr(result, "data_info", {}) or {}
+    n = info.get("n_obs", info.get("nobs", 0))
+    return int(n) if n else 0
+
+
 def _audit_linear(
     result: Any,
     data: Optional[pd.DataFrame],
@@ -534,7 +541,7 @@ def _audit_linear(
         )
 
     # 4. Sample size adequacy
-    n = getattr(result, "data_info", {}).get("n_obs", 0)
+    n = _result_nobs(result)
     k = len(result.params) if hasattr(result, "params") else 0
     if n > 0 and k > 0:
         checks.append(
@@ -577,9 +584,16 @@ def _audit_linear(
             treat=treat,
             controls=controls or None,
         )
-        delta = oster.get("delta", oster.get("oster_delta", None))
+        # ``delta`` is the plug-in value the bounds were evaluated at (1.0
+        # by default). The check needs delta*, the selection ratio that
+        # would drive the coefficient to zero (``delta_for_zero``).
+        delta = oster.get("delta_for_zero", oster.get("delta_star", None))
         if delta is not None:
-            detail = f"Oster δ = {delta:.2f} (>1 means robust); treat={treat!r}"
+            delta = float(delta)
+            detail = (
+                f"Oster δ* (selection ratio that drives β to 0) = {delta:.2f} "
+                f"(|δ*| > 1 means robust); treat={treat!r}"
+            )
             checks.append(
                 AssumptionCheck(
                     assumption="Robustness to unobservables",
@@ -667,7 +681,7 @@ def _audit_iv(
                 passed=dwh_p < alpha,  # Want to reject: endogeneity exists → IV needed
                 statistic=None,
                 p_value=dwh_p,
-                detail="If p > 0.05, OLS may be preferred (more efficient).",
+                detail=f"If p > {alpha:g}, OLS may be preferred (more efficient).",
                 remedy="If not endogenous, use OLS instead (more efficient).",
             )
         )
@@ -882,7 +896,7 @@ def _audit_generic(
     checks: List[AssumptionCheck] = []
 
     # Sample size
-    n = getattr(result, "data_info", {}).get("n_obs", 0)
+    n = _result_nobs(result)
     k = len(result.params) if hasattr(result, "params") else 0
     if n > 0:
         checks.append(

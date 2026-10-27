@@ -493,10 +493,8 @@ def _check_iv_first_stage_strength(
         return _passed(skipped="formula missing or non-string")
     # Lazy import: parse_formula triggers a regression-module import
     # that we want to defer until preflight is actually run on an IV.
-    try:
-        from ..core.utils import parse_formula
-    except Exception:
-        return _passed(skipped="parse_formula unavailable")
+    from ..core.utils import parse_formula
+
     parsed = parse_formula(formula)
     endog = parsed.get("endogenous", []) or []
     instruments = parsed.get("instruments", []) or []

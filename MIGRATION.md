@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ orchestration options (option scan round 7, `smart/` and `workflow/`)
+
+- `sp.causal(cluster=)` and `sp.paper(cluster=)` now cluster the fitted
+  estimate and the comparison panel. Standard errors, intervals and
+  p-values change for any call that passed `cluster=`. Point estimates do
+  not. An estimator with no cluster option warns.
+- `sp.recommend(...).run()` on an OLS card fits the formula the card shows,
+  with every control. Every card keeps every control (it used to keep 5,
+  10 or 20), so `.run()` results change for calls with many covariates.
+- `sp.compare_estimators` uses every covariate, reads significance at
+  `alpha`, and reports NaN agreement when fewer than two methods produce
+  an estimate. Failed, unknown or inapplicable methods warn and appear in
+  `.degradations`.
+- `sp.assumption_audit` reports Oster's δ* (`delta_for_zero`) instead of
+  1.0, so the "Oster delta > 1" check can pass. A "N/k > 10" row appears
+  for `sp.regress` results.
+- `sp.sensitivity_dashboard` runs the Oster dimension by default and
+  honours `alpha`; overall grades can change. Unknown dimension names warn.
+
+---
+
 ## 1.41 → 1.42: ⚠️ agent tool layer arguments (option scan round 7, `agent/`)
 
 - MCP `data_sample_n` / `data_columns` now apply to `data_id` handles and

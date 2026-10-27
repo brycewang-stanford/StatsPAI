@@ -268,7 +268,12 @@ class CausalWorkflow:
             try:
                 import statspai as sp
 
-                self.result = sp.regress(formula, data=self.data, robust="hc1")
+                self.result = sp.regress(
+                    formula,
+                    data=self.data,
+                    robust="hc1",
+                    **self._with_cluster(sp.regress, "estimate"),
+                )
                 self._mark("estimate")
                 return self.result
             except Exception as exc:
@@ -292,7 +297,14 @@ class CausalWorkflow:
 
         # Run the top recommendation via RecommendationResult.run()
         try:
-            self.result = recommendation.run()
+            run_kwargs: Dict[str, Any] = {}
+            if top is not None and self.cluster:
+                import statspai as sp
+
+                top_fn = getattr(sp, top["function"], None)
+                if top_fn is not None:
+                    run_kwargs = self._with_cluster(top_fn, "estimate")
+            self.result = recommendation.run(**run_kwargs)
         except Exception as e:
             # Fallback: call the estimator directly with a safe default
             # for the detected design.  This mirrors recommend()'s
@@ -399,6 +411,7 @@ class CausalWorkflow:
                     t=self.time,
                     i=self.id,
                     estimator="reg",
+                    **self._with_cluster(sp.callaway_santanna, "estimate fallback"),
                 )
             if not (self.treatment and self.time):
                 raise RuntimeError(
@@ -409,19 +422,37 @@ class CausalWorkflow:
                 y=self.y,
                 treat=self.treatment,
                 time=self.time,
+                **self._with_cluster(sp.did, "estimate fallback"),
             )
         if d == "rd" and self.running_var:
             return sp.rdrobust(
-                self.data, y=self.y, x=self.running_var, c=self.cutoff or 0.0
+                self.data,
+                y=self.y,
+                x=self.running_var,
+                c=self.cutoff or 0.0,
+                **self._with_cluster(sp.rdrobust, "estimate fallback"),
             )
         if d == "iv" and self.instrument and self.treatment:
             formula = f"{self.y} ~ ({self.treatment} ~ {self.instrument})"
-            return sp.ivreg(formula, data=self.data, robust="hc1")
+            if self.covariates:
+                formula += " + " + " + ".join(self.covariates)
+            return sp.ivreg(
+                formula,
+                data=self.data,
+                robust="hc1",
+                **self._with_cluster(sp.ivreg, "estimate fallback"),
+            )
         if d in ("observational", "rct"):
             rhs = self.treatment or "1"
             if self.covariates:
-                rhs += " + " + " + ".join(self.covariates[:5])
-            return sp.regress(f"{self.y} ~ {rhs}", data=self.data, robust="hc1")
+                # every covariate (the first five only, until 1.41)
+                rhs += " + " + " + ".join(self.covariates)
+            return sp.regress(
+                f"{self.y} ~ {rhs}",
+                data=self.data,
+                robust="hc1",
+                **self._with_cluster(sp.regress, "estimate fallback"),
+            )
         raise RuntimeError(
             f"Cannot fallback-estimate design='{d}' " f"(original error: {error})"
         )
@@ -581,7 +612,8 @@ class CausalWorkflow:
             )
             lines.append(f"- **SE**: {r.se:.4f}")
             if hasattr(r, "ci"):
-                lines.append(f"- **95% CI**: " f"[{r.ci[0]:.4f}, {r.ci[1]:.4f}]")
+                level = 100 * (1 - float(getattr(r, "alpha", 0.05) or 0.05))
+                lines.append(f"- **{level:g}% CI**: " f"[{r.ci[0]:.4f}, {r.ci[1]:.4f}]")
             lines.append(f"- **p-value**: {pv:.4f}")
         elif hasattr(r, "params"):
             main = self.treatment or r.params.index[0]
@@ -855,12 +887,34 @@ class CausalWorkflow:
                     )
             return (np.nan, np.nan, None)
 
-        def _safe_call(label: str, fn: Callable[[], Any]) -> None:
+        def _ck(fn: Callable[..., Any]) -> Dict[str, Any]:
+            """Cluster keyword for ``fn`` (empty when it has none)."""
+            return self._cluster_option(fn) or {}
+
+        def _safe_call(
+            label: str,
+            fn: Callable[[], Any],
+            estimator: Optional[Callable[..., Any]] = None,
+        ) -> None:
+            note = ""
+            if (
+                self.cluster
+                and estimator is not None
+                and self._cluster_option(estimator) is None
+            ):
+                note = f"SE not clustered on {self.cluster!r}"
             try:
                 r = fn()
                 est, se, ci = _extract_effect(r)
-                _row(label, est, se, ci)
+                _row(label, est, se, ci, extra=note)
             except Exception as exc:
+                from ._degradation import record_degradation
+
+                record_degradation(
+                    self,
+                    section=f"compare_estimators: {label}",
+                    exc=exc,
+                )
                 _row(label, np.nan, np.nan, extra=f"ERROR: {type(exc).__name__}: {exc}")
 
         if d == "did" and self.time and self.id and self.cohort:
@@ -876,7 +930,9 @@ class CausalWorkflow:
                     t=time_col,
                     i=id_col,
                     estimator="reg",
+                    **_ck(sp.callaway_santanna),
                 ),
+                sp.callaway_santanna,
             )
             _safe_call(
                 "Sun–Abraham",
@@ -886,7 +942,9 @@ class CausalWorkflow:
                     g=cohort_col,
                     t=time_col,
                     i=id_col,
+                    **_ck(sp.sun_abraham),
                 ),
+                sp.sun_abraham,
             )
             _safe_call(
                 "Borusyak–Jaravel–Spiess (imputation)",
@@ -896,7 +954,9 @@ class CausalWorkflow:
                     first_treat=cohort_col,
                     time=time_col,
                     group=id_col,
+                    **_ck(sp.did_imputation),
                 ),
+                sp.did_imputation,
             )
             _safe_call(
                 "Wooldridge (2021)",
@@ -906,7 +966,9 @@ class CausalWorkflow:
                     first_treat=cohort_col,
                     time=time_col,
                     group=id_col,
+                    **_ck(sp.wooldridge_did),
                 ),
+                sp.wooldridge_did,
             )
         elif d == "did":
             if self.treatment and self.time:
@@ -919,7 +981,9 @@ class CausalWorkflow:
                         y=self.y,
                         treat=treat_col,
                         time=time_col,
+                        **_ck(sp.did),
                     ),
+                    sp.did,
                 )
             else:
                 _row(
@@ -932,14 +996,27 @@ class CausalWorkflow:
             formula = f"{self.y} ~ ({self.treatment} ~ {self.instrument})"
             if self.covariates:
                 formula += " + " + " + ".join(self.covariates)
-            _safe_call("2SLS", lambda: sp.ivreg(formula, data=self.data, robust="hc1"))
-            _safe_call("LIML", lambda: sp.liml(formula, data=self.data))
+            _safe_call(
+                "2SLS",
+                lambda: sp.ivreg(
+                    formula, data=self.data, robust="hc1", **_ck(sp.ivreg)
+                ),
+                sp.ivreg,
+            )
+            _safe_call(
+                "LIML",
+                lambda: sp.liml(formula, data=self.data, **_ck(sp.liml)),
+                sp.liml,
+            )
         elif d == "rd" and self.running_var:
             c = self.cutoff or 0.0
             running_var = self.running_var
             _safe_call(
                 "RDD (MSE-optimal)",
-                lambda: sp.rdrobust(self.data, y=self.y, x=running_var, c=c),
+                lambda: sp.rdrobust(
+                    self.data, y=self.y, x=running_var, c=c, **_ck(sp.rdrobust)
+                ),
+                sp.rdrobust,
             )
         elif d in ("observational", "rct") and self.treatment and self.covariates:
             treat_col = self.treatment
@@ -948,27 +1025,42 @@ class CausalWorkflow:
             rhs = treat_col + " + " + " + ".join(cov)
             _safe_call(
                 "OLS (HC1)",
-                lambda: sp.regress(f"{self.y} ~ {rhs}", data=self.data, robust="hc1"),
+                lambda: sp.regress(
+                    f"{self.y} ~ {rhs}",
+                    data=self.data,
+                    robust="hc1",
+                    **_ck(sp.regress),
+                ),
+                sp.regress,
             )
             _safe_call(
                 "Entropy balancing (ATT)",
                 lambda: sp.ebalance(
                     self.data, y=self.y, treat=treat_col, covariates=cov
                 ),
+                sp.ebalance,
             )
             _safe_call(
                 "CBPS",
-                lambda: sp.cbps(self.data, y=self.y, treat=treat_col, covariates=cov),
+                # seeded: sp.cbps bootstraps its SE, so an unseeded call
+                # printed a different SE in every report
+                lambda: sp.cbps(
+                    self.data, y=self.y, treat=treat_col, covariates=cov, seed=0
+                ),
+                sp.cbps,
             )
             _safe_call(
                 "SBW (δ=0.02)",
                 lambda: sp.sbw(
                     self.data, y=self.y, treat=treat_col, covariates=cov, delta=0.02
                 ),
+                sp.sbw,
             )
             # DML (partially-linear)
             _safe_call(
-                "DML-PLR", lambda: sp.dml(self.data, y=self.y, d=self.treatment, X=cov)
+                "DML-PLR",
+                lambda: sp.dml(self.data, y=self.y, d=self.treatment, X=cov),
+                sp.dml,
             )
 
         # Always add the primary estimate for context
@@ -1141,6 +1233,9 @@ class CausalWorkflow:
                         }
                     )
             except Exception as exc:  # pragma: no cover
+                record_degradation(
+                    self, section="sensitivity_panel: Oster delta", exc=exc
+                )
                 rows.append(
                     {
                         "method": "Oster δ",
@@ -1182,6 +1277,9 @@ class CausalWorkflow:
                         }
                     )
         except Exception as exc:  # pragma: no cover
+            record_degradation(
+                self, section="sensitivity_panel: Rosenbaum gamma", exc=exc
+            )
             rows.append(
                 {
                     "method": "Rosenbaum Γ",
@@ -1270,6 +1368,9 @@ class CausalWorkflow:
             )
             _summarise("X-Learner", xl)
         except Exception as exc:  # pragma: no cover
+            from ._degradation import record_degradation
+
+            record_degradation(self, section="cate: X-Learner", exc=exc)
             rows.append(
                 {
                     "learner": "X-Learner",
@@ -1301,6 +1402,9 @@ class CausalWorkflow:
                     }
                 )
         except Exception as exc:  # pragma: no cover
+            from ._degradation import record_degradation
+
+            record_degradation(self, section="cate: Causal Forest", exc=exc)
             rows.append(
                 {
                     "learner": "Causal Forest",
@@ -1372,6 +1476,52 @@ class CausalWorkflow:
         if note and note not in self.pipeline_notes:
             self.pipeline_notes.append(note)
 
+    def _cluster_option(self, fn: Callable[..., Any]) -> Optional[Dict[str, Any]]:
+        """The keyword that clusters ``fn``'s standard error on ``self.cluster``.
+
+        ``{}`` when no cluster was requested, ``None`` when ``fn`` has no
+        cluster option (its standard error then is not clustered).
+        """
+        if not self.cluster:
+            return {}
+        import inspect
+
+        try:
+            names = inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            return None
+        for name in ("cluster", "clustervars"):
+            if name in names:
+                return {name: self.cluster}
+        return None
+
+    def _with_cluster(self, fn: Callable[..., Any], section: str) -> Dict[str, Any]:
+        """Cluster keyword for the headline fit; record when there is none.
+
+        ``cluster=`` used to reach only ``sp.check_identification``, whose
+        "pass cluster= to the estimator" advice it then silenced, while the
+        estimator reported heteroskedasticity-robust or unit-clustered
+        standard errors.
+        """
+        opt = self._cluster_option(fn)
+        if opt is not None:
+            return opt
+        from ..exceptions import MethodIncompatibility
+        from ._degradation import record_degradation
+
+        name = getattr(fn, "__name__", str(fn))
+        record_degradation(
+            self,
+            section=f"{section}: cluster={self.cluster!r}",
+            exc=MethodIncompatibility(
+                f"sp.{name} has no cluster option, so its standard error is "
+                f"not clustered on {self.cluster!r}"
+            ),
+            detail="refit with an estimator that accepts cluster= for "
+            "cluster-robust inference",
+        )
+        return {}
+
     def __repr__(self) -> str:
         done = ",".join(self.stages_completed) or "not-started"
         est = ""
@@ -1441,8 +1591,15 @@ def causal(
     Parameters
     ----------
     data, y, treatment, covariates, id, time, running_var, instrument,
-    cutoff, cohort, cluster, design, dag, strict
-        Passed through to ``sp.check_identification`` and ``sp.recommend``.
+    cutoff, cohort, design, dag, strict
+        Passed through to ``sp.check_identification`` and ``sp.recommend``
+        (``cohort`` and ``strict`` to the former only).
+    cluster : str, optional
+        Cluster variable. Passed to ``sp.check_identification`` and to the
+        fitted estimator (``cluster=``, or ``clustervars=`` for
+        ``sp.callaway_santanna``), including the comparison panel. When
+        the chosen estimator has no cluster option its standard error is
+        not clustered, and a ``WorkflowDegradedWarning`` says so.
     auto_run : bool, default True
         If True (default), immediately runs all 5 stages and returns
         the fully-populated workflow.  If False, returns the workflow

@@ -175,16 +175,17 @@ def brief(result: Any) -> str:
         ):
             alpha = getattr(result, "alpha", 0.05) or 0.05
             try:
-                pct = int(round(100 * (1 - float(alpha))))
+                # ``:g`` keeps 97.5 as 97.5 (rounding printed "98% CI")
+                pct = f"{100 * (1 - float(alpha)):.10g}"
             except (TypeError, ValueError):
-                pct = 95
+                pct = "95"
             ci_str = f"  {pct}% CI [{_fmt(ci[0])}, {_fmt(ci[1])}]"
 
         n_obs = getattr(result, "n_obs", None)
         n_str = (
             f"  N={int(n_obs):,}"
             if n_obs is not None
-            and isinstance(n_obs, (int, float))
+            and isinstance(n_obs, (int, float, np.integer, np.floating))
             and np.isfinite(n_obs)
             else ""
         )
@@ -222,7 +223,7 @@ def brief(result: Any) -> str:
                     continue
                 try:
                     pv = float(pvals.iloc[i] if hasattr(pvals, "iloc") else pvals[i])
-                except Exception:
+                except (TypeError, ValueError, IndexError, KeyError):
                     continue
                 if not np.isfinite(pv):
                     continue
@@ -241,7 +242,7 @@ def brief(result: Any) -> str:
         n_str = (
             f"  N={int(n_obs):,}"
             if n_obs is not None
-            and isinstance(n_obs, (int, float))
+            and isinstance(n_obs, (int, float, np.integer, np.floating))
             and np.isfinite(n_obs)
             else ""
         )

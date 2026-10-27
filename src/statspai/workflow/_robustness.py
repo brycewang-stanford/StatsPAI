@@ -48,6 +48,8 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from ._degradation import record_degradation
+
 # ---------------------------------------------------------------------- #
 #  Data types
 # ---------------------------------------------------------------------- #
@@ -381,10 +383,11 @@ def _add_estimate_summary(
                     severity="info",
                 )
             )
+            level = 100 * (1 - float(getattr(result, "alpha", 0.05) or 0.05))
             findings.append(
                 RobustnessFinding(
                     name="ci_width",
-                    label="95% CI width",
+                    label=f"{level:.10g}% CI width",
                     value=hi - lo,
                     severity="info",
                     interpretation=f"[{lo:+.4f}, {hi:+.4f}]",
@@ -505,7 +508,7 @@ def _add_iv_checks(result: Any, findings: List[RobustnessFinding]) -> None:
                         else float("nan")
                     )
                 )
-            except Exception:
+            except (TypeError, ValueError):
                 fval = float("nan")
             # Only treat finite numeric F values as Stock–Yogo-comparable.
             if not np.isfinite(fval):
@@ -724,6 +727,7 @@ def _add_oster_bounds(
         )
     except Exception as exc:
         notes.append(f"Oster bounds skipped: {type(exc).__name__}: {exc}")
+        record_degradation(None, section="robustness battery: Oster bounds", exc=exc)
 
 
 def _add_sensemakr(
@@ -776,6 +780,7 @@ def _add_sensemakr(
             )
     except Exception as exc:
         notes.append(f"Sensemakr skipped: {type(exc).__name__}: {exc}")
+        record_degradation(None, section="robustness battery: sensemakr", exc=exc)
 
 
 def _add_model_info_diagnostics(result: Any, findings: List[RobustnessFinding]) -> None:

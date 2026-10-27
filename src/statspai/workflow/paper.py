@@ -963,7 +963,8 @@ def _section_from_workflow(
             if ci is not None and not isinstance(ci, (pd.DataFrame, pd.Series)):
                 try:
                     lo, hi = float(ci[0]), float(ci[1])
-                    lines.append(f"- **95% CI**: [{lo:.4f}, {hi:.4f}]")
+                    level = 100 * (1 - float(getattr(r, "alpha", 0.05) or 0.05))
+                    lines.append(f"- **{level:.10g}% CI**: [{lo:.4f}, {hi:.4f}]")
                 except Exception as exc:
                     record_degradation(
                         degradations,

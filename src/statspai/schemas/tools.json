@@ -6814,7 +6814,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Two-sided level of the intervals in the table and of the \"significant\" read behind ``agreement['sig_agree']``.",
           "type": "number"
         },
         "covariates": {
@@ -39746,7 +39746,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Two-sided level of the baseline interval and of the \"significant\" flags (``|est / se| > z_{1-alpha/2}``).",
           "type": "number"
         },
         "dimensions": {
