@@ -52,8 +52,38 @@ def _scalarize(arr: np.ndarray) -> Union[float, np.ndarray]:
     return float(arr.item()) if arr.size == 1 else arr
 
 
+_ALTERNATIVES = {
+    "two-sided": "two-sided",
+    "two.sided": "two-sided",
+    "two_sided": "two-sided",
+    "twosided": "two-sided",
+    "one-sided": "one-sided",
+    "one.sided": "one-sided",
+    "one_sided": "one-sided",
+    "onesided": "one-sided",
+}
+
+
+def _alternative(alternative: str) -> str:
+    """Canonical sidedness; anything else is refused.
+
+    Until 2026-10 every spelling other than ``"two-sided"`` was read as
+    one-sided, so R's ``"two.sided"`` silently gave one-sided power.
+    """
+    key = str(alternative).strip().lower().replace(" ", "-")
+    if key not in _ALTERNATIVES:
+        raise MethodIncompatibility(
+            f"alternative must be 'two-sided' or 'one-sided', got {alternative!r}.",
+            recovery_hint=(
+                "Use alternative='two-sided' or 'one-sided'; the one-sided "
+                "test is in the direction of the hypothesised effect."
+            ),
+        )
+    return _ALTERNATIVES[key]
+
+
 def _z_alpha(alpha: float, alternative: str) -> float:
-    if alternative == "two-sided":
+    if _alternative(alternative) == "two-sided":
         return float(norm.ppf(1 - alpha / 2))
     return float(norm.ppf(1 - alpha))
 
@@ -82,7 +112,8 @@ def power_two_proportions(
     alpha : float
         Significance level.
     alternative : {"two-sided", "one-sided"}
-        Test sidedness.
+        Test sidedness (R's ``"two.sided"`` is accepted; other values are
+        refused).
     power_target : float, optional
         Desired power; when supplied with ``n=None`` the function returns the
         required total sample size.
@@ -111,6 +142,7 @@ def power_two_proportions(
     >>> int(sp.power_two_proportions(p1=0.5, p2=0.65, power_target=0.8).n)
     334
     """
+    alternative = _alternative(alternative)
     z_a = _z_alpha(alpha, alternative)
     delta = abs(p2 - p1)
     frac1 = 1.0 / (1.0 + ratio)  # share of total n in group 1
@@ -213,6 +245,7 @@ def power_logrank(
     """
     if hazard_ratio <= 0 or hazard_ratio == 1:
         raise ValueError("hazard_ratio must be > 0 and != 1.")
+    alternative = _alternative(alternative)
     z_a = _z_alpha(alpha, alternative)
     p = ratio / (1.0 + ratio)
     log_hr = abs(np.log(hazard_ratio))
@@ -327,6 +360,7 @@ def power_case_control(
     if not 0 < p0 < 1:
         raise ValueError("exposure_prevalence must be in (0, 1).")
     p1 = (odds_ratio * p0) / (1 + p0 * (odds_ratio - 1))
+    alternative = _alternative(alternative)
     z_a = _z_alpha(alpha, alternative)
     delta = abs(p1 - p0)
     params = dict(

@@ -1049,8 +1049,14 @@ def _solve_for_n(
             res = func(n=n_val, effect_size=effect_size, **extra_kwargs)
         return float(np.asarray(res.power).item())
 
-    # Expand search range until we exceed power_target
-    lo, hi = 10, 100
+    # Bracket the answer: (lo, hi] with power(lo) < target <= power(hi).
+    # Until 2026-10 the search started at lo = 10 without checking it, so
+    # any design that needs fewer than 11 units (a cluster RCT needing three
+    # clusters) came back as 11.
+    if _power_at_n(10) >= power_target:
+        lo, hi = 1, 10
+    else:
+        lo, hi = 10, 100
     while _power_at_n(hi) < power_target:
         hi *= 2
         if hi > 1e9:
@@ -1108,11 +1114,20 @@ def _solve_for_mde(
             res = func(n=n, effect_size=es_val, **extra_kwargs)
         return float(np.asarray(res.power).item())
 
-    # Search in [0, hi] for the MDE
-    lo, hi = 0.0, 1.0
+    # Search on the scale of the outcome: every design's power depends on
+    # effect_size / sigma, so the bracket, the cap and the tolerance are in
+    # units of sigma. Until 2026-10 they were absolute (cap 100, tolerance
+    # 1e-6), so sigma = 1000 raised and sigma = 1e-4 kept two digits.
+    scale = float(extra_kwargs.get("sigma", 1.0))
+    if not (np.isfinite(scale) and scale > 0):
+        raise MethodIncompatibility(
+            f"sigma must be positive, got {scale}.",
+            recovery_hint="Pass the outcome standard deviation as sigma=.",
+        )
+    lo, hi = 0.0, scale
     while _power_at_es(hi) < power_target:
         hi *= 2
-        if hi > 100:
+        if hi > 100 * scale:
             raise ConvergenceFailure(
                 "Could not find a detectable effect size. "
                 "The sample size may be too small for this design.",
@@ -1135,10 +1150,10 @@ def _solve_for_mde(
             hi = mid
         else:
             lo = mid
-        if hi - lo < 1e-6:
+        if hi - lo < 1e-6 * scale:
             break
 
-    mde_val = round(hi, 6)
+    mde_val = round(hi / scale, 6) * scale
     if design == "cluster_rct":
         result = func(n_clusters=n, effect_size=mde_val, **extra_kwargs)
     else:
