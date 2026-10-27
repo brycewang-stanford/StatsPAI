@@ -5730,6 +5730,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-27 — trace ledgers re-recorded after option scan round 6
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `6022e8627`.
+- **Reason.** Round 6 changed source files on Track A and original-data
+  estimation paths: `core/results.py` (interval rescaling in `tidy` /
+  `summary`, `predict` confidence df), `core/utils.py` (intercept
+  spellings), `fast/feols.py`, `fast/event_study.py`, `fast/etable.py`
+  (CR1 K, t(G-1) p values) and `inference/aipw.py` (PSU folds).
+  `verify_reproduce_py.py` reports 89 reproduce, 0 drift, and no
+  original-data result file changed.
+- **Effect on the paper.** None. No committed parity result changed.
+  Track C stays stale on main (`core/results.py` and `fast/*` also
+  changed); the committed timings back v1.40.2.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-27 — trace ledgers re-recorded after option scan round 5
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
