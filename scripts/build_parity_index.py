@@ -6832,6 +6832,127 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "bias-corrected Gini; ineqdeco's plug-in Gini value function is "
         "matched to 2e-12 by gini_population.",
     },
+    # ---- QJE Nov 2026 gap pass (2026-10-28) ----
+    "sharpened_qvalues": {
+        "status": "bit-exact",
+        "reference": "Anderson (2008) fdr_sharpened_qvalues.do (last modified "
+        "11/20/07; Wayback copy, sha256 in the .do header), run unchanged",
+        "reference_versions": {"Stata": "18.0 MP"},
+        "tolerance": "exact equality after float rounding (16 p-vectors, 2,474 "
+        "p-values, M = 1 to 2,000)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_sharpened_qvalues_stata_parity.py",
+            "tests/reference_parity/_fixtures/sharpened_qvalues_Stata.csv",
+        ],
+        "note": "Default reproduces the do-file's 0.001 q grid, including its "
+        "float storage and macro rounding; exact=True gives the continuous "
+        "q-value (grid value = exact rounded up to 0.001).",
+    },
+    "summary_index": {
+        "status": "bit-exact",
+        "reference": "Stata swindex (SSC, 2021-02-24) for the Anderson index; "
+        "summarize / egen / Mata by hand for KLK, weights, imputation",
+        "reference_versions": {"Stata": "18.0 MP", "swindex": "2021-02-24 (SSC)"},
+        "tolerance": "1e-10 rel / 1e-12 abs (observed 2.8e-15 under set type "
+        "double)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_summary_index_parity.py",
+            "tests/reference_parity/_fixtures/summary_index_Stata.csv",
+        ],
+        "note": "swindex drops a missing component from numerator and "
+        "denominator (its code, not its help file); followed. Under Stata's "
+        "default float storage the gap is 3e-7 and is reported, not graded.",
+    },
+    "shapley_r2": {
+        "status": "aligned",
+        "reference": "R domir 1.3.0 and relaimpo 2.2.7 (lmg); Stata shapley2 1.5",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "domir": "1.3.0",
+            "relaimpo": "2.2.7",
+            "Stata": "18.0 MP",
+            "shapley2": "1.5 10jun15 (SSC)",
+        },
+        "tolerance": "R 1e-10 rel (observed 8e-15); Stata 1e-6 rel (observed "
+        "3.2e-7, shapley2 stores subset R2 as float)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_shapley_r2_parity.py",
+            "tests/reference_parity/_fixtures/shapley_r2_R.json",
+            "tests/reference_parity/_fixtures/shapley_r2_Stata.json",
+        ],
+        "note": "Owen values (groups=) have no external reference; they rest on "
+        "the analytic identities in the test.",
+    },
+    "krippendorff_alpha": {
+        "status": "bit-exact",
+        "reference": "Stata kalpha 1.3.0 and kappaetc 2.1.0; R irr::kripp.alpha 0.85",
+        "reference_versions": {
+            "Stata": "18.0 MP",
+            "kalpha": "1.3.0",
+            "kappaetc": "2.1.0",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "irr": "0.85",
+        },
+        "tolerance": "1e-10 rel (observed 2e-16), four levels with missing codings",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_krippendorff_alpha_parity.py",
+            "tests/reference_parity/_fixtures/krippendorff_R.json",
+            "tests/reference_parity/_fixtures/krippendorff_Stata.json",
+        ],
+        "note": "The bootstrap CI is a stochastic screen against kalpha's, not "
+        "graded.",
+    },
+    "fmm": {
+        "status": "aligned",
+        "reference": "Stata 18 fmm (regress / logit / poisson, lcprob()); R "
+        "flexmix 2.3-20 as a second reference for Poisson",
+        "reference_versions": {"Stata": "18.0 MP", "flexmix": "2.3-20"},
+        "tolerance": "ll 2.2e-16, coefficients and SEs 1.4e-8 on 12 of 13 cases "
+        "(budget 1e-6); 2-class logit without lcprob 1e-5 / 2e-5 (observed "
+        "1.2e-6 / 5.4e-6): Stata's e(ll) exceeds its own ll at e(b) by 3.6e-7",
+        "sides": ["py", "Stata", "R"],
+        "test": [
+            "tests/reference_parity/test_fmm_stata_parity.py",
+            "tests/reference_parity/_fixtures/fmm_Stata.json",
+            "tests/reference_parity/test_fmm_flexmix_parity.py",
+            "tests/reference_parity/_fixtures/fmm_flexmix_R.json",
+        ],
+        "note": "flexmix's Gaussian variance is not the MLE (divisor "
+        "(n-p)sum(post)/n); pinned as a convention row, not graded.",
+    },
+    "iv_mediate": {
+        "status": "bit-exact",
+        "reference": "Stata ivmediate 1.0.4 (Dippel, Ferrara and Heblich), SSC",
+        "reference_versions": {"Stata": "18.0 MP", "ivmediate": "1.0.4"},
+        "tolerance": "1e-9 rel (coefficients and F 1e-14, 3x3 V 1.6e-11)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_iv_mediate_stata_parity.py",
+            "tests/reference_parity/_fixtures/iv_mediate_Stata.json",
+        ],
+        "note": "Seven specifications: no controls, covariates and a 40-level "
+        "absorbed factor, each under iid, robust and cluster variances.",
+    },
+    "suest": {
+        "status": "bit-exact",
+        "reference": "Stata suest after regress (one-way); stacked reghdfe "
+        "6.13.1 for multi-way clusters and absorbed effects",
+        "reference_versions": {"Stata": "18.0 MP", "reghdfe": "6.13.1"},
+        "tolerance": "suest 1e-10 rel (observed 7e-15 on b and V); stacked "
+        "identities 1e-9 after reghdfe's (N-1)/(N-K) factor",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_suest_multiway_fe_parity.py",
+            "tests/reference_parity/_fixtures/suest_fe_Stata.json",
+        ],
+        "note": "When the two-way matrix is not PSD, reghdfe clips eigenvalues "
+        "in its standardized basis and suest in original units; the test "
+        "reproduces reghdfe by doing the same.",
+    },
     # ---- round 2: grf operators / CATE / OPE / DML (14) ----
     "average_treatment_effect": {
         "status": "bit-exact",

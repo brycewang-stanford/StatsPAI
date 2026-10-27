@@ -480,6 +480,63 @@ Coordinator follow-ups to the round-6 scan:
 - `sp.epi.relative_risk(correction="haldane")` and
   `sp.epi.attributable_risk(prevalence=)`.
 
+The tools that QJE 141(4) (November 2026) papers use around their
+estimators. Nine of its fifteen papers are experiments; every item below is
+matched to Stata or R on committed data (`tests/reference_parity/`).
+
+- `sp.sharpened_qvalues` and `sp.adjust_pvalues(method='bky')`. The
+  Benjamini-Krieger-Yekutieli two-stage FDR q-values as Anderson's (2008)
+  do-file computes them, equal to it in every bit on 2,474 p-values,
+  including its 0.001 grid. `exact=True` returns the continuous q-value.
+- `sp.summary_index`. Kling-Liebman-Katz (equal weights) or Anderson
+  (inverse covariance) index of several outcomes, standardized by the
+  control group, with reversed outcomes, analytic weights, three rules for
+  missing components and swindex's rescaling options. The Anderson index
+  matches Stata `swindex` to 3e-15. Missing components default to the
+  group-mean imputation of Kling, Liebman and Katz for `'klk'` and to what
+  swindex does for `'anderson'`.
+- `sp.suest` takes factor terms (`i.f`, `C(f)`, products), absorbed fixed
+  effects (`y ~ x | fe`, swept per equation) and multi-way clusters
+  (`cluster=['a', 'b']`). One-way matches Stata `suest` to 7e-15; the
+  multi-way and absorbed cases match the stacked `reghdfe` regression.
+- `sp.hdfe_ols` IV reports the Sanderson-Windmeijer conditional first-stage
+  F and chi2 for each endogenous regressor under iid, robust and clustered
+  variances, as `ivreg2` / `ivreghdfe ..., first` do (to 6e-10). The
+  summary shows them with two or more endogenous regressors.
+- `sp.fmm`. Finite mixtures of linear, logit or Poisson regressions with
+  class membership on covariates (Stata `fmm`, `lcprob()`), OIM, robust or
+  cluster standard errors, `estat lcprob` / `lcmean` equivalents and
+  posterior class probabilities. Matches Stata 18 to 1e-6 or better on 12
+  of 13 cases; on the 13th (logit without class covariates) Stata's `e(ll)`
+  differs from its own log likelihood at `e(b)` by 3.6e-7.
+- `sp.shapley_r2`. Exact Shapley (and, with `groups=`, Owen) decomposition
+  of an OLS R-squared. Matches R domir / relaimpo to 1e-10 and Stata
+  shapley2 to 1e-6, which stores subset R-squared as float.
+- `sp.krippendorff_alpha` for units by coders tables with missing codings,
+  at all four levels, with an optional seeded bootstrap. Matches Stata
+  kalpha / kappaetc and R irr to 1e-10.
+- `sp.llm_code_responses` codes open-ended answers into a codebook with an
+  LLM client. It has no fallback without a client, never coerces an
+  unknown label, records model and prompt hashes, and reports agreement
+  across passes and with human codes.
+- `sp.rlasso`, `sp.rlasso_effect` and `sp.rlasso_effects` take `absorb=`
+  (Stata `rlasso, fe` / `pdslasso, fe`; same selection, coefficients and
+  SEs to 3e-15), and `control={'iteration': 'lassopack'}` follows
+  lassopack's penalty-loading iteration.
+- `sp.iv_mediate`. The IV mediation of Dippel, Ferrara and Heblich (Stata
+  `ivmediate`), matched to 1.6e-11.
+- `sp.hdfe_ols` reads patsy's `C(f)` and `C(f, Treatment(k))` as `i.f` and
+  `ib<k>.f`, so a formula written for `sp.regress` runs unchanged.
+- `sp.ri_test` returns `RITestResult`, a `dict` with the same keys plus
+  `.summary()`, `.plot()` and attribute access, instead of a bare `dict`
+  that printed the whole permutation array.
+- `sp.from_stata` translates `i.f#1.d` (one column per level of `f`, as
+  Stata codes it; to 1e-11 against reghdfe) and a lone `i.f#c.x`. It still
+  refuses `d i.f#1.d`, where Stata drops the last level and the formula the
+  first. It points `suest`, `swindex`, `qqvalue`, `fmm`, `shapley2`,
+  `kalpha`, `kappaetc`, `ivmediate`, `pdslasso`, `rlasso`, `iebaltab` and
+  `randtreat` to their `sp.*` counterparts.
+
 ### Deprecated
 
 - `sp.interference("parmigiani")` warns (`DeprecationWarning`) and will be

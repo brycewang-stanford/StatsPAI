@@ -9846,6 +9846,120 @@
     }
   },
   {
+    "description": "Benjamini-Krieger-Yekutieli (2006) sharpened two-stage FDR q-values. The default reproduces Anderson's (2008) Stata do-file fdr_sharpened_qvalues.do bit for bit: a grid search over q = 1, 0.999, ..., 0.001, so q-values are multiples of 0.001. exact=True gives the continuous infimum instead. Also sp.adjust_pvalues(method='bky'). Validation: certified parity evidence.",
+    "name": "sharpened_qvalues",
+    "parameters": {
+      "properties": {
+        "exact": {
+          "default": false,
+          "description": "False: the do-file's 0.001 grid with its single-precision storage. True: the infimum level at which each hypothesis is rejected, in double precision.",
+          "type": "boolean"
+        },
+        "missing": {
+          "default": "count",
+          "description": "'count': a missing p-value stays missing and counts in the family size (as sp.adjust_pvalues). 'drop': the family is the non-missing p-values, as the do-file.",
+          "enum": [
+            "count",
+            "drop"
+          ],
+          "type": "string"
+        },
+        "pvalues": {
+          "description": "Unadjusted p-values in [0, 1]",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pvalues"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Summary index of several outcomes: Kling-Liebman-Katz (equal weights on z-scores standardized by the control group) or Anderson (inverse-covariance weights, as Stata swindex with normby(control)). Returns the index aligned to data.index and the per-outcome means, SDs and weights. Validation: certified parity evidence.",
+    "name": "summary_index",
+    "parameters": {
+      "properties": {
+        "control_value": {
+          "default": 0,
+          "description": "Value of treat that marks the reference (control) group",
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "data": {
+          "description": "One row per unit",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "method": {
+          "default": "klk",
+          "description": "'klk': equal weights. 'anderson': weights are row sums of the inverse covariance of the z-scores (swindex).",
+          "enum": [
+            "klk",
+            "anderson"
+          ],
+          "type": "string"
+        },
+        "missing": {
+          "description": "Default None = 'impute' for klk, 'available' for anderson. 'available': average the observed components, dropping the weights of missing ones (swindex). 'impute': missing z-scores at the treat-group mean (KLK). 'listwise': index missing unless every component is observed.",
+          "enum": [
+            "available",
+            "impute",
+            "listwise"
+          ],
+          "type": "string"
+        },
+        "outcomes": {
+          "description": "Numeric component columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "rescale": {
+          "description": "Standardize the final index: 'reference' (by the control group; swindex default), 'full' (every row; swindex fullrescale) or 'none' (swindex norescale). None: 'reference' for anderson, 'none' for klk.",
+          "enum": [
+            "reference",
+            "full",
+            "none"
+          ],
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "reverse": {
+          "description": "Outcomes where lower is better; sign flipped (swindex flip())",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "treat": {
+          "description": "Treatment column; the reference group is treat == control_value. None: standardize on every row.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights": {
+          "description": "Analytic weights column (Stata [aweight=] convention)",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "outcomes"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Amplification of a sensitivity analysis: express the sensitivity parameter Gamma of a matched-pair analysis as pairs (Lambda, Delta), the factor by which an unobserved covariate multiplies the odds of treatment and the odds of a positive outcome difference (R iTOS::amplify). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "amplify",
     "parameters": {
@@ -12362,7 +12476,7 @@
     }
   },
   {
-    "description": "Finite mixture of regressions (Stata fmm): k latent classes, each with its own linear (with its own error variance), logit or Poisson regression on the same covariates, and class membership by a multinomial logit in optional class covariates (Stata lcprob()). Maximum likelihood: EM and quasi-Newton from several starts, Newton-Raphson on the best, OIM / robust / cluster standard errors. Returns coefficients by class, marginal class probabilities and class means with delta-method SEs (estat lcprob / lcmean), posterior class probabilities per observation, log-likelihood, AIC and BIC. Classes are ordered by ascending class mean. Do NOT use when: The classes are known (observed groups): interact the regressors with the group instead; The heterogeneity is continuous: a random-coefficient model (sp.multilevel, sp.mixlogit) describes it with fewer parameters.",
+    "description": "Finite mixture of regressions (Stata fmm): k latent classes, each with its own linear (with its own error variance), logit or Poisson regression on the same covariates, and class membership by a multinomial logit in optional class covariates (Stata lcprob()). Maximum likelihood: EM and quasi-Newton from several starts, Newton-Raphson on the best, OIM / robust / cluster standard errors. Returns coefficients by class, marginal class probabilities and class means with delta-method SEs (estat lcprob / lcmean), posterior class probabilities per observation, log-likelihood, AIC and BIC. Classes are ordered by ascending class mean. Validation: certified parity evidence. Do NOT use when: The classes are known (observed groups): interact the regressors with the group instead; The heterogeneity is continuous: a random-coefficient model (sp.multilevel, sp.mixlogit) describes it with fewer parameters.",
     "name": "fmm",
     "parameters": {
       "properties": {
@@ -14930,6 +15044,85 @@
         "y",
         "treat",
         "mediator"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Causal mediation with one instrument (Dippel, Ferrara and Heblich 2020; Stata ivmediate). Treatment and mediator may both be endogenous; the instrument for the treatment identifies the total, direct and indirect effects through three just-identified IV regressions on partialled-out data. Numbers equal Stata ivmediate 1.0.4 to rounding. Validation: certified parity evidence.",
+    "name": "iv_mediate",
+    "parameters": {
+      "properties": {
+        "absorb": {
+          "description": "One fixed-effect identifier absorbed like areg (ivmediate absorb())",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
+        "cluster": {
+          "description": "Cluster variable; cluster-robust variances without a small-sample factor (ivmediate vce(cluster))",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Exogenous controls partialled out of every variable; categorical columns are expanded into dummies",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "instrument": {
+          "description": "The single excluded instrument for the treatment",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "level": {
+          "default": 0.95,
+          "description": "Confidence level for intervals",
+          "type": "number"
+        },
+        "mediator": {
+          "description": "Mediator (may be endogenous)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "robust": {
+          "default": false,
+          "description": "HC0 heteroskedasticity-robust variances (ivmediate vce(robust)); default is homoskedastic with e'e/n",
+          "type": "boolean"
+        },
+        "treat": {
+          "description": "Treatment (may be endogenous)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'nonrobust', 'robust'. Any other kind raises.",
+          "type": "string",
+          "x-statspai-grammar": "vce",
+          "x-statspai-vce-kinds": [
+            "cluster",
+            "nonrobust",
+            "robust"
+          ]
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "mediator",
+        "instrument"
       ],
       "type": "object"
     }
@@ -37551,6 +37744,207 @@
     }
   },
   {
+    "description": "Exact Shapley decomposition of an OLS R-squared across regressors or groups of regressors (Owen values within groups), over all 2^k subsets. Same quantity as Stata shapley2 stat(r2), R relaimpo LMG and domir general dominance; contributions sum to the full R-squared. Validation: certified parity evidence.",
+    "name": "shapley_r2",
+    "parameters": {
+      "properties": {
+        "covariates_fixed": {
+          "description": "Controls in every regression (domir .all, relaimpo always=); players share r2 - r2_fixed.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "Analysis data.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "groups": {
+          "description": "Non-overlapping groups {name: [regressors]}; each group is one player (Stata shapley2 group(), R domir .set). Regressors of x in no group play alone. Adds the Owen value of each regressor within its group.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "weights": {
+          "description": "Analytic weights (column name or array), strictly positive; weighted R-squared as in lm(weights=).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Regressors to decompose (at most 20 players; listwise deletion of missing rows).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Krippendorff's alpha inter-coder reliability for a units x coders table with missing codings, at nominal / ordinal / interval / ratio level, with an optional seeded bootstrap CI (Stata kalpha algorithm, or unit resampling). Validation: certified parity evidence.",
+    "name": "krippendorff_alpha",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level of the CI.",
+          "type": "number"
+        },
+        "bootstrap": {
+          "default": false,
+          "description": "Add a bootstrap CI.",
+          "type": "boolean"
+        },
+        "ci_method": {
+          "default": "krippendorff",
+          "description": "'krippendorff' draws value pairs from the coincidence matrix (Stata kalpha); 'units' resamples units.",
+          "enum": [
+            "krippendorff",
+            "units"
+          ],
+          "type": "string"
+        },
+        "data": {
+          "description": "Codings: rows are units, columns coders (NaN = missing).",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "draws": {
+          "description": "Pairs drawn per 'krippendorff' replication (default min(25 x nonzero cells, n (m - 1) / 2)).",
+          "type": "integer"
+        },
+        "layout": {
+          "default": "units_by_coders",
+          "description": "Orientation of data; 'coders_by_units' is the irr / kalpha (no transpose) layout.",
+          "enum": [
+            "units_by_coders",
+            "coders_by_units"
+          ],
+          "type": "string"
+        },
+        "level": {
+          "default": "nominal",
+          "description": "Level of measurement (difference function).",
+          "enum": [
+            "nominal",
+            "ordinal",
+            "interval",
+            "ratio"
+          ],
+          "type": "string"
+        },
+        "min_alpha": {
+          "default": [
+            0.667,
+            0.8
+          ],
+          "description": "Thresholds for P(alpha* < min_alpha).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "n_boot": {
+          "default": 20000,
+          "description": "Bootstrap replications.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Bootstrap seed.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes.",
+    "name": "llm_code_responses",
+    "parameters": {
+      "properties": {
+        "batch_size": {
+          "default": 20,
+          "description": "Responses per prompt.",
+          "type": "integer"
+        },
+        "client": {
+          "description": "sp.causal_llm client (chat(role, prompt)), callable prompt -> str, or 'auto' / 'anthropic' / 'openai'. Required: None raises LLMClientRequired.",
+          "type": "string"
+        },
+        "codebook": {
+          "description": "{label: description}, a label list, or a DataFrame with 'label'.",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "human_codes": {
+          "description": "Human codes aligned with texts (None = not coded) for LLM-human agreement.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instructions": {
+          "default": "",
+          "description": "Context added to the prompt.",
+          "type": "string"
+        },
+        "model": {
+          "description": "Model id (provenance; builds a string client).",
+          "type": "string"
+        },
+        "multi_label": {
+          "default": false,
+          "description": "Allow several labels per response.",
+          "type": "boolean"
+        },
+        "n_coders": {
+          "default": 1,
+          "description": "Independent coding passes.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seeds the batch order of each pass (not provider sampling).",
+          "type": "integer"
+        },
+        "temperature": {
+          "default": 0.0,
+          "description": "Sampling temperature.",
+          "type": "number"
+        },
+        "texts": {
+          "description": "Responses to code.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "texts",
+        "codebook"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Build a decision-ready summary for a fitted causal result.",
     "name": "effect_summary",
     "parameters": {
@@ -45064,7 +45458,7 @@
           "type": "boolean"
         },
         "formula": {
-          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar. Any Python identifier is a column name, so non-ASCII names (`` ~ ``) work. A third part makes it 2SLS, Stata's ``ivreghdfe``: ``\"y ~ exog | fe1 + fe2 | endog ~ z1 + z2\"`` (``\"y ~ 1 | ...\"`` without exogenous regressors). All variables are swept of the fixed effects by the same absorber, then 2SLS runs on the residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs follow ``ivreg2``'s small-sample conventions, and ``result.iv_diagnostics`` carries the first-stage F tests, Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin test and Hansen J (all as ``ivreghdfe ..., first``).",
+          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar. Any Python identifier is a column name, so non-ASCII names (`` ~ ``) work. A third part makes it 2SLS, Stata's ``ivreghdfe``: ``\"y ~ exog | fe1 + fe2 | endog ~ z1 + z2\"`` (``\"y ~ 1 | ...\"`` without exogenous regressors). All variables are swept of the fixed effects by the same absorber, then 2SLS runs on the residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs follow ``ivreg2``'s small-sample conventions, and ``result.iv_diagnostics`` carries the first-stage F tests, the Sanderson-Windmeijer conditional F and chi2 of each endogenous regressor (``first_stage[name]['sw_F']``), Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin test and Hansen J (all as ``ivreghdfe ..., first``).",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -50345,14 +50739,32 @@
     }
   },
   {
-    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: certified parity evidence.",
     "name": "suest",
     "parameters": {
       "properties": {
         "cluster": {
-          "description": "Cluster variable: the joint covariance sums the stacked influence functions within clusters and scales by ``G/(G-1)`` (Stata ``suest, vce(cluster c)``); otherwise it is the robust ``n/(n-1)`` version.",
-          "type": "string",
-          "x-statspai-role": "column"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Cluster variable(s). One: the joint covariance sums the stacked influence functions within clusters and scales by ``G/(G-1)`` (Stata ``suest, vce(cluster c)``). Several: the Cameron-Gelbach- Miller inclusion-exclusion sum over every intersection of them, the negative eigenvalues of the result set to zero. Without ``cluster`` it is the robust ``n/(n-1)`` version, observations (rows of ``data``) being the clusters."
+        },
+        "cluster_df": {
+          "default": "min",
+          "description": "Small-sample factor of a multi-way covariance: ``G_min/(G_min-1)`` on every term, with ``G_min`` the smallest cluster count (reghdfe, fixest), or each term's own ``G/(G-1)`` (Stata ``regress, vce(cluster a b)``). One-way clustering is the same either way.",
+          "enum": [
+            "min",
+            "per_term"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -50360,7 +50772,7 @@
           "x-statspai-role": "dataframe"
         },
         "equations": {
-          "description": "Each equation is ``(y, [x1, x2, ...])`` or a formula string ``\"y ~ x1 + x2\"`` (plain column names; an intercept is added). Each is fitted on its own complete rows.",
+          "description": "Each equation is ``(y, [x1, x2, ...])`` or a formula string. Plain column names get an intercept. Formulas also take factor terms ``i.f`` / ``C(f)`` (level dummies, smallest level omitted, labelled ``f::<level>``), ``ib<k>.f``, interactions ``a:b`` / ``a*b``, and absorbed fixed effects after a bar, ``\"y ~ x + i.f | fe1 + fe2\"`` (the ``sp.hdfe_ols`` grammar). Absorbed effects are swept out of ``y`` and the regressors of that equation alone (Frisch-Waugh-Lovell, singletons dropped as ``reghdfe`` does) and the equation has no ``_cons``. Each equation is fitted on its own complete rows; a collinear regressor is omitted with a warning.",
           "items": {
             "type": "string"
           },
@@ -55560,7 +55972,7 @@
       "properties": {
         "method": {
           "default": "holm",
-          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. These are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
+          "description": "Adjustment method. One of: - ``'bonferroni'`` -- Bonferroni correction. - ``'sidak'`` -- ``1 - (1 - p)^S``, exact under independence. - ``'holm'`` -- Holm (1979) step-down. Valid under any dependence. - ``'hochberg'`` -- Hochberg (1988) step-up. More powerful than Holm; needs independent or positively dependent tests. - ``'hommel'`` -- Hommel (1988). More powerful than Hochberg, under the same condition. - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR. - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence. - ``'bky'`` -- Benjamini-Krieger-Yekutieli (2006) sharpened two-stage q-values, as Anderson's Stata do-file computes them (a grid of step 0.001); see :func:`sharpened_qvalues`. Apart from ``'bky'``, these are the methods of R's ``p.adjust`` (plus Sidak), and return the same numbers. A missing p-value stays missing and still counts towards the size of the family, which is where this differs from ``p.adjust``: R drops it from the count. For Romano-Wolf or Westfall-Young adjustments (which require the original data and bootstrap), use :func:`romano_wolf` directly.",
           "enum": [
             "bonferroni",
             "sidak",
@@ -55568,7 +55980,8 @@
             "hochberg",
             "hommel",
             "bh",
-            "by"
+            "by",
+            "bky"
           ],
           "type": "string"
         },
@@ -57419,6 +57832,10 @@
           "description": "Design matrix of candidate covariates (``p`` may exceed ``n``).",
           "type": "string"
         },
+        "absorb": {
+          "description": "Fixed effects to absorb: one identifier per row, a 2-D array with one column per factor, or a list of such arrays. ``X`` and ``y`` are within-transformed (projected off the dummies of every factor) and the Lasso is run without an intercept, as Stata's ``rlasso, fe`` does [@belloni2016inference]; the penalty level still uses all ``n`` rows. ``intercept`` is ignored, and ``control`` defaults to ``iteration=\"lassopack\"``. With one factor this reproduces ``rlasso ..., fe``; with two, ``rlasso ..., fe partial(i.<f2>)``. Coefficients, residuals and ``predict`` are on the within scale.",
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster identifier. Switches to the cluster-Lasso of Belloni, Chernozhukov, Hansen and Kozbur (2016) [@belloni2016inference]: the loading of column ``j`` becomes ``sqrt(sum_g (sum_{i in g} x_ij e_i)^2 / n)``, which keeps the within-cluster dependence of the scores, and ``gamma`` defaults to ``0.1 / log(G)`` with ``G`` the number of clusters (the ``rlasso, cluster()`` rule of Stata's lassopack). Under positive within-cluster correlation the loadings are larger than the heteroskedastic ones, so fewer variables are selected; ignoring the clustering over-selects. In a fixed-effects panel pass the within-transformed ``X`` and ``y`` with ``intercept=False``. Requires the default heteroskedastic loadings (``homoscedastic=False``, no ``X.dependent.lambda``).",
           "type": "string",
@@ -57432,7 +57849,7 @@
           "type": "array"
         },
         "control": {
-          "description": "Overrides for ``numIter`` (default 15), ``tol`` (default 1e-5) and ``threshold`` (default ``None``).",
+          "description": "Overrides for ``numIter`` (default 15), ``tol`` (default 1e-5), ``threshold`` (default ``None``) and ``iteration``. ``iteration`` is ``\"hdm\"`` (the default without ``absorb``) or ``\"lassopack\"`` (the default with it). ``\"lassopack\"`` follows Stata's ``rlasso``: the first Lasso uses the full penalty (hdm halves it when ``post=True``), the loadings are refreshed from the post-Lasso residuals, at most ``numIter = 2`` Lasso fits are run (``maxpsiiter``) and the iteration stops early when the residual RMSE moves by less than ``tol = 1e-4`` (``tolpsi``). The two schemes can stop at different supports because the loading iteration may have more than one fixed point. ``\"lassopack\"`` needs the default heteroskedastic or cluster loadings.",
           "type": "object"
         },
         "intercept": {
@@ -57472,6 +57889,10 @@
       "properties": {
         "I3": {
           "description": "Amelioration set forced into the control set (double-selection only) -- hdm's ``I3`` argument.",
+          "type": "string"
+        },
+        "absorb": {
+          "description": "Fixed effects to absorb (column names when ``data`` is given, or one identifier array per factor). ``y``, ``d`` and every control are within-transformed before any Lasso, and the estimator then follows Stata's ``pdslasso y d (x...), fe`` [@belloni2016inference] rather than hdm, which has no fixed-effects option: the selection steps use ``control={\"iteration\": \"lassopack\"}`` unless ``control`` says otherwise, the final regressions have no intercept, and no variance carries a small-sample factor. ``robust=None`` then means homoskedastic ``e'e / n`` for partialling out and HC0 for double selection; ``robust=True`` is HC0 for both, ``robust=False`` the homoskedastic form for both. Selection matches ``pdslasso ..., fe robust`` or ``fe cluster()`` (Stata's default homoskedastic penalty is not offered). With several factors the result equals ``pdslasso ..., fe partial(i.<f2> ...)``.",
           "type": "string"
         },
         "cluster": {
@@ -57557,6 +57978,10 @@
           "x-aliases": [
             "covariates"
           ]
+        },
+        "absorb": {
+          "description": "absorb parameter (Optional[Any]).",
+          "type": "string"
         },
         "cluster": {
           "description": "Cluster identifier column for clustered standard errors.",
