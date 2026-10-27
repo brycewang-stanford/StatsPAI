@@ -232,15 +232,15 @@ def test_linear_specification_tests_refuse_a_logit(test):
 @pytest.mark.parametrize(
     "fn",
     [
-        lambda r: sp.logit_gof(r),
         lambda r: sp.logit_influence(r),
         lambda r: sp.estat(r, "classification", print_results=False),
     ],
 )
 def test_logit_diagnostics_after_weights_are_refused(fn):
-    # Stata refuses estat gof / estat classification after [pw=]; and
-    # sp.logit_gof used to return the unweighted Pearson statistic (295.72)
-    # where Stata's [iw=] statistic is 491.83.
+    # Stata refuses estat classification after [pw=]. sp.logit_gof used to
+    # return the unweighted Pearson statistic (295.72) where Stata's [iw=]
+    # statistic is 491.83; since round 7 it computes the weighted statistic
+    # (tests/test_option_scan_r7_open_items.py).
     res = sp.logit("yb ~ x1 + c", data=_logit_data(), weights="w")
     with pytest.raises(MethodIncompatibility):
         fn(res)

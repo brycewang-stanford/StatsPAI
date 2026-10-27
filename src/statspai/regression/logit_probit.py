@@ -977,6 +977,9 @@ def _fit_binary(
         "var_names": var_names,
         # Likelihood-based: z / chi2 inference, as Stata's logit/probit.
         "inference": "z",
+        # Estimation weights, row-aligned with X (sp.logit_gof after a
+        # frequency / importance-weighted fit); None when unweighted.
+        "fit_weights": None if w is None else np.asarray(w, dtype=float),
         # Unweighted per-observation log-likelihood (sp.vuong).
         "llobs": np.where(
             y_vec == 1,

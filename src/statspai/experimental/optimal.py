@@ -98,7 +98,7 @@ def optimal_design(
     cost_per_cluster: Optional[float] = None,
     cost_per_unit: Optional[float] = None,
     r2: float = 0.0,
-    baseline_mean: float = 0.0,
+    baseline_mean: Optional[float] = None,
     n: Optional[int] = None,
 ) -> OptimalDesignResult:
     """
@@ -125,14 +125,20 @@ def optimal_design(
     cluster_size : int, optional
         Average cluster size.
     n_clusters : int, optional
-        Number of clusters (if fixed).
+        Number of clusters (if fixed), used to solve for the MDE when
+        ``mde`` is None (cluster designs only).
     cost_per_cluster : float, optional
-        Cost of adding a cluster (for optimal allocation).
+        Cost of adding a cluster (for optimal allocation). Cluster designs
+        only, and only together with ``cost_per_unit``.
     cost_per_unit : float, optional
-        Cost per individual unit.
+        Cost per individual unit. Cluster designs only, and only together
+        with ``cost_per_cluster``.
     r2 : float, default 0.0
         R-squared from baseline covariates (variance reduction).
-    baseline_mean : float, default 0.0
+    baseline_mean : float, optional
+        Deprecated and has no effect: no formula here uses the outcome
+        mean. Passing it warns (``DeprecationWarning``); it will be removed
+        in 1.43. For a binary outcome pass ``sigma=sqrt(p (1 - p))``.
     n : int, optional
         Total number of individuals, used to solve for the MDE when ``mde`` is
         None (individual and stratified designs; cluster designs use
@@ -178,6 +184,16 @@ def optimal_design(
             "prop_treat applies to two-arm designs; with n_arms > 2 every arm "
             "is sized for an equal-allocation comparison with control."
         )
+    if baseline_mean is not None:
+        warnings.warn(
+            "optimal_design(baseline_mean=) has no effect and will be removed "
+            "in 1.43. For a binary outcome pass sigma=sqrt(p * (1 - p)).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    _refuse_unused_arguments(
+        design, mde, n, n_clusters, cost_per_cluster, cost_per_unit
+    )
     z = stats.norm.ppf(1 - alpha / 2) + stats.norm.ppf(power)
     variance_factor = 1 - r2  # variance reduction from baseline covariates
 
@@ -279,6 +295,54 @@ def optimal_design(
         alpha=alpha,
         design_type="Cluster RCT",
     )
+
+
+def _refuse_unused_arguments(
+    design: str,
+    mde: Optional[float],
+    n: Optional[int],
+    n_clusters: Optional[int],
+    cost_per_cluster: Optional[float],
+    cost_per_unit: Optional[float],
+) -> None:
+    """Raise when an argument given to optimal_design cannot change its result."""
+    unused: List[str] = []
+    cluster = design == "cluster"
+    if mde is not None and n is not None:
+        unused.append("n (the sample size is solved from mde)")
+    if cluster and n is not None and mde is None:
+        unused.append("n (cluster designs size by n_clusters and cluster_size)")
+    if n_clusters is not None and not cluster:
+        unused.append(f"n_clusters (design={design!r} has no clusters)")
+    if n_clusters is not None and cluster and mde is not None:
+        unused.append("n_clusters (the number of clusters is solved from mde)")
+    costs = [
+        name
+        for name, val in (
+            ("cost_per_cluster", cost_per_cluster),
+            ("cost_per_unit", cost_per_unit),
+        )
+        if val is not None
+    ]
+    if costs and not cluster:
+        unused.append(f"{' / '.join(costs)} (design={design!r} has no clusters)")
+    elif len(costs) == 1:
+        unused.append(
+            f"{costs[0]} (the cost-optimal cluster size needs both "
+            "cost_per_cluster and cost_per_unit)"
+        )
+    if unused:
+        raise MethodIncompatibility(
+            "optimal_design: these arguments cannot affect the result: "
+            + "; ".join(unused)
+            + ".",
+            recovery_hint=(
+                "Pass mde= to solve for the sample size, or n= (n_clusters= "
+                "with design='cluster') to solve for the MDE, not both; give "
+                "the two cost arguments together with design='cluster'."
+            ),
+            diagnostics={"unused": unused, "design": design},
+        )
 
 
 def _arm_sizes(

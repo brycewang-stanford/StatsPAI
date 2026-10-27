@@ -379,7 +379,13 @@ class NOTEARS:
             w0[:d2] = np.maximum(w_init, 0)
             w0[d2:] = np.maximum(-w_init, 0)
 
-            bounds = [(0, None)] * (2 * d2)
+            # The diagonal is held at zero inside the optimisation (no
+            # self-loops). Until 1.41
+            # it was free during the fit and zeroed afterwards, so the
+            # off-diagonal weights were fitted next to self-loop weights
+            # that were then discarded.
+            off_diag = ~np.eye(d, dtype=bool).ravel()
+            bounds = [(0.0, None) if off else (0.0, 0.0) for off in off_diag] * 2
 
             def _obj_split(w: np.ndarray) -> float:
                 wp = w[:d2].reshape(d, d)
@@ -422,18 +428,23 @@ class NOTEARS:
                 dtype=float,
             )
         else:
-            w0 = W_init.ravel()
+            w0 = W_init.ravel().copy()
+            w0[np.eye(d, dtype=bool).ravel()] = 0.0
+            free_bounds = [
+                (None, None) if off else (0.0, 0.0)
+                for off in ~np.eye(d, dtype=bool).ravel()
+            ]
             result = minimize(
                 _objective,
                 w0,
                 jac=_gradient,
                 method="L-BFGS-B",
+                bounds=free_bounds,
                 options={"maxiter": 1000, "ftol": 1e-12},
             )
             W_opt = np.asarray(result.x.reshape(d, d), dtype=float)
 
-        # Zero out diagonal (no self-loops)
-        np.fill_diagonal(W_opt, 0)
+        # The bounds keep the diagonal at exactly zero (no self-loops).
 
         return W_opt
 

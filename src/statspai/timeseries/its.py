@@ -46,7 +46,42 @@ from scipy import stats
 
 from .._input_validation import require_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
+
+
+def _time_ordered(
+    data: pd.DataFrame, time: Optional[str], function: str
+) -> pd.DataFrame:
+    """Rows of ``data`` in time order, for a single interrupted series.
+
+    The segmented regression reads ``intervention`` as a row position of the
+    time-ordered series, so an unsorted frame used to put the break in the
+    wrong place. Rows are sorted on ``time`` with a stable sort; a time
+    point that appears twice cannot belong to one series and is refused.
+    Without ``time`` the row order is the time order.
+    """
+    df = data.reset_index(drop=True)
+    if time is None:
+        return df
+    tcol = df[time]
+    dup = tcol.duplicated(keep=False) & tcol.notna()
+    if dup.any():
+        repeated = pd.unique(tcol[dup])[:5].tolist()
+        raise MethodIncompatibility(
+            f"{function}: the time column {time!r} repeats time points "
+            f"(e.g. {repeated}); an interrupted time series has one "
+            "observation per period.",
+            recovery_hint=(
+                "Aggregate to one row per period first, or fit one series at "
+                "a time (for several units use a panel estimator such as "
+                "sp.did or sp.synth)."
+            ),
+            diagnostics={"time": time, "n_duplicated_rows": int(dup.sum())},
+        )
+    order = np.argsort(tcol.to_numpy(), kind="stable")
+    if (order == np.arange(len(order))).all():
+        return df
+    return df.iloc[order].reset_index(drop=True)
 
 
 @dataclass
@@ -142,14 +177,18 @@ def its(
     Parameters
     ----------
     data : pd.DataFrame
-        Observed series, sorted in time.
+        Observed series, one row per period. Rows are put in time order
+        (stable sort on ``time``) before fitting, so the row order of
+        ``data`` does not matter when ``time`` is given; a repeated time
+        point raises ``MethodIncompatibility``.
     y : str
         Outcome column.
     time : str, optional
-        Time column. If None, uses row index 0..n-1.
+        Time column. If None, the rows are taken to be in time order and
+        the row index 0..n-1 is the time.
     intervention : int
-        Time index (integer row position) at which the intervention
-        begins. Required.
+        Time index (integer row position in the time-ordered series) at
+        which the intervention begins. Required.
     seasonality_period : int, optional
         Period P of Fourier seasonal terms (e.g. 12 for monthly data
         with annual cycle). If None, no seasonality is added.
@@ -189,7 +228,7 @@ def its(
     # into the time-ordered series, so removing rows would shift it; instead
     # we fail loudly below if the series is non-finite.
     require_columns(data, [y] + ([time] if time is not None else []), function="its")
-    df = data.reset_index(drop=True)
+    df = _time_ordered(data, time, "sp.its")
     n = len(df)
     n_params = 4 + (
         2 * seasonality_harmonics

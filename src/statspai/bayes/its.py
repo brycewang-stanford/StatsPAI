@@ -59,15 +59,17 @@ def bayes_its(
     Parameters
     ----------
     data : pd.DataFrame
-        Observed series, sorted in time.
+        Observed series, one row per period. Rows are put in time order
+        (stable sort on ``time``) before fitting, as in :func:`sp.its`; a
+        repeated time point raises ``MethodIncompatibility``.
     y : str
         Outcome column.
     time : str, optional
         Time column (used for the trend term and the x-axis). Defaults to the
-        row index.
+        row index, with the rows taken to be in time order.
     intervention : int
-        Integer row position where the intervention begins (``0 < intervention
-        < n``).
+        Integer row position in the time-ordered series where the
+        intervention begins (``0 < intervention < n``).
     prior_level : (float, float), default (0.0, 10.0)
         Mean / SD of the Normal prior on the level change (the estimand).
     prior_slope_sigma, prior_trend_sigma, prior_noise : float
@@ -94,12 +96,15 @@ def bayes_its(
     >>> res.posterior_mean  # posterior mean level change  # doctest: +SKIP
     """
     check_columns(data, {"y": y, "time": time}, function="sp.bayes_its")
+    from ..timeseries.its import _time_ordered
+
+    # Time order first (a repeated period is refused before PyMC loads).
+    work = _time_ordered(data, time, "sp.bayes_its")
     pm, _ = _require_pymc()
 
     if intervention is None:
         raise ValueError("intervention (integer row position) is required.")
 
-    work = data.reset_index(drop=True)
     Y = work[y].to_numpy(dtype=float)
     n = len(Y)
     intervention = int(intervention)

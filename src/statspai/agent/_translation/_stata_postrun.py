@@ -460,7 +460,14 @@ def _lrtest(session: "StataSession", rest: str) -> bool:
 
 
 def _gof(session: "StataSession", rest: str) -> bool:
+    from ...diagnostics._estat_regression import is_weighted
+
     m = re.search(r"group\(\s*(\d+)\s*\)", rest)
+    if session.last is not None and is_weighted(session.last):
+        # sp.stata refuses [iw=] and Stata's logit / probit take no [aw=],
+        # so a weighted fit here came from [pw=] (or [fw=] expanded into
+        # rows, which is unweighted). Stata: "pweights not allowed".
+        raise StataExprError("estat gof: pweights not allowed (Stata r(101))")
     out = logit_gof(session.last, groups=int(m.group(1)) if m else None)
     session.output = out
     session.stored["r"] = {"chi2": out["statistic"], "df": float(out["df"]),

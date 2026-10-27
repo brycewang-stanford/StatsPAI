@@ -160,7 +160,17 @@ def influence_measures(result: Any) -> pd.DataFrame:
 
 
 # ------------------------------------------------------------- logistic
-def _binary_fit(result: Any, who: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _binary_fit(
+    result: Any, who: str, *, frequency_weights: bool = False
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Design, outcome, fitted probabilities and weights of a binary fit.
+
+    With ``frequency_weights=True`` a fit whose weights are read as
+    frequency / importance weights (Stata ``[fw=]`` / ``[iw=]``, the default
+    reading of ``sp.logit`` / ``sp.probit``) is accepted and its weights are
+    returned; sampling weights (``weights_as='sampling'``, a survey design)
+    are refused, as Stata refuses ``estat gof`` after ``[pw=]``.
+    """
     info = getattr(result, "data_info", None) or {}
     model = getattr(result, "model_info", None) or {}
     x, y, p = info.get("X"), info.get("y"), info.get("fitted_values")
@@ -173,15 +183,28 @@ def _binary_fit(result: Any, who: str) -> Tuple[np.ndarray, np.ndarray, np.ndarr
         )
     from ._estat_regression import is_weighted
 
-    if is_weighted(result):
-        # sp.logit_gof returned the unweighted Pearson statistic of a
-        # weighted fit (295.7 where Stata's estat gof after [iw=] gives
-        # 491.8); Stata refuses both commands after pweights.
-        raise MethodIncompatibility(
-            f"sp.{who}: not available after a weighted fit; the statistics "
-            "are those of an unweighted binary regression.",
-            recovery_hint="Refit without weights to run these diagnostics.",
+    w: Optional[np.ndarray] = None
+    if is_weighted(result) or model.get("survey_design") is not None:
+        fit_w = info.get("fit_weights")
+        sampling = (
+            model.get("weights_as") == "sampling"
+            or model.get("survey_design") is not None
         )
+        if not frequency_weights or sampling or fit_w is None:
+            # Stata refuses estat gof and estat classification after
+            # pweights; the Pregibon diagnostics have no weighted form here.
+            raise MethodIncompatibility(
+                f"sp.{who}: not available after this weighted fit; "
+                + (
+                    "sampling weights describe a survey, not replicated "
+                    "observations (Stata: 'pweights not allowed')."
+                    if sampling
+                    else "the statistics are those of an unweighted binary "
+                    "regression."
+                ),
+                recovery_hint="Refit without weights to run these diagnostics.",
+            )
+        w = np.asarray(fit_w, dtype=float)
     if who == "logit_influence" and "logit" not in link:
         raise MethodIncompatibility(
             "sp.logit_influence: Pregibon's diagnostics are those of the "
@@ -192,6 +215,7 @@ def _binary_fit(result: Any, who: str) -> Tuple[np.ndarray, np.ndarray, np.ndarr
         np.asarray(x, dtype=float),
         np.asarray(y, dtype=float),
         np.asarray(p, dtype=float),
+        w,
     )
 
 
@@ -264,7 +288,7 @@ def logit_influence(result: Any) -> pd.DataFrame:
     >>> int(out["pattern"].nunique())
     4
     """
-    x, y, p = _binary_fit(result, "logit_influence")
+    x, y, p, _ = _binary_fit(result, "logit_influence")
     pattern, n_patterns = _patterns(x)
     m = np.bincount(pattern, minlength=n_patterns).astype(float)
     successes = np.bincount(pattern, weights=y, minlength=n_patterns)
@@ -311,6 +335,13 @@ def logit_gof(result: Any, groups: Optional[int] = None) -> Dict[str, Any]:
     chi-squared with ``g - 2`` degrees of freedom (Stata ``estat gof`` and
     ``estat gof, group(g)``).
 
+    After a fit with frequency / importance weights (the default reading of
+    ``weights=`` in ``sp.logit`` / ``sp.probit``) the Pearson test uses
+    weighted pattern sizes and success counts, Stata's ``estat gof`` after
+    ``[iw=]`` / ``[fw=]``. Sampling weights are refused, as Stata refuses
+    ``estat gof`` after ``[pw=]``, and so is the grouped test after any
+    weighted fit.
+
     Parameters
     ----------
     result : EconometricResults
@@ -336,12 +367,26 @@ def logit_gof(result: Any, groups: Optional[int] = None) -> Dict[str, Any]:
     >>> int(out["df"])
     8
     """
-    x, y, p = _binary_fit(result, "logit_gof")
+    x, y, p, w = _binary_fit(result, "logit_gof", frequency_weights=True)
     n, k = x.shape
+    if w is not None and groups is not None:
+        # Stata 18 `estat gof, group()` after [iw=] cuts the fitted
+        # probabilities at cumulative weight N q / g with N the number of
+        # rows, so with weights that do not sum to N part of the sample is
+        # left out of every group. Not reproduced; the Pearson test is.
+        raise MethodIncompatibility(
+            "sp.logit_gof: the Hosmer-Lemeshow test is not available after a "
+            "weighted fit; the Pearson test (groups=None) is.",
+            recovery_hint="Call sp.logit_gof(result) without groups=.",
+        )
     if groups is None:
         pattern, n_patterns = _patterns(x)
-        m = np.bincount(pattern, minlength=n_patterns).astype(float)
-        successes = np.bincount(pattern, weights=y, minlength=n_patterns)
+        # With frequency / importance weights a pattern's size and success
+        # count are weighted sums, as Stata `estat gof` after [iw=] / [fw=].
+        m = np.bincount(pattern, weights=w, minlength=n_patterns).astype(float)
+        successes = np.bincount(
+            pattern, weights=y if w is None else w * y, minlength=n_patterns
+        )
         pj = p[np.unique(pattern, return_index=True)[1]]
         stat = float(np.sum((successes - m * pj) ** 2 / (m * pj * (1 - pj))))
         df = n_patterns - k

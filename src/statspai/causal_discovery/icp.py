@@ -56,8 +56,11 @@ class ICPResult(ResultProtocolMixin):
     alpha : float
         Level at which each subset's invariance test was run.
     coefficients : dict
-        ``var -> (lo, hi)`` 95% confidence interval for each parent's
-        coefficient in the pooled OLS fit on ``parents``.
+        ``var -> (lo, hi)`` confidence interval for each parent's
+        coefficient: the union, over the accepted subsets, of the OLS
+        interval at level ``1 - alpha/2`` (normal quantile), as R
+        ``InvariantCausalPrediction::ICP`` reports ``ConfInt``. It follows
+        ``alpha``.
     method : str
         ``"linear"`` or ``"nonlinear"``.
 
@@ -228,23 +231,35 @@ def icp(
 
     parents = set.intersection(*(set(s) for s in accepted))
 
+    # Interval for each parent: the union over the accepted subsets of the
+    # OLS interval of that coefficient at level 1 - alpha/2 (normal
+    # quantile), which is how R InvariantCausalPrediction::ICP reports its
+    # confidence intervals. Through 1.41 this was a fixed 95% interval
+    # from the fit on the parents alone, whatever alpha was.
     coefficients: dict[str, tuple[float, float]] = {}
     if parents:
-        Xp = X[list(parents)].to_numpy()
-        Xp = np.column_stack([np.ones(n), Xp])
-        beta, *_ = np.linalg.lstsq(Xp, y, rcond=None)
-        resid = y - Xp @ beta
-        sigma2 = float(resid @ resid / max(n - Xp.shape[1], 1))
-        try:
-            xtx_inv = np.linalg.inv(Xp.T @ Xp)
-        except np.linalg.LinAlgError:
-            xtx_inv = np.linalg.pinv(Xp.T @ Xp)
-        se = np.sqrt(np.diag(sigma2 * xtx_inv))
-        for i, v in enumerate(sorted(parents), start=1):
-            coefficients[v] = (
-                float(beta[i] - 1.96 * se[i]),
-                float(beta[i] + 1.96 * se[i]),
-            )
+        z = float(stats.norm.ppf(1 - alpha / 4))
+        for S in accepted:
+            names = sorted(S)
+            Xs = np.column_stack([np.ones(n), X[names].to_numpy(dtype=float)])
+            beta, *_ = np.linalg.lstsq(Xs, y, rcond=None)
+            resid = y - Xs @ beta
+            sigma2 = float(resid @ resid / max(n - Xs.shape[1], 1))
+            try:
+                xtx_inv = np.linalg.inv(Xs.T @ Xs)
+            except np.linalg.LinAlgError:
+                xtx_inv = np.linalg.pinv(Xs.T @ Xs)
+            se = np.sqrt(np.diag(sigma2 * xtx_inv))
+            for i, v in enumerate(names, start=1):
+                if v not in parents:
+                    continue
+                lo = float(beta[i] - z * se[i])
+                hi = float(beta[i] + z * se[i])
+                if v in coefficients:
+                    lo = min(lo, coefficients[v][0])
+                    hi = max(hi, coefficients[v][1])
+                coefficients[v] = (lo, hi)
+        coefficients = {v: coefficients[v] for v in sorted(parents)}
 
     return ICPResult(
         parents=parents,

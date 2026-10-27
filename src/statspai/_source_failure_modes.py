@@ -1119,10 +1119,17 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "logit_gof": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Call sp.logit_gof(result) without groups=.",
+            "symptom": "sp.logit_gof: the Hosmer-Lemeshow test is not "
+            "available after a weighted fit; the Pearson test "
+            "(groups=None) is.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "groups=10 is the usual choice.",
             "symptom": "sp.logit_gof: the Hosmer-Lemeshow test needs at "
             "least 3 groups.",
-        }
+        },
     ],
     "loneway": [
         {

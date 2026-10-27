@@ -542,6 +542,34 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
 `tests/test_output_option_scan_r6.py`,
 `tests/test_plots_output_option_scan_r6.py` and
 `tests/test_fast_option_scan_r6.py`).
+Option scan round 7, items left open by round 6 (tests in
+`tests/test_option_scan_r7_open_items.py`).
+
+- `sp.its` and `sp.bayes_its` read `intervention` as a row position of the
+  time-ordered series but did not sort the data. An unsorted frame put the
+  break in the wrong place. Both now sort on `time` (stable) first, so a
+  shuffled frame gives bit-identical results to the sorted one. A repeated
+  time point raises `MethodIncompatibility`. Sorted input is unchanged.
+- `sp.icp` reported a 95% interval whatever `alpha` was, from the fit on
+  the parents alone. It now reports what R `InvariantCausalPrediction::ICP`
+  reports in `ConfInt`: the union over the accepted subsets of the OLS
+  interval at level `1 - alpha/2`. On the test data the X1 interval was
+  [1.39357, 1.53188] at every `alpha`. It is now [1.38306, 1.54181] at
+  `alpha=0.05` and [1.40408, 1.52076] at `alpha=0.2`, equal to R 0.8 to
+  1e-9.
+  Parents and accepted subsets are unchanged.
+- `sp.notears` left the diagonal of `W` free during the optimisation and
+  zeroed it afterwards. The off-diagonal weights were fitted next to
+  self-loop weights that were then dropped. The diagonal is now held at
+  zero inside L-BFGS-B. At convergence the weights move by about 1e-5 (the
+  docstring example); when the optimiser stops early they move by up to
+  0.21. After one inner solve the off-diagonal gradient was 0.279 and is
+  now below 1e-5.
+
+Option scan round 6: `output/`, `plots/` and `fast/` (tests in
+`tests/test_output_option_scan_r6.py`,
+`tests/test_plots_output_option_scan_r6.py` and
+`tests/test_fast_option_scan_r6.py`).
 
 
 ### Fixed
@@ -710,6 +738,26 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
   section labelled every interval "95% CI" whatever the result's `alpha`.
 - `sp.recommend` listed the logit card twice for an RCT with a binary
   outcome.
+- `sp.regtable` / `sp.esttab`: `coef_labels=` / `coef_map=` giving two
+  coefficients the same label printed the label on two rows. They now
+  share one row, as esttab `rename()` does. A model that has both raises
+  `MethodIncompatibility`.
+- `sp.optimal_design` refuses arguments that cannot change its result
+  instead of ignoring them: `n` or `n_clusters` with `mde`, `n_clusters`
+  or the cost arguments outside a cluster design, `n` in a cluster design,
+  and one cost argument without the other.
+- `sp.logit_gof` after a fit with frequency / importance weights (the
+  default reading of `weights=` in `sp.logit` / `sp.probit`) returns the
+  weighted Pearson statistic of Stata 18 `estat gof` after `[iw=]`
+  (491.83 on the round-6 example, equal to Stata to 3e-12, where it used to
+  refuse). Sampling
+  weights are still refused, as Stata refuses `[pw=]`, and so is
+  `groups=` after any weighted fit (Stata cuts the groups at cumulative
+  weight N q / g with N the row count, which leaves part of the sample out
+  of every group). A survey-design fit is now refused too; it used to get
+  the unweighted statistics.
+- `sp.stata`: `estat gof` after `logit ... [pw=]` stops with Stata's
+  "pweights not allowed".
 
 ### Added
 
@@ -880,6 +928,12 @@ matched to Stata or R on committed data (`tests/reference_parity/`).
 
 - `sp.interference("parmigiani")` warns (`DeprecationWarning`) and will be
   removed in 1.43. Use `"network_hte"`, the same estimator.
+- `sp.optimal_design(baseline_mean=)`, `sp.attrition_bounds(alpha=)` and
+  `sp.balance_check(alpha=)` have no effect. Passing them warns
+  (`DeprecationWarning`); they will be removed in 1.43.
+- `sp.bayes_dml(mode='full')` was never available. It still raises
+  `MethodIncompatibility`, now with a `DeprecationWarning`; the value will
+  be removed in 1.43. The registry offers only `mode='conjugate'`.
 
 ## [1.41.0] — 2026-10-27
 

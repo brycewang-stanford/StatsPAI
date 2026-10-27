@@ -20548,7 +20548,7 @@
           "type": "boolean"
         },
         "intervention": {
-          "description": "Time index (integer row position) at which the intervention begins. Required.",
+          "description": "Time index (integer row position in the time-ordered series) at which the intervention begins. Required.",
           "type": "integer"
         },
         "seasonality_harmonics": {
@@ -20561,7 +20561,7 @@
           "type": "integer"
         },
         "time": {
-          "description": "Time column. If None, uses row index 0..n-1.",
+          "description": "Time column. If None, the rows are taken to be in time order and the row index 0..n-1 is the time.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -23494,7 +23494,7 @@
     "name": "logit"
   },
   {
-    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence. Assumptions: A binary-outcome model fitted by maximum likelihood; Pearson's test needs covariate patterns with several observations each; with near-continuous regressors use the grouped (Hosmer- Lemeshow) form; A non-rejection is not evidence that the model is right: the grouped test has little power against omitted interactions. Failure modes: sp.logit_gof: the Hosmer-Lemeshow test needs at least 3 groups -> groups=10 is the usual choice. Alternatives: sp.estat, sp.logit_influence.",
+    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. After a frequency / importance-weighted fit the Pearson test uses weighted pattern counts (Stata estat gof after [iw=]); sampling weights, and the grouped test after any weighted fit, are refused. Validation: certified parity evidence. Assumptions: A binary-outcome model fitted by maximum likelihood; Pearson's test needs covariate patterns with several observations each; with near-continuous regressors use the grouped (Hosmer- Lemeshow) form; A non-rejection is not evidence that the model is right: the grouped test has little power against omitted interactions. Failure modes: sp.logit_gof: the Hosmer-Lemeshow test is not available after a weighted fit; the Pearson test (groups=None) is -> Call sp.logit_gof(result) without groups=; sp.logit_gof: the Hosmer-Lemeshow test needs at least 3 groups -> groups=10 is the usual choice. Alternatives: sp.estat, sp.logit_influence.",
     "input_schema": {
       "properties": {
         "groups": {

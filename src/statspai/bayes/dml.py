@@ -11,13 +11,15 @@ Two modes:
 - ``'conjugate'`` (default): Normal-Normal conjugate update on the DML
   point estimate and its standard error. Extremely fast. Falls back to
   weakly-informative Normal(0, 10²) prior by default.
-- ``'full'``: not available. It needs the orthogonal score arrays of
-  the DML fit, which :func:`sp.dml` does not return, and raises
+- ``'full'``: deprecated (removal in 1.43) and never available. It needs
+  the orthogonal score arrays of the DML fit, which :func:`sp.dml` does
+  not return; it warns (``DeprecationWarning``) and raises
   ``MethodIncompatibility`` before any fitting.
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 
@@ -107,11 +109,12 @@ def bayes_dml(
         Forwarded to :func:`sp.dml` — ``'plr'`` / ``'irm'`` / ``'pliv'``.
     prior_mean, prior_sd : float
         Parameters of the Normal prior on the treatment effect.
-    mode : {'conjugate', 'full'}, default 'conjugate'
+    mode : {'conjugate'}, default 'conjugate'
         Conjugate uses closed-form Normal-Normal updating on the DML
-        point/SE. ``'full'`` is not available: it needs the orthogonal
-        score arrays, which :func:`sp.dml` does not return, and raises
-        ``MethodIncompatibility``.
+        point/SE. The value ``'full'`` is deprecated and will be removed in
+        1.43: it was never available (it needs the orthogonal score arrays,
+        which :func:`sp.dml` does not return). It warns
+        (``DeprecationWarning``) and raises ``MethodIncompatibility``.
     alpha : float, default 0.05
     n_folds : int, default 5
     random_state : int, default 42
@@ -151,7 +154,7 @@ def bayes_dml(
     >>> import statspai as sp
     >>> import pandas as pd
     >>> # Conjugate mode (default) cross-fits sp.dml then applies a
-    >>> # Normal-Normal update; 'full' mode needs the `bayes` extra.
+    >>> # Normal-Normal update.
     >>> res = sp.bayes_dml(df, y='y', treatment='d',
     ...                    covariates=['x1', 'x2'],
     ...                    prior_mean=0.0, prior_sd=1.0)  # doctest: +SKIP
@@ -165,6 +168,12 @@ def bayes_dml(
     if mode == "full":
         # Checked before the DML fit: the score arrays it would need are
         # not part of the sp.dml result, so the fit could only be wasted.
+        warnings.warn(
+            "bayes_dml(mode='full') is deprecated and will be removed in 1.43; "
+            "it was never available. Use mode='conjugate'.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         raise MethodIncompatibility(
             "bayes_dml(mode='full') needs the orthogonal score arrays of the "
             "DML fit, which sp.dml does not return.",

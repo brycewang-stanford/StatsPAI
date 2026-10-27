@@ -5,6 +5,37 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ ITS time order, ICP intervals, NOTEARS diagonal, deprecated arguments (option scan round 7)
+
+- `sp.its` and `sp.bayes_its` sort the data on `time` before fitting.
+  `intervention` is a row position in the time-ordered series. Results on
+  sorted data are unchanged; unsorted data now get the break at the right
+  period. A repeated time point raises `MethodIncompatibility`; aggregate
+  to one row per period first.
+- `sp.icp(...).coefficients` follow `alpha`: the union over the accepted
+  subsets of the OLS interval at level `1 - alpha/2`, as R
+  `InvariantCausalPrediction::ICP`. The intervals are wider than the old
+  fixed 95% interval at `alpha=0.05`.
+- `sp.notears` holds the diagonal at zero during the optimisation. Weights
+  change slightly at convergence and more when `max_iter` stops the fit
+  early. Edges after thresholding can change in that case.
+- `sp.regtable` / `sp.esttab`: two coefficients given the same label share
+  one row. If one model has both, give them distinct labels.
+- `sp.optimal_design` raises `MethodIncompatibility` for an argument that
+  cannot affect the result (for example `n_clusters=` together with
+  `mde=`). Drop the argument.
+- `sp.optimal_design(baseline_mean=)`, `sp.attrition_bounds(alpha=)` and
+  `sp.balance_check(alpha=)` warn (`DeprecationWarning`) and will be
+  removed in 1.43. They never had an effect; delete them from calls.
+- `sp.bayes_dml(mode='full')` warns (`DeprecationWarning`) before raising;
+  the value will be removed in 1.43. Use `mode='conjugate'`.
+- `sp.logit_gof` after a frequency / importance-weighted `sp.logit` or
+  `sp.probit` returns the weighted Pearson statistic instead of raising.
+  `groups=` after a weighted fit, sampling weights and survey designs
+  still raise.
+
+---
+
 ## 1.41 → 1.42: ⚠️ orchestration options (option scan round 7, `smart/` and `workflow/`)
 
 - `sp.causal(cluster=)` and `sp.paper(cluster=)` now cluster the fitted

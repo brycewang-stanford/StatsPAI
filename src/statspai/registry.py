@@ -13006,7 +13006,10 @@ def _build_registry() -> None:
                 "Goodness of fit of a binary-outcome model (Stata estat gof): "
                 "Pearson's chi-squared over covariate patterns, or with groups= "
                 "the Hosmer-Lemeshow test on quantile groups of the fitted "
-                "probability. "
+                "probability. After a frequency / importance-weighted fit the "
+                "Pearson test uses weighted pattern counts (Stata estat gof "
+                "after [iw=]); sampling weights, and the grouped test after "
+                "any weighted fit, are refused."
             ),
             params=[
                 ParamSpec(
@@ -13031,6 +13034,8 @@ def _build_registry() -> None:
                 "Lemeshow) form",
                 "A non-rejection is not evidence that the model is right: the "
                 "grouped test has little power against omitted interactions",
+                "Weights, if any, are frequency / importance weights (the "
+                "default reading of weights= in sp.logit / sp.probit)",
             ],
             returns="dict",
             example='sp.logit_gof(sp.logit("d ~ x", data=df), groups=10)',
@@ -24360,7 +24365,8 @@ def _build_registry() -> None:
             description=(
                 "Bayesian Double Machine Learning (DiTraglia & Liu 2025): "
                 "Normal-Normal conjugate update on a DML point estimate. "
-                "mode='full' is not available (raises MethodIncompatibility)."
+                "mode='full' is deprecated (removal in 1.43) and raises "
+                "MethodIncompatibility."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -24371,7 +24377,15 @@ def _build_registry() -> None:
                 ParamSpec("prior_mean", "float", False, 0.0),
                 ParamSpec("prior_sd", "float", False, 10.0),
                 ParamSpec(
-                    "mode", "str", False, "conjugate", enum=["conjugate", "full"]
+                    "mode",
+                    "str",
+                    False,
+                    "conjugate",
+                    "Posterior construction. Only 'conjugate' (Normal-Normal "
+                    "update of the DML point and SE). The value 'full' is "
+                    "deprecated, will be removed in 1.43, and raises "
+                    "MethodIncompatibility with a DeprecationWarning.",
+                    enum=["conjugate"],
                 ),
                 ParamSpec(
                     "random_state",
@@ -24413,7 +24427,10 @@ def _build_registry() -> None:
                     alternative="sp.dml",
                 ),
                 FailureMode(
-                    symptom="mode='full' raises MethodIncompatibility",
+                    symptom=(
+                        "mode='full' raises MethodIncompatibility "
+                        "(deprecated value, removal in 1.43)"
+                    ),
                     exception="statspai.MethodIncompatibility",
                     remedy=(
                         "Use mode='conjugate'; sp.dml does not return the "

@@ -3198,6 +3198,105 @@ class _PanelData:
         self.models = models
 
 
+_MODEL_TERM_SERIES = (
+    "params",
+    "std_errors",
+    "tvalues",
+    "pvalues",
+    "conf_int_lower",
+    "conf_int_upper",
+    "ci_df",
+)
+
+
+def _merge_shared_labels(
+    panels: List[_PanelData],
+    multi_se: List[Tuple[str, List[Dict[str, float]]]],
+    coef_labels: Dict[str, str],
+    *,
+    keep: Optional[List[str]],
+    drop: set,
+    order: Optional[List[str]],
+) -> Dict[str, str]:
+    """Merge coefficients that render under the same label into one row.
+
+    Mirrors esttab's ``rename()``: when ``coef_labels`` (or ``coef_map``)
+    gives two coefficients the same label and no model has both, they share
+    one row. The row sits where the first of them would have been (table
+    order after ``keep`` / ``drop`` / ``order``). A model that has both
+    cannot be shown in one cell, so that is refused.
+
+    Model data are copied before renaming, so a ``_ModelData`` the caller
+    passed in is not mutated. Returns the label map, now keyed by the
+    surviving coefficient name of each merged group.
+    """
+    models = [m for p in panels for m in p.models]
+    seen: "OrderedDict[str, None]" = OrderedDict()
+    for m in models:
+        for v in m.params.index:
+            seen[str(v)] = None
+    names = list(seen)
+    if keep is not None:
+        keep_set = set(keep)
+        names = [v for v in names if v in keep_set]
+    names = [v for v in names if v not in drop]
+    if order:
+        ordered = [v for v in order if v in names]
+        names = list(dict.fromkeys(ordered + names))
+
+    groups: "OrderedDict[str, List[str]]" = OrderedDict()
+    for v in names:
+        groups.setdefault(str(coef_labels.get(v, v)), []).append(v)
+    rename: Dict[str, str] = {}
+    for label, members in groups.items():
+        if len(members) < 2:
+            continue
+        for col, m in enumerate(models, start=1):
+            present = [v for v in members if v in m.params.index]
+            if len(present) > 1:
+                raise MethodIncompatibility(
+                    f"Coefficients {present} of model ({col}) all map to the "
+                    f"label {label!r}; one row cannot hold two estimates "
+                    "of the same model.",
+                    recovery_hint=(
+                        "Give these coefficients distinct labels, or drop "
+                        "one of them with drop= (or leave it out of coef_map)."
+                    ),
+                    diagnostics={
+                        "label": label,
+                        "coefficients": present,
+                        "model": col,
+                    },
+                )
+        for v in members[1:]:
+            rename[v] = members[0]
+    if not rename:
+        return coef_labels
+
+    for panel in panels:
+        new_models: List[_ModelData] = []
+        for m in panel.models:
+            if not any(v in m.params.index for v in rename):
+                new_models.append(m)
+                continue
+            fields = {}
+            for attr in _ModelData.__slots__:
+                val = getattr(m, attr)
+                if attr in _MODEL_TERM_SERIES and isinstance(val, pd.Series):
+                    val = val.rename(index=lambda t: rename.get(str(t), t))
+                fields[attr] = val
+            new_models.append(_ModelData(**fields))
+        panel.models = new_models
+    for _, per_model in multi_se:
+        for i, entry in enumerate(per_model):
+            if any(v in entry for v in rename):
+                per_model[i] = {rename.get(k, k): val for k, val in entry.items()}
+    out = {k: v for k, v in coef_labels.items() if k not in rename}
+    for old, new in rename.items():
+        out.setdefault(new, coef_labels.get(old, old))
+    return out
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # regtable() — the main public API
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3895,6 +3994,20 @@ def regtable(
         repro_note = build_repro_note(**repro_kwargs)
         if repro_note:
             final_notes.append(repro_note)
+
+    # --- labels shared by several coefficients: one row ----------------
+    # esttab's ``rename()`` merges two coefficients that map to the same
+    # name into one row; ``coef_labels`` / ``coef_map`` used to print the
+    # label twice, each row filled in different columns.
+    if coef_labels:
+        coef_labels = _merge_shared_labels(
+            panels,
+            multi_se_norm,
+            dict(coef_labels),
+            keep=list(keep) if keep else None,
+            drop=set(drop) if drop else set(),
+            order=list(order) if order else None,
+        )
 
     result = RegtableResult(
         panels=panels,

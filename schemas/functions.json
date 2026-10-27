@@ -11139,7 +11139,7 @@
     }
   },
   {
-    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. Validation: certified parity evidence.",
+    "description": "Goodness of fit of a binary-outcome model (Stata estat gof): Pearson's chi-squared over covariate patterns, or with groups= the Hosmer-Lemeshow test on quantile groups of the fitted probability. After a frequency / importance-weighted fit the Pearson test uses weighted pattern counts (Stata estat gof after [iw=]); sampling weights, and the grouped test after any weighted fit, are refused. Validation: certified parity evidence.",
     "name": "logit_gof",
     "parameters": {
       "properties": {
@@ -24503,7 +24503,7 @@
     }
   },
   {
-    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. mode='full' is not available (raises MethodIncompatibility). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. mode='full' is deprecated (removal in 1.43) and raises MethodIncompatibility. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_dml",
     "parameters": {
       "properties": {
@@ -24538,10 +24538,9 @@
         },
         "mode": {
           "default": "conjugate",
-          "description": "Conjugate uses closed-form Normal-Normal updating on the DML point/SE. ``'full'`` is not available: it needs the orthogonal score arrays, which :func:`sp.dml` does not return, and raises ``MethodIncompatibility``.",
+          "description": "Posterior construction. Only 'conjugate' (Normal-Normal update of the DML point and SE). The value 'full' is deprecated, will be removed in 1.43, and raises MethodIncompatibility with a DeprecationWarning.",
           "enum": [
-            "conjugate",
-            "full"
+            "conjugate"
           ],
           "type": "string"
         },
@@ -54253,7 +54252,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "Observed series, sorted in time.",
+          "description": "Observed series, one row per period. Rows are put in time order (stable sort on ``time``) before fitting, as in :func:`sp.its`; a repeated time point raises ``MethodIncompatibility``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -54273,7 +54272,7 @@
           "type": "string"
         },
         "intervention": {
-          "description": "Integer row position where the intervention begins (``0 < intervention < n``).",
+          "description": "Integer row position in the time-ordered series where the intervention begins (``0 < intervention < n``).",
           "type": "integer"
         },
         "prior_level": {
@@ -54329,7 +54328,7 @@
           "type": "number"
         },
         "time": {
-          "description": "Time column (used for the trend term and the x-axis). Defaults to the row index.",
+          "description": "Time column (used for the trend term and the x-axis). Defaults to the row index, with the rows taken to be in time order.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -61928,8 +61927,7 @@
     "parameters": {
       "properties": {
         "alpha": {
-          "default": 0.05,
-          "description": "Not used: the table reports p-values, and the summary flags ``|normalized difference| > 0.25``.",
+          "description": "Deprecated and has no effect: the table reports p-values, and the summary flags ``|normalized difference| > 0.25``. Passing it warns (``DeprecationWarning``); it will be removed in 1.43.",
           "type": "number"
         },
         "covariates": {
@@ -62019,8 +62017,7 @@
     "parameters": {
       "properties": {
         "alpha": {
-          "default": 0.05,
-          "description": "Not used: no confidence interval is computed. For an interval for the identified set use :func:`sp.lee_bounds`.",
+          "description": "Deprecated and has no effect: no confidence interval is computed. Passing it warns (``DeprecationWarning``); it will be removed in 1.43. For an interval for the identified set use :func:`sp.lee_bounds`.",
           "type": "number"
         },
         "data": {
@@ -62084,8 +62081,7 @@
           "type": "number"
         },
         "baseline_mean": {
-          "default": 0.0,
-          "description": "baseline_mean parameter (float).",
+          "description": "Deprecated and has no effect: no formula here uses the outcome mean. Passing it warns (``DeprecationWarning``); it will be removed in 1.43. For a binary outcome pass ``sigma=sqrt(p (1 - p))``.",
           "type": "number"
         },
         "cluster_size": {
@@ -62093,11 +62089,11 @@
           "type": "integer"
         },
         "cost_per_cluster": {
-          "description": "Cost of adding a cluster (for optimal allocation).",
+          "description": "Cost of adding a cluster (for optimal allocation). Cluster designs only, and only together with ``cost_per_unit``.",
           "type": "number"
         },
         "cost_per_unit": {
-          "description": "Cost per individual unit.",
+          "description": "Cost per individual unit. Cluster designs only, and only together with ``cost_per_cluster``.",
           "type": "number"
         },
         "design": {
@@ -62129,7 +62125,7 @@
           "type": "integer"
         },
         "n_clusters": {
-          "description": "Number of clusters (if fixed).",
+          "description": "Number of clusters (if fixed), used to solve for the MDE when ``mde`` is None (cluster designs only).",
           "type": "integer"
         },
         "power": {
@@ -79893,7 +79889,7 @@
           "type": "number"
         },
         "data": {
-          "description": "Observed series, sorted in time.",
+          "description": "Observed series, one row per period. Rows are put in time order (stable sort on ``time``) before fitting, so the row order of ``data`` does not matter when ``time`` is given; a repeated time point raises ``MethodIncompatibility``.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -79908,7 +79904,7 @@
           "type": "boolean"
         },
         "intervention": {
-          "description": "Time index (integer row position) at which the intervention begins. Required.",
+          "description": "Time index (integer row position in the time-ordered series) at which the intervention begins. Required.",
           "type": "integer"
         },
         "seasonality_harmonics": {
@@ -79921,7 +79917,7 @@
           "type": "integer"
         },
         "time": {
-          "description": "Time column. If None, uses row index 0..n-1.",
+          "description": "Time column. If None, the rows are taken to be in time order and the row index 0..n-1 is the time.",
           "type": "string",
           "x-statspai-role": "column"
         },

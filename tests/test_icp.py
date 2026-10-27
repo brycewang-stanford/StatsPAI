@@ -46,11 +46,25 @@ def test_icp_nonlinear_api_works():
     assert isinstance(res, sp.ICPResult)
     assert res.method == "nonlinear"
     assert res.parents == {"X1"}
-    np.testing.assert_allclose(
-        [len(res.accepted_subsets), *res.coefficients["X1"]],
-        [4, 1.4554821268165616, 1.5336932467712243],
-        atol=1e-12,
-    )
+    assert len(res.accepted_subsets) == 4
+    # The interval is the union over the accepted subsets of the OLS
+    # interval at level 1 - alpha/2 (R InvariantCausalPrediction's ConfInt,
+    # checked against R in tests/test_option_scan_r7_open_items.py). Until
+    # round 7 it was a fixed 95% interval, [1.45548, 1.53369] here.
+    from scipy import stats
+
+    z = stats.norm.ppf(1 - 0.1 / 4)
+    lo, hi = np.inf, -np.inf
+    for S in res.accepted_subsets:
+        names = sorted(S)
+        Xs = np.column_stack([np.ones(len(y)), X[names].to_numpy()])
+        beta = np.linalg.lstsq(Xs, y, rcond=None)[0]
+        resid = y - Xs @ beta
+        cov = resid @ resid / (len(y) - Xs.shape[1]) * np.linalg.inv(Xs.T @ Xs)
+        j = 1 + names.index("X1")
+        lo = min(lo, beta[j] - z * np.sqrt(cov[j, j]))
+        hi = max(hi, beta[j] + z * np.sqrt(cov[j, j]))
+    np.testing.assert_allclose(res.coefficients["X1"], (lo, hi), rtol=1e-12)
 
 
 def test_icp_requires_multiple_environments():
