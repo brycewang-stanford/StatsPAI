@@ -276,6 +276,36 @@ sets, implied independencies and d-separation; the defects were elsewhere.
 - `sp.balance_check` omnibus F counted collinear covariates in its
   numerator degrees of freedom (F 0.237 instead of 0.357, the R `lm`
   value). The degrees of freedom are now the rank.
+- ⚠️ **`CausalResult.tidy(conf_level=)` rescales every row** (option scan
+  round 6, `core/`). At a level other than the fit-time one only the
+  headline row was recomputed. The event-study and group-time rows kept
+  their 95% bounds under the requested label. On the `sp.dgp_did` example
+  of `sp.callaway_santanna`, `tidy(conf_level=0.90)` gave the `event_+0`
+  row a width of 0.4823 (the 95% width); it is now 0.4047
+  (`2 * z_0.95 * se`). An event-study table without stored bounds also
+  fell back to `att -/+ 1.96 se` at any fit-time `alpha`; it now uses the
+  fit-time level. At the fit-time level the stored intervals are unchanged.
+- ⚠️ **`CausalResult.summary(alpha=)` prints the interval it labels.**
+  `summary(alpha=0.1)` printed the stored 95% interval under `[90% CI]`.
+  An interval of the form `estimate -/+ crit * se` is now rescaled, with the
+  rule `tidy()` uses. Any other interval (bootstrap, bias-corrected, test
+  inversion) is printed at its own level with a note.
+- ⚠️ **`y ~ x - 1 + 1`, `y ~ 0 + x + 1` and `y ~ x - 0` keep the
+  intercept** (`core/utils.py`). The fast formula path and `parse_formula`
+  dropped the intercept whenever `-1` / `0` / `-0` appeared anywhere. R
+  `lm` and patsy read the terms left to right, so a later `+ 1` re-adds the
+  intercept and `- 0` means `+ 1`. `sp.regress("y ~ x - 1 + 1")` fitted a
+  regression through the origin; it now equals `sp.regress("y ~ x")`.
+  Formulas with a single intercept spelling are unchanged.
+- ⚠️ **`predict(what='confidence')` uses the coefficients' reference
+  distribution.** After `sp.regress(..., cluster=)` the interval of the
+  mean used t(N-K) while the coefficients use t(G-1); after `sp.glm` with
+  the identity link it used t(N-K) while the coefficients use z. At
+  `x = 0` the prediction is the intercept with the same SE, and its
+  interval now equals `conf_int()` of the intercept (Stata `margins` after
+  `regress, vce(cluster)` uses t(G-1) too). On a 200-row example with 8
+  clusters the 95% interval went from [1.1840, 1.6570] to [1.1369, 1.7041].
+  `what='prediction'` keeps t(N-K), as R `predict.lm`.
 
 ### Fixed
 
@@ -376,6 +406,11 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   1/2 codes it reported a NaN control rate.
 - `sp.attrition_bounds(alpha=)` and `sp.balance_check(alpha=)` are
   documented as unused.
+- `EconometricResults.coef(term)` defaults to the fit-time level, as
+  `tidy()` (which it abbreviates) does. After `sp.logit(..., alpha=0.1)` it
+  reported a 95% interval.
+- `sp.lpoly(alpha=)` outside (0, 1) raises `MethodIncompatibility`; it
+  returned NaN intervals.
 
 ### Added
 

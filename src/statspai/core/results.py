@@ -834,7 +834,7 @@ class EconometricResults:
             }
         )
 
-    def coef(self, term: str, conf_level: float = 0.95) -> pd.Series:
+    def coef(self, term: str, conf_level: Optional[float] = None) -> pd.Series:
         """One coefficient's full inference row as a named Series.
 
         Shorthand for ``result.tidy().set_index("term").loc[term]`` —
@@ -845,8 +845,10 @@ class EconometricResults:
         ----------
         term : str
             Coefficient name as it appears in ``params`` / ``tidy()``.
-        conf_level : float, default 0.95
-            CI level for ``conf_low`` / ``conf_high``.
+        conf_level : float, optional
+            CI level for ``conf_low`` / ``conf_high``. Defaults to the
+            fit-time level, as :meth:`tidy` does (0.95 unless the
+            estimator was called with ``alpha=``).
 
         Returns
         -------
@@ -1184,10 +1186,21 @@ class EconometricResults:
         cov = np.asarray(cov, dtype=float)
         var_mean = np.maximum(np.einsum("ij,jk,ik->i", X, cov, X), 0.0)
         df_resid = self.data_info.get("df_resid", np.inf)
-        if inverse is not None or df_resid is None or not np.isfinite(df_resid):
+        # The interval of the mean uses the reference distribution of the
+        # coefficients' own intervals: t(G - 1) under clustering, z for
+        # likelihood fits (Stata margins after regress, vce(cluster) / glm).
+        # The residual df gave a prediction at x = 0 a different interval
+        # from the intercept's. A prediction interval is dominated by the
+        # error variance s^2 and keeps t(N - K), as R predict.lm.
+        df_ref = (
+            self._inference_df()
+            if what == "confidence"
+            else (np.inf if df_resid is None else float(df_resid))
+        )
+        if inverse is not None or not np.isfinite(df_ref):
             crit = float(_stats.norm.ppf(1.0 - alpha / 2.0))
         else:
-            crit = float(_stats.t.ppf(1.0 - alpha / 2.0, df_resid))
+            crit = float(_stats.t.ppf(1.0 - alpha / 2.0, df_ref))
 
         if what == "prediction":
             if inverse is not None:
@@ -4081,20 +4094,41 @@ class CausalResult(DiDAccessorsMixin):
         lines.append("")
 
         stars = self._stars(self.pvalue)
+        # The interval at the requested level. The stored ``ci`` is at the
+        # fit-time level; printing it under another level's label (as this
+        # did until 2026-10) misstated the coverage. A stored interval of
+        # the form estimate -/+ crit * se is rescaled, as tidy() does;
+        # any other (bootstrap, bias-corrected, test inversion) cannot be,
+        # and is printed at its own level with a note.
+        fit_alpha = self._fit_alpha()
+        ci_lo, ci_hi = self.ci[0], self.ci[1]
+        level_note: Optional[str] = None
+        if abs(alpha - fit_alpha) > 1e-9:
+            if self._ci_is_symmetric(fit_alpha):
+                crit = self._interval_crit(alpha)
+                ci_lo = self.estimate - crit * self.se
+                ci_hi = self.estimate + crit * self.se
+            else:
+                level_note = (
+                    f"  (alpha={alpha:g} not applied: this interval is not "
+                    "estimate -/+ crit * se and is shown at the fit-time "
+                    "level; refit with alpha= for another level.)"
+                )
+                alpha = fit_alpha
         # One precision for the estimate, its SE and the interval it implies.
-        point, se, lo, hi = _format_pair(
-            self.estimate, self.se, self.ci[0], self.ci[1], fmt=fmt
-        )
+        point, se, lo, hi = _format_pair(self.estimate, self.se, ci_lo, ci_hi, fmt=fmt)
         # An unbounded end (test-inversion intervals can have one) is an
         # answer, not a missing value: print it rather than a blank.
-        lo = _unbounded_label(self.ci[0], lo)
-        hi = _unbounded_label(self.ci[1], hi)
+        lo = _unbounded_label(ci_lo, lo)
+        hi = _unbounded_label(ci_hi, hi)
         # Keep the sign column that " .6f" used to provide.
         signed = point if point.startswith("-") else f" {point}"
         lines.append(f"  {self.estimand}:      {signed} {stars}")
         lines.append(f"  Std. Error:  ({se})")
         pct = int(100 * (1 - alpha))
         lines.append(f"  [{pct}% CI]:    [{lo},  {hi}]")
+        if level_note is not None:
+            lines.append(level_note)
         lines.append(f"  P-value:     {_format_pvalue(self.pvalue)}")
         lines.append("")
 
@@ -4328,6 +4362,45 @@ class CausalResult(DiDAccessorsMixin):
     # Broom-style tidy interface (CausalResult)
     # ------------------------------------------------------------------
 
+    def _fit_alpha(self) -> float:
+        """Significance level the stored interval ``ci`` was built at."""
+        return (
+            0.05
+            if self.alpha is None
+            else _validate_probability(self.alpha, name="alpha")
+        )
+
+    def _ci_is_symmetric(self, alpha: float) -> bool:
+        """Whether the stored ``ci`` is ``estimate -/+ crit * se`` at ``alpha``."""
+        try:
+            est, se = float(self.estimate), float(self.se)
+            lo, hi = float(self.ci[0]), float(self.ci[1])
+        except (TypeError, ValueError, IndexError):
+            return False
+        if not (np.isfinite([est, se, lo, hi]).all() and se > 0):
+            return False
+        half = self._interval_crit(alpha) * se
+        return bool(
+            abs(lo - (est - half)) <= 1e-6 * half
+            and abs(hi - (est + half)) <= 1e-6 * half
+        )
+
+    def _interval_crit(self, alpha: float) -> float:
+        """Critical value of a ``1 - alpha`` pointwise interval.
+
+        t with ``model_info['df_resid']`` degrees of freedom when the fit
+        recorded them (small-sample estimators), the normal otherwise.
+        """
+        df_resid = self.model_info.get("df_resid", None)
+        stats = _scipy_stats()
+        try:
+            usable = df_resid is not None and bool(np.isfinite(df_resid))
+        except TypeError:
+            usable = False
+        if usable and df_resid > 0:
+            return float(stats.t.ppf(1 - alpha / 2, df_resid))
+        return float(stats.norm.ppf(1 - alpha / 2))
+
     def tidy(self, conf_level: Optional[float] = None) -> pd.DataFrame:
         """Long-format coefficient table, broom-compatible.
 
@@ -4336,6 +4409,16 @@ class CausalResult(DiDAccessorsMixin):
         study coefficients, those rows are appended with a ``type``
         column distinguishing ``'main'``, ``'group_time'``, or
         ``'event_study'``.
+
+        Parameters
+        ----------
+        conf_level : float, optional
+            Interval level; defaults to the fit-time level, at which the
+            stored intervals are reported as they are. At any other level
+            every row is the pointwise ``estimate -/+ crit * se``, with
+            ``crit`` from t(``model_info['df_resid']``) when recorded and
+            the normal otherwise (uniform bands and bootstrap intervals
+            exist only at the fit-time level).
 
         Columns
         -------
@@ -4354,25 +4437,36 @@ class CausalResult(DiDAccessorsMixin):
         1
         """
         # Main row
+        fit_alpha = self._fit_alpha()
         if conf_level is not None:
             conf_level = _validate_probability(conf_level, name="conf_level")
             alpha = 1 - conf_level
         else:
-            alpha = _validate_probability(self.alpha, name="alpha")
-        if conf_level is not None and abs(conf_level - (1 - self.alpha)) > 1e-9:
-            # Recompute CI at requested conf_level. Prefer t-distribution
-            # when df_resid is recorded (small-sample correctness);
-            # fall back to normal only when no df is available (e.g. CS /
-            # synth results where influence-function SEs are asymptotic).
-            df_resid = self.model_info.get("df_resid", None)
-            stats = _scipy_stats()
-            if df_resid is not None and np.isfinite(df_resid) and df_resid > 0:
-                crit = stats.t.ppf(1 - alpha / 2, df_resid)
-            else:
-                crit = stats.norm.ppf(1 - alpha / 2)
+            alpha = fit_alpha
+        # At a level other than the fit-time one every row is recomputed as
+        # the pointwise interval ``estimate -/+ crit * se``; the stored
+        # bounds (which may be uniform bands or bootstrap intervals) belong
+        # to the fit-time level only. Until 2026-10 only the headline row
+        # was recomputed and the event-study / group-time rows kept their
+        # 95% bounds under the requested label.
+        rescale = abs(alpha - fit_alpha) > 1e-9
+        crit = self._interval_crit(alpha)
+        if rescale:
             lo, hi = (self.estimate - crit * self.se, self.estimate + crit * self.se)
         else:
             lo, hi = self.ci
+
+        def _bounds(r: "pd.Series", est: Any, se: Any) -> Tuple[Any, Any]:
+            """Interval of one table row at the requested level."""
+            fallback = (
+                (est - crit * se, est + crit * se)
+                if pd.notna(est) and pd.notna(se)
+                else (np.nan, np.nan)
+            )
+            if rescale:
+                return fallback
+            return (r.get("ci_lower", fallback[0]), r.get("ci_upper", fallback[1]))
+
         main_row = {
             "term": self.estimand,
             "estimate": self.estimate,
@@ -4401,8 +4495,7 @@ class CausalResult(DiDAccessorsMixin):
                 pv = r.get("pvalue", np.nan)
                 if pd.isna(pv) and pd.notna(att) and pd.notna(se) and se > 0:
                     pv = float(2 * _scipy_stats().norm.sf(abs(att / se)))
-                lo_r = r.get("ci_lower", att - 1.96 * se if pd.notna(att) else np.nan)
-                hi_r = r.get("ci_upper", att + 1.96 * se if pd.notna(att) else np.nan)
+                lo_r, hi_r = _bounds(r, att, se)
                 term = f"event_{int(e):+d}" if pd.notna(e) else "event"
                 if by_cohort and pd.notna(r.get("cohort")):
                     term += f"_cohort_{_label_value(r.get('cohort'))}"
@@ -4452,6 +4545,9 @@ class CausalResult(DiDAccessorsMixin):
                 return "att"
 
             for _, r in self.detail.iterrows():
+                low, high = _bounds(r, r.get("att"), r.get("se"))
+                if not rescale and not {"ci_lower", "ci_upper"} <= set(detail_cols):
+                    low, high = r.get("ci_lower", np.nan), r.get("ci_upper", np.nan)
                 rows.append(
                     {
                         "term": _label(r),
@@ -4463,8 +4559,8 @@ class CausalResult(DiDAccessorsMixin):
                             else np.nan
                         ),
                         "p_value": r.get("pvalue", np.nan),
-                        "conf_low": r.get("ci_lower", np.nan),
-                        "conf_high": r.get("ci_upper", np.nan),
+                        "conf_low": low,
+                        "conf_high": high,
                         "type": row_type,
                     }
                 )

@@ -374,11 +374,12 @@ def _split_additive_formula_terms(part: str) -> List[str]:
         if not term:
             continue
         compact = re.sub(r"\s+", "", term)
-        if compact in {"1", "+1"}:
+        # ``- 0`` removes "no intercept", i.e. it is ``+ 1`` (R, patsy)
+        if compact in {"1", "+1", "-0"}:
             terms.append("1")
         elif compact == "-1":
             terms.append("-1")
-        elif compact in {"0", "+0", "-0"}:
+        elif compact in {"0", "+0"}:
             terms.append("0")
         else:
             terms.append(term)
@@ -425,9 +426,12 @@ def _try_simple_numeric_design_matrices(
     seen = set()
     for term in rhs_terms:
         term = re.sub(r"\s+", "", term)
-        if term in {"1", "+1"}:
+        # read left to right, as R and patsy do: ``x - 1 + 1`` keeps the
+        # intercept, ``1 + x - 1`` drops it, and ``- 0`` means ``+ 1``
+        if term in {"1", "+1", "-0"}:
+            intercept = True
             continue
-        if term in {"0", "+0", "-0", "-1"}:
+        if term in {"0", "+0", "-1"}:
             intercept = False
             continue
         if term.startswith("-"):
@@ -553,14 +557,16 @@ def parse_formula(formula: str) -> Dict[str, Any]:
     remaining_vars = _split_additive_formula_terms(independent_part)
     result["exogenous"].extend(remaining_vars)
 
-    # Check for constant term
-    if "1" in result["exogenous"]:
-        result["exogenous"] = [var for var in result["exogenous"] if var != "1"]
-    if "-1" in result["exogenous"] or "0" in result["exogenous"]:
-        result["has_constant"] = False
-        result["exogenous"] = [
-            var for var in result["exogenous"] if var not in ["-1", "0"]
-        ]
+    # Check for constant term: the last of ``1`` / ``-1`` / ``0`` decides,
+    # as in R and patsy (``x - 1 + 1`` keeps the intercept)
+    for var in result["exogenous"]:
+        if var == "1":
+            result["has_constant"] = True
+        elif var in ("-1", "0"):
+            result["has_constant"] = False
+    result["exogenous"] = [
+        var for var in result["exogenous"] if var not in ("1", "-1", "0")
+    ]
 
     return result
 

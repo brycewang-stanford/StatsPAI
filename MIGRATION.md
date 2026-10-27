@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ result intervals at another level, intercept spellings (option scan round 6, `core/`)
+
+- `CausalResult.tidy(conf_level=)` at a level other than the fit-time one:
+  event-study and group-time rows are recomputed as pointwise
+  `estimate -/+ crit * se` (they kept the 95% bounds). Uniform bands and
+  bootstrap intervals exist only at the fit-time level; refit with `alpha=`
+  for them.
+- `CausalResult.summary(alpha=)` prints the interval at that level, or the
+  fit-time interval with a note when it cannot be rescaled.
+- `y ~ x - 1 + 1`, `y ~ 0 + x + 1` and `y ~ x - 0` now include an
+  intercept, as in R. Write `y ~ x - 1` or `y ~ 0 + x` for a regression
+  through the origin.
+- `predict(what='confidence')` after a clustered `sp.regress` or an
+  identity-link `sp.glm` gives wider (t(G-1)) or narrower (z) intervals,
+  matching the coefficients' intervals.
+- `EconometricResults.coef(term)` without `conf_level=` uses the fit-time
+  level. Pass `conf_level=0.95` for the old interval.
+
+---
+
 ## 1.41 → 1.42: ⚠️ power tails, zero-cell risk ratios, PAF intervals, survey folds (option scan round 6)
 
 - Two-sided power from `sp.power_rct`, `sp.power_did`, `sp.power_rd`,

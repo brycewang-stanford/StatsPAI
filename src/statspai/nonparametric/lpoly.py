@@ -336,6 +336,15 @@ def lpoly(
         raise ValueError("bandwidth must be a positive finite number")
     if se_method not in ("robust", "stata"):
         raise MethodIncompatibility("se_method must be 'robust' or 'stata'")
+    try:
+        alpha_ok = bool(0.0 < float(alpha) < 1.0)
+    except (TypeError, ValueError):
+        alpha_ok = False
+    if not alpha_ok:
+        raise MethodIncompatibility(
+            f"alpha must lie strictly between 0 and 1; got {alpha!r}.",
+            recovery_hint="Use alpha=0.05 for 95% intervals.",
+        )
     if se_method == "stata" and (
         pwidth is None or not np.isfinite(pwidth) or pwidth <= 0
     ):
