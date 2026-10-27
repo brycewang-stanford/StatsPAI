@@ -444,6 +444,27 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   from 0.13386 to 0.13522. Point estimates and the KS / CvM p-values are
   unchanged. A column with fewer than two finite draws now has a NaN SE
   instead of 0.
+- `sp.epi.attributable_risk` took its point estimates from the
+  Haldane-corrected RR whenever any cell was zero, even one that leaves RR
+  finite. For the table 10, 0, 5, 5 it gave RR 1.909, AF exposed 0.476 and
+  PAF 0.3125; Stata `csi` gives 2, 0.5 and 1/3, as now. With no unexposed
+  case the PAF is 1 (was 0.852 on 5, 10, 0, 20). The interval uses the raw
+  counts and is NaN, with a warning, when an exposure group has no case;
+  with no case at all the call raises. Tables without a zero cell are
+  unchanged, and their PAF interval equals Stata `punaf` to 3e-9.
+- `sp.epi.number_needed_to_treat`: when the risk-difference interval
+  contains zero the NNT interval was `(inf, inf)`. It is now the interval
+  for |NNT|, `(1 / max(|L|, U), inf)`: for 30/100 against 20/100 that is
+  (4.56, inf). The new `ci_signed` holds `(1/L, 1/U)` = (-52.03, 4.56),
+  equal to R `epiR::epi.2by2`, and `ci_disjoint` flags Altman's (1998)
+  disjoint interval, which `summary()` prints as "NNTH 4.56 to infinity to
+  NNTB 52.03". A risk-difference limit of exactly 0 raised
+  ZeroDivisionError; it now gives an infinite NNT limit.
+- `sp.ndcg` broke tied scores in row order, so reordering the rows changed
+  the value (1.0 or 0.613 for the same six cases). Tied cases now share
+  their credit, the average over all orderings of the tie, as
+  `sklearn.metrics.ndcg_score`: 0.742 there. Scores without ties are
+  unchanged and still equal `farr::ndcg`.
 
 ### Fixed
 
@@ -588,6 +609,26 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   NaN weight and are counted in `result.n_dropped_missing`. The other
   rows get the complete-case weights. `treatment_covariates` count only
   when `stabilize=True`.
+- `sp.mr_bma` refused more than 14 exposures before looking at
+  `max_model_size`, although its message said to use it. The limit is now
+  on the number of models (16,383, all subsets of 14 exposures), so 16
+  exposures with `max_model_size=2` run. A cap of 0 or below (which fitted
+  no model), above the number of exposures, or not an integer is refused;
+  so are duplicated exposures, a zero, negative or infinite `se_y` (a zero
+  made every posterior NaN) and infinite associations.
+- `sp.mr_lap` and `sp.mr_clust` refuse missing or infinite associations and
+  non-positive standard errors. `mr_lap` returned NaN for a missing beta,
+  raised ZeroDivisionError for a zero `se_outcome` and squared a negative
+  one away; `mr_clust` returned an all-NaN fit. `mr_clust` also refuses a
+  zero `beta_exposure` (undefined Wald ratio) and `mr_lap` validates
+  `alpha`.
+- `sp.epi.odds_ratio(method="exact")` also returns `conditional_mle`, the
+  conditional maximum-likelihood OR that R `fisher.test` reports. The
+  estimate stays the sample OR, as Stata `cci`; the docstring now says so.
+  The exact limits sit on the root of the tail equations to 1e-10; R and
+  Stata solve them more loosely and differ by up to 1.2e-3 and 2.2e-4.
+- `sp.epi.bradford_hill` reads `None` in the `evidence` dict as "not
+  assessed", as for the keyword form; it raised TypeError.
 
 ### Added
 

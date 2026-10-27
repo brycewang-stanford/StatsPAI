@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ attributable fractions, NNT intervals, NDCG ties, MR-BMA limits
+
+- `sp.epi.attributable_risk` on a table with a zero cell: `rr`,
+  `ar_exposed` and `paf` are the plug-in values on the raw counts (Stata
+  `cs`). Without a case in one exposure group `paf_ci` is `(nan, nan)` with
+  a warning; without any case the call raises `DataInsufficient`. Tables
+  without zeros are unchanged. No option restores the Haldane-based values.
+- `sp.epi.number_needed_to_treat` when the risk-difference interval contains
+  zero: `ci` is `(1 / max(|L|, U), inf)` instead of `(inf, inf)`. Read
+  `ci_disjoint` before treating `ci` as an ordinary interval, and use
+  `ci_signed` (the epiR pair) for Altman's two-sided statement.
+- `sp.ndcg` with tied scores: the value no longer depends on row order. To
+  reproduce a row-order tie break (R `farr::ndcg`), subtract a tiny
+  multiple of the row number from the scores first.
+- `sp.mr_bma`: a `max_model_size` above the number of exposures now raises
+  instead of meaning "all"; pass `None`. Duplicated exposures and invalid
+  `se_y` raise.
+
+---
+
 ## 1.40.2 → 1.41: removals, ⚠️ `sp.distributional_te` SEs, `sp.absorb_ols(cluster_df=)` announced for 1.42
 
 **Removed** (each was deprecated with a removal version that has passed):
