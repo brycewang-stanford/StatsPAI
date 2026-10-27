@@ -71,10 +71,11 @@ def test_reghdfe_products(command, formula):
     assert _formula(command) == formula
 
 
-def test_reghdfe_slope_per_level_is_refused():
-    # sp.hdfe_ols drops the base level of g inside g:x; `i.g#c.x` alone has
-    # a slope for every level
-    assert not sp.from_stata("reghdfe y i.g#c.x, a(id)")["ok"]
+def test_reghdfe_slope_per_level_is_written_as_hdfe_slope():
+    # `i.g#c.x` alone has a slope for every level of g, which sp.hdfe_ols
+    # writes the same way (g:x would drop the base level)
+    out = sp.from_stata("reghdfe y i.g#c.x, a(id)")
+    assert out["ok"] and out["arguments"]["formula"] == "y ~ i.g#c.x | id"
 
 
 def test_margins_at_with_blanks():

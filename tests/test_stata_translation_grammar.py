@@ -710,6 +710,9 @@ def test_a_lone_hyphen_is_never_a_regressor():
         # d has no prefix inside ##, so Stata reads it as the factor i.d
         ("reg y d##c.(x x2)", "y ~ C(d) + x + x2 + C(d):x + C(d):x2"),
         ("reg y i.g#c.(x x2)", "y ~ C(g):x + C(g):x2"),
+        # one column per level of g times post == 1 (post a 0/1 column)
+        ("reg y i.g#1.post", "y ~ C(g):post"),
+        ("reg y 1.post#ibn.g x", "y ~ C(g):post + x"),
         ("reg y c.(x - x3)#i.g", "y ~ x:C(g) + x2:C(g) + x3:C(g)"),
         ("reg y 1.d", "y ~ I(1 * (d == 1))"),
         ("reg y c.x#1.post", "y ~ x:I(1 * (post == 1))"),
@@ -726,10 +729,11 @@ def test_grouped_factor_notation_and_level_terms(line, formula):
 @pytest.mark.parametrize(
     "line, needle",
     [
-        # a factor crossed with one level of another: Stata builds a column
-        # per level of the factor, which a product of two columns is not
-        ("reg y treat#1.post", "treat#1.post"),
-        ("reg y i.g#1.post", "i.g#1.post"),
+        # a factor crossed with one level of another, next to that variable:
+        # Stata omits the last level of the product, the formula the first
+        ("reg y post treat#1.post", "treat#1.post"),
+        ("reg y post i.g#1.post", "i.g#1.post"),
+        ("reg y i.g#2.post", "i.g#2.post"),
         ("reg y d##c.(x x2)##i.g", "is not translated"),
         ("reg y c.(L.x x2)", "is not translated"),
     ],

@@ -202,7 +202,8 @@ def test_reghdfe_factor_terms_are_written_for_hdfe_ols():
     assert out["arguments"]["formula"] == "y ~ ib1940.g | id + year"
     assert out["untranslated_options"] == []
     assert "noconstant" in out["ignored_display_options"]
-    assert not sp.from_stata("reghdfe y i.g#c.x, absorb(id)")["ok"]
+    out = sp.from_stata("reghdfe y i.g#c.x, absorb(id)")
+    assert out["arguments"]["formula"] == "y ~ i.g#c.x | id"
 
 
 def test_feols_base_level_is_checked(df):

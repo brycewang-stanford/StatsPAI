@@ -632,6 +632,16 @@ def _hdfe_terms(terms: List[str], command: str) -> Tuple[Optional[str], List[str
             out.append(f"ib{mb.group(2)}.{mb.group(1)}")
         elif ("C(" in term or "I(" in term) and nested and _hdfe_product(term):
             out.append(_hdfe_product(term))  # type: ignore[arg-type]
+        elif (
+            len(pieces) == 2
+            and sum(_PATSY_FACTOR.match(p) is not None for p in pieces) == 1
+            and all(_PATSY_FACTOR.match(p) or _NAME.match(p) for p in pieces)
+        ):
+            # C(g):x without x on its own: a slope for every level of g,
+            # Stata's i.g#c.x, which sp.hdfe_ols writes the same way
+            fac = next(m for m in map(_PATSY_FACTOR.match, pieces) if m)
+            x = next(p for p in pieces if not _PATSY_FACTOR.match(p))
+            out.append(f"i.{fac.group(1)}#c.{x}")
         elif "C(" in term:
             return (
                 f"{command}: the factor-variable term {term!r} (a factor "
@@ -4618,6 +4628,19 @@ def _fv_crossed(tok: str) -> Optional[str]:
     return _fv_part(tok)
 
 
+def _fv_level_one(raw: List[str]) -> Optional[Tuple[str, str]]:
+    """``[i.f, 1.d]`` (either order; ``ibn.f`` / bare ``f`` too) ->
+    ``(f, d)``; None for anything else."""
+    if len(raw) != 2:
+        return None
+    for fac, lev in (raw, raw[::-1]):
+        mf = re.fullmatch(r"(?:i\.|ibn\.)?([A-Za-z_]\w*)", fac)
+        ml = re.fullmatch(r"1\.([A-Za-z_]\w*)", lev)
+        if mf and ml and mf.group(1) != ml.group(1):
+            return mf.group(1), ml.group(1)
+    return None
+
+
 def _fv_token(tok: str) -> Optional[str]:
     """A varlist token in factor-variable notation -> formula syntax."""
     if "##" in tok:
@@ -4637,11 +4660,20 @@ def _fv_token(tok: str) -> Optional[str]:
         return " + ".join(terms)
     if "#" in tok:
         raw = tok.split("#")
+        # `i.f#1.d` (also `ibn.f#1.d`, `f#1.d`, `1.d#i.f`): Stata builds one
+        # column per level of f, every level kept, each the indicator of that
+        # level times the indicator d == 1. With d a 0/1 column that is
+        # C(f):d, which both formula grammars code with every level of f
+        # (the note in _rewrite_factor_vars says so). Other levels (`2.d`)
+        # and longer products keep the refusal below.
+        lone = _fv_level_one(raw)
+        if lone is not None:
+            return f"C({lone[0]}):{lone[1]}"
         # In `a#b` a variable without a prefix is a factor (i.a). Next to a
         # single level (`treat#1.pre`) Stata then builds one column per level
         # of `a`, which a product of two columns does not reproduce.
         if any(re.fullmatch(r"\d+\.[A-Za-z_]\w*", t) for t in raw) and any(
-            re.fullmatch(r"(?:i\.)?[A-Za-z_]\w*", t) for t in raw
+            re.fullmatch(r"(?:i\.|ibn\.)?[A-Za-z_]\w*", t) for t in raw
         ):
             return None
         parts: List[str] = []
@@ -5086,6 +5118,7 @@ def _normalise_command(
     toks = grouped
     out: List[str] = []
     factor_used = False
+    level_one: List[Tuple[str, str]] = []
     for tok in toks:
         if _TS_OP_RE.match(tok):
             return (
@@ -5102,6 +5135,15 @@ def _normalise_command(
         if new is None:
             return f"factor-variable term {tok!r} is not translated", info
         factor_used = factor_used or "C(" in new
+        if "#" in tok and "##" not in tok and _fv_level_one(tok.split("#")):
+            fac, lev = _fv_level_one(tok.split("#"))  # type: ignore[misc]
+            level_one.append((tok, lev))
+            info["semantics"].append(
+                f"{tok} -> C({fac}):{lev}, one column per level of {fac} times "
+                f"{lev}: Stata's coding when {lev} is a 0/1 indicator (1.{lev} "
+                f"is read as the column {lev}). If {lev} takes other values, "
+                f"create the indicator of {lev} == 1 first."
+            )
         out.append(new)
     # A product of two factors is coded the way Stata codes it only when
     # the lower-order terms are in the model (a##b, or a b a#b). On its own,
@@ -5113,6 +5155,19 @@ def _normalise_command(
     err = _fv_cell_error(out)
     if err is not None:
         return err, info
+    # With d itself in the model, `d i.f#1.d` is collinear and Stata drops the
+    # LAST level of f from the product; both formula grammars drop the first.
+    # Same fit, other coefficients, so refuse rather than mislabel them.
+    for tok, lev in level_one:
+        if lev in out or f"C({lev})" in out:
+            return (
+                f"factor-variable term {tok!r} next to {lev!r} itself is not "
+                f"translated: Stata omits the last level of the product there, "
+                f"the formula the first. Drop {lev!r} (the product then has a "
+                f"column for every level) or write the levels you want as "
+                f"columns",
+                info,
+            )
     cmd.varlist = out
     if factor_used:
         info["semantics"].append(
