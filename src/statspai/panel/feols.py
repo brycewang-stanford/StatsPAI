@@ -226,6 +226,15 @@ class FEOLSResult(ResultProtocolMixin):
                     else ""
                 )
             )
+            fs = iv.get("first_stage") or {}
+            if len(iv["endogenous"]) > 1 and all("sw_F" in fs.get(n, {}) for n in fs):
+                lines.append(
+                    "Sanderson-Windmeijer F: "
+                    + "   ".join(
+                        f"{n} = {fs[n]['sw_F']:.3f} (p = {fs[n]['sw_F_p']:.4f})"
+                        for n in iv["endogenous"]
+                    )
+                )
         if self.cluster_info:
             lines.append(f"Cluster info: {self.cluster_info}")
         lines.append("-" * 60)
@@ -792,9 +801,11 @@ def feols(
         fixed effects by the same absorber, then 2SLS runs on the
         residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs
         follow ``ivreg2``'s small-sample conventions, and
-        ``result.iv_diagnostics`` carries the first-stage F tests,
-        Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin
-        test and Hansen J (all as ``ivreghdfe ..., first``).
+        ``result.iv_diagnostics`` carries the first-stage F tests, the
+        Sanderson-Windmeijer conditional F and chi2 of each endogenous
+        regressor (``first_stage[name]['sw_F']``), Kleibergen-Paap rk LM
+        and Wald F, Cragg-Donald F, Anderson-Rubin test and Hansen J (all
+        as ``ivreghdfe ..., first``).
     data : DataFrame
     weights : str or ndarray, optional
         Observation weights. Column name or raw array. Alone they are
