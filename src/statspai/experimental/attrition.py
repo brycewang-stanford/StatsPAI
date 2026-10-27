@@ -153,6 +153,16 @@ def attrition_test(
     ...                            covariates=['age', 'income', 'education'])
     >>> _ = result.summary()
     """
+    from ..core._validate import require_binary_treatment
+
+    # Codes other than 0/1 used to pass: with 1/2 coding arm 1 was taken as
+    # treated and the control rate came out NaN.
+    require_binary_treatment(
+        data[treatment], function="attrition_test", argument="treatment"
+    )
+    require_binary_treatment(
+        data[observed], function="attrition_test", argument="observed"
+    )
     n = len(data)
     attrit = 1 - data[observed].values
     treat = data[treatment].values
@@ -233,6 +243,8 @@ def attrition_bounds(
     method : str, default 'lee'
         Bounding method: 'lee' (Lee 2009), 'manski' (worst-case).
     alpha : float, default 0.05
+        Not used: no confidence interval is computed. For an interval for
+        the identified set use :func:`sp.lee_bounds`.
     trimming : {'quantile', 'exact'}, default 'quantile'
         Lee trimming rule, as in :func:`sp.lee_bounds`: Lee's
         sample-quantile estimator, or fractional trimming of the
@@ -247,6 +259,11 @@ def attrition_bounds(
 
     Notes
     -----
+    Rows with a missing ``treatment`` or ``observed`` value, and rows with
+    ``observed == 1`` but a missing outcome, are dropped with a warning
+    (the estimation sample of :func:`sp.lee_bounds`). ``treatment`` and
+    ``observed`` must be coded 0/1.
+
     Before 1.30 ``method='lee'`` kept ``n - ceil(q n)`` observations,
     one fewer than Lee's sample-quantile rule whenever ``q n`` is not an
     integer, and disagreed with ``sp.lee_bounds`` on the same data.
@@ -274,10 +291,42 @@ def attrition_bounds(
     ----------
     [@lee2009training]
     """
+    from ..core._validate import require_binary_treatment
+
     df = data.copy()
     if observed is None:
         df["_observed"] = df[y].notna().astype(int)
         observed = "_observed"
+
+    # Estimation sample of sp.lee_bounds (Stata leebounds): rows with a
+    # missing treatment or retention indicator, and retained rows with a
+    # missing outcome, are dropped with a warning. Missing treatment used
+    # to count as control and a retained missing outcome made naive_ate NaN.
+    n0 = len(df)
+    df = df[df[treatment].notna() & df[observed].notna()]
+    n_ind = n0 - len(df)
+    require_binary_treatment(
+        df[treatment], function="attrition_bounds", argument="treatment"
+    )
+    require_binary_treatment(
+        df[observed], function="attrition_bounds", argument="observed"
+    )
+    sel_no_y = (df[observed] == 1).to_numpy() & df[y].isna().to_numpy()
+    n_y = int(sel_no_y.sum())
+    if n_y:
+        df = df[~sel_no_y]
+    if n_ind or n_y:
+        parts = []
+        if n_ind:
+            parts.append(f"{n_ind} with a missing treatment or observed indicator")
+        if n_y:
+            parts.append(f"{n_y} observed but with a missing outcome")
+        warnings.warn(
+            "attrition_bounds: dropped " + " and ".join(parts) + " row(s), as "
+            "sp.lee_bounds and Stata leebounds do.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     obs_mask = df[observed] == 1
     treat_mask = df[treatment] == 1

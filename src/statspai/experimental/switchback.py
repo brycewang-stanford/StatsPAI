@@ -350,8 +350,8 @@ def switchback(
         * ``model_info['randomization_pvalue']`` -- exact test of the sharp
           null of no effect of any assignment on any outcome (their
           Algorithm 1): the share of re-drawn assignment paths whose
-          estimate, on the observed outcomes, is larger in absolute value
-          than the one observed.
+          estimate, on the observed outcomes, is at least as large in
+          absolute value as the one observed.
         * ``model_info['n_windows_treated']`` / ``['n_windows_control']`` --
           periods whose window was all treated / all control.
 
@@ -467,7 +467,12 @@ def switchback(
         rng = np.random.default_rng(seed)
         draws = _draw_path(points, p, rng, size=int(n_draws))
         null = _ht_estimates(draws, y_arr, points, m, p)
-        randomization_p = float(np.mean(np.abs(null) > abs(estimate)))
+        # Paths at least as extreme as the observed one: counting only
+        # strictly larger ones gave p = 0 on the extreme paths of a design
+        # with few coins, so P(p <= alpha) exceeded alpha. The tolerance
+        # absorbs rounding between paths with equal |estimate|.
+        tol = 1e-10 * max(float(np.max(np.abs(null))), abs(estimate))
+        randomization_p = float(np.mean(np.abs(null) >= abs(estimate) - tol))
 
     is_optimal = bool(
         m >= 1

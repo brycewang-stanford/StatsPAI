@@ -23,7 +23,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility, StatsPAIWarning
+from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIWarning
 
 
 class RandomizationResult(ResultProtocolMixin):
@@ -255,7 +255,10 @@ def randomize(
         (complete randomization within each stratum; ``block_ra``) or
         'cluster' (complete randomization of clusters; ``cluster_ra``).
         Passing ``strata=`` / ``cluster=`` selects the block / cluster
-        design whatever ``method`` says.
+        design whatever ``method`` says. Passing both randomizes whole
+        clusters within each stratum (``randomizr::block_and_cluster_ra``);
+        every cluster must then lie in one stratum. Missing strata or
+        cluster values raise ``DataInsufficient``, as in randomizr.
 
     Notes
     -----
@@ -348,17 +351,55 @@ def randomize(
             "method='cluster' needs cluster=", recovery_hint="Pass cluster=<column>."
         )
 
+    for role, col in (("strata", strata), ("cluster", cluster)):
+        if col is not None and df[col].isna().any():
+            raise DataInsufficient(
+                f"randomize: {role} column {col!r} has "
+                f"{int(df[col].isna().sum())} missing value(s); those units "
+                f"belong to no {role}.",
+                recovery_hint=(
+                    f"Fill or drop the rows with a missing {role} before "
+                    "randomizing."
+                ),
+            )
+    # Group codes by row position (not index label: duplicate labels used
+    # to collapse the label -> position map and leave rows unassigned).
+    # ngroup numbers the groups in iteration order, so the draws are those
+    # of the per-group loop this replaces.
+    strata_codes: Optional[np.ndarray] = None
+    if strata is not None:
+        strata_codes = df.groupby(strata, sort=True, observed=True).ngroup().to_numpy()
+    cluster_codes: Optional[np.ndarray] = None
+    if cluster is not None:
+        cluster_codes = pd.factorize(df[cluster], sort=True)[0]
+    if strata_codes is not None and cluster_codes is not None:
+        per_cluster = pd.Series(strata_codes).groupby(cluster_codes).nunique()
+        if (per_cluster > 1).any():
+            raise MethodIncompatibility(
+                f"randomize: {int((per_cluster > 1).sum())} cluster(s) of "
+                f"{cluster!r} span more than one stratum of {strata!r}; whole "
+                "clusters cannot be randomized within strata.",
+                recovery_hint=(
+                    "Clusters must be nested in strata. Stratify on a "
+                    "cluster-level variable, or drop strata=."
+                ),
+            )
+
     def _draw() -> np.ndarray:
-        if strata is not None:
+        if strata_codes is not None:
             out = np.empty(n, dtype=int)
-            pos = {lab: i for i, lab in enumerate(df.index)}
-            for _, group in df.groupby(strata, sort=True):
-                idx = np.array([pos[i] for i in group.index])
-                out[idx] = _complete_ra(len(idx), prob_arr, rng)
+            for g in range(int(strata_codes.max()) + 1):
+                idx = np.flatnonzero(strata_codes == g)
+                if cluster_codes is None:
+                    out[idx] = _complete_ra(len(idx), prob_arr, rng)
+                else:
+                    # block_and_cluster_ra: whole clusters of this stratum
+                    sub, uniq_c = pd.factorize(cluster_codes[idx], sort=True)
+                    out[idx] = _complete_ra(len(uniq_c), prob_arr, rng)[sub]
             return out
-        if cluster is not None:
-            codes, uniq = pd.factorize(df[cluster], sort=True)
-            _ret: np.ndarray = _complete_ra(len(uniq), prob_arr, rng)[codes]
+        if cluster_codes is not None:
+            n_cl = int(cluster_codes.max()) + 1
+            _ret: np.ndarray = _complete_ra(n_cl, prob_arr, rng)[cluster_codes]
             return _ret
         if method == "simple":
             return rng.choice(n_arms, size=n, p=prob_arr)
@@ -368,8 +409,6 @@ def randomize(
 
     rerand_info: Optional[Dict[str, Any]] = None
     if rerand_accept is not None:
-        from ..exceptions import DataInsufficient
-
         if not 0.0 < rerand_accept <= 1.0:
             raise MethodIncompatibility(
                 f"rerand_accept must be in (0, 1], got {rerand_accept!r}."
@@ -528,6 +567,8 @@ def balance_check(
     covariates : list of str
         Covariates to check balance on.
     alpha : float, default 0.05
+        Not used: the table reports p-values, and the summary flags
+        ``|normalized difference| > 0.25``.
     equal_var : bool, default False
         Per-covariate difference test. ``False`` is Welch's unequal-variance
         t-test. ``True`` is the pooled-variance t-test -- the OLS t-test of
@@ -542,6 +583,10 @@ def balance_check(
 
     Notes
     -----
+    The omnibus F-test regresses the treatment on the covariates (complete
+    cases); its numerator degrees of freedom are the rank of the
+    covariates, so a covariate that is a linear combination of others is
+    dropped as R ``lm`` and Stata ``regress`` drop it, with a warning.
     If the omnibus F-test cannot be computed (e.g. non-numeric or perfectly
     collinear covariates), ``omnibus_f`` and ``omnibus_p`` are reported as
     NaN and a ``StatsPAIWarning`` is emitted.
@@ -616,11 +661,24 @@ def balance_check(
         valid = np.all(np.isfinite(X_bal), axis=1) & np.isfinite(y_treat)
         X_bal, y_treat = X_bal[valid], y_treat[valid]
 
-        beta = np.linalg.lstsq(X_bal, y_treat, rcond=None)[0]
+        beta, _, rank, _ = np.linalg.lstsq(X_bal, y_treat, rcond=None)
         resid = y_treat - X_bal @ beta
         rss = np.sum(resid**2)
         tss = np.sum((y_treat - y_treat.mean()) ** 2)
-        k = X_bal.shape[1] - 1
+        # Numerator df is the rank of the covariates: a covariate that is a
+        # linear combination of others adds no restriction (R lm and Stata
+        # regress drop it). Counting it understated F.
+        k = int(rank) - 1
+        if k < 1:
+            raise ValueError("every covariate is constant")
+        if k < X_bal.shape[1] - 1:
+            warnings.warn(
+                f"balance_check: the covariates are collinear (rank {k} of "
+                f"{X_bal.shape[1] - 1}); the omnibus F-test has {k} numerator "
+                "degrees of freedom.",
+                StatsPAIWarning,
+                stacklevel=2,
+            )
         n_total = len(y_treat)
         f_stat = ((tss - rss) / k) / (rss / (n_total - k - 1))
         f_p = stats.f.sf(f_stat, k, n_total - k - 1)
