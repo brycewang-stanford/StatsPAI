@@ -48,6 +48,28 @@ from ..exceptions import (
 from .basic_tests import _check_alpha
 
 _OUTCOME_MODELS = ("linear", "logit", "probit", "poisson")
+#: Fewest training rows of an arm for which the outcome regression is fitted;
+#: below it the arm's training mean is used (recorded and warned about).
+_MIN_ARM_FIT = 3
+
+
+def _cluster_fold_ids(
+    labels: pd.Series, n_folds: int, rng: np.random.Generator
+) -> np.ndarray:
+    """Cross-fitting fold of every row, drawn once per cluster.
+
+    One ``rng.choice(n_folds)`` draw per cluster, in sorted-label order
+    (first-appearance order when the labels do not sort), so the split
+    depends on the seed and the labels but not on the row order. With one
+    row per cluster and labels sorted in row order it is the row-level
+    split ``rng.choice(n_folds, size=n)``.
+    """
+    try:
+        codes, uniques = pd.factorize(labels, sort=True)
+    except TypeError:  # mixed label types that do not sort
+        codes, uniques = pd.factorize(labels)
+    cluster_fold: np.ndarray = np.asarray(rng.choice(n_folds, size=len(uniques)))
+    return np.asarray(cluster_fold[codes])
 
 
 @records_call("aipw")
@@ -143,7 +165,15 @@ def aipw(
         strictly positive; their scale does not matter.
     cluster : str, optional
         Column identifying clusters. Standard errors sum the influence
-        function within clusters (Stata ``vce(cluster c)``).
+        function within clusters (Stata ``vce(cluster c)``). With
+        ``cross_fit=True`` the folds are drawn over whole clusters (one
+        seeded draw per cluster, in sorted-label order), so no nuisance
+        model is trained on rows of the cluster it predicts;
+        ``model_info['fold_unit']`` is then ``'cluster'``.
+
+        .. versionchanged:: 1.41.0
+           Folds were drawn row by row, so a cluster's own rows trained
+           the nuisance models that predicted it.
     propensity : float or str, optional
         Known probability of treatment: one number (a trial randomised
         with that probability) or the name of a column holding each
@@ -431,16 +461,49 @@ def aipw(
     e_hat = np.zeros(n)  # P(D=1|X)
 
     if cross_fit:
-        fold_ids = rng.choice(n_folds, size=n)
+        if groups is None:
+            fold_ids = rng.choice(n_folds, size=n)
+        else:
+            # Whole clusters go to one fold: a nuisance fit must not see
+            # rows of the cluster it predicts, or the cluster's shared
+            # shock leaks into its own out-of-fold predictions. Clusters
+            # are drawn in sorted-label order so the split does not depend
+            # on row order.
+            fold_ids = _cluster_fold_ids(df[cluster], n_folds, rng)
         splits = [(fold_ids != f, fold_ids == f) for f in range(n_folds)]
     else:
         everyone = np.ones(n, dtype=bool)
         splits = [(everyone, everyone)]
 
-    for train_mask, test_mask in splits:
+    # Folds in which an arm had too few training rows for its outcome
+    # regression: (fold, arm, n training rows of that arm).
+    arm_mean_fallbacks: List[Tuple[int, int, int]] = []
+    for fold, (train_mask, test_mask) in enumerate(splits):
+        if not test_mask.any():
+            continue  # an empty fold predicts nothing
         X_tr, Y_tr, D_tr = X[train_mask], Y[train_mask], D[train_mask]
         X_te = X[test_mask]
         w_tr = None if omega is None else omega[train_mask]
+        for arm in (1, 0):
+            n_arm_tr = int(np.sum(D_tr == arm))
+            if n_arm_tr == 0:
+                raise DataInsufficient(
+                    f"aipw: cross-fitting fold {fold} has no "
+                    f"{'treated' if arm == 1 else 'control'} rows in its "
+                    "training set, so the outcome regression of that arm "
+                    "cannot be fitted for the rows it predicts.",
+                    recovery_hint="Use fewer folds (n_folds=), or "
+                    "cross_fit=False; with cluster= make sure each arm "
+                    "occurs in more clusters than there are folds.",
+                    diagnostics={
+                        "fold": fold,
+                        "arm": arm,
+                        "n_folds": n_folds,
+                        "n_train": int(train_mask.sum()),
+                    },
+                )
+            if outcome_learner is None and n_arm_tr < _MIN_ARM_FIT:
+                arm_mean_fallbacks.append((fold, arm, n_arm_tr))
 
         # Propensity score (logistic regression), unless it is known
         if e_known is None:
@@ -463,6 +526,20 @@ def aipw(
                 out[test_mask] = _learner_predict(
                     outcome_learner, X_tr[arm], Y_tr[arm], X_te, w_arm, proba=False
                 )
+
+    if arm_mean_fallbacks:
+        where = ", ".join(
+            f"fold {f} {'treated' if a == 1 else 'control'} ({k} rows)"
+            for f, a, k in arm_mean_fallbacks
+        )
+        warnings.warn(
+            f"aipw: the outcome regression of an arm was replaced by that "
+            f"arm's training mean where it had fewer than {_MIN_ARM_FIT} "
+            f"training rows: {where}. The outcome model of those rows "
+            "ignores the covariates; use fewer folds or cross_fit=False.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     # Clip propensity scores (a design probability is used as given)
     if e_known is not None:
@@ -621,6 +698,15 @@ def aipw(
             outcome_model if outcome_learner is None else type(outcome_learner).__name__
         ),
         "n_clusters": None if groups is None else int(groups.max() + 1),
+        # Unit the cross-fitting folds were drawn over ('cluster' keeps
+        # every cluster in one fold).
+        "fold_unit": (
+            None if not cross_fit else ("row" if groups is None else "cluster")
+        ),
+        "n_outcome_arm_mean_fallback": len(arm_mean_fallbacks),
+        "outcome_arm_mean_fallback": [
+            {"fold": f, "arm": a, "n_train": k} for f, a, k in arm_mean_fallbacks
+        ],
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
         # estimate is not reproducible by re-running.
@@ -869,9 +955,14 @@ def _fit_outcome(
     w_train: Optional[np.ndarray] = None,
     model: str = "linear",
 ) -> np.ndarray:
-    """Outcome regression: OLS, or a logit / Poisson GLM (weighted if given)."""
-    if len(X_train) < 3:
-        return np.full(len(X_test), np.mean(Y_train) if len(Y_train) > 0 else 0)
+    """Outcome regression: OLS, or a logit / Poisson GLM (weighted if given).
+
+    With fewer than ``_MIN_ARM_FIT`` training rows the arm's (weighted)
+    mean is returned; the caller records and warns about it, and refuses
+    an arm with no training rows before getting here.
+    """
+    if len(X_train) < _MIN_ARM_FIT:
+        return np.full(len(X_test), float(np.average(Y_train, weights=w_train)))
     try:
         import statsmodels.api as sm
 

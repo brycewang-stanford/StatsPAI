@@ -531,6 +531,24 @@ def policy_tree(
             ``'exact'`` or ``'greedy'`` -- which search actually ran.
         'value_evaluation' : str
             ``'cross_fit'`` or ``'in_sample'`` (see the parameter).
+        'diagnostics' : dict
+            ``'gain_interval_note'`` is set when the cross-fitted
+            ``value_gain`` lies within one ``value_gain_se`` of zero (see
+            Notes); empty otherwise.
+
+    Notes
+    -----
+    **Known limitation: the gain interval near a null of no
+    heterogeneity.** The cross-fitted ``value_gain_se`` treats the folds
+    as independent, while each fold's tree is grown on the other folds'
+    scores. With real treatment-effect heterogeneity the dependence is
+    second order (95% intervals covered 92% at n = 400 and 97% at
+    n = 1600 in a simulation). At an exact null of no heterogeneity it is
+    not: the same intervals covered 81% (n = 400) and 85% (n = 1600). No
+    valid variance for that case is implemented. When the estimated gain
+    is within one standard error of zero, ``result['diagnostics']`` says
+    so; read such a gain as "no evidence of a better policy", not as an
+    interval with nominal coverage.
 
     Examples
     --------
@@ -636,6 +654,37 @@ def policy_value(
     # Scores are the gain from treatment, so the value relative to treating
     # no one is mean(scores * policy).
     return float(np.mean(scores * policy))
+
+
+def _note_gain_near_null(res: "PolicyTreeResult") -> None:
+    """Record ``res['diagnostics']``, flagging a cross-fitted gain near zero.
+
+    The cross-fitted gain interval treats the folds as independent although
+    each fold's tree is grown on the other folds' scores. At an exact null
+    of no heterogeneity that is not second order and the 95% interval
+    covered 81% (n = 400) to 85% (n = 1600) in a simulation; with real
+    heterogeneity it covered 92% to 97%. No valid variance for the null
+    case is implemented, so a gain within one standard error of zero gets
+    a note pointing to the limitation instead of a different number.
+    """
+    diagnostics: Dict[str, Any] = {}
+    gain, se = res["value_gain"], res["value_gain_se"]
+    if (
+        res.get("value_evaluation") == "cross_fit"
+        and np.isfinite(gain)
+        and np.isfinite(se)
+        and abs(gain) <= se
+    ):
+        diagnostics["gain_interval_note"] = (
+            "The cross-fitted value gain is within one standard error of "
+            "zero. Near a null of no treatment-effect heterogeneity the "
+            "gain interval undercovers (about 81-85% for a nominal 95% "
+            "interval in simulation), because each fold's tree is grown on "
+            "the other folds' scores. Do not read the interval as evidence "
+            "that the policy beats the best uniform action; see the Notes "
+            "of sp.policy_tree."
+        )
+    res["diagnostics"] = diagnostics
 
 
 def _warn_in_sample_value() -> None:
@@ -891,6 +940,7 @@ class PolicyTree:
             value_policy_in_sample=in_sample["value_policy"],
             value_gain_in_sample=in_sample["value_gain"],
         )
+        _note_gain_near_null(res)
         return res
 
     def _fit_multi_action(
@@ -1004,6 +1054,7 @@ class PolicyTree:
             value_gain_in_sample=in_sample["value_gain"],
             **extra,
         )
+        _note_gain_near_null(res)
         return res
 
     def predict(self, X_new: np.ndarray) -> np.ndarray:

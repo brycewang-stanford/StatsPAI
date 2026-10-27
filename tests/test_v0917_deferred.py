@@ -269,7 +269,10 @@ class TestConformalCounterfactual:
                 np.mean(cf.lower_Y0),
                 np.mean(cf.upper_Y0),
             ],
-            [-0.33584604, 1.22898655, -0.91242483, 0.79587504],
+            # Each test point carries its own density-ratio weight since
+            # the round-5 scan (it had weight 1): before
+            # [-0.33584604, 1.22898655, -0.91242483, 0.79587504].
+            [-0.34089179, 1.2340323, -0.91472605, 0.79817627],
         )
         assert np.all(cf.lower_Y1 <= cf.upper_Y1)
         assert np.all(cf.lower_Y0 <= cf.upper_Y0)

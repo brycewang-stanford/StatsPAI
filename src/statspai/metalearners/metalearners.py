@@ -211,14 +211,28 @@ def _cross_fit_predict(
     n_folds: int,
     method: str = "predict",
     fold_indices: Optional[np.ndarray] = None,
+    sample_weight: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Out-of-fold predictions via cross-fitting."""
+    """Out-of-fold predictions via cross-fitting (weighted fits if given)."""
     from sklearn.base import clone
 
     preds = np.zeros(len(y), dtype=float)
     for train_idx, test_idx in _fold_splits(X, n_folds, 42, fold_indices):
         m = clone(model)
-        m.fit(X[train_idx], y[train_idx])
+        if sample_weight is None:
+            m.fit(X[train_idx], y[train_idx])
+        else:
+            try:
+                m.fit(
+                    X[train_idx], y[train_idx], sample_weight=sample_weight[train_idx]
+                )
+            except TypeError as exc:
+                raise MethodIncompatibility(
+                    f"metalearner(weights=): {type(model).__name__}.fit does "
+                    "not accept sample_weight.",
+                    recovery_hint="Pass a learner whose fit() takes "
+                    "sample_weight, or drop weights=.",
+                ) from exc
         if method == "predict_proba":
             preds[test_idx] = positive_class_proba(
                 m, X[test_idx], context="metalearner propensity_model"
@@ -1209,11 +1223,16 @@ def metalearner(
     if fold_indices is not None:
         from ..core._validate import validate_fold_indices
 
+        # The vector is aligned with the frame passed in; rows dropped for a
+        # missing weight / cluster are dropped from it like rows dropped for
+        # a missing outcome, treatment or covariate.
+        keep_input = np.zeros(n_input_rows, dtype=bool)
+        keep_input[estimation_rows] = True
         folds = validate_fold_indices(
             fold_indices,
-            len(data),
+            n_input_rows,
             context="sp.metalearner",
-            keep=data[[y, treat] + list(covariates)].notna().all(axis=1).to_numpy(),
+            keep=keep_input,
             n_folds=n_folds,
             binary_target=D if binary_treatment else None,
         )
@@ -1327,6 +1346,25 @@ def metalearner(
         # below is built so that mean(phi) and sd(phi) / sqrt(n) (or their
         # weighted / clustered versions) are that estimate and its SE.
         y_res, d_res = est._residuals
+        if sw is not None:
+            # The documented weighted cross-fit: E[Y|X] and E[D|X] behind
+            # the score are weighted fits (the CATE function itself stays
+            # unweighted). Same folds as the R-learner's own nuisances.
+            y_res = Y - _cross_fit_predict(
+                est.outcome_model, X, Y, n_folds, fold_indices=folds, sample_weight=sw
+            )
+            d_res = D - _cross_fit_predict(
+                (
+                    est.propensity_model
+                    if est.propensity_model is not None
+                    else _default_outcome_model()
+                ),
+                X,
+                D,
+                n_folds,
+                fold_indices=folds,
+                sample_weight=sw,
+            )
         om_c = np.ones(n) if sw is None else sw
         j0 = float(np.mean(om_c * d_res**2))
         theta = float(np.mean(om_c * d_res * y_res) / j0)

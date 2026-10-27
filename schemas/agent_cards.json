@@ -105170,7 +105170,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: With estimate = PATE, se from the bootstrap, and ci at the requested level.",
+      "description": "CausalResult: With estimate = PATE, se from the bootstrap, and ci at the requested level. model_info['converged'] says whether the participation logit ('ipw' / 'aipw') or the entropy-balancing solve ('calibration',",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -158932,6 +158932,10 @@
             "description": "Per-calibration-point likelihood-ratio weights ``w_i = f_test(X_i) / f_train(X_i)`` for covariate-shift correction. If None, uniform weights.",
             "type": "string"
           },
+          "weights_test": {
+            "description": "Likelihood-ratio weight of each test point, ``w(X_test[j])``, on the same scale as ``weights_calib`` (same function). The quantile for test point ``j`` puts mass ``w(X_test[j])`` on ``+inf`` next to the calibration weights, so each test point gets its own interval width. Required for the finite-sample coverage guarantee under covariate shift. When ``weights_calib`` is given and this is not, every test point gets weight 1 (the behaviour before 1.41), which undercovers wherever the test density is high relative to the training density, and an ``AssumptionWarning`` says so.",
+            "type": "string"
+          },
           "y_calib": {
             "description": "Calibration fold used to compute non-conformity scores.",
             "type": "string"
@@ -159017,7 +159021,7 @@
     "reference": "lei2021conformal",
     "returns": {
       "class": "ConformalCounterfactualResult",
-      "description": "ConformalCounterfactualResult",
+      "description": "ConformalCounterfactualResult: A band is infinite at a test point whose own weight (1/e(x) for Y(1), 1/(1-e(x)) for Y(0)) carries more than alpha of the total weight: the calibration arm has too little overlap there for a finite interval wi...",
       "fields": {
         "X": "np.ndarray",
         "alpha": "float",
@@ -159025,6 +159029,8 @@
         "lower_Y1": "np.ndarray",
         "marginal_coverage_estimate": "float",
         "method": "str",
+        "point_Y0": "Optional[np.ndarray]",
+        "point_Y1": "Optional[np.ndarray]",
         "upper_Y0": "np.ndarray",
         "upper_Y1": "np.ndarray"
       }

@@ -139,7 +139,25 @@ def test_cross_fit_influence_path_accepts_design_options() -> None:
         base = sp.aipw(df, y="y", treat="d", covariates=["x1", "x2", "x3"])
         clus = sp.aipw(df, y="y", treat="d", covariates=["x1", "x2", "x3"], cluster="g")
         wt = sp.aipw(df, y="y", treat="d", covariates=["x1", "x2", "x3"], weights="w")
-    assert clus.estimate == pytest.approx(base.estimate, rel=1e-12)
+    # cluster= draws the cross-fitting folds over whole clusters (round-5
+    # scan), so the estimate is not the row-fold one; the split depends on
+    # the cluster labels, not on the row order.
+    assert clus.model_info["fold_unit"] == "cluster"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        shuffled = sp.aipw(
+            df.sample(frac=1.0, random_state=3),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2", "x3"],
+            cluster="g",
+        )
+    assert shuffled.estimate == pytest.approx(clus.estimate, rel=1e-10)
+    # Without cross-fitting, cluster= changes only the SE.
+    nocf = dict(y="y", treat="d", covariates=["x1", "x2", "x3"], cross_fit=False)
+    assert sp.aipw(df, cluster="g", **nocf).estimate == pytest.approx(
+        sp.aipw(df, **nocf).estimate, rel=1e-12
+    )
     # The cluster shock enters both arms additively, so it cancels in the
     # ATE contrast (Stata's cluster ATE SE is smaller too) but not in the
     # potential-outcome means, whose SE must grow.

@@ -91,7 +91,10 @@ class SubgroupResult(ResultProtocolMixin):
 
     results_df: pd.DataFrame
     """Columns: group_var, group_val, estimate, se, ci_lower, ci_upper,
-    pvalue, nobs, label."""
+    pvalue, nobs, label, note. A subgroup whose regression cannot be run
+    (too few rows, or ``x`` / a control constant or collinear within it)
+    keeps its row with NaN estimates and the reason in ``note``; ``note``
+    is empty for the others."""
 
     x: str
     overall_estimate: float
@@ -121,6 +124,12 @@ class SubgroupResult(ResultProtocolMixin):
             )
             lines.append("-" * 72)
             for _, row in sub.iterrows():
+                if row.get("note"):
+                    lines.append(
+                        f"  {str(row['group_val']):<25s} no estimate: "
+                        f"{row['note']}  (N = {int(row['nobs'])})"
+                    )
+                    continue
                 stars = _stars(row["pvalue"])
                 lines.append(
                     f"  {str(row['group_val']):<25s} "
@@ -174,6 +183,12 @@ class SubgroupResult(ResultProtocolMixin):
                 stars = _stars_latex(row["pvalue"])
                 dim_col = gvar if first else ""
                 first = False
+                if row.get("note"):
+                    lines.append(
+                        f"{dim_col} & {row['group_val']} & -- & -- & -- & "
+                        f"{int(row['nobs']):,d} \\\\"
+                    )
+                    continue
                 lines.append(
                     f"{dim_col} & {row['group_val']} & "
                     f"{row['estimate']:.4f}{stars} & "
@@ -249,6 +264,17 @@ class SubgroupResult(ResultProtocolMixin):
 
             sub = df[df["group_var"] == gvar]
             for _, row in sub.iterrows():
+                if row.get("note"):
+                    # No estimate: keep the label, draw nothing.
+                    labels.append(f"  {row['group_val']} (no estimate)")
+                    positions.append(pos)
+                    is_header.append(False)
+                    estimates.append(None)
+                    ci_lo.append(None)
+                    ci_hi.append(None)
+                    colors.append(None)
+                    pos += 1
+                    continue
                 labels.append(f"  {row['group_val']}")
                 positions.append(pos)
                 is_header.append(False)
@@ -285,7 +311,7 @@ class SubgroupResult(ResultProtocolMixin):
                     fontweight="bold",
                     va="center",
                 )
-            else:
+            elif estimates[i] is not None:
                 ax.errorbar(
                     estimates[i],
                     positions[i],
@@ -359,6 +385,29 @@ def _ols_vcov(
     )
 
 
+def _subgroup_failure(df: pd.DataFrame, x_col: str, control_cols: List[str]) -> str:
+    """Why the regression of a subgroup cannot be run (``''`` if it can)."""
+    if len(df) < len(control_cols) + 5:
+        return (
+            f"{len(df)} complete rows, fewer than the "
+            f"{len(control_cols) + 5} the regression needs"
+        )
+    X_vars = [x_col] + control_cols
+    vals = df[X_vars].to_numpy(dtype=float)
+    constant = [c for c, col in zip(X_vars, vals.T) if np.ptp(col) == 0]
+    if x_col in constant:
+        return f"{x_col!r} is constant within the subgroup"
+    if constant:
+        return (
+            f"control(s) {constant} constant within the subgroup "
+            "(collinear with the intercept)"
+        )
+    X = np.column_stack([np.ones(len(df)), vals])
+    if np.linalg.matrix_rank(X) < X.shape[1]:
+        return "the regressors are collinear within the subgroup"
+    return ""
+
+
 def _quick_ols_full(
     data: pd.DataFrame,
     y_col: str,
@@ -369,12 +418,23 @@ def _quick_ols_full(
     """Quick OLS with the requested SE kind, return key variable stats.
 
     ``robust`` used to be accepted by ``subgroup_analysis`` and ignored:
-    every subgroup regression reported HC1.
+    every subgroup regression reported HC1. When the regression cannot be
+    run the dict has NaN statistics and the reason in ``note``.
     """
     all_cols = list(set([y_col, x_col] + control_cols))
     df = data[all_cols].dropna()
-    if len(df) < len(control_cols) + 5:
-        return None
+    reason = _subgroup_failure(df, x_col, control_cols)
+    if reason:
+        nan = float("nan")
+        return {
+            "estimate": nan,
+            "se": nan,
+            "ci_lower": nan,
+            "ci_upper": nan,
+            "pvalue": nan,
+            "nobs": len(df),
+            "note": reason,
+        }
 
     Y = df[y_col].values.astype(float)
     X_vars = [x_col] + control_cols
@@ -405,6 +465,7 @@ def _quick_ols_full(
         "ci_upper": beta_x + t_crit * se_x,
         "pvalue": p_val,
         "nobs": n,
+        "note": "",
     }
 
 
@@ -584,11 +645,15 @@ def subgroup_analysis(
 
     # Overall estimate
     overall = _quick_ols_full(data, y_col, x, controls_base, robust)
-    if overall is None:
-        raise ValueError("Overall regression failed.")
+    if overall is None or overall["note"]:
+        raise ValueError(
+            "Overall regression failed"
+            + (f": {overall['note']}." if overall is not None else ".")
+        )
 
     rows = []
     het_tests = {}
+    failed: List[str] = []
 
     for display_name, col_name in by.items():
         # Remove group column from controls if present
@@ -604,7 +669,10 @@ def subgroup_analysis(
                 res["group_var"] = display_name
                 res["group_val"] = str(g)
                 res["label"] = f"{display_name}: {g}"
+                res["note"] = res.pop("note")  # last column
                 rows.append(res)
+                if res["note"]:
+                    failed.append(f"{display_name}: {g} ({res['note']})")
 
         # Heterogeneity test
         ht = _interaction_het_test(
@@ -618,8 +686,19 @@ def subgroup_analysis(
         if ht is not None:
             het_tests[display_name] = ht
 
-    if not rows:
+    if not rows or all(r["note"] for r in rows):
         raise ValueError("No valid subgroup regressions succeeded.")
+    if failed:
+        import warnings
+
+        warnings.warn(
+            "subgroup_analysis: no estimate for "
+            + "; ".join(failed)
+            + ". These rows are kept in results_df with NaN estimates and "
+            "the reason in the 'note' column.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     results_df = pd.DataFrame(rows)
 

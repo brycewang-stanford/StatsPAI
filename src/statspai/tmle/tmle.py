@@ -210,6 +210,8 @@ def tmle(
         is R ``tmle``'s ``id=`` variance when clusters are of equal size
         (``tmle`` averages the influence function within ``id`` instead, a
         repeated-measures convention that differs with unequal sizes).
+        With ``fold_indices`` every cluster must lie in one fold
+        (``MethodIncompatibility`` otherwise).
     design : SurveyDesign, optional
         A complex survey design from :func:`sp.svydesign` declared on
         ``data`` (same rows). The design weights are the observation
@@ -652,6 +654,29 @@ class TMLE:
                 keep=self.data[cols].notna().all(axis=1).to_numpy(),
                 binary_target=A,
             )
+            if cl_codes is not None:
+                # A cluster split across folds lets a fold's Super Learner
+                # train on rows of a cluster it then predicts, and the
+                # cluster's shared shock leaks into its own "out-of-fold"
+                # initial fits.
+                n_fold_per_cluster = np.asarray(
+                    pd.Series(folds).groupby(cl_codes).nunique()
+                )
+                n_split = int(np.sum(n_fold_per_cluster > 1))
+                if n_split:
+                    raise MethodIncompatibility(
+                        f"tmle: fold_indices split {n_split} of "
+                        f"{n_fold_per_cluster.size} clusters of "
+                        f"{self.cluster!r} across folds; with cluster= every "
+                        "cluster must lie in one fold.",
+                        recovery_hint="Assign folds by cluster, e.g. "
+                        "GroupKFold(n_splits=K).split(X, groups=data[cluster]) "
+                        "turned into one label per row.",
+                        diagnostics={
+                            "n_clusters_split": n_split,
+                            "n_clusters": int(n_fold_per_cluster.size),
+                        },
+                    )
 
         # Detect if outcome is binary
         is_binary_outcome = set(np.unique(Y)) <= {0.0, 1.0}

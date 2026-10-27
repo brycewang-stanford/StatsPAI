@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ cluster folds in `sp.aipw`, conformal test weights, weighted R-learner (round-5 scan)
+
+- `sp.aipw(cluster=)` with `cross_fit=True` (the default): folds are drawn
+  over whole clusters, so estimates and SEs change. There is no option for
+  the old row-level split, which let a cluster's own rows train the models
+  that predicted it. Without `cluster=` nothing changes.
+- `sp.aipw`: a cross-fitting fold whose training rows lack an arm now
+  raises `DataInsufficient` (it predicted 0 for that arm). Use fewer folds
+  or `cross_fit=False`.
+- `sp.weighted_conformal_prediction`: pass `weights_test=w(X_test)` with
+  `weights_calib=`; without it the call warns and keeps the old weight 1.
+  `sp.conformal_counterfactual` / `sp.conformal_ite_interval` intervals
+  change (they now use each test point's own weight).
+- `sp.metalearner(learner='r', weights=)` with a continuous treatment:
+  `estimate` / `se` change (weighted nuisance fits).
+- `sp.subgroup_analysis`: `results_df` has a `note` column and keeps
+  subgroups without an estimate as NaN rows; filter on `note == ""` for the
+  estimated ones.
+
+---
+
 ## 1.40.2 → next: ⚠️ power, rlasso, cross_validate and interference (option scan round 5)
 
 - `sp.cross_validate(weights=)`: engines now fit the weighted model; DoubleML

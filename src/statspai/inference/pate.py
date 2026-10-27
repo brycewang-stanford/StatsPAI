@@ -34,7 +34,7 @@ randomized trials: counterfactual and graphical identification."
 
 import numbers
 import warnings
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,8 +44,13 @@ from scipy.optimize import minimize
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import warn as _warn
 from .basic_tests import _check_alpha
+
+#: Largest covariate imbalance, in standard deviations of the experiment's
+#: covariates, that counts as a converged entropy-balancing solution.
+_BALANCE_TOL = 1e-4
 
 
 @accepts_aliases(treat="treatment")
@@ -101,7 +106,14 @@ def pate(
     -------
     CausalResult
         With ``estimate`` = PATE, ``se`` from the bootstrap, and
-        ``ci`` at the requested level.
+        ``ci`` at the requested level. ``model_info['converged']`` says
+        whether the participation logit (``'ipw'`` / ``'aipw'``) or the
+        entropy-balancing solve (``'calibration'``, judged by the largest
+        remaining covariate imbalance, at most 1e-4 standard deviations)
+        converged on the full sample, with the optimiser records in
+        ``model_info['convergence']``; ``model_info['n_boot_not_converged']``
+        counts bootstrap replicates that did not. Either failure issues a
+        ``ConvergenceWarning``.
 
     Examples
     --------
@@ -221,6 +233,10 @@ class PATEEstimator:
         self.alpha = alpha
         self.trim = trim
         self.rng = np.random.default_rng(seed)
+        # One record per optimiser run (participation logit or entropy
+        # balancing), read by fit() to report convergence.
+        self._fit_log: List[Dict[str, Any]] = []
+        self._boot_not_converged = 0
 
         self._validate()
 
@@ -319,6 +335,15 @@ class PATEEstimator:
 
         res = minimize(neg_loglik, beta0, jac=grad, method="L-BFGS-B")
         beta_hat = res.x
+        self._fit_log.append(
+            {
+                "step": "participation_logit",
+                "converged": bool(res.success),
+                "message": str(res.message),
+                "n_iter": int(res.nit),
+                "max_abs_gradient": float(np.max(np.abs(grad(beta_hat)))),
+            }
+        )
 
         # Predicted P(S=1|X) for the experimental sample
         z_exp = np.column_stack([np.ones(n_exp), X_exp]) @ beta_hat
@@ -414,6 +439,22 @@ class PATEEstimator:
         raw = np.clip(raw, -30, 30)
         weights = np.exp(raw)
         weights = weights / np.sum(weights)  # normalise to sum to 1
+        # Converged means the weights balance the covariates: the
+        # optimiser's own flag can fail on a line search at a solution, and
+        # pass at a point where the target means lie outside the hull of
+        # the experiment's covariates and cannot be reached.
+        sd = np.std(X_exp, axis=0)
+        sd = np.where(sd > 0, sd, 1.0)
+        imbalance = float(np.max(np.abs(weights @ X_exp - target_means) / sd))
+        self._fit_log.append(
+            {
+                "step": "entropy_balancing",
+                "converged": imbalance <= _BALANCE_TOL,
+                "message": str(res.message),
+                "n_iter": int(res.nit),
+                "max_std_imbalance": imbalance,
+            }
+        )
         return np.asarray(weights * n_exp, dtype=float)  # scale so mean weight = 1
 
     # ------------------------------------------------------------------
@@ -525,9 +566,11 @@ class PATEEstimator:
         estimates = np.empty(self.n_boot)
         last_exc: Optional[BaseException] = None
 
+        self._boot_not_converged = 0
         for b in range(self.n_boot):
             idx_exp = self.rng.choice(n_exp, size=n_exp, replace=True)
             idx_tgt = self.rng.choice(n_tgt, size=n_tgt, replace=True)
+            start = len(self._fit_log)
             try:
                 estimates[b] = self._point_estimate(
                     Y[idx_exp],
@@ -538,6 +581,8 @@ class PATEEstimator:
             except Exception as exc:
                 estimates[b] = np.nan
                 last_exc = exc
+            if not all(e["converged"] for e in self._fit_log[start:]):
+                self._boot_not_converged += 1
 
         n_failed = int(np.isnan(estimates).sum())
         if n_failed:
@@ -561,10 +606,43 @@ class PATEEstimator:
         X_tgt = self.data_tgt[self.covariates].values.astype(float)
 
         # Point estimate
+        self._fit_log = []
         estimate = self._point_estimate(Y, D, X_exp, X_tgt)
+        point_log = list(self._fit_log)
+        converged = all(e["converged"] for e in point_log)
+        if not converged:
+            bad = [e for e in point_log if not e["converged"]]
+            _warn(
+                ConvergenceWarning,
+                f"pate(method={self.method!r}): the {bad[0]['step']} "
+                f"optimiser did not converge ({bad[0]['message']}); the "
+                "estimate is reported from the last iterate. With "
+                "entropy balancing this usually means the target "
+                "covariate means lie outside the range the experiment's "
+                "covariates can reweight to.",
+                stacklevel=3,
+                recovery_hint="Check overlap between the experiment and the "
+                "target sample on the covariates, drop or coarsen the "
+                "covariate that cannot be balanced, or use method='aipw'.",
+                diagnostics={"convergence": bad},
+            )
 
         # Bootstrap SE and CI
+        self._fit_log = []
         boot_ests = self._bootstrap(Y, D, X_exp, X_tgt)
+        n_boot_nc = self._boot_not_converged
+        if n_boot_nc:
+            _warn(
+                ConvergenceWarning,
+                f"pate(method={self.method!r}): the optimiser did not "
+                f"converge in {n_boot_nc} of {self.n_boot} bootstrap "
+                "replicates; they are kept in the standard error and the "
+                "interval.",
+                stacklevel=3,
+                recovery_hint="See model_info['n_boot_not_converged']; check "
+                "covariate overlap between the two samples.",
+                diagnostics={"n_boot_not_converged": n_boot_nc},
+            )
         se = float(np.std(boot_ests, ddof=1)) if len(boot_ests) > 1 else np.nan
         ci_lo = (
             float(np.percentile(boot_ests, 100 * self.alpha / 2))
@@ -619,6 +697,9 @@ class PATEEstimator:
                 "trim": self.trim,
                 "n_experiment": len(Y),
                 "n_target": X_tgt.shape[0],
+                "converged": converged,
+                "convergence": point_log,
+                "n_boot_not_converged": n_boot_nc,
             },
             _citation_key="pate",
         )

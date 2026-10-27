@@ -75649,6 +75649,10 @@
           "description": "Per-calibration-point likelihood-ratio weights ``w_i = f_test(X_i) / f_train(X_i)`` for covariate-shift correction. If None, uniform weights.",
           "type": "string"
         },
+        "weights_test": {
+          "description": "Likelihood-ratio weight of each test point, ``w(X_test[j])``, on the same scale as ``weights_calib`` (same function). The quantile for test point ``j`` puts mass ``w(X_test[j])`` on ``+inf`` next to the calibration weights, so each test point gets its own interval width. Required for the finite-sample coverage guarantee under covariate shift. When ``weights_calib`` is given and this is not, every test point gets weight 1 (the behaviour before 1.41), which undercovers wherever the test density is high relative to the training density, and an ``AssumptionWarning`` says so.",
+          "type": "string"
+        },
         "y_calib": {
           "description": "Calibration fold used to compute non-conformity scores.",
           "type": "string"

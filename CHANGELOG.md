@@ -523,6 +523,57 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
 - `sp.network_hte` reported `sigma^2 (X'X)^{-1}` for the orthogonal-score
   regression; the SEs are now the sandwich (HC0), equal to statsmodels
   `cov_type='HC0'` on the same residuals.
+- `sp.aipw(cluster=)` with cross-fitting drew the folds row by row, so the
+  nuisance models that predicted a cluster were trained on rows of the
+  same cluster and absorbed its shared shock. In a cluster-randomised
+  trial (50 clusters of 12, cluster shock with SD 2, a nearest-neighbour
+  `outcome_learner`; `tests/test_te_ml_scan_round5.py`) the 95% interval
+  covered the true ATE in 85.8% of 1000 replications, with a mean SE of
+  0.49 against a sampling SD of 0.63. The folds are now drawn over whole
+  clusters (one seeded draw per cluster, in sorted-label order, so the
+  split does not depend on row order): coverage 94.6%, mean SE 0.74
+  against an SD of 0.76. In the first replication the estimate moves from
+  2.012 (SE 0.509) to 1.957 (SE 0.717). Without `cluster=`, or with
+  `cross_fit=False`, nothing changes. `model_info['fold_unit']` records
+  `'row'` or `'cluster'`.
+- `sp.aipw`: an arm with no training rows in a cross-fitting fold got an
+  outcome model that predicted 0 for every held-out row, silently. It now
+  raises `DataInsufficient`. An arm with one or two training rows still
+  falls back to its mean, now with a `RuntimeWarning` and a record in
+  `model_info['outcome_arm_mean_fallback']`; with `weights=` that mean is
+  the weighted mean (it was unweighted).
+- `sp.metalearner(learner='r', weights=)` with a continuous treatment: the
+  residuals behind `estimate` and `se` came from unweighted fits of
+  E[Y|X] and E[D|X], although the docstring promised weighted fits. They
+  are weighted now (the CATE function stays unweighted, as documented).
+  With linear nuisances and fixed folds the estimate equals a hand-written
+  weighted cross-fit to 1e-16; on that fixture it moves from 1.4743 to
+  1.5455.
+- `sp.weighted_conformal_prediction` gave the test point weight 1 instead
+  of its own likelihood ratio in the weighted quantile of Tibshirani,
+  Barber, Candès and Ramdas (`tibshirani2019conformal`). Under covariate
+  shift that breaks the coverage guarantee: training covariates N(0, 1),
+  test covariates N(1.5, 1), 30 calibration points, `alpha=0.1`, and the
+  intervals covered 81% of test outcomes. A new `weights_test=` takes
+  `w(X_test)`, and each test point gets its own quantile: 97% (at least
+  90% is guaranteed). Without `weights_test=` the old weight 1 is kept
+  with an `AssumptionWarning` when `weights_calib=` is given. Unweighted
+  calls are unchanged. `sp.conformal_counterfactual` and
+  `sp.conformal_ite_interval` now pass the test points' own weights
+  (`1/e(x)` for Y(1), `1/(1-e(x))` for Y(0)); on a confounded fixture the
+  population coverage of the Y(1) intervals moves from 89.7% to 92.3% at
+  a 90% target. A band is now infinite at a test point whose own weight
+  carries more than `alpha` of the total (too little overlap for a finite
+  interval with the guarantee); the centres are stored in the new
+  `point_Y1` / `point_Y0` fields, which `sp.conformal_ite_interval` uses
+  for its point.
+- `sp.subgroup_analysis`: a subgroup in which a control is constant (or
+  the regressors collinear) disappeared from `results_df` when the
+  inverse failed, and otherwise came back with an SE from a numerically
+  singular inverse (0.0946 where the regression without the constant
+  control gives 0.0881). Such subgroups, and subgroups with too few rows,
+  are now kept with NaN estimates, the reason in a new `note` column, and
+  a warning. The other subgroups are unchanged.
 
 ### Fixed
 
@@ -695,6 +746,30 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   pointing to `sp.feols` / `sp.iv`.
 - `sp.network_hte` summary named the method after the wrong authors; it
   now cites Wu & Yuan (2025), as the docstring and `paper.bib` do.
+- `sp.pate` did not check its optimisers. The participation logit and the
+  entropy-balancing solve now record whether they converged in
+  `model_info['converged']` / `['convergence']`, and bootstrap replicates
+  that did not in `['n_boot_not_converged']`; either failure issues a
+  `ConvergenceWarning`. Entropy balancing counts as converged when the
+  largest remaining covariate imbalance is at most 1e-4 standard
+  deviations. A target sample whose covariate mean lies outside the
+  experiment's range (imbalance 7.3 SD after 836 iterations) used to
+  return an estimate with no sign of failure. Converged fits are
+  unchanged.
+- `sp.metalearner(fold_indices=, weights= / cluster=)`: a missing weight
+  or cluster label made `fold_indices` (aligned with the input rows) the
+  wrong length and the call was refused. Those rows are now dropped from
+  the vector, as rows with a missing outcome, treatment or covariate
+  already were, and the result equals the call on the pre-dropped data.
+- `sp.tmle(fold_indices=, cluster=)` did not check that every cluster lies
+  in one fold. Folds that split a cluster are now refused
+  (`MethodIncompatibility`, with the number of split clusters).
+- `sp.policy_tree`: the cross-fitted gain interval covers 81-85% at an
+  exact null of no heterogeneity (92-97% with heterogeneity). No valid
+  variance is implemented for that case; the limitation is now in the
+  docstring Notes, and `result['diagnostics']['gain_interval_note']` is
+  set when the gain is within one standard error of zero. No number
+  changes.
 
 ### Added
 
@@ -711,6 +786,8 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
 - `sp.gmm(small=True)`: `False` refers t statistics, p-values and intervals
   to the normal, as Stata `gmm` and R `gmm::summary`; the default keeps
   t(n - k), as `sp.iv(small=True)`. `result.inference_rule()` states which.
+- `sp.weighted_conformal_prediction(weights_test=)`: the likelihood-ratio
+  weight of each test point (see ⚠️ Correctness).
 
 ### Deprecated
 

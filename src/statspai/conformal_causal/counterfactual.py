@@ -84,6 +84,9 @@ class ConformalCounterfactualResult(ResultProtocolMixin):
     alpha: float
     marginal_coverage_estimate: float
     method: str = "Lei-Candès-2021-split-CQR"
+    #: Fitted outcome-model predictions at ``X`` (the interval centres).
+    point_Y1: Optional[np.ndarray] = None
+    point_Y0: Optional[np.ndarray] = None
 
     def to_frame(self) -> pd.DataFrame:
         return pd.DataFrame(
@@ -184,6 +187,7 @@ def weighted_conformal_prediction(
     weights_calib: Optional[np.ndarray] = None,
     model: Optional[BaseEstimator] = None,
     alpha: float = 0.1,
+    weights_test: Optional[np.ndarray] = None,
 ) -> tuple:
     """
     Split conformal prediction with per-calibration-point weights.
@@ -209,10 +213,31 @@ def weighted_conformal_prediction(
         min_samples_leaf=5, random_state=0)``.
     alpha : float, default 0.1
         Miscoverage level (interval targets ``1-alpha`` coverage).
+    weights_test : array, optional
+        Likelihood-ratio weight of each test point, ``w(X_test[j])``, on
+        the same scale as ``weights_calib`` (same function). The quantile
+        for test point ``j`` puts mass ``w(X_test[j])`` on ``+inf`` next
+        to the calibration weights, so each test point gets its own
+        interval width. Required for the finite-sample coverage guarantee
+        under covariate shift. When ``weights_calib`` is given and this is
+        not, every test point gets weight 1 (the behaviour before 1.41),
+        which undercovers wherever the test density is high relative to
+        the training density, and an ``AssumptionWarning`` says so.
 
     Returns
     -------
     (lower, upper, point) : tuple of arrays, each length ``len(X_test)``
+
+    Notes
+    -----
+    The guarantee is marginal coverage of at least ``1 - alpha`` for a
+    test point drawn from the shifted distribution, provided the weights
+    are the true density ratio up to a common constant
+    [@tibshirani2019conformal]. Under covariate shift, giving the test
+    point weight 1 instead of its own ratio broke it: with training
+    covariates N(0, 1), test covariates N(1.5, 1), 30 calibration points
+    and ``alpha=0.1``, the old intervals covered 81% of test outcomes,
+    the corrected ones 97% (``tests/test_te_ml_scan_round5.py``).
 
     Examples
     --------
@@ -245,26 +270,79 @@ def weighted_conformal_prediction(
     calib_resid = np.abs(y_calib - model.predict(X_calib))
     test_mean = model.predict(X_test)
 
+    calib_weighted = weights_calib is not None
     if weights_calib is None:
         weights_calib = np.ones_like(calib_resid)
     weights_calib = np.asarray(weights_calib, dtype=float)
     if weights_calib.shape != calib_resid.shape:
         raise ValueError("weights_calib must match y_calib in length")
+    n_test = len(test_mean)
+    if weights_test is None:
+        if calib_weighted:
+            from ..exceptions import AssumptionWarning
+            from ..exceptions import warn as _warn
 
-    # Weighted (1-alpha) quantile of residuals with point mass on +inf
-    # at weight 1 (the test-point contribution). This is the
-    # TBCR 2019 construction; finite-sample coverage holds.
-    w_all = np.append(weights_calib, 1.0)
-    scores = np.append(calib_resid, np.inf)
+            _warn(
+                AssumptionWarning,
+                "weighted_conformal_prediction: weights_calib is given but "
+                "weights_test is not, so every test point gets weight 1. "
+                "The coverage guarantee needs each test point's own "
+                "likelihood-ratio weight; without it the intervals "
+                "undercover where the test density is high relative to "
+                "the training density.",
+                stacklevel=2,
+                recovery_hint="Pass weights_test=w(X_test), the same "
+                "density-ratio function evaluated at the test points.",
+            )
+        w_test = np.ones(n_test)
+    else:
+        w_test = np.broadcast_to(
+            np.asarray(weights_test, dtype=float), (n_test,)
+        ).copy()
+    if not (
+        np.all(np.isfinite(weights_calib))
+        and np.all(weights_calib >= 0)
+        and np.all(np.isfinite(w_test))
+        and np.all(w_test >= 0)
+    ):
+        from ..exceptions import MethodIncompatibility
 
-    # For each test point we should in principle recompute the weight
-    # vector. Here we take the average-weight approximation (valid
-    # when the weight function is smooth), which is the standard
-    # practical choice in TBCR Section 3.3.
-    q = _weighted_quantile(scores, w_all, 1.0 - alpha)
+        raise MethodIncompatibility(
+            "weighted_conformal_prediction: weights_calib and weights_test "
+            "must be finite and non-negative.",
+            recovery_hint="Pass density-ratio weights w(x) >= 0 evaluated "
+            "at the calibration and test points.",
+        )
+
+    # Weighted (1-alpha) quantile of the calibration residuals plus a
+    # point mass on +inf carrying the test point's own weight (the TBCR
+    # 2019 construction), one quantile per distinct test weight.
+    q = _test_point_quantiles(calib_resid, weights_calib, w_test, 1.0 - alpha)
     lower = test_mean - q
     upper = test_mean + q
     return lower, upper, test_mean
+
+
+def _test_point_quantiles(
+    calib_resid: np.ndarray, w_calib: np.ndarray, w_test: np.ndarray, level: float
+) -> np.ndarray:
+    """Per-test-point weighted conformal quantile (mass ``w_test[j]`` on inf).
+
+    Same arithmetic as :func:`_weighted_quantile` on
+    ``(append(calib_resid, inf), append(w_calib, w_test[j]))``, evaluated
+    once per distinct test weight.
+    """
+    scores = np.append(calib_resid, np.inf)
+    order = np.argsort(scores)
+    v = scores[order]
+    uniq, inverse = np.unique(w_test, return_inverse=True)
+    q_uniq = np.empty(len(uniq))
+    for k, wt in enumerate(uniq):
+        cum = np.cumsum(np.append(w_calib, wt)[order])
+        cum /= cum[-1]
+        idx = min(int(np.searchsorted(cum, level, side="left")), len(v) - 1)
+        q_uniq[k] = v[idx]
+    return np.asarray(q_uniq[inverse.ravel()], dtype=float)
 
 
 def _weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
@@ -299,12 +377,20 @@ def _split_calib(
     return trn, cal
 
 
-def _fit_propensity(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-    """Logistic propensity score, clipped to [1e-3, 1-1e-3]."""
+def _fit_propensity(
+    X: np.ndarray, T: np.ndarray, X_pred: Optional[np.ndarray] = None
+) -> tuple:
+    """Logistic propensity score, clipped to [1e-3, 1-1e-3].
+
+    Returns the fitted scores at ``X`` and at ``X_pred`` (``X`` if None).
+    """
     lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
     lr.fit(X, T)
-    p = lr.predict_proba(X)[:, 1]
-    return np.asarray(np.clip(p, 1e-3, 1 - 1e-3))
+    p = np.asarray(np.clip(lr.predict_proba(X)[:, 1], 1e-3, 1 - 1e-3))
+    if X_pred is None:
+        return p, p
+    p_pred = np.asarray(np.clip(lr.predict_proba(X_pred)[:, 1], 1e-3, 1 - 1e-3))
+    return p, p_pred
 
 
 @accepts_aliases(seed="random_state")
@@ -350,6 +436,11 @@ def conformal_counterfactual(
     Returns
     -------
     ConformalCounterfactualResult
+        A band is infinite at a test point whose own weight (``1/e(x)``
+        for Y(1), ``1/(1-e(x))`` for Y(0)) carries more than ``alpha`` of
+        the total weight: the calibration arm has too little overlap there
+        for a finite interval with the coverage guarantee.
+        ``point_Y1`` / ``point_Y0`` hold the interval centres.
 
     Examples
     --------
@@ -384,20 +475,24 @@ def conformal_counterfactual(
     else:
         X_test_arr = np.asarray(X_test, dtype=float)
 
-    # Estimate propensity on full sample
+    # Estimate propensity on full sample; also at the test points, whose
+    # own density-ratio weight enters each interval.
     if propensity_model is None:
-        g = _fit_propensity(X_all, T)
+        g, g_test = _fit_propensity(X_all, T, X_test_arr)
     else:
         m = clone(propensity_model)
         m.fit(X_all, T)
         from ..core._learners import positive_class_proba
 
-        g = np.clip(
-            positive_class_proba(
-                m, X_all, context="conformal_counterfactual propensity_model"
-            ),
-            1e-3,
-            1 - 1e-3,
+        g, g_test = (
+            np.clip(
+                positive_class_proba(
+                    m, X_at, context="conformal_counterfactual propensity_model"
+                ),
+                1e-3,
+                1 - 1e-3,
+            )
+            for X_at in (X_all, X_test_arr)
         )
 
     # Per-arm split conformal with TBCR weights
@@ -413,8 +508,10 @@ def conformal_counterfactual(
         #   ∝ 1/g(X_i)  when arm=1, 1/(1-g(X_i))  when arm=0
         if arm == 1:
             w_cal = 1.0 / g_arm[cal]
+            w_test = 1.0 / g_test
         else:
             w_cal = 1.0 / (1.0 - g_arm[cal])
+            w_test = 1.0 / (1.0 - g_test)
 
         lower, upper, point = weighted_conformal_prediction(
             X_train=X_arm[trn],
@@ -425,6 +522,7 @@ def conformal_counterfactual(
             weights_calib=w_cal,
             model=model,
             alpha=alpha,
+            weights_test=w_test,
         )
         return lower, upper, point, X_arm[cal], Y_arm[cal], w_cal
 
@@ -443,6 +541,8 @@ def conformal_counterfactual(
         upper_Y0=hi0,
         alpha=alpha,
         marginal_coverage_estimate=1.0 - alpha,
+        point_Y1=pt1,
+        point_Y0=pt0,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -544,8 +644,10 @@ def conformal_ite_interval(
         propensity_model=propensity_model,
         random_state=random_state,
     )
-    point_1 = 0.5 * (cf.lower_Y1 + cf.upper_Y1)
-    point_0 = 0.5 * (cf.lower_Y0 + cf.upper_Y0)
+    # Centres from the stored predictions: a band can be infinite (poor
+    # overlap at a test point), and its midpoint would be inf - inf.
+    assert cf.point_Y1 is not None and cf.point_Y0 is not None
+    point_1, point_0 = cf.point_Y1, cf.point_Y0
     half_1 = 0.5 * (cf.upper_Y1 - cf.lower_Y1)
     half_0 = 0.5 * (cf.upper_Y0 - cf.lower_Y0)
     point_tau = point_1 - point_0
