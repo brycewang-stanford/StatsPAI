@@ -50,6 +50,7 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._validate import require_binary_treatment
 from ..core.results import CausalResult
 from ..utils._rng import preserve_global_rng
 
@@ -597,14 +598,18 @@ def _prepare_data(
     check_columns(data, {"y": y, "treat": treat, "covariates": list(covariates)})
 
     clean = data[cols].dropna()
+    # 0/1 exactly: codes that truncate to 0 and 1 (0 and 1.5, say) used to
+    # pass, and the loss then weighted the two outcome heads by them
+    require_binary_treatment(clean[treat], function="neural causal model")
     Y = clean[y].values.astype(np.float32)
     D = clean[treat].values.astype(np.float32)
     X = clean[covariates].values.astype(np.float32)
 
     unique_d = np.unique(D)
-    if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
+    if len(unique_d) != 2:
         raise ValueError(
-            f"Treatment must be binary (0/1), got unique values: {unique_d}"
+            "Treatment must be binary (0/1) with both arms present, got "
+            f"unique values: {unique_d}"
         )
 
     return Y, D, X, len(Y)

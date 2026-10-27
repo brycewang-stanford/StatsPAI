@@ -91,3 +91,20 @@ def test_gnn_causal_rejects_bad_options_with_taxonomy() -> None:
             adjacency=adjacency,
             propensity_bounds=(0.9, 0.2),
         )
+
+
+@pytest.mark.parametrize("codes", [(0.0, 0.5), (0.0, 1.5)])
+def test_gnn_causal_refuses_treatment_not_coded_zero_one(codes) -> None:
+    """``astype(int)`` turned 0.5 into 0 and 1.5 into 1 before the check."""
+    df = _network_frame()
+    df["treat"] = np.where(df["treat"] == 1, codes[1], codes[0])
+    with pytest.raises(MethodIncompatibility, match="binary"):
+        sp.gnn_causal(
+            df,
+            y="y",
+            treat="treat",
+            covariates="x",
+            adjacency=_ring_adjacency(len(df)),
+            n_trees=5,
+            min_leaf=2,
+        )

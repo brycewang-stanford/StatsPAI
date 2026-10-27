@@ -734,3 +734,29 @@ def test_no_bootstrap_draws_give_nan_inference_without_numpy_warnings(fn):
     assert r0.estimate == r3.estimate
     assert r3.se > 0 and r3.ci[0] < r3.estimate < r3.ci[1]
     assert r3.model_info["se_method"] == "unit_bootstrap_cate_plugin"
+
+
+# ---------------------------------------------------------------------------
+# Option scan, round 6 (2026-10-27): treatment codes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("fn", [tarnet, cfrnet, dragonnet])
+@pytest.mark.parametrize("codes", [(0.0, 1.5), (-0.5, 1.0)])
+def test_treatment_not_coded_zero_one_is_refused(fn, codes):
+    """A treatment with values that truncate to 0 and 1 used to pass the
+    check; the loss then weighted the two heads by those values."""
+    from statspai.exceptions import MethodIncompatibility
+
+    rng = np.random.default_rng(0)
+    n = 60
+    d = rng.integers(0, 2, n)
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "d": np.where(d == 1, codes[1], codes[0]),
+            "x1": rng.normal(size=n),
+        }
+    )
+    with pytest.raises(MethodIncompatibility, match="binary"):
+        fn(df, y="y", treat="d", covariates=["x1"], epochs=2, n_bootstrap=2)

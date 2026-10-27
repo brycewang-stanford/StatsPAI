@@ -156,3 +156,18 @@ def test_cevae_backend_reported():
     y = t + rng.normal(0, 1, n)
     res = sp.cevae(x, t, y, z_dim=2, n_epochs=30, seed=0)
     assert res.backend in ("torch", "numpy")
+
+
+def test_cevae_without_torch_refuses_instead_of_falling_back(monkeypatch):
+    """Without PyTorch the old numpy path regressed the outcome on a random
+    projection of X (its encoder step had a zero gradient): an ATE of 3.4
+    where the truth is 2. It now fails like the other neural estimators."""
+    import statspai.neural_causal.cevae as cevae_mod
+
+    monkeypatch.setattr(cevae_mod, "_try_import_torch", lambda: False)
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(50, 3))
+    t = rng.binomial(1, 0.5, 50)
+    y = t + rng.normal(size=50)
+    with pytest.raises(ImportError, match="PyTorch"):
+        sp.cevae(x, t, y, seed=0)

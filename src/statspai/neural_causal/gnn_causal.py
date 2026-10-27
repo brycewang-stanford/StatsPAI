@@ -46,6 +46,7 @@ from sklearn.linear_model import LogisticRegression
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._validate import require_binary_treatment
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
 _GNN_CAUSAL_ALTERNATIVES = [
@@ -252,6 +253,8 @@ def gnn_causal(
             diagnostics={"n_complete": n},
             alternative_functions=_GNN_CAUSAL_ALTERNATIVES,
         )
+    # checked before the cast: astype(int) turns 0.5 into 0 and 1.5 into 1
+    require_binary_treatment(df[treat], function="gnn_causal")
     Y = df[y].to_numpy(dtype=float)
     D = df[treat].to_numpy(dtype=int)
     X = df[cov].to_numpy(dtype=float)

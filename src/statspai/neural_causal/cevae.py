@@ -16,9 +16,11 @@ educational use and small-to-medium datasets. Scale to production via
 
 Notes
 -----
-If PyTorch is not installed, we fall back to a numpy-only linear
-variational approximation that still honours the (encoder → treatment,
-outcome heads) factorisation. This keeps the import hierarchy light.
+PyTorch is required (``pip install statspai[neural]``); without it the fit
+raises ``ImportError``, as TARNet, CFRNet and DragonNet do. Until October
+2026 a numpy fallback ran instead. Its encoder step had a zero gradient, so
+it regressed the outcome on a fixed random projection of ``X`` and missed
+whatever confounding the projection dropped.
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._validate import require_binary_treatment
 
 
 @dataclass
@@ -198,8 +201,7 @@ class CEVAEResult(ResultProtocolMixin):
 
 
 class CEVAE:
-    """Minimal CEVAE. Uses PyTorch if available, else a light numpy
-    linear variational approximation.
+    """Minimal CEVAE (requires PyTorch).
 
     Examples
     --------
@@ -237,13 +239,16 @@ class CEVAE:
         treatment: np.ndarray,
         outcome: np.ndarray,
     ) -> CEVAEResult:
+        if not self._torch_ok:
+            raise ImportError(
+                "PyTorch is required for CEVAE. "
+                "Install: pip install statspai[neural]  or: pip install torch"
+            )
+        require_binary_treatment(treatment, function="cevae", argument="treatment")
         X = np.asarray(X, dtype=float)
         t = np.asarray(treatment, dtype=float)
         y = np.asarray(outcome, dtype=float)
-
-        if self._torch_ok:
-            return self._fit_torch(X, t, y)
-        return self._fit_numpy(X, t, y)
+        return self._fit_torch(X, t, y)
 
     # --------- Torch path (preferred) ---------
     def _fit_torch(self, X: np.ndarray, t: np.ndarray, y: np.ndarray) -> CEVAEResult:
@@ -324,50 +329,6 @@ class CEVAE:
             ite=ite,
             loss_history=history,
             backend="torch",
-        )
-
-    # --------- Numpy fallback ---------
-    def _fit_numpy(self, X: np.ndarray, t: np.ndarray, y: np.ndarray) -> CEVAEResult:
-        """Linear-Gaussian variational approximation. Fits:
-            z ~ N(A X, 1),  t | z ~ Bern(sigmoid(c^T z)),
-            y | z, t ~ N(b1 z * t + b0 z * (1-t), sigma^2)
-        Fits by alternating WLS between heads.
-        """
-        rng = np.random.default_rng(self.seed)
-        n, d = X.shape
-        Z = self.z_dim
-
-        A = rng.normal(0, 0.1, (d, Z))
-        history = []
-        for epoch in range(min(self.n_epochs, 50)):
-            z = X @ A  # deterministic mean
-            # Fit outcome on [z, t, z*t]
-            design1 = np.column_stack([np.ones(n), z, t[:, None] * z, t])
-            beta, *_ = np.linalg.lstsq(design1, y, rcond=None)
-            y_hat = design1 @ beta
-            rmse = float(np.sqrt(np.mean((y - y_hat) ** 2)))
-            history.append(rmse)
-
-            # Re-fit encoder to match X reconstruction (X ~ z B)
-            B, *_ = np.linalg.lstsq(z, X, rcond=None)
-            # Update A such that X A reproduces z better (1-step gradient)
-            grad = (X.T @ (X @ A - z)) / n
-            A = A - 0.1 * grad
-
-        z = X @ A
-        design1 = np.column_stack([np.ones(n), z, t[:, None] * z, t])
-        beta, *_ = np.linalg.lstsq(design1, y, rcond=None)
-        # Counterfactual predictions:
-        design_y1 = np.column_stack([np.ones(n), z, 1.0 * z, np.ones(n)])
-        design_y0 = np.column_stack([np.ones(n), z, 0.0 * z, np.zeros(n)])
-        y1 = design_y1 @ beta
-        y0 = design_y0 @ beta
-        ite = y1 - y0
-        return CEVAEResult(
-            ate=float(ite.mean()),
-            ite=ite,
-            loss_history=history,
-            backend="numpy",
         )
 
 
