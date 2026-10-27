@@ -303,7 +303,10 @@ def spatial_iv(
             data=data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover
+    except (AttributeError, TypeError, KeyError, ValueError):  # pragma: no cover
+        # Provenance is decoration: a result object that cannot carry it is
+        # still a valid estimate. Narrow rather than bare so a genuine bug
+        # inside attach_provenance still surfaces.
         pass
     return _result
 

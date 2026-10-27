@@ -124,6 +124,9 @@ def _eigvals_for_bounds(M: sparse.csr_matrix) -> Optional[np.ndarray]:
 
 
 def _rho_bounds(eigvals: Optional[np.ndarray]) -> Tuple[float, float]:
+    """First search bracket: 0.99 times the admissible interval, inside
+    (-0.99, 0.99). :func:`_line_search` widens it when the maximum sits on
+    an edge that is not an edge of the admissible interval."""
     if eigvals is None:
         return -0.999, 0.999
     rho_min = (1.0 / eigvals[eigvals < 0].min()) if np.any(eigvals < 0) else -0.99
@@ -131,6 +134,54 @@ def _rho_bounds(eigvals: Optional[np.ndarray]) -> Tuple[float, float]:
     rho_min = max(rho_min * 0.99, -0.99)
     rho_max = min(rho_max * 0.99, 0.99)
     return float(rho_min), float(rho_max)
+
+
+#: Distance kept from the singular ends ``1 / omega`` of the admissible
+#: interval, where ``log|I - rho W|`` is minus infinity (as in ``_fiml``).
+_EDGE_GAP = 1e-6
+
+
+def _admissible_bounds(eigvals: Optional[np.ndarray]) -> Optional[Tuple[float, float]]:
+    """``(1 / omega_min, 1 / omega_max)`` over the real parts of the
+    eigenvalues of ``W``, pulled in by ``_EDGE_GAP``: the interval on which
+    ``I - rho W`` stays nonsingular, and R ``spatialreg``'s default search
+    interval. None when the eigenvalues are not computed (large ``n``) or
+    one side has no eigenvalue of that sign (no finite end to search to)."""
+    if eigvals is None or not (np.any(eigvals < 0) and np.any(eigvals > 0)):
+        return None
+    lo = 1.0 / float(eigvals.min()) + _EDGE_GAP
+    hi = 1.0 / float(eigvals.max()) - _EDGE_GAP
+    return lo, hi
+
+
+def _line_search(f: Any, eigvals: Optional[np.ndarray]) -> float:
+    """Minimise the negative concentrated log-likelihood over the spatial
+    parameter.
+
+    The search runs first on the bracket of :func:`_rho_bounds` and again on
+    the whole admissible interval (:func:`_admissible_bounds`) when the
+    first minimum sits on an end of the bracket that is inside that
+    interval. Through 1.40.2 the bracket was the only search: an estimate
+    below -0.99 (possible whenever the smallest eigenvalue of ``W`` is
+    above -1, e.g. -0.5 gives the interval (-2, 1)) or within 1% of
+    ``1 / omega_max`` came back pinned to the bracket end. Fits whose first
+    minimum is interior are unchanged bit for bit.
+    """
+    lo, hi = _rho_bounds(eigvals)
+    opt = minimize_scalar(
+        f, bounds=(lo, hi), method="bounded", options={"xatol": 1e-10}
+    )
+    x = float(opt.x)
+    wide = _admissible_bounds(eigvals)
+    if wide is None:
+        return x
+    tol = 1e-6 * (hi - lo)
+    if (x - lo < tol and wide[0] < lo) or (hi - x < tol and wide[1] > hi):
+        opt = minimize_scalar(
+            f, bounds=wide, method="bounded", options={"xatol": 1e-10}
+        )
+        x = float(opt.x)
+    return x
 
 
 def _logdet(M: sparse.csr_matrix, rho: float, eigvals: Optional[np.ndarray]) -> float:
@@ -416,7 +467,6 @@ def sar(
     Wy = M @ y
 
     eigvals = _eigvals_for_bounds(M)
-    rho_min, rho_max = _rho_bounds(eigvals)
 
     XtX_inv = np.linalg.inv(X.T @ X)
 
@@ -431,13 +481,7 @@ def sar(
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(
-        neg_conc_ll,
-        bounds=(rho_min, rho_max),
-        method="bounded",
-        options={"xatol": 1e-10},
-    )
-    rho_hat = float(opt.x)
+    rho_hat = _line_search(neg_conc_ll, eigvals)
 
     y_star = y - rho_hat * Wy
     beta = XtX_inv @ X.T @ y_star
@@ -524,7 +568,6 @@ def sem(
     M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
 
     eigvals = _eigvals_for_bounds(M)
-    lam_min, lam_max = _rho_bounds(eigvals)
 
     def neg_conc_ll(lam: float) -> float:
         # (I - lam W) is applied implicitly: y_star = y - lam * W y
@@ -540,13 +583,7 @@ def sem(
         ll += _logdet(M, lam, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(
-        neg_conc_ll,
-        bounds=(lam_min, lam_max),
-        method="bounded",
-        options={"xatol": 1e-10},
-    )
-    lam_hat = float(opt.x)
+    lam_hat = _line_search(neg_conc_ll, eigvals)
 
     y_star = y - lam_hat * (M @ y)
     X_star = X - lam_hat * (M @ X)
@@ -645,7 +682,6 @@ def sdm(
     XtX_inv = np.linalg.inv(X_aug.T @ X_aug)
 
     eigvals = _eigvals_for_bounds(M)
-    rho_min, rho_max = _rho_bounds(eigvals)
 
     def neg_conc_ll(rho: float) -> float:
         y_star = y - rho * Wy
@@ -658,13 +694,7 @@ def sdm(
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(
-        neg_conc_ll,
-        bounds=(rho_min, rho_max),
-        method="bounded",
-        options={"xatol": 1e-10},
-    )
-    rho_hat = float(opt.x)
+    rho_hat = _line_search(neg_conc_ll, eigvals)
 
     y_star = y - rho_hat * Wy
     beta_aug = XtX_inv @ X_aug.T @ y_star
@@ -781,7 +811,7 @@ def slx(
     # 1.40.2 the df-corrected sigma2 above was plugged in instead.
     log_lik = -n / 2 * (np.log(2 * np.pi * float(e @ e) / n) + 1.0)
 
-    return _make_results(
+    res = _make_results(
         alpha=alpha,
         model_type="slx",
         spatial_param_name="",
@@ -798,6 +828,10 @@ def slx(
         extra_diag={},
         _w_sparse=M,
     )
+    # OLS covariance (n - k), as R lmSLX; sp.impacts reads it for the
+    # indirect and total SEs, which involve cov(beta, theta).
+    _attach_vcov(res, sigma2 * XtX_inv, var_names)
+    return res
 
 
 # --------------------------------------------------------------------- #

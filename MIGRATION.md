@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ spatial ML search interval and `sp.impacts` stability interval
+
+Numbers change in these calls; there is no option to restore the old ones,
+which were wrong.
+
+- `sp.sar` / `sp.sem` / `sp.sdm`: when the old fit returned `rho` or
+  `lambda` at -0.99 (or at 0.99 times `1 / omega_max`, the largest
+  eigenvalue of `W`), the search now continues over the admissible
+  interval `(1 / omega_min, 1 / omega_max)` as `spatialreg` does, and the
+  estimate, its SEs and the log-likelihood change. Fits that did not stop
+  on that edge are unchanged bit for bit.
+- `sp.impacts`: draws are kept when the spatial parameter lies inside
+  `(1 / omega_min, 1 / omega_max)` of `W`, not inside (-0.999, 0.999).
+  Simulated SEs change for an unstandardised `W` (draws past
+  `1 / omega_max` are now dropped) and for a row-standardised `W` whose
+  smallest eigenvalue is -1 when draws fall in (-1, -0.999) (now kept, as
+  in R; near -1 the direct and indirect SEs are dominated by these draws in
+  both). A fitted `rho` below -0.999 is no longer refused.
+- `sp.impacts` on `sp.sem` raises `MethodIncompatibility`, a subclass of
+  `ValueError`, so `except ValueError` still catches it.
+
+---
+
 ## 1.40.2 → next: ⚠️ CATE, TMLE survival, conformal and policy-tree fixes (Oct 2026 scan)
 
 - `sp.ltmle_survival`: the survival curves are now the sequential-regression

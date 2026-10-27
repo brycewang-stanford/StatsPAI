@@ -119,6 +119,32 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   spillover effects move from 1.188 / 0.314 to 1.162 / 0.420, equal to the
   dummy-variable regression on the same rows (truth 1.0 / 0.5). Complete
   panels are unchanged.
+- `sp.sar`, `sp.sem` and `sp.sdm` searched `rho` / `lambda` only on 0.99
+  times the admissible interval, cut at -0.99 and 0.99. The interval is
+  `(1 / omega_min, 1 / omega_max)` over the eigenvalues of `W`, R
+  `spatialreg`'s default. When the smallest eigenvalue is above -1 (often
+  with row-standardised `W`) an estimate below -0.99 came back as -0.99,
+  and with an unstandardised `W` the last 1% below `1 / omega_max` was out
+  of reach. On a row-standardised 120-unit ring with smallest eigenvalue
+  -0.5 (`tests/spatial/test_impacts_interval_oct2026.py`) the SAR `rho`
+  moves from -0.990 to -1.368 and the log-likelihood from -219.56 to
+  -210.79, both equal to `spatialreg::lagsarlm` (rho to 2e-11); SEM
+  `lambda` -0.990 to -1.330, SDM `rho` -0.990 to -1.318. On a binary ring
+  with `omega_max = 4` the SAR `rho` moves from 0.2475 to 0.2480 (R
+  0.2479714). The search still starts on the old bracket and widens only
+  when it stops on one of its ends: in a before/after check 42 of 45 fits
+  are identical bit for bit, and the other three had stopped at -0.99. The
+  large-`n` path without eigenvalues keeps (-0.999, 0.999).
+- `sp.impacts` kept a draw when its spatial parameter was inside
+  (-0.999, 0.999), right only for a row-standardised `W` with smallest
+  eigenvalue -1. It now uses the admissible interval of `W` (real parts of
+  the eigenvalues), as `spatialreg::impacts` does. With an unstandardised
+  `W`, draws past `1 / omega_max`, where `I - rho W` is singular or its
+  inverse changes sign, were kept: for `sp.sac` on a 144-unit binary ring
+  (`omega_max = 4`, rho -0.003 with SE 0.133) 603 of 20000 draws lay past
+  0.25 and the SE of the direct effect falls from 3.29 to 0.364. With a
+  row-standardised `W`, valid draws below -0.999 were dropped, and a fit
+  with `rho` below -0.999 was refused. Point impacts are unchanged.
 - `sp.bartik` paired `shares` rows with `data` rows by position although its
   docstring asks for aligned indexes; a reordered `data` paired regions with
   other regions' shares (estimate -4.90 against 1.55 on the test fixture).
@@ -414,6 +440,14 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
 
 ### Fixed
 
+- The provenance wrappers of `sp.spatial_iv`, `sp.spatial_did`,
+  `sp.bartik` and the legacy `statspai.spatial.models._legacy` fits caught
+  `Exception`, so a bug in the provenance code vanished without a trace.
+  They now catch only the errors of a result that cannot carry the record
+  (`AttributeError`, `TypeError`, `KeyError`, `ValueError`).
+- `sp.impacts` on a model without spillovers in the mean (`sp.sem`) raises
+  `MethodIncompatibility` (a `ValueError`) with a recovery hint, not a bare
+  `ValueError`.
 - `sp.mixed` returned the module `statspai.multilevel.mixed` ("'module' object
   is not callable") when old code had imported that back-compat path
   before the first use of `sp.mixed`. The lazy export now resolves from
@@ -539,6 +573,16 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
 
 ### Added
 
+- `sp.impacts` for `sp.slx`, `sp.sdem` and `sp.gns` fits. For SLX and SDEM
+  the impacts are linear in the estimates (direct `beta_k`, indirect
+  `theta_k` times the mean row sum of `W`), so their SEs come exactly from
+  the coefficient covariance, as `spatialreg`'s `impacts()` for `lmSLX` and
+  `errorsarlm(Durbin = TRUE)`: SLX estimates and SEs equal R to 1e-12;
+  SDEM estimates agree to 1e-8 and the SEs differ by the covariance
+  convention (observed information here, as Stata; total effect of x1
+  0.2751 against R's 0.2725). GNS impacts are simulated as for SDM.
+  `sp.slx` now stores its OLS covariance in `model_info['vcov']`.
+  `attrs['se_method']` says `'analytic'` or `'simulation'`.
 - `sp.gmm(small=True)`: `False` refers t statistics, p-values and intervals
   to the normal, as Stata `gmm` and R `gmm::summary`; the default keeps
   t(n - k), as `sp.iv(small=True)`. `result.inference_rule()` states which.

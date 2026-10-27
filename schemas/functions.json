@@ -67111,21 +67111,21 @@
     }
   },
   {
-    "description": "Compute direct / indirect / total impacts + simulated SEs. Validation: certified parity evidence.",
+    "description": "Direct, indirect and total impacts of a spatial regression, with SEs. Validation: certified parity evidence.",
     "name": "impacts",
     "parameters": {
       "properties": {
         "n_sim": {
           "default": 1000,
-          "description": "Number of Monte-Carlo draws for simulated SEs.",
+          "description": "Number of Monte-Carlo draws for simulated SEs. Not used for SLX / SDEM.",
           "type": "integer"
         },
         "result": {
-          "description": "Output of ``sp.sar``, ``sp.sdm``, or ``sp.sac``.",
+          "description": "Output of ``sp.sar``, ``sp.sdm``, ``sp.sac``, ``sp.gns`` (simulated SEs) or ``sp.slx``, ``sp.sdem`` (exact SEs).",
           "type": "string"
         },
         "seed": {
-          "description": "RNG seed.",
+          "description": "RNG seed. Not used for SLX / SDEM.",
           "type": "integer"
         }
       },

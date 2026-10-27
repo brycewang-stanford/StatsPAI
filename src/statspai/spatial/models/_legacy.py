@@ -90,7 +90,8 @@ def sar(
             data=data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover
+    except (AttributeError, TypeError, KeyError, ValueError):  # pragma: no cover
+        # Provenance is decoration; narrow so a bug in it still surfaces.
         pass
     return _result
 
@@ -133,7 +134,8 @@ def sem(
             data=data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover
+    except (AttributeError, TypeError, KeyError, ValueError):  # pragma: no cover
+        # Provenance is decoration; narrow so a bug in it still surfaces.
         pass
     return _result
 
@@ -180,7 +182,8 @@ def sdm(
             data=data,
             overwrite=False,
         )
-    except Exception:  # pragma: no cover
+    except (AttributeError, TypeError, KeyError, ValueError):  # pragma: no cover
+        # Provenance is decoration; narrow so a bug in it still surfaces.
         pass
     return _result
 
