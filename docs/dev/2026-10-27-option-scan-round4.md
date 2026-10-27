@@ -189,3 +189,69 @@ Packages never scanned: `agent`, `smart`, `core`, `diagnostics`, `mcmc`,
 `output`, `fast`, `plots`, `dag`, `causal_discovery`, `structural`, `doe`,
 `bayes`, `experimental`, `workflow`, `network`, `neural_causal`,
 `nonparametric`, `causal_llm`.
+
+## Round 6 (same evening, coordinator statspai-04)
+
+Seven lines (`wt/r6-*`) scanned sixteen packages never scanned before and
+closed the round-5 open list. Every defect was first a strict xfail test
+confirmed to fail on unchanged source; before/after snapshots of calls the
+fixes should not touch are bit-identical. The CHANGELOG `[Unreleased]`
+section has each fix with its before/after number and reference. The
+largest:
+
+- `core/`: `CausalResult.tidy(conf_level=)` / `summary(alpha=)` rescaled
+  only the headline row (event-study rows kept 95% bounds under a 90%
+  label); `predict(what='confidence')` used t(N-K) after a clustered fit;
+  `y ~ x - 1 + 1` fitted through the origin.
+- `output/` / `plots/` / `fast/`: tables, `coefplot` and `sp.cite`
+  recomputed intervals with t(N-K) or 1.96 regardless of the model's
+  distribution and fit-time level; `binscatter(absorb=)` plotted demeaned
+  points and ignored weights; `sp.fast.event_study` CR1 counted nested FE
+  in K (SE 0.6332 vs fixest 0.6004).
+- `diagnostics/`: `sp.estat` after a weighted fit ran unweighted auxiliary
+  regressions (hettest 19.24 vs Stata 16.805); linktest after logit was an
+  OLS on fitted probabilities. `network/`: directed transitivity,
+  assortativity, modularity, `hits` weights, `netlm` intercept p,
+  `ergm` nodefactor (now equal to igraph / sna / R ergm).
+- `structural/`: OP / LP / ACF depended on the units of log inputs (LP
+  beta_k -2.12 vs 0.43 after a shift of the logs); Wooldridge `rho` was
+  not the projection slope.
+- `dag/` / `causal_discovery/`: two bidirected edges could share one latent
+  name; `lingam(standardize=False)` without centring; `icp` used
+  `alpha/(2^p-1)` per set; constant or collinear columns joined or deleted
+  PC edges silently.
+- `mcmc/` / `bayes/`: `bayes_dml(random_state=)` did not reach the folds;
+  `bayes_iv(per_instrument=True)` used a larger sample than the pooled
+  fit; prediction on new data with missing regressors misaligned rows.
+- Round-5 items: two-sided power counted one tail (zero effect had power
+  alpha/2); `relative_risk` / `odds_ratio` zero cells follow Stata `cs` /
+  `cci`; the PAF interval includes prevalence uncertainty;
+  `aipw(design=)` folds by PSU; `cross_validate` honours `n_folds` /
+  `seed` / `alpha`; `dnc_gnn_did` embedding alignment.
+- `experimental/`: `randomize(strata=, cluster=)` ignored `cluster`;
+  switchback p-value rejected 12.5% at nominal 5%; `attrition_bounds`
+  treated missing treatment as control.
+
+Decided by the coordinator: `eigenvector_centrality` keeps sna's direction
+(igraph's is `mode='in'`; the two references disagree);
+`community_detection` warns on an asymmetric directed adjacency instead of
+refusing; `power_two_proportions` keeps Wald in 1.42 and should move to
+`test="chi2"` in 1.43; the `"parmigiani"` alias is deprecated for 1.43.
+
+Still open after round 6:
+`bayes_dml(mode='full')` (implement from the paper or deprecate);
+`bayes_its` / `sp.its` do not check time order; `CausalResult.conf_int`
+uses z at a non-fit level while `tidy` uses t when `df_resid` is known;
+`vcov={"CRV1": "f+h"}`; `sp.ipw` with a duplicated covariate (bare
+LinAlgError under `se_method='sandwich'`) and its unseeded default
+bootstrap; `sp.qreg(vce="vce(cluster f)")`; `sp.poisson` omits a different
+collinear column than `regress`; `sp.fast.fepois` default `tol=1e-8`
+(1.7e-5 from fixest); `boottest` equal-tailed vs symmetric p and its
+`extra_df` docstring; `coef_map` merging two names into one row;
+`community_detection` on directed graphs (warns only); `logit_gof` under
+`[iw=]`; `sp.logit(weights=)` AUC 0.7289 vs Stata `lroc` 0.71838;
+`optimal_design(baseline_mean=)` unused and `n_clusters=` ignored with
+`mde=`; the `cluster_matched_pair` size-weighted estimator; ICP intervals
+fixed at 95%; NOTEARS diagonal; R FrF2 / AlgDesign / tigramite not
+installed, so those references were not run.
+Packages never scanned: `agent`, `smart`, `workflow` (orchestration).
