@@ -224,6 +224,12 @@ def compare_estimators(
     Run selected estimators and return an agreement-diagnostics table
     for manual robustness review.
 
+    Every covariate is passed to every method. A method that fails, needs
+    an argument it was not given (``id`` / ``time`` for ``'panel_fe'`` and
+    ``'did'``) or is not a known name is left out of the table with a
+    ``WorkflowDegradedWarning`` and a record in ``.degradations``. With
+    fewer than two estimates the agreement metrics are NaN.
+
     Parameters
     ----------
     data : pd.DataFrame
@@ -267,12 +273,6 @@ def compare_estimators(
     alpha : float, default 0.05
         Two-sided level of the intervals in the table and of the
         "significant" read behind ``agreement['sig_agree']``.
-
-    Every covariate is passed to every method. A method that fails, needs
-    an argument it was not given (``id`` / ``time`` for ``'panel_fe'`` and
-    ``'did'``) or is not a known name is left out of the table with a
-    ``WorkflowDegradedWarning`` and a record in ``.degradations``. With
-    fewer than two estimates the agreement metrics are NaN.
 
     Returns
     -------
