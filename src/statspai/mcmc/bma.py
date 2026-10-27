@@ -37,7 +37,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
-from ._core import design_for
+from ._core import prediction_design
 
 _FAMILIES = {
     "gaussian": "identity",
@@ -520,7 +520,7 @@ class BMAResult(ResultProtocolMixin):
         if data is None:
             X = self._fits["X"]
         else:
-            X = design_for(self._design_info, list(self.table.index), data)
+            X = prediction_design(self._design_info, list(self.table.index), data)
         inv = _glm_parts(self.family, self.link)[0]
         out = np.zeros(X.shape[0])
         for prob, coef in zip(self._fits["probs"], self._fits["coefs"]):

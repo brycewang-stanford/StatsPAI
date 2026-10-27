@@ -34,10 +34,10 @@ from . import _models as M
 from . import _workflow as W
 from ._core import (
     check_mcmc_args,
-    design_for,
     drops_intercept,
     normal_prior,
     note_default_prior,
+    prediction_design,
     rows_by_position,
     spawn_rngs,
 )
@@ -788,7 +788,9 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
         # a multinomial logit repeats the design columns once per level;
         # its coefficient names are not column names
         names = getattr(self._model, "base_xnames", self._model.xnames)
-        return design_for(self._design_info, names, data)
+        # refuses a row with a missing regressor: the formula parser would
+        # drop it and shift every later prediction onto the wrong row
+        return prediction_design(self._design_info, names, data)
 
     def predict(
         self,

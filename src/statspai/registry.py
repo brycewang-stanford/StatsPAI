@@ -23715,8 +23715,8 @@ def _build_registry() -> None:
             category="bayes",
             description=(
                 "Bayesian Double Machine Learning (DiTraglia & Liu 2025): "
-                "Normal-Normal conjugate update on a DML point estimate, with "
-                "optional full PyMC MCMC over the orthogonal moment equation."
+                "Normal-Normal conjugate update on a DML point estimate. "
+                "mode='full' is not available (raises MethodIncompatibility)."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -23728,6 +23728,14 @@ def _build_registry() -> None:
                 ParamSpec("prior_sd", "float", False, 10.0),
                 ParamSpec(
                     "mode", "str", False, "conjugate", enum=["conjugate", "full"]
+                ),
+                ParamSpec(
+                    "random_state",
+                    "int",
+                    False,
+                    42,
+                    "Seed of the cross-fitting split of sp.dml and of the "
+                    "Monte Carlo posterior draws.",
                 ),
             ],
             returns="BayesianDMLResult",
@@ -23741,7 +23749,6 @@ def _build_registry() -> None:
             ),
             pre_conditions=[
                 "prior_sd is weakly informative relative to the expected effect scale",
-                "for mode='full': pymc installed (sp.bayes extra)",
                 "treatment is numeric (binary for irm, continuous for plr)",
             ],
             assumptions=[
@@ -23762,11 +23769,11 @@ def _build_registry() -> None:
                     alternative="sp.dml",
                 ),
                 FailureMode(
-                    symptom="Full-mode MCMC R-hat > 1.01 or ESS < 400",
-                    exception="statspai.ConvergenceFailure",
+                    symptom="mode='full' raises MethodIncompatibility",
+                    exception="statspai.MethodIncompatibility",
                     remedy=(
-                        "Increase tune / draws; reparameterise to non-centered; check "
-                        "divergences."
+                        "Use mode='conjugate'; sp.dml does not return the "
+                        "orthogonal score arrays a full posterior would need."
                     ),
                     alternative="sp.bayes_dml",
                 ),

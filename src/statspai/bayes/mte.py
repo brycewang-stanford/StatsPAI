@@ -87,6 +87,7 @@ from ._base import (
     _az_hdi_compat,
     _require_pymc,
     _sample_model,
+    _warn_convergence,
 )
 
 
@@ -767,6 +768,7 @@ def bayes_mte(
             category=ConvergenceWarning,
         )
         ess = float("nan")
+    _warn_convergence(trace, rhat, ess)
 
     model_info = {
         "inference": inference,

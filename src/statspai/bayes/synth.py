@@ -24,6 +24,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..exceptions import MethodIncompatibility
 from ._base import BayesianCausalResult, _require_pymc, _sample_model
 
 
@@ -56,6 +57,20 @@ def _wide_panel(
             raise ValueError(f"donor units not found: {missing}")
     if len(donor_names) < 2:
         raise ValueError(f"Need at least 2 donor units; got {len(donor_names)}.")
+    used = data[unit].isin([treated_unit] + list(donor_names))
+    dup = data.loc[used].duplicated([unit, time])
+    if dup.any():
+        first = data.loc[used].loc[dup, [unit, time]].iloc[0]
+        raise MethodIncompatibility(
+            f"{int(dup.sum())} duplicate ({unit}, {time}) rows, e.g. "
+            f"{unit}={first[unit]!r}, {time}={first[time]!r}; the panel needs "
+            "one outcome per unit and period.",
+            recovery_hint=(
+                "Aggregate or de-duplicate the panel so that each unit has "
+                "one row per period, then refit."
+            ),
+            diagnostics={"n_duplicates": int(dup.sum())},
+        )
     sub = wide[[treated_unit] + donor_names].dropna(axis=0, how="any")
     if sub.empty:
         raise ValueError("No time periods with complete treated + donor observations.")

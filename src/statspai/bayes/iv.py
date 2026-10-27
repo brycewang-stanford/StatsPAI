@@ -290,9 +290,13 @@ def bayes_iv(
     # Z at a time; this is slow but transparent — each sub-fit is a
     # plain bayes_iv call under the hood.
     if per_instrument and n_instr >= 2:
+        # the rows of the pooled fit: a sub-fit that re-read ``data`` would
+        # keep rows that miss another instrument and run on a larger sample
+        role_cols = [y, treat] + prep["iv_cols"] + prep["cov_cols"]
+        pooled_rows = data.loc[data[role_cols].notna().all(axis=1).to_numpy()]
         for z_name in prep["iv_cols"]:
             sub = bayes_iv(
-                data,
+                pooled_rows,
                 y=y,
                 treat=treat,
                 instrument=z_name,  # scalar path = just-identified

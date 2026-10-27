@@ -7,6 +7,7 @@ parameter is the ATT coefficient ``tau`` on ``treat * post``.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, List, Optional, Sequence, Tuple, Type
 
 import numpy as np
@@ -19,6 +20,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
     StatsPAIError,
+    StatsPAIWarning,
 )
 from ._base import (
     BayesianDIDResult,
@@ -26,6 +28,7 @@ from ._base import (
     _require_pymc,
     _sample_model,
     _summarise_posterior,
+    _warn_convergence,
 )
 
 _DID_ALTERNATIVES = ["sp.did", "sp.wooldridge_did"]
@@ -237,6 +240,22 @@ def _prepare_did_frame(
         cols.append(cohort)
         role_columns.append(("cohort", cohort))
     _ensure_distinct_roles(role_columns)
+
+    if cohort is not None:
+        # A missing cohort is the usual code for never-treated units; those
+        # rows are the comparison group and should not vanish unannounced.
+        others = [c for c in cols if c != cohort]
+        only_cohort = frame[cohort].isna() & frame[others].notna().all(axis=1)
+        n_lost = int(only_cohort.sum())
+        if n_lost:
+            warnings.warn(
+                f"{n_lost} rows have a missing cohort ('{cohort}') and are "
+                "dropped. If they are never-treated units, give them a "
+                "sentinel cohort (e.g. -1 or 'never') to keep them as the "
+                "comparison group.",
+                StatsPAIWarning,
+                stacklevel=3,
+            )
 
     clean = frame[cols].dropna().reset_index(drop=True)
     n = len(clean)
@@ -699,6 +718,7 @@ def bayes_did(
             category=ConvergenceWarning,
         )
         ess = float("nan")
+    _warn_convergence(trace, rhat, ess)
 
     model_info["cohort_column"] = cohort
     model_info["n_cohorts"] = len(cohort_labels)

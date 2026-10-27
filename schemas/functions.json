@@ -24016,7 +24016,7 @@
     }
   },
   {
-    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate, with optional full PyMC MCMC over the orthogonal moment equation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. mode='full' is not available (raises MethodIncompatibility). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_dml",
     "parameters": {
       "properties": {
@@ -24051,7 +24051,7 @@
         },
         "mode": {
           "default": "conjugate",
-          "description": "Conjugate uses closed-form Normal-Normal updating on the DML point/SE. Full mode requires PyMC (``[bayes]`` extras) and samples the full posterior over the orthogonal moment equation.",
+          "description": "Conjugate uses closed-form Normal-Normal updating on the DML point/SE. ``'full'`` is not available: it needs the orthogonal score arrays, which :func:`sp.dml` does not return, and raises ``MethodIncompatibility``.",
           "enum": [
             "conjugate",
             "full"
@@ -24076,7 +24076,7 @@
         },
         "n_samples": {
           "default": 2000,
-          "description": "Posterior draws (used only for ``mode='full'``).",
+          "description": "Number of Monte Carlo draws from the posterior kept in ``draws``.",
           "type": "integer",
           "x-statspai-source": "signature"
         },
@@ -24092,13 +24092,12 @@
         },
         "random_state": {
           "default": 42,
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "description": "Seed of the cross-fitting split of sp.dml and of the Monte Carlo posterior draws.",
           "type": "integer",
           "x-aliases": [
             "seed"
           ],
-          "x-canonical": "seed",
-          "x-statspai-source": "signature"
+          "x-canonical": "seed"
         },
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",

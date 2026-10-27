@@ -306,6 +306,27 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   `regress, vce(cluster)` uses t(G-1) too). On a 200-row example with 8
   clusters the 95% interval went from [1.1840, 1.6570] to [1.1369, 1.7041].
   `what='prediction'` keeps t(N-K), as R `predict.lm`.
+- `sp.bayes_dml(random_state=)` seeded only the Monte Carlo draws of the
+  posterior. The cross-fitting split of `sp.dml` kept its own default seed
+  (42), so changing `random_state` never moved the posterior. It now seeds
+  the split too. The default (42) is unchanged. On the n = 400 fixture of
+  `tests/test_bayes_option_scan_r6.py`, `random_state=1` gave the DML point
+  0.97837 (the seed-42 split) and now gives 0.94576, the value of
+  `sp.dml(random_state=1)`.
+- `sp.bayes_iv(per_instrument=True)` refitted each instrument on `data`,
+  dropping only the rows missing that instrument, so a sub-fit could run on
+  more rows than the pooled fit it is reported next to. The sub-fits now
+  use the rows of the pooled fit. With 10 of 120 rows missing `z2`, the
+  `z1` posterior mean was 0.4318 (120 rows) and is 0.4757 (the 110 pooled
+  rows). Without missing values nothing changes.
+- `predict`, `posterior_linpred`, `posterior_epred` and `posterior_predict`
+  of the `sp.bayes_regress` family (and `sp.bayes_mixed`, `sp.bayes_shrink`,
+  `sp.bayes_ivreg`), and `predict` of `sp.bma`, on new data with a missing
+  regressor: a formula with a categorical term dropped that row, so five
+  rows gave four predictions and each one after the gap sat against the
+  wrong row. A formula of plain columns returned NaN for it. Both now raise
+  `MethodIncompatibility`, as `sp.bart` and `sp.gp_regress` already did.
+  Complete new data give the same numbers as before.
 
 ### Fixed
 
@@ -411,6 +432,22 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   reported a 95% interval.
 - `sp.lpoly(alpha=)` outside (0, 1) raises `MethodIncompatibility`; it
   returned NaN intervals.
+- `sp.bayes_did`, `sp.bayes_rd`, `sp.bayes_fuzzy_rd`, `sp.bayes_iv`,
+  `sp.bayes_hte_iv`, `sp.bayes_its`, `sp.bayes_synth` and `sp.bayes_mte`
+  raise one `ConvergenceWarning` per fit when R-hat exceeds 1.01, the
+  effective sample size is below 400 or NUTS reports divergent
+  transitions. The module convention promised this; the diagnostics were
+  only printed by `summary()`. Variational fits are not checked.
+- `sp.bayes_did(cohort=)` warns when rows are dropped only because their
+  cohort is missing. Never-treated units coded with a missing cohort used
+  to vanish, comparison group and all, without a word; the docstring asks
+  for a sentinel such as -1.
+- `sp.bayes_synth` refuses a panel with duplicated (unit, time) rows
+  (`MethodIncompatibility`). It averaged them silently.
+- `sp.bayes_dml(mode='full')` raises `MethodIncompatibility` before fitting
+  anything. It used to fit the whole DML model and then raise a bare
+  `RuntimeError`, because `sp.dml` does not return the score arrays the
+  full posterior needs. `mode='conjugate'` is unaffected.
 
 ### Added
 

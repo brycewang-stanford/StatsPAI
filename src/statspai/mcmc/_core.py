@@ -530,5 +530,10 @@ def prediction_design(design_info: Any, names: Sequence[str], data: Any) -> np.n
     raise MethodIncompatibility(
         "The new data have missing or infinite values in "
         + (", ".join(bad) if bad else "a regressor")
-        + "; a prediction needs every regressor. Drop or fill those rows."
+        + "; a prediction needs every regressor. Drop or fill those rows.",
+        recovery_hint=(
+            "Drop or impute the rows of the new data that have a missing "
+            "regressor, then predict again."
+        ),
+        diagnostics={"columns": bad},
     )

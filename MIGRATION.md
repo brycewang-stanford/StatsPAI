@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ Bayesian options (option scan round 6, `mcmc` and `bayes`)
+
+- `sp.bayes_dml(random_state=)` now also seeds the cross-fitting split of
+  `sp.dml`. Calls with a non-default `random_state` get a different DML
+  point and posterior; the default 42 is unchanged.
+- `sp.bayes_iv(per_instrument=True)` fits each instrument on the rows of
+  the pooled fit. Per-instrument summaries change when some instrument has
+  missing values.
+- `predict` / `posterior_linpred` / `posterior_epred` / `posterior_predict`
+  of `sp.bayes_regress` (and the samplers that share its result class) and
+  `sp.bma(...).predict` raise `MethodIncompatibility` for new data with a
+  missing regressor. Drop or impute those rows first.
+- `sp.bayes_dml(mode='full')` raises `MethodIncompatibility` at once (it
+  never produced a result). Use `mode='conjugate'`.
+- The PyMC estimators warn (`ConvergenceWarning`) on R-hat above 1.01, an
+  effective sample size below 400 or divergent transitions. Filter the
+  warning class if a short exploratory run is intended.
+
+---
+
 ## 1.41 → 1.42: ⚠️ result intervals at another level, intercept spellings (option scan round 6, `core/`)
 
 - `CausalResult.tidy(conf_level=)` at a level other than the fit-time one:

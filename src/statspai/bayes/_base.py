@@ -1351,6 +1351,54 @@ class BayesianMTEResult(BayesianCausalResult):
         return fig, ax
 
 
+#: thresholds of the module convention (docs/dev/modules/bayes_mcmc.md)
+_RHAT_MAX = 1.01
+_ESS_MIN = 400.0
+
+
+def _warn_convergence(trace: Any, rhat: float, ess: float) -> None:
+    """Raise one ``ConvergenceWarning`` per fit with poor diagnostics.
+
+    ``rhat > 1.01``, ``ess < 400`` or any divergent NUTS transition.
+    Variational fits (one pseudo-chain, no R-hat) are skipped. The trace
+    remembers that it has been warned about, so an estimator that
+    summarises several parameters of one fit warns once.
+    """
+    import warnings
+
+    from ..exceptions import ConvergenceWarning
+
+    attrs = getattr(trace, "attrs", None)
+    if attrs is None or attrs.get("inference") in ("advi", "pathfinder"):
+        return
+    if attrs.get("statspai_convergence_checked"):
+        return
+    attrs["statspai_convergence_checked"] = True
+    problems = []
+    if np.isfinite(rhat) and rhat > _RHAT_MAX:
+        problems.append(f"R-hat is {rhat:.3f} (above {_RHAT_MAX})")
+    if np.isfinite(ess) and ess < _ESS_MIN:
+        problems.append(
+            f"the effective sample size is {ess:.0f} (below {_ESS_MIN:.0f})"
+        )
+    try:
+        diverging = trace.sample_stats["diverging"].values
+        n_div = int(np.asarray(diverging).sum())
+    except (AttributeError, KeyError, TypeError):
+        n_div = 0
+    if n_div:
+        problems.append(f"{n_div} divergent transitions")
+    if problems:
+        warnings.warn(
+            "The posterior sample may not be reliable: "
+            + "; ".join(problems)
+            + ". Increase draws / tune (or target_accept for divergences) "
+            "and refit.",
+            ConvergenceWarning,
+            stacklevel=4,
+        )
+
+
 def _summarise_posterior(
     trace: Any,
     var_name: str,
@@ -1408,6 +1456,8 @@ def _summarise_posterior(
             category=ConvergenceWarning,
         )
         ess = float("nan")
+
+    _warn_convergence(trace, rhat, ess)
 
     out = {
         "posterior_mean": mean,
