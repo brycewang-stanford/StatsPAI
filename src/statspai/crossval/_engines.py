@@ -48,6 +48,10 @@ class EngineAdapter(ABC):
     supported: Tuple[str, ...] = ()
     #: Extra names this engine answers to in ``engines=[...]`` resolution.
     aliases: Tuple[str, ...] = ()
+    #: Estimands for which the engine fits the weighted model; with
+    #: ``weights=`` any other estimand is reported as skipped rather than
+    #: fitted unweighted.
+    weights_estimands: Tuple[str, ...] = ()
 
     def matches(self, name: str) -> bool:
         """Whether a user-supplied engine name selects this adapter."""
@@ -83,6 +87,12 @@ class EngineAdapter(ABC):
                 message=why,
             )
         ok, why = self._supports(spec)
+        if ok and spec.weights and spec.estimand not in self.weights_estimands:
+            ok, why = (
+                False,
+                f"{self.name} does not fit '{spec.estimand}' with weights; "
+                "it is left out rather than fitted unweighted.",
+            )
         if not ok:
             return EngineEstimate(
                 engine=self.name,
@@ -116,6 +126,7 @@ class EngineAdapter(ABC):
 class StatspaiAdapter(EngineAdapter):
     name = "statspai"
     supported = ("ols", "feols", "iv", "did", "poisson", "dml")
+    weights_estimands = ("ols", "feols", "iv", "poisson")
 
     def _fit(self, spec: EstimandSpec) -> EngineEstimate:
         import statspai as sp
@@ -188,6 +199,7 @@ class StatspaiAdapter(EngineAdapter):
                 data=spec.data,
                 robust=_sp_robust(spec.vcov),
                 cluster=spec.cluster[0] if spec.cluster else None,
+                weights=spec.weights,
             )
         elif est == "feols":
             # Singletons dropped, as the fixest and pyfixest engines do by
@@ -198,6 +210,7 @@ class StatspaiAdapter(EngineAdapter):
                 vcov=_sp_feols_vcov(spec.vcov, spec.cluster),
                 cluster=" + ".join(spec.cluster) if spec.cluster else None,
                 fixef_rm="singleton",
+                weights=spec.weights,
             )
         elif est == "poisson":
             res = sp.fepois(
@@ -205,17 +218,27 @@ class StatspaiAdapter(EngineAdapter):
                 data=spec.data,
                 vcov=_pf_vcov(spec.vcov, spec.cluster),
                 fixef_rm="singleton",
+                weights=spec.weights,
             )
         elif est == "iv":
             # sp.iv is a function alias that shadows the `iv` submodule at
             # runtime; fetch via getattr so the type checker doesn't resolve
             # it to the module object.
             iv_fn = getattr(sp, "iv")
+            iv_kw: Dict[str, Any] = {}
+            if spec.fixed_effects:
+                # The fixed effects of ``y ~ x | fe | d ~ z``; until 2026-10
+                # they were dropped here, so the statspai engine fitted pooled
+                # 2SLS and the cross-check reported a disagreement.
+                iv_kw["absorb"] = list(spec.fixed_effects)
+            if spec.weights:
+                iv_kw["weights"] = spec.weights
             res = iv_fn(
                 _aer_iv_formula(spec),
                 data=spec.data,
                 robust=_sp_robust(spec.vcov),
                 cluster=list(spec.cluster) if spec.cluster else None,
+                **iv_kw,
             )
         else:  # pragma: no cover — guarded by `supported`
             raise ValueError(f"unsupported estimand {est}")
@@ -231,6 +254,7 @@ class StatspaiAdapter(EngineAdapter):
 class PyfixestAdapter(EngineAdapter):
     name = "pyfixest"
     supported = ("ols", "feols", "iv", "poisson")
+    weights_estimands = ("ols", "feols", "iv", "poisson")
 
     def _available(self) -> Tuple[bool, str]:
         try:
@@ -246,9 +270,9 @@ class PyfixestAdapter(EngineAdapter):
         fml = _fixest_formula(spec)
         vcov = _pf_vcov(spec.vcov, spec.cluster)
         if spec.estimand == "poisson":
-            m = pf.fepois(fml, data=spec.data, vcov=vcov)
+            m = pf.fepois(fml, data=spec.data, vcov=vcov, weights=spec.weights)
         else:
-            m = pf.feols(fml, data=spec.data, vcov=vcov)
+            m = pf.feols(fml, data=spec.data, vcov=vcov, weights=spec.weights)
         tidy = m.tidy()
         if term not in tidy.index:
             raise KeyError(
@@ -280,6 +304,7 @@ class PyfixestAdapter(EngineAdapter):
 class LinearmodelsAdapter(EngineAdapter):
     name = "linearmodels"
     supported = ("ols", "feols", "iv")
+    weights_estimands = ("ols", "feols", "iv")
 
     def _available(self) -> Tuple[bool, str]:
         try:
@@ -292,6 +317,14 @@ class LinearmodelsAdapter(EngineAdapter):
         ok, why = super()._supports(spec)
         if not ok:
             return ok, why
+        if len(spec.cluster) > 1:
+            # ``_lm_cov`` passes one cluster variable; the multiway SE would
+            # have been one-way under a multiway label.
+            return (
+                False,
+                "linearmodels adapter clusters on one variable; multiway "
+                "clustering is left to pyfixest / fixest.",
+            )
         # IV + absorbed FE together is not exposed cleanly; decline rather than
         # silently fit a different model.
         if spec.estimand == "iv" and spec.fixed_effects:
@@ -313,6 +346,9 @@ class LinearmodelsAdapter(EngineAdapter):
         # factors that statspai, fixest and Stata's ``small`` use; linearmodels'
         # default large-sample SEs would otherwise differ by sqrt(N/(N-K)).
         cov_cfg = {"debiased": True, **cov_cfg}
+        w_kw: Dict[str, Any] = {}
+        if spec.weights:
+            w_kw["weights"] = df[spec.weights]
 
         res: Any  # AbsorbingLSResults | IV2SLS results — unified downstream
         if spec.estimand == "feols" and spec.fixed_effects:
@@ -321,7 +357,7 @@ class LinearmodelsAdapter(EngineAdapter):
             ]
             exog_cols = [c for c in dict.fromkeys(exog_cols) if c]
             absorb = df[spec.fixed_effects].astype("category")
-            res = AbsorbingLS(df[spec.y], df[exog_cols], absorb=absorb).fit(
+            res = AbsorbingLS(df[spec.y], df[exog_cols], absorb=absorb, **w_kw).fit(
                 cov_type=cov_type, **cov_cfg
             )
         elif spec.estimand == "iv":
@@ -332,6 +368,7 @@ class LinearmodelsAdapter(EngineAdapter):
                 df[exog_cols],
                 df[spec.endog],
                 df[spec.instruments],
+                **w_kw,
             ).fit(cov_type=cov_type, **cov_cfg)
         else:  # plain OLS via IV2SLS with no endog
             exog_cols = ["const"] + (
@@ -340,7 +377,7 @@ class LinearmodelsAdapter(EngineAdapter):
             )
             df["const"] = 1.0
             exog_cols = [c for c in dict.fromkeys(exog_cols) if c]
-            res = IV2SLS(df[spec.y], df[exog_cols], None, None).fit(
+            res = IV2SLS(df[spec.y], df[exog_cols], None, None, **w_kw).fit(
                 cov_type=cov_type, **cov_cfg
             )
 
@@ -374,6 +411,9 @@ class LinearmodelsAdapter(EngineAdapter):
 class DoublemlAdapter(EngineAdapter):
     name = "doubleml"
     supported = ("dml",)
+    #: ``model=`` values this adapter fits; anything else is declined
+    #: rather than replaced by the partially linear model.
+    models = ("plr", "irm")
 
     def _available(self) -> Tuple[bool, str]:
         try:
@@ -383,10 +423,22 @@ class DoublemlAdapter(EngineAdapter):
             return False, f"doubleml/sklearn not importable: {type(e).__name__}"
         return True, ""
 
+    def _supports(self, spec: EstimandSpec) -> Tuple[bool, str]:
+        ok, why = super()._supports(spec)
+        if not ok:
+            return ok, why
+        model = str(spec.extra.get("model", "plr")).lower()
+        if model not in self.models:
+            return (
+                False,
+                f"doubleml adapter fits model in {self.models}, not {model!r}.",
+            )
+        return True, ""
+
     @preserve_global_rng
     def _fit(self, spec: EstimandSpec) -> EngineEstimate:
         import doubleml as dml
-        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
         term = spec.treatment or spec.focal_term()
         x_cols = [c for c in spec.covariates if c not in (spec.treatment,)]
@@ -395,8 +447,16 @@ class DoublemlAdapter(EngineAdapter):
         data = dml.DoubleMLData(spec.data, y_col=spec.y, d_cols=term, x_cols=x_cols)
         ml_l = RandomForestRegressor(n_estimators=100, random_state=seed)
         ml_m = RandomForestRegressor(n_estimators=100, random_state=seed)
+        model = str(spec.extra.get("model", "plr")).lower()
         np.random.seed(seed)
-        plr = dml.DoubleMLPLR(data, ml_l, ml_m, n_folds=n_folds)
+        plr: Any
+        if model == "irm":
+            # Until 2026-10 the partially linear model was fitted whatever
+            # model= said, so an IRM ATE was compared with a PLR coefficient.
+            ml_m = RandomForestClassifier(n_estimators=100, random_state=seed)
+            plr = dml.DoubleMLIRM(data, ml_l, ml_m, n_folds=n_folds)
+        else:
+            plr = dml.DoubleMLPLR(data, ml_l, ml_m, n_folds=n_folds)
         plr.fit()
         ci = plr.confint()
         return EngineEstimate(
@@ -411,7 +471,7 @@ class DoublemlAdapter(EngineAdapter):
             nobs=int(len(spec.data)),
             vcov="dml",
             status=STATUS_OK,
-            extra={"n_folds": n_folds, "ml": "RandomForest"},
+            extra={"n_folds": n_folds, "ml": "RandomForest", "model": model},
         )
 
 

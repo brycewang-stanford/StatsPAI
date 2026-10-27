@@ -144,6 +144,11 @@ class EstimandSpec:
             extra=dict(extra),
         )
         spec._reconcile_formula_and_fields()
+        if spec.estimand == "ols" and spec.fixed_effects:
+            # ``"y ~ x | fe"`` under estimand "ols": the fixed effects are part
+            # of the model. Until 2026-10 the statspai and linearmodels engines
+            # fitted pooled OLS here while pyfixest / fixest absorbed them.
+            spec.estimand = "feols"
         spec._validate()
         return spec
 

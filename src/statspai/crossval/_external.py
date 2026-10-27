@@ -48,6 +48,7 @@ class RscriptAdapter(EngineAdapter):
     name = "R"
     aliases = ("rscript", "r::fixest", "r::feols", "r::ivreg", "r::lm")
     supported = ("ols", "feols", "iv", "poisson")
+    weights_estimands = ("ols", "feols", "iv", "poisson")
 
     def __init__(self, timeout: int = _DEFAULT_TIMEOUT) -> None:
         self.timeout = timeout
@@ -64,7 +65,9 @@ class RscriptAdapter(EngineAdapter):
         term = spec.focal_term()
         fml = _fixest_formula(spec)
         vcov = _r_vcov(spec.vcov, spec.cluster)
-        payload = _run_r_fixest(spec.data, fml, term, vcov, spec.estimand, self.timeout)
+        payload = _run_r_fixest(
+            spec.data, fml, term, vcov, spec.estimand, self.timeout, spec.weights or ""
+        )
         return EngineEstimate(
             engine="R::fixest",
             estimand=spec.estimand,
@@ -110,12 +113,14 @@ _R_SCRIPT = r"""
 suppressMessages(library(fixest)); suppressMessages(library(jsonlite))
 args <- commandArgs(trailingOnly=TRUE)
 csv <- args[1]; fml <- args[2]; term <- args[3]; vcov <- args[4]; est <- args[5]
+wt <- if (length(args) >= 6) args[6] else ""
 d <- read.csv(csv)
 if (startsWith(vcov, "~")) vcov <- as.formula(vcov)
+w <- if (nzchar(wt)) as.formula(paste0("~", wt)) else NULL
 if (est == "poisson") {
-  m <- fepois(as.formula(fml), data=d, vcov=vcov)
+  m <- fepois(as.formula(fml), data=d, vcov=vcov, weights=w)
 } else {
-  m <- feols(as.formula(fml), data=d, vcov=vcov)
+  m <- feols(as.formula(fml), data=d, vcov=vcov, weights=w)
 }
 ct <- as.data.frame(coeftable(m))
 nm <- rownames(ct)
@@ -142,6 +147,7 @@ def _run_r_fixest(
     vcov: str,
     estimand: str,
     timeout: int,
+    weights: str = "",
 ) -> Dict[str, Any]:
     with tempfile.TemporaryDirectory() as tmp:
         csv_path = os.path.join(tmp, "data.csv")
@@ -150,7 +156,7 @@ def _run_r_fixest(
         with open(script_path, "w", encoding="utf-8") as fh:
             fh.write(_R_SCRIPT)
         proc = subprocess.run(
-            ["Rscript", script_path, csv_path, formula, term, vcov, estimand],
+            ["Rscript", script_path, csv_path, formula, term, vcov, estimand, weights],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -328,6 +334,7 @@ class StataAdapter(EngineAdapter):
     name = "Stata"
     aliases = ("stata-mp", "stata-se", "stata::reghdfe", "stata::ivregress")
     supported = ("ols", "feols", "iv")
+    weights_estimands = ("ols", "feols", "iv")
 
     _BINARIES = ("stata-mp", "stata-se", "stata", "StataMP", "StataSE")
 
@@ -350,6 +357,22 @@ class StataAdapter(EngineAdapter):
                 "no Stata batch binary on PATH (looked for stata-mp / stata-se "
                 "/ stata; set STATSPAI_STATA_BIN to override)",
             )
+        return True, ""
+
+    def _supports(self, spec: EstimandSpec) -> Tuple[bool, str]:
+        ok, why = super()._supports(spec)
+        if not ok:
+            return ok, why
+        if len(spec.cluster) > 1 and not spec.fixed_effects:
+            return (
+                False,
+                "Stata's regress / ivregress cluster on one variable; "
+                "multiway clustering is left to the reghdfe paths.",
+            )
+        try:
+            _stata_vce(spec)
+        except ValueError as exc:
+            return False, str(exc)
         return True, ""
 
     def _fit(self, spec: EstimandSpec) -> EngineEstimate:
@@ -383,22 +406,73 @@ class StataAdapter(EngineAdapter):
         )
 
 
+def _stata_vce(spec: EstimandSpec) -> str:
+    """The ``vce()`` option for the requested variance ("" for the default).
+
+    Until 2026-10 no ``vce()`` was written, so a robust or clustered
+    cross-check compared the other engines with Stata's classical SE.
+    """
+    if spec.cluster:
+        return f"vce(cluster {' '.join(spec.cluster)})"
+    v = (spec.vcov or "").strip().lower()
+    if v in ("", "iid", "classical", "nonrobust", "unadjusted", "ols"):
+        return ""
+    if v in ("robust", "hc1", "hetero"):
+        return "vce(robust)"
+    raise ValueError(f"Stata adapter has no translation for vcov={spec.vcov!r}.")
+
+
 def _stata_command(spec: EstimandSpec) -> str:
     y = spec.y
-    exog = [c for c in spec.covariates if c not in set(spec.endog)]
+    endog_set = set(spec.endog)
+    weight = f" [aweight={spec.weights}]" if spec.weights else ""
+    vce = _stata_vce(spec)
     if spec.estimand == "iv":
         endog = " ".join(spec.endog)
         instr = " ".join(spec.instruments)
+        exog = [
+            c
+            for c in dict.fromkeys(
+                ([spec.treatment] if spec.treatment else []) + list(spec.covariates)
+            )
+            if c and c not in endog_set
+        ]
         rhs = " ".join(exog)
+        # ``small``: N - K divisor and t inference, the convention of the
+        # other engines (ivregress and ivreg2 default to large-sample).
+        opts = " ".join(o for o in ("small", vce) if o)
+        head = f"{y} {rhs} ({endog} = {instr}){weight}".replace("  ", " ")
         if spec.fixed_effects:
             absorb = " ".join(spec.fixed_effects)
-            return f"ivreghdfe {y} {rhs} ({endog} = {instr}), absorb({absorb})"
-        return f"ivregress 2sls {y} {rhs} ({endog} = {instr})"
+            return f"ivreghdfe {head}, absorb({absorb}) {opts}"
+        return f"ivregress 2sls {head}, {opts}"
+    exog = [c for c in spec.covariates if c not in endog_set]
     rhs = " ".join(([spec.treatment] if spec.treatment else []) + exog)
     if spec.estimand == "feols" and spec.fixed_effects:
         absorb = " ".join(spec.fixed_effects)
-        return f"reghdfe {y} {rhs}, absorb({absorb})"
-    return f"regress {y} {rhs}"
+        opts = " ".join(o for o in (f"absorb({absorb})", vce) if o)
+        return f"reghdfe {y} {rhs}{weight}, {opts}"
+    return f"regress {y} {rhs}{weight}" + (f", {vce}" if vce else "")
+
+
+def _stata_do(spec: EstimandSpec, term: str, csv_path: str, out_path: str) -> str:
+    """The do-file: read the CSV as doubles, fit, write full-precision results.
+
+    ``set type double`` keeps the CSV's doubles (Stata's default reads them
+    as floats, a relative error near 1e-7 that trips the exact-mode
+    tolerance), and ``%21.0g`` writes 17 significant digits (``file write``
+    otherwise uses ``%10.0g``).
+    """
+    return (
+        "set type double\n"
+        f'import delimited "{csv_path}", clear\n'
+        f"{_stata_command(spec)}\n"
+        f'file open _h using "{out_path}", write replace\n'
+        'file write _h "coef,se,n" _n\n'
+        f'file write _h %21.0g (_b[{term}]) "," %21.0g (_se[{term}]) "," '
+        "%12.0f (e(N)) _n\n"
+        "file close _h\n"
+    )
 
 
 def _run_stata(
@@ -410,14 +484,7 @@ def _run_stata(
         do_path = os.path.join(tmp, "fit.do")
         out_path = os.path.join(tmp, "out.csv")
         spec.data.to_csv(csv_path, index=False)
-        do = (
-            f'import delimited "{csv_path}", clear\n'
-            f"{cmd}\n"
-            f'file open _h using "{out_path}", write replace\n'
-            f'file write _h "coef,se,n" _n\n'
-            f'file write _h (_b[{term}]) "," (_se[{term}]) "," (e(N)) _n\n'
-            f"file close _h\n"
-        )
+        do = _stata_do(spec, term, csv_path, out_path)
         with open(do_path, "w", encoding="utf-8") as fh:
             fh.write(do)
         proc = subprocess.run(
