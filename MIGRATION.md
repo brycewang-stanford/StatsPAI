@@ -5,6 +5,31 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ table and plot intervals, `sp.binscatter`, `sp.fast` clustered inference (option scan round 6)
+
+- `sp.regtable` / `sp.esttab` / `sp.cite` with `alpha=` other than the
+  fit's level: bounds change for clustered fits (t(G - 1)) and likelihood
+  fits (normal). They now equal `result.conf_int(alpha)`.
+- A result fitted with `alpha=0.10` (or any non-default level) shown with
+  `se_type='ci'`: the table used to print the stored 90% bounds as 95%.
+  Pass `alpha=0.10` to the table to get the stored bounds.
+- `sp.coefplot` / `sp.coefplot_tikz`: bars are the model's own interval,
+  wider for small-sample t fits. There is no option for the old `b ± z·se`.
+- `sp.binscatter(absorb=)`: points move to the means of `x` and `y`.
+  `weights=`: bins, points and intervals change (weighted, as Stata). With
+  `absorb=` and `controls=` the points change (the controls are absorbed).
+  Unweighted calls without `absorb=` are unchanged.
+- `sp.fast.event_study`: standard errors fall by the factor of the nested
+  fixed effects (about 5% on a typical panel).
+- `sp.fast.feols(vcov='cr1').tidy()`: p-values use t(G - 1);
+  `sp.fast.etable` stars follow each fit's own p-values.
+- `sp.mean_comparison(weights=)` raises. Use `sp.sumstats(data, vars,
+  by=group, weights=w)` for weighted means, or `sp.regress('x ~ group',
+  data=data, weights=w, vce='hc1')` for a weighted difference and its test.
+  A `group=` with more than two values raises; subset the data first.
+
+---
+
 ## 1.40.2 → 1.41: ⚠️ cluster folds in `sp.aipw`, conformal test weights, weighted R-learner (round-5 scan)
 
 - `sp.aipw(cluster=)` with `cross_fit=True` (the default): folds are drawn

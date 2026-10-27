@@ -117,6 +117,12 @@ def _hc_recompute_se(
         if not isinstance(value, pd.Series):
             return None
         out[key] = value.reindex(names)
+    # The re-run's intervals sit on its own reference distribution (t(G - 1)
+    # after vcov='cluster ...'), which other levels must reuse.
+    from .estimates import _fit_ci_alpha, _fit_ci_df
+
+    out["ci_alpha"] = _fit_ci_alpha(new)
+    out["ci_df"] = _fit_ci_df(new, model_data.params.index)
     return out
 
 
@@ -145,6 +151,8 @@ def _apply_vcov_to_panels(
             object.__setattr__(md, "pvalues", recompute["pvalues"])
             object.__setattr__(md, "conf_int_lower", recompute["conf_int_lower"])
             object.__setattr__(md, "conf_int_upper", recompute["conf_int_upper"])
+            object.__setattr__(md, "ci_alpha", recompute["ci_alpha"])
+            object.__setattr__(md, "ci_df", recompute["ci_df"])
             flat_idx += 1
     if skipped:
         cols = ", ".join(f"({c})" for c in skipped)
@@ -157,6 +165,38 @@ def _apply_vcov_to_panels(
             UserWarning,
             stacklevel=3,
         )
+
+
+def _reference_df_json(model: _ModelData, term: Any) -> Any:
+    """``model.ci_df[term]`` for ``to_dict``: a number, ``"z"`` or ``None``."""
+    ci_df = getattr(model, "ci_df", None)
+    if not isinstance(ci_df, pd.Series) or term not in ci_df.index:
+        return None
+    value = float(ci_df[term])
+    if np.isnan(value):
+        return None
+    if not np.isfinite(value):
+        return "z"
+    return int(value) if value.is_integer() else value
+
+
+def _reference_df_from_json(
+    coefs: Dict[str, Any], terms: List[str]
+) -> Optional[pd.Series]:
+    """Inverse of :func:`_reference_df_json` over a payload's terms."""
+    values: List[float] = []
+    seen = False
+    for t in terms:
+        raw = (coefs.get(t) or {}).get("reference_df")
+        if raw == "z":
+            values.append(float("inf"))
+            seen = True
+        elif raw is None:
+            values.append(float("nan"))
+        else:
+            values.append(float(raw))
+            seen = True
+    return pd.Series(values, index=terms, dtype=float) if seen else None
 
 
 def _format_fe_label(token: str) -> str:
@@ -758,8 +798,12 @@ class RegtableResult:
         largest = 0.0
         seen = False
         models = self.panels[panel_idx].models if panel_idx < len(self.panels) else []
-        for m in models:
-            b, se = self._display_pair(m, var, flat_idx)
+        base_idx = sum(len(p.models) for p in self.panels[:panel_idx])
+        for off, m in enumerate(models):
+            # Each model's own flat position: eform is per column, so the
+            # precision of a logit column must not depend on whether an OLS
+            # column happens to be rendered first.
+            b, se = self._display_pair(m, var, base_idx + off)
             if b is None:
                 continue
             seen = True
@@ -2637,6 +2681,9 @@ class RegtableResult:
                         if m.conf_int_upper is not None
                         else None
                     ),
+                    # df of the t reference for intervals at other levels;
+                    # "z" for the normal, None when the fit did not say.
+                    "reference_df": _reference_df_json(m, term),
                 }
             models.append(
                 {
@@ -2648,6 +2695,7 @@ class RegtableResult:
                         for k, v in (getattr(m, "stats", {}) or {}).items()
                     },
                     "df_resid": self._jsonable(getattr(m, "df_resid", None)),
+                    "ci_level": 1.0 - float(getattr(m, "ci_alpha", 0.05)),
                 }
             )
 
@@ -2830,6 +2878,12 @@ class RegtableResult:
                 stats=dict(m.get("stats", {}) or {}),
                 depvar=m.get("depvar") or "",
                 df_resid=m.get("df_resid"),
+                ci_alpha=(
+                    1.0 - float(m["ci_level"])
+                    if m.get("ci_level") is not None
+                    else None
+                ),
+                ci_df=_reference_df_from_json(coefs, terms),
             )
 
         models = [_build_model(m) for m in payload.get("models", [])]

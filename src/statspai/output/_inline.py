@@ -184,6 +184,25 @@ def _ci_at_alpha(
     return (est - crit * se, est + crit * se)
 
 
+def _fit_ci(
+    result: Any, term: str, alpha: float
+) -> Tuple[Optional[float], Optional[float]]:
+    """CI of *term* at *alpha* by the rule ``sp.regtable`` uses.
+
+    Stored bounds when the fit computed them at this level, else
+    ``b ± crit · se`` on the fit's own reference distribution (``t(G - 1)``
+    under clustering, the normal for likelihood fits). ``(None, None)``
+    when the term is not in the table extraction.
+    """
+    from .estimates import _ci_bounds, _extract_model_data
+
+    model = _extract_model_data(result)
+    if term not in model.params.index:
+        return None, None
+    lo, hi = _ci_bounds(model, term, alpha)
+    return float(lo), float(hi)
+
+
 def _wrap_stars(stars: str, output: str) -> str:
     """Wrap stars in superscript markup appropriate to *output*.
 
@@ -302,7 +321,9 @@ def cite(
     if second_row == "none":
         second = ""
     elif second_row == "ci":
-        lo, hi = _ci_at_alpha(est, se, ci, alpha, df_resid)
+        lo, hi = _fit_ci(result, term_resolved, alpha)
+        if lo is None:
+            lo, hi = _ci_at_alpha(est, se, ci, alpha, df_resid)
         second = f" [{_fmt_val(lo, fmt)}, {_fmt_val(hi, fmt)}]"
     elif second_row == "t":
         t = est / se if se and np.isfinite(se) and se != 0 else np.nan

@@ -201,6 +201,8 @@ class _ModelData:
         "stats",
         "depvar",
         "df_resid",
+        "ci_alpha",
+        "ci_df",
     )
 
     params: pd.Series
@@ -212,6 +214,11 @@ class _ModelData:
     stats: Dict[str, Any]
     depvar: str
     df_resid: Optional[float]
+    #: Significance level of the stored ``conf_int_*`` bounds.
+    ci_alpha: float
+    #: Reference-distribution df per term (``inf`` = normal), as the fit
+    #: computed its own intervals; ``None`` when the fit does not say.
+    ci_df: Optional[pd.Series]
 
     def __init__(
         self,
@@ -224,6 +231,8 @@ class _ModelData:
         stats: Dict[str, Any],
         depvar: str,
         df_resid: Optional[float] = None,
+        ci_alpha: Optional[float] = None,
+        ci_df: Optional[pd.Series] = None,
     ):
         for attr, val in zip(
             self.__slots__,
@@ -237,6 +246,8 @@ class _ModelData:
                 stats,
                 depvar,
                 df_resid,
+                0.05 if ci_alpha is None else float(ci_alpha),
+                ci_df,
             ],
         ):
             object.__setattr__(self, attr, val)
@@ -245,14 +256,17 @@ class _ModelData:
 def _ci_bounds(model: "_ModelData", var: str, alpha: float) -> Tuple[float, float]:
     """Return ``(lower, upper)`` CI bounds at level ``1 - alpha``.
 
-    Reuses the result-stored 95% CI when ``alpha == 0.05`` (preserves the
-    exact numbers fit-time produced — typically t-based with model df).
-    Otherwise recomputes ``b ± crit · se`` using the t-distribution when
-    ``df_resid`` is known, falling back to the standard normal.
+    Reuses the result-stored bounds when they are at the requested level
+    (``model.ci_alpha``, 0.05 unless the fit was called with ``alpha=``),
+    which preserves the exact numbers the fit produced. Otherwise recomputes
+    ``b ± crit · se`` on the reference distribution the fit used for its own
+    intervals (``model.ci_df``: ``t(G - 1)`` under clustering, the normal for
+    likelihood fits), falling back to ``t(df_resid)`` and then the normal
+    for results that do not record it.
     """
     if var not in model.params.index:
         return np.nan, np.nan
-    if abs(alpha - 0.05) < 1e-12:
+    if abs(alpha - getattr(model, "ci_alpha", 0.05)) < 1e-12:
         lo = model.conf_int_lower.get(var, np.nan)
         hi = model.conf_int_upper.get(var, np.nan)
         if not (pd.isna(lo) or pd.isna(hi)):
@@ -260,7 +274,12 @@ def _ci_bounds(model: "_ModelData", var: str, alpha: float) -> Tuple[float, floa
     se = model.std_errors.get(var, np.nan)
     if pd.isna(se):
         return np.nan, np.nan
-    df = getattr(model, "df_resid", None)
+    ci_df = getattr(model, "ci_df", None)
+    df: Any = None
+    if isinstance(ci_df, pd.Series) and var in ci_df.index:
+        df = ci_df[var]
+    if df is None or pd.isna(df):
+        df = getattr(model, "df_resid", None)
     if df is not None and np.isfinite(df) and df > 0:
         crit = sp_stats.t.ppf(1 - alpha / 2, df)
     else:
@@ -268,6 +287,67 @@ def _ci_bounds(model: "_ModelData", var: str, alpha: float) -> Tuple[float, floa
     b = float(model.params[var])
     se_f = float(se)
     return b - crit * se_f, b + crit * se_f
+
+
+def _fit_ci_alpha(result: Any) -> float:
+    """Significance level of the result's stored confidence bounds.
+
+    ``EconometricResults`` and ``CausalResult`` store their intervals at the
+    fit-time ``alpha`` (0.05 unless the estimator was called with
+    ``alpha=``); other results say so in ``model_info['alpha']`` if at all.
+    """
+    from ..core.results import CausalResult, EconometricResults
+
+    candidates: List[Any] = []
+    if isinstance(result, (EconometricResults, CausalResult)):
+        candidates.append(getattr(result, "alpha", None))
+    mi = getattr(result, "model_info", None)
+    if isinstance(mi, dict):
+        candidates.append(mi.get("alpha"))
+    for value in candidates:
+        try:
+            a = float(value)
+        except (TypeError, ValueError):
+            continue
+        if 0.0 < a < 1.0:
+            return a
+    return 0.05
+
+
+def _fit_ci_df(result: Any, index: pd.Index) -> Optional[pd.Series]:
+    """Reference-distribution df per term (``inf`` = normal), or ``None``.
+
+    ``EconometricResults`` computes its own intervals on
+    ``_coefficient_df()`` (``data_info['inference'] == 'z'``,
+    ``df_inference`` = ``G - 1`` under clustering, per-coefficient
+    Bell-McCaffrey df, else ``df_resid``); other results are read through
+    the same ``data_info`` / ``model_info`` records.
+    """
+    coef_df = getattr(result, "_coefficient_df", None)
+    values: Any = None
+    if callable(coef_df):
+        try:
+            values = coef_df()
+        except (TypeError, ValueError, KeyError, AttributeError):
+            values = None
+    if values is None:
+        for store_name in ("data_info", "model_info"):
+            store = getattr(result, store_name, None)
+            if not isinstance(store, dict):
+                continue
+            if store.get("inference") == "z":
+                values = float("inf")
+                break
+            if store.get("df_inference") is not None:
+                try:
+                    values = float(store["df_inference"])
+                except (TypeError, ValueError):
+                    continue
+                break
+    if values is None:
+        return None
+    arr = np.broadcast_to(np.asarray(values, dtype=float), (len(index),))
+    return pd.Series(np.array(arr, dtype=float), index=index)
 
 
 def _as_series(values: Any, index: pd.Index) -> Optional[pd.Series]:
@@ -327,6 +407,7 @@ def _full_vector_causal(result: Any) -> Optional[_ModelData]:
         getattr(result, "method", ""),
         # Likelihood-based: confidence bounds use the normal (df_resid=None).
         df_resid=None,
+        ci_alpha=_fit_ci_alpha(result),
     )
 
 
@@ -398,6 +479,8 @@ def _extract_model_data(result: Any) -> _ModelData:
             stats,
             depvar,
             df_resid=df_resid,
+            ci_alpha=_fit_ci_alpha(result),
+            ci_df=_fit_ci_df(result, params.index),
         )
 
     # EconometricResults (or duck-typed equivalent)
@@ -519,6 +602,8 @@ def _extract_model_data(result: Any) -> _ModelData:
         stats,
         depvar,
         df_resid=df_resid,
+        ci_alpha=_fit_ci_alpha(result),
+        ci_df=_fit_ci_df(result, params.index),
     )
 
 

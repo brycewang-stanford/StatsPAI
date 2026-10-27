@@ -4,6 +4,73 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+Option scan round 6: `output/`, `plots/` and `fast/` (tests in
+`tests/test_output_option_scan_r6.py`,
+`tests/test_plots_output_option_scan_r6.py` and
+`tests/test_fast_option_scan_r6.py`).
+
+- ⚠️ **`sp.regtable` / `sp.esttab` / `sp.cite` intervals at a level other
+  than the fit's.** They were recomputed on t(N - K) for every result. A
+  clustered OLS fit refers its intervals to t(G - 1) and a logit to the
+  normal, so the table disagreed with the result's own `conf_int(alpha)`.
+  With 10 clusters, `alpha=0.10` printed [0.1880, 0.9640] for an interval
+  the result reports as [0.1456, 1.0063]; a logit at `alpha=0.10` printed
+  [0.8376, 1.4181] for [0.8389, 1.4167]. The rule now comes from the fit
+  (`data_info['inference']` / `df_inference`, per-coefficient df), also
+  after `vcov=`, and survives `to_dict()` / `from_dict()`.
+- ⚠️ **A fit called with `alpha=` had its stored bounds relabelled.**
+  `sp.logit(..., alpha=0.10)` stores 90% bounds; `sp.regtable(se_type='ci')`
+  printed them under "95% CI" ([0.8389, 1.4167] for a 95% interval of
+  [0.7836, 1.4721]). The same held for a `CausalResult` (`sp.ipw(alpha=0.10)`)
+  and for `sp.cite`. Stored bounds are reused only at their own level.
+- ⚠️ **`sp.coefplot` / `sp.coefplot_tikz` drew `b ± 1.96·se` for every
+  model.** They now draw the model's own interval: t(G - 1) under
+  clustering, t(N - K) for OLS, the normal for likelihood fits. With 10
+  clusters the 95% bar moves from [0.1158, 1.0361] to [0.0448, 1.1071],
+  the result's `conf_int()`. Asymmetric stored intervals are drawn as such
+  (`+= / -=` in the TikZ source).
+- ⚠️ **`sp.binscatter(absorb=)` plotted the points around (0, 0).** The
+  residuals were put back on the means of the within-transformed variables,
+  which are zero. They are now put back on the means of `x` and `y`, as
+  Stata's `binscatter` does. With `absorb=` and `controls=` together the
+  controls are within-transformed too (one regression, as `areg`); before,
+  `y` and `x` were residualized on raw controls.
+- ⚠️ **`sp.binscatter(weights=)` used the weights only for the bin means.**
+  The absorption, the residualization means, the quantile bins and the bin
+  intervals now use them: weighted quantile bins, as Stata's `xtile [aw=]`
+  in `binscatter`, and the analytic-weight SE of each bin mean (Stata
+  `regress y [aw=w]`). `fit_on_raw=True` fits the line by weighted least
+  squares. The points equal Stata 18 `binscatter [aw=w], absorb()` /
+  `controls()` to the 8 digits it saves; unweighted calls without `absorb=`
+  are unchanged. The fixed effects are absorbed exactly (sparse direct
+  solve) instead of ten alternating-projection sweeps.
+- ⚠️ **`sp.fast.event_study` charged the unit fixed effects to the CR1
+  factor** although they are nested in the (default, unit) clusters. Its
+  docstring promised the `reghdfe` / `fixest` rule, which leaves nested
+  effects out of K. Standard errors fall by about 5%: 0.6332 → 0.6004 on
+  the test panel, equal to R `fixest` 0.6004056911. The count now matches
+  `sp.fast.feols`.
+- ⚠️ **`sp.fast.feols(...).tidy()` p-values under `vcov='cr1'` used
+  t(df_resid).** They use t(G - 1), as `fixest::pvalue()` and Stata
+  `regress, vce(cluster)`: with 7 clusters, 0.000235 → 0.00973 (fixest
+  0.00973237596155). `FeolsResult` gains `n_clusters` and `df_t`.
+  `sp.fast.etable` takes its stars from each fit's own p-values (it read
+  `t(df_resid)` critical values, also for `fepois`, whose tests are z):
+  the example's `x2` goes from `**` to `*`.
+
+### Fixed
+
+- `sp.regtable(eform=[...])`: the decimals of a row depended on column
+  order, because every model's precision was read with the first column's
+  `eform` flag.
+- `sp.mean_comparison(weights=)` raises `MethodIncompatibility`. The
+  argument was "reserved for future use" and silently ignored, so a
+  weighted request printed unweighted means and tests. A `group=` column
+  with other than two distinct values also raises; a third value used to
+  be dropped without notice.
+
 ## [1.41.0] — 2026-10-27
 
 Three pieces of work. The defaults that 1.40.0 and 1.40.1 announced with a

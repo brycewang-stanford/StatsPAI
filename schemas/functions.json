@@ -13390,7 +13390,7 @@
           "type": "array"
         },
         "weights": {
-          "description": "Column name for weights (reserved for future use).",
+          "description": "Not supported: passing it raises ``MethodIncompatibility`` (it used to be accepted and ignored). Use ``sp.sumstats(..., by=, weights=)`` for weighted group means.",
           "type": "string",
           "x-statspai-role": "column",
           "x-statspai-source": "signature"
@@ -45614,7 +45614,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for CIs.",
+          "description": "Significance level for CIs. Each model's interval is its own: the stored bounds at the fit-time level, otherwise ``b +/- crit * se`` on the fit's reference distribution (``t(G - 1)`` under clustering, ``t(N - K)`` for OLS, the normal for likelihood fits), as ``sp.regtable(se_type='ci')`` prints.",
           "type": "number"
         },
         "ax": {
@@ -45680,7 +45680,7 @@
         },
         "level": {
           "default": 0.95,
-          "description": "Confidence level for the error bars (normal approximation ``b +/- z*se``, matching :func:`coefplot`).",
+          "description": "Confidence level for the error bars: each model's own interval at that level, as :func:`coefplot` draws it (``t(G - 1)`` under clustering, ``t(N - K)`` for OLS, the normal for likelihood fits).",
           "type": "number"
         },
         "model_names": {
@@ -46537,7 +46537,7 @@
         },
         "quantiles": {
           "default": true,
-          "description": "If True, bins are quantile-spaced (equal number of obs per bin). If False, bins are evenly spaced on the X-axis.",
+          "description": "If True, bins are quantile-spaced (equal number of obs per bin; equal weight with ``weights``). If False, bins are evenly spaced on the X-axis.",
           "type": "boolean"
         },
         "scatter_kw": {
@@ -46558,7 +46558,7 @@
           "type": "string"
         },
         "weights": {
-          "description": "Analytic weight variable.",
+          "description": "Analytic weight variable (Stata ``[aw=]``). With ``'classic'`` it weights the absorption and residualization, the means the residuals are put back on, the bin means and their intervals, the quantile bins (weighted quantiles, as Stata's binscatter), and the fit line with ``fit_on_raw=True``.",
           "type": "string",
           "x-statspai-role": "column"
         },

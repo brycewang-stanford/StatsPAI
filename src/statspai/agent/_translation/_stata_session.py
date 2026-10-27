@@ -493,7 +493,7 @@ def _stata_named(result: Any) -> Any:
         return model
     order = [n for n in names if n not in alias] + alias[:1]
     for field in ("params", "std_errors", "tvalues", "pvalues",
-                  "conf_int_lower", "conf_int_upper"):  # fmt: skip
+                  "conf_int_lower", "conf_int_upper", "ci_df"):  # fmt: skip
         series = getattr(model, field)
         if isinstance(series, pd.Series):
             renamed = series.reindex(order).rename({alias[0]: "_cons"})

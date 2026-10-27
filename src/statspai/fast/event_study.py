@@ -46,6 +46,8 @@ from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInsta
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
 from ._validation import require_identified_regressors as _require_identified_regressors
+from .feols import _fixest_cluster_fe_dof_codes
+from .inference import _factorize_cluster_labels
 from .inference import crve as _crve
 from .within import within as _within
 
@@ -426,11 +428,18 @@ def event_study(
     resid = y_dem - X_dem @ beta
 
     # Cluster-robust SE on the residualised system. The CR1 small-sample
-    # factor must charge the absorbed FE rank against residual DOF — same
-    # convention as ``reghdfe`` / ``fixest``. Without it, SEs are
-    # systematically too small (the FE rank is "free" parameters).
+    # factor charges the absorbed FE rank against residual DOF, leaving out
+    # the dimensions nested in the clusters (keeping the intercept they
+    # span), as ``reghdfe`` / ``fixest`` and ``sp.fast.feols`` do. Until
+    # 1.41 every absorbed level was charged; with the default unit
+    # clusters that made the standard errors about 5% too large.
     cluster_arr = df_aug.loc[wt.keep_mask, cluster_col].to_numpy()
-    fe_dof = sum(int(g) - 1 for g in wt.n_fe)
+    cluster_codes, _ = _factorize_cluster_labels(
+        cluster_arr, cluster_arr.shape[0], context="fast.event_study"
+    )
+    fe_dof = _fixest_cluster_fe_dof_codes(
+        list(wt._fe_codes), [int(g) for g in wt.n_fe], cluster_codes
+    )
     V = _crve(
         X_dem,
         resid,

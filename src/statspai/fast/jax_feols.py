@@ -557,6 +557,11 @@ def feols_jax(
         cluster_var=cluster,
         backend="statspai-jax",
         ssc=ssc,
+        n_clusters=(
+            int(pd.unique(cluster_arr_kept).size)
+            if vcov == "cr1" and cluster_arr_kept is not None
+            else None
+        ),
     )
 
 

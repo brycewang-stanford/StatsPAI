@@ -28901,7 +28901,7 @@
             "type": "array"
           },
           "weights": {
-            "description": "Column name for weights (reserved for future use).",
+            "description": "Not supported: passing it raises ``MethodIncompatibility`` (it used to be accepted and ignored). Use ``sp.sumstats(..., by=, weights=)`` for weighted group means.",
             "type": "string",
             "x-statspai-role": "column",
             "x-statspai-source": "signature"
@@ -98710,7 +98710,7 @@
           },
           "quantiles": {
             "default": true,
-            "description": "If True, bins are quantile-spaced (equal number of obs per bin). If False, bins are evenly spaced on the X-axis.",
+            "description": "If True, bins are quantile-spaced (equal number of obs per bin; equal weight with ``weights``). If False, bins are evenly spaced on the X-axis.",
             "type": "boolean"
           },
           "scatter_kw": {
@@ -98731,7 +98731,7 @@
             "type": "string"
           },
           "weights": {
-            "description": "Analytic weight variable.",
+            "description": "Analytic weight variable (Stata ``[aw=]``). With ``'classic'`` it weights the absorption and residualization, the means the residuals are put back on, the bin means and their intervals, the quantile bins (weighted quantiles, as Stata's binscatter), and the fit line with ``fit_on_raw=True``.",
             "type": "string",
             "x-statspai-role": "column"
           },

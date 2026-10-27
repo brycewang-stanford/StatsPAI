@@ -85,6 +85,20 @@ class FeolsResult(ResultProtocolMixin):
     #: Kernel that residualised on the fixed effects: ``"rust"``,
     #: ``"numpy"`` or ``"none"`` (no fixed effects)
     fe_kernel: str = "none"
+    #: Clusters behind ``vcov='cr1'`` (the smaller dimension when two-way);
+    #: ``None`` without clustering
+    n_clusters: Optional[int] = None
+
+    @property
+    def df_t(self) -> int:
+        """Degrees of freedom of the t reference distribution.
+
+        ``G - 1`` under ``vcov='cr1'`` (``fixest``, Stata ``regress,
+        vce(cluster)``), else ``df_resid``.
+        """
+        if self.vcov_type == "cr1" and self.n_clusters is not None:
+            return max(int(self.n_clusters) - 1, 1)
+        return max(int(self.df_resid), 1)
 
     def coef(self) -> pd.Series:
         return pd.Series(self.coef_vec, index=self.coef_names, name="Estimate")
@@ -108,13 +122,11 @@ class FeolsResult(ResultProtocolMixin):
         s = np.sqrt(np.diag(self.vcov_matrix))
         with np.errstate(divide="ignore", invalid="ignore"):
             t = np.where(s > 0, b / s, np.nan)
-        # Two-sided t-test (df = df_resid for iid; large-sample
-        # approximation otherwise — we still report t-style stats since
-        # users will compare to fixest's tidy output)
+        # Two-sided t-test on t(df_t): df_resid, or G - 1 under clustering
+        # as fixest's pvalue() (until 1.41 clustered fits used df_resid).
         from scipy.stats import t as _t
 
-        df = max(self.df_resid, 1)
-        p = 2.0 * _t.sf(np.abs(t), df=df)
+        p = 2.0 * _t.sf(np.abs(t), df=self.df_t)
         return pd.DataFrame(
             {
                 "Estimate": b,
@@ -781,6 +793,7 @@ def _feols_fit(
         cluster_var=cluster,
         weight_info=weight_info,
         fe_kernel=fe_kernel,
+        n_clusters=int(n_clusters) if vcov == "cr1" else None,
     )
     arrays = {
         "keep_mask": keep_mask,

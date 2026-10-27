@@ -406,7 +406,14 @@ def test_event_study_se_includes_fe_rank_correction():
     meat = cluster_score.T @ cluster_score
     V_unscaled = bread @ meat @ bread
 
-    fe_dof = sum(int(g) - 1 for g in wt.n_fe)
+    # reghdfe / fixest (fixef.K='nested', the default): absorbed dimensions
+    # nested in the clusters leave K, the intercept they span stays. The
+    # unit effects are nested in the unit clusters, so only the time
+    # effects are charged: G_time - 1 + 1 (until 1.41 every level was
+    # charged, sum(G_k - 1), which made the SEs ~5% too large).
+    unit_codes = pd.factorize(df_aug.loc[wt.keep_mask, "unit"].to_numpy())[0]
+    assert (unit_codes == cluster_codes).all()
+    fe_dof = int(wt.n_fe[1])
 
     # Post-fix factor (matches the new code)
     factor_fixed = (G / (G - 1.0)) * ((n - 1.0) / (n - k - fe_dof))
@@ -438,7 +445,7 @@ def test_event_study_se_includes_fe_rank_correction():
     # Sanity: with this n/k/fe_dof, the bump must be at least 1% — if not,
     # the test panel is too large for the bug to have been observable and
     # we should pick a smaller one.
-    assert ratio_expected > 1.01, (
+    assert ratio_expected > 1.005, (
         f"test panel too large to expose bug: ratio={ratio_expected:.6f}; "
         "shrink n_units / n_periods to amplify FE-rank share of DOF"
     )
@@ -473,15 +480,14 @@ def _truly_staggered_panel(n_units=80, n_periods=20, treatment_effect=0.5, seed=
 
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not on PATH")
 def test_event_study_se_close_to_r_fixest(tmp_path):
-    """Tight parity vs R ``fixest::feols(... | unit + time, cluster=~unit, ssc(fixef.K='full'))``.
+    """Parity vs R ``fixest::feols(... | unit + time, cluster=~unit)``.
 
-    Empirically the SE drift is ~0.045% on this 80-unit / 15-period
-    panel — the only difference is the FE-rank convention: StatsPAI
-    charges ``Σ (G_k - 1)`` (matches ``sp.fast.fepois``); fixest's
-    ``fixef.K='full'`` charges the true matrix rank ``Σ G_k - 1`` for
-    K=2. That's a 1-DOF gap, negligible vs the ~1100 residual DOF here.
-    Tolerance is set to 1% — comfortably above the 0.045% drift, well
-    below the 4–5% the pre-fix bug would have produced.
+    fixest's default small-sample correction (``fixef.K='nested'``, as
+    ``reghdfe``) leaves the unit effects, nested in the unit clusters, out
+    of K. Until 1.41 StatsPAI charged every absorbed level (between
+    fixest's ``'full'`` and ``'nested'``) and this test compared against
+    ``'full'`` at a 1% tolerance. The SEs now agree to the demeaning
+    tolerance (fixest stops its own demeaning at 1e-6).
     """
     df = _truly_staggered_panel(seed=11, n_units=80, n_periods=15)
 
@@ -520,7 +526,7 @@ def test_event_study_se_close_to_r_fixest(tmp_path):
         # NA event_time → all dummies = 0 (matches StatsPAI semantics).
         f"{dummy_assign}\n"
         f"f <- feols(y ~ {rhs_terms} | unit + time,\n"
-        "           data=d, cluster=~unit, ssc=ssc(fixef.K='full'))\n"
+        "           data=d, cluster=~unit, fixef.tol=1e-10)\n"
         "co <- coef(f); s <- se(f)\n"
         "out <- list(names = names(co), coefs = as.list(co), se = as.list(s))\n"
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
@@ -549,7 +555,7 @@ def test_event_study_se_close_to_r_fixest(tmp_path):
     for et_val, se_py in py_se.items():
         assert et_val in r_se, f"event_time {et_val} missing from R output"
         rel = abs(se_py - r_se[et_val]) / max(abs(r_se[et_val]), 1e-12)
-        assert rel < 0.01, (
+        assert rel < 1e-6, (
             f"SE drift too large at et={et_val}: py={se_py:.6e} r={r_se[et_val]:.6e} "
             f"rel={rel:.3e}"
         )

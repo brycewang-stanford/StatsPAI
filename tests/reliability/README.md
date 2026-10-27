@@ -292,12 +292,12 @@ truth.
 
 | units | sigma of log weight | Kish size | `iid` | `hc1` | `cr1` on unit |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 50 | 0 | 50 | 0.953 | 0.948 | 0.939 |
-| 50 | 1 | 23 | 0.806 | 0.930 | 0.913 |
-| 50 | 2 | 7 | 0.542 | 0.870 | 0.789 |
+| 50 | 0 | 50 | 0.953 | 0.948 | 0.946 |
+| 50 | 1 | 23 | 0.806 | 0.930 | 0.917 |
+| 50 | 2 | 7 | 0.542 | 0.870 | 0.793 |
 | 200 | 0 | 200 | 0.949 | 0.950 | 0.951 |
 | 200 | 1 | 81 | 0.807 | 0.952 | 0.949 |
-| 200 | 2 | 17 | 0.427 | 0.907 | 0.858 |
+| 200 | 2 | 17 | 0.427 | 0.907 | 0.859 |
 
 `sp.fast.fepois`, the same panel with a Poisson outcome:
 
@@ -325,7 +325,9 @@ The three findings of the earlier weight studies repeat here. The
 default variance fails under sampling weights (22% to 81%), the robust
 one is short when the effective sample is small, and the clustered one
 follows the number of clusters the weights leave in effect (79% at 7,
-86% at 17, 91% at 23). The three entry points now carry the same
+86% at 17, 92% at 23). The `sp.fast.feols` `cr1` column was rerun after
+its p-values moved from t(N - K) to t(G - 1) (option scan round 6); the
+`iid` and `hc1` columns reproduced exactly. The three entry points now carry the same
 diagnostics as the others; the fast result objects hold them in
 `weight_info`. One negative-binomial fit of 84,000 did not converge (one
 observation held 80% of the weight); `sp.nbreg` said so and reported no

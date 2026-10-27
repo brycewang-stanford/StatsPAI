@@ -81,6 +81,31 @@ def _df_residual(fit: Any) -> Optional[int]:
     return None
 
 
+def _pvalue_series(fit: Any) -> Optional[pd.Series]:
+    """The fit's own two-sided p-values, when it reports them.
+
+    Stars must follow the reference distribution the fit used (``t(G - 1)``
+    under clustering, ``z`` for ``fepois``), which a threshold on
+    ``t(df_resid)`` does not know.
+    """
+    tidy = getattr(fit, "tidy", None)
+    if callable(tidy):
+        try:
+            frame = tidy()
+        except (TypeError, ValueError, AttributeError):
+            frame = None
+        if isinstance(frame, pd.DataFrame):
+            for col in frame.columns:
+                if str(col).startswith("Pr("):
+                    return pd.Series(
+                        frame[col].to_numpy(dtype=float), index=frame.index
+                    )
+    pv = getattr(fit, "pvalues", None)
+    if isinstance(pv, pd.Series):
+        return pv
+    return None
+
+
 def _maybe(fit: Any, attr: str) -> Optional[float]:
     v = getattr(fit, attr, None)
     if isinstance(v, (int, float, np.floating, np.integer)):
@@ -169,7 +194,10 @@ def etable(
         below-row. ``"below"`` is the journal-paper standard.
     stars : bool
         Add significance stars (``*`` p<0.10, ``**`` p<0.05, ``***`` p<0.01)
-        based on ``coef / se`` z-statistics.
+        from the fit's own p-values (``tidy()`` / ``pvalues``), so a
+        clustered ``sp.fast.feols`` is read on ``t(G - 1)`` and ``fepois``
+        on the normal; fits without p-values fall back to ``t(df_resid)``
+        (normal when unknown) critical values for ``coef / se``.
 
     Returns
     -------
@@ -186,6 +214,7 @@ def etable(
         AUTO_PREFIX,
         auto_decimals,
         fmt_val,
+        format_stars,
         resolve_digits,
     )
 
@@ -205,6 +234,7 @@ def etable(
     ses: List[pd.Series] = [_se_series(f) for f in fits]
     n_obs = [_n_obs(f) for f in fits]
     df_resid = [_df_residual(f) for f in fits]
+    pvals = [_pvalue_series(f) for f in fits]
 
     # Star thresholds. Fall back to Normal-z when df is unavailable; use
     # Student-t two-sided critical values otherwise (matches ``stargazer`` /
@@ -254,7 +284,10 @@ def etable(
                 est = float(c[v])
                 stderr = float(s[v]) if v in s.index else float("nan")
                 star = ""
-                if stars and stderr > 0:
+                pv_fit = pvals[fit_idx]
+                if stars and pv_fit is not None and v in pv_fit.index:
+                    star = format_stars(float(pv_fit[v]), (0.10, 0.05, 0.01))
+                elif stars and stderr > 0:
                     z = abs(est / stderr)
                     t10, t5, t1 = _stars_for(fit_idx)
                     if z > t1:

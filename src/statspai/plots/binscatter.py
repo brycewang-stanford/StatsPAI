@@ -109,10 +109,15 @@ def binscatter(
         Grouping variable — produces separate series on the same plot
         (e.g., ``by='female'`` overlays male and female).
     weights : str, optional
-        Analytic weight variable.
+        Analytic weight variable (Stata ``[aw=]``). With ``'classic'`` it
+        weights the absorption and residualization, the means the
+        residuals are put back on, the bin means and their intervals, the
+        quantile bins (weighted quantiles, as Stata's binscatter), and the
+        fit line with ``fit_on_raw=True``.
     quantiles : bool, default True
         If True, bins are quantile-spaced (equal number of obs per
-        bin). If False, bins are evenly spaced on the X-axis.
+        bin; equal weight with ``weights``). If False, bins are evenly
+        spaced on the X-axis.
     ax : matplotlib.axes.Axes, optional
         Axes to draw on. Creates new figure if None.
     figsize : tuple, default (8, 6)
@@ -215,8 +220,10 @@ def binscatter(
     3. Plot: For each bin, plot (mean(x̃), mean(ỹ)).
     4. Fit: Overlay a linear/polynomial fit.
 
-    When ``absorb`` is specified, fixed effects are removed via within-
-    group demeaning before step 1.
+    When ``absorb`` is specified, ``y``, ``x`` and the controls are first
+    within-transformed on the fixed effects (weighted with ``weights``), so
+    the residuals are those of one regression on controls and fixed
+    effects; the points are then put back on the means of ``y`` and ``x``.
 
     See Cattaneo et al. (2024, *AER*) for the theory behind optimal
     bin selection and the pitfalls of naive binscatter.
@@ -376,25 +383,32 @@ def binscatter(
             }
             X_plot, Y_plot = X_raw, Y_raw
 
-        # --- Step 1: Absorb fixed effects ---
-        if method == "binsreg":
-            pass
-        elif absorb:
-            Y_raw = _absorb_fe(Y_raw, df_g, absorb)
-            X_raw = _absorb_fe(X_raw, df_g, absorb)
-
         if method == "classic":
+            # The levels the residuals are put back on: the (weighted) means
+            # of the variables themselves, as Stata's binscatter does. Taken
+            # before absorbing, whose within-transform has mean zero; until
+            # 1.41 an ``absorb`` plot was centred on (0, 0).
+            Y_level = _wmean(Y_raw, W)
+            X_level = _wmean(X_raw, W)
+            Z = df_g[controls].values.astype(float) if controls else None
+
+            # --- Step 1: Absorb fixed effects (weighted, exact) ---
+            if absorb:
+                Y_raw, X_raw, Z = _absorb_fe(Y_raw, X_raw, Z, df_g, absorb, W)
+
             # --- Step 2: Residualize on controls ---
-            if controls:
-                Z = df_g[controls].values.astype(float)
+            # With ``absorb`` the controls are within-transformed too, so
+            # the residuals are those of one regression on controls + FE
+            # (Frisch-Waugh-Lovell; Stata's ``areg``).
+            if Z is not None:
                 Y_resid, X_resid = _residualize(Y_raw, X_raw, Z, W)
             else:
                 Y_resid = Y_raw
                 X_resid = X_raw
 
             # Add back means for interpretability
-            Y_plot = Y_resid - Y_resid.mean() + Y_raw.mean()
-            X_plot = X_resid - X_resid.mean() + X_raw.mean()
+            Y_plot = Y_resid - _wmean(Y_resid, W) + Y_level
+            X_plot = X_resid - _wmean(X_resid, W) + X_level
 
             # --- Step 3: Bin ---
             bin_df = _compute_bins(X_plot, Y_plot, n_bins, quantiles, W, ci, ci_level)
@@ -461,12 +475,13 @@ def binscatter(
                 y_fit_data = bin_df["y_mean"].values
 
             if len(x_fit_data) > fit_order:
-                coeffs = np.polyfit(
-                    x_fit_data,
-                    y_fit_data,
-                    fit_order,
-                    w=np.sqrt(bin_df["n"].values) if not fit_on_raw else None,
-                )
+                if not fit_on_raw:
+                    fit_w = np.sqrt(bin_df["n"].values)
+                elif W is not None:
+                    fit_w = np.sqrt(W)  # weighted least squares on the micro data
+                else:
+                    fit_w = None
+                coeffs = np.polyfit(x_fit_data, y_fit_data, fit_order, w=fit_w)
                 x_grid = np.linspace(
                     bin_df["x_mean"].min(), bin_df["x_mean"].max(), 200
                 )
@@ -509,23 +524,48 @@ def binscatter(
 # ======================================================================
 
 
+def _wmean(v: np.ndarray, w: Optional[np.ndarray]) -> float:
+    return float(v.mean()) if w is None else float(np.average(v, weights=w))
+
+
 def _absorb_fe(
     y: np.ndarray,
+    x: np.ndarray,
+    z: Optional[np.ndarray],
     df: pd.DataFrame,
     fe_vars: List[str],
-) -> np.ndarray:
-    """Demean Y within each FE group (iterative for multiple FEs)."""
-    resid = y.copy()
-    for _ in range(10):  # iterate for multiple FEs
-        old = resid.copy()
-        for fe in fe_vars:
-            groups = df[fe].values
-            for g in np.unique(groups):
-                mask = groups == g
-                resid[mask] -= resid[mask].mean()
-        if np.max(np.abs(resid - old)) < 1e-10:
-            break
-    return resid
+    w: Optional[np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Weighted within-transform of ``y``, ``x`` and the controls ``z``.
+
+    Exact residuals on the fixed-effect dummies (sparse direct solve), with
+    the analytic weights when given. Until 1.41 this was ten unweighted
+    alternating-projection sweeps, which ignored ``weights=`` and could stop
+    short of convergence with several effects.
+    """
+    from ..exceptions import ConvergenceWarning
+    from ..fast._fe_direct import residualise_codes
+
+    cols = [y, x] + ([z[:, j] for j in range(z.shape[1])] if z is not None else [])
+    M = np.column_stack(cols).astype(np.float64)
+    codes = [
+        pd.factorize(df[fe].to_numpy(), sort=False)[0].astype(np.int64)
+        for fe in fe_vars
+    ]
+    M, ok = residualise_codes(M, codes, w)
+    if not ok:
+        import warnings
+
+        warnings.warn(
+            ConvergenceWarning(
+                "binscatter: the fixed-effect residualisation stopped at its "
+                "rounding floor; the plotted points may be inaccurate.",
+                recovery_hint="Check for very large or nearly collinear effects.",
+            ),
+            stacklevel=3,
+        )
+    z_out = M[:, 2:] if z is not None else None
+    return M[:, 0], M[:, 1], z_out
 
 
 def _residualize(
@@ -573,7 +613,18 @@ def _compute_bins(
     from scipy import stats as sp_stats
 
     # Determine bin edges
-    if quantiles:
+    right_closed = False
+    if quantiles and W is not None:
+        # Equal-weight bins at the weighted quantiles, as Stata's
+        # ``xtile ... [aw=]`` forms them for binscatter: cut points are
+        # ``_pctile`` weighted percentiles and a bin is ``(c_{k-1}, c_k]``.
+        from ..output.sumstats import weighted_percentile
+
+        cuts = [weighted_percentile(X, W, 100.0 * k / n_bins) for k in range(1, n_bins)]
+        edges = np.unique(np.r_[X.min(), cuts, X.max()])
+        n_bins_actual = len(edges) - 1
+        right_closed = True
+    elif quantiles:
         # Equal-frequency bins
         percentiles = np.linspace(0, 100, n_bins + 1)
         edges = np.percentile(X, percentiles)
@@ -585,7 +636,7 @@ def _compute_bins(
         n_bins_actual = n_bins
 
     # Assign to bins
-    bin_idx = np.digitize(X, edges[1:-1])  # 0-indexed bins
+    bin_idx = np.digitize(X, edges[1:-1], right=right_closed)  # 0-indexed bins
     bin_idx = np.clip(bin_idx, 0, n_bins_actual - 1)
 
     rows = []
@@ -615,7 +666,15 @@ def _compute_bins(
         }
 
         if ci and n_b > 1:
-            se = float(np.std(y_b, ddof=1) / np.sqrt(n_b))
+            if W is not None:
+                # SE of an analytic-weighted mean (Stata ``mean y [aw=w]``,
+                # ``regress y [aw=w]``): weights rescaled to sum to n_b.
+                w_n = w_b * (n_b / w_b.sum())
+                se = float(
+                    np.sqrt(np.sum(w_n * (y_b - y_mean) ** 2) / ((n_b - 1) * n_b))
+                )
+            else:
+                se = float(np.std(y_b, ddof=1) / np.sqrt(n_b))
             row["ci_lower"] = y_mean - z * se
             row["ci_upper"] = y_mean + z * se
 

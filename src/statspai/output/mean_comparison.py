@@ -22,6 +22,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._result_serialize import attach_result_protocol
+from ..exceptions import MethodIncompatibility
 from ._format import AUTO
 from ._format import fmt_val as _fmt_val
 from ._format import format_stars as _format_stars
@@ -557,7 +558,9 @@ def mean_comparison(
     group : str
         Binary grouping variable name.
     weights : str, optional
-        Column name for weights (reserved for future use).
+        Not supported: passing it raises ``MethodIncompatibility`` (it used
+        to be accepted and ignored). Use ``sp.sumstats(..., by=, weights=)``
+        for weighted group means.
     test : str, default ``"ttest"``
         Test type: ``"ttest"`` (Welch's), ``"ranksum"`` (Mann-Whitney),
         or ``"chi2"`` (chi-squared).
@@ -611,6 +614,39 @@ def mean_comparison(
         raise ValueError(
             f"output={output!r} is invalid. Must be one of: "
             f"{sorted(_VALID_OUTPUTS)}"
+        )
+    if weights is not None:
+        # Accepted and ignored until 1.41: the table printed unweighted
+        # means and tests for a weighted request.
+        raise MethodIncompatibility(
+            "mean_comparison does not compute weighted means or tests; "
+            f"weights={weights!r} would be ignored.",
+            recovery_hint=(
+                "For weighted group means use sp.sumstats(data, vars, by=group, "
+                "weights=w); for a weighted difference with its test, "
+                "sp.regress('x ~ group', data=data, weights=w, vce='hc1')."
+            ),
+            diagnostics={"weights": weights},
+        )
+    if group not in data.columns:
+        raise MethodIncompatibility(
+            f"mean_comparison: group column {group!r} not in data.",
+            recovery_hint="Pass the name of a two-valued column as group=.",
+            diagnostics={"group": group},
+        )
+    n_groups = int(data[group].dropna().nunique())
+    if n_groups != 2:
+        # A third value used to be dropped silently (0 / 1 were compared
+        # and 2 ignored); with no 0 / 1 among three values both groups
+        # were empty.
+        raise MethodIncompatibility(
+            f"mean_comparison compares two groups; {group!r} has "
+            f"{n_groups} distinct non-missing values.",
+            recovery_hint=(
+                "Recode group= to two values, or subset the data to the two "
+                "groups to compare."
+            ),
+            diagnostics={"group": group, "n_groups": n_groups},
         )
 
     result = MeanComparisonResult(

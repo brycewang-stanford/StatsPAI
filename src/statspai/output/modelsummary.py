@@ -49,12 +49,13 @@ Migration notes
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..exceptions import MethodIncompatibility
 from ._format import unwrap_single_sequence
 
 _DEPRECATION_MSG = (
@@ -387,7 +388,11 @@ def coefplot(
     colors : list of str, optional
     title : str, optional
     alpha : float
-        Significance level for CIs.
+        Significance level for CIs. Each model's interval is its own: the
+        stored bounds at the fit-time level, otherwise ``b ± crit · se`` on
+        the fit's reference distribution (``t(G - 1)`` under clustering,
+        ``t(N - K)`` for OLS, the normal for likelihood fits), as
+        ``sp.regtable(se_type='ci')`` prints.
     drop : sequence of str, optional
         Coefficients to leave out, as Stata ``coefplot, drop(_cons)``:
         ``drop=["Intercept"]``. Like Stata's ``coefplot``, the intercept is
@@ -439,11 +444,8 @@ def coefplot(
             "#E67E22",
         ]
 
-    from scipy import stats as sp_stats
-
-    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
-
     coef_data = [_extract_coefs(m) for m in models]
+    interval_fns = [_interval_fn(m) for m in models]
     _warn_mixed_scales(models, model_names)
 
     # Variables to plot. A bare string is one name (set("Intercept") would
@@ -471,6 +473,7 @@ def coefplot(
     offsets = np.linspace(-0.15 * (n_models - 1), 0.15 * (n_models - 1), n_models)
 
     for m_idx, (cd, name) in enumerate(zip(coef_data, model_names)):
+        interval = interval_fns[m_idx]
         color = colors[m_idx % len(colors)]
         positions = []
         estimates = []
@@ -480,10 +483,11 @@ def coefplot(
         for v_idx, var in enumerate(variables):
             if var in cd:
                 coef, se, _ = cd[var]
+                lo_v, hi_v = interval(var, coef, se, alpha)
                 positions.append(v_idx + offsets[m_idx])
                 estimates.append(coef)
-                ci_lo.append(coef - z_crit * se)
-                ci_hi.append(coef + z_crit * se)
+                ci_lo.append(lo_v)
+                ci_hi.append(hi_v)
 
         if positions:
             pos = np.array(positions)
@@ -602,8 +606,9 @@ def coefplot_tikz(
     coef_labels : dict, optional
         Rename variables on the y-axis, e.g. ``{"x": "Treatment"}``.
     level : float, default 0.95
-        Confidence level for the error bars (normal approximation
-        ``b ± z·se``, matching :func:`coefplot`).
+        Confidence level for the error bars: each model's own interval at
+        that level, as :func:`coefplot` draws it (``t(G - 1)`` under
+        clustering, ``t(N - K)`` for OLS, the normal for likelihood fits).
     title : str, optional
         Plot title. Default ``"Coefficient plot"``.
     xlabel : str, default ``"Coefficient estimate"``
@@ -633,12 +638,10 @@ def coefplot_tikz(
     True
     >>> open("coefplot.tex", "w").write(tikz)         # doctest: +SKIP
     """
-    from scipy import stats as sp_stats
-
-    z_crit = float(sp_stats.norm.ppf(1 - (1 - level) / 2))
     if model_names is None:
         model_names = [f"Model {i + 1}" for i in range(len(models))]
     coef_data = [_extract_coefs(m) for m in models]
+    interval_fns = [_interval_fn(m) for m in models]
     if variables is None:
         all_v: set = set()
         for cd in coef_data:
@@ -688,9 +691,16 @@ def coefplot_tikz(
             coef, se, _ = cd[var]
             if not np.isfinite(coef):
                 continue
-            err = z_crit * se if (se is not None and np.isfinite(se)) else 0.0
+            lo_v, hi_v = interval_fns[m_idx](var, coef, se, 1.0 - level)
+            err_hi = hi_v - coef if np.isfinite(hi_v) else 0.0
+            err_lo = coef - lo_v if np.isfinite(lo_v) else 0.0
             y = v_idx + offsets[m_idx]
-            coords.append(f"({coef:.6g},{y:g}) +- ({err:.6g},0)")
+            if abs(err_hi - err_lo) <= 1e-9 * max(abs(err_hi), abs(err_lo), 1e-300):
+                coords.append(f"({coef:.6g},{y:g}) +- ({err_hi:.6g},0)")
+            else:
+                coords.append(
+                    f"({coef:.6g},{y:g}) += ({err_hi:.6g},0) -= ({err_lo:.6g},0)"
+                )
         if not coords:
             continue
         lines.append(
@@ -705,6 +715,39 @@ def coefplot_tikz(
     if standalone:
         lines.append("\\end{document}")
     return "\n".join(lines)
+
+
+def _interval_fn(
+    model: Any,
+) -> Callable[[str, float, float, float], Tuple[float, float]]:
+    """``(var, coef, se, alpha) -> (lo, hi)``: the model's own interval.
+
+    The fit's stored bounds at its fit-time level, otherwise
+    ``b ± crit · se`` on the reference distribution the fit used (``t(G-1)``
+    under clustering, ``t(N-K)`` for OLS, the normal for likelihood fits);
+    the rule ``sp.regtable(se_type='ci')`` prints. Models the table cannot
+    read fall back to the normal.
+    """
+    from scipy import stats as sp_stats
+
+    from .estimates import _ci_bounds, _extract_model_data
+
+    try:
+        md = _extract_model_data(model)
+    except (MethodIncompatibility, TypeError, ValueError, AttributeError):
+        md = None
+
+    def interval(var: str, coef: float, se: float, alpha: float) -> Tuple[float, float]:
+        if md is not None and var in md.params.index:
+            lo, hi = _ci_bounds(md, var, alpha)
+            if np.isfinite(lo) and np.isfinite(hi):
+                return float(lo), float(hi)
+        if se is None or not np.isfinite(se):
+            return float("nan"), float("nan")
+        z = float(sp_stats.norm.ppf(1 - alpha / 2))
+        return coef - z * se, coef + z * se
+
+    return interval
 
 
 def _extract_coefs(model: Any) -> Dict[str, tuple]:
