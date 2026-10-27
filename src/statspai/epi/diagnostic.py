@@ -511,7 +511,8 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
         Predicted score; higher means more likely.
     k : float, default 0.01
         A fraction in (0, 1): the top ``round(n * k)`` cases, 0.01 being
-        the top 1%. A number of 1 or more is the count itself.
+        the top 1%. A number of 1 or more is the count itself and must be
+        a whole number.
 
     Returns
     -------
@@ -527,9 +528,13 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
 
     Notes
     -----
-    Tied scores are ranked in the order of the data, as R's ``sort`` does.
-    With many ties at the cutoff the value depends on that order; break
-    them before reading much into it.
+    Tied scores share their credit: every rank a group of tied cases
+    occupies earns the group's share of true cases, so the value is the
+    average of NDCG over all orderings of the ties and does not depend on
+    the order of the rows (``sklearn.metrics.ndcg_score`` with its default
+    ``ignore_ties=False``). Without ties this is the plain ranked sum, and
+    equals ``farr::ndcg``, which breaks ties in data order. Until 1.40.2
+    ties were broken in data order here too.
 
     Examples
     --------
@@ -572,6 +577,11 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
     n = len(rel)
     if not k > 0:
         raise MethodIncompatibility(f"ndcg: k must be positive, got {k!r}.")
+    if k >= 1 and float(k) != int(k):
+        raise MethodIncompatibility(
+            f"ndcg: a count k of 1 or more must be a whole number, got {k!r}.",
+            recovery_hint="Give a whole number of cases, or a fraction in (0, 1).",
+        )
     kn = int(round(n * k)) if k < 1 else int(k)
     kn = min(kn, n)
     if kn < 1:
@@ -580,8 +590,18 @@ def ndcg(y_true: Any, scores: Any, k: float = 0.01) -> float:
             recovery_hint="Raise k, or give a count of 1 or more.",
         )
     order = np.argsort(-s, kind="stable")
+    gain = rel[order]
+    s_sorted = s[order]
+    # Tied scores share the mean gain of their group, so the result does
+    # not depend on row order (CLAUDE.md section 11: tied units enter
+    # together). Groups of one leave the gains untouched.
+    starts = np.flatnonzero(np.r_[True, s_sorted[1:] != s_sorted[:-1]])
+    sizes = np.diff(np.r_[starts, n])
+    if (sizes > 1).any():
+        means = np.add.reduceat(gain, starts) / sizes
+        gain = np.repeat(means, sizes)
     discount = 1.0 / np.log2(np.arange(1, kn + 1) + 1.0)
-    dcg = float(np.sum(rel[order][:kn] * discount))
+    dcg = float(np.sum(gain[:kn] * discount))
     ideal = float(np.sum(discount[: int(min(kn, rel.sum()))]))
     return dcg / ideal if ideal > 0 else 0.0
 

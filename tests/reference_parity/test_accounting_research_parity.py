@@ -438,10 +438,26 @@ def test_winsor_and_trim_match_stata_winsor2(cross, stata):
 
 def test_ndcg_and_auc_match_farr(cross, R):
     ref = R["ranking"]
-    assert rel(sp.ndcg(cross["event"], cross["score"], 0.01), ref["ndcg_01"]) < EXACT
-    assert rel(sp.ndcg(cross["event"], cross["score"], 0.05), ref["ndcg_05"]) < EXACT
-    assert rel(sp.ndcg(cross["event"], cross["score"], 0.2), ref["ndcg_20"]) < EXACT
+    # The scores carry three decimals and tie. farr::ndcg breaks ties in
+    # data order; sp.ndcg lets tied cases share their credit (row-order
+    # invariant, sklearn's ndcg_score). Breaking the ties in data order
+    # explicitly, with a shift far below the 0.001 grid, reproduces farr.
+    score = cross["score"].to_numpy() - 1e-9 * np.arange(len(cross))
+    assert rel(sp.ndcg(cross["event"], score, 0.01), ref["ndcg_01"]) < EXACT
+    assert rel(sp.ndcg(cross["event"], score, 0.05), ref["ndcg_05"]) < EXACT
+    assert rel(sp.ndcg(cross["event"], score, 0.2), ref["ndcg_20"]) < EXACT
     assert rel(sp.auc(cross["event"], cross["score"]), ref["auc"]) < EXACT
+
+
+def test_ndcg_with_tied_scores_is_the_average_over_tie_orders(cross):
+    sk = pytest.importorskip("sklearn.metrics")
+    y, s = cross["event"].to_numpy(), cross["score"].to_numpy()
+    for k in (0.01, 0.05, 0.2):
+        kn = int(round(len(y) * k))
+        ref = sk.ndcg_score(y[None, :], s[None, :], k=kn)
+        assert rel(sp.ndcg(y, s, k), ref) < 1e-12
+        p = np.random.default_rng(1).permutation(len(y))
+        assert rel(sp.ndcg(y[p], s[p], k), sp.ndcg(y, s, k)) < 1e-14
 
 
 # ---------------------------------------------------------------------------

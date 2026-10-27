@@ -32,15 +32,19 @@ rd = sp.risk_difference(50, 950, 10, 990)
 print(f"RD = {rd.estimate:.4f}  95% CI {rd.ci}")
 
 nnt = sp.number_needed_to_treat(50, 950, 10, 990)
-print(f"NNT = {nnt.estimate:.1f}")
+print(f"NNT = {nnt.estimate:.1f}  95% CI {nnt.ci}")
+# When the RD interval contains 0, nnt.ci_disjoint is True and the
+# summary reads "NNTH x to infinity to NNTB y" (Altman 1998).
 
 # Case-control study (odds ratio)
 orr = sp.odds_ratio(50, 20, 30, 40, method="woolf")
 print(f"OR = {orr.estimate:.2f}  95% CI {orr.ci}")
+# method="exact": exact conditional CI; the estimate stays the sample OR
+# (Stata cci) and .conditional_mle holds the estimate R fisher.test prints.
 
-# Population attributable fraction (Levin)
+# Population attributable fraction (Levin); CI as Stata punaf
 ar = sp.attributable_risk(50, 950, 10, 990)
-print(ar.estimate)
+print(ar.paf, ar.paf_ci)
 ```
 
 **Person-time / rates.** When the denominator is person-time rather than
@@ -60,7 +64,9 @@ modified-Poisson / log-binomial approach [@zou2004modified].
 
 **Zero cells** are handled automatically with the Haldane–Anscombe 0.5
 continuity correction on the log-scale standard error, so a single empty
-cell does not blow up the interval.
+cell does not blow up the interval. `sp.attributable_risk` is the
+exception: its point estimates use the raw counts (as Stata `cs`), and
+without cases in both exposure groups it reports no PAF interval.
 
 ---
 

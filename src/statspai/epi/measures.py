@@ -31,6 +31,7 @@ studies with binary data." *American Journal of Epidemiology*, 159(7),
 from __future__ import annotations
 
 import inspect as _inspect
+import warnings
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -187,13 +188,20 @@ class OR2x2Result(ResultProtocolMixin):
     c: float
     d: float
     method: str
+    # Conditional maximum-likelihood OR (the estimate R ``fisher.test``
+    # reports); set for ``method="exact"`` only.
+    conditional_mle: Optional[float] = None
 
     def summary(self) -> str:
         lo, hi = self.ci
-        return (
+        text = (
             f"Odds Ratio ({self.method})\n"
             f"  OR = {self.estimate:.4f}   95% CI [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
+        )
+        if self.conditional_mle is not None:
+            text += f"  conditional MLE = {self.conditional_mle:.4f}\n"
+        return text + (
             f"  2x2 table: [[{self.a:.0f}, {self.b:.0f}], "
             f"[{self.c:.0f}, {self.d:.0f}]]"
         )
@@ -296,15 +304,42 @@ class IRRResult(ResultProtocolMixin):
 
 @dataclass
 class NNTResult(ResultProtocolMixin):
+    """Number needed to treat (benefit) or harm.
+
+    ``estimate`` is ``1 / |RD|`` and ``ci`` the interval for that
+    magnitude. ``ci_signed`` holds the reciprocals ``1 / RD`` of the
+    risk-difference limits in ascending order (what R ``epiR`` reports).
+    When the risk-difference interval contains zero, ``ci_disjoint`` is
+    True: the compatible NNTs are ``1 / |L|`` or more on the benefit side
+    and ``1 / U`` or more on the harm side (Altman's "NNTB x to infinity
+    to NNTH y"), ``ci_signed`` holds ``(1/L, 1/U)`` and ``ci`` is
+    ``(1 / max(|L|, U), inf)``.
+    """
+
     estimate: float
     ci: tuple[float, float]
     risk_difference: float
+    ci_signed: tuple[float, float] = (float("nan"), float("nan"))
+    ci_disjoint: bool = False
 
     def summary(self) -> str:
         lo, hi = self.ci
         # NNT is reported as NNT-Benefit or NNT-Harm; RD sign drives it.
+        # Negative RD (lower risk in the exposed / treated row) is benefit.
         tag = "NNT Benefit" if self.risk_difference < 0 else "NNT Harm"
-        return f"{tag}\n" f"  NNT = {self.estimate:.2f}   95% CI [{lo:.2f}, {hi:.2f}]"
+        head = f"{tag}\n  NNT = {self.estimate:.2f}"
+        if not self.ci_disjoint:
+            return head + f"   95% CI [{lo:.2f}, {hi:.2f}]"
+        s_lo, s_hi = self.ci_signed
+        # s_lo = 1/L <= 0 (benefit side), s_hi = 1/U >= 0 (harm side).
+        sides = [("NNTB", abs(s_lo)), ("NNTH", abs(s_hi))]
+        if self.risk_difference > 0:
+            sides.reverse()
+        (t1, v1), (t2, v2) = sides
+        return head + (
+            f"   95% CI {t1} {v1:.2f} to infinity to {t2} {v2:.2f}"
+            "  (risk-difference interval includes 0)"
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -334,15 +369,30 @@ def odds_ratio(
     a, b, c, d : float
         Cell counts, or pass a 2x2 array-like as ``a``.
     method : {"woolf", "exact"}, default "woolf"
-        Confidence-interval method.  "woolf" uses the asymptotic
-        log-OR standard error; "exact" uses the Fisher-style
-        conditional non-central hypergeometric CI (via
-        :func:`scipy.stats.fisher_exact`).
+        Inference method.  "woolf" uses the asymptotic log-OR standard
+        error and the Wald test; "exact" uses the exact conditional
+        (noncentral hypergeometric) interval and Fisher's exact test.
+        The point estimate ``estimate`` is the sample OR ``ad / (bc)``
+        under both methods (Haldane-corrected under "woolf" when a cell
+        is zero), as Stata ``cc`` / ``cci``.
     alpha : float, default 0.05
 
     Returns
     -------
     OR2x2Result
+        With ``method="exact"``, ``conditional_mle`` also holds the
+        conditional maximum-likelihood OR, the estimate R
+        ``fisher.test`` reports and the one the exact interval is built
+        around.
+
+    Notes
+    -----
+    The exact limits solve the two tail equations of the noncentral
+    hypergeometric distribution to machine precision. R ``fisher.test``
+    and Stata ``cci, exact`` solve the same equations with looser root
+    finders, so their limits differ from these in the fourth or fifth
+    significant digit (R up to 1.2e-3 relative, Stata up to 2.2e-4 on the
+    tables in the tests); R's conditional MLE differs by about 1e-5.
 
     Examples
     --------
@@ -368,6 +418,7 @@ def odds_ratio(
     log_or = np.log(or_point)
     se_log = float(np.sqrt(1 / a_c + 1 / b_c + 1 / c_c + 1 / d_c))
 
+    cmle: Optional[float] = None
     if method == "woolf":
         z = _z_crit(alpha)
         ci = (float(np.exp(log_or - z * se_log)), float(np.exp(log_or + z * se_log)))
@@ -375,7 +426,8 @@ def odds_ratio(
         z_stat = log_or / se_log if se_log > 0 else 0.0
         p = float(2 * stats.norm.sf(abs(z_stat)))
     else:
-        # Fisher's exact returns an unconditional MLE OR and p-value.
+        # Fisher's exact returns the sample (unconditional MLE) OR and the
+        # exact p-value.
         table = np.array([[a, b], [c, d]], dtype=int)
         try:
             res = stats.fisher_exact(table, alternative="two-sided")
@@ -393,6 +445,7 @@ def odds_ratio(
                 obj = _scipy_or(table, kind="conditional")
                 ci_lo, ci_hi = obj.confidence_interval(confidence_level=1 - alpha)
                 ci = (float(ci_lo), float(ci_hi))
+                cmle = float(obj.statistic)
                 or_point = or_exact
             except Exception as exc:
                 from ..core._fallback import warn_fallback
@@ -427,6 +480,7 @@ def odds_ratio(
         c=c,
         d=d,
         method=method,
+        conditional_mle=cmle,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -650,12 +704,25 @@ def attributable_risk(
 ) -> ARResult:
     """Attributable fractions in exposed + in population (Levin 1953).
 
-    Computes:
+    Computes, from the raw counts:
       - AF_exposed = (RR - 1) / RR
-      - PAF = P_e * (RR - 1) / [1 + P_e * (RR - 1)]
+      - PAF = P_e * (RR - 1) / [1 + P_e * (RR - 1)] = (R - R_0) / R
 
-    where P_e is prevalence of exposure.  CI for PAF uses the delta
-    method on log(1 - PAF).
+    where P_e is the proportion exposed, R the overall risk and R_0 the
+    risk among the unexposed (Stata ``cs`` / ``csi``).
+
+    The PAF interval is the delta method on ``log(1 - PAF)`` through the
+    Katz variance of ``log RR``, holding the exposure prevalence fixed.
+    This is Stata ``punaf`` after ``glm y x, family(binomial) link(log)``
+    (the default, conditional ``margins`` variance) and suits a cohort
+    whose exposure groups were sampled separately; under cross-sectional
+    sampling the prevalence is random too and the interval is a little
+    narrow (``margins, vce(unconditional)``).
+
+    The interval needs events in both exposure groups. With ``a = 0`` or
+    ``c = 0`` the point estimates are still the plug-in values (``PAF = 1``
+    when no unexposed case occurred) but ``paf_ci`` is ``(nan, nan)`` with
+    a warning; Stata ``cs`` reports no interval there either.
 
     Examples
     --------
@@ -667,28 +734,58 @@ def attributable_risk(
     (0.3333, 0.5)
     """
     a, b, c, d = _coerce_2x2(a, b, c, d)
-    rr_res = relative_risk(a, b, c, d, alpha=alpha)
-    rr = rr_res.estimate
+    z = _z_crit(alpha)
+    n1 = a + b
+    n0 = c + d
+    if n1 == 0 or n0 == 0:
+        raise DataInsufficient(
+            "Empty exposure row in 2x2 table.",
+            recovery_hint=("Each exposure row must contain at least one observation."),
+            diagnostics={"n_exposed": n1, "n_unexposed": n0},
+        )
+    if a + c == 0:
+        raise DataInsufficient(
+            "No case in the 2x2 table: attributable fractions are undefined.",
+            recovery_hint=(
+                "Attributable fractions need at least one case (a + c > 0)."
+            ),
+            diagnostics={"a": a, "c": c},
+        )
     n_total = a + b + c + d
-    p_exposed = (a + b) / n_total if n_total > 0 else 0.0
-    af_exposed = (rr - 1) / rr if rr > 0 else np.nan
-    numer = p_exposed * (rr - 1)
-    paf = numer / (1 + numer) if (1 + numer) > 0 else np.nan
+    p_exposed = (a + b) / n_total
+    # Plug-in values on the raw counts. Until 1.40.2 a zero anywhere in the
+    # table moved the point estimates to the Haldane-corrected RR (10, 0, 5,
+    # 5 gave PAF 0.3125 for the true 1/3).
+    if c > 0:
+        rr = (a / n1) / (c / n0)
+        af_exposed = (rr - 1) / rr if rr > 0 else float("-inf")
+        numer = p_exposed * (rr - 1)
+        paf = numer / (1 + numer)
+    else:
+        # No unexposed case: RR is infinite and every case is attributable.
+        rr = float("inf")
+        af_exposed = 1.0
+        numer = float("inf")
+        paf = 1.0
 
-    # Delta-method CI on log(1 - PAF) via log(RR) variance (Greenland 2001)
-    # 1 - PAF = 1 / (1 + P_e*(RR-1))
-    # var[log(1 - PAF)] approximated via var[log(RR)] times the
-    # squared derivative of log(1 - PAF) with respect to log(RR).
-    if rr > 0 and paf < 1:
-        one_minus_paf = 1 - paf
-        # d(log(1-PAF))/d(logRR) = -P_e * RR / (1 + P_e*(RR-1))
+    if a > 0 and c > 0:
+        # Delta method on log(1 - PAF) via the Katz var(log RR):
+        # 1 - PAF = 1 / (1 + P_e (RR - 1)),
+        # d log(1 - PAF) / d log RR = -P_e RR / (1 + P_e (RR - 1)).
+        se_log_rr = float(np.sqrt(1.0 / a - 1.0 / n1 + 1.0 / c - 1.0 / n0))
         d_deriv = -p_exposed * rr / (1 + numer)
-        se_lnq = abs(d_deriv) * rr_res.se_log
-        z = _z_crit(alpha)
+        se_lnq = abs(d_deriv) * se_log_rr
+        one_minus_paf = 1 - paf
         lo = 1 - np.exp(np.log(one_minus_paf) + z * se_lnq)
         hi = 1 - np.exp(np.log(one_minus_paf) - z * se_lnq)
         paf_ci = (float(lo), float(hi))
     else:
+        warnings.warn(
+            "attributable_risk: no interval for the PAF without events in "
+            f"both exposure groups (a={a:g}, c={c:g}); paf_ci is (nan, nan).",
+            UserWarning,
+            stacklevel=2,
+        )
         paf_ci = (float("nan"), float("nan"))
 
     return ARResult(
@@ -919,6 +1016,14 @@ def number_needed_to_treat(
     negative RD -> NNT-Benefit (treatment reduces risk);
     positive RD -> NNT-Harm.
 
+    When the RD interval ``(L, U)`` excludes zero, ``ci`` is
+    ``(1/|U|, 1/|L|)`` sorted, matching R ``epiR::epi.2by2``. When it
+    includes zero the set of compatible NNTs is disjoint: ``1/|L|`` or more
+    on one side and ``1/U`` or more on the other, reported by Altman
+    (1998) as "NNTB 1/|L| to infinity to NNTH 1/U". ``ci_disjoint`` is then
+    True, ``ci_signed`` is ``(1/L, 1/U)`` (epiR's pair) and ``ci`` is the
+    interval for the magnitude, ``(1 / max(|L|, U), inf)``.
+
     Examples
     --------
     >>> import statspai as sp
@@ -927,32 +1032,49 @@ def number_needed_to_treat(
     5.0
     >>> round(res.risk_difference, 3)  # treated arm has lower risk
     -0.2
+
+    References
+    ----------
+    Altman, D. G. (1998). Confidence intervals for the number needed to
+    treat. BMJ 317(7168), 1309-1312. doi:10.1136/bmj.317.7168.1309
     """
     rd_res = risk_difference(a, b, c, d, alpha=alpha, method="wald")
     rd = rd_res.estimate
-    if abs(rd) < 1e-12:
-        return NNTResult(
-            estimate=float("inf"),
-            ci=(float("inf"), float("inf")),
-            risk_difference=float(rd),
-        )
+    lo, hi = (float(v) for v in rd_res.ci)
 
-    # If CI crosses zero, NNT CI is a union of two half-lines.  Report
-    # as (infinity, finite) with a signal via the result summary.
-    lo, hi = rd_res.ci
-    nnt = 1 / abs(rd)
-    if lo < 0 < hi:
-        # Spans both benefit and harm
+    def _recip(x: float, side: float) -> float:
+        # 1/x with a limit of exactly zero sent to the infinity on ``side``.
+        if x == 0:
+            return float("inf") if side > 0 else float("-inf")
+        return 1.0 / x
+
+    nnt = 1 / abs(rd) if abs(rd) >= 1e-12 else float("inf")
+    if lo == 0 and hi == 0:
+        # Zero-variance table with RD = 0: no finite NNT is compatible.
         ci = (float("inf"), float("inf"))
+        ci_signed = (float("inf"), float("inf"))
+        disjoint = False
+    elif lo < 0 < hi:
+        # Spans both benefit and harm (Altman 1998): the compatible
+        # |NNT| run from 1/max(|L|, U) to infinity.
+        ci = (1.0 / max(abs(lo), hi), float("inf"))
+        ci_signed = (1.0 / lo, 1.0 / hi)
+        disjoint = True
+    elif hi <= 0:
+        # Benefit side; a limit at exactly 0 means NNT up to infinity
+        # (until 1.40.2 it raised ZeroDivisionError).
+        ci_signed = (_recip(hi, -1.0), _recip(lo, -1.0))
+        ci = (abs(ci_signed[1]), abs(ci_signed[0]))
+        disjoint = False
     else:
-        # NNT is 1/|RD|.  The CI bound *closer to zero* on the RD
-        # scale gives the *larger* NNT (treatment less certainly
-        # effective).  We therefore sort by NNT magnitude directly.
-        nnt_endpoints = (1 / abs(hi), 1 / abs(lo))
-        ci = (min(nnt_endpoints), max(nnt_endpoints))
+        ci_signed = (_recip(hi, 1.0), _recip(lo, 1.0))
+        ci = (ci_signed[0], ci_signed[1])
+        disjoint = False
 
     return NNTResult(
         estimate=float(nnt),
         ci=(float(ci[0]), float(ci[1])),
         risk_difference=float(rd),
+        ci_signed=(float(ci_signed[0]), float(ci_signed[1])),
+        ci_disjoint=disjoint,
     )
