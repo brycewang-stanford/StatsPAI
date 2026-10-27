@@ -66,6 +66,15 @@ class DDCResult(ResultProtocolMixin):
         iterations for NPL).
     vce : str
     diagnostics : dict
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.dgp_ddc(n_units=100, n_periods=60, seed=0)
+    >>> fit = sp.ddc(df, "replace", "mileage", id="bus", time="t",
+    ...              beta=0.95, n_states=90)
+    >>> type(fit).__name__
+    'DDCResult'
     """
 
     _citation_keys = ("rust1987optimal",)

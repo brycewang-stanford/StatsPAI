@@ -89,6 +89,18 @@ class SemiparametricBayesResult(BayesRegressResult):
     ``delta:<name>``. ``diagnostics_info['comparison']`` sets the
     augmented posterior of the parameters of interest beside the baseline
     posterior and the semiparametrically efficient estimator.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({"x": rng.normal(size=200)})
+    >>> df["y"] = 1 + df["x"] + rng.standard_t(4, size=200)
+    >>> fit = sp.semiparametric_bayes("y ~ x", df, draws=300, burnin=150,
+    ...                               seed=1, baseline=False)
+    >>> type(fit).__name__
+    'SemiparametricBayesResult'
     """
 
     _citation_keys = ("mueller2026locally", "rao2016data")

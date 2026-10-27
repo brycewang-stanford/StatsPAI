@@ -33,6 +33,20 @@ class PositiveCorrelationResult(ResultProtocolMixin):
     pvalue_greater : float
         One-sided p-value against positive correlation (the conditional
         correlation property predicted by asymmetric information).
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.normal(size=1000)
+    >>> df = pd.DataFrame({"x": x,
+    ...                    "cover": (x + rng.normal(size=1000) > 0).astype(int),
+    ...                    "claim": (x + rng.normal(size=1000) > 0).astype(int)})
+    >>> res = sp.positive_correlation_test(df, "cover", "claim", ["x"],
+    ...                                    method="residuals")
+    >>> type(res).__name__
+    'PositiveCorrelationResult'
     """
 
     _citation_keys: ClassVar[Tuple[str, ...]] = ("chiappori2000testing",)
@@ -110,6 +124,20 @@ class EFCWelfareResult(ResultProtocolMixin):
     curves : dict
         Intercepts and slopes of demand ``D(p)``, average cost ``AC(p)``
         and marginal cost ``MC(p)``, all linear in price.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> p = rng.choice([2.0, 3.0, 4.0, 5.0], size=2000)
+    >>> risk = rng.uniform(0, 10, size=2000)
+    >>> buy = (risk > p + rng.normal(0, 1, 2000)).astype(int)
+    >>> cost = np.where(buy == 1, 0.6 * risk + rng.normal(0, 1, 2000), np.nan)
+    >>> res = sp.efc_welfare(pd.DataFrame({"p": p, "buy": buy, "cost": cost}),
+    ...                      "p", "buy", "cost")
+    >>> type(res).__name__
+    'EFCWelfareResult'
     """
 
     _citation_keys: ClassVar[Tuple[str, ...]] = ("einav2010estimating",)
@@ -207,6 +235,15 @@ class PooledPriceRatioResult(ResultProtocolMixin):
     no_trade : bool or None
         With ``markup`` given, whether ``t(r) >= markup`` at every point of
         the support below one (Hendren's no-trade condition).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> risk = np.random.default_rng(0).beta(2, 30, size=2000)
+    >>> res = sp.pooled_price_ratio(risk)
+    >>> type(res).__name__
+    'PooledPriceRatioResult'
     """
 
     _citation_keys: ClassVar[Tuple[str, ...]] = ("hendren2013private",)
