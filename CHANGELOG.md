@@ -465,6 +465,64 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   their credit, the average over all orderings of the tie, as
   `sklearn.metrics.ndcg_score`: 0.742 there. Scores without ties are
   unchanged and still equal `farr::ndcg`.
+- `sp.cross_validate(weights=)` validated the weight column and then fitted
+  every engine unweighted, so the verdict was AGREE on a model nobody asked
+  for (slope 0.788 against the weighted 1.104). The statspai, pyfixest,
+  linearmodels, R fixest and Stata engines now fit the weighted model;
+  engines that cannot (DoubleML, R did, the statspai DML and DiD paths)
+  are reported as skipped. Other fixes in the same module. The statspai
+  engine dropped the fixed effects of `y ~ x | fe | d ~ z` (0.434 against
+  0.733 in pyfixest and fixest, reported as DISAGREE). Estimand `"ols"`
+  with a `| fe` block fitted pooled OLS in the statspai and linearmodels
+  engines; it is now `"feols"`. The DoubleML engine fitted the partially
+  linear model whatever `model=` said, so an IRM ATE was compared with a
+  PLR coefficient; `model='irm'` now runs `DoubleMLIRM` and other models
+  are skipped. linearmodels clustered on the first of several cluster
+  variables under a multiway label; it now skips multiway clustering. The
+  Stata engine wrote no `vce()` and no weights, read the CSV as floats and
+  wrote results with `%10.0g`; it now writes `vce(robust)` /
+  `vce(cluster ...)`, `[aweight=]`, `small` for `ivregress`, reads doubles
+  and writes `%21.0g`. The generated do-file reproduces the statspai engine
+  to 1e-15 in Stata 18 (weighted robust OLS, clustered 2SLS, reghdfe).
+- `sp.iv(absorb=)` charged the absorbed fixed effects to the SEs but kept
+  the t statistics and p-values of the unscaled SEs, and left
+  `data_info['var_cov']` unscaled. On a 60-row design the t of `d` was
+  0.861 with p = 0.393 where coef / SE is 0.734 and fixest gives
+  p = 0.467. Coefficients, SEs and intervals are unchanged.
+- `sp.rlasso_effect` (partialling out), `sp.rlasso_effects` and
+  `sp.rlasso_iv(select_Z=False, select_X=True)` accepted `vce='robust'` and
+  returned hdm's homoskedastic SE (0.167 where the robust SE is 0.252 on a
+  heteroskedastic design). A new `robust=` argument (set by
+  `vce='robust'` / `vce='iid'`) gives the robust or classical variance on
+  every path; the defaults stay those of hdm.
+- `sp.rlasso` and everything built on it (`rlasso_effect`, `rlasso_iv`,
+  `rlassologit`, the DML learners) took a missing value in one column of
+  `X` as "nothing selected": `rlasso_effect` then dropped every control
+  without a word. Missing or infinite values now raise `DataInsufficient`.
+- `sp.power_two_proportions`, `sp.power_logrank` and `sp.power_case_control`
+  read every `alternative` other than `"two-sided"` as one-sided, so R's
+  `"two.sided"` gave one-sided power (0.923 against 0.866). Two-sided and
+  one-sided spellings are recognised; anything else raises.
+- `sp.power(..., power=)` solving for the sample size never returned less
+  than 11: a cluster RCT that needs 3 clusters (power 0.858 at 3, 0.697 at
+  2) came back as 11. `sp.mde` searched on an absolute scale, so
+  `sigma=1000` raised and `sigma=1e-4` kept two digits (5.6e-05 against
+  5.60318e-05). The search is now on the scale of `sigma`; with
+  `sigma` other than 1 the MDE can move in the sixth significant digit.
+- `sp.cluster_staggered_rollout` counted event time in calendar units, so
+  periods coded 2000, 2002, ... lost every cohort ("Could not estimate any
+  event-time ATTs") and a single gap dropped the cohorts next to it. Event
+  time is now counted in observed periods (identical on consecutive
+  integers). A NaN `first_treat`, the documented never-treated code, was
+  dropped with its rows: with 5 of 10 controls coded NaN the ATT was 1.666
+  against 1.529.
+- `sp.peer_effects` returned a minimum-norm estimate with a small SE when
+  the instruments cannot identify the peer effect (complete groups of equal
+  size, the reflection problem): 0.673 (SE 0.029) for a true 0.3. It now
+  raises `IdentificationFailure`.
+- `sp.network_hte` reported `sigma^2 (X'X)^{-1}` for the orthogonal-score
+  regression; the SEs are now the sandwich (HC0), equal to statsmodels
+  `cov_type='HC0'` on the same residuals.
 
 ### Fixed
 
@@ -629,6 +687,14 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   Stata solve them more loosely and differ by up to 1.2e-3 and 2.2e-4.
 - `sp.epi.bradford_hill` reads `None` in the `evidence` dict as "not
   assessed", as for the keyword form; it raised TypeError.
+- `sp.regress` (and the other estimators built on the shared formula
+  parser) dropped a fixed-effect block `| fe` or an IV block `(d ~ z)` when
+  patsy could not read the formula: `sp.regress("y ~ d + x | fe")` fitted
+  pooled OLS (2.63 against the within estimate 0.71) and
+  `"y ~ x + (d ~ z)"` left `d` out. Both now raise `MethodIncompatibility`
+  pointing to `sp.feols` / `sp.iv`.
+- `sp.network_hte` summary named the method after the wrong authors; it
+  now cites Wu & Yuan (2025), as the docstring and `paper.bib` do.
 
 ### Added
 

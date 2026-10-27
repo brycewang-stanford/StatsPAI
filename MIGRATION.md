@@ -5,6 +5,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → next: ⚠️ power, rlasso, cross_validate and interference (option scan round 5)
+
+- `sp.cross_validate(weights=)`: engines now fit the weighted model; DoubleML
+  and the DiD engines are skipped. A cross-check that said AGREE before was
+  comparing unweighted fits. With `"y ~ x | fe | d ~ z"` the statspai engine
+  now absorbs the fixed effects; estimand `"ols"` with a `| fe` block is
+  read as `"feols"`. The DoubleML engine follows `model=` (`'irm'` runs
+  `DoubleMLIRM`; other models are skipped). linearmodels skips multiway
+  clustering. The Stata engine passes `vce()`, weights and `small`.
+- `sp.iv(absorb=)`: t statistics and p-values now match the reported SEs;
+  coefficients, SEs and intervals are unchanged.
+- `sp.rlasso_effect` / `sp.rlasso_effects` / `sp.rlasso_iv`: `vce='robust'`
+  now gives a robust SE on every path (it was ignored for partialling out
+  and for `select_X` only). Defaults are unchanged. New `robust=` argument.
+- `sp.rlasso` family: missing or infinite values raise `DataInsufficient`
+  instead of selecting nothing.
+- `sp.power_two_proportions` / `sp.power_logrank` / `sp.power_case_control`:
+  `alternative` must be a two-sided or one-sided spelling. `"two.sided"`
+  and `"two_sided"` are now two-sided (they were one-sided); `"greater"` /
+  `"less"` raise, use `"one-sided"`.
+- `sp.power(..., power=)` can return fewer than 11 units. `sp.mde` with
+  `sigma` other than 1 can move in the sixth significant digit, and works
+  for large `sigma`.
+- `sp.cluster_staggered_rollout`: event time is counted in observed
+  periods; NaN `first_treat` is never-treated. Results on consecutive
+  integer periods with 0-coded controls are unchanged.
+- `sp.peer_effects` raises `IdentificationFailure` in designs where the peer
+  effect is not identified.
+- `sp.network_hte`: SEs are HC0 sandwich SEs; point estimates unchanged.
+- `sp.regress` and the other formula estimators raise on a `| fe` or
+  `(d ~ z)` block they cannot fit, instead of dropping it.
+
+---
+
 ## 1.40.2 → next: ⚠️ attributable fractions, NNT intervals, NDCG ties, MR-BMA limits
 
 - `sp.epi.attributable_risk` on a table with a zero cell: `rr`,
