@@ -16,8 +16,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
+from ...exceptions import MethodIncompatibility
+from ._common import as_float_arrays, harmonize_signs, require_valid_summary
 
 __all__ = ["MRClustResult", "mr_clust"]
 
@@ -241,10 +242,16 @@ def mr_clust(
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
+    require_valid_summary(
+        bx, by, sx, sy, function="sp.mr_clust", positive_sx=False, nonzero_bx=True
+    )
     bx, by = harmonize_signs(bx, by)
 
     if K_range[0] < 1 or K_range[1] < K_range[0]:
-        raise ValueError(f"invalid K_range {K_range}")
+        raise MethodIncompatibility(
+            f"invalid K_range {K_range}",
+            recovery_hint="Pass (K_min, K_max) with 1 <= K_min <= K_max.",
+        )
 
     r = by / bx
     tau = sy / np.abs(bx)  # first-order Wald SE

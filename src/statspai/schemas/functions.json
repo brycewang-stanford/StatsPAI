@@ -16153,7 +16153,7 @@
         },
         "method": {
           "default": "woolf",
-          "description": "CI method",
+          "description": "Inference method: 'woolf' (log-OR Wald) or 'exact' (exact conditional interval, Fisher test). The estimate is the sample OR under both, as Stata cci; 'exact' also returns conditional_mle (R fisher.test).",
           "enum": [
             "woolf",
             "exact"
@@ -24554,7 +24554,7 @@
           "type": "array"
         },
         "max_model_size": {
-          "description": "Maximum number of exposures in any one model (Zuber et al.'s ``kmax``). Defaults to ``len(exposures)``.",
+          "description": "Largest model size (Zuber et al.'s kmax), 1 to the number of exposures; None for all. The exhaustive search is refused beyond 16,383 models, so with more than 14 exposures cap the model size.",
           "type": "integer"
         },
         "method": {

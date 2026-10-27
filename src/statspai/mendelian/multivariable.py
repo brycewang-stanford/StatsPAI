@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
+from math import comb
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -30,7 +31,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 __all__ = [
     "mr_multivariable",
@@ -584,6 +585,9 @@ def mr_mediation(
 # 3) MR-BMA (Zuber et al. 2020)
 # -------------------------------------------------------------------------
 
+# Exhaustive-search ceiling: every subset of 14 exposures (2^14 - 1 models).
+_MR_BMA_MAX_MODELS = 2**14 - 1
+
 
 @accepts_aliases(y="outcome")
 def mr_bma(
@@ -605,7 +609,10 @@ def mr_bma(
     outcome, outcome_se, exposures : see :func:`mr_multivariable`
     max_model_size : int, optional
         Maximum number of exposures in any one model (Zuber et al.'s
-        ``kmax``). Defaults to ``len(exposures)``.
+        ``kmax``), an integer from 1 to ``len(exposures)``. Defaults to
+        ``len(exposures)``. The search is exhaustive over the models of
+        size up to this cap and is refused beyond 16,383 models (all
+        subsets of 14 exposures); with more exposures, cap the model size.
     prior_inclusion : float, default 0.5
         Prior probability that each exposure is in the true causal model
         (``prior_prob``); a model of size ``s`` has prior
@@ -673,13 +680,20 @@ def mr_bma(
     Nature Communications 11, 29. [@zuber2020selecting]
     """
     if method not in ("bf", "bic"):
-        raise MethodIncompatibility(f"method must be 'bf' or 'bic'; got {method!r}")
+        raise MethodIncompatibility(
+            f"method must be 'bf' or 'bic'; got {method!r}",
+            recovery_hint="Use method='bf' (Zuber et al.) or method='bic'.",
+        )
     if not 0 < prior_inclusion < 1:
         raise MethodIncompatibility(
-            f"prior_inclusion must be in (0, 1); got {prior_inclusion}"
+            f"prior_inclusion must be in (0, 1); got {prior_inclusion}",
+            recovery_hint="Pass a prior inclusion probability such as 0.5.",
         )
     if not prior_sd > 0:
-        raise MethodIncompatibility(f"prior_sd must be positive; got {prior_sd}")
+        raise MethodIncompatibility(
+            f"prior_sd must be positive; got {prior_sd}",
+            recovery_hint="Pass a positive prior standard deviation such as 0.5.",
+        )
     if exposures is None:
         exposures = [
             c
@@ -689,14 +703,49 @@ def mr_bma(
     exposures = list(exposures)
     k = len(exposures)
     if k < 2:
-        raise ValueError("MR-BMA requires >= 2 exposures.")
-    if k > 14:
-        raise ValueError(
-            f"MR-BMA exhaustive search limited to 14 exposures (got {k}). "
-            "Use max_model_size to cap subset size."
+        raise MethodIncompatibility(
+            "MR-BMA requires >= 2 exposures.",
+            recovery_hint="Use sp.mr_ivw for a single exposure.",
+            diagnostics={"exposures": exposures},
+        )
+    if len(set(exposures)) < k:
+        dup = sorted({e for e in exposures if exposures.count(e) > 1})
+        raise MethodIncompatibility(
+            f"MR-BMA: exposure(s) {dup} listed more than once.",
+            recovery_hint="List each exposure column once.",
+            diagnostics={"duplicates": dup},
         )
     if max_model_size is None:
         max_model_size = k
+    elif (
+        isinstance(max_model_size, (bool, np.bool_))
+        or not isinstance(max_model_size, (int, np.integer))
+        or not 1 <= max_model_size <= k
+    ):
+        # Until 1.40.2 0 or a negative cap fitted no model (RuntimeError),
+        # and a cap above k was silently read as k.
+        raise MethodIncompatibility(
+            f"max_model_size must be an integer from 1 to {k}; "
+            f"got {max_model_size!r}.",
+            recovery_hint=f"Pass an integer between 1 and {k}, or None for all.",
+            diagnostics={"max_model_size": repr(max_model_size), "k": k},
+        )
+    max_model_size = int(max_model_size)
+    # The cap is on the number of models enumerated, not on k: until 1.40.2
+    # more than 14 exposures were refused even with a small max_model_size,
+    # although the message said to use it.
+    n_models = sum(comb(k, s_) for s_ in range(1, max_model_size + 1))
+    if n_models > _MR_BMA_MAX_MODELS:
+        raise MethodIncompatibility(
+            f"MR-BMA exhaustive search over {n_models} models (k={k}, "
+            f"max_model_size={max_model_size}) exceeds the limit of "
+            f"{_MR_BMA_MAX_MODELS} models.",
+            recovery_hint=(
+                "Lower max_model_size (Zuber et al.'s kmax), or screen the "
+                "exposures first."
+            ),
+            diagnostics={"n_models": n_models, "k": k},
+        )
     check_columns(
         snp_associations,
         {"outcome": outcome, "outcome_se": outcome_se, "exposures": exposures},
@@ -707,10 +756,27 @@ def mr_bma(
     )
     n = len(df)
     if n < k + 5:
-        raise ValueError(f"Need >= {k + 5} SNPs for MR-BMA with k={k}.")
+        raise DataInsufficient(
+            f"Need >= {k + 5} SNPs for MR-BMA with k={k}.",
+            recovery_hint="Add variants or reduce the number of exposures.",
+            diagnostics={"n_snps": n, "k": k},
+        )
     Y = df[outcome].to_numpy(dtype=float)
     se_y = df[outcome_se].to_numpy(dtype=float)
     X_all = df[list(exposures)].to_numpy(dtype=float)
+    if not (np.isfinite(se_y).all() and (se_y > 0).all()):
+        # A zero SE turned every posterior into NaN; a negative one was
+        # silently squared away.
+        raise MethodIncompatibility(
+            f"MR-BMA: {outcome_se!r} must be finite and positive.",
+            recovery_hint="Drop or correct variants with a non-positive SE.",
+            diagnostics={"n_bad": int((~(np.isfinite(se_y) & (se_y > 0))).sum())},
+        )
+    if not (np.isfinite(Y).all() and np.isfinite(X_all).all()):
+        raise MethodIncompatibility(
+            "MR-BMA: outcome and exposure associations must be finite.",
+            recovery_hint="Drop variants with infinite associations.",
+        )
     w = 1.0 / se_y**2
     log_n = float(np.log(n))
     # Zuber et al.: IVW scaling, summary statistics of the scaled regression.
@@ -761,7 +827,10 @@ def mr_bma(
             thetas.append(theta)
 
     if not posterior_scores:
-        raise RuntimeError("MR-BMA: no models could be fit.")
+        raise NumericalInstability(
+            "MR-BMA: no models could be fit.",
+            recovery_hint="Check the exposures for exact collinearity.",
+        )
 
     if method == "bf":
         log_scores = np.array([s_[1] + s_[2] for s_ in posterior_scores]) * np.log(10.0)

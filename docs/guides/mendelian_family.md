@@ -346,8 +346,11 @@ print(res.marginal_inclusion.sort_values(ascending=False))
 print(res.best_models.head(10))
 ```
 
-Uses WLS-BIC as the model score. Exhaustive up to `k ≤ 14`; for
-larger `k` use `max_model_size` to restrict subset size.
+The default score is Zuber et al.'s closed-form Bayes factor
+(`method="bf"`); `method="bic"` keeps the older WLS-BIC weights. The
+search is exhaustive up to 16,383 models (every subset of 14 exposures);
+with more exposures set `max_model_size` so that the models of that size
+or smaller stay under the limit.
 
 Reference: Zuber, Colijn, Klaver & Burgess (2020), *Nature Communications* 11, 29. doi:10.1038/s41467-019-13870-3
 

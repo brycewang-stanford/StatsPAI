@@ -18,8 +18,14 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import stats
 
-from ._common import as_float_arrays, harmonize_signs, mean_f_statistic
 from ..._result_serialize import ResultProtocolMixin
+from ...exceptions import MethodIncompatibility
+from ._common import (
+    as_float_arrays,
+    harmonize_signs,
+    mean_f_statistic,
+    require_valid_summary,
+)
 
 __all__ = ["MRLapResult", "mr_lap"]
 
@@ -183,29 +189,47 @@ def mr_lap(
     bx, by, sx, sy = as_float_arrays(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
+    require_valid_summary(bx, by, sx, sy, function="sp.mr_lap", positive_sx=True)
     bx, by = harmonize_signs(bx, by)
 
     if not 0.0 <= overlap_fraction <= 1.0:
-        raise ValueError(f"overlap_fraction must be in [0, 1]; got {overlap_fraction}")
+        raise MethodIncompatibility(
+            f"overlap_fraction must be in [0, 1]; got {overlap_fraction}",
+            recovery_hint="Pass the share of the outcome sample in the exposure GWAS.",
+        )
     if not -1.0 <= overlap_rho <= 1.0:
-        raise ValueError(f"overlap_rho must be in [-1, 1]; got {overlap_rho}")
+        raise MethodIncompatibility(
+            f"overlap_rho must be in [-1, 1]; got {overlap_rho}",
+            recovery_hint="Pass a correlation, e.g. from LD-score regression.",
+        )
 
     # Naive IVW slope via weighted regression through the origin.
     w = 1.0 / sy**2
     denom = float(np.sum(w * bx**2))
     if denom <= 0:
-        raise ValueError("mr_lap: Σw·βx² is non-positive — check input signs / SEs")
+        raise MethodIncompatibility(
+            "mr_lap: sum(w * bx^2) is zero; every beta_exposure is zero.",
+            recovery_hint="Use variants associated with the exposure.",
+        )
     b_ivw = float(np.sum(w * bx * by) / denom)
     se_ivw = float(np.sqrt(1.0 / denom))
 
     F_mean = mean_f_statistic(bx, sx)
     if F_mean <= 0:
-        raise ValueError("mr_lap: mean F-statistic is non-positive")
+        raise MethodIncompatibility(
+            "mr_lap: mean F-statistic is zero.",
+            recovery_hint="Use variants associated with the exposure.",
+        )
 
     # Burgess-Davies-Thompson 2016 Eq. 8 closed-form bias approximation.
     bias = overlap_fraction * overlap_rho / F_mean
     b_corrected = b_ivw - bias
 
+    if not 0.0 < alpha < 1.0:
+        raise MethodIncompatibility(
+            f"alpha must be in (0, 1); got {alpha}",
+            recovery_hint="Use a significance level such as alpha=0.05.",
+        )
     z_crit = stats.norm.ppf(1 - alpha / 2)
     z = b_corrected / se_ivw
     p_value = 2.0 * stats.norm.sf(abs(z))

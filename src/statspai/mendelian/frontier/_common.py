@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from ...exceptions import MethodIncompatibility
+
 
 def as_float_arrays(*arrays: object) -> list[np.ndarray]:
     """Cast a bundle of inputs to float ndarrays and verify equal length.
@@ -26,6 +28,56 @@ def as_float_arrays(*arrays: object) -> list[np.ndarray]:
     if n < 3:
         raise ValueError(f"MR frontier methods require >= 3 SNPs; got {n}")
     return out
+
+
+def require_valid_summary(
+    bx: np.ndarray,
+    by: np.ndarray,
+    sx: np.ndarray,
+    sy: np.ndarray,
+    *,
+    function: str,
+    positive_sx: bool,
+    nonzero_bx: bool = False,
+) -> None:
+    """Refuse non-finite associations and non-positive standard errors.
+
+    ``positive_sx`` requires ``se_exposure > 0`` (methods that divide by
+    it); otherwise it must only be non-negative.
+    """
+    for name, v in (
+        ("beta_exposure", bx),
+        ("beta_outcome", by),
+        ("se_exposure", sx),
+        ("se_outcome", sy),
+    ):
+        if not np.all(np.isfinite(v)):
+            raise MethodIncompatibility(
+                f"{function}: {name} contains missing or non-finite values.",
+                recovery_hint="Drop the variants with missing summary statistics.",
+                diagnostics={"argument": name, "n_bad": int((~np.isfinite(v)).sum())},
+            )
+    if np.any(sy <= 0):
+        raise MethodIncompatibility(
+            f"{function}: se_outcome must be strictly positive.",
+            recovery_hint="Drop or correct variants with a non-positive SE.",
+            diagnostics={"n_bad": int((sy <= 0).sum())},
+        )
+    bad_sx = (sx <= 0) if positive_sx else (sx < 0)
+    if np.any(bad_sx):
+        rule = "strictly positive" if positive_sx else "non-negative"
+        raise MethodIncompatibility(
+            f"{function}: se_exposure must be {rule}.",
+            recovery_hint="Drop or correct variants with an invalid exposure SE.",
+            diagnostics={"n_bad": int(bad_sx.sum())},
+        )
+    if nonzero_bx and np.any(bx == 0):
+        raise MethodIncompatibility(
+            f"{function}: beta_exposure is zero for some variants, so their "
+            "Wald ratios are undefined.",
+            recovery_hint="Drop variants with no association with the exposure.",
+            diagnostics={"n_zero": int((bx == 0).sum())},
+        )
 
 
 def harmonize_signs(

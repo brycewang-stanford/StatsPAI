@@ -17729,7 +17729,12 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "woolf",
-                    description="CI method",
+                    description=(
+                        "Inference method: 'woolf' (log-OR Wald) or 'exact' "
+                        "(exact conditional interval, Fisher test). The "
+                        "estimate is the sample OR under both, as Stata cci; "
+                        "'exact' also returns conditional_mle (R fisher.test)."
+                    ),
                     enum=["woolf", "exact"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
@@ -23986,7 +23991,16 @@ def _build_registry() -> None:
                 ParamSpec("outcome", "str", False, "beta_y"),
                 ParamSpec("outcome_se", "str", False, "se_y"),
                 ParamSpec("exposures", "list", False),
-                ParamSpec("max_model_size", "int", False, None),
+                ParamSpec(
+                    "max_model_size",
+                    "int",
+                    False,
+                    None,
+                    "Largest model size (Zuber et al.'s kmax), 1 to the number "
+                    "of exposures; None for all. The exhaustive search is "
+                    "refused beyond 16,383 models, so with more than 14 "
+                    "exposures cap the model size.",
+                ),
                 ParamSpec(
                     "method",
                     "str",
