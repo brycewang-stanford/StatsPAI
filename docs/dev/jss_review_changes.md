@@ -5750,6 +5750,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-27 — release 1.41.0
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `029ebdde6` (release).
+- **Reason.** Version strings in the parity tables and the fixture lock.
+  No result file changes; the trace ledgers are current.
+- **Effect on the paper.** None; no number changes. The paper stays
+  anchored at v1.40.2.
+- **Paths.**
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/parity_table.tex`
+  - `tests/r_parity/results/parity_table_3way.tex`
+
 ### 2026-10-27 — Track C re-timed on 1.40.2 (JSS re-anchor); manifest re-hashed
 
 The freeze is inactive (not submitted). The manifest
