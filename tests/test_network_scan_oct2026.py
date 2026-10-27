@@ -213,3 +213,23 @@ def test_ergm_attribute_frame_with_unknown_labels_raises():
     bad = att.set_axis([f"m{i}" for i in range(A.shape[0])])
     with pytest.raises(ValueError):
         sp.ergm(g, terms=["edges", "nodematch:grp"], node_attrs=bad)
+
+
+def test_community_detection_warns_on_asymmetric_directed_graph():
+    import warnings
+
+    A = np.array(
+        [
+            [0, 1, 1, 0],
+            [0, 0, 1, 0],
+            [0, 0, 0, 1],
+            [1, 0, 0, 0],
+        ]
+    )
+    g = sp.network_graph(A, directed=True)
+    with pytest.warns(sp.exceptions.AssumptionWarning, match="directed graph"):
+        sp.community_detection(g, method="greedy")
+    sym = A + A.T
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", sp.exceptions.AssumptionWarning)
+        sp.community_detection(sp.network_graph(sym, directed=False), method="greedy")

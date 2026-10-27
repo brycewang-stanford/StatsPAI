@@ -17706,7 +17706,8 @@ def _build_registry() -> None:
             category="epi",
             description=(
                 "Odds ratio from a 2x2 table with Woolf (asymptotic) or "
-                "Fisher-exact CI. Haldane-Anscombe correction for zero cells."
+                "Fisher-exact CI. Plain ratio with zero cells (Stata cci); "
+                "Haldane correction on request."
             ),
             params=[
                 ParamSpec(
@@ -17738,6 +17739,18 @@ def _build_registry() -> None:
                     enum=["woolf", "exact"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "correction",
+                    "str | None",
+                    False,
+                    None,
+                    description=(
+                        "method='woolf' only. None: plain ratio on the raw "
+                        "counts, as Stata cci (0 or inf with a zero cell, "
+                        "interval NaN). 'haldane': add 0.5 to every cell "
+                        "when one is zero."
+                    ),
+                ),
             ],
             returns="OR2x2Result",
             example="sp.epi.odds_ratio(50, 20, 30, 40)",

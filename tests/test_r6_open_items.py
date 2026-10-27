@@ -560,3 +560,38 @@ def test_ipcw_accepts_bool_and_float_binary_events():
     )
     np.testing.assert_array_equal(base.weights, as_bool.weights)
     np.testing.assert_array_equal(base.weights, as_float.weights)
+
+
+# --- coordinator follow-up: odds_ratio zero cells and epi CI labels -------
+
+
+def test_odds_ratio_zero_cell_plain_ratio_as_stata_cci():
+    # Stata 18: `cci 0 20 80 80, woolf` -> r(or) = 0, no interval;
+    # `cci 10 0 5 5, woolf` -> r(or) = . (division by zero), no interval.
+    # cci's layout is cases/controls x exposed/unexposed, so the first table
+    # is a=0 exposed cases, b=80 exposed non-cases, c=20, d=80 here.
+    with pytest.warns(UserWarning, match="zero cell"):
+        r0 = sp.epi.odds_ratio(0, 80, 20, 80)
+    assert r0.estimate == 0.0
+    assert all(np.isnan(v) for v in r0.ci) and np.isnan(r0.p_value)
+    with pytest.warns(UserWarning, match="zero cell"):
+        rinf = sp.epi.odds_ratio(10, 5, 0, 5)
+    assert rinf.estimate == np.inf
+
+
+def test_odds_ratio_without_zero_cell_unchanged_by_correction():
+    a = sp.epi.odds_ratio(50, 20, 30, 40)
+    b = sp.epi.odds_ratio(50, 20, 30, 40, correction="haldane")
+    assert a.estimate == b.estimate and a.ci == b.ci and a.p_value == b.p_value
+
+
+def test_odds_ratio_rejects_unknown_correction():
+    with pytest.raises(sp.exceptions.MethodIncompatibility):
+        sp.epi.odds_ratio(50, 20, 30, 40, correction="yates")
+
+
+def test_epi_summaries_label_the_requested_level():
+    assert "90% CI" in sp.epi.odds_ratio(50, 20, 30, 40, alpha=0.10).summary()
+    assert "90% CI" in sp.epi.relative_risk(40, 60, 20, 80, alpha=0.10).summary()
+    assert "99% CI" in sp.epi.risk_difference(40, 60, 20, 80, alpha=0.01).summary()
+    assert "95% CI" in sp.epi.odds_ratio(50, 20, 30, 40).summary()

@@ -35108,7 +35108,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Haldane-Anscombe correction for zero cells. Validation: certified parity evidence.",
+    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Plain ratio with zero cells (Stata cci); Haldane correction on request. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -35174,13 +35174,14 @@
         "conditional_mle": "Optional[float]",
         "d": "float",
         "estimate": "float",
+        "level": "float",
         "method": "str",
         "p_value": "float",
         "se_log": "float"
       }
     },
     "signature": {
-      "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Haldane-Anscombe correction for zero cells. Validation: certified parity evidence.",
+      "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Plain ratio with zero cells (Stata cci); Haldane correction on request. Validation: certified parity evidence.",
       "name": "odds_ratio",
       "parameters": {
         "properties": {
@@ -35200,6 +35201,10 @@
           "c": {
             "description": "c (unexposed, outcome+) count",
             "type": "number"
+          },
+          "correction": {
+            "description": "method='woolf' only. None: plain ratio on the raw counts, as Stata cci (0 or inf with a zero cell, interval NaN). 'haldane': add 0.5 to every cell when one is zero.",
+            "type": "string"
           },
           "d": {
             "description": "d (unexposed, outcome-) count",
@@ -35305,6 +35310,7 @@
       "fields": {
         "ci": "tuple[float, float]",
         "estimate": "float",
+        "level": "float",
         "method": "str",
         "p_value": "float",
         "risk_exposed": "float",
@@ -35434,6 +35440,7 @@
       "fields": {
         "ci": "tuple[float, float]",
         "estimate": "float",
+        "level": "float",
         "method": "str",
         "p_value": "float",
         "risk_exposed": "float",
@@ -35567,6 +35574,7 @@
       "description": "ARResult",
       "fields": {
         "ar_exposed": "float",
+        "level": "float",
         "paf": "float",
         "paf_ci": "tuple[float, float]",
         "prevalence_exposed": "float",
@@ -35702,6 +35710,7 @@
         "estimate": "float",
         "events_exposed": "float",
         "events_unexposed": "float",
+        "level": "float",
         "method": "str",
         "p_value": "float",
         "pt_exposed": "float",
@@ -151813,6 +151822,7 @@
         "ci_disjoint": "bool",
         "ci_signed": "tuple[float, float]",
         "estimate": "float",
+        "level": "float",
         "risk_difference": "float"
       }
     },
@@ -151912,6 +151922,7 @@
       "fields": {
         "ci": "tuple[float, float]",
         "estimate": "float",
+        "level": "float",
         "method": "str",
         "p_value": "float",
         "risk_exposed": "float",

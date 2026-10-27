@@ -16126,7 +16126,7 @@
     }
   },
   {
-    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Haldane-Anscombe correction for zero cells. Validation: certified parity evidence.",
+    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Plain ratio with zero cells (Stata cci); Haldane correction on request. Validation: certified parity evidence.",
     "name": "odds_ratio",
     "parameters": {
       "properties": {
@@ -16146,6 +16146,10 @@
         "c": {
           "description": "c (unexposed, outcome+) count",
           "type": "number"
+        },
+        "correction": {
+          "description": "method='woolf' only. None: plain ratio on the raw counts, as Stata cci (0 or inf with a zero cell, interval NaN). 'haldane': add 0.5 to every cell when one is zero.",
+          "type": "string"
         },
         "d": {
           "description": "d (unexposed, outcome-) count",

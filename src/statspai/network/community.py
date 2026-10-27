@@ -25,6 +25,7 @@ algorithm to detect community structures in large-scale networks."
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -32,6 +33,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import AssumptionWarning
 from ._core import as_graph
 
 __all__ = [
@@ -401,6 +403,19 @@ def community_detection(
     """
     g = as_graph(graph)
     A = g.adjacency_matrix() if g.is_weighted else g.binary()
+    if g.is_directed and not np.allclose(A, A.T):
+        # The three algorithms are defined for undirected graphs; igraph
+        # refuses a directed graph for Louvain and greedy.
+        warnings.warn(
+            "community_detection runs undirected algorithms; on this "
+            "directed graph the asymmetric adjacency is used as given, so "
+            "the partition depends on edge direction in no documented way. "
+            "Symmetrise the graph first (for example A + A.T) for a "
+            "well-defined result. The reported modularity is the directed "
+            "(Leicht-Newman) value of the partition found.",
+            AssumptionWarning,
+            stacklevel=2,
+        )
     method = method.lower()
     if method == "louvain":
         rng = np.random.default_rng(seed) if seed is not None else None

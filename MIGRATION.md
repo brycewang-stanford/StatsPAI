@@ -64,6 +64,12 @@ Internal version-to-version migrations are at the top; the long-form
   the estimate is the plain ratio (0 or `inf` with a zero case count, and
   the raw-count Katz interval when only a non-case cell is zero). Pass
   `correction="haldane"` for the 1.41 numbers.
+- `sp.epi.odds_ratio(method="woolf")` with a zero cell: the estimate is the
+  plain ratio (0, `inf`, or NaN for 0/0) with NaN interval and p-value, as
+  Stata `cci, woolf`. Pass `correction="haldane"` for the 1.41 numbers.
+- `summary()` of the `sp.epi` 2x2, IRR, attributable-risk and NNT results
+  labels the interval with the requested level. A new `level` field holds
+  it.
 - `sp.epi.attributable_risk`: `paf_ci` includes the sampling error of the
   exposure prevalence by default. Pass `prevalence="fixed"` for the 1.41
   interval, which is right when the exposure groups were sampled with fixed

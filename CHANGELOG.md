@@ -328,6 +328,15 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   `MethodIncompatibility`, as `sp.bart` and `sp.gp_regress` already did.
   Complete new data give the same numbers as before.
 
+Coordinator follow-ups to the round-6 scan:
+
+- `sp.epi.odds_ratio(method="woolf")` with a zero cell applied the
+  Haldane correction to the point estimate, although its docstring says
+  it reports the sample OR as Stata `cci`. `(0, 10, 5, 20)` gave 0.1774;
+  it now gives 0, with NaN interval and p-value and a warning, as Stata 18
+  `cci, woolf` (`r(or) = 0`, no interval). `correction="haldane"` keeps
+  the old numbers. Same rule as `relative_risk` above.
+
 ### Fixed
 
 - `sp.regtable(eform=[...])`: the decimals of a row depended on column
@@ -448,6 +457,13 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   anything. It used to fit the whole DML model and then raise a bare
   `RuntimeError`, because `sp.dml` does not return the score arrays the
   full posterior needs. `mode='conjugate'` is unaffected.
+- `summary()` of the `sp.epi` 2x2, IRR, attributable-risk and NNT results
+  printed "95% CI" whatever `alpha` was. The label now follows the level,
+  stored in a new `level` field.
+- `sp.community_detection` on a directed graph with an asymmetric
+  adjacency ran the undirected algorithms on it silently. It now warns
+  (`AssumptionWarning`) and suggests symmetrising; igraph refuses such a
+  graph for Louvain and greedy.
 
 ### Added
 

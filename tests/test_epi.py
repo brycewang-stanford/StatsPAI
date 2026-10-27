@@ -37,10 +37,11 @@ def test_odds_ratio_woolf_ci_is_log_symmetric():
 
 
 def test_odds_ratio_haldane_correction_for_zero_cell():
-    # Zero cell must be handled (Haldane add 0.5)
-    r = sp.epi.odds_ratio(0, 10, 5, 20)
-    assert math.isfinite(r.estimate)
+    # Opt-in Haldane: add 0.5 to every cell, finite ratio and interval.
+    r = sp.epi.odds_ratio(0, 10, 5, 20, correction="haldane")
+    assert r.estimate == pytest.approx((0.5 * 20.5) / (10.5 * 5.5), rel=1e-12)
     assert math.isfinite(r.se_log)
+    assert all(math.isfinite(v) for v in r.ci)
 
 
 def test_odds_ratio_exact_method_runs():

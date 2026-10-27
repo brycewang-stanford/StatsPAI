@@ -170,6 +170,11 @@ def _z_crit(alpha: float) -> float:
     return float(stats.norm.ppf(1 - alpha_float / 2))
 
 
+def _ci_label(level: float) -> str:
+    """'95% CI' style label for a confidence level in (0, 1)."""
+    return f"{100 * level:g}% CI"
+
+
 # --------------------------------------------------------------------------- #
 #  Result dataclasses
 # --------------------------------------------------------------------------- #
@@ -192,11 +197,14 @@ class OR2x2Result(ResultProtocolMixin):
     # reports); set for ``method="exact"`` only.
     conditional_mle: Optional[float] = None
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.ci
         text = (
             f"Odds Ratio ({self.method})\n"
-            f"  OR = {self.estimate:.4f}   95% CI [{lo:.4f}, {hi:.4f}]   "
+            f"  OR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
         )
         if self.conditional_mle is not None:
@@ -219,11 +227,14 @@ class RR2x2Result(ResultProtocolMixin):
     risk_unexposed: float
     method: str
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.ci
         return (
             f"Relative Risk ({self.method})\n"
-            f"  RR = {self.estimate:.4f}   95% CI [{lo:.4f}, {hi:.4f}]   "
+            f"  RR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
             f"  Risk (exposed)   = {self.risk_exposed:.4f}\n"
             f"  Risk (unexposed) = {self.risk_unexposed:.4f}"
@@ -242,11 +253,14 @@ class RD2x2Result(ResultProtocolMixin):
     risk_unexposed: float
     method: str
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.ci
         return (
             f"Risk Difference ({self.method})\n"
-            f"  RD = {self.estimate:+.4f}   95% CI [{lo:+.4f}, {hi:+.4f}]   "
+            f"  RD = {self.estimate:+.4f}   {_ci_label(self.level)} [{lo:+.4f}, {hi:+.4f}]   "
             f"p = {self.p_value:.4g}"
         )
 
@@ -262,12 +276,15 @@ class ARResult(ResultProtocolMixin):
     prevalence_exposed: float
     rr: float
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.paf_ci
         return (
             "Attributable Risk\n"
             f"  AF (exposed) = {self.ar_exposed:.4f}\n"
-            f"  PAF (Levin)  = {self.paf:.4f}   95% CI [{lo:.4f}, {hi:.4f}]\n"
+            f"  PAF (Levin)  = {self.paf:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]\n"
             f"  Prevalence exposed = {self.prevalence_exposed:.4f}\n"
             f"  RR = {self.rr:.4f}"
         )
@@ -288,11 +305,14 @@ class IRRResult(ResultProtocolMixin):
     pt_unexposed: float
     method: str
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.ci
         return (
             f"Incidence Rate Ratio ({self.method})\n"
-            f"  IRR = {self.estimate:.4f}   95% CI [{lo:.4f}, {hi:.4f}]   "
+            f"  IRR = {self.estimate:.4f}   {_ci_label(self.level)} [{lo:.4f}, {hi:.4f}]   "
             f"p = {self.p_value:.4g}\n"
             f"  Rate (exposed)   = {self.rate_exposed:.6f}  "
             f"({self.events_exposed:.0f}/{self.pt_exposed:.1f} person-time)\n"
@@ -322,6 +342,9 @@ class NNTResult(ResultProtocolMixin):
     ci_signed: tuple[float, float] = (float("nan"), float("nan"))
     ci_disjoint: bool = False
 
+    # Confidence level of ``ci`` (1 - alpha), used for the summary label.
+    level: float = 0.95
+
     def summary(self) -> str:
         lo, hi = self.ci
         # NNT is reported as NNT-Benefit or NNT-Harm; RD sign drives it.
@@ -329,7 +352,7 @@ class NNTResult(ResultProtocolMixin):
         tag = "NNT Benefit" if self.risk_difference < 0 else "NNT Harm"
         head = f"{tag}\n  NNT = {self.estimate:.2f}"
         if not self.ci_disjoint:
-            return head + f"   95% CI [{lo:.2f}, {hi:.2f}]"
+            return head + f"   {_ci_label(self.level)} [{lo:.2f}, {hi:.2f}]"
         s_lo, s_hi = self.ci_signed
         # s_lo = 1/L <= 0 (benefit side), s_hi = 1/U >= 0 (harm side).
         sides = [("NNTB", abs(s_lo)), ("NNTH", abs(s_hi))]
@@ -337,7 +360,7 @@ class NNTResult(ResultProtocolMixin):
             sides.reverse()
         (t1, v1), (t2, v2) = sides
         return head + (
-            f"   95% CI {t1} {v1:.2f} to infinity to {t2} {v2:.2f}"
+            f"   {_ci_label(self.level)} {t1} {v1:.2f} to infinity to {t2} {v2:.2f}"
             "  (risk-difference interval includes 0)"
         )
 
@@ -355,6 +378,7 @@ def odds_ratio(
     *,
     method: str = "woolf",
     alpha: float = 0.05,
+    correction: Optional[str] = None,
 ) -> OR2x2Result:
     """Odds ratio from a 2x2 table.
 
@@ -373,9 +397,20 @@ def odds_ratio(
         error and the Wald test; "exact" uses the exact conditional
         (noncentral hypergeometric) interval and Fisher's exact test.
         The point estimate ``estimate`` is the sample OR ``ad / (bc)``
-        under both methods (Haldane-corrected under "woolf" when a cell
-        is zero), as Stata ``cc`` / ``cci``.
+        under both methods, as Stata ``cc`` / ``cci``.
     alpha : float, default 0.05
+    correction : {None, "haldane"}, default None
+        Only used by ``method="woolf"``. ``None``: with a zero cell the
+        estimate is the plain ratio (0 or ``inf``; NaN for 0/0) and the
+        Woolf interval and Wald p-value are NaN, with a warning, as Stata
+        ``cci, woolf`` reports no interval there. ``"haldane"``: add 0.5
+        to every cell when any cell is zero and report that ratio and its
+        finite interval.
+
+        .. versionchanged:: 1.42
+           The Haldane correction used to be applied by default, so a
+           zero cell moved the point estimate (``0, 10, 5, 20`` gave
+           0.1774 instead of 0).
 
     Returns
     -------
@@ -412,7 +447,47 @@ def odds_ratio(
             diagnostics={"method": method},
         )
 
-    # Haldane correction for log-OR SE path.
+    if correction not in (None, "haldane"):
+        raise MethodIncompatibility(
+            f"correction must be None or 'haldane', got {correction!r}.",
+            recovery_hint="Omit correction= for the plain ratio (Stata cci) or "
+            "pass correction='haldane' to add 0.5 to every cell when one is "
+            "zero.",
+            diagnostics={"correction": correction},
+        )
+    has_zero = min(a, b, c, d) == 0
+    if method == "woolf" and correction is None and has_zero:
+        # Plain ratio, as Stata cci: log OR is infinite, so there is no
+        # Woolf interval or Wald test.
+        num, den = a * d, b * c
+        if den > 0:
+            or_plain = num / den
+        else:
+            or_plain = float("inf") if num > 0 else float("nan")
+        warnings.warn(
+            "odds_ratio: no Woolf interval or Wald p-value with a zero cell "
+            f"({a:g}, {b:g}, {c:g}, {d:g}); ci and p_value are NaN. Pass "
+            "correction='haldane' for the continuity-corrected ratio and "
+            "interval, or method='exact'.",
+            UserWarning,
+            stacklevel=2,
+        )
+        nan = float("nan")
+        return OR2x2Result(
+            estimate=float(or_plain),
+            se_log=nan,
+            ci=(nan, nan),
+            p_value=nan,
+            a=a,
+            b=b,
+            c=c,
+            d=d,
+            method=method,
+            level=1 - alpha,
+        )
+
+    # Haldane correction for the log-OR SE (the exact path's Woolf fallback
+    # and the reported se_log need a finite value).
     a_c, b_c, c_c, d_c = _haldane_correction(a, b, c, d)
     or_point = (a_c * d_c) / (b_c * c_c)
     log_or = np.log(or_point)
@@ -481,6 +556,7 @@ def odds_ratio(
         d=d,
         method=method,
         conditional_mle=cmle,
+        level=1 - alpha,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -488,7 +564,7 @@ def odds_ratio(
         _attach_prov(
             _result,
             function="sp.epi.odds_ratio",
-            params={"method": method, "alpha": alpha},
+            params={"method": method, "alpha": alpha, "correction": correction},
             data=None,
             overwrite=False,
         )
@@ -582,6 +658,7 @@ def relative_risk(
             risk_exposed=float(a / n1),
             risk_unexposed=float(c / n0),
             method="katz-log",
+            level=1 - alpha,
         )
 
     if correction == "haldane":
@@ -614,6 +691,7 @@ def relative_risk(
         risk_exposed=float(a / n1),
         risk_unexposed=float(c / n0),
         method="katz-log",
+        level=1 - alpha,
     )
 
 
@@ -644,6 +722,7 @@ def prevalence_ratio(*args: Any, **kwargs: Any) -> RR2x2Result:
         risk_exposed=result.risk_exposed,
         risk_unexposed=result.risk_unexposed,
         method="prevalence-ratio",
+        level=result.level,
     )
 
 
@@ -741,6 +820,7 @@ def risk_difference(
         risk_exposed=float(p1),
         risk_unexposed=float(p0),
         method=method,
+        level=1 - alpha,
     )
 
 
@@ -890,6 +970,7 @@ def attributable_risk(
         paf_ci=paf_ci,
         prevalence_exposed=float(p_exposed),
         rr=float(rr),
+        level=1 - alpha,
     )
 
 
@@ -1012,6 +1093,7 @@ def incidence_rate_ratio(
             pt_exposed=pt_exposed,
             pt_unexposed=pt_unexposed,
             method=method,
+            level=1 - alpha,
         )
 
     irr = rate1 / rate0 if rate0 > 0 else np.inf
@@ -1090,6 +1172,7 @@ def incidence_rate_ratio(
         pt_exposed=float(pt_exposed),
         pt_unexposed=float(pt_unexposed),
         method=method,
+        level=1 - alpha,
     )
 
 
@@ -1173,4 +1256,5 @@ def number_needed_to_treat(
         risk_difference=float(rd),
         ci_signed=(float(ci_signed[0]), float(ci_signed[1])),
         ci_disjoint=disjoint,
+        level=1 - alpha,
     )
