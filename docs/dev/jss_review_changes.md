@@ -5871,3 +5871,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-28 — trace ledgers re-recorded for option scan round 7
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `00c1510f5`.
+- **Reason.** Round 7 (agent tool layer, smart / workflow, the round-6 open
+  items and the round-7 open items, rebased onto the AER 116(10) merge)
+  changed files on traced paths: `src/statspai/core/results.py` (one
+  `conf_int` rule across results), `src/statspai/core/_vcov_spec.py`
+  (`vce(...)` wrapper, CRV1 `"f+h"`), `src/statspai/core/_collinear.py`,
+  `src/statspai/regression/count.py`, `src/statspai/regression/logit_probit.py`,
+  `src/statspai/regression/quantile.py`, `src/statspai/fast/inference.py`
+  and `src/statspai/inference/ipw.py`. Every Track A module and every
+  original-data module re-traced. `verify_reproduce_py.py` reports 89
+  reproduce, 0 drift. The twelve original-data scripts, re-run, differ from
+  their committed results only in the last digits (largest relative
+  difference 1.6e-11); those files were restored.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
