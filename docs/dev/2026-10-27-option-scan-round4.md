@@ -255,3 +255,52 @@ collinear column than `regress`; `sp.fast.fepois` default `tol=1e-8`
 fixed at 95%; NOTEARS diagonal; R FrF2 / AlgDesign / tigramite not
 installed, so those references were not run.
 Packages never scanned: `agent`, `smart`, `workflow` (orchestration).
+
+## Round 7 (2026-10-28, coordinator statspai-04)
+
+Four lines (`wt/r7-*`): the orchestration packages `agent/` (tool layer),
+`smart/` and `workflow/`, plus the round-6 open list in two halves. Same
+method; every defect was first a strict xfail test.
+
+- `agent/`: `data_sample_n` / `data_columns` ignored for data handles;
+  `honest_did_from_result(alpha=)` ignored; `max_rejecting_M` read 0.0
+  when nothing rejected; the three pipelines dropped estimator options
+  (`pipeline_rd(cluster=, p=2)` reported the default fit); transform_data
+  `winsor` ignored `by` / `trim`; the `regress` / `ivreg` tool schemas
+  advertised `robust="hc1"` while the call ran nonrobust. Tools now refuse
+  unknown arguments with `did_you_mean`.
+- `smart/` / `workflow/`: `assumption_audit` reported Oster's plug-in delta
+  (always 1.0) instead of delta*; the dashboard's unobservables row never
+  ran; covariates truncated to 5 / 10 / 20 in `compare_estimators` and
+  `recommend` cards; `sp.causal(cluster=)` / `sp.paper(cluster=)` never
+  clustered the estimate; failed comparison methods dropped silently (now
+  `WorkflowDegradedWarning` + `.degradations`; silent-except baseline 155
+  to 149).
+- Round-6 open items closed: `conf_int(alpha)` uses the fit's t / z like
+  `tidy` / `summary`; `sp.ipw` drops collinear propensity covariates;
+  `vce(cluster f)` spelling; `vcov={"CRV1": "f+h"}`; written-order
+  omission in poisson / nbreg; weighted AUC equals Stata `lroc`
+  (0.650319412662090); `boottest(p_val_type=)` and ties at +-t_obs no
+  longer counted (equal to Stata boottest's own draws); `regtable` merges
+  two names mapped to one label; `optimal_design` refuses arguments that
+  cannot matter; `its` / `bayes_its` sort by time; ICP intervals follow
+  `alpha` (equal to R InvariantCausalPrediction); NOTEARS diagonal fixed
+  inside the optimiser; weighted `logit_gof` equals Stata `estat gof`
+  after `[iw=]`; deprecations for `bayes_dml(mode='full')`,
+  `optimal_design(baseline_mean=)`, unused `alpha` in `attrition_bounds` /
+  `balance_check` (removal in 1.43).
+
+Not reproduced: the `sp.fast.fepois` 1.7e-5 gap to fixest reported in
+round 6 (about 120 fits, all within 2e-9); a regression test now pins the
+default tolerance. The boottest p-value was already symmetric; only its
+docstring said equal-tailed, so no default switch is scheduled.
+
+Still open after round 7: weighted logit `classification` / Hosmer-
+Lemeshow unweighted; `winsor` step without `columns` winsorises every
+numeric column (documented); `data_path` with an unknown `data_columns`
+name drops it silently; `sp.paper` on a `CausalQuestion` causal-forest
+branch prints "95% CI"; `compare_estimators` uses normal p values;
+`sp.cbps` default `seed=None`; `optimal_design` only warns for `icc` /
+`cluster_size` outside a cluster design; `ivreg` two spellings of two-way
+clustering differ at 2e-15. Every package has now been scanned at least
+once.
