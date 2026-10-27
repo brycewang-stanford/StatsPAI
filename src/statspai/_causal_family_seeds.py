@@ -321,7 +321,6 @@ CAUSAL_FAMILY_SEEDS: List[Tuple[Dict[str, Any], List[str]]] = [
             "dist_iv",
             "beyond_average_late",
             "qte_hd_panel",
-            "kan_dlate",
         ],
     ),
     (

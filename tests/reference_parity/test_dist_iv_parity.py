@@ -1,4 +1,4 @@
-"""Reference parity / analytical anchors: ``sp.dist_iv``, ``sp.kan_dlate``.
+"""Reference parity / analytical anchors: ``sp.dist_iv``.
 
 Estimand
 --------
@@ -288,14 +288,3 @@ def test_point_estimates_never_silently_nan():
             se="none",
         )
         assert np.isfinite(r.late_q).all(), f"seed {seed}: {r.late_q}"
-
-
-# ── G. kan_dlate deprecation ───────────────────────────────────────── #
-
-
-def test_kan_dlate_is_deprecated_and_matches_dist_iv():
-    df = _late_sample(5, 20_000, "shift")
-    with pytest.warns(DeprecationWarning, match="kan_dlate"):
-        k = sp.kan_dlate(df, y="y", treat="d", instrument="z", quantiles=TAUS)
-    d = sp.dist_iv(df, y="y", treat="d", instrument="z", quantiles=TAUS)
-    assert np.allclose(k.late_q, d.late_q)

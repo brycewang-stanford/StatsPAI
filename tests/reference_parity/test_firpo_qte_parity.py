@@ -351,14 +351,16 @@ def test_analytic_se_coverage():
 # ── G. renamed method + deprecation ────────────────────────────────── #
 
 
-def test_quantile_regression_alias_deprecated_but_identical():
+def test_quantile_regression_name_removed_and_conditional_qr_is_koenker():
     rng = np.random.default_rng(7)
     n = 800
     d = rng.integers(0, 2, n)
     y = 1.0 * d + rng.normal(0, 1, n)
     df = pd.DataFrame({"y": y, "d": d})
-    with pytest.warns(DeprecationWarning, match="conditional_qr"):
-        old = sp.qte(
+    # Deprecated in 1.21, removed in 1.41: the old name now fails and says
+    # which method gives its numbers.
+    with pytest.raises(sp.exceptions.MethodIncompatibility) as ei:
+        sp.qte(
             df,
             y="y",
             treatment="d",
@@ -366,10 +368,10 @@ def test_quantile_regression_alias_deprecated_but_identical():
             quantiles=[0.5],
             n_boot=20,
         )
+    assert "conditional_qr" in ei.value.recovery_hint
     new = sp.qte(
         df, y="y", treatment="d", method="conditional_qr", quantiles=[0.5], n_boot=20
     )
-    np.testing.assert_allclose(old.effects, new.effects)
     assert "Firpo" not in new.method
     assert "Koenker" in new.method
 

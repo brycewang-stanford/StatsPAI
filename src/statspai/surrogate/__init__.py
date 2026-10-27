@@ -30,16 +30,10 @@ Combination." Journal of the Royal Statistical Society Series B,
 87(2), 362-388. arXiv:2202.07234. [@imbens2025long]
 """
 
-from .index import (
-    surrogate_index,
-    long_term_from_short,
-    proximal_surrogate_index,
-    SurrogateResult,
-)
+from .index import long_term_from_short, proximal_surrogate_index, surrogate_index
 
 __all__ = [
     "surrogate_index",
     "long_term_from_short",
     "proximal_surrogate_index",
-    "SurrogateResult",
 ]

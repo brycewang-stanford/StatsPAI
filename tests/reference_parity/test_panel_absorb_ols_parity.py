@@ -119,9 +119,13 @@ def test_matches_reghdfe(spec, kw):
 
 
 def test_default_multiway_factor_is_per_term():
-    per = _fit(
-        weights=D["w"].to_numpy(), cluster=[D["firm"].to_numpy(), D["year"].to_numpy()]
-    )
+    # Until 1.42 the default is 'per_term', with a FutureWarning that it
+    # becomes 'min'; the explicit value gives the same numbers silently.
+    cl = [D["firm"].to_numpy(), D["year"].to_numpy()]
+    with pytest.warns(FutureWarning, match="1.42"):
+        default = _fit(weights=D["w"].to_numpy(), cluster=cl)
+    per = _fit(weights=D["w"].to_numpy(), cluster=cl, cluster_df="per_term")
+    np.testing.assert_array_equal(default["se"], per["se"])
     ref = S["reghdfe_aw_cl_firm_year"]["se"]
     rel = np.abs(per["se"] ** 2 / np.array([ref["x1"], ref["x2"]]) ** 2 - 1.0)
     np.testing.assert_allclose(rel, [1.76e-4, 1.229e-2], rtol=2e-2)
@@ -179,6 +183,7 @@ def test_hdfe_ols_cluster_df_min_matches_reghdfe_two_way():
         _fit(
             weights=D["w"].to_numpy(),
             cluster=[D["firm"].to_numpy(), D["year"].to_numpy()],
+            cluster_df="per_term",
         )["se"],
         rtol=1e-12,
     )

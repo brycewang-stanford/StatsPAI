@@ -1220,7 +1220,6 @@ from .qte.beyond_average import BeyondAverageResult as BeyondAverageResult
 from .qte.beyond_average import beyond_average_late as beyond_average_late
 from .qte.dist_iv import DistIVResult as DistIVResult
 from .qte.dist_iv import dist_iv as dist_iv
-from .qte.dist_iv import kan_dlate as kan_dlate
 from .qte.distributional import DTEResult as DTEResult
 from .qte.distributional import distributional_te as distributional_te
 from .qte.hd_panel import HDPanelQTEResult as HDPanelQTEResult
@@ -1498,7 +1497,6 @@ from .structural.production.op_lp_acf import levinsohn_petrin as levpet
 from .structural.production.op_lp_acf import olley_pakes as olley_pakes
 from .structural.production.op_lp_acf import olley_pakes as opreg
 from .structural.production.wooldridge import wooldridge_prod as wooldridge_prod
-from .surrogate.index import SurrogateResult as SurrogateResult
 from .surrogate.index import long_term_from_short as long_term_from_short
 from .surrogate.index import proximal_surrogate_index as proximal_surrogate_index
 from .surrogate.index import surrogate_index as surrogate_index

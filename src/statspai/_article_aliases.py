@@ -913,7 +913,8 @@ def evalue_rr(
     rr_lower, rr_upper
         Optional confidence-interval bounds on the risk ratio scale.
     rare_outcome
-        Passed through to :func:`evalue` for rare-outcome OR→RR correction.
+        Passed through to :func:`evalue` as ``rare=``. It has no effect on
+        a risk ratio (the flag matters only for odds and hazard ratios).
 
     Returns
     -------
@@ -956,7 +957,7 @@ def evalue_rr(
         estimate=float(rr),
         ci=ci,
         measure="RR",
-        rare_outcome=rare_outcome,
+        rare=rare_outcome,
     )
 
 

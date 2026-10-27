@@ -152,7 +152,6 @@ def evalue(
     sd: Optional[float] = None,
     delta: float = 1.0,
     true: Optional[float] = None,
-    rare_outcome: Optional[bool] = None,
     alpha: float = 0.05,
 ) -> "EValueResult":
     """Compute the E-value for sensitivity to unmeasured confounding.
@@ -189,6 +188,10 @@ def evalue(
         applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the
         default) uses the exact common-outcome conversion to the RR
         scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR).
+
+        .. versionchanged:: 1.41
+            The old spelling ``rare_outcome=`` (deprecated in 1.18) is
+            removed; pass ``rare=``.
     sd : float, optional
         Outcome standard deviation, required for ``measure='OLS'`` to
         standardise the coefficient.
@@ -199,8 +202,6 @@ def evalue(
         Reference value the confounding would have to move the estimate
         to. Defaults to the null: 1 for ratio measures, 0 for difference
         measures. A non-null ``true`` gives a "non-null" E-value.
-    rare_outcome : bool, optional
-        Deprecated alias for ``rare`` (kept for backwards compatibility).
     alpha : float, default 0.05
         Significance level used to build a CI from ``se`` when ``ci`` is
         not supplied (ratio measures).
@@ -237,8 +238,6 @@ def evalue(
                 "valid_measures": sorted(_VALID_MEASURES),
             },
         )
-    if rare is None and rare_outcome is not None:
-        rare = rare_outcome
     rare = _optional_bool(rare, "rare", context)
     if se is not None:
         se = _nonnegative_float(se, "se", context)
@@ -548,7 +547,6 @@ def evalue_from_result(
     result: Any,
     measure: str = "SMD",
     rare: Optional[bool] = None,
-    rare_outcome: Optional[bool] = None,
     true: Optional[float] = None,
     *,
     sd: Optional[float] = None,
@@ -565,7 +563,7 @@ def evalue_from_result(
         as a difference in means on the outcome's scale and divide it
         (with its SE and CI) by ``sd`` before converting to the risk-ratio
         scale; pass ``'RR'`` / ``'OR'`` / ``'HR'`` for ratio estimates.
-    rare, rare_outcome, true :
+    rare, true :
         Passed through to :func:`evalue`.
     sd : float, optional
         Standard deviation of the outcome, required for ``'SMD'`` /
@@ -655,7 +653,6 @@ def evalue_from_result(
         ci=ci,
         measure=measure,
         rare=rare,
-        rare_outcome=rare_outcome,
         true=true,
         alpha=getattr(result, "alpha", 0.05),
     )

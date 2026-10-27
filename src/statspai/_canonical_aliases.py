@@ -67,7 +67,6 @@ FUNCTION_ALIAS_OF: Dict[str, str] = {
     "boundary_rd": "rd2d",
     "multi_score_rd": "rd_multi_score",
     "diagnostic_test": "sensitivity_specificity",
-    "kan_dlate": "dist_iv",
     "nonlinear_icp": "icp",
     "xtdpdsys": "xtabond",
     "synthdid_estimate": "sdid",

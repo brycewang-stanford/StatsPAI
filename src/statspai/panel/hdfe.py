@@ -1096,7 +1096,7 @@ def absorb_ols(
     return_absorber: bool = False,
     solver: str = "map",
     slopes: Optional[Sequence[SlopeSpec]] = None,
-    cluster_df: str = "per_term",
+    cluster_df: Optional[str] = None,
     collinear_tol: Optional[float] = None,
     absorb_dof: str = "reghdfe",
 ) -> dict:
@@ -1137,14 +1137,20 @@ def absorb_ols(
         every absorbed level, which is the dummy-variable regression and
         Stata's ``areg``. The two agree without clustering and whenever no
         effect is nested in a cluster.
-    cluster_df : {"per_term", "min"}, default "per_term"
+    cluster_df : {"per_term", "min"}, optional
         Small-sample factor of the multi-way (inclusion-exclusion) cluster
         variance.  ``"per_term"`` scales each term by its own
         ``G_S/(G_S − 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`);
         ``"min"`` scales every term by ``G_min/(G_min − 1)`` with ``G_min`` the
         smallest one-way cluster count -- Stata ``reghdfe``'s convention (and
         ``fixest``'s ``cluster.df = "min"``).  Identical for one-way
-        clustering.
+        clustering.  ``None`` (the default) is ``"per_term"`` for now; with
+        multi-way clustering it emits a ``FutureWarning``, because the default
+        becomes ``"min"`` in 1.42 (``sp.hdfe_ols`` made that switch in 1.41).
+        Pass the value explicitly to keep a result and silence the warning.
+
+        .. deprecated:: 1.41
+            The implicit ``"per_term"`` default for multi-way clustering.
 
     Returns
     -------
@@ -1188,9 +1194,22 @@ def absorb_ols(
     n, p = X.shape
     if y.shape[0] != n:
         raise ValueError("y and X length mismatch.")  # pragma: no cover
+    if cluster_df is None:
+        if isinstance(cluster, list) and len(cluster) > 1:
+            warnings.warn(
+                "sp.absorb_ols: with multi-way clustering the default "
+                "cluster_df='per_term' becomes 'min' (reghdfe / fixest, and "
+                "sp.hdfe_ols since 1.41) in 1.42. Pass cluster_df='per_term' "
+                "to keep these standard errors or cluster_df='min' for the "
+                "new ones. See MIGRATION.md.",
+                FutureWarning,
+                stacklevel=2,
+            )
+        cluster_df = "per_term"
     if cluster_df not in ("per_term", "min"):
         raise MethodIncompatibility(
-            f"cluster_df must be 'per_term' or 'min'; got {cluster_df!r}."
+            f"cluster_df must be 'per_term' or 'min'; got {cluster_df!r}.",
+            recovery_hint="Pass cluster_df='per_term' or cluster_df='min'.",
         )
 
     ab = Absorber(

@@ -36888,11 +36888,7 @@ _FULL_REGISTRY_BUILT = False
 # Public value objects that are exported for construction, serialization, and
 # static typing but are not statistical functions.  Keep these out of the
 # agent function catalog and parity denominator.
-# ``SurrogateResult`` is a deprecated container no function returns; it is
-# exported for backward compatibility only, so it is not offered to agents.
-_NON_FUNCTION_PUBLIC_EXPORTS: frozenset = frozenset(
-    {"OOFBundle", "OOFPredictions", "SurrogateResult"}
-)
+_NON_FUNCTION_PUBLIC_EXPORTS: frozenset = frozenset({"OOFBundle", "OOFPredictions"})
 
 
 #: Method cards for frontier modules with no numerical evidence (review

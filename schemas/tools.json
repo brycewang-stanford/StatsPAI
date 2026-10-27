@@ -178,8 +178,7 @@
           "type": "array"
         },
         "cluster_df": {
-          "default": "per_term",
-          "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering.",
+          "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering. ``None`` (the default) is ``\"per_term\"`` for now; with multi-way clustering it emits a ``FutureWarning``, because the default becomes ``\"min\"`` in 1.42 (``sp.hdfe_ols`` made that switch in 1.41). Pass the value explicitly to keep a result and silence the warning. .. deprecated:: 1.41 The implicit ``\"per_term\"`` default for multi-way clustering.",
           "enum": [
             "per_term",
             "min"
@@ -13907,11 +13906,7 @@
           "type": "string"
         },
         "rare": {
-          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR).",
-          "type": "boolean"
-        },
-        "rare_outcome": {
-          "description": "Deprecated alias for ``rare`` (kept for backwards compatibility).",
+          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR). .. versionchanged:: 1.41 The old spelling ``rare_outcome=`` (deprecated in 1.18) is removed; pass ``rare=``.",
           "type": "boolean"
         },
         "sd": {
@@ -13944,10 +13939,6 @@
           "type": "string"
         },
         "rare": {
-          "description": "Passed through to :func:`evalue`.",
-          "type": "boolean"
-        },
-        "rare_outcome": {
           "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
@@ -14023,7 +14014,7 @@
       "properties": {
         "rare_outcome": {
           "default": false,
-          "description": "Passed through to :func:`evalue` for rare-outcome OR->RR correction.",
+          "description": "Passed through to :func:`evalue` as ``rare=``. It has no effect on a risk ratio (the flag matters only for odds and hazard ratios).",
           "type": "boolean"
         },
         "rr": {

@@ -72,24 +72,6 @@ def test_dist_iv(iv_data):
     assert abs(res.complier_share - 0.4) < 0.05
 
 
-def test_kan_dlate(iv_data):
-    """Deprecated alias: warns, and returns exactly what dist_iv returns."""
-    with pytest.warns(DeprecationWarning, match="kan_dlate"):
-        res = sp.kan_dlate(
-            iv_data,
-            y="y",
-            treat="treat",
-            instrument="z",
-            quantiles=np.array([0.5]),
-        )
-    assert isinstance(res, sp.DistIVResult)
-    direct = sp.dist_iv(
-        iv_data, y="y", treat="treat", instrument="z", quantiles=np.array([0.5])
-    )
-    np.testing.assert_allclose(res.late_q, direct.late_q)
-    np.testing.assert_allclose(res.late_q, 1.5, atol=0.25)
-
-
 def test_qte_hd_panel(panel_qte_data):
     """True effect is a constant 1.0; assert recovery, not frozen digits.
 

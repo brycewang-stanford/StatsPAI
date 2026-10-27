@@ -44760,8 +44760,7 @@
           "type": "array"
         },
         "cluster_df": {
-          "default": "per_term",
-          "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering.",
+          "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering. ``None`` (the default) is ``\"per_term\"`` for now; with multi-way clustering it emits a ``FutureWarning``, because the default becomes ``\"min\"`` in 1.42 (``sp.hdfe_ols`` made that switch in 1.41). Pass the value explicitly to keep a result and silence the warning. .. deprecated:: 1.41 The implicit ``\"per_term\"`` default for multi-way clustering.",
           "enum": [
             "per_term",
             "min"
@@ -49930,11 +49929,7 @@
           "type": "string"
         },
         "rare": {
-          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR).",
-          "type": "boolean"
-        },
-        "rare_outcome": {
-          "description": "Deprecated alias for ``rare`` (kept for backwards compatibility).",
+          "description": "For ``OR`` / ``HR`` only: whether the rare-outcome approximation applies. ``rare=True`` treats OR/HR ~ RR; ``rare=False`` (the default) uses the exact common-outcome conversion to the RR scale (``sqrt(OR)`` for OR; the Ding-VanderWeele formula for HR). .. versionchanged:: 1.41 The old spelling ``rare_outcome=`` (deprecated in 1.18) is removed; pass ``rare=``.",
           "type": "boolean"
         },
         "sd": {
@@ -49967,10 +49962,6 @@
           "type": "string"
         },
         "rare": {
-          "description": "Passed through to :func:`evalue`.",
-          "type": "boolean"
-        },
-        "rare_outcome": {
           "description": "Passed through to :func:`evalue`.",
           "type": "boolean"
         },
@@ -72295,7 +72286,7 @@
       "properties": {
         "rare_outcome": {
           "default": false,
-          "description": "Passed through to :func:`evalue` for rare-outcome OR->RR correction.",
+          "description": "Passed through to :func:`evalue` as ``rare=``. It has no effect on a risk ratio (the flag matters only for odds and hazard ratios).",
           "type": "boolean"
         },
         "rr": {
@@ -73931,68 +73922,6 @@
             "bootstrap",
             "none"
           ],
-          "type": "string"
-        },
-        "seed": {
-          "default": 0,
-          "description": "Random seed for reproducible stochastic steps.",
-          "type": "integer"
-        },
-        "treat": {
-          "description": "Outcome, binary treatment, binary instrument.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "y": {
-          "description": "Outcome, binary treatment, binary instrument.",
-          "type": "string",
-          "x-statspai-role": "column"
-        }
-      },
-      "required": [
-        "data",
-        "y",
-        "treat",
-        "instrument"
-      ],
-      "type": "object"
-    }
-  },
-  {
-    "description": "Deprecated alias for :func:`dist_iv`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
-    "name": "kan_dlate",
-    "parameters": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
-          "type": "number"
-        },
-        "covariates": {
-          "description": "Conditioning set for ``P(Z=1|X)``. Unlike versions <= 1.20.0 (which accepted and silently ignored this argument) it now changes the estimate.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array",
-          "x-statspai-role": "columns"
-        },
-        "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
-          "type": "object",
-          "x-statspai-role": "dataframe"
-        },
-        "instrument": {
-          "description": "Outcome, binary treatment, binary instrument.",
-          "type": "string",
-          "x-statspai-role": "column"
-        },
-        "n_boot": {
-          "default": 200,
-          "description": "Bootstrap replications when ``se='bootstrap'``.",
-          "type": "integer"
-        },
-        "quantiles": {
-          "description": "Defaults to ``(0.1, 0.25, 0.5, 0.75, 0.9)``.",
           "type": "string"
         },
         "seed": {

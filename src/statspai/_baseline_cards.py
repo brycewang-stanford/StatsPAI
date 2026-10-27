@@ -1647,9 +1647,6 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
     "join_counts": {
         "tags": ["spatial"],
     },
-    "kan_dlate": {
-        "tags": ["causal"],
-    },
     "rmst": {
         "example": (
             'sp.rmst(df, duration="time", event="status", group="arm", tau=12, '

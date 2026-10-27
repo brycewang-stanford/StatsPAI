@@ -182,6 +182,18 @@ def heckman(
 
     D = df[select].values.astype(float)
     n_total = len(df)
+    # The probit reads the indicator as a 0/1 outcome; any other code (1/2,
+    # 0/2, a stray 3) used to enter the likelihood as is, giving either a
+    # division by zero or a silently wrong first step.
+    d_seen = D[np.isfinite(D)]
+    if not np.isin(d_seen, (0.0, 1.0)).all():
+        raise MethodIncompatibility(
+            f"heckman: the selection indicator {select!r} must be 0/1; found "
+            f"values {np.unique(d_seen).tolist()[:6]}.",
+            recovery_hint=f"Recode {select!r} as 1 = selected (outcome "
+            "observed), 0 = not selected; missing codes are dropped.",
+            diagnostics={"select": select, "values": np.unique(d_seen).tolist()[:6]},
+        )
 
     # --- Step 1: Probit selection equation ---
     Z = np.column_stack([np.ones(n_total)] + [df[v].values.astype(float) for v in z])

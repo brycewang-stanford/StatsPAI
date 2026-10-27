@@ -253,10 +253,12 @@ def test_legacy_keys_present():
         assert k in out
 
 
-def test_rare_outcome_alias_matches_rare():
-    a = sp.evalue(estimate=2.0, measure="OR", rare_outcome=True)["evalue_estimate"]
+def test_rare_outcome_alias_was_removed():
+    # Deprecated in 1.18, removed in 1.41; the keyword is ``rare``.
+    with pytest.raises(TypeError, match="rare_outcome"):
+        sp.evalue(estimate=2.0, measure="OR", rare_outcome=True)
     b = sp.evalue(estimate=2.0, measure="OR", rare=True)["evalue_estimate"]
-    assert a == pytest.approx(b)
+    assert b == pytest.approx(2.0 + np.sqrt(2.0), rel=1e-12)
 
 
 def test_evalue_from_result_roundtrip():

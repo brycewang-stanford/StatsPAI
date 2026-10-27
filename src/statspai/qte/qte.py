@@ -46,6 +46,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 # ══════════════════════════════════════════════════════════════════════
 #  QTEResult
@@ -607,11 +608,14 @@ def qte(
         Firpo (2007) but computed the coefficient on ``D`` in a
         *conditional* quantile regression — a different estimand with no
         causal interpretation absent rank invariance. It is renamed
-        ``'conditional_qr'`` (the old name still works and emits a
-        ``DeprecationWarning``), the Firpo attribution is removed from it,
+        ``'conditional_qr'``, the Firpo attribution is removed from it,
         and the genuine Firpo estimators are available as ``'firpo_qte'`` /
         ``'firpo_qtt'``. ``method='distribution'`` is unchanged numerically
         but is now correctly labelled QTT rather than QTE.
+
+    .. versionchanged:: 1.41
+        The old name ``method='quantile_regression'`` (deprecated in 1.21)
+        is removed and raises :class:`statspai.exceptions.MethodIncompatibility`.
 
     Examples
     --------
@@ -638,17 +642,21 @@ def qte(
         raise ValueError("quantiles must lie strictly inside (0, 1).")
 
     if method == "quantile_regression":
-        warnings.warn(
-            "sp.qte(method='quantile_regression') is deprecated and will be "
-            "removed in 1.23.0. It was labelled Firpo (2007) but computes a "
-            "CONDITIONAL quantile treatment effect. Use "
-            "method='conditional_qr' for the same numbers under the correct "
-            "name, or method='firpo_qte' for the actual Firpo estimator. "
-            "See MIGRATION.md.",
-            DeprecationWarning,
-            stacklevel=2,
+        raise MethodIncompatibility(
+            "sp.qte(method='quantile_regression') was removed in 1.41 (it "
+            "was deprecated in 1.21). It was labelled Firpo (2007) but "
+            "computed a CONDITIONAL quantile treatment effect.",
+            recovery_hint="Use method='conditional_qr' for the same numbers "
+            "under the correct name, or method='firpo_qte' for the Firpo "
+            "(2007) unconditional QTE. See MIGRATION.md.",
+            diagnostics={"method": method, "valid_methods": list(_QTE_METHODS)},
         )
-        method = "conditional_qr"
+    if method not in _QTE_METHODS:
+        raise MethodIncompatibility(
+            f"Unknown QTE method {method!r}. Use one of {_QTE_METHODS}.",
+            recovery_hint=f"Pass method= one of {', '.join(_QTE_METHODS)}.",
+            diagnostics={"method": method, "valid_methods": list(_QTE_METHODS)},
+        )
 
     cols = [y, treatment] + (controls or [])
     df = data[cols].dropna()
@@ -669,7 +677,7 @@ def qte(
         return _qte_distribution(
             df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed
         )
-    raise ValueError(f"Unknown QTE method {method!r}. Use one of {_QTE_METHODS}.")
+    raise AssertionError(method)  # pragma: no cover - validated above
 
 
 def _qte_firpo(

@@ -430,6 +430,16 @@ def _dte_cic(
 # ══════════════════════════════════════════════════════════════════════
 
 
+def _boot_sd(boot: np.ndarray) -> np.ndarray:
+    """Column SD of bootstrap draws (ddof = 1), NaN with < 2 finite draws."""
+    n_ok = np.isfinite(boot).sum(axis=0)
+    out = np.full(boot.shape[1], np.nan)
+    ok = n_ok >= 2
+    if ok.any():
+        out[ok] = np.nanstd(boot[:, ok], axis=0, ddof=1)
+    return out
+
+
 @accepts_aliases(treat="treatment")
 def distributional_te(
     data: pd.DataFrame,
@@ -623,8 +633,11 @@ def distributional_te(
         cvm_stat = float(_trapz(dte_hat**2, grid))
         cvm_p = np.nan
 
-    result_shell.dte_se = np.nanstd(boot_dte, axis=0)
-    result_shell.qte_se = np.nanstd(boot_qte, axis=0)
+    # Bootstrap SD with ddof = 1, as every other bootstrap SE in qte/
+    # (ddof = 0 before 1.41, smaller by sqrt((B - 1) / B)). Fewer than two
+    # finite draws leave the SE undefined.
+    result_shell.dte_se = _boot_sd(boot_dte)
+    result_shell.qte_se = _boot_sd(boot_qte)
     result_shell.ks_pvalue = ks_p
     result_shell.cvm_stat = cvm_stat
     result_shell.cvm_pvalue = cvm_p

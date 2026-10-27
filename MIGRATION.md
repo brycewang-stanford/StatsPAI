@@ -5,6 +5,41 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.40.2 → 1.41: removals, ⚠️ `sp.distributional_te` SEs, `sp.absorb_ols(cluster_df=)` announced for 1.42
+
+**Removed** (each was deprecated with a removal version that has passed):
+
+- `sp.kan_dlate`: call `sp.dist_iv` with the same arguments. It returns the
+  numbers `sp.kan_dlate` returned.
+- `sp.SurrogateResult`: no function returned it. Use the `sp.CausalResult`
+  that `sp.surrogate_index`, `sp.long_term_from_short` and
+  `sp.proximal_surrogate_index` return (`.estimate`, `.se`, `.ci`,
+  `.model_info`).
+- `sp.qte(method='quantile_regression')`: pass `method='conditional_qr'` for
+  the same numbers, or `method='firpo_qte'` for the Firpo (2007) estimator.
+  The old name raises `MethodIncompatibility`.
+- `sp.evalue(rare_outcome=)` and `sp.evalue_from_result(rare_outcome=)` are removed; pass `rare=`, which takes the same values.
+  In `sp.evalue`, `alpha` moves up one place, so a call that passed `alpha` positionally after `rare_outcome` must name it.
+
+**⚠️ `sp.distributional_te` standard errors.** The bootstrap SEs (and the
+pointwise bands built from them) use `ddof=1` like every other bootstrap SE
+in `qte/`. They are larger by `sqrt(B/(B-1))`, about 0.1% at the default
+`n_boot=500`. There is no option for the old value.
+
+**`sp.absorb_ols(cluster_df=)`, announced for 1.42.** With multi-way
+clustering the default `'per_term'` becomes `'min'` (Stata `reghdfe`, R
+`fixest`, and `sp.hdfe_ols` since 1.41). Calls with two or more cluster
+variables and no `cluster_df=` warn now. Pass `cluster_df='per_term'` to
+keep the current standard errors or `cluster_df='min'` to adopt the new
+ones. One-way clustering is the same either way.
+
+**Input checks.** `sp.heckman` refuses a `select` column coded other than
+0/1. `sp.ipcw` drops rows with a missing time, event or covariate (with a
+warning, NaN weight, `result.n_dropped_missing`) instead of returning NaN
+for every weight.
+
+---
+
 ## 1.40.2 → next: ⚠️ spatial ML search interval and `sp.impacts` stability interval
 
 Numbers change in these calls; there is no option to restore the old ones,

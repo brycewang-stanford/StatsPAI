@@ -282,11 +282,3 @@ def test_producer_returns_registered_class_and_serializes(cls_name):
     to_dict = getattr(res, "to_dict", None)
     if to_dict is not None:
         json.dumps(to_dict(), default=str)
-
-
-def test_surrogate_result_is_deprecated_and_not_offered_to_agents():
-    assert "SurrogateResult" not in sp.list_functions()
-    with pytest.warns(DeprecationWarning, match="1.33"):
-        sp.SurrogateResult(
-            estimate=0.0, se=1.0, ci=(-1.0, 1.0), n_exp=1, n_obs=1, method="x"
-        )

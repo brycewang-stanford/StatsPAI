@@ -219,7 +219,7 @@ def qdid_data():
     return _make_qdid_dgp(424242, n_per=3000)
 
 
-def _qte(df, method="quantile_regression", n_boot=40, seed=0):
+def _qte(df, method="conditional_qr", n_boot=40, seed=0):
     # Bootstrap SEs only; weak-overlap / convergence chatter is not under
     # test here.
     with warnings.catch_warnings():
@@ -296,7 +296,7 @@ class TestRecovery:
     """qte / qdid recover the hand-set location shift."""
 
     def test_qte_per_quantile_within_4_se(self, shift_data):
-        r = _qte(shift_data, method="quantile_regression", n_boot=15)
+        r = _qte(shift_data, method="conditional_qr", n_boot=15)
         # 4-sigma bootstrap band (suite convention).  Probed z <2 at every
         # tau across seeds at this n.  A 20% multiplicative bias (-> ~2.4)
         # lands ~4-6 sigma out at every quantile and fails.
@@ -320,7 +320,7 @@ class TestRecovery:
         ests = []
         for s in range(reps):
             df = _make_location_shift_dgp(1000 + s, n=1000)
-            res = _qte(df, method="quantile_regression", n_boot=2, seed=0)
+            res = _qte(df, method="conditional_qr", n_boot=2, seed=0)
             # tau = 0.5 is the middle of QUANTILES.
             mid = list(res.quantiles).index(0.5)
             ests.append(float(res.effects[mid]))
@@ -355,7 +355,7 @@ class TestHomogeneity:
     """A constant shift induces NO quantile heterogeneity."""
 
     def test_qte_effects_flat_across_quantiles(self, shift_data):
-        r = _qte(shift_data, method="quantile_regression", n_boot=10)
+        r = _qte(shift_data, method="conditional_qr", n_boot=10)
         # 0.30: a pure location shift has identical effect at every tau, so
         # the across-quantile spread is pure sampling noise (probed <0.22
         # at n=2000 across seeds).  0.30 leaves headroom over the probed
@@ -386,7 +386,7 @@ class TestCrossMethodConsistency:
 
     def test_qreg_vs_distribution_agree(self, shift_data):
         # Point effects only (SE unused) -> n_boot=2 keeps it fast.
-        rq = _qte(shift_data, method="quantile_regression", n_boot=2)
+        rq = _qte(shift_data, method="conditional_qr", n_boot=2)
         rd = _qte(shift_data, method="distribution", n_boot=2)
         # 0.10: both engines target the same QTE(tau) under a homogeneous
         # shift; they differ only in finite-sample estimation (quantile
@@ -412,7 +412,7 @@ class TestOrientation:
 
     def test_positive_shift_all_positive(self, shift_data, qdid_data):
         # Sign of point effects only -> minimal bootstrap.
-        rq = _qte(shift_data, method="quantile_regression", n_boot=2)
+        rq = _qte(shift_data, method="conditional_qr", n_boot=2)
         rd = _qte(shift_data, method="distribution", n_boot=2)
         rdid = _qdid(qdid_data, n_boot=2, seed=2)
         assert np.all(rq.effects > 0), rq.effects
@@ -424,7 +424,7 @@ class TestOrientation:
         # quantile effect must be negative.  Sign is determined by the DGP,
         # not by the estimator's existence, so this is non-tautological.
         df = _make_location_shift_dgp(555, n=2000, delta=-1.5)
-        rq = _qte(df, method="quantile_regression", n_boot=2)
+        rq = _qte(df, method="conditional_qr", n_boot=2)
         rd = _qte(df, method="distribution", n_boot=2)
         assert np.all(rq.effects < 0), rq.effects
         assert np.all(rd.effects < 0), rd.effects

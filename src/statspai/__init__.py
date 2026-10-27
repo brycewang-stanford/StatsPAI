@@ -1055,7 +1055,6 @@ from .qte import (
     beyond_average_late,
     dist_iv,
     distributional_te,
-    kan_dlate,
     panel_qtet,
     qdid,
     qte,
@@ -2952,9 +2951,8 @@ __all__ = [
     "calibrate_confounding_strength",
     "FrontierSensitivityResult",
     # === v0.10 / v1.0 frontier additions (most are already exported above) ===
-    # Distributional / panel QTE — only the new dist_iv/kan_dlate/DistIVResult here
+    # Distributional / panel QTE — only the new dist_iv/DistIVResult here
     "dist_iv",
-    "kan_dlate",
     "DistIVResult",
     # RDD frontier — only the new rd_bayes_hte / rd_distributional_design here
     "rd_bayes_hte",
@@ -3121,7 +3119,6 @@ __all__ = [
     "SNMMResult",
     "SharpOPEResult",
     "StructuralMDPResult",
-    "SurrogateResult",
     "a_learning",
     "anthropic_client",
     "assimilative_causal",
@@ -3562,7 +3559,6 @@ _register_lazy(
     "surrogate_index",
     "long_term_from_short",
     "proximal_surrogate_index",
-    "SurrogateResult",
 )
 _register_lazy(
     "bounds",
@@ -4155,11 +4151,27 @@ _ELSEWHERE_NAMES = {
     "get_margeff": "sp.margins",
 }
 
+#: Public names removed after their deprecation period, with what replaces
+#: them. Read by ``__getattr__`` so the AttributeError says where to go.
+_REMOVED_NAMES = {
+    "kan_dlate": (
+        "it was removed in 1.41; call sp.dist_iv, which returned the same "
+        "numbers (see MIGRATION.md)"
+    ),
+    "SurrogateResult": (
+        "it was removed in 1.41; sp.surrogate_index, sp.long_term_from_short "
+        "and sp.proximal_surrogate_index return sp.CausalResult"
+    ),
+}
+
 
 def _missing_name_message(name):
     message = f"module 'statspai' has no attribute {name!r}"
     if name.startswith("_"):
         return message
+    removed = _REMOVED_NAMES.get(name)
+    if removed is not None:
+        return f"{message}; {removed}"
     elsewhere = _ELSEWHERE_NAMES.get(name)
     if elsewhere is not None:
         return f"{message}; it is {elsewhere} here"

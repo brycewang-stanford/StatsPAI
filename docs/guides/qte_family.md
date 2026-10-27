@@ -11,7 +11,7 @@ move?"  But for policy, clinical, and fairness work you usually care about
 inequality?  Those questions need quantile or distributional effects.
 
 Every function below is at top level: `sp.qdid`, `sp.qte`,
-`sp.distributional_te`, `sp.dist_iv`, `sp.kan_dlate`,
+`sp.distributional_te`, `sp.dist_iv`,
 `sp.beyond_average_late`, `sp.qte_hd_panel`, `sp.cic`.
 
 ---
@@ -36,7 +36,7 @@ r = sp.qte(
     data=df, y="wage", treatment="job_program",
     controls=["age", "education", "experience"],
     quantiles=[0.1, 0.25, 0.5, 0.75, 0.9],
-    method="quantile_regression",   # or "ipw"
+    method="firpo_qte",   # or "firpo_qtt", "conditional_qr", "distribution"
     n_boot=500,
 )
 r.plot()    # QTE curve with bootstrap uniform band
@@ -133,25 +133,6 @@ Citation: Holovchak, Saengkyongam, Meinshausen & Shen (2025), arXiv:2502.07641.
 
 ---
 
-## KAN D-LATE — `sp.kan_dlate` (Kennedy et al. 2025)
-
-A Kolmogorov-Arnold-Network-powered variant of `dist_iv` that replaces
-the linear bridge function with a flexible KAN surface.  Same call shape
-as `dist_iv`, swap in when you suspect the return-to-schooling (say) is
-strongly non-linear in `D`.
-
-```python
-r = sp.kan_dlate(
-    data=df, y="y", treat="d", instrument="z",
-    covariates=["x1", "x2"],
-    quantiles=np.linspace(0.1, 0.9, 9),
-)
-```
-
-Citation: Shaw (2025), arXiv:2506.12765.
-
----
-
 ## Beyond-average LATE — `sp.beyond_average_late` (Xie-Wu 2025)
 
 The Angrist-Imbens LATE gives the treatment effect among *compliers*
@@ -214,7 +195,7 @@ DiD design:
 
 IV design:
   LATE (mean)          → sp.iv
-  Distributional LATE  → sp.dist_iv (linear) / sp.kan_dlate (KAN)
+  Distributional LATE  → sp.dist_iv
   Beyond-average LATE  → sp.beyond_average_late (distribution among compliers)
 
 Panel with many controls:

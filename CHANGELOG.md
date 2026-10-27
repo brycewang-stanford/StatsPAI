@@ -437,6 +437,13 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   ("yes" / "no") put every row in the domain and is now refused.
 - `sp.svydesign(cluster=)` with a missing PSU id: with `nest=True` it became
   the PSU "stratum__nan". It is refused, as a missing stratum already was.
+- `sp.distributional_te`: the bootstrap SEs of the DTE and QTE (and so the
+  pointwise bands) used `ddof=0`, while every other bootstrap SE in `qte/`
+  uses `ddof=1`. They now use `ddof=1` and grow by `sqrt(B/(B-1))`. On the
+  docstring example (n = 500, `n_boot=50`, `seed=42`) the median QTE SE goes
+  from 0.13386 to 0.13522. Point estimates and the KS / CvM p-values are
+  unchanged. A column with fewer than two finite draws now has a NaN SE
+  instead of 0.
 
 ### Fixed
 
@@ -570,6 +577,17 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   `sp.svymean` / `sp.svytotal` variables (NaN estimates) and in
   `sp.linear_calibration` inputs; `sp.lrtest` on mixed fits with different
   samples or REML against ML; `sp.gmm(vcov='cluster')` with missing labels.
+- `sp.heckman` did not check that `select` is 0/1. A 1/2 or 0/2 coding died
+  with a division by zero, and one stray code (a 3) entered the two-step
+  probit as is and returned numbers. Codes other than 0/1 now raise
+  `MethodIncompatibility` with a `recovery_hint`; missing codes are still
+  dropped. Valid fits are bit-identical.
+- `sp.ipcw` with a missing time, event or covariate returned NaN for every
+  weight (the logit / Cox fit took the NaN in). Such rows are now left out
+  of the fit with a warning, as `sp.cox` does: they keep their place with a
+  NaN weight and are counted in `result.n_dropped_missing`. The other
+  rows get the complete-case weights. `treatment_covariates` count only
+  when `stabilize=True`.
 
 ### Added
 
@@ -593,6 +611,32 @@ unaffected. See MIGRATION.md, "1.40.2 → 1.41".
   no source and can exclude the true slope under the assumption it was
   described with. It warns and keeps its numbers until removal, no earlier
   than the next minor release.
+- `sp.absorb_ols(cluster_df=)`: the default is now `None`, which still means
+  `'per_term'`. With multi-way clustering and no `cluster_df=` it emits a
+  `FutureWarning`: the default becomes `'min'` in 1.42, as `sp.hdfe_ols`
+  did in 1.41. One-way and unclustered calls do not warn and are unchanged
+  (the two factors agree there). `sp.hdfe_ols` always passes `cluster_df=`
+  and never triggers the warning.
+
+### Removed
+
+Deprecations whose stated removal version had passed.
+
+- `sp.kan_dlate` (deprecated in 1.21, announced for removal in 1.23). It
+  only forwarded to `sp.dist_iv`; call that. `sp.kan_dlate` now raises an
+  `AttributeError` that names `sp.dist_iv`.
+- `sp.SurrogateResult` (deprecated in 1.31, announced for 1.33). No function
+  returned it; the surrogate estimators return `sp.CausalResult`.
+  `sp.surrogate_index`, `sp.long_term_from_short` and
+  `sp.proximal_surrogate_index` are unchanged.
+- `sp.qte(method='quantile_regression')` (deprecated in 1.21, announced for
+  1.23). It raises `MethodIncompatibility`; the `recovery_hint` names
+  `method='conditional_qr'` (the same numbers) and `method='firpo_qte'`. An
+  unknown `method=` now raises `MethodIncompatibility` as well (still a
+  `ValueError`).
+- `sp.evalue(rare_outcome=)` and `sp.evalue_from_result(rare_outcome=)`
+  (deprecated in 1.18 "for the next minor"). Pass `rare=`. `sp.evalue_rr`
+  keeps its own `rare_outcome=` argument.
 
 ## [1.40.2] — 2026-10-27
 

@@ -58,6 +58,8 @@ def heckman_ml(
     if not np.isin(d_all, (0.0, 1.0)).all():
         raise MethodIncompatibility(
             f"heckman: the selection indicator {select!r} must be 0/1.",
+            recovery_hint=f"Recode {select!r} as 1 = selected (outcome "
+            "observed), 0 = not selected.",
             diagnostics={"select": select},
         )
     # A selected row needs its outcome and regressors; an unselected row

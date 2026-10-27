@@ -20,7 +20,7 @@ Firpo, S. (2007).
 from .beyond_average import BeyondAverageResult, beyond_average_late
 
 # v0.10 distributional / panel QTE frontier
-from .dist_iv import DistIVResult, dist_iv, kan_dlate
+from .dist_iv import DistIVResult, dist_iv
 from .distributional import DTEResult, distributional_te
 from .hd_panel import HDPanelQTEResult, qte_hd_panel
 from .panel_qtet import panel_qtet
@@ -33,7 +33,6 @@ __all__ = [
     "distributional_te",
     "DTEResult",
     "dist_iv",
-    "kan_dlate",
     "DistIVResult",
     "qte_hd_panel",
     "HDPanelQTEResult",

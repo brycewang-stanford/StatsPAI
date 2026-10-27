@@ -110,6 +110,7 @@
     "gname": "g",
     "id": "i",
     "idname": "i",
+    "n_boot": "biters",
     "seed": "random_state",
     "time": "t",
     "tname": "t",
@@ -258,6 +259,16 @@
     {
      "default": "'delta'",
      "name": "variance_convention",
+     "positional": true
+    },
+    {
+     "default": "'drop'",
+     "name": "always_treated",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "parity",
      "positional": true
     }
    ]
@@ -550,6 +561,16 @@
      "default": "None",
      "name": "design",
      "positional": true
+    },
+    {
+     "default": "None",
+     "name": "parity",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "crit_dist",
+     "positional": true
     }
    ]
   },
@@ -732,11 +753,6 @@
      "positional": true
     },
     {
-     "default": "None",
-     "name": "rare_outcome",
-     "positional": true
-    },
-    {
      "default": "0.05",
      "name": "alpha",
      "positional": true
@@ -824,6 +840,16 @@
     {
      "default": "None",
      "name": "absorb",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "parity",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "crit_dist",
      "positional": true
     }
    ]
@@ -1088,6 +1114,16 @@
     {
      "default": "None",
      "name": "monotonicity_direction",
+     "positional": true
+    },
+    {
+     "default": "0",
+     "name": "seed",
+     "positional": true
+    },
+    {
+     "default": "None",
+     "name": "breakdown",
      "positional": true
     }
    ]
@@ -2808,6 +2844,20 @@
    "function": "feols",
    "migration": "`sp.feols(fixef_rm=)` and `sp.fepois(fixef_rm=)` default to `\"singleton\"`",
    "param": "fixef_rm"
+  },
+  {
+   "change": "parameter removed or renamed",
+   "date": "2026-10-27",
+   "function": "evalue",
+   "migration": "`sp.evalue(rare_outcome=)` and `sp.evalue_from_result(rare_outcome=)` are removed; pass `rare=`, which takes the same values.",
+   "param": "rare_outcome"
+  },
+  {
+   "change": "positional order changed from ['estimate', 'se', 'ci', 'measure', 'rare', 'sd', 'delta', 'true', 'rare_outcome', 'alpha'] to ['estimate', 'se', 'ci', 'measure', 'rare', 'sd', 'delta', 'true', 'alpha']",
+   "date": "2026-10-27",
+   "function": "evalue",
+   "migration": "In `sp.evalue`, `alpha` moves up one place, so a call that passed `alpha` positionally after `rare_outcome` must name it.",
+   "param": "*"
   }
  ]
 }

@@ -8,8 +8,8 @@ Reference numbers we check against:
 
 - **QTE constant-shift property**: when the DGP is :math:`Y = \\tau \\cdot D
   + \\varepsilon` for any iid :math:`\\varepsilon`, every quantile
-  treatment effect equals :math:`\\tau`. Both ``method='quantile_regression'``
-  (Firpo 2007) and ``method='distribution'`` (PS reweighting) must
+  treatment effect equals :math:`\\tau`. Both ``method='conditional_qr'``
+  (Koenker-Bassett) and ``method='distribution'`` (PS reweighting) must
   recover this.
 - **QDID parallel-trends recovery**: when the trend is shared across
   groups, QDID(τ) at every τ should equal the post-treatment shift
@@ -70,7 +70,7 @@ class TestQTE:
             y="y",
             treatment="d",
             quantiles=[0.25, 0.5, 0.75],
-            method="quantile_regression",
+            method="conditional_qr",
             n_boot=50,
             seed=0,
         )
@@ -107,7 +107,7 @@ class TestQTE:
             y="y",
             treatment="d",
             quantiles=[0.5],
-            method="quantile_regression",
+            method="conditional_qr",
             n_boot=20,
             seed=0,
         )

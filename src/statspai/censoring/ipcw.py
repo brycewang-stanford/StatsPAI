@@ -17,6 +17,7 @@ References
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Sequence
 
@@ -25,6 +26,7 @@ import pandas as pd
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 
 
 @dataclass
@@ -34,14 +36,18 @@ class IPCWResult(ResultProtocolMixin):
     Attributes
     ----------
     weights : np.ndarray
-        Per-observation IPC weights (uncensored obs only; censored rows
-        receive weight 0 by convention but are returned for alignment).
+        Per-observation IPC weights, one per input row (uncensored obs only;
+        censored rows receive weight 0 by convention but are returned for
+        alignment). Rows dropped for a missing value carry NaN.
     stabilized : bool
         Whether stabilized weights are reported.
     summary_stats : dict
         Basic diagnostics — mean, max, share above common thresholds.
     method : str
         Nuisance model used for the censoring hazard.
+    n_dropped_missing : int
+        Rows left out of the fit because the time, the event indicator or a
+        covariate it uses is missing.
 
     Examples
     --------
@@ -73,6 +79,7 @@ class IPCWResult(ResultProtocolMixin):
     summary_stats: dict
     method: str
     fitted_hazards: np.ndarray = field(default_factory=lambda: np.empty(0))
+    n_dropped_missing: int = 0
 
     def diagnose(self) -> pd.DataFrame:
         """Common weight diagnostics — flags extreme IPCW values."""
@@ -161,7 +168,12 @@ def ipcw(
     -------
     IPCWResult
         Censored rows (``event == 0``) carry weight 0; the summary
-        statistics are over the uncensored rows. (Before 1.29 censored
+        statistics are over the uncensored rows. Rows with a missing time,
+        event or covariate (``treatment_covariates`` only when
+        ``stabilize=True``) are left out of the fit with a warning, carry a
+        NaN weight, and are counted in ``n_dropped_missing``, as
+        ``sp.cox`` and the other survival estimators drop them. (Before 1.41
+        one missing covariate made every weight NaN.) (Before 1.29 censored
         rows received the same nonzero weight formula as uncensored ones,
         contrary to this documented convention, and ``method="cox_ph"``
         raised a broadcasting error for more than one covariate and
@@ -190,15 +202,43 @@ def ipcw(
     >>> sorted(res.summary_stats)
     ['effective_sample_size', 'max', 'mean', 'min']
     """
+    numerator_cols = list(treatment_covariates) if treatment_covariates else []
     check_columns(
         data,
         {
             "time": time,
             "event": event,
             "censor_covariates": list(censor_covariates),
+            "treatment_covariates": numerator_cols or None,
         },
         function="sp.ipcw",
     )
+
+    # Listwise deletion over the columns this fit uses, as sp.cox does. One
+    # missing covariate used to turn the logit / Cox fit, and so every
+    # weight, into NaN. Dropped rows keep their place with a NaN weight.
+    used = [time, event] + list(censor_covariates)
+    if stabilize:
+        used += numerator_cols
+    used = list(dict.fromkeys(used))
+    complete = data[used].notna().all(axis=1).to_numpy()
+    data_in = data
+    n_input = len(data)
+    n_dropped = int(n_input - complete.sum())
+    if n_dropped:
+        if n_dropped == n_input:
+            raise DataInsufficient(
+                f"sp.ipcw: every row has a missing value in {used}.",
+                recovery_hint="Impute or drop the missing values first.",
+                diagnostics={"n_rows": n_input, "columns": used},
+            )
+        warnings.warn(
+            f"sp.ipcw: dropped {n_dropped} row(s) with a missing value in "
+            f"{used}; their weights are NaN.",
+            UserWarning,
+            stacklevel=2,
+        )
+        data = data.iloc[np.flatnonzero(complete)]
 
     n = len(data)
     t = data[time].to_numpy(dtype=float)
@@ -254,12 +294,21 @@ def ipcw(
         ),
     }
 
+    hazards = 1.0 - p_uncensored_cond
+    if n_dropped:
+        w_full = np.full(n_input, np.nan)
+        w_full[complete] = w
+        h_full = np.full(n_input, np.nan)
+        h_full[complete] = hazards
+        w, hazards = w_full, h_full
+
     _result = IPCWResult(
         weights=w,
         stabilized=stabilize,
         summary_stats=summary,
         method=method,
-        fitted_hazards=1.0 - p_uncensored_cond,
+        fitted_hazards=hazards,
+        n_dropped_missing=n_dropped,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -278,7 +327,7 @@ def ipcw(
                 "method": method,
                 "truncate": list(truncate) if truncate else None,
             },
-            data=data,
+            data=data_in,
             overwrite=False,
         )
     except Exception:  # pragma: no cover

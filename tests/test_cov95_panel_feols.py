@@ -178,7 +178,7 @@ def test_absorb_ols_multiway_cluster(fe_df):
     X = fe_df[["x1"]].to_numpy()
     fe = fe_df[["firm"]].to_numpy()
     cl = [fe_df["firm"].to_numpy(), fe_df["year"].to_numpy()]
-    out = sp.absorb_ols(y, X, fe, cluster=cl)
+    out = sp.absorb_ols(y, X, fe, cluster=cl, cluster_df="per_term")
     assert out["coef"].shape == (1,)
 
 
