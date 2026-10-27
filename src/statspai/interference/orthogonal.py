@@ -99,7 +99,7 @@ class NetworkHTEResult(ResultProtocolMixin):
         )
         return "\n".join(
             [
-                "Orthogonal Network HTE (Parmigiani et al. 2025)",
+                "Orthogonal Network HTE (Wu & Yuan 2025)",
                 "=" * 64,
                 f"  Direct effect   : {self.direct_effect:+.6f}  "
                 f"(SE {self.direct_se:.6f}, 95% CI [{d_ci[0]:+.4f}, {d_ci[1]:+.4f}])",
@@ -193,7 +193,8 @@ def network_hte(
     summary of neighbourhood exposure (e.g. share treated). Uses
     Chernozhukov-style double orthogonalisation: cross-fit nuisance
     models for ``E[Y|X]``, ``E[D|X]`` and ``E[E|X]``, then regress
-    residualised Y on residualised (D, E).
+    residualised Y on residualised (D, E). Standard errors are the
+    heteroskedasticity-robust sandwich (HC0) of that regression.
 
     Parameters
     ----------
@@ -294,10 +295,13 @@ def network_hte(
     Xr = np.column_stack([d_resid, e_resid])
     beta, *_ = np.linalg.lstsq(Xr, y_resid, rcond=None)
     tau_d, tau_s = beta
-    # Sandwich-style SE
+    # Sandwich (HC0) variance of the orthogonal-score regression. Until
+    # 2026-10 this was sigma^2 (X'X)^{-1}, valid only when the residual
+    # variance does not depend on (D, E, X).
     resid = y_resid - Xr @ beta
-    sigma2 = float((resid**2).sum() / max(n - 2, 1))
-    V = sigma2 * np.linalg.inv(Xr.T @ Xr)
+    bread = np.linalg.inv(Xr.T @ Xr)
+    meat = (Xr * (resid**2)[:, None]).T @ Xr
+    V = bread @ meat @ bread
     se_d = float(np.sqrt(V[0, 0]))
     se_s = float(np.sqrt(V[1, 1]))
 

@@ -205,6 +205,29 @@ def peer_effects(
     X_hat = instruments @ (
         np.linalg.pinv(instruments.T @ instruments) @ (instruments.T @ full)
     )
+    # Bramoulle, Djebbari & Fortin (2009): the model is identified only when
+    # the instruments move WY independently of [1, X, WX]. In complete groups
+    # of one size (I, G, G^2 linearly dependent) they do not; pinv then
+    # returned a minimum-norm "estimate" with a small SE (0.67 +/- 0.03 for
+    # a true 0.3) until 2026-10.
+    rank = int(np.linalg.matrix_rank(X_hat))
+    if rank < full.shape[1]:
+        from ..exceptions import IdentificationFailure
+
+        raise IdentificationFailure(
+            "peer_effects: the instruments W^2 X, W^3 X do not move WY "
+            "independently of the exogenous regressors (projected design has "
+            f"rank {rank} < {full.shape[1]}); the peer effects are not "
+            "identified. This is the reflection problem, e.g. complete groups "
+            "of equal size.",
+            recovery_hint=(
+                "Identification needs intransitive triads (friends of friends "
+                "who are not friends) or groups of different sizes; with "
+                "include_contextual=False the endogenous effect may be "
+                "identified from W X alone."
+            ),
+            diagnostics={"rank": rank, "n_regressors": int(full.shape[1])},
+        )
     beta = np.linalg.pinv(X_hat.T @ full) @ X_hat.T @ Y
     resid = Y - full @ beta
     vcov = (

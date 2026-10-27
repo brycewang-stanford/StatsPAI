@@ -97,7 +97,10 @@ def cluster_staggered_rollout(
         Panel: cluster × time × outcome.
     y, cluster, time, first_treat : str
         first_treat = first calendar time the cluster is treated
-        (0 / NaN for never-treated).
+        (0 / NaN for never-treated). Event time is counted in observed
+        periods, so unevenly spaced times (2000, 2002, ...) work; a cohort
+        treated at a time that is not observed starts at the next observed
+        period.
     leads, lags : int
     alpha : float
 
@@ -126,7 +129,12 @@ def cluster_staggered_rollout(
     >>> res.n_clusters
     12
     """
-    df = data[[y, cluster, time, first_treat]].dropna().reset_index(drop=True)
+    df = data[[y, cluster, time, first_treat]].copy()
+    # NaN first_treat is the documented never-treated code; until 2026-10
+    # the dropna below removed those clusters, so the control group lost
+    # them (or vanished and the call raised).
+    df[first_treat] = df[first_treat].fillna(0)
+    df = df.dropna().reset_index(drop=True)
     cl = (
         df.groupby([cluster, time]).agg({y: "mean", first_treat: "first"}).reset_index()
     )
@@ -136,7 +144,13 @@ def cluster_staggered_rollout(
     g_by_cluster = cl.groupby(cluster)[first_treat].first().reindex(wide.index)
     Yw = wide.to_numpy(float)
     g_arr = g_by_cluster.to_numpy()
-    pos = {t: j for j, t in enumerate(wide.columns)}
+    # Event time is counted in observed periods, not calendar units: with
+    # periods 2000, 2002, ... the reference period of a cohort is the period
+    # before its first treated one, not ``c - 1`` (which does not exist and
+    # used to drop the cohort). On consecutive integers the two coincide.
+    grid = np.asarray(wide.columns)
+    n_periods = len(grid)
+    first_pos = {c: int(np.searchsorted(grid, c, side="left")) for c in cohorts}
     if not np.any(g_arr == 0):
         raise ValueError("No never-treated control clusters available.")
 
@@ -164,14 +178,15 @@ def cluster_staggered_rollout(
             m_ctrl = np.nanmean(ctrl, axis=0)
             for i, c in enumerate(cohorts):
                 trt = Yb[gb == c]
-                if len(trt) == 0 or (c - 1) not in pos:
+                j0 = first_pos[c]
+                if len(trt) == 0 or j0 < 1:
                     continue
                 m_trt = np.nanmean(trt, axis=0)
-                base = m_trt[pos[c - 1]] - m_ctrl[pos[c - 1]]
+                base = m_trt[j0 - 1] - m_ctrl[j0 - 1]
                 for j, k in enumerate(rel_times):
-                    t = c + k
-                    if t in pos:
-                        out[i, j] = (m_trt[pos[t]] - m_ctrl[pos[t]]) - base
+                    jt = j0 + k
+                    if 0 <= jt < n_periods:
+                        out[i, j] = (m_trt[jt] - m_ctrl[jt]) - base
             # Simple mean across cohorts at each relative time.
             _ret: np.ndarray = np.nanmean(out, axis=0)
             return _ret

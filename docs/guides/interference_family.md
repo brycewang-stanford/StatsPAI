@@ -167,7 +167,7 @@ on complete graphs.
 References: Manski (1993), *REStud*; Bramoullé-Djebbari-Fortin (2009),
 *JoE*; Lee (2007), *JoE*.
 
-### `sp.network_hte` — orthogonal learning (Parmigiani et al. 2025)
+### `sp.network_hte` — orthogonal learning (Wu & Yuan 2025)
 
 For when you want **heterogeneous** direct and spillover effects, with
 ML nuisance models for `E[Y|X]`, `E[D|X]`, `E[E|X]` (`E` = neighbor
