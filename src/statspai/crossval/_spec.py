@@ -87,6 +87,8 @@ class EstimandSpec:
     extra : dict
         Estimand-specific extras forwarded verbatim (e.g. DiD ``time`` / ``unit``
         / ``gname`` columns).
+    alpha : float, default 0.05
+        Every engine reports its confidence interval at level ``1 - alpha``.
     """
 
     estimand: str
@@ -103,6 +105,7 @@ class EstimandSpec:
     vcov: Optional[str] = None
     term: Optional[str] = None
     extra: Dict[str, Any] = field(default_factory=dict)
+    alpha: float = 0.05
 
     # -- construction ----------------------------------------------------- #
     @classmethod
@@ -247,6 +250,7 @@ class EstimandSpec:
             "term": self.term,
             "n_obs": int(len(self.data)),
             "extra": dict(self.extra),
+            "alpha": self.alpha,
         }
 
     # -- internals -------------------------------------------------------- #

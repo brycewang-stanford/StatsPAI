@@ -45,8 +45,8 @@ def test_two_proportions_monotone_and_array():
     p = sp.power_two_proportions(n=[100, 200, 400], p1=0.3, p2=0.5).power
     assert np.all(np.diff(p) > 0)
     assert sp.power_two_proportions(n=100, p1=0.3, p2=0.3).power == pytest.approx(
-        0.025, abs=0.01
-    )  # no effect -> power ~ alpha/2 side
+        0.05, abs=1e-12
+    )  # no effect -> power = alpha (both tails since 1.42; was alpha / 2)
 
 
 def test_logrank_schoenfeld_events():

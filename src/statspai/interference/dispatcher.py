@@ -51,6 +51,7 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "bramoulle": ("statspai.interference.peer_effects", "peer_effects"),
     "network_hte": ("statspai.interference.orthogonal", "network_hte"),
     "orthogonal": ("statspai.interference.orthogonal", "network_hte"),
+    # Deprecated in 1.42, removed in 1.43 (see _DEPRECATED_ALIASES).
     "parmigiani": ("statspai.interference.orthogonal", "network_hte"),
     "inward_outward": ("statspai.interference.orthogonal", "inward_outward_spillover"),
     "inward_outward_spillover": (
@@ -101,6 +102,13 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
 # MIGRATION.md). A call that still passes sp.spillover's arguments is
 # refused with a pointer to 'spillover' rather than a bare TypeError.
 _RETARGETED_ALIASES = frozenset({"partial", "hudgens_halloran"})
+# Aliases kept for one minor release with a DeprecationWarning:
+# alias -> (canonical design, release that removes the alias).
+# 'parmigiani' named sp.network_hte after authors who did not write it; the
+# method is Wu & Yuan (2025) (see sp.network_hte).
+_DEPRECATED_ALIASES: Dict[str, Tuple[str, str]] = {
+    "parmigiani": ("network_hte", "1.43"),
+}
 _SPILLOVER_ONLY_KWARGS = frozenset(
     {"cluster", "covariates", "exposure_fn", "n_bootstrap", "random_state", "seed"}
 )
@@ -137,6 +145,10 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
         :func:`sp.two_stage_interference` (the Hudgens-Halloran two-stage
         estimator, which needs a ``group`` and a ``saturation`` column),
         the same as ``"two_stage"``.
+
+        .. deprecated:: 1.42
+           ``"parmigiani"`` (an alias of ``"network_hte"``) warns and will
+           be removed in 1.43.
 
         .. versionchanged:: 1.41
            Through 1.40 these two names routed to :func:`sp.spillover`,
@@ -177,6 +189,18 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
         raise ValueError(
             f"Unknown interference design {design!r}. Available: "
             + ", ".join(available_designs())
+        )
+
+    if design in _DEPRECATED_ALIASES:
+        import warnings
+
+        canonical, removal = _DEPRECATED_ALIASES[design]
+        warnings.warn(
+            f"sp.interference({design!r}) is deprecated and will be removed "
+            f"in {removal}; use sp.interference({canonical!r}), the same "
+            "estimator.",
+            DeprecationWarning,
+            stacklevel=2,
         )
 
     if design in _RETARGETED_ALIASES:

@@ -220,6 +220,62 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   edge `schooling -> log`, and `Foo -> Bar` entered the consensus DAG.
   Each side is now matched against `variables`; lines that name no
   variable are dropped with a `UserWarning`.
+- Two-sided normal-approximation power counted only the upper rejection
+  region, so a zero effect had power `alpha / 2` instead of `alpha`. Fixed
+  in `sp.power_rct`, `sp.power_did`, `sp.power_rd`, `sp.power_iv`,
+  `sp.power_cluster_rct`, `sp.power_ols` (and so `sp.power` / `sp.mde`),
+  `sp.power_two_proportions`, `sp.power_logrank` and
+  `sp.power_case_control(test="wald")`. `sp.power_rct(n=400,
+  effect_size=0.01)` moves from 0.0314 to 0.0511, which is Stata `power
+  onemean, knownsd` (0.051146302810811). At conventional power the change
+  is below 1e-6. One-sided power is unchanged.
+- `sp.epi.relative_risk` / `sp.epi.prevalence_ratio` applied the Haldane
+  correction whenever a cell was zero, so the point estimate moved. They
+  now report the plain ratio, as Stata `cs`. `(0, 80, 20, 80)` gives 0 (was
+  0.0304) with a NaN interval and a warning; `(10, 0, 5, 5)` gives 2 with
+  [1.0761, 3.7171], equal to Stata `csi` (was 1.909, [1.043, 3.496]).
+  `correction="haldane"` keeps the corrected ratio.
+- `sp.epi.attributable_risk`: the PAF interval held the exposure
+  prevalence fixed even though it is estimated from the same table. The
+  default `prevalence="estimated"` now uses the multinomial delta method,
+  which is Stata `punaf, vce(unconditional)` up to the robust `N/(N-1)`
+  factor. `(40, 60, 20, 80)` moves from [0.0943, 0.5093] to [0.0911,
+  0.5110]. In a simulation with a common outcome the old interval covered
+  91.4% and the new one 94.7%. `prevalence="fixed"` keeps the old interval.
+- `sp.aipw(design=)` with PSUs drew the cross-fitting folds row by row, so a
+  PSU's own rows trained the models that predicted it. Folds are now drawn
+  over whole PSUs, as `cluster=` does since 1.41 (`model_info['fold_unit']`
+  is `'psu'`). On the test design the estimate moves from 0.3150 to 0.4099.
+  Designs without PSUs are unchanged.
+- `sp.cross_validate(estimand="dml")`: the statspai engine ignored `n_folds`
+  and `seed`, so it split the sample differently from the DoubleML engine
+  (0.9759 against `sp.dml(n_folds=3, random_state=7)` = 0.9956). Every
+  engine also reported a 95% interval whatever `alpha` was; the intervals
+  now have level `1 - alpha`.
+- `sp.dnc_gnn_did(embedding=<DataFrame>)` turned the features into NaN
+  (estimate 5.53 against a true 2 in a test panel); a DataFrame is now
+  matched to units by its index and recovers 2.0. An array is read in
+  sorted-id order and is refused when units do not appear in that order.
+- `sp.randomize(strata=)` assigned only the last row of each duplicated index
+  label. The other rows kept uninitialised values, so every unit could come
+  out as control. Assignment now uses row positions and matches the same
+  frame with a default index.
+- `sp.randomize(strata=..., cluster=...)` ignored `cluster=` and split
+  clusters between arms (8 of 8 in a probe). It now randomizes whole
+  clusters within each stratum, as `randomizr::block_and_cluster_ra` does. A
+  cluster that spans strata raises `MethodIncompatibility`.
+- `sp.switchback` randomization p-value counted only paths with a strictly
+  larger |estimate|. With few coin flips it could be 0, and the test
+  rejected 12.5% of the time at a nominal 5% (exact enumeration, 16 paths).
+  Paths at least as extreme now count.
+- `sp.attrition_bounds` treated rows with a missing treatment as control
+  (lower bound 0.6625 instead of 0.7304 in a probe). Treatment codes 1/2
+  flipped the sign of the bounds. Missing treatment or `observed` values,
+  and observed rows with a missing outcome, are now dropped with a warning,
+  the sample of `sp.lee_bounds`. Codes other than 0/1 raise.
+- `sp.balance_check` omnibus F counted collinear covariates in its
+  numerator degrees of freedom (F 0.237 instead of 0.357, the R `lm`
+  value). The degrees of freedom are now the rank.
 
 ### Fixed
 
@@ -293,6 +349,33 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   aligned with `X` (it was an `assert`), and its summary no longer says
   "no subset accepted" when subsets were accepted with an empty
   intersection.
+- `sp.pate` hid separation of the experiment from the target sample: the
+  participation probabilities were clipped by `trim=` and the odds weights
+  became constant, so the estimate was the unweighted experiment contrast.
+  It now warns (`AssumptionWarning`) and records `separation` and
+  `n_participation_clipped` in `model_info` / `diagnostics`. Numbers are
+  unchanged.
+- `sp.cross_validate(reference=)` with a name that matches no engine fell
+  back to `"statspai"` silently; it now raises `MethodIncompatibility`.
+- `sp.ipcw` read the event column with `astype(int)`, so 2.0 or 0.5 were
+  truncated silently. Values other than 0/1 now raise
+  `MethodIncompatibility`.
+- `sp.cluster_matched_pair` said it was a size-weighted estimator with the
+  variance of the cited paper. It is the equally weighted cluster-level
+  difference in means with the matched-pairs t-test variance, which is
+  consistent with a homogeneous effect and conservative otherwise (coverage
+  96% and 97.6% in a 50-pair simulation). The docstring says so, and the
+  summary labels the interval with its level instead of a fixed 95%.
+- `sp.dnc_gnn_did` docstring promised a lagged-outcome stand-in network
+  feature that was never built. Without `embedding=` no network feature
+  enters; `diagnostics['network_features']` says which did.
+- `sp.randomize` raises `DataInsufficient` on missing strata or cluster
+  values. It used to return garbage integers or the last cluster's arm. It
+  accepts categorical strata with unused levels, which used to crash.
+- `sp.attrition_test` requires `treatment` and `observed` coded 0/1. With
+  1/2 codes it reported a NaN control rate.
+- `sp.attrition_bounds(alpha=)` and `sp.balance_check(alpha=)` are
+  documented as unused.
 
 ### Added
 
@@ -302,6 +385,17 @@ sets, implied independencies and d-separation; the defects were elsewhere.
   `eigen_centrality(directed = TRUE)` and networkx by the nodes that point
   to it (`mode='in'`, equal to igraph to 1e-12). The docstring used to say
   the function matched networkx, which held only for undirected graphs.
+- `sp.power_two_proportions(test=)`: `"chi2"` is the Pearson test of Stata
+  `power twoproportions` and R `power.prop.test(strict = TRUE)` (0.861470522956074
+  at n = 400, p = 0.5 / 0.65, equal to both). The default stays `"wald"`
+  in 1.42; see MIGRATION.md.
+- `sp.epi.relative_risk(correction="haldane")` and
+  `sp.epi.attributable_risk(prevalence=)`.
+
+### Deprecated
+
+- `sp.interference("parmigiani")` warns (`DeprecationWarning`) and will be
+  removed in 1.43. Use `"network_hte"`, the same estimator.
 
 ## [1.41.0] — 2026-10-27
 

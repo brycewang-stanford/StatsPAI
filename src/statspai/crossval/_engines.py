@@ -137,13 +137,22 @@ class StatspaiAdapter(EngineAdapter):
         if est == "dml":
             if spec.y is None:
                 raise ValueError("DML cross-check requires an outcome `y`.")
+            # n_folds / seed are forwarded as the DoubleML engine reads them
+            # (until 1.42 this engine ignored both and always used sp.dml's
+            # defaults, so the two engines split the sample differently).
+            n_folds = int(spec.extra.get("n_folds", 5))
+            seed = int(spec.extra.get("seed", 42))
             dml_res = sp.dml(
                 data=spec.data,
                 y=spec.y,
                 treat=spec.treatment,
                 covariates=spec.covariates,
                 model=spec.extra.get("model", "plr"),
+                n_folds=n_folds,
+                random_state=seed,
+                alpha=spec.alpha,
             )
+            ci = getattr(dml_res, "ci", None)
             return EngineEstimate(
                 engine=self.name,
                 estimand=est,
@@ -151,10 +160,16 @@ class StatspaiAdapter(EngineAdapter):
                 coef=float(dml_res.estimate),
                 se=float(dml_res.se),
                 pvalue=float(getattr(dml_res, "pvalue", np.nan)),
+                ci_lower=float(ci[0]) if ci is not None else None,
+                ci_upper=float(ci[1]) if ci is not None else None,
                 nobs=int(len(spec.data)),
                 vcov="dml",
                 status=STATUS_OK,
-                extra={"learners": "statspai-default"},
+                extra={
+                    "learners": "statspai-default",
+                    "n_folds": n_folds,
+                    "seed": seed,
+                },
             )
 
         if est == "did":
@@ -273,13 +288,16 @@ class PyfixestAdapter(EngineAdapter):
             m = pf.fepois(fml, data=spec.data, vcov=vcov, weights=spec.weights)
         else:
             m = pf.feols(fml, data=spec.data, vcov=vcov, weights=spec.weights)
-        tidy = m.tidy()
+        tidy = m.tidy(alpha=spec.alpha)
         if term not in tidy.index:
             raise KeyError(
                 f"focal term '{term}' not in pyfixest coefficients "
                 f"{list(tidy.index)}"
             )
         row = tidy.loc[term]
+        # tidy() names the interval columns after alpha ("2.5%" / "97.5%"
+        # at 0.05); they are the last two columns.
+        ci_cols = [c for c in tidy.columns if str(c).endswith("%")]
         return EngineEstimate(
             engine=self.name,
             estimand=spec.estimand,
@@ -288,8 +306,8 @@ class PyfixestAdapter(EngineAdapter):
             se=float(row["Std. Error"]),
             tstat=float(row.get("t value", np.nan)),
             pvalue=float(row.get("Pr(>|t|)", np.nan)),
-            ci_lower=float(row.get("2.5%", np.nan)),
-            ci_upper=float(row.get("97.5%", np.nan)),
+            ci_lower=float(row[ci_cols[0]]) if len(ci_cols) == 2 else np.nan,
+            ci_upper=float(row[ci_cols[1]]) if len(ci_cols) == 2 else np.nan,
             nobs=int(getattr(m, "_N", len(spec.data))),
             vcov=str(vcov),
             status=STATUS_OK,
@@ -386,7 +404,7 @@ class LinearmodelsAdapter(EngineAdapter):
                 f"focal term '{term}' not in linearmodels params "
                 f"{list(res.params.index)}"
             )
-        ci = res.conf_int()
+        ci = res.conf_int(level=1.0 - spec.alpha)
         return EngineEstimate(
             engine=self.name,
             estimand=spec.estimand,
@@ -458,7 +476,7 @@ class DoublemlAdapter(EngineAdapter):
         else:
             plr = dml.DoubleMLPLR(data, ml_l, ml_m, n_folds=n_folds)
         plr.fit()
-        ci = plr.confint()
+        ci = plr.confint(level=1.0 - spec.alpha)
         return EngineEstimate(
             engine=self.name,
             estimand=spec.estimand,
@@ -506,7 +524,7 @@ def adapter_by_name(name: str) -> Optional[EngineAdapter]:
 def _from_statspai_result(
     res: Any, engine: str, estimand: str, term: str, spec: EstimandSpec
 ) -> EngineEstimate:
-    tidy = res.tidy()
+    tidy = res.tidy(conf_level=1.0 - spec.alpha)
     match = tidy[tidy["term"] == term]
     if match.empty:
         # tolerate patsy-mangled names (e.g. categorical expansions)

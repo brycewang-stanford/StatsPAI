@@ -88,6 +88,39 @@ def _z_alpha(alpha: float, alternative: str) -> float:
     return float(norm.ppf(1 - alpha))
 
 
+def _wald_power(shift: np.ndarray, z_a: float, alternative: str) -> np.ndarray:
+    """Power of a z test whose statistic is N(shift, 1), shift >= 0.
+
+    Two-sided power counts both rejection regions, so a zero effect has
+    power ``alpha``. Until 1.42 only the upper tail was counted (``alpha / 2``
+    at a zero effect).
+    """
+    out: np.ndarray = norm.cdf(shift - z_a)
+    if alternative == "two-sided":
+        out = out + norm.cdf(-shift - z_a)
+    return out
+
+
+def _pearson_power(
+    delta: float,
+    se: np.ndarray,
+    se0: np.ndarray,
+    z_a: float,
+    alternative: str,
+) -> np.ndarray:
+    """Power of the Pearson chi-squared (pooled-variance z) test.
+
+    ``se0`` is the null standard error from the pooled proportion, ``se``
+    the standard error under the alternative; both tails count when
+    two-sided (Stata ``power twoproportions``; R
+    ``power.prop.test(strict = TRUE)``).
+    """
+    out: np.ndarray = norm.cdf((delta - z_a * se0) / se)
+    if alternative == "two-sided":
+        out = out + norm.cdf((-delta - z_a * se0) / se)
+    return out
+
+
 def power_two_proportions(
     n: Optional[ArrayLike] = None,
     p1: float = 0.5,
@@ -97,6 +130,7 @@ def power_two_proportions(
     alpha: float = 0.05,
     alternative: str = "two-sided",
     power_target: Optional[float] = None,
+    test: str = "wald",
 ) -> PowerResult:
     """Power (or sample size) to detect a difference between two proportions.
 
@@ -117,6 +151,22 @@ def power_two_proportions(
     power_target : float, optional
         Desired power; when supplied with ``n=None`` the function returns the
         required total sample size.
+    test : {"wald", "chi2"}, default "wald"
+        ``"wald"``: the unpooled-variance z test,
+        ``Phi(|p1 - p2| / se - z_alpha)`` with
+        ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. ``"chi2"``: the Pearson
+        chi-squared test, whose null standard error uses the pooled
+        proportion; this is Stata ``power twoproportions`` (its default
+        ``test(chi2)``) and R ``power.prop.test(strict = TRUE)``, and the
+        default of :func:`power_case_control`. Two-sided power counts both
+        tails under either test. Group sizes are ``n / (1 + ratio)`` and
+        ``n ratio / (1 + ratio)`` without rounding, as Stata's
+        ``nfractional`` option (Stata otherwise rounds each group to an
+        integer).
+
+        .. versionadded:: 1.42
+           1.42 keeps ``"wald"`` as the default; see MIGRATION.md for the
+           planned change to ``"chi2"``.
 
     Returns
     -------
@@ -124,9 +174,9 @@ def power_two_proportions(
 
     Notes
     -----
-    Uses the unpooled-variance normal approximation to a two-sample test of
-    proportions: ``power = Phi(|p1 - p2| / se - z_alpha)`` with
-    ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``.
+    Two-sided power is ``Phi(shift - z) + Phi(-shift - z)``, so a zero
+    difference has power ``alpha``. Before 1.42 only the first term was
+    counted.
 
     Examples
     --------
@@ -143,6 +193,14 @@ def power_two_proportions(
     334
     """
     alternative = _alternative(alternative)
+    if test not in ("wald", "chi2"):
+        raise MethodIncompatibility(
+            f"test must be 'wald' or 'chi2', got {test!r}.",
+            recovery_hint="Use test='chi2' for the Pearson test of Stata "
+            "power twoproportions / R power.prop.test, or test='wald' for "
+            "the unpooled z test.",
+            diagnostics={"test": test},
+        )
     z_a = _z_alpha(alpha, alternative)
     delta = abs(p2 - p1)
     frac1 = 1.0 / (1.0 + ratio)  # share of total n in group 1
@@ -151,10 +209,15 @@ def power_two_proportions(
         n1 = n_total * frac1
         n2 = n_total * (1.0 - frac1)
         se = np.sqrt(p1 * (1 - p1) / n1 + p2 * (1 - p2) / n2)
-        out: np.ndarray = norm.cdf(delta / se - z_a)
-        return out
+        if test == "wald":
+            return _wald_power(delta / se, z_a, alternative)
+        pbar = (p1 * n1 + p2 * n2) / (n1 + n2)
+        se0 = np.sqrt(pbar * (1 - pbar) * (1 / n1 + 1 / n2))
+        return _pearson_power(delta, se, se0, z_a, alternative)
 
-    params = dict(p1=p1, p2=p2, ratio=ratio, alpha=alpha, alternative=alternative)
+    params = dict(
+        p1=p1, p2=p2, ratio=ratio, alpha=alpha, alternative=alternative, test=test
+    )
 
     if n is None:
         if power_target is None:
@@ -162,13 +225,17 @@ def power_two_proportions(
         if delta == 0:
             raise ValueError("p1 and p2 are equal; no detectable effect.")
         z_b = norm.ppf(power_target)
-        p_bar = (p1 + ratio * p2) / (1 + ratio)
         # closed-form starting point, then refine to the integer n.
         n1_0 = (z_a + z_b) ** 2 * (p1 * (1 - p1) + p2 * (1 - p2) / ratio) / delta**2
         n_total = np.ceil(n1_0 * (1 + ratio))
         while float(_power_for_n(np.array([n_total]))[0]) < power_target:
             n_total += 1
-        _ = p_bar  # documented but not needed for the unpooled SE
+        # The closed-form start is the one-tail Wald size; step down to the
+        # smallest total that attains the target.
+        while n_total > 2 and (
+            float(_power_for_n(np.array([n_total - 1]))[0]) >= power_target
+        ):
+            n_total -= 1
         return PowerResult(
             power_val=float(_power_for_n(np.array([n_total]))[0]),
             n=int(n_total),
@@ -228,7 +295,9 @@ def power_logrank(
     -----
     With allocation share ``p = ratio/(1+ratio)``, the required number of
     events is ``D = (z_alpha + z_beta)^2 / (p(1-p) (ln HR)^2)`` and the power
-    for a given ``D`` is ``Phi(sqrt(D p(1-p)) |ln HR| - z_alpha)``.
+    for a given ``D`` is ``Phi(sqrt(D p(1-p)) |ln HR| - z_alpha)``, plus
+    ``Phi(-sqrt(D p(1-p)) |ln HR| - z_alpha)`` when two-sided (counted
+    since 1.42).
 
     Examples
     --------
@@ -258,8 +327,7 @@ def power_logrank(
     )
 
     def _power_for_events(d: np.ndarray) -> np.ndarray:
-        out: np.ndarray = norm.cdf(np.sqrt(d * p * (1 - p)) * log_hr - z_a)
-        return out
+        return _wald_power(np.sqrt(d * p * (1 - p)) * log_hr, z_a, alternative)
 
     if n is None:
         if power_target is None:
@@ -319,7 +387,8 @@ def power_case_control(
     test : {"chi2", "wald"}, default "chi2"
         ``"wald"``: the unpooled two-proportion z test,
         ``Phi(|p1 - p0| / se1 - z)`` with ``se1`` the unpooled standard
-        error (upper tail only). ``"chi2"``: the Pearson chi-squared test,
+        error (both tails counted when two-sided, since 1.42).
+        ``"chi2"``: the Pearson chi-squared test,
         whose null standard error uses the pooled proportion, with both
         tails counted when two-sided -- Stata ``power twoproportions``
         (controls as group 1, cases as group 2).
@@ -380,14 +449,10 @@ def power_case_control(
         n_ctrl = nc * ratio
         se = np.sqrt(p1 * (1 - p1) / nc + p0 * (1 - p0) / n_ctrl)
         if test == "wald":
-            out: np.ndarray = norm.cdf(delta / se - z_a)
-            return out
+            return _wald_power(delta / se, z_a, alternative)
         pbar = (p1 * nc + p0 * n_ctrl) / (nc + n_ctrl)
         se0 = np.sqrt(pbar * (1 - pbar) * (1 / nc + 1 / n_ctrl))
-        out = norm.cdf((delta - z_a * se0) / se)
-        if alternative == "two-sided":
-            out = out + norm.cdf((-delta - z_a * se0) / se)
-        return out
+        return _pearson_power(delta, se, se0, z_a, alternative)
 
     if n_cases is None:
         if power_target is None:

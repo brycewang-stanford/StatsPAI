@@ -15,6 +15,11 @@ from scipy.stats import norm
 import statspai as sp
 
 
+def _two_sided(shift, z_alpha):
+    """Two-sided z-test power: both rejection regions (alpha at shift 0)."""
+    return norm.cdf(shift - z_alpha) + norm.cdf(-shift - z_alpha)
+
+
 def _did(n, effect=0.3):
     return sp.power_did(n=n, effect_size=effect, n_periods=4, n_treated_periods=2).power
 
@@ -63,11 +68,11 @@ def test_power_did_matches_the_ar1_variance_of_the_did_estimator():
     c = np.array([-0.5, -0.5, 0.5, 0.5])
     corr = 0.5 ** np.abs(np.subtract.outer(np.arange(4), np.arange(4)))
     se = np.sqrt(float(c @ corr @ c) / (0.5 * 0.5 * 400))
-    assert res.power == pytest.approx(norm.cdf(0.3 / se - z_alpha))
+    assert res.power == pytest.approx(_two_sided(0.3 / se, z_alpha))
     # rho = 0 is the textbook 2 sigma sqrt((1/m + 1/r) / n).
     iid = sp.power_did(n=400, effect_size=0.3, n_periods=4, n_treated_periods=2, rho=0)
     assert iid.power == pytest.approx(
-        norm.cdf(0.3 / (2 * np.sqrt(1.0 / 400)) - z_alpha)
+        _two_sided(0.3 / (2 * np.sqrt(1.0 / 400)), z_alpha)
     )
 
 
@@ -76,10 +81,10 @@ def test_power_rd_matches_the_boundary_local_linear_variance():
     z_alpha = norm.ppf(0.975)
     # se = sigma sqrt(2 C_K / (n h f)), C_K = 4.8 for the triangular kernel.
     se = (2.0 * 4.8 / (1000.0 * 0.5 * 1.0)) ** 0.5
-    assert res.power == pytest.approx(norm.cdf(0.3 / se - z_alpha))
+    assert res.power == pytest.approx(_two_sided(0.3 / se, z_alpha))
     uniform = sp.power_rd(n=1000, effect_size=0.3, bandwidth=0.5, kernel="uniform")
     se_u = (2.0 * 4.0 / 500.0) ** 0.5
-    assert uniform.power == pytest.approx(norm.cdf(0.3 / se_u - z_alpha))
+    assert uniform.power == pytest.approx(_two_sided(0.3 / se_u, z_alpha))
 
 
 def test_power_ols_matches_closed_form_formula():
@@ -91,7 +96,7 @@ def test_power_ols_matches_closed_form_formula():
     )
     z_alpha = norm.ppf(0.975)
     se = (1.0 - 0.5) ** 0.5 / (200.0 - 3.0 - 1.0) ** 0.5
-    expected = norm.cdf(0.2 / se - z_alpha)
+    expected = _two_sided(0.2 / se, z_alpha)
     assert res.power == pytest.approx(expected)
 
 

@@ -13,7 +13,8 @@ Entry points covered:
     sp.power_cluster_rct    cluster-RCT power with a design effect
     sp.power_iv             2SLS power with a weak-first-stage penalty
 
-Underlying model (power.py): power = Phi(|es| * sqrt(N_eff_factor) - z_{alpha/2}).
+Underlying model (power.py): power = Phi(s - z_{alpha/2}) + Phi(-s - z_{alpha/2}),
+s = |es| * sqrt(N_eff_factor) (both tails since 1.42).
 Purely additive — no estimator numerics changed (campaign red line).
 """
 
@@ -26,6 +27,11 @@ import statspai as sp
 Z_ALPHA = norm.ppf(1 - 0.05 / 2)  # 1.959964...
 
 
+def _two_sided(shift):
+    """Two-sided z-test power: both rejection regions (alpha at shift 0)."""
+    return norm.cdf(shift - Z_ALPHA) + norm.cdf(-shift - Z_ALPHA)
+
+
 # ---------------------------------------------------------------------------
 # sp.power — two-arm RCT closed form and solve-for-n
 # ---------------------------------------------------------------------------
@@ -34,7 +40,7 @@ class TestPowerRCTAnalytic:
     @pytest.mark.parametrize("n,es", [(400, 0.3), (1000, 0.2), (250, 0.5)])
     def test_rct_power_matches_normal_closed_form(self, n, es):
         # Equal allocation (ratio=1) -> p(1-p) = 0.25; power = Phi(es*sqrt(0.25 n) - z).
-        expected = norm.cdf(es * np.sqrt(0.25 * n) - Z_ALPHA)
+        expected = _two_sided(es * np.sqrt(0.25 * n))
         res = sp.power("rct", n=n, effect_size=es, alpha=0.05)
         assert res.power == pytest.approx(expected, abs=1e-9)
 
@@ -103,7 +109,7 @@ class TestPowerClusterRCTAnalytic:
         nc, m, es, icc = 50, 20, 0.15, 0.05
         design_effect = 1 + (m - 1) * icc
         n_eff = nc * m / design_effect
-        expected = norm.cdf(es * np.sqrt(0.25 * n_eff) - Z_ALPHA)
+        expected = _two_sided(es * np.sqrt(0.25 * n_eff))
         assert sp.power_cluster_rct(nc, m, es, icc=icc).power == pytest.approx(
             expected, abs=1e-9
         )
@@ -124,7 +130,7 @@ class TestPowerIVAnalytic:
         # With no first-stage information the penalty is 1: IV power equals the
         # OLS benchmark Phi(es*sqrt(n) - z) (note: no p(1-p) factor here).
         n, es = 500, 0.3
-        expected = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
+        expected = _two_sided(es * np.sqrt(n))
         assert sp.power_iv(n, es).power == pytest.approx(expected, abs=1e-9)
 
     def test_first_stage_f_sets_the_identifying_share(self):
@@ -132,20 +138,20 @@ class TestPowerIVAnalytic:
         # of OLS on n * R2_z observations.
         n, es, f = 500, 0.3, 25.0
         r2 = f / (f + n)
-        expected = norm.cdf(es * np.sqrt(n * r2) - Z_ALPHA)
+        expected = _two_sided(es * np.sqrt(n * r2))
         assert sp.power_iv(n, es, first_stage_f=f).power == pytest.approx(
             expected, abs=1e-9
         )
 
     def test_strong_first_stage_recovers_ols(self):
         n, es = 500, 0.3
-        ols = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
+        ols = _two_sided(es * np.sqrt(n))
         strong = sp.power_iv(n, es, first_stage_f=1e6).power
         assert strong == pytest.approx(ols, rel=1e-3)
 
     def test_r2z_path_is_ols_power_on_the_identified_share(self):
         n, es, r2 = 500, 0.3, 0.1
-        expected = norm.cdf(es * np.sqrt(n * r2) - Z_ALPHA)
+        expected = _two_sided(es * np.sqrt(n * r2))
         assert sp.power_iv(n, es, r2_z=r2).power == pytest.approx(expected, abs=1e-9)
 
     def test_first_stage_f_takes_precedence_over_r2z(self):

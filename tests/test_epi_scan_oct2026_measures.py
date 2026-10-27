@@ -126,6 +126,9 @@ def test_or_exact_summary_names_both_estimates():
 
 # Stata 18 punaf, atspec(x=0) after glm y x, family(binomial) link(log):
 # (paf, lower, upper). The log-binomial fit converges to ~3e-9 relative.
+# punaf's default (conditional) variance holds the exposure prevalence
+# fixed: prevalence="fixed" (the default "estimated" is pinned to
+# punaf, vce(unconditional) in tests/test_r6_open_items.py).
 STATA_PUNAF = {
     (30, 70, 20, 80): (0.2, -0.07552027381101922, 0.4049391577415717),
     (50, 20, 30, 40): (0.25, 0.09055489995302313, 0.3814909773322829),
@@ -135,7 +138,7 @@ STATA_PUNAF = {
 
 @pytest.mark.parametrize("table", sorted(STATA_PUNAF))
 def test_paf_and_interval_match_stata_punaf(table):
-    res = sp.epi.attributable_risk(*table)
+    res = sp.epi.attributable_risk(*table, prevalence="fixed")
     paf, lo, hi = STATA_PUNAF[table]
     assert res.paf == pytest.approx(paf, rel=1e-12)
     np.testing.assert_allclose(res.paf_ci, (lo, hi), rtol=1e-7)
@@ -143,7 +146,7 @@ def test_paf_and_interval_match_stata_punaf(table):
 
 def test_paf_point_with_a_zero_cell_is_the_plug_in_as_stata_csi():
     # Stata `csi 10 5 0 5`: RR 2, AF exposed .5, AF population .3333333.
-    res = sp.epi.attributable_risk(10, 0, 5, 5)
+    res = sp.epi.attributable_risk(10, 0, 5, 5, prevalence="fixed")
     assert res.rr == pytest.approx(2.0, rel=1e-15)
     assert res.ar_exposed == pytest.approx(0.5, rel=1e-15)
     assert res.paf == pytest.approx(1 / 3, rel=1e-15)

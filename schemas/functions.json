@@ -15520,7 +15520,7 @@
           "x-statspai-role": "dataframe"
         },
         "event": {
-          "description": "Event indicator -- 1 if event, 0 if censored (administrative or informative), right-censored at ``time``.",
+          "description": "Event indicator -- 1 if event, 0 if censored (administrative or informative), right-censored at ``time``. Must be 0/1 (integer, float or boolean); any other value raises ``MethodIncompatibility`` (until 1.42 it was truncated to an integer silently).",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -16168,12 +16168,12 @@
     }
   },
   {
-    "description": "Relative risk (risk ratio) from a 2x2 table with Katz log-RR CI. Haldane correction for zero cells. Validation: certified parity evidence.",
+    "description": "Relative risk (risk ratio) from a 2x2 table with Katz log-RR CI. Plain ratio with zero cells (Stata cs); Haldane correction on request. Validation: certified parity evidence.",
     "name": "relative_risk",
     "parameters": {
       "properties": {
         "a": {
-          "description": "a parameter (float | 2x2 array).",
+          "description": "Cell counts (exposed cases, exposed non-cases, unexposed cases, unexposed non-cases), or pass a 2x2 array-like as ``a``.",
           "type": "number"
         },
         "alpha": {
@@ -16182,15 +16182,19 @@
           "type": "number"
         },
         "b": {
-          "description": "b parameter (float).",
+          "description": "Cell counts (exposed cases, exposed non-cases, unexposed cases, unexposed non-cases), or pass a 2x2 array-like as ``a``.",
           "type": "number"
         },
         "c": {
-          "description": "c parameter (float).",
+          "description": "Cell counts (exposed cases, exposed non-cases, unexposed cases, unexposed non-cases), or pass a 2x2 array-like as ``a``.",
           "type": "number"
         },
+        "correction": {
+          "description": "None: plain ratio on the raw counts, as Stata cs (0 or inf with a zero case count, interval NaN). 'haldane': add 0.5 to every cell when one is zero.",
+          "type": "string"
+        },
         "d": {
-          "description": "d parameter (float).",
+          "description": "Cell counts (exposed cases, exposed non-cases, unexposed cases, unexposed non-cases), or pass a 2x2 array-like as ``a``.",
           "type": "number"
         }
       },
@@ -16267,6 +16271,15 @@
         "d": {
           "description": "d parameter (float).",
           "type": "number"
+        },
+        "prevalence": {
+          "default": "estimated",
+          "description": "'estimated': exposure prevalence estimated from the table (one random sample), its sampling error enters the PAF interval. 'fixed': exposure groups sampled with fixed sizes.",
+          "enum": [
+            "estimated",
+            "fixed"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -17503,9 +17516,8 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
-          "type": "number",
-          "x-statspai-source": "signature"
+          "description": "Level of the significance check and of every engine's 1 - alpha confidence interval.",
+          "type": "number"
         },
         "cluster": {
           "anyOf": [
@@ -17600,9 +17612,8 @@
           "x-statspai-role": "columns"
         },
         "reference": {
-          "description": "Engine to anchor pairwise comparison on (default: ``\"statspai\"``).",
-          "type": "string",
-          "x-statspai-source": "signature"
+          "description": "Engine that anchors the pairwise comparison (default 'statspai'); must name an engine that was run, else MethodIncompatibility.",
+          "type": "string"
         },
         "t": {
           "description": "DiD time column",
@@ -54589,6 +54600,15 @@
           "default": 1.0,
           "description": "Allocation ratio ``n2 / n1`` (1.0 = equal allocation).",
           "type": "number"
+        },
+        "test": {
+          "default": "wald",
+          "description": "``\"wald\"``: the unpooled-variance z test, ``Phi(|p1 - p2| / se - z_alpha)`` with ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. ``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion; this is Stata ``power twoproportions`` (its default ``test(chi2)``) and R ``power.prop.test(strict = TRUE)``, and the default of :func:`power_case_control`. Two-sided power counts both tails under either test. Group sizes are ``n / (1 + ratio)`` and ``n ratio / (1 + ratio)`` without rounding, as Stata's ``nfractional`` option (Stata otherwise rounds each group to an integer). .. versionadded:: 1.42 1.42 keeps ``\"wald\"`` as the default; see MIGRATION.md for the planned change to ``\"chi2\"``.",
+          "enum": [
+            "wald",
+            "chi2"
+          ],
+          "type": "string"
         }
       },
       "required": [],
@@ -54686,7 +54706,7 @@
         },
         "test": {
           "default": "chi2",
-          "description": "``\"wald\"``: the unpooled two-proportion z test, ``Phi(|p1 - p0| / se1 - z)`` with ``se1`` the unpooled standard error (upper tail only). ``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion, with both tails counted when two-sided -- Stata ``power twoproportions`` (controls as group 1, cases as group 2). .. versionchanged:: 1.30.0 The default moved from ``\"wald\"`` (no package reference) to ``\"chi2\"``, the test of Stata ``power twoproportions`` and R ``power.prop.test``. Pass ``test=\"wald\"`` for the old power.",
+          "description": "``\"wald\"``: the unpooled two-proportion z test, ``Phi(|p1 - p0| / se1 - z)`` with ``se1`` the unpooled standard error (both tails counted when two-sided, since 1.42). ``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion, with both tails counted when two-sided -- Stata ``power twoproportions`` (controls as group 1, cases as group 2). .. versionchanged:: 1.30.0 The default moved from ``\"wald\"`` (no package reference) to ``\"chi2\"``, the test of Stata ``power twoproportions`` and R ``power.prop.test``. Pass ``test=\"wald\"`` for the old power.",
           "enum": [
             "chi2",
             "wald"
@@ -59511,7 +59531,7 @@
         },
         "method": {
           "default": "simple",
-          "description": "'simple' (independent Bernoulli draws; ``randomizr::simple_ra``), 'complete' (fixed arm counts; ``complete_ra``), 'stratified' (complete randomization within each stratum; ``block_ra``) or 'cluster' (complete randomization of clusters; ``cluster_ra``). Passing ``strata=`` / ``cluster=`` selects the block / cluster design whatever ``method`` says.",
+          "description": "'simple' (independent Bernoulli draws; ``randomizr::simple_ra``), 'complete' (fixed arm counts; ``complete_ra``), 'stratified' (complete randomization within each stratum; ``block_ra``) or 'cluster' (complete randomization of clusters; ``cluster_ra``). Passing ``strata=`` / ``cluster=`` selects the block / cluster design whatever ``method`` says. Passing both randomizes whole clusters within each stratum (``randomizr::block_and_cluster_ra``); every cluster must then lie in one stratum. Missing strata or cluster values raise ``DataInsufficient``, as in randomizr.",
           "enum": [
             "simple",
             "complete",
@@ -59575,7 +59595,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Not used: the table reports p-values, and the summary flags ``|normalized difference| > 0.25``.",
           "type": "number"
         },
         "covariates": {
@@ -59666,7 +59686,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Not used: no confidence interval is computed. For an interval for the identified set use :func:`sp.lee_bounds`.",
           "type": "number"
         },
         "data": {
@@ -72841,6 +72861,10 @@
           "description": "c parameter (Optional[float]).",
           "type": "number"
         },
+        "correction": {
+          "description": "correction parameter (Optional[str]).",
+          "type": "string"
+        },
         "d": {
           "description": "d parameter (Optional[float]).",
           "type": "number"
@@ -74568,13 +74592,13 @@
     }
   },
   {
-    "description": "Matched-pair cluster RCT estimator (weighted DIM + Bai SE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
+    "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
     "name": "cluster_matched_pair",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level of ``ci``.",
           "type": "number"
         },
         "cluster": {
@@ -74689,7 +74713,7 @@
           "x-statspai-role": "dataframe"
         },
         "embedding": {
-          "description": "Pre-computed (n_units, k) GNN embedding. If None, use simple unit-level lagged outcome as a stand-in network feature.",
+          "description": "Network features of each unit (a GNN embedding, degree, clustering ...), entered linearly in the adjustment regression. A DataFrame is matched to the units by its index, which must hold the ``id`` values (row order does not matter; every estimated unit must be present). An array has no unit labels: its rows are read in sorted-``id`` order, and it is refused when that order differs from the order in which units first appear in ``data`` (pass a DataFrame indexed by ``id`` then). ``None`` (default) uses no network feature: the estimate is the negative-control-adjusted DiD, and ``diagnostics['network_features']`` is ``None``. .. versionchanged:: 1.42 DataFrames are aligned by unit id (a DataFrame used to become all-NaN features), and arrays whose row order is ambiguous are refused. The docstring used to promise a lagged-outcome stand-in feature that was never built.",
           "type": "string"
         },
         "id": {

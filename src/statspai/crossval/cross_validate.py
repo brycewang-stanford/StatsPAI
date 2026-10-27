@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..exceptions import MethodIncompatibility
 from ._agreement import (
     STATUS_ERROR,
     STATUS_OK,
@@ -77,12 +78,20 @@ weights, vcov : optional
         skipped silently.
     reference : str, optional
         Engine to anchor pairwise comparison on (default: ``"statspai"``).
+        It must name one of the engines run (``"statspai"``, ``"pyfixest"``,
+        ``"linearmodels"``, ``"doubleml"``, ``"R::fixest"``, ``"R::did"``,
+        ``"Stata"``); any other value raises ``MethodIncompatibility``
+        (until 1.42 a misspelt name fell back to ``"statspai"`` silently).
     tol : dict or TolerancePolicy, optional
         Override the per-estimand tolerance. e.g. ``{"coef_rtol": 1e-4}`` or
         ``{"se_band": 0.5}`` for randomised estimators.
     alpha : float, default 0.05
+        Significance level of the agreement checks and of every engine's
+        confidence interval (``1 - alpha``; until 1.42 the intervals were
+        95% whatever ``alpha`` said).
     **extra
-        Forwarded to the spec (e.g. ``n_folds`` / ``seed`` / ``model`` for DML).
+        Forwarded to the spec (e.g. ``n_folds`` / ``seed`` / ``model`` for DML;
+        both DML engines use them, defaults 5 and 42).
 
     Returns
     -------
@@ -133,6 +142,10 @@ weights, vcov : optional
         if vcov:
             spec.vcov = vcov
 
+    from ..inference.basic_tests import _check_alpha
+
+    _check_alpha(alpha, "cross_validate")
+    spec.alpha = float(alpha)
     focal = spec.focal_term()
     adapters_with_names = _resolve_adapters(spec, engines)
 
@@ -152,6 +165,17 @@ weights, vcov : optional
         estimates.append(est)
         _maybe_record(est, explicit=explicit, sink=degradations)
 
+    if reference is not None:
+        names = [e.engine for e in estimates]
+        if reference not in names:
+            raise MethodIncompatibility(
+                f"cross_validate: reference={reference!r} is not one of the "
+                f"engines run: {names}.",
+                recovery_hint="Pass the engine name exactly as it appears in "
+                f"the results ({', '.join(repr(n) for n in names)}), or omit "
+                "reference= to anchor on 'statspai'.",
+                diagnostics={"reference": reference, "engines": names},
+            )
     policy = resolve_policy(spec.estimand, tol)
     report = reconcile(
         estimates, policy=policy, reference=reference or "statspai", alpha=alpha

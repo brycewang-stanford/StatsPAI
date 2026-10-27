@@ -150,9 +150,22 @@ class TestPowerAgainstSimulation:
             n=400, effect_size=0.2, n_periods=6, n_treated_periods=3, prop_treat=0.2
         )
         # Var is proportional to 1 / (p (1 - p)): 4 at p = 0.5, 6.25 at 0.2.
+        # Two-sided power is Phi(s - z) + Phi(-s - z) (both tails since
+        # 1.42), so the shift is recovered by a root search.
+        from scipy.optimize import brentq
+
         z = norm.ppf(0.975)
-        ncp_base = norm.ppf(base.power) + z
-        ncp_skew = norm.ppf(skew.power) + z
+
+        def shift(pw):
+            return brentq(
+                lambda s: norm.cdf(s - z) + norm.cdf(-s - z) - pw,
+                0.0,
+                40.0,
+                xtol=1e-14,
+            )
+
+        ncp_base = shift(base.power)
+        ncp_skew = shift(skew.power)
         assert ncp_skew / ncp_base == pytest.approx(np.sqrt(4 / 6.25), abs=1e-9)
 
     def test_power_rd_is_the_local_linear_test(self):

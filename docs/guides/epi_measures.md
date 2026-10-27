@@ -42,7 +42,7 @@ print(f"OR = {orr.estimate:.2f}  95% CI {orr.ci}")
 # method="exact": exact conditional CI; the estimate stays the sample OR
 # (Stata cci) and .conditional_mle holds the estimate R fisher.test prints.
 
-# Population attributable fraction (Levin); CI as Stata punaf
+# Population attributable fraction (Levin); CI as Stata punaf, vce(unconditional)
 ar = sp.attributable_risk(50, 950, 10, 990)
 print(ar.paf, ar.paf_ci)
 ```
@@ -62,11 +62,20 @@ print(f"IRR = {irr.estimate:.2f}  95% CI {irr.ci}")
 prevalence ratio is preferred over the OR; `sp.prevalence_ratio` uses the
 modified-Poisson / log-binomial approach [@zou2004modified].
 
-**Zero cells** are handled automatically with the Haldane–Anscombe 0.5
-continuity correction on the log-scale standard error, so a single empty
-cell does not blow up the interval. `sp.attributable_risk` is the
-exception: its point estimates use the raw counts (as Stata `cs`), and
-without cases in both exposure groups it reports no PAF interval.
+**Zero cells.** `sp.odds_ratio` (Woolf) applies the Haldane–Anscombe 0.5
+continuity correction when a cell is empty. `sp.relative_risk` and
+`sp.attributable_risk` use the raw counts, as Stata `cs`: a risk ratio
+with no exposed case is 0 and one with no unexposed case is infinite, and
+neither has an interval (a warning says so).
+`sp.relative_risk(..., correction="haldane")` gives the corrected ratio
+and a finite interval.
+
+**PAF interval.** By default (`prevalence="estimated"`) the interval
+counts the sampling error of the exposure prevalence, which the table
+estimates when it is one random sample (Stata `punaf, vce(unconditional)`
+after a robust log-binomial `glm`, up to its `N/(N-1)` factor). Pass
+`prevalence="fixed"` when the exposure groups were sampled with fixed
+sizes (Stata `punaf` with its default variance).
 
 ---
 

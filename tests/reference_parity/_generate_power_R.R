@@ -1,7 +1,9 @@
 #!/usr/bin/env Rscript
 # Frozen reference for sp.power_rct / power_two_proportions / power_logrank vs
 # the canonical large-sample z-approximation power formulas computed in base R
-# (the same formulas Stata `power` and standard texts use):
+# (the same formulas Stata `power` and standard texts use). Two-sided power
+# counts both rejection regions (Stata `power onemean, knownsd`); until 1.42
+# these fixtures held the upper tail only, which is alpha/2 at a zero effect.
 #   * power_rct           : two-sample t design, pooled-sigma z-approx
 #                           Phi(d * sqrt(n_g/2) - z_{1-a/2}),  n_g = n_total/2
 #   * power_two_proportions: unpooled (Wald) z-approx
@@ -9,12 +11,13 @@
 # Regenerate: Rscript tests/reference_parity/_generate_power_R.R
 suppressPackageStartupMessages(library(jsonlite))
 za <- qnorm(0.975)
-rct <- function(n, d) { ng <- n / 2; pnorm(d * sqrt(ng / 2) - za) }
+two <- function(shift) pnorm(shift - za) + pnorm(-shift - za)
+rct <- function(n, d) { ng <- n / 2; two(d * sqrt(ng / 2)) }
 tp <- function(n, p1, p2) {
   ng <- n / 2; s <- sqrt(p1 * (1 - p1) + p2 * (1 - p2))
-  pnorm((abs(p1 - p2) * sqrt(ng) - za * s) / s)
+  two(abs(p1 - p2) * sqrt(ng) / s)
 }
-lr <- function(n, hr, pe) { d <- n * pe; pnorm(abs(log(hr)) * sqrt(d) / 2 - za) }
+lr <- function(n, hr, pe) { d <- n * pe; two(abs(log(hr)) * sqrt(d) / 2) }
 out <- list(
   rct = list(
     list(n = 64, d = 0.5, power = rct(64, 0.5)),

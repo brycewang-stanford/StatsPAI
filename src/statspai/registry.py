@@ -17751,7 +17751,8 @@ def _build_registry() -> None:
             category="epi",
             description=(
                 "Relative risk (risk ratio) from a 2x2 table with Katz "
-                "log-RR CI. Haldane correction for zero cells."
+                "log-RR CI. Plain ratio with zero cells (Stata cs); Haldane "
+                "correction on request."
             ),
             params=[
                 ParamSpec("a", "float | 2x2 array", True),
@@ -17759,6 +17760,17 @@ def _build_registry() -> None:
                 ParamSpec("c", "float", False),
                 ParamSpec("d", "float", False),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "correction",
+                    "str | None",
+                    False,
+                    None,
+                    description=(
+                        "None: plain ratio on the raw counts, as Stata cs "
+                        "(0 or inf with a zero case count, interval NaN). "
+                        "'haldane': add 0.5 to every cell when one is zero."
+                    ),
+                ),
             ],
             returns="RR2x2Result",
             example="sp.epi.relative_risk(50, 950, 10, 990)",
@@ -17801,6 +17813,19 @@ def _build_registry() -> None:
                 ParamSpec("c", "float", False),
                 ParamSpec("d", "float", False),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "prevalence",
+                    "str",
+                    False,
+                    "estimated",
+                    description=(
+                        "'estimated': exposure prevalence estimated from the "
+                        "table (one random sample), its sampling error enters "
+                        "the PAF interval. 'fixed': exposure groups sampled "
+                        "with fixed sizes."
+                    ),
+                    enum=["estimated", "fixed"],
+                ),
             ],
             returns="ARResult",
             tags=["epidemiology", "PAF", "attributable_fraction", "Levin"],
@@ -18605,6 +18630,26 @@ def _build_registry() -> None:
                     "dict",
                     False,
                     description="Override tolerance, e.g. {'coef_rtol':1e-4}",
+                ),
+                ParamSpec(
+                    "reference",
+                    "str",
+                    False,
+                    description=(
+                        "Engine that anchors the pairwise comparison "
+                        "(default 'statspai'); must name an engine that was "
+                        "run, else MethodIncompatibility."
+                    ),
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    description=(
+                        "Level of the significance check and of every "
+                        "engine's 1 - alpha confidence interval."
+                    ),
                 ),
             ],
             returns="CrossValidationResult",

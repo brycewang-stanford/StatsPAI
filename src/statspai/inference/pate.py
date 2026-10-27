@@ -44,13 +44,21 @@ from scipy.optimize import minimize
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ConvergenceWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ..exceptions import warn as _warn
 from .basic_tests import _check_alpha
 
 #: Largest covariate imbalance, in standard deviations of the experiment's
 #: covariates, that counts as a converged entropy-balancing solution.
 _BALANCE_TOL = 1e-4
+#: Fitted participation probability treated as numerically 0 or 1 (the
+#: quasi-complete separation signature, as in ``sp.ipw``).
+_SEPARATION_BOUND = 1e-8
 
 
 @accepts_aliases(treat="treatment")
@@ -113,7 +121,14 @@ def pate(
         converged on the full sample, with the optimiser records in
         ``model_info['convergence']``; ``model_info['n_boot_not_converged']``
         counts bootstrap replicates that did not. Either failure issues a
-        ``ConvergenceWarning``.
+        ``ConvergenceWarning``. ``model_info['separation']`` is
+        ``'complete'`` / ``'quasi-complete'`` when the covariates separate
+        the experiment from the target sample in the participation logit
+        (``None`` otherwise, and for ``'calibration'``), with an
+        ``AssumptionWarning``; ``model_info['n_participation_clipped']``
+        counts experimental units whose participation probability
+        ``trim`` clipped. When every unit is clipped the odds weights are
+        constant and the estimate is the unweighted experiment contrast.
 
     Examples
     --------
@@ -335,6 +350,27 @@ class PATEEstimator:
 
         res = minimize(neg_loglik, beta0, jac=grad, method="L-BFGS-B")
         beta_hat = res.x
+
+        # Predicted P(S=1|X) for the experimental sample
+        z_exp = np.column_stack([np.ones(n_exp), X_exp]) @ beta_hat
+        z_exp = np.clip(z_exp, -30, 30)
+        p_exp = 1 / (1 + np.exp(-z_exp))
+        n_clipped = int(np.sum((p_exp < self.trim) | (p_exp > 1 - self.trim)))
+
+        # Separation of the two samples by the covariates. The trimming
+        # below turns it into constant odds weights (the unweighted
+        # experiment contrast), so it is detected on the fitted index:
+        # complete when the index classifies every unit correctly (no
+        # finite maximum-likelihood fit, no overlap to reweight on),
+        # quasi-complete when some fitted probabilities are numerically 0
+        # or 1 although the samples are not separated.
+        z_pool = np.clip(X_pool_c @ beta_hat, -30, 30)
+        p_pool = 1 / (1 + np.exp(-z_pool))
+        separation: Optional[str] = None
+        if np.array_equal(p_pool >= 0.5, S == 1):
+            separation = "complete"
+        elif np.any((p_pool <= _SEPARATION_BOUND) | (p_pool >= 1 - _SEPARATION_BOUND)):
+            separation = "quasi-complete"
         self._fit_log.append(
             {
                 "step": "participation_logit",
@@ -342,13 +378,10 @@ class PATEEstimator:
                 "message": str(res.message),
                 "n_iter": int(res.nit),
                 "max_abs_gradient": float(np.max(np.abs(grad(beta_hat)))),
+                "separation": separation,
+                "n_clipped": n_clipped,
             }
         )
-
-        # Predicted P(S=1|X) for the experimental sample
-        z_exp = np.column_stack([np.ones(n_exp), X_exp]) @ beta_hat
-        z_exp = np.clip(z_exp, -30, 30)
-        p_exp = 1 / (1 + np.exp(-z_exp))
         p_exp = np.clip(p_exp, self.trim, 1 - self.trim)
         return p_exp, beta_hat
 
@@ -627,6 +660,31 @@ class PATEEstimator:
                 diagnostics={"convergence": bad},
             )
 
+        participation = [e for e in point_log if e["step"] == "participation_logit"]
+        separation = participation[0]["separation"] if participation else None
+        n_clipped = participation[0]["n_clipped"] if participation else None
+        if separation is not None:
+            _warn(
+                AssumptionWarning,
+                f"pate(method={self.method!r}): {separation} separation of "
+                "the experiment from the target sample by the covariates. "
+                f"{n_clipped} of {len(Y)} experimental units have a "
+                "participation probability set by trim= rather than by the "
+                "data, so their odds weights are the trimming bound"
+                + (
+                    " (all of them: the estimate is the unweighted "
+                    "experiment contrast, not a population effect)."
+                    if n_clipped == len(Y)
+                    else "."
+                ),
+                stacklevel=3,
+                recovery_hint="Check covariate overlap between the two "
+                "samples (sp.overlap_plot); restrict the target population "
+                "to the covariate range the experiment covers, or drop the "
+                "separating covariate.",
+                diagnostics={"separation": separation, "n_clipped": n_clipped},
+            )
+
         # Bootstrap SE and CI
         self._fit_log = []
         boot_ests = self._bootstrap(Y, D, X_exp, X_tgt)
@@ -700,6 +758,11 @@ class PATEEstimator:
                 "converged": converged,
                 "convergence": point_log,
                 "n_boot_not_converged": n_boot_nc,
+                # Participation-logit separation ('complete' /
+                # 'quasi-complete' / None; None also for 'calibration') and
+                # the experimental units whose probability trim= clipped.
+                "separation": separation,
+                "n_participation_clipped": n_clipped,
             },
             _citation_key="pate",
         )

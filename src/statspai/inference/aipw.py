@@ -224,7 +224,14 @@ def aipw(
         ``survey::svyrecvar`` on those rows. The interval and p-value use
         the t distribution with the design degrees of freedom
         (#PSU - #strata), as Stata ``svy``. ``weights=`` and ``cluster=``
-        must not be given; ``design=None`` changes nothing.
+        must not be given; ``design=None`` changes nothing. With
+        ``cross_fit=True`` and PSUs declared (``sp.svydesign(cluster=)``)
+        the folds are drawn over whole PSUs, as with ``cluster=``, and
+        ``model_info['fold_unit']`` is ``'psu'``.
+
+        .. versionchanged:: 1.42
+           Folds were drawn row by row, so a PSU's own rows trained the
+           nuisance models that predicted it.
         A replicate-weight design (:func:`sp.svrepdesign`) is accepted
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
@@ -460,8 +467,18 @@ def aipw(
     mu0_hat = np.zeros(n)  # E[Y|X, D=0]
     e_hat = np.zeros(n)  # P(D=1|X)
 
+    # A survey design with declared PSUs folds by PSU, as cluster= folds by
+    # cluster: the PSU is the sampling cluster, and its shared shock would
+    # leak into its own out-of-fold predictions. PSU codes identify a PSU
+    # within its stratum (Stata svyset; R nest=TRUE).
+    psu_codes: Optional[np.ndarray] = None
+    if svy is not None and svy_rows is not None and svy.cluster_col:
+        psu_codes = np.asarray(svy._psu_codes)[svy_rows.rows]
+
     if cross_fit:
-        if groups is None:
+        if psu_codes is not None:
+            fold_ids = _cluster_fold_ids(pd.Series(psu_codes), n_folds, rng)
+        elif groups is None:
             fold_ids = rng.choice(n_folds, size=n)
         else:
             # Whole clusters go to one fold: a nuisance fit must not see
@@ -701,7 +718,13 @@ def aipw(
         # Unit the cross-fitting folds were drawn over ('cluster' keeps
         # every cluster in one fold).
         "fold_unit": (
-            None if not cross_fit else ("row" if groups is None else "cluster")
+            None
+            if not cross_fit
+            else (
+                "psu"
+                if psu_codes is not None
+                else ("row" if groups is None else "cluster")
+            )
         ),
         "n_outcome_arm_mean_fallback": len(arm_mean_fallbacks),
         "outcome_arm_mean_fallback": [

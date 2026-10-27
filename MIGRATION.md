@@ -5,6 +5,62 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ power tails, zero-cell risk ratios, PAF intervals, survey folds (option scan round 6)
+
+- Two-sided power from `sp.power_rct`, `sp.power_did`, `sp.power_rd`,
+  `sp.power_iv`, `sp.power_cluster_rct`, `sp.power_ols`, `sp.power`,
+  `sp.mde`, `sp.power_two_proportions`, `sp.power_logrank` and
+  `sp.power_case_control(test="wald")` now counts both tails. Small effects
+  get more power (a zero effect has power `alpha`). Sample sizes from
+  `sp.power_two_proportions(power_target=)` are now the smallest integer
+  that reaches the target and can be one lower.
+- `sp.power_two_proportions(test=)`: 1.42 keeps the unpooled Wald test as
+  the default. **1.43 should move the default to `test="chi2"`**, the
+  Pearson test of Stata `power twoproportions` and R `power.prop.test`
+  and already the default of `sp.power_case_control`. Pass `test=`
+  explicitly to keep either. Group sizes are not rounded, as Stata's
+  `nfractional` option.
+- `sp.epi.relative_risk` / `sp.epi.prevalence_ratio` with a zero cell:
+  the estimate is the plain ratio (0 or `inf` with a zero case count, and
+  the raw-count Katz interval when only a non-case cell is zero). Pass
+  `correction="haldane"` for the 1.41 numbers.
+- `sp.epi.attributable_risk`: `paf_ci` includes the sampling error of the
+  exposure prevalence by default. Pass `prevalence="fixed"` for the 1.41
+  interval, which is right when the exposure groups were sampled with fixed
+  sizes.
+- `sp.aipw(design=)` with PSUs: cross-fitting folds hold whole PSUs, so
+  estimates and SEs change. Designs without PSUs are unchanged.
+- `sp.cross_validate`: the statspai DML engine uses `n_folds` / `seed`
+  (defaults 5 and 42, as before), engine intervals follow `alpha`, and an
+  unknown `reference=` raises.
+- `sp.dnc_gnn_did(embedding=)`: pass a DataFrame indexed by unit id. An
+  array is read in sorted-id order and is refused when units appear in
+  another order in `data`.
+- `sp.ipcw`: an event column with values other than 0/1 raises.
+- `sp.interference("parmigiani")` is deprecated; use `"network_hte"`. It
+  will be removed in 1.43.
+
+## 1.41 → 1.42: experimental design fixes (option scan round 6)
+
+- `sp.randomize(strata=..., cluster=...)` now randomizes whole clusters
+  within strata. Assignments drawn with both arguments under 1.41 split
+  clusters; redraw them. Clusters must be nested in strata.
+- `sp.randomize(strata=)` on a frame with duplicate index labels gives a
+  different and now correct assignment. With unique labels the draws are
+  unchanged for the same seed.
+- Missing strata or cluster values in `sp.randomize` now raise. Fill or
+  drop those rows first.
+- `sp.switchback` randomization p-values can rise when re-drawn estimates
+  tie the observed one in absolute value (designs with few coin flips).
+  Continuous outcomes on long designs are unaffected.
+- `sp.attrition_bounds` drops rows with a missing treatment or `observed`
+  value, and observed rows with a missing outcome, with a warning. Bounds
+  on such data change. Treatment or `observed` codes other than 0/1 now
+  raise in `attrition_bounds` and `attrition_test`.
+- `sp.balance_check` omnibus F changes only when covariates are collinear.
+
+---
+
 ## 1.41 → 1.42: ⚠️ DAGs, structure learners and LLM-DAG helpers (option scan round 6)
 
 - `sp.dag` / `DAG.add_bidirected`: when two bidirected edges spell the

@@ -26,7 +26,7 @@ import pandas as pd
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 @dataclass
@@ -134,7 +134,9 @@ def ipcw(
         Follow-up time column.
     event : str
         Event indicator — 1 if event, 0 if censored (administrative or
-        informative), right-censored at ``time``.
+        informative), right-censored at ``time``. Must be 0/1 (integer,
+        float or boolean); any other value raises ``MethodIncompatibility``
+        (until 1.42 it was truncated to an integer silently).
     censor_covariates : list[str]
         Covariates predicting censoring.
     treatment_covariates : list[str], optional
@@ -242,7 +244,29 @@ def ipcw(
 
     n = len(data)
     t = data[time].to_numpy(dtype=float)
-    d = data[event].to_numpy(dtype=int)
+    ev = data[event].to_numpy()
+    try:
+        ev_f = ev.astype(float)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"sp.ipcw: event column {event!r} must be 0/1 or boolean.",
+            recovery_hint="Code the event indicator as 1 (event) / 0 " "(censored).",
+            diagnostics={"event": event, "dtype": str(data[event].dtype)},
+        ) from exc
+    bad = ~np.isin(ev_f, (0.0, 1.0))
+    if bad.any():
+        # astype(int) used to truncate silently: 2.0 -> 2 (neither event nor
+        # censored), 0.5 -> 0 (censored).
+        raise MethodIncompatibility(
+            f"sp.ipcw: event column {event!r} must be 0/1 or boolean; "
+            f"{int(bad.sum())} row(s) hold other values, e.g. "
+            f"{sorted(set(ev_f[bad].tolist()))[:5]}.",
+            recovery_hint="Code the event indicator as 1 (event) / 0 "
+            "(censored); competing or multi-state codes need to be collapsed "
+            "to this binary indicator first.",
+            diagnostics={"event": event, "n_invalid": int(bad.sum())},
+        )
+    d = ev_f.astype(int)
     X = data[list(censor_covariates)].to_numpy(dtype=float)
     X = np.column_stack([np.ones(n), X])
 

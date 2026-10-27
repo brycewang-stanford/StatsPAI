@@ -66,7 +66,14 @@ class RscriptAdapter(EngineAdapter):
         fml = _fixest_formula(spec)
         vcov = _r_vcov(spec.vcov, spec.cluster)
         payload = _run_r_fixest(
-            spec.data, fml, term, vcov, spec.estimand, self.timeout, spec.weights or ""
+            spec.data,
+            fml,
+            term,
+            vcov,
+            spec.estimand,
+            self.timeout,
+            spec.weights or "",
+            level=1.0 - spec.alpha,
         )
         return EngineEstimate(
             engine="R::fixest",
@@ -114,6 +121,7 @@ suppressMessages(library(fixest)); suppressMessages(library(jsonlite))
 args <- commandArgs(trailingOnly=TRUE)
 csv <- args[1]; fml <- args[2]; term <- args[3]; vcov <- args[4]; est <- args[5]
 wt <- if (length(args) >= 6) args[6] else ""
+lev <- if (length(args) >= 7) as.numeric(args[7]) else 0.95
 d <- read.csv(csv)
 if (startsWith(vcov, "~")) vcov <- as.formula(vcov)
 w <- if (nzchar(wt)) as.formula(paste0("~", wt)) else NULL
@@ -129,7 +137,7 @@ if (!(pick %in% nm) && (paste0("fit_", term) %in% nm)) pick <- paste0("fit_", te
 if (!(pick %in% nm)) { cat(toJSON(list(error=paste("term not found:", term,
   "have:", paste(nm, collapse=",")) ), auto_unbox=TRUE)); quit(status=0) }
 row <- ct[pick, ]
-ci <- tryCatch(confint(m)[pick, ], error=function(e) c(NA, NA))
+ci <- tryCatch(confint(m, level=lev)[pick, ], error=function(e) c(NA, NA))
 out <- list(coef=unname(row[[1]]), se=unname(row[[2]]),
             tstat=unname(row[[3]]), pval=unname(row[[4]]),
             ci_lower=unname(ci[[1]]), ci_upper=unname(ci[[2]]),
@@ -148,6 +156,7 @@ def _run_r_fixest(
     estimand: str,
     timeout: int,
     weights: str = "",
+    level: float = 0.95,
 ) -> Dict[str, Any]:
     with tempfile.TemporaryDirectory() as tmp:
         csv_path = os.path.join(tmp, "data.csv")
@@ -156,7 +165,17 @@ def _run_r_fixest(
         with open(script_path, "w", encoding="utf-8") as fh:
             fh.write(_R_SCRIPT)
         proc = subprocess.run(
-            ["Rscript", script_path, csv_path, formula, term, vcov, estimand, weights],
+            [
+                "Rscript",
+                script_path,
+                csv_path,
+                formula,
+                term,
+                vcov,
+                estimand,
+                weights,
+                repr(float(level)),
+            ],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -384,9 +403,11 @@ class StataAdapter(EngineAdapter):
         tstat = coef / se if se else None
         # Normal-approx inference so the report has CI/p even from a bare
         # coef/se dump; flagged via vcov label.
-        ci_lower = coef - 1.959963985 * se if se else None
-        ci_upper = coef + 1.959963985 * se if se else None
         from scipy import stats as _st
+
+        crit = float(_st.norm.ppf(1.0 - spec.alpha / 2.0))
+        ci_lower = coef - crit * se if se else None
+        ci_upper = coef + crit * se if se else None
 
         pval = float(2 * _st.norm.sf(abs(tstat))) if tstat else None
         return EngineEstimate(

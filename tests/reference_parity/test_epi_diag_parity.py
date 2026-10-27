@@ -56,7 +56,9 @@ def test_sensitivity_specificity_closed_form():
 def test_power_case_control_closed_form(nc, orr, p0):
     p1 = orr * p0 / (1 + p0 * (orr - 1))
     s = math.sqrt(p1 * (1 - p1) + p0 * (1 - p0))
-    hand = NormalDist().cdf((abs(p1 - p0) * math.sqrt(nc) - _ZA * s) / s)
+    shift = abs(p1 - p0) * math.sqrt(nc) / s
+    # Two-sided: both rejection regions count (since 1.42).
+    hand = NormalDist().cdf(shift - _ZA) + NormalDist().cdf(-shift - _ZA)
     got = _power(
         # The unpooled Wald closed form; the default test ("chi2") is pinned
         # to Stata power twoproportions in test_survival_epi_R_parity.py.

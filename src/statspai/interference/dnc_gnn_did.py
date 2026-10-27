@@ -4,22 +4,24 @@ Confounding (Zhang, Fu & Wang 2026, arXiv 2601.00603).
 
 Combines double negative controls (DNC) with graph neural network
 features that summarise unit-level network position. The full
-algorithm uses GNNs (heavy dependency); we ship a lightweight
-version using node-level structural features (degree, clustering)
-in place of learned embeddings, with a hook to plug in a real GNN
-embedding via the ``embedding`` argument.
+algorithm learns those features with a GNN (heavy dependency); this
+lightweight version takes them as given through the ``embedding``
+argument (one row per unit, e.g. a GNN embedding or structural features
+such as degree and clustering) and adjusts for them linearly. Without an
+embedding no network feature enters the model.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 @dataclass
@@ -75,6 +77,70 @@ class DNCGNNDiDResult(ResultProtocolMixin):
         return "\n".join(rows)
 
 
+def _embedding_frame(
+    embedding: Any, unit_col: pd.Series, units: pd.Index
+) -> pd.DataFrame:
+    """Network features as a frame indexed by unit, one row per ``units``.
+
+    A DataFrame is aligned on its index (the unit ids). An array is read in
+    sorted-unit order, the order the estimator's unit table uses, and is
+    refused when the units do not first appear in that order, since its
+    rows could then be meant in either order.
+    """
+    if isinstance(embedding, pd.Series):
+        embedding = embedding.to_frame()
+    if isinstance(embedding, pd.DataFrame):
+        if embedding.index.has_duplicates:
+            raise MethodIncompatibility(
+                "dnc_gnn_did: the embedding index repeats a unit id.",
+                recovery_hint="Pass one row of network features per unit, "
+                "indexed by the id column.",
+            )
+        missing = units.difference(embedding.index)
+        if len(missing):
+            raise MethodIncompatibility(
+                f"dnc_gnn_did: the embedding has no row for {len(missing)} "
+                f"unit(s), e.g. {list(missing[:5])}.",
+                recovery_hint="Index the embedding by the values of the id "
+                "column and give a row for every unit.",
+                diagnostics={"n_missing": int(len(missing))},
+            )
+        values = embedding.loc[units].to_numpy(dtype=float)
+    else:
+        arr = np.asarray(embedding, dtype=float)
+        if arr.ndim == 1:
+            arr = arr[:, None]
+        all_units = pd.Index(pd.unique(unit_col.dropna()))
+        sorted_units = all_units.sort_values()
+        if not all_units.equals(sorted_units):
+            raise MethodIncompatibility(
+                "dnc_gnn_did: an embedding array has no unit labels, and the "
+                "units do not appear in sorted order in data, so its rows "
+                "cannot be matched to units unambiguously.",
+                recovery_hint="Pass the embedding as a pandas DataFrame "
+                "indexed by the id values.",
+            )
+        if arr.shape[0] == len(sorted_units):
+            values = pd.DataFrame(arr, index=sorted_units).loc[units].to_numpy(float)
+        elif arr.shape[0] == len(units):
+            values = arr
+        else:
+            raise MethodIncompatibility(
+                f"dnc_gnn_did: the embedding has {arr.shape[0]} rows, but "
+                f"data has {len(sorted_units)} units ({len(units)} with "
+                "pre- and post-period outcomes).",
+                recovery_hint="Pass one row per unit in sorted id order, or "
+                "a DataFrame indexed by id.",
+            )
+    if not np.all(np.isfinite(values)):
+        raise MethodIncompatibility(
+            "dnc_gnn_did: the embedding has missing or infinite values.",
+            recovery_hint="Impute or drop those units' features first.",
+        )
+    cols = [f"_emb{i}" for i in range(values.shape[1])]
+    return pd.DataFrame(values, index=units, columns=cols)
+
+
 def dnc_gnn_did(
     data: pd.DataFrame,
     y: str,
@@ -83,7 +149,7 @@ def dnc_gnn_did(
     id: str,
     nc_outcome: List[str],
     nc_exposure: List[str],
-    embedding: Optional[np.ndarray] = None,
+    embedding: Optional[Any] = None,
     alpha: float = 0.05,
     n_boot: int = 100,
     seed: int = 0,
@@ -108,9 +174,23 @@ def dnc_gnn_did(
     nc_exposure : list of str
         Negative-control exposures — pseudo-treatments expected NOT
         to cause the outcome.
-    embedding : np.ndarray, optional
-        Pre-computed (n_units, k) GNN embedding. If None, use simple
-        unit-level lagged outcome as a stand-in network feature.
+    embedding : pandas.DataFrame or np.ndarray, optional
+        Network features of each unit (a GNN embedding, degree,
+        clustering ...), entered linearly in the adjustment regression.
+        A DataFrame is matched to the units by its index, which must hold
+        the ``id`` values (row order does not matter; every estimated unit
+        must be present). An array has no unit labels: its rows are read
+        in sorted-``id`` order, and it is refused when that order differs
+        from the order in which units first appear in ``data`` (pass a
+        DataFrame indexed by ``id`` then). ``None`` (default) uses no
+        network feature: the estimate is the negative-control-adjusted
+        DiD, and ``diagnostics['network_features']`` is ``None``.
+
+        .. versionchanged:: 1.42
+           DataFrames are aligned by unit id (a DataFrame used to become
+           all-NaN features), and arrays whose row order is ambiguous are
+           refused. The docstring used to promise a lagged-outcome stand-in
+           feature that was never built.
     alpha : float
     n_boot : int
     seed : int
@@ -187,27 +267,15 @@ def dnc_gnn_did(
     nc_e_means = df.groupby(id)[list(nc_exposure)].mean()
     pivot = pivot.join(nc_o_means).join(nc_e_means).dropna()
 
+    emb_cols: List[str] = []
     if embedding is not None:
-        if embedding.shape[0] != len(pivot):
-            raise ValueError(
-                f"Embedding rows ({embedding.shape[0]}) must match "
-                f"unique units after dropna ({len(pivot)})."
-            )
-        emb_cols = [f"_emb{i}" for i in range(embedding.shape[1])]
-        emb_df = pd.DataFrame(embedding, index=pivot.index, columns=emb_cols)
+        emb_df = _embedding_frame(embedding, data[id], pivot.index)
+        emb_cols = list(emb_df.columns)
         pivot = pivot.join(emb_df)
 
     Yd = pivot["delta"].to_numpy(float)
     D = pivot["_treat_unit"].to_numpy(float)
-    extra_cols = (
-        list(nc_outcome)
-        + list(nc_exposure)
-        + (
-            [f"_emb{i}" for i in range(embedding.shape[1])]
-            if embedding is not None
-            else []
-        )
-    )
+    extra_cols = list(nc_outcome) + list(nc_exposure) + emb_cols
     Xextra = pivot[extra_cols].to_numpy(float)
     X = np.column_stack([np.ones_like(D), D, Xextra])
     try:
@@ -254,6 +322,7 @@ def dnc_gnn_did(
         diagnostics={
             "naive_dim": naive_dim,
             "embedding_used": embedding is not None,
+            "network_features": emb_cols or None,
             "reference": "Zhang, Fu & Wang (2026), arXiv 2601.00603",
         },
     )

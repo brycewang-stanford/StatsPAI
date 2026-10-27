@@ -26,8 +26,9 @@ def test_rr_se_katz_formula_dense_cells():
 
 
 def test_rr_se_katz_formula_haldane_corrected():
-    # Zero cell triggers Haldane correction: a=0.5, b=10.5, c=5.5, d=20.5
-    r = sp.epi.relative_risk(0, 10, 5, 20)
+    # correction="haldane" (opt-in since 1.42; the default is the plain
+    # ratio, as Stata cs): a=0.5, b=10.5, c=5.5, d=20.5
+    r = sp.epi.relative_risk(0, 10, 5, 20, correction="haldane")
     expected_se = math.sqrt(1 / 0.5 - 1 / (0.5 + 10.5) + 1 / 5.5 - 1 / (5.5 + 20.5))
     assert r.se_log == pytest.approx(expected_se, rel=1e-6)
 
@@ -195,8 +196,9 @@ def test_mr_radial_rejects_single_snp():
 
 
 def test_longitudinal_gformula_warns_on_missing_cells():
-    import pandas as pd
     import warnings
+
+    import pandas as pd
 
     df = pd.DataFrame(
         {

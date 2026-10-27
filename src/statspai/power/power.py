@@ -278,6 +278,17 @@ class PowerResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 
 
+def _two_sided_power(shift: Any, z_alpha: float) -> np.ndarray:
+    """Power of a two-sided z test whose statistic is N(shift, 1).
+
+    Both rejection regions count, so at a zero effect the power is the size
+    ``alpha`` (Stata ``power onemean, knownsd``; R ``pwr.norm.test``). Until
+    1.42 only the upper tail was counted, which gave ``alpha / 2`` there.
+    """
+    out: np.ndarray = norm.cdf(shift - z_alpha) + norm.cdf(-shift - z_alpha)
+    return out
+
+
 def _to_array(val: Any) -> np.ndarray:
     """Convert scalar, list, or range to numpy array."""
     if isinstance(val, range):
@@ -333,7 +344,7 @@ def power_rct(
     # Proportion treated
     p = ratio / (1 + ratio)
     se = sigma / np.sqrt(n_arr * p * (1 - p))
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -442,7 +453,7 @@ def power_did(
     lags = np.abs(np.subtract.outer(np.arange(T), np.arange(T)))
     change_var = float(c @ (float(rho) ** lags) @ c)
     se = sigma * np.sqrt(change_var / (prop_treat * (1.0 - prop_treat) * n_arr))
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -556,7 +567,7 @@ def power_rd(
     # Expected observations within the bandwidth on one side of the cutoff.
     n_side = np.maximum(n_arr * bandwidth * density_at_cutoff, 1.0)
     se = sigma * np.sqrt(2.0 * c_k / n_side)
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -657,7 +668,7 @@ def power_iv(
         r2 = 1.0  # no first-stage information: the OLS benchmark
 
     se = sigma / np.sqrt(n_arr * r2)
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -724,7 +735,7 @@ def power_cluster_rct(
 
     # Equal allocation: p = 0.5
     se = sigma / np.sqrt(n_eff * 0.25)
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -790,7 +801,7 @@ def power_ols(
     df_adj = np.maximum(n_arr - n_covariates - 1, 1)
     se = sigma * residual_factor / np.sqrt(df_adj)
 
-    pwr = norm.cdf(np.abs(es_arr) / se - z_alpha)
+    pwr = _two_sided_power(np.abs(es_arr) / se, z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
