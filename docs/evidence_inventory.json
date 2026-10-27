@@ -22182,10 +22182,10 @@
             "quantity": "coverage",
             "B": 2000,
             "refused": 0,
-            "rate": 0.9385,
-            "mc_se": 0.0054,
+            "rate": 0.946,
+            "mc_se": 0.0051,
             "nominal": 0.95,
-            "within_2_mc_se_of_nominal": false
+            "within_2_mc_se_of_nominal": true
           },
           {
             "study": "extreme_weights_fast",
@@ -22221,8 +22221,8 @@
             "quantity": "coverage",
             "B": 2000,
             "refused": 0,
-            "rate": 0.9135,
-            "mc_se": 0.0063,
+            "rate": 0.9175,
+            "mc_se": 0.0062,
             "nominal": 0.95,
             "within_2_mc_se_of_nominal": false
           },
@@ -22260,7 +22260,7 @@
             "quantity": "coverage",
             "B": 2000,
             "refused": 0,
-            "rate": 0.789,
+            "rate": 0.7935,
             "mc_se": 0.0091,
             "nominal": 0.95,
             "within_2_mc_se_of_nominal": false
@@ -22338,7 +22338,7 @@
             "quantity": "coverage",
             "B": 2000,
             "refused": 0,
-            "rate": 0.9485,
+            "rate": 0.949,
             "mc_se": 0.0049,
             "nominal": 0.95,
             "within_2_mc_se_of_nominal": true
@@ -22377,7 +22377,7 @@
             "quantity": "coverage",
             "B": 2000,
             "refused": 0,
-            "rate": 0.858,
+            "rate": 0.859,
             "mc_se": 0.0078,
             "nominal": 0.95,
             "within_2_mc_se_of_nominal": false

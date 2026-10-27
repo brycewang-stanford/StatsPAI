@@ -1142,7 +1142,7 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 | `extreme_weights_binary_iv` | robust | coverage | 2000 | 24 | 9 | 0.814 (model=probit, n=200, sigma=2.0) |
 | `extreme_weights_fast` | iid | coverage | 2000 | 12 | 2 | 0.223 (model=fast_fepois, size=200, sigma=2.0) |
 | `extreme_weights_fast` | hc1 | coverage | 2000 | 12 | 6 | 0.870 (model=fast_feols, size=50, sigma=2.0) |
-| `extreme_weights_fast` | cr1 | coverage | 2000 | 12 | 4 | 0.789 (model=fast_feols, size=50, sigma=2.0) |
+| `extreme_weights_fast` | cr1 | coverage | 2000 | 12 | 5 | 0.793 (model=fast_feols, size=50, sigma=2.0) |
 | `extreme_weights_fast` | classical | coverage | 2000 | 6 | 2 | 0.140 (model=nbreg, size=1000, sigma=2.0) |
 | `extreme_weights_fast` | robust | coverage | 2000 | 6 | 2 | 0.841 (model=nbreg, size=200, sigma=2.0) |
 | `extreme_weights_models` | classical | coverage | 2000 | 12 | 4 | 0.143 (model=poisson, size=1000, sigma=2.0) |
