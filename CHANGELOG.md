@@ -467,6 +467,99 @@ Coordinator follow-ups to the round-6 scan:
 
 ### Added
 
+Econometrica 94(5) round. Methods from the September 2026 issue that
+StatsPAI did not have, plus the classical tools they build on. Each entry
+says what evidence backs it. Notes for maintainers are in
+`docs/dev/modules/` (`iv.md`, `experiments_interference.md`,
+`structural.md`, `bayes_mcmc.md`, and the new `measurement_error.md` and
+`adverse_selection.md`).
+
+- `sp.recentered_iv`. Borusyak and Hull (2023). The treatment or the
+  instrument is built from as-good-as-random shocks with non-random
+  exposure (market access, network spillovers, simulated eligibility).
+  The user passes the instrument recomputed under counterfactual shock
+  draws. `method='recenter'` instruments with the exposure minus its
+  expectation, `method='control'` instruments with the exposure and
+  controls for the expectation (the paper's Table 1, columns 2 and 3).
+  The same draws give a randomization p-value and an exact randomization
+  confidence set, which can be unbounded or a union of intervals.
+  `balance=` adds the paper's falsification tests. Evidence is known-truth
+  recovery and identities with `sp.iv` at 1e-10. Conley standard errors
+  and the efficient instrument (Section 3.5) are not implemented.
+- `sp.spatial_treatment`. Pollmann (2026). Effects of a spatial treatment
+  (a store, a plant) on nearby units, ring by ring, comparing units near
+  realised locations with units near counterfactual candidate locations
+  the user supplies. The standard error is the paper's design-based one,
+  in closed form. Estimates and standard errors match the author's own
+  reference code to 1e-12 on two designs
+  (`tests/reference_parity/test_spatial_treatment_R_parity.py`). Two small
+  differences from that code are documented. The CNN that proposes
+  candidates, the cross-fitted DML estimator and the nearest-location
+  estimator are not included.
+- `sp.eivreg`. Errors-in-variables regression with assumed reliability
+  ratios, as Stata's `eivreg`. Coefficients, standard errors, F, R-squared
+  and root MSE equal Stata 18 to 5e-15 on unweighted, `[aw=]`, `[fw=]` and
+  zero-weight designs. A reliability too small for the data raises
+  `IdentificationFailure` where Stata stops with r(399), at the same
+  threshold.
+- `sp.simex`. Simulation-extrapolation for regressors with additive normal
+  error of known standard deviation, in linear, logit, probit and Poisson
+  models. Quadratic, linear and rational extrapolants, jackknife variance.
+  Evidence is known-truth recovery, identities at lambda = 0, and a
+  stochastic screen against R `simex` 1.8 (not parity). Where the rational
+  extrapolant has no finite value at lambda = -1, the coefficient falls
+  back to the quadratic with a warning; R `simex` stops with an error.
+- `sp.noisy_covariates`. Agarwal and Singh (2026). Treatment effects when
+  covariates are noisy, partly missing, rounded or privatised. Covariates
+  are cleaned by truncated principal components, then an error-in-variable
+  regression and balancing weight feed cross-fitted doubly robust scores.
+  ATE, LATE with a binary instrument, and the partially linear coefficient.
+  Evidence is known-truth recovery, including the paper's own simulation
+  design. A constant is added after cleaning, because the paper's
+  dictionary read literally cannot fit its own design (-0.27 for a truth
+  of 2.2). `rank=None` uses the Gavish-Donoho threshold, which is not in
+  the paper. The interval does not cover a bias of order 1/p; the paper's
+  condition on p is reported in `model_info`.
+- `sp.positive_correlation_test`. The Chiappori-Salanie test of
+  asymmetric information. `method='biprobit'` matches Stata 18 `biprobit`
+  (likelihood ratio 1e-14, rho 2e-9, clustered Wald 2e-10).
+  `method='residuals'` is the score test on the two probits' generalized
+  residuals and accepts weights and clusters.
+- `sp.efc_welfare`. Einav, Finkelstein and Cullen (2010) with linear
+  demand and cost curves: equilibrium and efficient coverage, deadweight
+  loss, delta-method or bootstrap standard errors. Evidence is closed-form
+  designs.
+- `sp.pooled_price_ratio`. Hendren's (2013) pooled price ratio and the
+  implicit tax t(r) of Azevedo, Beauchamp and Karlsson Linner (2026),
+  computed exactly on the empirical distribution of risk, with t80 and the
+  no-trade check. The optional bootstrap resamples the probabilities only.
+- `sp.ddc` and `sp.dgp_ddc`. Single-agent dynamic discrete choice:
+  Rust's nested fixed point (`method='nfxp'`), Hotz-Miller CCP (`'ccp'`)
+  and Aguirregabiria-Mira nested pseudo-likelihood (`'npl'`), with the
+  Rust engine-replacement utility built in, or utilities as a feature array
+  or callable. The inner solver switches to Newton-Kantorovich steps, so
+  `beta=0.9999` takes a fraction of a second. `.counterfactual()` returns
+  choice probabilities and the stationary distribution under new
+  parameters, utilities or transitions. Evidence is known-truth recovery
+  and two identities (NPL at convergence equals NFXP to 1e-7; `beta=0`
+  equals `sp.logit`). Standard errors condition on the estimated
+  transitions. The discount factor is fixed. No comparison with Rust's
+  bus data yet, because the data are not bundled.
+- `sp.semiparametric_bayes`. Mueller and Norets (2026). A parametric
+  baseline likelihood is multiplied by a factor built from the baseline
+  and efficient scores and an auxiliary parameter `delta`, so the
+  posterior of the parameters of interest centres at the semiparametrically
+  efficient estimator with variance at the efficiency bound under local
+  misspecification. Built-in Student-t regression and Weibull duration
+  baselines, or user callables (`model='custom'`). The normalising
+  constant is handled by treating rejected proposals as latent draws (Rao,
+  Lin and Dunson 2016). A credible interval for `delta` that excludes zero
+  raises `AssumptionWarning`. Evidence is an exact posterior computed by
+  quadrature (means within 0.6 Monte Carlo SE) and known-truth designs
+  from the paper. The sampler is random-walk Metropolis, not the paper's
+  HMC, and mixes slowly (effective sample size about 5 to 10 percent of
+  draws).
+
 - `sp.eigenvector_centrality(mode=)`. On a directed graph the references
   disagree: `sna::evcent` scores a node by the nodes it points to
   (`mode='out'`, the default and the existing behaviour), igraph's

@@ -1,0 +1,284 @@
+"""Result classes for the adverse-selection toolkit."""
+
+from __future__ import annotations
+
+from typing import Any, ClassVar, Dict, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
+from .._result_serialize import ResultProtocolMixin
+
+
+class PositiveCorrelationResult(ResultProtocolMixin):
+    """Outcome of :func:`statspai.positive_correlation_test`.
+
+    Attributes
+    ----------
+    method : str
+        ``'biprobit'`` or ``'residuals'``.
+    estimate : float
+        The error correlation ``rho`` of the bivariate probit, or the
+        correlation of the two probits' generalized residuals.
+    statistic : float
+        Chi-squared statistic with one degree of freedom: the likelihood
+        ratio test of ``rho = 0`` (bivariate probit without clusters), the
+        Wald test on ``athrho`` (with clusters), or the score statistic
+        ``W`` built from the generalized residuals.
+    z : float
+        Signed square root of ``statistic`` (positive when coverage and
+        claims are positively correlated).
+    pvalue : float
+        Two-sided p-value of ``statistic``.
+    pvalue_greater : float
+        One-sided p-value against positive correlation (the conditional
+        correlation property predicted by asymmetric information).
+    """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = ("chiappori2000testing",)
+
+    def __init__(
+        self,
+        *,
+        method: str,
+        estimate: float,
+        se: Optional[float],
+        statistic: float,
+        z: float,
+        pvalue: float,
+        pvalue_greater: float,
+        test: str,
+        alpha: float,
+        n_obs: int,
+        detail: Dict[str, Any],
+        diagnostics: Dict[str, Any],
+    ) -> None:
+        self.method = method
+        self.estimand = "conditional correlation of coverage and claims"
+        self.estimate = estimate
+        self.se = se
+        self.statistic = statistic
+        self.z = z
+        self.pvalue = pvalue
+        self.pvalue_greater = pvalue_greater
+        self.test = test
+        self.alpha = alpha
+        self.n_obs = n_obs
+        self.detail = detail
+        self.diagnostics = diagnostics
+
+    def summary(self) -> str:
+        label = {
+            "biprobit": "Bivariate probit",
+            "residuals": "Generalized residuals of two probits",
+        }[self.method]
+        lines = [
+            "Positive correlation test (Chiappori-Salanie)",
+            f"Method: {label}",
+            f"Number of obs = {self.n_obs}",
+            f"Correlation estimate = {self.estimate:.6f}",
+        ]
+        if self.method == "biprobit":
+            lines.append(
+                f"athrho = {self.detail['athrho']:.6f} "
+                f"(se {self.detail['athrho_se']:.6f})"
+            )
+        lines += [
+            f"{self.test}: chi2(1) = {self.statistic:.4f}, "
+            f"Prob > chi2 = {self.pvalue:.4f}",
+            f"One-sided (positive correlation): z = {self.z:.4f}, "
+            f"p = {self.pvalue_greater:.4f}",
+        ]
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+
+class EFCWelfareResult(ResultProtocolMixin):
+    """Outcome of :func:`statspai.efc_welfare`.
+
+    Attributes
+    ----------
+    estimate : float
+        Deadweight loss per potential buyer from adverse (or advantageous)
+        selection, in the units of ``price`` and ``cost``.
+    table : pandas.DataFrame
+        One row per quantity (curve coefficients, equilibrium and
+        efficient price and coverage, deadweight loss) with estimate,
+        standard error and confidence interval.
+    curves : dict
+        Intercepts and slopes of demand ``D(p)``, average cost ``AC(p)``
+        and marginal cost ``MC(p)``, all linear in price.
+    """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = ("einav2010estimating",)
+
+    def __init__(
+        self,
+        *,
+        table: pd.DataFrame,
+        curves: Dict[str, float],
+        se_method: str,
+        alpha: float,
+        n_obs: int,
+        n_covered: int,
+        price_range: Tuple[float, float],
+        diagnostics: Dict[str, Any],
+    ) -> None:
+        self.method = "Einav-Finkelstein-Cullen welfare (linear curves)"
+        self.estimand = "deadweight loss per potential buyer"
+        self.table = table
+        self.curves = curves
+        self.se_method = se_method
+        self.alpha = alpha
+        self.n_obs = n_obs
+        self.n_covered = n_covered
+        self.price_range = price_range
+        self.diagnostics = diagnostics
+        row = table.loc["dwl"]
+        self.estimate = float(row["estimate"])
+        self.se = float(row["se"])
+        self.ci = (float(row["ci_lower"]), float(row["ci_upper"]))
+
+    def summary(self) -> str:
+        c = self.curves
+        lines = [
+            self.method,
+            f"Number of obs = {self.n_obs} (covered: {self.n_covered})",
+            f"Demand        D(p)  = {c['alpha']:.6g} + ({c['beta']:.6g}) p",
+            f"Average cost  AC(p) = {c['gamma']:.6g} + ({c['delta']:.6g}) p",
+            "Marginal cost MC(p) = AC(p) + delta * D(p) / beta",
+            f"Standard errors: {self.se_method}",
+            "",
+            self.table.to_string(float_format=lambda v: f"{v:.6g}"),
+        ]
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+    def plot(self, ax: Any = None, n_points: int = 200) -> Any:
+        """Demand, average cost and marginal cost against coverage.
+
+        The deadweight-loss region between demand and marginal cost, from
+        the equilibrium to the efficient coverage, is shaded.
+        """
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            _, ax = plt.subplots(figsize=(6.4, 4.4))
+        c = self.curves
+        q = np.linspace(0.0, 1.0, n_points)
+        inv = (q - c["alpha"]) / c["beta"]
+        ac = c["gamma"] + c["delta"] * inv
+        mc = ac + c["delta"] * q / c["beta"]
+        ax.plot(q, inv, label="Demand")
+        ax.plot(q, ac, label="Average cost")
+        ax.plot(q, mc, label="Marginal cost")
+        q_eq = float(self.table.loc["coverage_eq", "estimate"])
+        q_eff = float(self.table.loc["coverage_eff", "estimate"])
+        lo, hi = sorted((q_eq, q_eff))
+        band = (q >= lo) & (q <= hi)
+        if band.any():
+            ax.fill_between(q[band], inv[band], mc[band], alpha=0.25, label="DWL")
+        ax.axvline(q_eq, ls=":", lw=1)
+        ax.axvline(q_eff, ls="--", lw=1)
+        ax.set_xlabel("Share covered")
+        ax.set_ylabel("Price / cost")
+        ax.legend(frameon=False)
+        return ax
+
+
+class PooledPriceRatioResult(ResultProtocolMixin):
+    """Outcome of :func:`statspai.pooled_price_ratio`.
+
+    Attributes
+    ----------
+    curve : pandas.DataFrame
+        One row per evaluation point ``r`` with ``quantile`` (mass strictly
+        below ``r``), ``r``, ``mean_above`` (``E[P | P >= r]``), the pooled
+        price ratio ``T`` and the implicit tax ``t = T - 1``.
+    estimate : float
+        Minimum implicit tax over points up to the ``upto_quantile``
+        quantile (``t80`` with the default).
+    t_min_all : float
+        Infimum of the implicit tax over the whole support below one.
+    no_trade : bool or None
+        With ``markup`` given, whether ``t(r) >= markup`` at every point of
+        the support below one (Hendren's no-trade condition).
+    """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = ("hendren2013private",)
+
+    def __init__(
+        self,
+        *,
+        curve: pd.DataFrame,
+        estimate: float,
+        argmin_r: float,
+        t_min_all: float,
+        upto_quantile: float,
+        markup: Optional[float],
+        no_trade: Optional[bool],
+        no_trade_upto: Optional[bool],
+        se: Optional[float],
+        ci: Optional[Tuple[float, float]],
+        alpha: float,
+        n_obs: int,
+        diagnostics: Dict[str, Any],
+    ) -> None:
+        self.method = "Hendren pooled price ratio"
+        self.estimand = f"minimum implicit tax up to quantile {upto_quantile:g}"
+        self.curve = curve
+        self.estimate = estimate
+        self.argmin_r = argmin_r
+        self.t_min_all = t_min_all
+        self.upto_quantile = upto_quantile
+        self.markup = markup
+        self.no_trade = no_trade
+        self.no_trade_upto = no_trade_upto
+        self.se = se
+        self.ci = ci
+        self.alpha = alpha
+        self.n_obs = n_obs
+        self.diagnostics = diagnostics
+
+    def summary(self) -> str:
+        lines = [
+            "Pooled price ratio and implicit tax (Hendren 2013)",
+            f"Number of obs = {self.n_obs}",
+            f"Minimum implicit tax up to quantile {self.upto_quantile:g} = "
+            f"{self.estimate:.6f} (at r = {self.argmin_r:.6g})",
+            f"Infimum over the support below 1 = {self.t_min_all:.6f}",
+        ]
+        if self.ci is not None:
+            lines.append(
+                f"Bootstrap {100 * (1 - self.alpha):g}% interval = "
+                f"[{self.ci[0]:.6f}, {self.ci[1]:.6f}]"
+            )
+        if self.markup is not None:
+            lines.append(
+                f"No-trade condition at markup {self.markup:g}: "
+                f"whole support {self.no_trade}, up to quantile "
+                f"{self.no_trade_upto}"
+            )
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+    def plot(self, ax: Any = None) -> Any:
+        """Implicit tax ``t(r)`` against the risk quantile."""
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            _, ax = plt.subplots(figsize=(6.4, 4.4))
+        ax.plot(self.curve["quantile"], self.curve["t"], label="Implicit tax t(r)")
+        ax.axvline(self.upto_quantile, ls=":", lw=1)
+        if self.markup is not None:
+            ax.axhline(self.markup, ls="--", lw=1, label="Markup")
+        ax.set_xlabel("Risk quantile")
+        ax.set_ylabel("Implicit tax")
+        ax.legend(frameon=False)
+        return ax

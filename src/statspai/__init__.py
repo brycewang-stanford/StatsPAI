@@ -2439,6 +2439,24 @@ __all__ = [
     "PCAResult",
     "factor",
     "FactorResult",
+    # Econometrica 94(5) round (2026-10-28)
+    "recentered_iv",
+    "spatial_treatment",
+    "SpatialTreatmentResult",
+    "eivreg",
+    "simex",
+    "noisy_covariates",
+    "positive_correlation_test",
+    "efc_welfare",
+    "pooled_price_ratio",
+    "PositiveCorrelationResult",
+    "EFCWelfareResult",
+    "PooledPriceRatioResult",
+    "ddc",
+    "dgp_ddc",
+    "DDCResult",
+    "semiparametric_bayes",
+    "SemiparametricBayesResult",
     "varsoc",
     "vec",
     "VECResult",
@@ -3435,6 +3453,25 @@ _register_lazy("regression.model_average", "model_average", "ModelAverageResult"
 _register_lazy("inference._jackknife_general", "jackknife", "JackknifeResult")
 _register_lazy("multivariate.pca", "pca", "PCAResult")
 _register_lazy("multivariate.factor", "factor", "FactorResult")
+# Econometrica 94(5) round (2026-10-28): design-based exposure, measurement
+# error, adverse selection, dynamic discrete choice, semiparametric Bayes.
+_register_lazy("iv.recentered", "recentered_iv")
+_register_lazy("spatial.treatments", "spatial_treatment", "SpatialTreatmentResult")
+_register_lazy("measurement_error.eivreg", "eivreg")
+_register_lazy("measurement_error.simex", "simex")
+_register_lazy("measurement_error.noisy_covariates", "noisy_covariates")
+_register_lazy("adverse_selection.tests", "positive_correlation_test", "efc_welfare")
+_register_lazy(
+    "adverse_selection._results",
+    "PositiveCorrelationResult",
+    "EFCWelfareResult",
+    "PooledPriceRatioResult",
+)
+_register_lazy("adverse_selection.unraveling", "pooled_price_ratio")
+_register_lazy("structural.ddc", "ddc", "dgp_ddc", "DDCResult")
+_register_lazy(
+    "mcmc.semiparametric", "semiparametric_bayes", "SemiparametricBayesResult"
+)
 _register_lazy(
     "plots.interactive",
     "interactive",
