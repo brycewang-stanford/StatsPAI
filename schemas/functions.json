@@ -29381,7 +29381,7 @@
         },
         "intercept": {
           "default": true,
-          "description": "intercept parameter (bool).",
+          "description": "Under ``\"dsp\"`` the intercept is semi-partialled like a predictor (a matrix of ones, as in sna). .. versionchanged:: 1.42 Its p-value was ``1 / (nperm + 1)`` whatever the data.",
           "type": "boolean",
           "x-statspai-source": "signature"
         },
@@ -29538,7 +29538,7 @@
           "type": "string"
         },
         "node_attrs": {
-          "description": "Node attributes (required by ``nodematch`` / ``nodecov`` / ``absdiff``). A ``DataFrame`` is aligned to node labels; a ``dict`` maps name -> length-``n`` array in node order.",
+          "description": "Node attributes (required by ``nodematch`` / ``nodecov`` / ``absdiff``). A ``DataFrame`` indexed by node label is aligned to the labels; one with a default ``RangeIndex`` is read in node order. A ``dict`` maps name -> length-``n`` array in node order.",
           "type": "string"
         },
         "terms": {
@@ -75321,12 +75321,21 @@
         },
         "max_iter": {
           "default": 1000,
-          "description": "Maximum power-iteration steps.",
+          "description": "Unused; kept for compatibility (the eigenvector is computed directly, not by power iteration).",
           "type": "integer"
+        },
+        "mode": {
+          "default": "out",
+          "description": "Orientation on a directed graph (see above).",
+          "enum": [
+            "out",
+            "in"
+          ],
+          "type": "string"
         },
         "tol": {
           "default": 1e-09,
-          "description": "Convergence tolerance on the score vector.",
+          "description": "Unused; kept for compatibility.",
           "type": "number"
         },
         "weighted": {
@@ -75453,6 +75462,10 @@
           "default": 1e-12,
           "description": "L1 convergence tolerance for hub and authority vectors.",
           "type": "number"
+        },
+        "weighted": {
+          "description": "Use tie weights; defaults to the graph's weighted flag, as the other centralities do (igraph's ``hits_scores`` and ``networkx.hits`` use the weights too). .. versionchanged:: 1.42 The weights were ignored.",
+          "type": "boolean"
         }
       },
       "required": [

@@ -59,6 +59,64 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
   `sp.fast.etable` takes its stars from each fit's own p-values (it read
   `t(df_resid)` critical values, also for `fepois`, whose tests are z):
   the example's `x2` goes from `**` to `*`.
+Option scan round 6: `diagnostics` and `network`. Tests in
+`tests/test_diagnostics_scan_oct2026.py` and
+`tests/test_network_scan_oct2026.py`.
+
+- ⚠️ **`sp.estat` after a weighted `sp.regress` ignored the weights.**
+  `hettest`, `reset` (`ovtest`), `vif` and `linktest` reran their
+  auxiliary regressions unweighted. They now do what Stata's `estat` does
+  after `regress [aw=]`: on the test data `estat hettest, rhs iid` goes
+  from 19.24 to 16.805138 (Stata 16.8051384368403), `estat vif` from 1.011
+  to 1.0312529 (Stata 1.03125287945777) and the linktest t from -1.03 to
+  -2.4274947 (Stata -2.42749473488544). After `weights_as='sampling'`
+  (Stata `pweight`) `reset` is the robust Wald test (3.3105622, Stata
+  3.31056215678665), `linktest` uses the robust SE and `hettest` is
+  refused, as in Stata. `white` and `imtest` are refused after any weights
+  (Stata: "imtest does not support weights"), and so are `normality` and
+  `leverage`, whose formulas are those of an unweighted regression.
+  `bgodfrey`, `durbinalt`, `archlm`, `dwatson` and `ic` already agreed with
+  Stata and are unchanged.
+- ⚠️ **`sp.estat(fit, 'linktest')` after `sp.logit` / `sp.probit` /
+  `sp.poisson` regressed y on the fitted probabilities by OLS.** It now
+  refits the model on the linear index and its square and reports a z
+  statistic, as Stata's `linktest` does. Logit example: t 0.316 becomes
+  z 0.2808 (Stata `_hatsq` .0384553, SE .1369572). `hettest`, `white`,
+  `imtest`, `reset`, `bgodfrey`, `durbinalt` and `archlm` now refuse a
+  likelihood fit instead of running on its response residuals, and
+  `sp.estat(fit, 'all')` skips them.
+- ⚠️ **`sp.logit_gof`, `sp.logit_influence` and `sp.estat(fit,
+  'classification')` after a weighted logit** returned unweighted
+  statistics (Pearson 295.7 where Stata's `estat gof` after `[iw=]` gives
+  491.8). They now raise, as Stata does after `pweight`.
+- ⚠️ **`sp.transitivity` and `sp.clustering` on a directed graph** applied
+  the undirected formula to the asymmetric matrix, which counts neither
+  triangles nor triples (a test graph gave 0.395 globally). A directed
+  graph is now read as undirected, as `igraph::transitivity`
+  does: 0.3478261 on the test graph, equal to igraph.
+- ⚠️ **`sp.assortativity` on a directed graph** correlated the out-degrees
+  of both ends of each arc. It now correlates the sender's out-degree with
+  the receiver's in-degree: 0.0500 becomes 0.2876470 (igraph and
+  networkx 0.28764698611864).
+- ⚠️ **`sp.network_modularity` on a directed graph** used the out-degree at
+  both ends of the null model. It now uses the Leicht-Newman form with
+  in-degrees for the receiving end: -0.0660 becomes -0.0642361 (igraph
+  `modularity(directed = TRUE)` -0.064236111111111). The `modularity`
+  reported by `sp.community_detection` on a directed graph changes with it.
+- ⚠️ **`sp.hits` ignored tie weights.** It now uses them when the graph is
+  weighted, like the other centralities (new `weighted=` argument;
+  `weighted=False` gives the old binary scores). Values match igraph's
+  `hits_scores` and networkx to 1e-10.
+- ⚠️ **`sp.netlm(method='dsp')` reported the intercept's QAP p-value as
+  `1 / (nperm + 1)` whatever the data.** The intercept is now
+  semi-partialled like the predictors (sna adds it as a matrix of ones).
+  On a test network its p-value goes from 0.0005 to 0.0999, against
+  0.0995 to 0.103 from `sna::netlm(nullhyp = "qapspp", test.statistic =
+  "beta")`. Predictor p-values are unchanged.
+- ⚠️ **`sp.ergm` term `nodefactor:<attr>`** summed the attribute codes into
+  one numeric term. It now has one term per level except the first, as
+  `ergm`'s `nodefactor`; estimates and SEs match `ergm(estimate = "MPLE")`
+  to 5e-7.
 
 ### Fixed
 
@@ -70,6 +128,24 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
   weighted request printed unweighted means and tests. A `group=` column
   with other than two distinct values also raises; a third value used to
   be dropped without notice.
+- `sp.ergm(node_attrs=DataFrame)` with a default `RangeIndex` and node
+  labels other than 0 .. n-1 reindexed the frame by label, got all-NaN
+  attributes and failed with "SVD did not converge". Such a frame is now
+  read in node order; a frame indexed by label is aligned by label; any
+  other index raises a `ValueError`.
+- `sp.het_test`, `sp.reset_test` and `sp.diagnose` said they were
+  equivalent to Stata's `estat hettest` / `estat ovtest`. They are R
+  `lmtest` defaults (Stata `estat hettest, rhs iid`; `reset_test(powers=4)`
+  for `estat ovtest`); the docstrings now say so.
+
+### Added
+
+- `sp.eigenvector_centrality(mode=)`. On a directed graph the references
+  disagree: `sna::evcent` scores a node by the nodes it points to
+  (`mode='out'`, the default and the existing behaviour), igraph's
+  `eigen_centrality(directed = TRUE)` and networkx by the nodes that point
+  to it (`mode='in'`, equal to igraph to 1e-12). The docstring used to say
+  the function matched networkx, which held only for undirected graphs.
 
 ## [1.41.0] — 2026-10-27
 

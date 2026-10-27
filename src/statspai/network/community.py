@@ -64,7 +64,13 @@ def modularity(graph: Any, membership: Any, resolution: float = 1.0) -> float:
     ``Q = (1/2m) sum_ij (A_ij - gamma k_i k_j / 2m) delta(c_i, c_j)`` with
     weighted degrees ``k`` and total edge weight ``m``.  ``Q`` rises as ties
     concentrate within communities relative to a degree-preserving null
-    model; ``resolution`` (``gamma``) tunes community size.
+    model; ``resolution`` (``gamma``) tunes community size. On a directed
+    graph it is the Leicht-Newman form ``Q = (1/m) sum_ij (A_ij - gamma
+    k_i^out k_j^in / m) delta(c_i, c_j)`` with ``m`` the total arc weight,
+    as ``igraph::modularity(directed = TRUE)``.
+
+    .. versionchanged:: 1.42
+       Directed graphs used the out-degree at both ends of the null model.
 
     Parameters
     ----------
@@ -98,12 +104,16 @@ def modularity(graph: Any, membership: Any, resolution: float = 1.0) -> float:
     if m2 <= 0:
         return 0.0
     k = A.sum(axis=1)
+    k_in = A.sum(axis=0) if g.is_directed else k
     Q = 0.0
     for com in np.unique(c):
         idx = np.flatnonzero(c == com)
         a_in = A[np.ix_(idx, idx)].sum()
         k_tot = k[idx].sum()
-        Q += a_in / m2 - resolution * (k_tot / m2) ** 2
+        if g.is_directed:
+            Q += a_in / m2 - resolution * k_tot * k_in[idx].sum() / m2**2
+        else:
+            Q += a_in / m2 - resolution * (k_tot / m2) ** 2
     return float(Q)
 
 

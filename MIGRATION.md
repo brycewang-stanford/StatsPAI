@@ -5,6 +5,34 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ `sp.estat` after weighted and likelihood fits, directed network measures (option scan round 6)
+
+- `sp.estat` after `sp.regress(weights=)`: `hettest`, `reset`, `vif` and
+  `linktest` change (they now use the weights, as Stata does after
+  `[aw=]`). After `weights_as='sampling'`, `hettest` raises and `reset` is
+  the robust Wald test. `white`, `imtest`, `normality` and `leverage`
+  raise after any weights. Unweighted fits are unchanged.
+- `sp.estat(fit, 'linktest')` after `sp.logit` / `sp.probit` /
+  `sp.poisson` refits that model and reports z. The linear tests
+  (`hettest`, `white`, `imtest`, `reset`, `bgodfrey`, `durbinalt`,
+  `archlm`) raise after a likelihood fit; `'all'` leaves them out.
+- `sp.logit_gof`, `sp.logit_influence` and `sp.estat(fit,
+  'classification')` raise after a weighted fit. Refit without weights.
+- Directed graphs: `sp.transitivity` / `sp.clustering` (read as undirected),
+  `sp.assortativity` (out-degree to in-degree) and `sp.network_modularity`
+  (Leicht-Newman) change and now match igraph. Undirected graphs are
+  unchanged.
+- `sp.eigenvector_centrality` is unchanged; pass `mode='in'` for igraph's
+  and networkx's orientation on a directed graph.
+- `sp.hits` uses tie weights on a weighted graph; pass `weighted=False`
+  for the old scores.
+- `sp.netlm(method='dsp')`: the intercept's p-value changes. Predictor
+  p-values do not.
+- `sp.ergm` with `nodefactor:<attr>` returns one term per level except the
+  first (`nodefactor.<attr>.<level>`), not a single term.
+
+---
+
 ## 1.41 → 1.42: ⚠️ table and plot intervals, `sp.binscatter`, `sp.fast` clustered inference (option scan round 6)
 
 - `sp.regtable` / `sp.esttab` / `sp.cite` with `alpha=` other than the

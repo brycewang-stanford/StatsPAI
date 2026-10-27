@@ -171,6 +171,17 @@ def _binary_fit(result: Any, who: str) -> Tuple[np.ndarray, np.ndarray, np.ndarr
             "matrix and fitted probabilities.",
             recovery_hint="Fit the model with sp.logit.",
         )
+    from ._estat_regression import is_weighted
+
+    if is_weighted(result):
+        # sp.logit_gof returned the unweighted Pearson statistic of a
+        # weighted fit (295.7 where Stata's estat gof after [iw=] gives
+        # 491.8); Stata refuses both commands after pweights.
+        raise MethodIncompatibility(
+            f"sp.{who}: not available after a weighted fit; the statistics "
+            "are those of an unweighted binary regression.",
+            recovery_hint="Refit without weights to run these diagnostics.",
+        )
     if who == "logit_influence" and "logit" not in link:
         raise MethodIncompatibility(
             "sp.logit_influence: Pregibon's diagnostics are those of the "

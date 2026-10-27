@@ -52,11 +52,27 @@ def _triangles_and_triples(B: np.ndarray) -> tuple:
     return tri_node, denom
 
 
+def _undirected_binary(graph: Any) -> Any:
+    """The binary adjacency with directions dropped (``A or A^T``) and the
+    graph, as igraph treats a directed graph in its clustering measures."""
+    g = as_graph(graph)
+    B = g.binary()
+    if g.is_directed:
+        B = np.maximum(B, B.T)
+    return g, B
+
+
 def transitivity(graph: Any) -> float:
     """Global clustering coefficient (transitivity).
 
     The fraction of connected triples of nodes that are closed into a
-    triangle: ``3 * (#triangles) / (#connected triples)``.
+    triangle: ``3 * (#triangles) / (#connected triples)``. A directed graph
+    is read as undirected (a tie in either direction), as
+    ``igraph::transitivity`` does.
+
+    .. versionchanged:: 1.42
+       A directed graph went through the undirected formula with its
+       asymmetric matrix, which counts neither triangles nor triples.
 
     Parameters
     ----------
@@ -73,8 +89,7 @@ def transitivity(graph: Any) -> float:
     >>> round(sp.transitivity(g), 4)
     0.2557
     """
-    g = as_graph(graph)
-    B = g.binary()
+    g, B = _undirected_binary(graph)
     tri_node, denom = _triangles_and_triples(B)
     triples = denom.sum()  # sum k_i(k_i-1) = 2 * (#connected triples)
     if triples <= 0:
@@ -87,6 +102,8 @@ def clustering(graph: Any) -> pd.Series:
 
     ``c_i = 2 e_i / (k_i (k_i - 1))`` where ``e_i`` is the number of ties
     among the ``k_i`` neighbours of ``i``.  Nodes with degree < 2 receive 0.
+    A directed graph is read as undirected, as in ``igraph::transitivity(type
+    = "local")``.
 
     Parameters
     ----------
@@ -105,8 +122,7 @@ def clustering(graph: Any) -> pd.Series:
     >>> sp.clustering(g).tolist()
     [1.0, 1.0, 1.0]
     """
-    g = as_graph(graph)
-    B = g.binary()
+    g, B = _undirected_binary(graph)
     tri_node, denom = _triangles_and_triples(B)
     with np.errstate(divide="ignore", invalid="ignore"):
         c = np.where(denom > 0, 2.0 * tri_node / denom, 0.0)
@@ -166,6 +182,13 @@ def assortativity(graph: Any) -> float:
     Positive values mean high-degree nodes tend to attach to high-degree
     nodes (assortative mixing); negative values indicate disassortativity
     (hub-and-spoke), as in many social and technological networks.
+    On a directed graph it correlates the out-degree of the sending node
+    with the in-degree of the receiving node over the arcs,
+    as ``igraph::assortativity_degree(directed = TRUE)`` and
+    ``networkx.degree_assortativity_coefficient`` do.
+
+    .. versionchanged:: 1.42
+       Directed graphs correlated the out-degrees of both ends.
 
     Parameters
     ----------
@@ -190,6 +213,7 @@ def assortativity(graph: Any) -> float:
     g = as_graph(graph)
     B = g.binary()
     deg = B.sum(axis=1)
+    deg_in = B.sum(axis=0) if g.is_directed else deg
     iu = np.argwhere(B != 0)
     if iu.size == 0:
         return float("nan")
@@ -197,7 +221,7 @@ def assortativity(graph: Any) -> float:
     # for a symmetric B the argwhere already yields both, matching Newman's
     # edge-stub correlation.
     x = deg[iu[:, 0]].astype(float)
-    y = deg[iu[:, 1]].astype(float)
+    y = deg_in[iu[:, 1]].astype(float)
     if np.allclose(x, x[0]) and np.allclose(y, y[0]):
         return float("nan")
     sx, sy = x.sum(), y.sum()

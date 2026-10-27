@@ -259,16 +259,23 @@ def eigenvector_centrality(
     weighted: Optional[bool] = None,
     max_iter: int = 1000,
     tol: float = 1e-9,
+    mode: str = "out",
 ) -> pd.Series:
     """Eigenvector centrality (leading eigenvector of the adjacency matrix).
 
-    Computed by power iteration and L2-normalised, matching ``networkx``.
-    ``igraph::eigen_centrality`` scales to a maximum of 1 instead, so the two
-    agree up to one scalar -- the ratio is constant across nodes to 1e-14 on
-    Zachary's karate club (``tests/reference_parity/test_network_parity.py``).
-    Rankings and relative magnitudes are identical; absolute values are not.
-    For directed graphs the right eigenvector is used (centrality flows
-    along out-ties' reverse).
+    Computed from the eigendecomposition and L2-normalised, as
+    ``sna::evcent`` and ``networkx`` report it. ``igraph::eigen_centrality``
+    scales to a maximum of 1 instead, so the two agree up to one scalar --
+    the ratio is constant across nodes to 1e-14 on Zachary's karate club
+    (``tests/reference_parity/test_network_parity.py``).
+
+    On a directed graph the references differ in orientation, and ``mode``
+    chooses. ``'out'`` (the default) solves ``A x = lambda x``: a node
+    scores the sum of the scores of the nodes it points to, as
+    ``sna::evcent``. ``'in'`` solves ``A^T x = lambda x``: a node is central
+    when central nodes point to it, as ``igraph::eigen_centrality(directed =
+    TRUE)``, ``networkx.eigenvector_centrality`` and
+    :func:`katz_centrality`. On an undirected graph the two coincide.
 
     Parameters
     ----------
@@ -277,9 +284,12 @@ def eigenvector_centrality(
     weighted : bool, optional
         Use tie weights; defaults to the graph's weighted flag.
     max_iter : int, default 1000
-        Maximum power-iteration steps.
+        Unused; kept for compatibility (the eigenvector is computed
+        directly, not by power iteration).
     tol : float, default 1e-9
-        Convergence tolerance on the score vector.
+        Unused; kept for compatibility.
+    mode : {'out', 'in'}, default 'out'
+        Orientation on a directed graph (see above).
 
     Returns
     -------
@@ -292,6 +302,8 @@ def eigenvector_centrality(
     >>> int(sp.eigenvector_centrality(g).idxmax())
     1
     """
+    if mode not in ("out", "in"):
+        raise ValueError(f"mode must be 'out' or 'in'; got {mode!r}")
     g = as_graph(graph)
     use_w = g.is_weighted if weighted is None else weighted
     A = np.asarray(g.adjacency_matrix() if use_w else g.binary(), dtype=float)
@@ -307,7 +319,7 @@ def eigenvector_centrality(
         vals, vecs = np.linalg.eigh(A)
         lead = vecs[:, int(np.argmax(vals))]
     else:
-        vals, vecs = np.linalg.eig(A)
+        vals, vecs = np.linalg.eig(A.T if mode == "in" else A)
         lead = vecs[:, int(np.argmax(vals.real))].real
     norm = np.linalg.norm(lead)
     if norm > 0:
@@ -522,7 +534,12 @@ def bonacich_power(
 # ====================================================================== #
 
 
-def hits(graph: Any, max_iter: int = 1000, tol: float = 1e-12) -> pd.DataFrame:
+def hits(
+    graph: Any,
+    max_iter: int = 1000,
+    tol: float = 1e-12,
+    weighted: Optional[bool] = None,
+) -> pd.DataFrame:
     """Kleinberg HITS hub and authority scores.
 
     Authorities are nodes pointed to by good hubs; hubs point to good
@@ -537,6 +554,13 @@ def hits(graph: Any, max_iter: int = 1000, tol: float = 1e-12) -> pd.DataFrame:
         Maximum power-iteration steps.
     tol : float, default 1e-12
         L1 convergence tolerance for hub and authority vectors.
+    weighted : bool, optional
+        Use tie weights; defaults to the graph's weighted flag, as the other
+        centralities do (igraph's ``hits_scores`` and ``networkx.hits`` use
+        the weights too).
+
+        .. versionchanged:: 1.42
+           The weights were ignored.
 
     Returns
     -------
@@ -555,7 +579,8 @@ def hits(graph: Any, max_iter: int = 1000, tol: float = 1e-12) -> pd.DataFrame:
     ['authority', 'hub']
     """
     g = as_graph(graph)
-    A = g.binary()
+    use_w = g.is_weighted if weighted is None else weighted
+    A = g.adjacency_matrix() if use_w else g.binary()
     n = g.n_nodes
     if n == 0:
         return pd.DataFrame({"hub": [], "authority": []})

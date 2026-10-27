@@ -201,8 +201,16 @@ def netlm(
     method : {"dsp", "y"}, default "dsp"
         ``"dsp"`` = Dekker double-semi-partialling (recommended);
         ``"y"`` = permute the dependent matrix (classic Krackhardt QAP).
+        The permutation statistic is the coefficient, so the p-values are
+        those of ``sna::netlm(test.statistic = "beta")``; sna's default
+        compares t statistics.
     seed : int, optional
     intercept : bool, default True
+        Under ``"dsp"`` the intercept is semi-partialled like a predictor
+        (a matrix of ones, as in sna).
+
+        .. versionchanged:: 1.42
+           Its p-value was ``1 / (nperm + 1)`` whatever the data.
 
     Returns
     -------
@@ -249,16 +257,16 @@ def netlm(
             perm = rng.permutation(n)
             b_perm = np.empty(p)
             for kcol in range(p):
-                if intercept and kcol == 0:
-                    b_perm[kcol] = 0.0
-                    continue
-                pred_idx = kcol - 1 if intercept else kcol
+                # The intercept is semi-partialled like any other column
+                # (sna::netlm adds it as a matrix of ones). It used to be
+                # skipped with a permutation coefficient of 0, which put its
+                # p-value at 1 / (nperm + 1) whatever the data.
                 others = [c for c in range(X.shape[1]) if c != kcol]
                 # residual of predictor kcol on the other design columns
                 Xo = X[:, others]
-                bk = np.linalg.pinv(Xo.T @ Xo) @ Xo.T @ Xpred[:, pred_idx]
+                bk = np.linalg.pinv(Xo.T @ Xo) @ Xo.T @ X[:, kcol]
                 # residual back in matrix form, then permute by nodes
-                Rk_vec = Xpred[:, pred_idx] - Xo @ bk
+                Rk_vec = X[:, kcol] - Xo @ bk
                 Rk_mat = np.zeros((n, n))
                 Rk_mat[mask] = Rk_vec
                 if not directed:

@@ -30,6 +30,9 @@ from scipy import stats as sp_stats
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
+    "is_linear",
+    "is_weighted",
+    "weights_of",
     "hettest",
     "white",
     "imtest",
@@ -42,7 +45,55 @@ __all__ = [
 
 
 # ------------------------------------------------------------------ helpers
-def _arrays(result: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]:
+def is_linear(result: Any) -> bool:
+    """Whether ``result`` is a linear regression (identity link, Gaussian)."""
+    model = getattr(result, "model_info", None) or {}
+    family = str(model.get("family") or "gaussian").lower()
+    link = str(model.get("link") or "identity").lower()
+    return family == "gaussian" and link == "identity"
+
+
+def weights_of(result: Any) -> Tuple[Optional[np.ndarray], bool]:
+    """The fit's weights, rescaled to sum to N, and whether they are sampling
+    weights (``weights_as='sampling'``, Stata's ``pweight``).
+
+    ``(None, False)`` for an unweighted fit. Analytic weights are what Stata
+    calls ``aweight``: every test that reruns a regression reruns it with
+    them, as Stata's ``estat`` does after ``regress [aw=]``.
+    """
+    info = getattr(result, "data_info", None) or {}
+    model = getattr(result, "model_info", None) or {}
+    w = info.get("analytic_weights")
+    if w is None:
+        w = info.get("weights")
+    if w is None:
+        return None, False
+    w = np.asarray(w, dtype=float).ravel()
+    n = len(np.asarray(info.get("residuals", w)))
+    if w.shape[0] != n or not np.all(np.isfinite(w)) or w.sum() <= 0:
+        raise MethodIncompatibility(
+            "sp.estat: the stored weights do not line up with the estimation "
+            "sample.",
+            recovery_hint="Refit the model with sp.regress(..., weights=...).",
+        )
+    sampling = str(model.get("weights_as") or "").lower() == "sampling"
+    return w * (n / w.sum()), sampling
+
+
+def is_weighted(result: Any) -> bool:
+    """Whether the fit used weights, wherever the estimator recorded them."""
+    from ..postestimation._design import model_setting
+
+    info = getattr(result, "data_info", None) or {}
+    return (
+        info.get("analytic_weights") is not None
+        or model_setting(result, "weights") is not None
+    )
+
+
+def _arrays(
+    result: Any, *, linear: bool = True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]:
     info = getattr(result, "data_info", None) or {}
     missing = [k for k in ("X", "y", "residuals") if info.get(k) is None]
     if missing:
@@ -51,11 +102,29 @@ def _arrays(result: Any) -> Tuple[np.ndarray, np.ndarray, np.ndarray, List[str]]
             "test needs a linear fit from sp.regress.",
             recovery_hint="Fit the model with sp.regress and pass that result.",
         )
+    if linear and not is_linear(result):
+        model = getattr(result, "model_info", None) or {}
+        raise MethodIncompatibility(
+            "sp.estat: this specification test is defined for a linear "
+            f"regression, not a {model.get('model_type') or model.get('family')} "
+            "fit (Stata allows it only after regress).",
+            recovery_hint="After a likelihood model use sp.estat(result, "
+            "'linktest'), 'ic' or 'classification'.",
+        )
     X = np.asarray(info["X"], dtype=float)
     y = np.asarray(info["y"], dtype=float)
     e = np.asarray(info["residuals"], dtype=float)
     names = [str(n) for n in (info.get("var_names") or result.params.index)]
     return X, y, e, names
+
+
+def _no_weights(result: Any, what: str, why: str) -> None:
+    w, _ = weights_of(result)
+    if w is not None:
+        raise MethodIncompatibility(
+            f"sp.estat {what}: not available after a weighted fit ({why}).",
+            recovery_hint="Refit without weights to run this test.",
+        )
 
 
 def _constant_column(X: np.ndarray) -> Optional[int]:
@@ -91,10 +160,25 @@ def _independent(columns: np.ndarray, base: np.ndarray) -> np.ndarray:
     return columns[:, out]
 
 
-def _fit(X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, float]:
-    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+def _fit(
+    X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, float]:
+    """Least squares residuals and residual sum of squares; with ``w`` the
+    weighted fit and the weighted sum."""
+    if w is None:
+        beta = np.linalg.lstsq(X, y, rcond=None)[0]
+        resid = y - X @ beta
+        return resid, float(resid @ resid)
+    sw = np.sqrt(w)
+    beta = np.linalg.lstsq(X * sw[:, None], y * sw, rcond=None)[0]
     resid = y - X @ beta
-    return resid, float(resid @ resid)
+    return resid, float(w @ resid**2)
+
+
+def _centred_ss(t: np.ndarray, w: Optional[np.ndarray] = None) -> float:
+    if w is None:
+        return float(((t - t.mean()) ** 2).sum())
+    return float(w @ (t - (w @ t) / w.sum()) ** 2)
 
 
 def _decision(pvalue: float, alpha: float, reject: str, keep: str) -> str:
@@ -119,8 +203,22 @@ def hettest(
     per estimation observation. ``version`` is ``'iid'`` (Koenker's N R^2,
     which does not assume normal errors), ``'normal'`` (the original score
     test, half the explained sum of squares) or ``'fstat'``.
+
+    After a fit with analytic weights the auxiliary regression is weighted
+    the same way and the R-squared is the weighted one (Stata ``estat
+    hettest`` after ``regress [aw=]``). After sampling weights the test is
+    refused, as in Stata: the score test assumes a likelihood that a
+    pweighted fit does not have.
     """
     X, y, e, names = _arrays(result)
+    w, sampling = weights_of(result)
+    if sampling:
+        raise MethodIncompatibility(
+            "sp.estat hettest: not appropriate after a fit with sampling "
+            "weights (Stata: 'hettest not appropriate with pweighted data').",
+            recovery_hint="The robust standard errors that sampling weights "
+            "imply already allow for heteroskedasticity.",
+        )
     n = X.shape[0]
     const = _constant_column(X)
     others = [j for j in range(X.shape[1]) if j != const]
@@ -168,14 +266,14 @@ def hettest(
         "version": version,
     }
     if version == "normal":
-        g = e2 / (e @ e / n)
-        _, rss = _fit(design, g)
-        stat = 0.5 * (float(((g - g.mean()) ** 2).sum()) - rss)
+        g = e2 / ((e @ e if w is None else float(w @ e2)) / n)
+        _, rss = _fit(design, g, w)
+        stat = 0.5 * (_centred_ss(g, w) - rss)
         pval = float(sp_stats.chi2.sf(stat, df))
         out.update(statistic_label=f"chi2({df})", df=df)
     else:
-        _, rss = _fit(design, e2)
-        tss = float(((e2 - e2.mean()) ** 2).sum())
+        _, rss = _fit(design, e2, w)
+        tss = _centred_ss(e2, w)
         r2 = 1.0 - rss / tss if tss > 0 else 0.0
         if version == "iid":
             stat = n * r2
@@ -215,6 +313,7 @@ def white(
     with many of them.
     """
     X, y, e, _ = _arrays(result)
+    _no_weights(result, "white", "Stata: 'imtest does not support weights'")
     n = X.shape[0]
     if variables is not None and variables not in ("rhs", "fitted"):
         raise MethodIncompatibility(
@@ -275,6 +374,7 @@ def imtest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     ``statistic`` is the heteroskedasticity part.
     """
     X, _, e, _ = _arrays(result)
+    _no_weights(result, "imtest", "Stata: 'imtest does not support weights'")
     n = X.shape[0]
     s2 = float(e @ e) / n
     out = white(result, alpha=alpha)
@@ -315,8 +415,23 @@ def reset(
     result: Any, *, powers: int = 3, rhs: bool = False, alpha: float = 0.05
 ) -> Dict[str, Any]:
     """Ramsey's RESET: an F test of the added powers 2 .. ``powers`` of the
-    fitted values, or with ``rhs=True`` of every regressor."""
+    fitted values, or with ``rhs=True`` of every regressor.
+
+    After analytic weights the augmented regression is weighted and the F
+    test compares weighted sums of squares; after sampling weights it is
+    the Wald test with the heteroskedasticity-robust variance of the
+    weighted augmented regression (Stata ``estat ovtest`` after ``regress
+    [aw=]`` and ``[pw=]``).
+    """
     X, y, e, _ = _arrays(result)
+    w, sampling = weights_of(result)
+    if sampling and (getattr(result, "model_info", None) or {}).get("cluster"):
+        raise MethodIncompatibility(
+            "sp.estat reset: the cluster-robust form after sampling weights "
+            "is not implemented.",
+            recovery_hint="Add the powers of the fitted values to the model "
+            "and test them with sp.test on the clustered fit.",
+        )
     n, k = X.shape
     if powers < 2:
         raise MethodIncompatibility(
@@ -348,11 +463,14 @@ def reset(
             "degrees of freedom are left).",
             recovery_hint="Use fewer powers, or check that the regressors vary.",
         )
-    rss_r = float(e @ e)
+    rss_r = float(e @ e) if w is None else float(w @ e**2)
     wide = np.column_stack([X, added])
     wide = wide / np.where(np.abs(wide).max(axis=0) > 0, np.abs(wide).max(axis=0), 1.0)
-    _, rss_u = _fit(wide, y)
-    stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
+    _, rss_u = _fit(wide, y, w)
+    if sampling and w is not None:
+        stat = _robust_wald(wide, y, w, df1)
+    else:
+        stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
     pval = float(sp_stats.f.sf(stat, df1, df2))
     what = "regressors" if rhs else "fitted values"
     return {
@@ -374,6 +492,21 @@ def reset(
             "no evidence of misspecification.",
         ),
     }
+
+
+def _robust_wald(design: np.ndarray, y: np.ndarray, w: np.ndarray, q: int) -> float:
+    """F form of the Wald test that the last ``q`` coefficients of the
+    weighted regression of ``y`` on ``design`` are zero, with the HC1
+    sandwich variance (Stata's variance after ``regress [pw=]``)."""
+    n, k = design.shape
+    sw = np.sqrt(w)
+    beta = np.linalg.lstsq(design * sw[:, None], y * sw, rcond=None)[0]
+    resid = y - design @ beta
+    bread = np.linalg.pinv((design * w[:, None]).T @ design)
+    score = design * (w * resid)[:, None]
+    V = bread @ (score.T @ score) @ bread * (n / (n - k))
+    rb = beta[k - q :]
+    return float(rb @ np.linalg.solve(V[k - q :, k - q :], rb)) / q
 
 
 # -------------------------------------------------------- serial correlation
@@ -622,8 +755,12 @@ def archlm(
 # ------------------------------------------------------- multicollinearity
 def vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Variance inflation factor of every regressor: ``1 / (1 - R_j^2)`` from
-    the regression of regressor ``j`` on the others and a constant."""
-    X, _, _, names = _arrays(result)
+    the regression of regressor ``j`` on the others and a constant.
+
+    After a weighted fit the auxiliary regressions carry the same weights
+    (Stata ``estat vif`` after ``regress [aw=]`` or ``[pw=]``)."""
+    X, _, _, names = _arrays(result, linear=False)
+    w, _ = weights_of(result)
     n, k = X.shape
     const = _constant_column(X)
     cols = [j for j in range(k) if j != const]
@@ -631,8 +768,8 @@ def vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     for j in cols:
         target = X[:, j]
         design = np.column_stack([np.ones(n)] + [X[:, c] for c in cols if c != j])
-        _, rss = _fit(design, target)
-        tss = float(((target - target.mean()) ** 2).sum())
+        _, rss = _fit(design, target, w)
+        tss = _centred_ss(target, w)
         tolerance = rss / tss if tss > 0 else 0.0
         rows.append(
             {
@@ -729,6 +866,13 @@ def classification(result: Any, *, threshold: Optional[float] = None) -> Dict[st
             "sp.estat classification needs a binary-outcome fit (sp.logit, "
             "sp.probit) that stores its fitted probabilities.",
             recovery_hint="Fit the model with sp.logit or sp.probit.",
+        )
+    if is_weighted(result):
+        raise MethodIncompatibility(
+            "sp.estat classification: not available after a weighted fit "
+            "(Stata refuses estat classification after pweights and "
+            "iweights); the counts would be unweighted.",
+            recovery_hint="Refit without weights to tabulate the " "classification.",
         )
     cut = 0.5 if threshold is None else float(threshold)
     y = np.asarray(y, dtype=float) != 0

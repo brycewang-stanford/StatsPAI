@@ -50,8 +50,8 @@ def diagnose(
     """
     Comprehensive regression diagnostics in one call.
 
-    Equivalent to running Stata's ``estat hettest``, ``estat ovtest``,
-    ``estat vif`` after a regression.
+    The tests are those of R's ``lmtest`` defaults; see :func:`het_test`
+    and :func:`reset_test` for the Stata options that reproduce them.
 
     Parameters
     ----------
@@ -118,7 +118,11 @@ def het_test(
     H0: Homoskedastic errors (constant variance).
     H1: Variance depends on regressors.
 
-    Equivalent to Stata's ``estat hettest``.
+    This is Koenker's studentized form, ``N R^2`` from the regression of the
+    squared residuals on every regressor: R's ``lmtest::bptest`` default and
+    Stata's ``estat hettest, rhs iid``. Stata's plain ``estat hettest``
+    uses the fitted values and assumes normal errors; ``sp.estat(fit,
+    'hettest', variables='fitted', version='normal')`` gives that one.
 
     Parameters
     ----------
@@ -173,7 +177,9 @@ def reset_test(
     explain the dependent variable. Rejection suggests the model
     is missing important nonlinearities.
 
-    Equivalent to Stata's ``estat ovtest``.
+    With the default ``powers=3`` this is R's ``lmtest::resettest``;
+    Stata's ``estat ovtest`` adds powers 2 to 4; ``powers=4`` agrees with it
+    to about 1e-6 (the two rescale the fitted values differently).
 
     Parameters
     ----------

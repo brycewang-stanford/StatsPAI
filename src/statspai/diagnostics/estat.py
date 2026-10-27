@@ -418,6 +418,22 @@ def _r_squared(y: np.ndarray, resid: np.ndarray) -> float:
 # ------------------------------------------------------------------
 
 
+def _require_unweighted_linear(result: Any, what: str) -> None:
+    if not _reg.is_linear(result):
+        raise MethodIncompatibility(
+            f"sp.estat {what}: defined for a linear regression.",
+            recovery_hint="After sp.logit use sp.logit_influence / " "sp.logit_gof.",
+        )
+    w, _ = _reg.weights_of(result)
+    if w is not None:
+        raise MethodIncompatibility(
+            f"sp.estat {what}: not available after a weighted fit; the "
+            "formulas are those of an unweighted regression.",
+            recovery_hint="Refit without weights, or compute the statistics "
+            "from the weighted hat matrix directly.",
+        )
+
+
 def _estat_dwatson(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Durbin-Watson statistic for first-order autocorrelation."""
     resid = _get_residuals(result)
@@ -458,32 +474,115 @@ def _estat_dwatson(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 
 
+def _glm_newton(
+    X: np.ndarray, y: np.ndarray, link: str, max_iter: int = 100
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Maximum likelihood logit / probit / Poisson fit by Newton's method.
+
+    Returns the coefficients and their variance from the observed
+    information (the inverse Hessian), as Stata's ``logit`` / ``probit`` /
+    ``poisson`` report them.
+    """
+    beta = np.zeros(X.shape[1])
+    if link == "log":
+        beta[0] = np.log(max(float(np.mean(y)), 1e-10))
+    hess = np.eye(X.shape[1])
+    for _ in range(max_iter):
+        eta = X @ beta
+        if link == "logit":
+            p = 1.0 / (1.0 + np.exp(-eta))
+            grad = X.T @ (y - p)
+            hess = (X * (p * (1.0 - p))[:, None]).T @ X
+        elif link == "probit":
+            q = 2.0 * y - 1.0
+            lam = (
+                q
+                * sp_stats.norm.pdf(q * eta)
+                / np.clip(sp_stats.norm.cdf(q * eta), 1e-300, None)
+            )
+            grad = X.T @ lam
+            hess = (X * (lam * (lam + eta))[:, None]).T @ X
+        else:  # Poisson, log link
+            mu = np.exp(eta)
+            grad = X.T @ (y - mu)
+            hess = (X * mu[:, None]).T @ X
+        step = np.linalg.solve(hess, grad)
+        beta = beta + step
+        if np.max(np.abs(step)) < 1e-12 * (1.0 + np.max(np.abs(beta))):
+            break
+    return beta, np.linalg.inv(hess)
+
+
 def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """
     Specification link test.
 
-    Re-estimate y on yhat and yhat^2.  If yhat^2 is significant the
-    model is misspecified (wrong functional form or omitted variables).
+    Re-estimate the model of y on the linear prediction and its square. If
+    the square is significant the model is misspecified (wrong functional
+    form or omitted variables). After a linear regression the refit is a
+    regression (weighted the same way; with the robust variance after
+    sampling weights, as Stata's ``regress [pw=]``); after ``sp.logit`` /
+    ``sp.probit`` / ``sp.poisson`` it is the same likelihood model on the
+    linear index, with a z statistic, as Stata's ``linktest`` does.
     """
     y = _get_y(result)
-    yhat = _get_fitted(result)
     n = len(y)
+    model = getattr(result, "model_info", None) or {}
+    family = str(model.get("family") or "gaussian").lower()
+    link = str(model.get("link") or "identity").lower()
+    w, sampling = _reg.weights_of(result)
 
-    X_link = np.column_stack([np.ones(n), yhat, yhat**2])
-    beta_link, resid_link, _ = _ols_fit(X_link, y)
-
-    # t-test on yhat^2 coefficient (index 2)
-    rss = np.sum(resid_link**2)
-    mse = rss / (n - 3)
-    XtX_inv = np.linalg.inv(X_link.T @ X_link)
-    se_hatsq = np.sqrt(mse * XtX_inv[2, 2])
-    t_hatsq = beta_link[2] / se_hatsq if se_hatsq > 0 else 0.0
-    pval = float(2.0 * sp_stats.t.sf(abs(t_hatsq), n - 3))
+    if not _reg.is_linear(result):
+        supported = {("binomial", "logit"), ("binomial", "probit"), ("poisson", "log")}
+        if (family, link) not in supported:
+            raise MethodIncompatibility(
+                f"sp.estat linktest: not implemented after a {family} model "
+                f"with a {link} link.",
+                recovery_hint="Supported: sp.regress, sp.logit, sp.probit, "
+                "sp.poisson.",
+            )
+        if _reg.is_weighted(result):
+            raise MethodIncompatibility(
+                "sp.estat linktest: not available after a weighted " f"{family} fit.",
+                recovery_hint="Refit without weights to run the link test.",
+            )
+        xb = _get_X(result) @ np.asarray(result.params, dtype=float)
+        X_link = np.column_stack([np.ones(n), xb, xb**2])
+        beta_link, V = _glm_newton(X_link, y, link)
+        se_hatsq = float(np.sqrt(V[2, 2]))
+        t_hatsq = beta_link[2] / se_hatsq if se_hatsq > 0 else 0.0
+        pval = float(2.0 * sp_stats.norm.sf(abs(t_hatsq)))
+        label = "z"
+    else:
+        yhat = _get_fitted(result)
+        X_link = np.column_stack([np.ones(n), yhat, yhat**2])
+        if w is None:
+            beta_link, resid_link, _ = _ols_fit(X_link, y)
+            # t-test on yhat^2 coefficient (index 2)
+            rss = np.sum(resid_link**2)
+            mse = rss / (n - 3)
+            XtX_inv = np.linalg.inv(X_link.T @ X_link)
+            se_hatsq = np.sqrt(mse * XtX_inv[2, 2])
+        else:
+            sw = np.sqrt(w)
+            beta_link = np.linalg.lstsq(X_link * sw[:, None], y * sw, rcond=None)[0]
+            resid_link = y - X_link @ beta_link
+            XtX_inv = np.linalg.inv((X_link * w[:, None]).T @ X_link)
+            if sampling:
+                score = X_link * (w * resid_link)[:, None]
+                V = XtX_inv @ (score.T @ score) @ XtX_inv * (n / (n - 3))
+                se_hatsq = np.sqrt(V[2, 2])
+            else:
+                mse = float(w @ resid_link**2) / (n - 3)
+                se_hatsq = np.sqrt(mse * XtX_inv[2, 2])
+        t_hatsq = beta_link[2] / se_hatsq if se_hatsq > 0 else 0.0
+        pval = float(2.0 * sp_stats.t.sf(abs(t_hatsq), n - 3))
+        label = f"t({n - 3})"
 
     reject = pval < alpha
     interp = (
-        f"REJECT H0 at {alpha:.0%}: yhat^2 is significant (t = {t_hatsq:.4f}). "
-        "Model may be misspecified."
+        f"REJECT H0 at {alpha:.0%}: yhat^2 is significant ({label.split('(')[0]} "
+        f"= {t_hatsq:.4f}). Model may be misspecified."
         if reject
         else f"Cannot reject H0 at {alpha:.0%}: yhat^2 is not significant. "
         "No evidence of link misspecification."
@@ -494,7 +593,7 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         "H0": "Model is correctly specified (yhat^2 coefficient = 0)",
         "H1": "Model is misspecified",
         "statistic": float(t_hatsq),
-        "statistic_label": f"t({n - 3})",
+        "statistic_label": label,
         "coef_hatsq": float(beta_link[2]),
         "se_hatsq": float(se_hatsq),
         "pvalue": pval,
@@ -508,7 +607,13 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
 
 def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """Jarque-Bera and Shapiro-Wilk tests on residuals."""
+    """Jarque-Bera and Shapiro-Wilk tests on residuals.
+
+    Refused after a weighted or non-linear fit: the raw residuals of a
+    weighted regression are not identically distributed under the model,
+    and those of a logit are not errors.
+    """
+    _require_unweighted_linear(result, "normality")
     resid = _get_residuals(result)
     n = len(resid)
 
@@ -577,7 +682,14 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
 
 def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
-    """Cook's distance, DFBETAS, DFFITS, leverage and leave-one-out fits."""
+    """Cook's distance, DFBETAS, DFFITS, leverage and leave-one-out fits.
+
+    These are the formulas of an unweighted linear regression; after a
+    weighted fit the hat matrix is the weighted one, so the test is refused
+    (as ``sp.influence_measures`` refuses it). After a logit use
+    ``sp.logit_influence``.
+    """
+    _require_unweighted_linear(result, "leverage")
     resid = _get_residuals(result)
     X = _get_X(result)
     n, k = X.shape
@@ -1088,19 +1200,41 @@ def _estat_all(
     has_y = result.data_info.get("y") is not None
     has_fitted = result.data_info.get("fitted_values") is not None
 
+    linear = _reg.is_linear(result)
+    weights, sampling = _reg.weights_of(result) if has_resid else (None, False)
+    weighted = weights is not None
+    model = getattr(result, "model_info", None) or {}
+    link_ok = linear or (
+        not _reg.is_weighted(result)
+        and (
+            str(model.get("family") or "").lower(),
+            str(model.get("link") or "").lower(),
+        )
+        in {("binomial", "logit"), ("binomial", "probit"), ("poisson", "log")}
+    )
+
     if has_resid and has_X:
-        outputs.append(_reg.hettest(result, alpha=alpha))
-        outputs.append(_reg.white(result, alpha=alpha))
-        outputs.append(_reg.bgodfrey(result, lags=lags, alpha=alpha))
-        outputs.append(_estat_dwatson(result, alpha=alpha))
+        # the specification tests of a linear regression; after weights only
+        # those Stata runs after `regress [aw=]` / `[pw=]`
+        if linear:
+            if not sampling:
+                outputs.append(_reg.hettest(result, alpha=alpha))
+            if not weighted:
+                outputs.append(_reg.white(result, alpha=alpha))
+            outputs.append(_reg.bgodfrey(result, lags=lags, alpha=alpha))
+            outputs.append(_estat_dwatson(result, alpha=alpha))
         outputs.append(_reg.vif(result, alpha=alpha))
         outputs.append(_reg.information_criteria(result))
-        outputs.append(_estat_normality(result, alpha=alpha))
+        if linear and not weighted:
+            outputs.append(_estat_normality(result, alpha=alpha))
 
     if has_y and has_X and has_resid and has_fitted:
-        outputs.append(_reg.reset(result, powers=powers, alpha=alpha))
-        outputs.append(_estat_linktest(result, alpha=alpha))
-        outputs.append(_estat_leverage(result, alpha=alpha))
+        if linear and not (sampling and model.get("cluster")):
+            outputs.append(_reg.reset(result, powers=powers, alpha=alpha))
+        if link_ok:
+            outputs.append(_estat_linktest(result, alpha=alpha))
+        if linear and not weighted:
+            outputs.append(_estat_leverage(result, alpha=alpha))
 
     # IV-specific tests. sp.ivreg labels its fits "IV-2SLS", "IV-LIML", ...,
     # which an exact match against ("iv", "2sls", ...) never recognised.

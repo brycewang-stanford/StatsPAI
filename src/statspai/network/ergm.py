@@ -120,12 +120,23 @@ def _node_attr(node_attrs: Any, name: str, labels: List[Any]) -> np.ndarray:
         raise ValueError(f"term references node attribute {name!r} but node_attrs=None")
     if isinstance(node_attrs, pd.DataFrame):
         col = node_attrs[name]
-        if list(col.index) != list(labels):
-            try:
-                col = col.reindex(labels)
-            except Exception:  # positional fallback
-                pass
-        return np.asarray(col.to_numpy())
+        if list(col.index) == list(labels):
+            return np.asarray(col.to_numpy())
+        index = col.index
+        if index.is_unique and set(labels) <= set(index):
+            # indexed by node label, in any order
+            return np.asarray(col.loc[list(labels)].to_numpy())
+        if isinstance(index, pd.RangeIndex) and len(col) == len(labels):
+            # a default index carries no labels: rows are in node order.
+            # This used to be reindexed by label, which gave all-NaN
+            # attributes (and a failed fit) whenever the labels were not
+            # 0 .. n-1.
+            return np.asarray(col.to_numpy())
+        raise ValueError(
+            f"node_attrs: the index does not hold the node labels and is not "
+            f"a default 0..{len(labels) - 1} index; index the frame by node "
+            "label, or pass a dict of arrays in node order."
+        )
     if isinstance(node_attrs, dict):
         arr: np.ndarray = np.asarray(node_attrs[name])
         return arr
@@ -139,40 +150,52 @@ def _change_statistic(
     directed: bool,
     node_attrs: Any,
     labels: List[Any],
-) -> Tuple[str, np.ndarray]:
-    """Return ``(label, change-statistic vector over masked dyads)``."""
+) -> List[Tuple[str, np.ndarray]]:
+    """Return ``[(label, change-statistic vector over masked dyads), ...]``
+    (one entry per statistic; ``nodefactor`` has one per level)."""
     n = A.shape[0]
     key = term.split(":")[0].strip().lower()
     if key == "edges":
-        return "edges", np.ones(int(mask.sum()))
+        return [("edges", np.ones(int(mask.sum())))]
     if key == "mutual":
         if not directed:
             raise ValueError("term 'mutual' requires a directed graph")
-        return "mutual", A.T[mask]
+        return [("mutual", A.T[mask])]
     if key in ("triangles", "triangle", "ttriad"):
         # adding tie ij closes (A^2)_ij triangles (common neighbours)
         common = (A @ A)[mask]
-        return "triangles", common
-    if key in ("nodematch", "nodecov", "nodefactor", "absdiff"):
+        return [("triangles", common)]
+    if key == "nodefactor":
+        # ergm's nodefactor: for every level but the first (sorted), the
+        # number of the dyad's two nodes at that level. Summing the raw
+        # codes, as before 1.42, was one numeric term instead.
+        attr_name = term.split(":", 1)[1].strip()
+        raw = _node_attr(node_attrs, attr_name, labels)
+        if pd.isna(raw).any():
+            raise ValueError(f"node attribute {attr_name!r} has missing values")
+        levels = sorted(pd.unique(raw))
+        out = []
+        for lev in levels[1:]:
+            at = (raw == lev).astype(float)
+            M = at[:, None] + at[None, :]
+            out.append((f"nodefactor.{attr_name}.{lev}", M[mask]))
+        return out
+    if key in ("nodematch", "nodecov", "absdiff"):
         attr_name = term.split(":", 1)[1].strip()
         x: np.ndarray = _node_attr(node_attrs, attr_name, labels).astype(float)
         Xi = np.repeat(x[:, None], n, axis=1)
         Xj = np.repeat(x[None, :], n, axis=0)
         if key == "nodematch":
             M = (Xi == Xj).astype(float)
-            return f"nodematch.{attr_name}", M[mask]
+            return [(f"nodematch.{attr_name}", M[mask])]
         if key == "nodecov":
             M = Xi + Xj
-            return f"nodecov.{attr_name}", M[mask]
-        if key == "absdiff":
-            M = np.abs(Xi - Xj)
-            return f"absdiff.{attr_name}", M[mask]
-        if key == "nodefactor":
-            M = Xi + Xj
-            return f"nodefactor.{attr_name}", M[mask]
+            return [(f"nodecov.{attr_name}", M[mask])]
+        M = np.abs(Xi - Xj)
+        return [(f"absdiff.{attr_name}", M[mask])]
     raise ValueError(
         f"unknown ERGM term {term!r}; supported: edges, mutual, triangles, "
-        f"nodematch:<attr>, nodecov:<attr>, absdiff:<attr>"
+        f"nodematch:<attr>, nodecov:<attr>, nodefactor:<attr>, absdiff:<attr>"
     )
 
 
@@ -198,10 +221,13 @@ def ergm(
         * ``"nodematch:<attr>"`` — uniform homophily on a node attribute.
         * ``"nodecov:<attr>"`` — main effect of a continuous attribute (sum).
         * ``"absdiff:<attr>"`` — heterophily by absolute attribute difference.
+        * ``"nodefactor:<attr>"`` — main effect of a categorical attribute:
+          one term per level except the first (sorted), as in ``ergm``.
     node_attrs : DataFrame or dict, optional
         Node attributes (required by ``nodematch`` / ``nodecov`` / ``absdiff``).
-        A ``DataFrame`` is aligned to node labels; a ``dict`` maps name →
-        length-``n`` array in node order.
+        A ``DataFrame`` indexed by node label is aligned to the labels; one
+        with a default ``RangeIndex`` is read in node order. A ``dict`` maps
+        name → length-``n`` array in node order.
     directed : bool, optional
         Inferred from the graph when ``None``.
     alpha : float, default 0.05
@@ -235,9 +261,9 @@ def ergm(
     for t in terms:
         if t.split(":")[0].strip().lower() in _DYAD_DEPENDENT:
             dyad_indep = False
-        label, vec = _change_statistic(t, A, mask, is_dir, node_attrs, g.labels)
-        names.append(label)
-        cols.append(vec)
+        for label, vec in _change_statistic(t, A, mask, is_dir, node_attrs, g.labels):
+            names.append(label)
+            cols.append(vec)
     X = np.column_stack(cols)
 
     if not dyad_indep:
