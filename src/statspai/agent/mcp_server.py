@@ -1934,6 +1934,37 @@ def _run_isolated_call(
     )
 
 
+def _project_and_sample(
+    df: Any,
+    data_prov: Optional[Dict[str, Any]],
+    data_columns: Optional[List[str]],
+    data_sample_n: Any,
+) -> Any:
+    """``data_columns`` / ``data_sample_n`` on a handle or inline table.
+
+    File loads apply both inside the reader; these sources are already in
+    memory, so the same rule is applied here and recorded in provenance.
+    """
+    from ._data_loader import SAMPLE_METHOD, sample_loaded_frame
+
+    try:
+        out = sample_loaded_frame(df, columns=data_columns, sample_n=data_sample_n)
+    except ValueError as e:  # MethodIncompatibility
+        raise _ToolCallError(
+            _exception_kind(e, "invalid_arguments"),
+            str(e),
+            hint=getattr(e, "recovery_hint", None),
+        ) from e
+    if data_prov is not None:
+        if data_columns:
+            data_prov["columns_requested"] = list(data_columns)
+        if data_sample_n is not None:
+            data_prov["sample_n"] = int(data_sample_n)
+            data_prov["sample_seed"] = 0
+            data_prov["sample_method"] = SAMPLE_METHOD
+    return out
+
+
 def _resolve_tool_data(
     name: str, arguments: Dict[str, Any]
 ) -> "tuple[Any, Optional[Dict[str, Any]], str]":
@@ -2009,9 +2040,10 @@ def _resolve_tool_data(
                     f"data_columns not in handle {data_id}: {missing_cols}",
                     hint="describe_data(data_id=...) lists the columns.",
                 )
-            df = df[list(data_columns)]
-            data_prov["columns_requested"] = list(data_columns)
-        comment = data_comment(data_id=data_id, data_columns=data_columns)
+        df = _project_and_sample(df, data_prov, data_columns, data_sample_n)
+        comment = data_comment(
+            data_id=data_id, data_columns=data_columns, data_sample_n=data_sample_n
+        )
     elif data_records is not None or data_csv is not None:
         from ._data_cache import inline_frame
 
@@ -2025,7 +2057,12 @@ def _resolve_tool_data(
                 str(e),
                 hint=getattr(e, "recovery_hint", None),
             ) from e
-        comment = data_comment(inline_provenance=data_prov)
+        df = _project_and_sample(df, data_prov, data_columns, data_sample_n)
+        comment = data_comment(
+            inline_provenance=data_prov,
+            data_columns=data_columns,
+            data_sample_n=data_sample_n,
+        )
     elif data_path:
         if not isinstance(data_path, str):
             raise _ToolCallError(
@@ -2051,6 +2088,15 @@ def _resolve_tool_data(
             ) from e
         comment = data_comment(
             data_path=data_path, data_columns=data_columns, data_sample_n=data_sample_n
+        )
+    elif data_columns is not None or data_sample_n is not None:
+        # Nothing to project or sample: running on no data (or on a
+        # built-in dataset the tool loads itself) is not what was asked.
+        raise _ToolCallError(
+            "invalid_arguments",
+            "data_columns / data_sample_n need a data source "
+            "(data_path, data_id, data_records or data_csv).",
+            hint="Load the data first, or drop data_columns / data_sample_n.",
         )
     if name in _DATA_TOOLS:
         # Let the handle tools record where their input came from.

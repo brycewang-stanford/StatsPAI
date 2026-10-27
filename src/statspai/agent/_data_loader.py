@@ -293,6 +293,58 @@ def _uniform_sample(df: "pd.DataFrame", n: int) -> "pd.DataFrame":
     return df.iloc[idx].reset_index(drop=True)
 
 
+def sample_size_or_none(sample_n: Any) -> Optional[int]:
+    """Validate ``data_sample_n``; ``None`` passes through."""
+    if sample_n is None:
+        return None
+    if isinstance(sample_n, bool):
+        raise MethodIncompatibility(
+            f"data_sample_n must be a positive integer, got {sample_n!r}",
+            recovery_hint="Pass data_sample_n as a whole number of rows, e.g. 500.",
+        )
+    try:
+        size = int(sample_n)
+    except (TypeError, ValueError):
+        raise MethodIncompatibility(
+            f"data_sample_n must be a positive integer, got {sample_n!r}",
+            recovery_hint="Pass data_sample_n as a whole number of rows, e.g. 500.",
+        )
+    if size < 1 or (isinstance(sample_n, float) and size != sample_n):
+        raise MethodIncompatibility(
+            f"data_sample_n must be a positive integer, got {sample_n!r}",
+            recovery_hint="Pass data_sample_n as a whole number of rows, e.g. 500.",
+        )
+    return size
+
+
+def sample_loaded_frame(
+    df: "pd.DataFrame",
+    *,
+    columns: Optional[List[str]] = None,
+    sample_n: Any = None,
+) -> "pd.DataFrame":
+    """Apply ``data_columns`` / ``data_sample_n`` to an in-memory frame.
+
+    The same projection and the same seed-0 rule as a file load, so a
+    handle or an inline table gives the rows a ``data_path`` load of the
+    same table gives. Before 2026-10-28 both arguments were dropped for
+    handles and inline tables, and the fit ran on the full frame.
+    """
+    if columns:
+        missing = [c for c in columns if c not in df.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"data_columns not in the data: {missing}",
+                recovery_hint="describe_data lists the columns.",
+                diagnostics={"missing": missing},
+            )
+        df = df[list(columns)]
+    size = sample_size_or_none(sample_n)
+    if size is not None:
+        df = _uniform_sample(df, size)
+    return df
+
+
 def _iter_chunks(path: str, columns: Optional[List[str]]) -> Any:
     import pandas as pd
 

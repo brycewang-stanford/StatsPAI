@@ -10,7 +10,8 @@ SPECS: List[Dict[str, Any]] = [
     {
         "name": "regress",
         "description": (
-            "Fit an OLS regression with robust (HC1) or clustered SEs. "
+            "Fit an OLS regression; classical SEs unless robust= or "
+            "cluster=. "
             "Input is a Wilkinson-style formula like 'y ~ x1 + x2'. "
             "Use this for baseline specifications or covariate-adjusted "
             "RCT analyses."
@@ -25,7 +26,7 @@ SPECS: List[Dict[str, Any]] = [
                 "robust": {
                     "type": "string",
                     "enum": ["hc1", "hc2", "hc3", "nonrobust"],
-                    "default": "hc1",
+                    "default": "nonrobust",
                 },
                 "cluster": {
                     "type": "string",

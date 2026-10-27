@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ agent tool layer arguments (option scan round 7, `agent/`)
+
+- MCP `data_sample_n` / `data_columns` now apply to `data_id` handles and
+  inline tables (`data_records` / `data_csv`), not only to `data_path`.
+  Calls that passed them with a handle used to fit on all rows; they now
+  fit on the seed-0 sample, so their numbers change. Passing either with
+  no data source raises `invalid_arguments`.
+- `pipeline_did` / `pipeline_iv` / `pipeline_rd`, `transform_data` steps
+  and the fixed-argument workflow tools return `unknown_argument` for a
+  key they do not read, instead of running without it. Remove the key, or
+  fit with the estimator's own tool for options a pipeline does not take.
+- `pipeline_did(cohort=)` requires `id=`.
+- `honest_did_from_result` honours `alpha=`, and its `max_rejecting_M` is
+  `null` when no M rejects zero (it was 0.0).
+- The `regress` / `ivreg` tool schemas list `robust` with default
+  `"nonrobust"`, the default the call has always used. Pass
+  `robust="hc1"` for heteroskedasticity-robust SEs.
+
+---
+
 ## 1.41 → 1.42: ⚠️ `sp.hdfe_ols` nested-cluster IV dof, Bartlett Conley kernel (AER 116(10) batch)
 
 - `sp.hdfe_ols("y ~ x | fe | d ~ z", cluster=c)` where every absorbed

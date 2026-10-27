@@ -88,10 +88,9 @@ SPECS: List[Dict[str, Any]] = [
                 },
                 "rho_max": {
                     "type": "number",
-                    "default": 1.0,
                     "description": (
-                        "Max correlation between the omitted confounder "
-                        "and treatment, for the Oster bound."
+                        "Oster R_max for the Oster bound. Default: "
+                        "min(1, 1.3 x R^2 of the controlled regression)."
                     ),
                 },
                 "include_oster": {"type": "boolean", "default": True},

@@ -112,6 +112,39 @@ StatsPAI lacked. Evidence summaries and open items for each line are in
 
 ### ⚠️ Correctness
 
+Option scan round 7: the agent tool layer, `agent/` (tests in
+`tests/test_agent_option_scan_r7.py`). Each fix is an identity between a
+tool call and the library call it stands for.
+
+- ⚠️ **`data_sample_n` / `data_columns` on a `data_id` or an inline
+  table.** Only `data_path` honoured them. With a handle or
+  `data_records` / `data_csv` the fit ran on every row and every column,
+  and `data_provenance` did not say so. A `regress` call with
+  `data_sample_n=50` on a 200-row handle reported N = 200. Both now apply
+  the same seed-0 rule as a file load and are recorded in provenance.
+  Passed with no data source at all they raise `invalid_arguments`.
+- ⚠️ **`honest_did_from_result(alpha=)`** was ignored. `alpha=0.10` on
+  mpdta (e = 0, M = 0.5) returned the 95% interval [-0.5483, 0.4957]
+  instead of the 90% one [-0.5434, 0.4909]. It is now a schema property
+  and is passed to `sp.honest_did`.
+- ⚠️ **`honest_did_from_result` `max_rejecting_M`** read 0.0 when no M
+  on the grid rejected zero, as if the effect were robust up to M = 0. It
+  is now `null` in that case.
+- ⚠️ **`pipeline_did` / `pipeline_iv` / `pipeline_rd` dropped estimator
+  options.** `pipeline_rd(cluster="g", p=2)` reported the default fit
+  (0.638, SE 0.552) instead of the requested one (0.699, SE 0.568). An
+  argument a pipeline does not read now returns `unknown_argument`.
+  `pipeline_did(cohort=)` without `id=` used to run the 2x2 `did`; it now
+  asks for `id`.
+- ⚠️ **`transform_data` `winsor` ignored `by` and `trim`.** On
+  `w = [1, 2, 3, 4, 100 | 10, 20, 30, 40, 1000]` by `g` at cuts (20, 80)
+  the step returned pooled cutoffs `[2.5, 2.5, 3, 4, 70, ...]` instead of
+  `sp.winsor(by="g")`'s `[1.5, 2, 3, 4, 52, ...]`. `by`, `trim` and
+  `method` are now passed through.
+- ⚠️ **`transform_data` `wide_to_long`** with a text suffix (`y_a`,
+  `y_b`) returned an empty frame as a new handle. It takes `suffix=` (a
+  regex, default `\d+`) and raises when nothing matches.
+
 Option scan round 6: `output/`, `plots/` and `fast/` (tests in
 `tests/test_output_option_scan_r6.py`,
 `tests/test_plots_output_option_scan_r6.py` and
@@ -444,6 +477,30 @@ Coordinator follow-ups to the round-6 scan:
   the old numbers. Same rule as `relative_risk` above.
 
 ### Fixed
+
+- Agent tool layer (option scan round 7). The `regress` and `ivreg` tool
+  schemas advertised `robust` with default `"hc1"` while the call ran
+  with the library default `"nonrobust"`; a client that fills schema
+  defaults got HC1 SEs and one that does not got classical SEs (0.181 vs
+  0.135 on the test frame). The schemas now state `"nonrobust"`, and the
+  `sensitivity` schema no longer claims `rho_max` defaults to 1.0 (the
+  default is Oster's min(1, 1.3 R^2) rule). A test checks every curated
+  schema default against the library signature.
+- `transform_data` refuses a step key its op does not read. A misspelt
+  `colums` made `dropna` drop rows over every column.
+- The fixed-argument workflow tools (`audit_result`, `brief_result`,
+  `interpret_result`, `sensitivity_from_result`, `vcov_from_result`,
+  `honest_did_from_result`, `plot_from_result`, `describe_data`,
+  `transform_data`, `search_functions`, `describe_function`, `bibtex`,
+  `route_estimator`, `from_stata`, `from_r`) return `unknown_argument`
+  with `did_you_mean` for a key they would have ignored.
+- `load_data(data_id=..., data_columns=... | data_sample_n=...)` registers
+  the projected or sampled frame as a new handle instead of aliasing the
+  full one.
+- `interpret_result` without MCP sampling read only the legacy
+  `std_error` / `conf_low` / `p_value` names, so the SE, interval and p
+  value of most results were left out. It now reads `se` / `ci` /
+  `pvalue` too and labels the interval at the result's `alpha`.
 
 - `sp.regtable(eform=[...])`: the decimals of a row depended on column
   order, because every model's precision was read with the first column's

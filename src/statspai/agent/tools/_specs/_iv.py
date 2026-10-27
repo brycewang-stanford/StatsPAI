@@ -10,8 +10,8 @@ SPECS: List[Dict[str, Any]] = [
     {
         "name": "ivreg",
         "description": (
-            "2SLS instrumental-variables regression with robust or "
-            "clustered SEs and first-stage F diagnostics. "
+            "2SLS instrumental-variables regression with first-stage F "
+            "diagnostics; classical SEs unless robust=. "
             "Formula syntax: 'y ~ x_exog + (d_endog ~ z_instrument)'."
         ),
         "input_schema": {
@@ -24,7 +24,7 @@ SPECS: List[Dict[str, Any]] = [
                 "robust": {
                     "type": "string",
                     "enum": ["hc1", "hc2", "hc3", "nonrobust"],
-                    "default": "hc1",
+                    "default": "nonrobust",
                 },
             },
             "required": ["formula"],

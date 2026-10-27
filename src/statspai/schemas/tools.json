@@ -19090,21 +19090,25 @@
     "name": "honest_did_from_moments"
   },
   {
-    "description": "Rambachan-Roth (2023) honest CIs on a fitted DID / event-study result. Auto-extracts betas + sigma + pre/post-period counts from the result; the LLM never ferries arrays. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Rambachan-Roth (2023) honest CIs on a fitted DID / event-study result; betas and sigma are read off the result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
+        "alpha": {
+          "description": "0.05 = 95% CI.",
+          "type": "number"
+        },
         "e": {
           "default": 0,
           "description": "Relative event time to audit.",
           "type": "integer"
         },
         "m_bar": {
-          "description": "Bound on deviation magnitude (optional).",
+          "description": "Deviation bound M (optional).",
           "type": "number"
         },
         "method": {
           "default": "SD",
-          "description": "SD = smoothness deviation (Rambachan-Roth default); RM = relative magnitude.",
+          "description": "SD smoothness; RM relative magnitude.",
           "enum": [
             "SD",
             "RM"
@@ -21433,7 +21437,7 @@
     "name": "ivqreg"
   },
   {
-    "description": "2SLS instrumental-variables regression with robust or clustered SEs and first-stage F diagnostics. Formula syntax: 'y ~ x_exog + (d_endog ~ z_instrument)'. Validation: certified parity evidence.",
+    "description": "2SLS instrumental-variables regression with first-stage F diagnostics; classical SEs unless robust=. Formula syntax: 'y ~ x_exog + (d_endog ~ z_instrument)'. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "formula": {
@@ -21441,7 +21445,7 @@
           "type": "string"
         },
         "robust": {
-          "default": "hc1",
+          "default": "nonrobust",
           "enum": [
             "hc1",
             "hc2",
@@ -37150,7 +37154,7 @@
     "name": "refute"
   },
   {
-    "description": "Fit an OLS regression with robust (HC1) or clustered SEs. Input is a Wilkinson-style formula like 'y ~ x1 + x2'. Use this for baseline specifications or covariate-adjusted RCT analyses. Validation: certified parity evidence.",
+    "description": "Fit an OLS regression; classical SEs unless robust= or cluster=. Input is a Wilkinson-style formula like 'y ~ x1 + x2'. Use this for baseline specifications or covariate-adjusted RCT analyses. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -37162,7 +37166,7 @@
           "type": "string"
         },
         "robust": {
-          "default": "hc1",
+          "default": "nonrobust",
           "enum": [
             "hc1",
             "hc2",
@@ -39719,8 +39723,7 @@
           "type": "string"
         },
         "rho_max": {
-          "default": 1.0,
-          "description": "Max correlation between the omitted confounder and treatment, for the Oster bound.",
+          "description": "Oster R_max for the Oster bound. Default: min(1, 1.3 x R^2 of the controlled regression).",
           "type": "number"
         },
         "treat": {
@@ -45057,7 +45060,7 @@
     "name": "tobit"
   },
   {
-    "description": "Derive a new dataset from a data_id (or data_path / inline data) by applying `operations` in order, and return a new data_id with the lineage recorded. Operations (each an object with `op`): query {expr} (pandas DataFrame.query), select {columns}, drop {columns}, rename {mapping}, dropna {columns?}, fillna {value | mapping}, assign {column, expr} (DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, winsor {columns?, cuts?=[1,99]} (replaces in place), wide_to_long {stubnames, i, j, sep?}, long_to_wide {index, columns, values}, mice {columns?, m?} (single completed dataset), function {name, arguments?} (any sp.<name> taking data= and returning a DataFrame). query / assign expressions are limited to columns (backticks for odd names), constants, operators, in / not in, math functions (log, exp, sqrt, abs, ...) and col.isnull()/isin()/between()/str.contains(); other attribute access, subscripts and @locals fail with error_kind='unsafe_expression'.",
+    "description": "Derive a new dataset from a data_id (or data_path / inline data) by applying `operations` in order, and return a new data_id with the lineage recorded. Operations (each an object with `op`): query {expr} (pandas DataFrame.query), select {columns}, drop {columns}, rename {mapping}, dropna {columns?}, fillna {value | mapping}, assign {column, expr} (DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, winsor {columns?, cuts?=[1,99], by?, trim?, method?} (replaces in place), wide_to_long {stubnames, i, j, sep?, suffix?}, long_to_wide {index, columns, values}, mice {columns?, m?} (single completed dataset), function {name, arguments?} (any sp.<name> taking data= and returning a DataFrame). query / assign expressions are limited to columns (backticks for odd names), constants, operators, in / not in, math functions (log, exp, sqrt, abs, ...) and col.isnull()/isin()/between()/str.contains(); other attribute access, subscripts and @locals fail with error_kind='unsafe_expression'.",
     "input_schema": {
       "properties": {
         "name": {

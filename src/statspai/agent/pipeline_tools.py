@@ -378,6 +378,17 @@ def _pipeline_did(
     covariates = arguments.get("covariates") or []
     if not (y and treat and time):
         return {"error": "pipeline_did requires y / treat / time"}
+    if cohort and not unit_id:
+        # cohort= promises Callaway-Sant'Anna; without id= the pipeline used
+        # to fall back to the 2x2 did silently.
+        return {
+            "error": (
+                "pipeline_did: cohort= selects callaway_santanna, which needs "
+                "the unit id; pass id=<unit column>."
+            ),
+            "error_kind": "missing_argument",
+            "expected_argument": "id",
+        }
 
     stages: List[Dict[str, Any]] = []
     degradations: List[Dict[str, Any]] = []
@@ -1134,6 +1145,24 @@ def execute_pipeline_tool(
     detail: str = "agent",
     as_handle: bool = False,
 ) -> Dict[str, Any]:
+    from .workflow_tools import refuse_unknown_arguments
+
+    # Each pipeline reads a fixed set of keys; anything else (cluster=,
+    # p=, weights=, robust=) used to be dropped, and the report showed the
+    # default fit as if it were the one requested.
+    refused = refuse_unknown_arguments(
+        name,
+        arguments,
+        PIPELINE_TOOL_SPECS,
+        extra={n: frozenset() for n in PIPELINE_TOOL_NAMES},
+    )
+    if refused is not None:
+        refused["hint"] = (
+            refused.get("hint", "")
+            + " For estimator options, fit with the estimator's own tool "
+            "(as_handle=true) and chain audit_result / sensitivity_from_result."
+        ).strip()
+        return refused
     if name == "pipeline_did":
         return _pipeline_did(
             arguments,

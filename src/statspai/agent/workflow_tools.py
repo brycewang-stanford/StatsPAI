@@ -206,9 +206,7 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
         "name": "honest_did_from_result",
         "description": (
             "Rambachan-Roth (2023) honest CIs on a fitted DID / "
-            "event-study result. Auto-extracts betas + sigma + "
-            "pre/post-period counts from the result; the LLM never "
-            "ferries arrays."
+            "event-study result; betas and sigma are read off the result."
         ),
         "input_schema": {
             "type": "object",
@@ -221,11 +219,7 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                     "type": "string",
                     "enum": ["SD", "RM"],
                     "default": "SD",
-                    "description": (
-                        "SD = smoothness deviation "
-                        "(Rambachan-Roth default); "
-                        "RM = relative magnitude."
-                    ),
+                    "description": "SD smoothness; RM relative magnitude.",
                 },
                 "e": {
                     "type": "integer",
@@ -234,8 +228,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                 },
                 "m_bar": {
                     "type": "number",
-                    "description": "Bound on deviation magnitude (optional).",
+                    "description": "Deviation bound M (optional).",
                 },
+                "alpha": {"type": "number", "description": "0.05 = 95% CI."},
             },
             "required": ["result_id"],
         },
@@ -681,8 +676,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "{columns}, drop {columns}, rename {mapping}, dropna "
             "{columns?}, fillna {value | mapping}, assign {column, expr} "
             "(DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, "
-            "winsor {columns?, cuts?=[1,99]} (replaces in place), "
-            "wide_to_long {stubnames, i, j, sep?}, long_to_wide {index, "
+            "winsor {columns?, cuts?=[1,99], by?, trim?, method?} (replaces "
+            "in place), wide_to_long {stubnames, i, j, sep?, suffix?}, "
+            "long_to_wide {index, "
             "columns, values}, mice {columns?, m?} (single completed "
             "dataset), function {name, arguments?} (any sp.<name> taking "
             "data= and returning a DataFrame). query / assign expressions "
@@ -754,6 +750,67 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
 WORKFLOW_TOOL_NAMES = frozenset(t["name"] for t in WORKFLOW_TOOL_SPECS)
 
 
+#: Workflow tools whose implementation reads a fixed set of argument keys
+#: (their schema properties plus the spellings below). Any other key is
+#: refused rather than ignored: ``honest_did_from_result(alpha=0.1)`` used
+#: to return the 95% interval. Tools that forward their arguments to a
+#: library function (preflight, detect_design, cross_validate,
+#: call_function, load_data) are left to that function's own signature.
+_FIXED_ARGUMENT_TOOLS: Dict[str, frozenset] = {
+    "audit_result": frozenset(),
+    "audit": frozenset(),
+    "brief_result": frozenset(),
+    "brief": frozenset(),
+    "interpret_result": frozenset(),
+    "sensitivity_from_result": frozenset({"treatment"}),
+    "vcov_from_result": frozenset(),
+    "honest_did_from_result": frozenset(),
+    "plot_from_result": frozenset(),
+    "from_stata": frozenset({"line"}),
+    "from_r": frozenset({"line"}),
+    "bibtex": frozenset(),
+    "search_functions": frozenset(),
+    "describe_function": frozenset(),
+    "route_estimator": frozenset(),
+    "describe_data": frozenset(),
+    "transform_data": frozenset(),
+}
+
+
+def refuse_unknown_arguments(
+    name: str,
+    arguments: Dict[str, Any],
+    specs: List[Dict[str, Any]],
+    extra: Optional[Dict[str, frozenset]] = None,
+) -> Optional[Dict[str, Any]]:
+    """``unknown_argument`` error for keys a fixed-argument tool ignores.
+
+    Returns ``None`` when every key is one the tool reads. Keys starting
+    with ``_`` (server-internal) and the server-handled arguments are
+    always accepted.
+    """
+    table = _FIXED_ARGUMENT_TOOLS if extra is None else extra
+    if name not in table:
+        return None
+    spec = next((t for t in specs if t["name"] == name), None)
+    if spec is None:
+        return None
+    from .tools._dispatch import _SERVER_HANDLED_ARGS, unknown_argument_error
+
+    accepted = set(spec.get("input_schema", {}).get("properties", {}))
+    accepted |= set(table[name]) | {"result_id"}
+    unknown = sorted(
+        str(k)
+        for k in arguments
+        if k not in accepted
+        and k not in _SERVER_HANDLED_ARGS
+        and not str(k).startswith("_")
+    )
+    if not unknown:
+        return None
+    return unknown_argument_error(name, unknown, accepted, arguments=arguments)
+
+
 def workflow_tool_manifest() -> List[Dict[str, Any]]:
     """Return manifest entries for every workflow tool."""
     return [dict(t) for t in WORKFLOW_TOOL_SPECS]
@@ -794,6 +851,10 @@ def execute_workflow_tool(
         ``result_uri``.
     """
     rid_arg = arguments.get("result_id") or result_id
+
+    refused = refuse_unknown_arguments(name, arguments, WORKFLOW_TOOL_SPECS)
+    if refused is not None:
+        return refused
 
     if name == "bibtex":
         return _tool_bibtex(arguments)
@@ -1095,17 +1156,36 @@ def _deterministic_interpretation(obj: Any, summary: Dict[str, Any]) -> str:
     method = fields.get("method")
     if method:
         parts.append(f"Method: {method}.")
+
+    def _first(*keys: str) -> Any:
+        # Results serialise as se / pvalue / ci; the legacy field-by-field
+        # serializer as std_error / p_value / conf_low. Read both: reading
+        # only the legacy names left SE, CI and p out of the text.
+        for key in keys:
+            if fields.get(key) is not None:
+                return fields[key]
+        return None
+
     est = fields.get("estimate")
-    se = fields.get("std_error")
+    se = _first("std_error", "se")
     if est is not None:
         sentence = f"Point estimate: {est:.4g}"
         if se is not None:
             sentence += f" (standard error {se:.4g})"
         parts.append(sentence + ".")
     lo, hi = fields.get("conf_low"), fields.get("conf_high")
+    ci = fields.get("ci")
+    if (lo is None or hi is None) and isinstance(ci, (list, tuple)) and len(ci) == 2:
+        lo, hi = ci
     if lo is not None and hi is not None:
-        parts.append(f"95% confidence interval: [{lo:.4g}, {hi:.4g}].")
-    p = fields.get("p_value")
+        alpha = fields.get("alpha")
+        level = (
+            100.0 * (1.0 - float(alpha))
+            if isinstance(alpha, (int, float)) and 0 < alpha < 1
+            else 95.0
+        )
+        parts.append(f"{level:g}% confidence interval: [{lo:.4g}, {hi:.4g}].")
+    p = _first("p_value", "pvalue")
     if p is not None:
         parts.append(f"p-value: {p:.4g}.")
     if not parts:
@@ -1483,6 +1563,8 @@ def _tool_honest_did_from_result(
     call_kwargs: Dict[str, Any] = {"e": event_time, "method": method}
     if m_grid is not None:
         call_kwargs["m_grid"] = m_grid
+    if arguments.get("alpha") is not None:
+        call_kwargs["alpha"] = float(arguments["alpha"])
     try:
         result = fn(event_result, **call_kwargs)
     except Exception as exc:
@@ -1537,12 +1619,16 @@ def _tool_honest_did_from_result(
             "restriction": method,
             "event_time": event_time,
             "rows": result.to_dict(orient="records"),
+            # None when no M on the grid rejects zero: 0.0 used to read as
+            # "robust up to M = 0" even when M = 0 was never evaluated.
             "max_rejecting_M": (
                 float(result.loc[result["rejects_zero"], "M"].max())
                 if "rejects_zero" in result and bool(result["rejects_zero"].any())
-                else 0.0
+                else None
             ),
         }
+        if "alpha" in call_kwargs:
+            out["alpha"] = call_kwargs["alpha"]
     else:
         from .tools import _default_serializer
 
@@ -1555,7 +1641,7 @@ def _tool_honest_did_from_result(
         new_rid = RESULT_CACHE.put(
             result,
             tool="honest_did_from_result",
-            arguments={"source": rid, "method": method, "e": event_time},
+            arguments={"source": rid, "method": method, "e": event_time, **call_kwargs},
         )
         out["result_id"] = new_rid
         out["result_uri"] = f"statspai://result/{new_rid}"
@@ -2217,9 +2303,13 @@ def _tool_load_data(
         return frame
     prov = dict(arguments.get("_source_provenance") or {})
     source_id = arguments.get("_source_data_id")
-    if source_id:
+    from ._data_cache import DATA_CACHE
+
+    if source_id and frame is DATA_CACHE.get(source_id):
         # Re-registering a handle is a no-op alias: return the same id so
-        # an agent cannot accidentally duplicate a frame in the cache.
+        # an agent cannot accidentally duplicate a frame in the cache. A
+        # projection or sample of it (data_columns / data_sample_n) is a
+        # new frame and gets its own handle below.
         out: Dict[str, Any] = {"data_id": source_id, "aliased": True}
         out.update(describe_frame(frame))
         return out
@@ -2288,6 +2378,28 @@ _TRANSFORM_OP_ALIASES = {
     "keep": "select",
     "mutate": "assign",
     "winsorize": "winsor",
+}
+
+
+#: Keys each op reads, besides ``op``. A key outside its op's list is
+#: refused: it used to be ignored, so a misspelt ``colums`` made ``dropna``
+#: drop rows over every column, and ``winsor`` ran with pooled cutoffs
+#: when ``by`` was given.
+_TRANSFORM_STEP_KEYS: Dict[str, frozenset] = {
+    "query": frozenset({"expr"}),
+    "select": frozenset({"columns"}),
+    "drop": frozenset({"columns"}),
+    "rename": frozenset({"mapping"}),
+    "dropna": frozenset({"columns"}),
+    "fillna": frozenset({"value", "mapping"}),
+    "assign": frozenset({"column", "expr"}),
+    "sort": frozenset({"by", "ascending"}),
+    "sample": frozenset({"n", "seed"}),
+    "winsor": frozenset({"columns", "cuts", "by", "trim", "method"}),
+    "wide_to_long": frozenset({"stubnames", "i", "j", "sep", "suffix"}),
+    "long_to_wide": frozenset({"index", "columns", "values"}),
+    "mice": frozenset({"columns", "m", "seed"}),
+    "function": frozenset({"name", "arguments"}),
 }
 
 
@@ -2479,6 +2591,18 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
             diagnostics={"step": step},
         )
 
+    unknown_keys = sorted(
+        str(k) for k in step if k != "op" and k not in _TRANSFORM_STEP_KEYS[op]
+    )
+    if unknown_keys:
+        raise MethodIncompatibility(
+            f"op={op!r} does not take {unknown_keys}; the step was not run.",
+            recovery_hint=(
+                f"op={op!r} takes: {', '.join(sorted(_TRANSFORM_STEP_KEYS[op]))}."
+            ),
+            diagnostics={"step": step, "unknown_keys": unknown_keys},
+        )
+
     def _cols(key: str = "columns", required: bool = True) -> List[str]:
         cols = step.get(key)
         if cols is None:
@@ -2583,8 +2707,18 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
 
         cols = _cols(required=False) or None
         cuts = step.get("cuts", [1, 99])
+        by = _cols("by", required=False) or None
+        extra: Dict[str, Any] = {}
+        if "method" in step:
+            extra["method"] = str(step["method"])
         return winsor(
-            df, vars=cols, cuts=(float(cuts[0]), float(cuts[1])), replace=True
+            df,
+            vars=cols,
+            cuts=(float(cuts[0]), float(cuts[1])),
+            replace=True,
+            by=by,
+            trim=bool(step.get("trim", False)),
+            **extra,
         )
     if op == "wide_to_long":
         stub = step.get("stubnames")
@@ -2597,9 +2731,24 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
                     "'j': 'year', 'sep': '_'}"
                 ),
             )
-        return pd.wide_to_long(
-            df, stubnames=stub, i=i, j=j, sep=step.get("sep", "")
+        sep = step.get("sep", "")
+        suffix = step.get("suffix", r"\d+")
+        long = pd.wide_to_long(
+            df, stubnames=stub, i=i, j=j, sep=sep, suffix=suffix
         ).reset_index()
+        if len(df) and not len(long):
+            # pandas returns an empty frame when no column matches
+            # stub + sep + suffix (a text suffix under the default \d+).
+            raise MethodIncompatibility(
+                f"op='wide_to_long': no column matches stub(s) {stub!r} + "
+                f"sep {sep!r} + suffix {suffix!r}; the result would be empty.",
+                recovery_hint=(
+                    "For text suffixes pass suffix='\\w+' (a regex); check "
+                    "sep against the column names."
+                ),
+                diagnostics={"columns": list(map(str, df.columns))[:40]},
+            )
+        return long
     if op == "long_to_wide":
         index, columns, values = (
             step.get("index"),
