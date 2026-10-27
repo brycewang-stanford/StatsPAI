@@ -53,6 +53,7 @@ from .op_lp_acf import (
     _lags,
     _min_obs,
     _n_gaps,
+    _persistence,
     _prepare_panel,
     _resolve_inputs,
 )
@@ -68,16 +69,29 @@ def _wrdg_blocks(
     state: List[str],
     proxy: str,
     polynomial_degree: int,
+    standardise: bool = False,
 ) -> Dict[str, Any]:
-    """Row blocks of both equations on the rows where the lags exist."""
+    """Row blocks of both equations on the rows where the lags exist.
+
+    With ``standardise``, ``h`` is a polynomial in the state and proxy
+    variables less their means and over their standard deviations (the same
+    constants for the lags). With an intercept in each equation the span is
+    that of the raw powers, so the elasticities and productivity do not
+    change; the raw powers of log inputs far from zero (log capital near 7)
+    are close to collinear and left ``Z'Z`` numerically singular.
+    """
     hvars = [*state, proxy]
-    H, _ = polynomial_basis(
-        df[hvars].to_numpy(dtype=float),
-        degree=polynomial_degree,
-        include_intercept=False,
-    )
+    V = df[hvars].to_numpy(dtype=float)
+    V_lag = _lags(df, hvars)
+    if standardise:
+        centre = V.mean(axis=0)
+        scale = V.std(axis=0)
+        scale = np.where(scale > 0, scale, 1.0)
+        V = (V - centre) / scale
+        V_lag = (V_lag - centre) / scale
+    H, _ = polynomial_basis(V, degree=polynomial_degree, include_intercept=False)
     H_lag, _ = polynomial_basis(
-        _lags(df, hvars), degree=polynomial_degree, include_intercept=False
+        V_lag, degree=polynomial_degree, include_intercept=False
     )
     F_lag = _lags(df, free)
     valid = np.isfinite(H_lag).all(axis=1) & np.isfinite(F_lag).all(axis=1)
@@ -103,13 +117,14 @@ def _wrdg_design(
     state: List[str],
     proxy: str,
     polynomial_degree: int,
+    standardise: bool = False,
 ) -> Dict[str, Any]:
     """Stata prodest's stacked system (eq 1 rows over eq 2 rows).
 
     Columns of ``X``: ``const, e0, free..., state..., h-terms...``; ``Z``
     replaces the free inputs by their lags.
     """
-    B = _wrdg_blocks(df, output, free, state, proxy, polynomial_degree)
+    B = _wrdg_blocks(df, output, free, state, proxy, polynomial_degree, standardise)
     n = B["n"]
     one, zero = np.ones(n), np.zeros(n)
     X = np.vstack(
@@ -165,7 +180,13 @@ class _WooldridgeGMM:
         n = blocks["n"]
         one = np.ones(n)
         self.y = blocks["y1"]
-        self.X = np.column_stack([blocks["F"], blocks["S"]])
+        # Inputs less their means: the means move into the two intercepts
+        # (a0, c2 here are those of the centred inputs; ``intercepts``
+        # converts back), which keeps log inputs far from zero from
+        # costing the solver digits.
+        X = np.column_stack([blocks["F"], blocks["S"]])
+        self.xbar = X.mean(axis=0)
+        self.X = X - self.xbar
         self.H, self.H_lag = blocks["H"], blocks["H_lag"]
         self.Z1 = np.column_stack([one, blocks["F"], self.H])
         self.Z2 = np.column_stack([one, blocks["S"], blocks["F_lag"], self.H_lag])
@@ -246,6 +267,15 @@ class _WooldridgeGMM:
         A_inv = np.linalg.inv(G.T @ W @ G)
         _ret: np.ndarray = factor * A_inv @ (G.T @ W @ S @ W @ G) @ A_inv
         return _ret
+
+
+def _markov_in_omega(a0: float, c2: float, rho: np.ndarray) -> List[float]:
+    """Coefficients of ``G(w) = c2 + sum_j rho_j (w - a0)^j`` in powers of w."""
+    g = np.polynomial.Polynomial(np.concatenate([[0.0], np.asarray(rho, float)]))
+    G = g(np.polynomial.Polynomial([-float(a0), 1.0])) + float(c2)
+    out = np.zeros(len(rho) + 1)
+    out[: G.coef.size] = G.coef
+    return [float(v) for v in out]
 
 
 def _gmm_start(design: Dict[str, Any], degree: int) -> np.ndarray:
@@ -393,7 +423,17 @@ def wooldridge_prod(
     p = len(free) + len(state)
 
     def estimate(frame: pd.DataFrame, cov_type: Optional[str]) -> Dict[str, Any]:
-        design = _wrdg_design(frame, output, free, state, proxy, polynomial_degree)
+        # prodest's own design is kept in raw powers (Stata parity); the GMM
+        # path works on standardised inputs (same span, see _wrdg_blocks).
+        design = _wrdg_design(
+            frame,
+            output,
+            free,
+            state,
+            proxy,
+            polynomial_degree,
+            standardise=convention == "statspai",
+        )
         if convention == "prodest":
             fit = _two_sls(design, cov_type or "unadjusted")
             b, n = fit["b"], design["n"]
@@ -404,13 +444,19 @@ def wooldridge_prod(
                 "h_coef": b[2 + p :],
                 "u1": fit["u"][:n],
                 "u2": fit["u"][n:],
+                # g(s) = s: omega_t = (c2 - a0) + omega_{t-1}
                 "markov": [float(b[1]), 1.0],
                 "design": design,
                 "converged": True,
             }
         gmm = _WooldridgeGMM(design, degree)
-        fit = gmm.solve(_gmm_start(design, degree))
+        start = _gmm_start(design, degree)
+        shift = float(gmm.xbar @ start[2 : 2 + p])
+        start[:2] += shift
+        fit = gmm.solve(start)
         a0, c2, beta, h_coef, rho = gmm.split(fit.x)
+        # intercepts of the uncentred inputs
+        a0, c2 = a0 - float(gmm.xbar @ beta), c2 - float(gmm.xbar @ beta)
         u1, u2, _ = gmm.residuals(fit.x)
         V = gmm.vcov(fit.x, cov_type)[2 : 2 + p, 2 : 2 + p] if cov_type else None
         return {
@@ -420,7 +466,9 @@ def wooldridge_prod(
             "h_coef": h_coef,
             "u1": u1,
             "u2": u2,
-            "markov": [float(c2 - a0), *map(float, rho)],
+            # omega_t = c2 + sum_j rho_j (omega_{t-1} - a0)^j, written in
+            # powers of omega_{t-1} as for OP / LP / ACF
+            "markov": _markov_in_omega(a0, c2, rho),
             "design": design,
             "converged": bool(fit.status > 0),
         }
@@ -449,9 +497,13 @@ def wooldridge_prod(
     u1, u2 = est["u1"], est["u2"]
     xi = u2 - u1
     sigma_xi = float(np.std(xi, ddof=1))
-    rho = est["markov"][1]
+    # slope of the linear projection of omega on its lag (as OP / LP / ACF):
+    # the linear coefficient of g is its slope where h = 0, a point that
+    # moves with the units of the inputs
+    omega_lag = est["a0"] + design["H_lag"] @ est["h_coef"]
+    rho = _persistence(omega, omega_lag)
     names = [*free, *state]
-    sample = df.loc[design["valid"]].reset_index(drop=True)
+    sample = df.loc[design["valid"]].copy()
     sample["omega"] = omega
     sample["eta"] = u1
 

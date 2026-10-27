@@ -118,7 +118,8 @@ def _prepare_panel(
     """
     cols = list(dict.fromkeys([output, *free, *state, proxy, panel_id, time]))
     _check_inputs(data, output, free, state, proxy, panel_id, time, function)
-    df = data[cols].dropna().sort_values([panel_id, time]).reset_index(drop=True)
+    # Row labels are kept: ``result.sample`` is indexed like ``data``.
+    df = data[cols].dropna().sort_values([panel_id, time])
     if not pd.api.types.is_numeric_dtype(df[time]):
         raise TypeError(
             f"time column {time!r} must be numeric (e.g. an integer year); "
@@ -221,6 +222,31 @@ def _uncentre(
     out[: shifted.coef.size] = shifted.coef
     out[0] += level
     return omega + level, out
+
+
+def _slopes_at_mean(
+    coef: np.ndarray,
+    terms: Sequence[Tuple[int, ...]],
+    V: np.ndarray,
+    columns: Sequence[int],
+) -> np.ndarray:
+    """Slopes of the fitted polynomial ``sum_t coef_t prod_{j in t} v_j``
+    with respect to ``columns`` of ``V``, at the column means of ``V``.
+
+    The stage-2 start. The linear coefficient of a raw polynomial is its
+    slope at zero, which moves when a log input is measured in other units
+    (the same data plus a constant); the slope at the means does not.
+    """
+    mu = V.mean(axis=0)
+    out = np.zeros(len(columns))
+    for c, term in zip(coef, terms):
+        for pos, j in enumerate(columns):
+            if j not in term:
+                continue
+            rest = list(term)
+            rest.remove(j)
+            out[pos] += c * term.count(j) * float(np.prod(mu[rest]))
+    return out
 
 
 def _min_obs(n: int) -> None:
@@ -338,6 +364,7 @@ def _pack(
         coef,
         functional_form=functional_form,
     )
+    elasticities.index = sample.index
     diagnostics = {
         **diagnostics,
         "se_source": (
@@ -394,10 +421,9 @@ class _OPLPStage2:
         y = y - self.level
         F = df[free].to_numpy(dtype=float)
         S = df[state].to_numpy(dtype=float)
-        P, _ = polynomial_basis(
-            df[[*state, proxy]].to_numpy(dtype=float),
-            degree=polynomial_degree,
-            include_intercept=False,
+        V = df[[*state, proxy]].to_numpy(dtype=float)
+        P, terms = polynomial_basis(
+            V, degree=polynomial_degree, include_intercept=False
         )
         X1 = np.column_stack([np.ones(len(y)), F, P])
         b1, *_ = np.linalg.lstsq(X1, y, rcond=None)
@@ -405,8 +431,10 @@ class _OPLPStage2:
         self.fitted = X1 @ b1
         self.eta = y - self.fitted
         self.beta_free = b1[1 : 1 + nf]
-        # Linear state terms lead the degree-1 block of the polynomial.
-        self.theta0 = b1[1 + nf : 1 + nf + len(state)].copy()
+        # Start at the slopes of the stage-1 polynomial in the state inputs,
+        # taken at the sample means so that the start (and the local minimum
+        # it leads to) does not move with the units of the inputs.
+        self.theta0 = _slopes_at_mean(b1[1 + nf :], terms, V, range(len(state)))
         self.stage1_r2 = float(1.0 - np.var(self.eta) / np.var(y))
         phi = self.fitted - F @ self.beta_free
         work = df[[_PID, _TIME]].copy()
@@ -555,7 +583,7 @@ def _estimate_oplp(
             df, refit, boot_reps, seed, method.upper(), boot_info
         )
 
-    sample = df.loc[st.valid].reset_index(drop=True)
+    sample = df.loc[st.valid]
     eta = st.eta[st.valid]
     return _pack(
         method=method,
@@ -610,10 +638,9 @@ class _ACFStage2:
         self.level = float(np.mean(y))
         y = y - self.level
         poly_vars = list(dict.fromkeys([*free, *state, proxy]))
-        P, _ = polynomial_basis(
-            df[poly_vars].to_numpy(dtype=float),
-            degree=polynomial_degree,
-            include_intercept=False,
+        V = df[poly_vars].to_numpy(dtype=float)
+        P, terms = polynomial_basis(
+            V, degree=polynomial_degree, include_intercept=False
         )
         X1 = np.column_stack([np.ones(len(y)), P])
         b1, *_ = np.linalg.lstsq(X1, y, rcond=None)
@@ -644,11 +671,14 @@ class _ACFStage2:
         # W = (Z'Z)^{-1} / n, factored so that |L'm|^2 = m'Wm.
         self.L = np.linalg.cholesky(np.linalg.inv(ZZ) / len(self.Z))
         self.degree = productivity_degree
-        # Start at the stage-1 linear coefficients of the inputs (zero on
-        # translog terms), as prodest does, without its random perturbation.
+        # Start at the slopes of the stage-1 polynomial in the inputs at the
+        # sample means (zero on translog terms). prodest starts at the linear
+        # coefficients of the raw polynomial, its slopes at zero, which move
+        # with the units of the inputs and with them the root reached.
         start = np.zeros(len(names))
-        for j, nm in enumerate(inputs):
-            start[j] = b1[1 + poly_vars.index(nm)]
+        start[: len(inputs)] = _slopes_at_mean(
+            b1[1:], terms, V, [poly_vars.index(nm) for nm in inputs]
+        )
         self.theta0 = start
         self.z_norm = float(np.linalg.norm(self.Z))
 
@@ -729,8 +759,8 @@ class _ACFStage2:
             if not any(np.allclose(cand, r, rtol=1e-6, atol=1e-6) for r in roots):
                 roots.append(cand)
         if roots:
-            # The root nearest the stage-1 coefficients, whichever start or
-            # solver path reached it.
+            # The root nearest the stage-1 slopes at the sample means,
+            # whichever start or solver path reached it.
             dist = [np.linalg.norm(r - self.theta0) for r in roots]
             return roots[int(np.argmin(dist))], True, roots
         if not candidates:
@@ -780,7 +810,8 @@ def _estimate_acf(
         warnings.warn(
             f"ACF: the moment conditions have {len(roots)} distinct roots "
             f"({', '.join(np.array2string(r, precision=4) for r in roots)}); "
-            "the estimate is the root nearest the stage-1 coefficients. "
+            "the estimate is the root nearest the slopes of the stage-1 "
+            "polynomial at the sample means. "
             "All roots are in diagnostics['acf_roots'].",
             RuntimeWarning,
             stacklevel=3,
@@ -806,7 +837,7 @@ def _estimate_acf(
         se, cov, n_boot = _firm_bootstrap(df, refit, boot_reps, seed, "ACF", boot_info)
 
     inputs = [*free, *state]
-    sample = df.loc[st.valid].reset_index(drop=True)
+    sample = df.loc[st.valid]
     eta = st.eta[st.valid]
     return _pack(
         method="acf",
@@ -1131,9 +1162,10 @@ def ackerberg_caves_frazer(
     ``prodestACF``).
 
     The just-identified moment conditions can have several roots. They are
-    searched from the stage-1 coefficients and a grid of other starts; the
-    estimate is the root nearest the stage-1 coefficients, every distinct
-    root is listed in
+    searched from the slopes of the stage-1 polynomial at the sample means
+    and a grid of other starts; the estimate is the root nearest those
+    slopes (so it does not change when a log input is measured in other
+    units, i.e. shifted by a constant), every distinct root is listed in
     ``diagnostics["acf_roots"]``, and a ``RuntimeWarning`` names them when
     there is more than one.
 

@@ -220,7 +220,9 @@ def test_wooldridge_conventions_and_vce():
         truth["rho"], abs=0.1
     )
     pro = sp.wooldridge_prod(df, convention="prodest", vce="unadjusted", **kw)
-    assert pro.productivity_process["rho"] == 1.0
+    # the imposed unit slope is the Markov polynomial; ``rho`` is, as for
+    # every estimator, the projection slope of TFP on its lag
+    assert pro.diagnostics["markov_coef"][1] == 1.0
     assert abs(gmm["cluster"].coef["k"] - truth["beta_k"]) < abs(
         pro.coef["k"] - truth["beta_k"]
     )
@@ -874,3 +876,88 @@ def test_gross_output_with_the_proxy_as_an_input_is_refused(panel):
             panel_id="id",
             time="year",
         )
+
+
+# ---------------------------------------------------------------------------
+# Option scan, round 6 (2026-10-27): the units of the log inputs
+# ---------------------------------------------------------------------------
+#
+# Log capital measured in dollars instead of thousands of dollars is the same
+# data plus a constant. The elasticities must not move. The stage-2 start of
+# OP / LP (and the start and root choice of ACF) used to be the linear
+# coefficient of the raw stage-1 polynomial, which depends on that constant.
+
+
+def _fit_shifted(df, method, cols, shift, **kw):
+    d = df.copy()
+    for c in cols:
+        d[c] = d[c] + shift
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return sp.prod_fn(
+            d,
+            output="y",
+            free="l",
+            state="k",
+            proxy="i" if method == "op" else "m",
+            panel_id="id",
+            time="year",
+            method=method,
+            **kw,
+        )
+
+
+@pytest.mark.parametrize(
+    "method, cols, shift",
+    [
+        ("op", ["k"], 8.0),
+        ("lp", ["k", "m"], 3.0),
+        ("acf", ["l", "k", "m"], 6.0),
+    ],
+)
+def test_estimates_do_not_depend_on_the_origin_of_log_inputs(method, cols, shift):
+    df, _ = _simulate_panel(seed=0, persistent_wage=True)
+    base = _fit_shifted(df, method, cols, 0.0)
+    moved = _fit_shifted(df, method, cols, shift)
+    np.testing.assert_allclose(moved.params, base.params, rtol=1e-6, atol=1e-8)
+    assert moved.productivity_process["rho"] == pytest.approx(
+        base.productivity_process["rho"], rel=1e-6
+    )
+
+
+def test_wooldridge_does_not_depend_on_the_origin_of_log_inputs():
+    """Elasticities, their standard errors and the persistence are the same
+    when log capital and log materials are shifted; the Markov polynomial,
+    written in powers of lagged TFP, moves with TFP: ``G'(w) = G(w - d) + d``
+    where ``d`` is the shift of TFP."""
+    df, _ = _simulate_panel(seed=0, persistent_wage=True)
+    base = _fit_shifted(df, "wrdg", ["k", "m"], 0.0)
+    moved = _fit_shifted(df, "wrdg", ["k", "m"], 7.0)
+    np.testing.assert_allclose(moved.params, base.params, rtol=1e-7)
+    np.testing.assert_allclose(moved.std_errors, base.std_errors, rtol=1e-6)
+    assert moved.productivity_process["rho"] == pytest.approx(
+        base.productivity_process["rho"], rel=1e-7
+    )
+    d = float(np.mean(moved.tfp - base.tfp))
+    np.testing.assert_allclose(moved.tfp - base.tfp, d, atol=1e-7)
+    G = np.polynomial.Polynomial(base.diagnostics["markov_coef"])
+    G_moved = np.polynomial.Polynomial(moved.diagnostics["markov_coef"])
+    w = np.linspace(base.tfp.min(), base.tfp.max(), 7) + d
+    np.testing.assert_allclose(G_moved(w), G(w - d) + d, atol=1e-6)
+
+
+@pytest.mark.parametrize("method", ["op", "lp", "acf", "wrdg"])
+def test_sample_keeps_the_row_labels_of_the_data(method):
+    """``res.sample`` is indexed like the data, so a column the estimator did
+    not use (revenue for ``sp.markup``) is brought in with ``.loc``."""
+    df, _ = _simulate_panel(n_firms=80, seed=1, persistent_wage=True)
+    df = df.sample(frac=1.0, random_state=0)
+    df.index = df.index + 1000
+    res = _fit_shifted(df, method, [], 0.0)
+    cols = ["y", "l", "k", "id", "year"]
+    pd.testing.assert_frame_equal(
+        res.sample[cols], df.loc[res.sample.index, cols], check_dtype=False
+    )
+    if method != "wrdg":
+        el = res.model_info["elasticities"]
+        assert el.index.equals(res.sample.index)
