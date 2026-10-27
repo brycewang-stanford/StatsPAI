@@ -50,6 +50,16 @@ from ._citation import citation as citation
 from ._doctor import doctor as doctor
 from ._routing import decision_guide as decision_guide
 from ._routing import route as route
+from .adverse_selection._results import EFCWelfareResult as EFCWelfareResult
+from .adverse_selection._results import PooledPriceRatioResult as PooledPriceRatioResult
+from .adverse_selection._results import (
+    PositiveCorrelationResult as PositiveCorrelationResult,
+)
+from .adverse_selection.tests import efc_welfare as efc_welfare
+from .adverse_selection.tests import (
+    positive_correlation_test as positive_correlation_test,
+)
+from .adverse_selection.unraveling import pooled_price_ratio as pooled_price_ratio
 from .agent._translation._coverage import translation_coverage as translation_coverage
 from .agent._translation._r import from_r as from_r
 from .agent._translation._stata import from_stata as from_stata
@@ -780,6 +790,7 @@ from .iv.iv_diag import iv_compare as iv_compare
 from .iv.iv_diag import iv_diag as iv_diag
 from .iv.kernel_iv import KernelIVResult as KernelIVResult
 from .iv.kernel_iv import kernel_iv as kernel_iv
+from .iv.recentered import recentered_iv as recentered_iv
 from .iv.zero_first_stage import ZeroFirstStageResult as ZeroFirstStageResult
 from .iv.zero_first_stage import zero_first_stage as zero_first_stage
 from .longitudinal import analyze as longitudinal_analyze
@@ -883,12 +894,17 @@ from .mcmc.mprobit import bayes_mnprobit as bayes_mnprobit
 from .mcmc.mprobit import bayes_mvprobit as bayes_mvprobit
 from .mcmc.regress import BayesRegressResult as BayesRegressResult
 from .mcmc.regress import bayes_regress as bayes_regress
+from .mcmc.semiparametric import SemiparametricBayesResult as SemiparametricBayesResult
+from .mcmc.semiparametric import semiparametric_bayes as semiparametric_bayes
 from .mcmc.shrinkage import bayes_shrink as bayes_shrink
 from .mcmc.simulation import abc as abc
 from .mcmc.sur import bayes_sur as bayes_sur
 from .mcmc.sv import stochvol as stochvol
 from .mcmc.trees import BARTResult as BARTResult
 from .mcmc.trees import bart as bart
+from .measurement_error.eivreg import eivreg as eivreg
+from .measurement_error.noisy_covariates import noisy_covariates as noisy_covariates
+from .measurement_error.simex import simex as simex
 from .mediation.four_way import FourWayResult as FourWayResult
 from .mediation.four_way import four_way_decomposition as four_way_decomposition
 from .mediation.iv_mediate import IVMediateResult as IVMediateResult
@@ -1485,6 +1501,8 @@ from .spatial.models.ml import sdm as sdm
 from .spatial.models.ml import sem as sem
 from .spatial.models.ml import slx as slx
 from .spatial.panel.estimator import spatial_panel as spatial_panel
+from .spatial.treatments import SpatialTreatmentResult as SpatialTreatmentResult
+from .spatial.treatments import spatial_treatment as spatial_treatment
 from .spatial.utils import distance_to_feature as distance_to_feature
 from .spatial.utils import line_length_in_polygon as line_length_in_polygon
 from .spatial.utils import share_within_buffer as share_within_buffer
@@ -1498,6 +1516,9 @@ from .spatial.weights.distance import knn_weights as knn_weights
 from .structural._blp_result import BLPResult as BLPResult
 from .structural.blp import blp as blp
 from .structural.blp import blp_instruments as blp_instruments
+from .structural.ddc._result import DDCResult as DDCResult
+from .structural.ddc.estimate import ddc as ddc
+from .structural.ddc.simulate import dgp_ddc as dgp_ddc
 from .structural.path_analysis import PathAnalysisResult as PathAnalysisResult
 from .structural.path_analysis import path_analysis as path_analysis
 from .structural.production._dispatcher import prod_fn as prod_fn

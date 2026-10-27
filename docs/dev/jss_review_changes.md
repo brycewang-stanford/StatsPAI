@@ -5730,6 +5730,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-28 — trace ledgers re-recorded after the Econometrica 94(5) round
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ed1670e25`.
+- **Reason.** The Econometrica 94(5) round (`29f5739da`) added lazy
+  exports and `__all__` entries to `src/statspai/__init__.py`, which is on
+  ten Track A paths (03, 13, 15, 24, 25, 26, 27, 53, 65, 66) and on the
+  original-data path of `08_nhefs_ch14_gestimation`. No estimation code
+  changed. `verify_reproduce_py.py` on the ten modules reports 10
+  reproduce, 0 drift (worst relative 1.7e-10); re-running module 08 left
+  its result file byte-identical.
+- **Effect on the paper.** None. No committed parity result changed. The
+  new functions of that round are outside Track A.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-28 — trace ledgers re-recorded after the QJE gap pass
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.

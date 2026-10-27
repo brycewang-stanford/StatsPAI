@@ -7910,6 +7910,66 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "exact population in tests/test_ness_causal_ai_pass.py."
         ),
     },
+    # ---- Econometrica 94(5) round (2026-10-28) ----
+    "eivreg": {
+        "status": "bit-exact",
+        "reference": "Stata 18 eivreg (StataNow 18 MP)",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "1e-6 relative (CLAUDE.md 5.1 default); observed 5e-15 at worst",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_eivreg_stata_parity.py",
+            "tests/reference_parity/_fixtures/eivreg_stata.txt",
+        ],
+        "note": (
+            "Frozen-Stata fixture. Cases: two error-prone regressors, one, "
+            "analytic weights, frequency weights, and analytic weights with "
+            "zero-weight rows."
+        ),
+    },
+    "positive_correlation_test": {
+        "status": "bit-exact",
+        "reference": "Stata 18 biprobit (method='biprobit')",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": (
+            "log likelihood and LR statistic 1e-12 relative; rho and athrho "
+            "1e-8 (observed 1.6e-9); athrho standard error and Wald statistic "
+            "1e-8 (observed 2e-10)"
+        ),
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_positive_correlation_test_stata_parity.py",
+            "tests/reference_parity/_fixtures/positive_correlation_test_Stata.json",
+        ],
+        "note": (
+            "Frozen-Stata fixture: biprobit three ways (same covariates, "
+            "different covariates per equation, vce(cluster g)). "
+            "method='residuals' has no external reference."
+        ),
+    },
+    "spatial_treatment": {
+        "status": "bit-exact",
+        "reference": (
+            "Pollmann's spatialTreat-example reference code (R + Rcpp, MIT, "
+            "commit a73bca9), the method author's own implementation"
+        ),
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "Rcpp": "1.1.1.1.1",
+            "data.table": "1.18.2.1",
+        },
+        "tolerance": "estimate, both means, standard error and variance components 1e-9 relative",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_treatment_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_treatment_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on two designs. Every candidate location has a "
+            "unit within reach in both, which is where the author's per-ring "
+            "normalisation of the own terms coincides with Theorem 1's |S|."
+        ),
+    },
 }
 
 # ---- marginaleffects-style post-estimation (2026-10-17) ----

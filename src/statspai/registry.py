@@ -37348,6 +37348,1164 @@ def _build_registry() -> None:
         )
     )
 
+    # ------------------------------------------------------------------
+    # Econometrica 94(5) round (2026-10-28): design-based exposure,
+    # spatial treatments, measurement error
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="recentered_iv",
+            category="causal",
+            description=(
+                "Recentered IV for treatments or instruments built from "
+                "as-good-as-random shocks with non-random exposure (market "
+                "access, network spillovers, simulated eligibility). Subtracts "
+                "or controls for the expected instrument, the average of the "
+                "instrument over counterfactual shock draws, and reports "
+                "randomization inference from the same draws."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "Treatment column; may equal `exposure` when the treatment "
+                    "is itself built from the shocks",
+                ),
+                ParamSpec(
+                    "exposure",
+                    "str",
+                    True,
+                    None,
+                    "Realised instrument z_i = f_i(g, w) computed from the "
+                    "realised shocks",
+                ),
+                ParamSpec(
+                    "counterfactual",
+                    "list | array | DataFrame",
+                    True,
+                    None,
+                    "The instrument recomputed under S >= 2 counterfactual "
+                    "shock draws (e.g. permutations), one column per draw, "
+                    "rows aligned with data; their row mean is the expected "
+                    "instrument",
+                ),
+                ParamSpec("covariates", "list", False, None, "Predetermined controls"),
+                ParamSpec("weights", "str", False, None, "Analytic weights column"),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column for the asymptotic standard error",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "robust",
+                    "Asymptotic variance without clustering; 'robust' is HC1",
+                    ["robust", "hc0", "hc1", "hc2", "hc3", "nonrobust"],
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "recenter",
+                    "'recenter' instruments with exposure - mu; 'control' "
+                    "instruments with exposure and controls for mu",
+                    ["recenter", "control"],
+                ),
+                ParamSpec(
+                    "ri",
+                    "bool",
+                    False,
+                    True,
+                    "Compute the randomization p-value and the exact "
+                    "randomization confidence set",
+                ),
+                ParamSpec(
+                    "ri_null",
+                    "float",
+                    False,
+                    0.0,
+                    "Value of beta under the null for the RI p-value",
+                ),
+                ParamSpec(
+                    "balance",
+                    "list",
+                    False,
+                    None,
+                    "Predetermined variables for RI falsification tests of "
+                    "E[(z - mu) r] = 0, one per variable plus a joint test",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="CausalResult",
+            example=(
+                'sp.recentered_iv(df, "y", "market_access", "market_access", '
+                "counterfactual=cf_draws)"
+            ),
+            tags=[
+                "iv",
+                "design_based",
+                "shocks",
+                "exposure",
+                "market_access",
+                "randomization_inference",
+                "spillovers",
+            ],
+            reference="borusyak2023nonrandom",
+            assumptions=[
+                "The shocks are as-good-as-randomly assigned given the "
+                "exposure, and the counterfactual draws come from that "
+                "assignment process (for example exchangeable shocks)",
+                "The shocks affect the outcome only through the treatment",
+                "The RI test is for the sharp null of a constant effect; with "
+                "heterogeneous effects report the asymptotic standard error",
+            ],
+            alternatives=["iv", "bartik", "shift_share_se", "ri_test", "conley"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="spatial_treatment",
+            category="causal",
+            description=(
+                "Effects of spatial treatments (stores, schools, plants) on "
+                "nearby units by distance ring, comparing units near realised "
+                "locations with units near counterfactual candidate locations, "
+                "with design-based standard errors (Pollmann 2026)."
+            ),
+            params=[
+                ParamSpec(
+                    "data", "DataFrame", True, None, "Outcome units, one row each"
+                ),
+                ParamSpec("y", "str", True, None, "Outcome column of data"),
+                ParamSpec(
+                    "coords",
+                    "list",
+                    False,
+                    None,
+                    "Two coordinate columns of data ((lat, lon) in degrees for "
+                    "haversine); not needed with distances=",
+                ),
+                ParamSpec(
+                    "locations",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Candidate treatment locations: realised ones plus "
+                    "user-supplied counterfactual candidates",
+                ),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    "realized",
+                    "0/1 column of locations marking realised locations",
+                ),
+                ParamSpec(
+                    "bins",
+                    "list",
+                    False,
+                    None,
+                    "Ring edges, strictly increasing and non-negative (required), "
+                    "e.g. [0, 0.025, 0.05]",
+                ),
+                ParamSpec(
+                    "location_coords",
+                    "list",
+                    False,
+                    None,
+                    "Coordinate columns of locations (default: coords)",
+                ),
+                ParamSpec(
+                    "propensity",
+                    "str",
+                    False,
+                    None,
+                    "Column of locations with each candidate's design probability "
+                    "in (0, 1); default is the realised share for every candidate",
+                ),
+                ParamSpec(
+                    "distances",
+                    "ndarray",
+                    False,
+                    None,
+                    "Precomputed (n_units, n_locations) distances; overrides "
+                    "coords and metric",
+                ),
+                ParamSpec(
+                    "max_effect_distance",
+                    "float",
+                    False,
+                    None,
+                    "Distance beyond which treatments have no effect (d0); "
+                    "enters the standard error only. Default: last ring edge",
+                ),
+                ParamSpec(
+                    "kernel",
+                    "str",
+                    False,
+                    "bin",
+                    "Ring weights",
+                    ["bin", "triangular"],
+                ),
+                ParamSpec(
+                    "location_weights",
+                    "bool",
+                    False,
+                    False,
+                    "Weight each candidate location equally within a ring "
+                    "rather than each unit (changes the estimand)",
+                ),
+                ParamSpec(
+                    "metric",
+                    "str",
+                    False,
+                    "euclidean",
+                    "Distance between coordinates",
+                    ["euclidean", "haversine"],
+                ),
+                ParamSpec(
+                    "distance_unit",
+                    "str",
+                    False,
+                    "km",
+                    "Unit of haversine distances",
+                    ["km", "mi"],
+                ),
+                ParamSpec(
+                    "n_perm",
+                    "int",
+                    False,
+                    999,
+                    "Randomization draws for the sharp null of no effect "
+                    "(0 skips the randomization p-value)",
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed for randomization draws"),
+                ParamSpec("alpha", "float", False, 0.05, "Level of the intervals"),
+            ],
+            returns="SpatialTreatmentResult",
+            example=(
+                'sp.spatial_treatment(restaurants, "visits", ["x", "y"], '
+                'stores, treat="realized", bins=[0, 0.025, 0.05, 0.075])'
+            ),
+            tags=[
+                "spatial",
+                "design_based",
+                "randomization",
+                "distance",
+                "counterfactual_locations",
+                "att",
+            ],
+            reference="pollmann2026causal",
+            assumptions=[
+                "Treatment is assigned independently across candidate locations "
+                "with the given (or a constant) design probability",
+                "Counterfactual candidates are locations where the treatment "
+                "could plausibly have been realised (the user supplies them)",
+                "Effects of different locations add up, for the ATT reading; "
+                "otherwise the estimand is the average marginal effect",
+                "No effect beyond max_effect_distance (standard error only)",
+            ],
+            alternatives=["recentered_iv", "spatial_did", "conley", "ri_test"],
+            not_recommended_when=[
+                "Comparing an inner ring with an outer ring around the same "
+                "realised locations is the intended design (not justified by "
+                "the randomization this function relies on)",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="noisy_covariates",
+            category="causal",
+            description=(
+                "Treatment effects when the covariates are observed with "
+                "noise, missing cells, randomised rounding or differential-"
+                "privacy noise (Agarwal-Singh). Cleans the covariates by "
+                "principal components, fits an error-in-variable regression "
+                "and balancing weight, and reports a cross-fitted doubly "
+                "robust estimate whose interval accounts for the cleaning. "
+                "Needs no model of the noise; assumes the true covariates "
+                "are approximately low rank."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec("y", "str", True, None, "Outcome column"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "Treatment column: 0/1 for ATE and LATE, any numeric dose "
+                    "for partially_linear",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "The noisy covariates; NaN marks a missing cell",
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "ATE of a binary treatment, LATE with a binary instrument, "
+                    "or the partially linear coefficient of a continuous "
+                    "treatment",
+                    ["ATE", "LATE", "partially_linear"],
+                ),
+                ParamSpec(
+                    "instrument",
+                    "str",
+                    False,
+                    None,
+                    "0/1 instrument column, required for estimand='LATE'",
+                ),
+                ParamSpec(
+                    "rank",
+                    "int",
+                    False,
+                    None,
+                    "Principal components kept when cleaning; None uses the "
+                    "Gavish-Donoho hard threshold in each training fold",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Known unit weights for a weighted estimand (normalised "
+                    "to mean one)",
+                ),
+                ParamSpec(
+                    "add_constant",
+                    "bool",
+                    False,
+                    True,
+                    "Append an exactly observed constant after cleaning so "
+                    "each arm has its own intercept",
+                ),
+                ParamSpec("n_folds", "int", False, 2, "Cross-fitting folds"),
+                ParamSpec("seed", "int", False, 0, "Seed for the fold split"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="CausalResult",
+            example='sp.noisy_covariates(df, "y", "d", noisy_cols)',
+            tags=[
+                "measurement_error",
+                "differential_privacy",
+                "missing_data",
+                "low_rank",
+                "pca",
+                "balancing",
+                "doubly_robust",
+                "ate",
+                "late",
+            ],
+            reference="agarwal2026causal",
+            assumptions=[
+                "Selection on the true covariates, which are approximately "
+                "low rank (approximate repeated measurements)",
+                "Corruption is mean zero given the true covariates and "
+                "independent across units; missingness does not depend on "
+                "the outcome",
+                "Many covariates per latent factor: the theory asks for "
+                "n^(2/3) <= p <= n^(3/2); with few covariates the estimate "
+                "keeps an errors-in-variables bias",
+            ],
+            alternatives=["eivreg", "simex", "aipw", "dml", "residual_balance"],
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # Adverse selection (Econometrica 94(5) round, 2026-10-28)
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="positive_correlation_test",
+            category="inference",
+            description=(
+                "Chiappori-Salanie conditional positive-correlation test for "
+                "asymmetric information in insurance: given the variables the "
+                "insurer prices on, are coverage and claims positively "
+                "correlated? Bivariate probit (test rho = 0, as Stata biprobit) "
+                "or the score test on two probits' generalized residuals."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec(
+                    "coverage", "str", True, None, "0/1 indicator of more coverage"
+                ),
+                ParamSpec("claim", "str", True, None, "0/1 indicator of a claim"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Variables the insurer prices on; enter both equations",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "biprobit",
+                    "'biprobit': test rho = 0 in a bivariate probit (LR test, "
+                    "Wald with cluster); 'residuals': score test W on the "
+                    "generalized residuals of two separate probits",
+                    ["biprobit", "residuals"],
+                ),
+                ParamSpec(
+                    "claim_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates of the claim equation when they differ",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling weights (method='residuals' only)",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster variable"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="PositiveCorrelationResult",
+            example=(
+                'sp.positive_correlation_test(df, "comprehensive", "claim", '
+                '["age", "region"], method="residuals")'
+            ),
+            tags=["insurance", "adverse_selection", "moral_hazard", "biprobit", "test"],
+            reference="chiappori2000testing",
+            assumptions=[
+                "covariates contain everything the insurer prices on",
+                "Probit links for coverage and claims",
+                "A rejection signals asymmetric information but does not "
+                "separate adverse selection from moral hazard",
+            ],
+            alternatives=["biprobit", "efc_welfare", "pooled_price_ratio"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="efc_welfare",
+            category="structural",
+            description=(
+                "Einav-Finkelstein-Cullen welfare cost of selection from "
+                "exogenous price variation: linear demand and average cost "
+                "curves, implied marginal cost, competitive equilibrium "
+                "(price = average cost), efficient allocation (price = "
+                "marginal cost) and the deadweight loss, with delta-method or "
+                "bootstrap standard errors."
+            ),
+            params=[
+                ParamSpec(
+                    "data", "DataFrame", True, None, "One row per potential buyer"
+                ),
+                ParamSpec(
+                    "price",
+                    "str",
+                    True,
+                    None,
+                    "Price of coverage relative to no coverage, in cost units",
+                ),
+                ParamSpec("coverage", "str", True, None, "0/1 indicator of buying"),
+                ParamSpec(
+                    "cost",
+                    "str",
+                    True,
+                    None,
+                    "Cost of covering the person; used where coverage == 1",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Controls that make price exogenous; curves evaluated at "
+                    "their means",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster variable"),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "delta",
+                    "Delta method on stacked influence functions, or bootstrap",
+                    ["delta", "bootstrap"],
+                ),
+                ParamSpec("n_boot", "int", False, 500, "Bootstrap draws"),
+                ParamSpec("seed", "int", False, 0, "Seed for the bootstrap"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="EFCWelfareResult",
+            example='sp.efc_welfare(df, "price", "insured", "claims")',
+            tags=["insurance", "adverse_selection", "welfare", "deadweight_loss"],
+            reference="einav2010estimating",
+            assumptions=[
+                "Price variation is exogenous given the covariates",
+                "Demand and average cost are linear in price",
+                "Welfare is per potential buyer; corners of [0, 1] coverage "
+                "make delta-method SEs invalid (use the bootstrap)",
+            ],
+            alternatives=["positive_correlation_test", "pooled_price_ratio"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="pooled_price_ratio",
+            category="structural",
+            description=(
+                "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 "
+                "from the distribution of private loss probabilities in a "
+                "market segment; the minimum implicit tax up to a quantile "
+                "(t80 by default, as Azevedo et al. 2026) and Hendren's "
+                "no-trade condition at a given markup."
+            ),
+            params=[
+                ParamSpec(
+                    "p",
+                    "str",
+                    True,
+                    None,
+                    "Loss probabilities in [0, 1]: a column of data or the values",
+                ),
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    False,
+                    None,
+                    "Needed when p or weights is a column name",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Population weights (column or values)",
+                ),
+                ParamSpec(
+                    "upto_quantile",
+                    "float",
+                    False,
+                    0.8,
+                    "Summary = minimum implicit tax over risks up to this quantile",
+                ),
+                ParamSpec(
+                    "markup",
+                    "float",
+                    False,
+                    None,
+                    "Willingness to pay above the fair price, as a share; "
+                    "enables the no-trade check",
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap draws over people for an interval (0 = none)",
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed for the bootstrap"),
+                ParamSpec("alpha", "float", False, 0.05, "Level"),
+            ],
+            returns="PooledPriceRatioResult",
+            example='sp.pooled_price_ratio("risk", data=df, markup=0.2)',
+            tags=["insurance", "adverse_selection", "unraveling", "no_trade"],
+            reference="hendren2013private",
+            assumptions=[
+                "p is the private risk distribution within one market segment "
+                "(people the insurer cannot tell apart)",
+                "The bootstrap resamples p only, not the model that predicted it",
+            ],
+            alternatives=["efc_welfare", "positive_correlation_test"],
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # Dynamic discrete choice (structural/ddc/, ECTA 94(5) round 2026-10-28)
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="ddc",
+            category="structural",
+            description=(
+                "Single-agent dynamic discrete choice: infinite-horizon, "
+                "stationary, discrete states, i.i.d. type-I extreme value "
+                "shocks, flow utility linear in the parameters. Three "
+                "estimators of the same parameters: Rust's nested fixed point "
+                "(method='nfxp', Newton-Kantorovich inner solver so "
+                "beta=0.9999 is cheap), the two-step Hotz-Miller CCP "
+                "pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested "
+                "pseudo-likelihood ('npl', whose fixed point is the partial "
+                "MLE). Built-in Rust (1987) engine-replacement utility, or any "
+                "feature array (S, J, K) / callable. Transitions are estimated "
+                "in a first stage (frequencies, or Rust's pooled increments) "
+                "or supplied. Returns parameters, partial-likelihood standard "
+                "errors, model CCPs, the value function and "
+                ".counterfactual() for policy changes. The discount factor is "
+                "fixed, not estimated."
+            ),
+            params=[
+                ParamSpec(
+                    "data", "DataFrame", True, None, "Panel, one row per unit-period"
+                ),
+                ParamSpec("choice", "str", True, None, "Action column"),
+                ParamSpec(
+                    "state",
+                    "str",
+                    True,
+                    None,
+                    "Discretised state column: integer codes 0..S-1",
+                ),
+                ParamSpec(
+                    "id",
+                    "str",
+                    False,
+                    None,
+                    "Unit identifier; needed to estimate transitions and "
+                    "clusters vce='sandwich'",
+                ),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Period column; transitions use rows exactly one period apart",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "nfxp",
+                    "Nested fixed point, two-step Hotz-Miller CCP, or nested "
+                    "pseudo-likelihood",
+                    ["nfxp", "ccp", "npl"],
+                ),
+                ParamSpec(
+                    "utility",
+                    "str | array | callable",
+                    False,
+                    "rust",
+                    "'rust' (action 0 keeps at cost c(s), action 1 replaces at "
+                    "RC + c(0)), a feature array of shape (S, J, K), or a "
+                    "callable f(state, action_index) -> K features",
+                ),
+                ParamSpec(
+                    "beta",
+                    "float",
+                    False,
+                    0.95,
+                    "Discount factor in [0, 1); beta=0 is a static logit",
+                ),
+                ParamSpec(
+                    "transition",
+                    "str | array | dict",
+                    False,
+                    "auto",
+                    "'estimate' (action-specific frequencies), 'increments' "
+                    "(Rust's pooled increments, from 0 after a reset action), "
+                    "'auto' (increments for utility='rust', else estimate), or "
+                    "matrices of shape (J, S, S) / {action: (S, S)}",
+                ),
+                ParamSpec(
+                    "actions",
+                    "list",
+                    False,
+                    None,
+                    "Action labels in model order (default: sorted unique values)",
+                ),
+                ParamSpec(
+                    "n_states",
+                    "int",
+                    False,
+                    None,
+                    "Number of states (default max code + 1)",
+                ),
+                ParamSpec(
+                    "cost",
+                    "str",
+                    False,
+                    "linear",
+                    "Maintenance cost for utility='rust'",
+                    ["linear", "quadratic"],
+                ),
+                ParamSpec(
+                    "cost_scale",
+                    "float",
+                    False,
+                    0.001,
+                    "Scale of the state in the Rust cost, c(s) = theta_1 * scale * s",
+                ),
+                ParamSpec(
+                    "reset_actions",
+                    "list",
+                    False,
+                    None,
+                    "Actions that restart the state at 0 (transition='increments'; "
+                    "default the second action for utility='rust')",
+                ),
+                ParamSpec(
+                    "param_names",
+                    "list",
+                    False,
+                    None,
+                    "Names of the utility parameters for array / callable utilities",
+                ),
+                ParamSpec(
+                    "theta0",
+                    "list",
+                    False,
+                    None,
+                    "Starting values (NFXP default: the CCP estimate)",
+                ),
+                ParamSpec(
+                    "ccp_smoothing",
+                    "float",
+                    False,
+                    0.5,
+                    "Pseudo-count added to each (state, action) cell of the "
+                    "frequency CCPs",
+                ),
+                ParamSpec("npl_max_iter", "int", False, 100, "Maximum NPL iterations"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "hessian",
+                    "Inverse observed information, outer product of scores, or "
+                    "sandwich clustered by id; all conditional on the "
+                    "first-stage transitions",
+                    ["hessian", "opg", "sandwich"],
+                ),
+                ParamSpec(
+                    "tol", "float", False, 1e-8, "Parameter convergence tolerance"
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="DDCResult",
+            example=(
+                'sp.ddc(df, "replace", "mileage", id="bus", time="t", '
+                "beta=0.9999, n_states=90)"
+            ),
+            tags=[
+                "structural",
+                "dynamic_discrete_choice",
+                "nfxp",
+                "ccp",
+                "npl",
+                "rust",
+                "markov_decision",
+            ],
+            reference="rust1987optimal",
+            assumptions=[
+                "Stationary infinite-horizon Markov decision problem with a "
+                "discrete, observed state",
+                "Additively separable i.i.d. type-I extreme value shocks "
+                "(conditional independence)",
+                "Known discount factor",
+                "Transitions do not depend on the unobserved shocks; standard "
+                "errors ignore first-stage transition sampling error",
+            ],
+            alternatives=["dgp_ddc", "clogit", "logit", "structural_mdp"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="dgp_ddc",
+            category="structural",
+            description=(
+                "Simulate a Rust (1987)-style engine replacement panel from "
+                "known parameters (replacement cost, linear or quadratic "
+                "maintenance cost, discount factor, state increment "
+                "probabilities). Columns bus, t, mileage, replace; .attrs "
+                "holds the true parameters, transition matrices and choice "
+                "probabilities. For tests and examples of sp.ddc."
+            ),
+            params=[
+                ParamSpec("n_units", "int", False, 100, "Number of units"),
+                ParamSpec("n_periods", "int", False, 100, "Periods per unit"),
+                ParamSpec("n_states", "int", False, 90, "Number of mileage bins"),
+                ParamSpec("RC", "float", False, 10.0, "Replacement cost"),
+                ParamSpec("theta_1", "float", False, 2.5, "Linear maintenance cost"),
+                ParamSpec(
+                    "theta_2",
+                    "float",
+                    False,
+                    None,
+                    "Quadratic maintenance cost (None: linear model)",
+                ),
+                ParamSpec("beta", "float", False, 0.9999, "Discount factor in [0, 1)"),
+                ParamSpec(
+                    "increment_probs",
+                    "list",
+                    False,
+                    [0.35, 0.60, 0.05],
+                    "Probabilities of moving up 0, 1, 2, ... bins per period",
+                ),
+                ParamSpec(
+                    "cost_scale",
+                    "float",
+                    False,
+                    0.001,
+                    "c(s) = theta_1 * cost_scale * s (+ theta_2 (cost_scale s)^2)",
+                ),
+                ParamSpec("seed", "int", False, None, "Random seed"),
+            ],
+            returns="DataFrame",
+            example="sp.dgp_ddc(n_units=200, n_periods=100, seed=0)",
+            tags=["dgp", "simulation", "structural", "dynamic_discrete_choice"],
+            reference="rust1987optimal",
+            alternatives=["ddc"],
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # Measurement error in regressors (ECTA 94(5) round, 2026-10-28)
+    # ------------------------------------------------------------------
+    register(
+        FunctionSpec(
+            name="eivreg",
+            category="regression",
+            description=(
+                "Errors-in-variables regression (Stata eivreg): least squares "
+                "corrected for classical measurement error in regressors whose "
+                "reliability ratio is known, with the M-estimation sandwich "
+                "variance. Matches Stata 18 to rounding."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str",
+                    True,
+                    None,
+                    "'y ~ x1 + x2 + z' (needs an intercept)",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec(
+                    "reliability",
+                    "dict",
+                    False,
+                    None,
+                    "{'x1': 0.8}: var(true x) / var(observed x) per error-prone "
+                    "term, in (0, 1]; unlisted terms have reliability 1",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Column of non-negative weights; zero-weight rows are dropped",
+                ),
+                ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    "analytic",
+                    "Stata [aw=] (rescaled to sum to N) or [fw=] (integer counts "
+                    "that set N and the degrees of freedom)",
+                    ["analytic", "frequency"],
+                ),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "One minus the confidence level"
+                ),
+            ],
+            returns="EconometricResults",
+            example='sp.eivreg("y ~ x + z", df, reliability={"x": 0.8})',
+            tags=[
+                "measurement_error",
+                "errors_in_variables",
+                "reliability",
+                "attenuation",
+                "stata",
+            ],
+            reference="fuller1987measurement",
+            assumptions=[
+                "Classical additive error: independent of the true regressors, "
+                "of the outcome error and across regressors",
+                "The reliability ratios are known; the variance treats them "
+                "as fixed",
+                "A reliability below the R-squared of the regressor on the other "
+                "regressors and y is inconsistent with the data and is refused",
+            ],
+            alternatives=["simex", "noisy_covariates", "regress", "iv"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="simex",
+            category="regression",
+            description=(
+                "Simulation-extrapolation (SIMEX) for regressors measured with "
+                "additive normal error of known SD: adds more simulated error, "
+                "refits the naive linear / logit / probit / Poisson model and "
+                "extrapolates the coefficients back to zero error, with the "
+                "SIMEX jackknife variance (as R simex)."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str",
+                    True,
+                    None,
+                    "'y ~ x + z'; error-prone terms must be plain columns",
+                ),
+                ParamSpec("data", "DataFrame", True, None, "Input data"),
+                ParamSpec(
+                    "error_sd",
+                    "dict",
+                    True,
+                    None,
+                    "{'x': 0.5}: measurement-error SD per error-prone regressor, "
+                    "a number or a column of per-row SDs",
+                ),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Naive model",
+                    ["gaussian", "logit", "probit", "poisson"],
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Column of prior weights for the naive fits",
+                ),
+                ParamSpec(
+                    "lambdas",
+                    "list",
+                    False,
+                    (0.5, 1.0, 1.5, 2.0),
+                    "Positive multiples of the error variance to simulate "
+                    "(lambda = 0 is added)",
+                ),
+                ParamSpec("B", "int", False, 100, "Simulated data sets per lambda"),
+                ParamSpec(
+                    "extrapolant",
+                    "str",
+                    False,
+                    "quadratic",
+                    "Curve fitted to the coefficient paths; 'nonlinear' is "
+                    "a + b / (c + lambda)",
+                    ["quadratic", "linear", "nonlinear"],
+                ),
+                ParamSpec(
+                    "jackknife_extrapolant",
+                    "str",
+                    False,
+                    "quadratic",
+                    "Curve fitted to the jackknife variance paths",
+                    ["quadratic", "linear", "nonlinear"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "ols",
+                    "Covariance of each naive fit in the jackknife variance: "
+                    "model-based or HC0 sandwich",
+                    ["ols", "robust"],
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed for the simulated errors"),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "One minus the confidence level"
+                ),
+            ],
+            returns="EconometricResults",
+            example='sp.simex("y ~ w + z", df, error_sd={"w": 0.5})',
+            tags=[
+                "measurement_error",
+                "errors_in_variables",
+                "simulation",
+                "glm",
+                "attenuation",
+            ],
+            reference="cook1994simulation",
+            assumptions=[
+                "Additive normal measurement error with known SD, independent "
+                "of everything else",
+                "The extrapolant approximates the coefficient path in lambda; "
+                "the quadratic usually corrects only part of the bias",
+                "The jackknife variance treats the error SD as known",
+            ],
+            alternatives=["eivreg", "noisy_covariates", "regress", "logit"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="semiparametric_bayes",
+            category="bayes",
+            description=(
+                "Locally robust, semiparametrically efficient Bayesian "
+                "inference (Mueller and Norets 2026). A parametric baseline "
+                "(Student-t or Weibull regression, or your own model) is "
+                "augmented by a factor in the baseline and efficient scores "
+                "of the parameters of interest and an auxiliary parameter "
+                "delta. The posterior of the parameters of interest is "
+                "centred at the semiparametrically efficient estimator with "
+                "variance at the efficiency bound under any local "
+                "misspecification, while tails and predictions still come "
+                "from the baseline. A credible interval of delta that "
+                "excludes zero flags a misspecified baseline. NumPy only."
+            ),
+            params=[
+                ParamSpec("formula", "str", True, description="'y ~ x1 + x2'"),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "student_t",
+                    "Baseline model: Student-t regression (efficient "
+                    "estimator OLS), Weibull durations with E[y|x] = "
+                    "exp(x'b), or user callables",
+                    ["student_t", "weibull", "custom"],
+                ),
+                ParamSpec(
+                    "interest",
+                    "list",
+                    False,
+                    None,
+                    "Coefficients of interest (names or positions); default "
+                    "all. The rest are nuisance parameters, partialled out "
+                    "while sampling and reported on their original scale",
+                ),
+                ParamSpec(
+                    "prior_sd",
+                    "float",
+                    False,
+                    10.0,
+                    "Built-in models: N(0, prior_sd^2) on the coefficients "
+                    "and on log(sigma) / log(alpha)",
+                ),
+                ParamSpec(
+                    "delta_prior_sd",
+                    "float",
+                    False,
+                    0.2,
+                    "delta ~ N(0, delta_prior_sd^2) per coordinate (the "
+                    "paper's choice); a tiny value gives back the baseline",
+                ),
+                ParamSpec(
+                    "loglik",
+                    "callable",
+                    False,
+                    None,
+                    "model='custom': loglik(theta, y, X) -> baseline log "
+                    "density of every row",
+                ),
+                ParamSpec(
+                    "score",
+                    "callable",
+                    False,
+                    None,
+                    "model='custom': score(theta, y, X) -> (n, k) baseline "
+                    "score of the parameters of interest",
+                ),
+                ParamSpec(
+                    "efficient_score",
+                    "callable",
+                    False,
+                    None,
+                    "model='custom': efficient_score(theta, y, X) -> (n, k) "
+                    "semiparametric efficient score",
+                ),
+                ParamSpec(
+                    "simulate",
+                    "callable",
+                    False,
+                    None,
+                    "model='custom': simulate(theta, X, rng) -> one baseline "
+                    "draw per row of X",
+                ),
+                ParamSpec(
+                    "log_prior",
+                    "callable",
+                    False,
+                    None,
+                    "model='custom': log_prior(theta) -> scalar",
+                ),
+                ParamSpec(
+                    "theta_start",
+                    "list",
+                    False,
+                    None,
+                    "model='custom': starting value of theta",
+                ),
+                ParamSpec(
+                    "param_names",
+                    "list",
+                    False,
+                    None,
+                    "model='custom': names of the entries of theta",
+                ),
+                ParamSpec("draws", "int", False, 4000),
+                ParamSpec("burnin", "int", False, 1500),
+                ParamSpec("thin", "int", False, 1),
+                ParamSpec("chains", "int", False, 1),
+                ParamSpec("seed", "int", False, None),
+                ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "baseline",
+                    "bool",
+                    False,
+                    True,
+                    "Also sample the baseline (non-robust) posterior for the "
+                    "comparison in diagnostics_info",
+                ),
+            ],
+            returns="SemiparametricBayesResult",
+            example='sp.semiparametric_bayes("y ~ x", df, model="student_t", seed=1)',
+            tags=[
+                "bayes",
+                "mcmc",
+                "semiparametric",
+                "robust",
+                "misspecification",
+                "efficiency",
+                "student_t",
+                "weibull",
+            ],
+            reference="mueller2026locally",
+            assumptions=[
+                "The parameters of interest keep their meaning in a "
+                "semiparametric model encompassing the baseline (linear "
+                "model with E[e|x] = 0 and homoskedastic errors; E[y|x] = "
+                "exp(x'b) for the Weibull model)",
+                "Departures from the baseline distribution are local; under "
+                "gross misspecification delta moves away from zero and is "
+                "reported, not corrected",
+                "Observations are independent",
+            ],
+            alternatives=["bayes_regress", "bayes_bootstrap", "regress"],
+            not_recommended_when=[
+                "Only the coefficients matter and the predictive "
+                "distribution does not: OLS with robust standard errors "
+                "(sp.regress) gives the same centring at no sampling cost",
+            ],
+        )
+    )
+
     # -- QJE gaps: Shapley R2, Krippendorff alpha, LLM text coding -------- #
     register(
         FunctionSpec(

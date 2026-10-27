@@ -506,6 +506,46 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "<len(covariates)> covariates.",
         },
     ],
+    "ddc": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "use 'nfxp', 'ccp' or 'npl'",
+            "symptom": "method=<method> is not supported",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "use 'hessian', 'opg' or 'sandwich'",
+            "symptom": "vce=<vce> is not supported",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "pass a discount factor below one, e.g. 0.95 or 0.9999",
+            "symptom": "beta=<beta> is outside [0, 1); the infinite-horizon "
+            "value is undefined",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "a small pseudo-count such as 0.5 keeps log CCPs finite",
+            "symptom": "ccp_smoothing must be positive",
+        },
+    ],
+    "dgp_ddc": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "e.g. increment_probs=(0.35, 0.60, 0.05)",
+            "symptom": "increment_probs must be non-negative and sum to one",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "pass a discount factor below one",
+            "symptom": "beta must be in [0, 1)",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "increase the panel dimensions",
+            "symptom": "need n_units >= 1, n_periods >= 1 and n_states >= " "2",
+        },
+    ],
     "diversity_index": [
         {
             "exception": "statspai.DataInsufficient",
@@ -529,6 +569,56 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "doctor: timeout must be a positive number of seconds, "
             "got <timeout>",
         }
+    ],
+    "efc_welfare": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use se_method='delta' or 'bootstrap'.",
+            "symptom": "se_method must be 'delta' or 'bootstrap', got " "<se_method>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1)",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Cost must be observed for everyone with coverage " "== 1.",
+            "symptom": "<cost> is missing for some covered observations",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Both curves need more observations than " "coefficients.",
+            "symptom": "too few covered or uncovered observations",
+        },
+    ],
+    "eivreg": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the data as a DataFrame.",
+            "symptom": "sp.eivreg: data must be a pandas DataFrame.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use weights_as='analytic' ([aw=]) or 'frequency' "
+            "([fw=]); for a sampling-weight variance bootstrap the "
+            "estimator.",
+            "symptom": "sp.eivreg: weights_as=<weights_as> is not 'analytic' "
+            "or 'frequency'. Stata's eivreg has no sampling-weight "
+            "variance.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use alpha=0.05 for 95% intervals.",
+            "symptom": "sp.eivreg: alpha=<alpha> is not in (0, 1).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop '- 1' / '0 +' from the formula.",
+            "symptom": "sp.eivreg: the model has no intercept. The correction "
+            "measures the error variance around the mean, which "
+            "needs one.",
+        },
     ],
     "esize": [
         {
@@ -1070,6 +1160,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "noether_test: every pair difference is zero.",
         }
     ],
+    "noisy_covariates": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'ATE' for a 0/1 treatment, 'LATE' with "
+            "an instrument, or 'partially_linear' for a "
+            "continuous treatment.",
+            "symptom": "estimand must be one of <_ESTIMANDS>; got " "<estimand>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use n_folds=2 as in the paper.",
+            "symptom": "n_folds must be an integer >= 2; got " "<n_folds>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the noisy covariate columns in " "covariates=.",
+            "symptom": "at least one covariate is required.",
+        },
+    ],
     "nsdiffs": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1150,6 +1264,50 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.DataInsufficient",
             "remedy": "A spectrum needs at least four observations.",
             "symptom": "sp.periodogram: <n> observations.",
+        },
+    ],
+    "pooled_price_ratio": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. upto_quantile=0.8.",
+            "symptom": "upto_quantile must be in (0, 1]",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1)",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Pass the risk distribution of a market " "segment.",
+            "symptom": "need at least two probabilities",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass predicted loss probabilities, not an " "index.",
+            "symptom": "probabilities must lie in [0, 1]",
+        },
+    ],
+    "positive_correlation_test": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='biprobit' or " "method='residuals'.",
+            "symptom": "method must be 'biprobit' or " "'residuals', got <method>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1)",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='residuals' for weighted " "data.",
+            "symptom": "weights are supported only with " "method='residuals'",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use fewer covariates or more data.",
+            "symptom": "only <n> complete observations",
         },
     ],
     "power_ttest": [
@@ -1282,6 +1440,28 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "plot_type='boundary_effects' requires a result "
             "from rd2d() with boundary eval points "
             "(approach='location' or 'distance').",
+        },
+    ],
+    "recentered_iv": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the data as a DataFrame.",
+            "symptom": "data must be a pandas DataFrame",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='recenter' or method='control'.",
+            "symptom": "method must be 'recenter' or 'control', got " "<method>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use vce='robust', or pass cluster= for " "clustering.",
+            "symptom": "vce must be one of <sorted(_VCE_TO_ROBUST)>, " "got <vce>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use alpha=0.05 for 95% intervals.",
+            "symptom": "alpha must be in (0, 1), got <alpha>",
         },
     ],
     "recommend": [
@@ -1458,6 +1638,23 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "and n at least 1.",
         }
     ],
+    "semiparametric_bayes": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop or recode the rows with infinite " "values.",
+            "symptom": "The outcome or a regressor has infinite " "values.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop the non-positive durations or use " "model='student_t'.",
+            "symptom": "model='weibull' needs a positive " "outcome (a duration).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Drop the redundant regressors.",
+            "symptom": "The regressors are collinear.",
+        },
+    ],
     "sharpened_qvalues": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1504,6 +1701,29 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "signrank: every difference is zero.",
         },
     ],
+    "simex": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the data as a DataFrame.",
+            "symptom": "sp.simex: data must be a pandas DataFrame.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use family='gaussian', 'logit', 'probit' or 'poisson'.",
+            "symptom": "sp.simex: family=<family> is not one of " "<list(_FAMILIES)>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use vce='ols' (model-based) or 'robust' (sandwich).",
+            "symptom": "sp.simex: vce=<vce> is not 'ols' or 'robust'.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use the default (0.5, 1, 1.5, 2).",
+            "symptom": "sp.simex: lambdas=<list(lambdas)> must be distinct "
+            "positive numbers.",
+        },
+    ],
     "simple_forecast": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1536,6 +1756,28 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "sktest: <name> needs at least 8 observations that are "
             "not all equal.",
         }
+    ],
+    "spatial_treatment": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1).",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use kernel='bin'.",
+            "symptom": "kernel must be 'bin' or 'triangular', got " "<kernel>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use metric='euclidean' or pass distances=.",
+            "symptom": "metric must be 'euclidean' or 'haversine', " "got <metric>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use distance_unit='km'.",
+            "symptom": "distance_unit must be 'km' or 'mi', got " "<distance_unit>.",
+        },
     ],
     "stl": [
         {

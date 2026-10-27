@@ -6844,6 +6844,30 @@
       "tolerance": "5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong."
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "eivreg",
+      "notes": [
+        "Frozen-Stata fixture. Cases: two error-prone regressors, one, analytic weights, frequency weights, and analytic weights with zero-weight rows."
+      ],
+      "reference": "Stata 18 eivreg (StataNow 18 MP)",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_eivreg_stata_parity.py",
+        "tests/reference_parity/_fixtures/eivreg_stata.txt"
+      ],
+      "tolerance": "1e-6 relative (CLAUDE.md 5.1 default); observed 5e-15 at worst"
+    },
+    {
       "function": "energy_distance",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -16994,6 +17018,30 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "positive_correlation_test",
+      "notes": [
+        "Frozen-Stata fixture: biprobit three ways (same covariates, different covariates per equation, vce(cluster g)). method='residuals' has no external reference."
+      ],
+      "reference": "Stata 18 biprobit (method='biprobit')",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_positive_correlation_test_stata_parity.py",
+        "tests/reference_parity/_fixtures/positive_correlation_test_Stata.json"
+      ],
+      "tolerance": "log likelihood and LR statistic 1e-12 relative; rho and athrho 1e-8 (observed 1.6e-9); athrho standard error and Wald statistic 1e-8 (observed 2e-10)"
+    },
+    {
       "function": "poststratify",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -19753,6 +19801,7 @@
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_dlm_parity.py",
         "tests/reference_parity/test_dynamic_modelling_parity.py",
+        "tests/reference_parity/test_eivreg_stata_parity.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
@@ -21381,6 +21430,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "semiparametric_bayes",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_semiparametric_bayes_exact_posterior.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_sensemakr_factor_parity.py",
         "tests/reference_parity/test_sensemakr_parity.py",
@@ -21786,6 +21852,23 @@
       "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
     },
     {
+      "function": "simex",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_simex_r_screen.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_forecasting_r_parity.py"
       ],
@@ -22063,6 +22146,32 @@
         "tests/reference_parity/_fixtures/spatial_survey_stata.json"
       ],
       "tolerance": "vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9)"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "spatial_treatment",
+      "notes": [
+        "Frozen-R fixture on two designs. Every candidate location has a unit within reach in both, which is where the author's per-ring normalisation of the own terms coincides with Theorem 1's |S|."
+      ],
+      "reference": "Pollmann's spatialTreat-example reference code (R + Rcpp, MIT, commit a73bca9), the method author's own implementation",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Rcpp": "1.1.1.1.1",
+        "data.table": "1.18.2.1"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_spatial_treatment_R_parity.py",
+        "tests/reference_parity/_fixtures/spatial_treatment_R.json"
+      ],
+      "tolerance": "estimate, both means, standard error and variance components 1e-9 relative"
     },
     {
       "function": "spearman",
