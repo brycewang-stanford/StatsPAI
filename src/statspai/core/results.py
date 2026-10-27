@@ -3796,8 +3796,13 @@ class CausalResult(DiDAccessorsMixin):
 
         At the fit-time ``alpha`` the headline row is the interval the
         estimator reported (``result.ci`` -- a bootstrap or t interval stays
-        what it was).  Any other ``alpha`` uses the normal approximation
-        ``estimate -/+ z * se``.
+        what it was).  Any other ``alpha`` gives the pointwise interval
+        ``estimate -/+ crit * se`` on the fit's own reference distribution:
+        t with ``model_info['df_resid']`` degrees of freedom when the fit
+        recorded them, the normal otherwise. This is the interval
+        :meth:`tidy` (``conf_level=1 - alpha``) and :meth:`summary`
+        (``alpha=``) report; before 1.42 this method always used the
+        normal.
 
         Parameters
         ----------
@@ -3820,9 +3825,9 @@ class CausalResult(DiDAccessorsMixin):
         a = fit_alpha if alpha is None else _validate_probability(alpha, name="alpha")
         params = self.params
         se = self.std_errors
-        z = float(_scipy_stats().norm.ppf(1 - a / 2))
-        lower = params - z * se
-        upper = params + z * se
+        crit = self._interval_crit(a)
+        lower = params - crit * se
+        upper = params + crit * se
         ci = self.ci
         if (
             len(params) == 1

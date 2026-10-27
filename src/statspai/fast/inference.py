@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -305,13 +305,14 @@ class BootTestResult(ResultProtocolMixin):
     weights: str
     boot_t_dist: np.ndarray
     method: str
+    p_val_type: str = "symmetric"
 
     def summary(self) -> str:
         return (
             f"sp.fast.boottest  |  H0: β[{self.null_coef}]={self.null_value}  "
             f"|  weights={self.weights}  B={self.n_boots}\n"
             f"  t_obs = {self.t_obs:.4f}    p = {self.pvalue:.4f}  "
-            f"(method: {self.method})"
+            f"({self.p_val_type}; method: {self.method})"
         )
 
     def to_dict(self) -> dict:
@@ -325,6 +326,7 @@ class BootTestResult(ResultProtocolMixin):
             "n_boots": _jsonable(self.n_boots),
             "weights": self.weights,
             "method": self.method,
+            "p_val_type": self.p_val_type,
             "boot_t_dist": _jsonable(self.boot_t_dist),
         }
 
@@ -338,6 +340,7 @@ class BootTestResult(ResultProtocolMixin):
             },
             "test_statistic": {"t_obs": _jsonable(self.t_obs)},
             "pvalue": _jsonable(self.pvalue),
+            "p_val_type": self.p_val_type,
             "n_boots": _jsonable(self.n_boots),
             "weights": self.weights,
             "method": self.method,
@@ -384,6 +387,7 @@ def boottest(
     seed: Optional[int] = None,
     obs_weights: Optional[np.ndarray] = None,
     extra_df: int = 0,
+    p_val_type: str = "symmetric",
 ) -> BootTestResult:
     """Wild cluster bootstrap of H0: β[null_coef] = null_value (Davidson-Flachaire / MacKinnon 2019).
 
@@ -397,7 +401,8 @@ def boottest(
        a. Draw cluster-level weights v_g ~ {Rademacher | Webb6}.
        b. Form y_b = X β_R + v_{g(i)} u_R,i  where u_R = y - X β_R.
        c. Refit OLS on y_b → β_b; compute t_b under the same CR1 formula.
-    5. p-value = 2 * min(P(t_b > t_obs), P(t_b <= t_obs)) clipped to [0, 1].
+    5. p-value from the B draws ``t_b`` as set by ``p_val_type`` (the
+       default is the symmetric ``#{|t_b| > |t_obs|} / B``).
 
     Parameters
     ----------
@@ -418,12 +423,26 @@ def boottest(
     obs_weights : ndarray, shape (n,), optional
         Observation weights for WLS. Default uniform.
     extra_df : int, default 0
-        Additional residual-DOF charge in the CR1 small-sample factor
-        (used both for the observed t-stat and uniformly across the
-        bootstrap replicas). Pass ``Σ(G_k - 1)`` when ``X`` is
-        FE-residualised — same convention as :func:`crve`. Without it,
-        bootstrap p-values for HDFE designs are biased downward because
-        the t-pivot uses an under-corrected SE.
+        Additional residual-DOF charge in the CR1 small-sample factor,
+        ``Σ(G_k - 1)`` when ``X`` is FE-residualised (the convention of
+        :func:`crve`). It rescales the observed t-statistic and every
+        bootstrap t by the same constant, so it changes ``t_obs`` but
+        cancels from the p-value: the bootstrap p-value does not depend on
+        it.
+    p_val_type : {'symmetric', 'equal-tailed', 'lower', 'upper'}, default 'symmetric'
+        The p-value, as Stata ``boottest, ptype()`` (Roodman et al.)
+        defines it. ``'symmetric'``: ``#{|t_b| > |t_obs|} / B`` (two-sided
+        on the absolute value, boottest's default). ``'equal-tailed'``:
+        ``2 min(#{t_b < t_obs}, #{t_b > t_obs}) / B``, two-sided on the
+        signed statistic (better for asymmetric bootstrap distributions).
+        ``'lower'``: ``#{t_b < t_obs} / B``, the one-sided test against
+        ``β < null_value``. ``'upper'``: ``#{t_b > t_obs} / B``, against
+        ``β > null_value``. Each equals boottest's ``r(p)`` computed on the
+        same bootstrap distribution (Stata 18, ``svmat(t)``). The
+        inequalities are strict: a draw with constant weights reproduces
+        ``±t_obs`` and is a tie, never counted as more extreme (before
+        1.42 the symmetric p-value counted the identity draw, which with
+        few clusters added ``1/B`` whenever it was drawn).
 
     Returns
     -------
@@ -435,6 +454,7 @@ def boottest(
         )
     if extra_df < 0:
         raise MethodIncompatibility(f"extra_df={extra_df}; must be >= 0")
+    p_val_type = _boottest_p_val_type(p_val_type)
 
     n, k = X.shape
     if y.shape[0] != n:
@@ -506,8 +526,15 @@ def boottest(
     Xw = X * w[:, None]  # (n, k)
     XwT = Xw.T  # (k, n)
 
+    # A draw whose weights are one constant c reproduces the sample up to
+    # scale: t_b = sign(c) * t_obs exactly (in exact arithmetic). Such
+    # draws are told apart by their weights, not by comparing t_b to
+    # t_obs, which round-off would decide (see _boot_t_pvalue).
+    constant_sign = np.zeros(B, dtype=np.int8)
     for b in range(B):
         v_g = weight_fn(rng, G)
+        if v_g.min() == v_g.max():
+            constant_sign[b] = 1 if v_g[0] > 0 else -1
         v_i = v_g[cluster_codes]
         y_b = fitted_R + v_i * resid_R  # (n,)
         beta_b = bread @ (XwT @ y_b)  # (k,)
@@ -526,10 +553,7 @@ def boottest(
         else:
             boot_t[b] = 0.0
 
-    # Two-sided p-value (symmetric); clip to [0, 1]
-    p_right = float(np.mean(boot_t >= abs(t_obs)))
-    p_left = float(np.mean(boot_t <= -abs(t_obs)))
-    pvalue = float(np.clip(p_right + p_left, 0.0, 1.0))
+    pvalue = _boot_t_pvalue(boot_t, t_obs, p_val_type, constant_sign)
 
     return BootTestResult(
         null_coef=null_coef,
@@ -540,7 +564,69 @@ def boottest(
         weights=weights,
         boot_t_dist=boot_t,
         method="wild_cluster_restricted",
+        p_val_type=p_val_type,
     )
+
+
+_P_VAL_TYPES = {
+    "symmetric": "symmetric",
+    "equal-tailed": "equal-tailed",
+    "equaltail": "equal-tailed",
+    "equal_tailed": "equal-tailed",
+    "lower": "lower",
+    "upper": "upper",
+}
+
+
+def _boottest_p_val_type(value: Any) -> str:
+    """Canonical ``p_val_type`` (boottest's ``equaltail`` is accepted)."""
+    key = str(value).strip().lower() if isinstance(value, str) else None
+    if key not in _P_VAL_TYPES:
+        raise MethodIncompatibility(
+            f"boottest: p_val_type={value!r}; expected 'symmetric', "
+            "'equal-tailed', 'lower' or 'upper'.",
+            recovery_hint="Use p_val_type='symmetric' for the two-sided "
+            "test on |t| (Stata boottest's default).",
+            diagnostics={"p_val_type": repr(value)},
+        )
+    return _P_VAL_TYPES[key]
+
+
+def _boot_t_pvalue(
+    boot_t: np.ndarray,
+    t_obs: float,
+    p_val_type: str,
+    constant_sign: Optional[np.ndarray] = None,
+) -> float:
+    """Bootstrap p-value of ``t_obs`` against the draws ``boot_t``.
+
+    Strict inequalities, as Stata ``boottest`` and R ``fwildclusterboot``:
+    a draw equal to the observed statistic is not more extreme. A draw
+    with constant weights (``constant_sign`` +1 / -1) reproduces
+    ``+t_obs`` / ``-t_obs`` exactly in exact arithmetic, so it is a tie
+    with ``|t_obs|`` (and the +1 draw with ``t_obs``) and is never counted,
+    whatever the last bit of its computed ``t_b`` happens to be (the rule
+    of :func:`statspai.inference.wild_bootstrap._symmetric_boot_pvalue`).
+    """
+    t = float(t_obs)
+    draws = np.asarray(boot_t, dtype=float)
+    sign = (
+        np.zeros(len(draws), dtype=np.int8)
+        if constant_sign is None
+        else np.asarray(constant_sign)
+    )
+    if p_val_type == "symmetric":
+        return float(np.mean((np.abs(draws) > abs(t)) & (sign == 0)))
+    # the -1 draw is exactly -t_obs: compare that value, not its round-off
+    signed = np.where(sign == -1, -t, draws)
+    live = sign != 1
+    lower = float(np.mean((signed < t) & live))
+    upper = float(np.mean((signed > t) & live))
+    if p_val_type == "lower":
+        return lower
+    if p_val_type == "upper":
+        return upper
+    return float(min(1.0, 2.0 * min(lower, upper)))
 
 
 # ---------------------------------------------------------------------------

@@ -14039,7 +14039,7 @@
           "x-statspai-role": "column"
         },
         "covariates": {
-          "description": "Variables for the propensity score model (logistic regression).",
+          "description": "Variables for the propensity score model (logistic regression). A covariate that is an exact linear combination of the constant and the covariates listed before it is omitted from the propensity model with a warning and recorded in ``model_info['omitted']`` (``[{variable, reason}]``), as ``sp.logit`` does; the fitted scores do not depend on it.",
           "items": {
             "type": "string"
           },
@@ -14118,8 +14118,11 @@
           "type": "string"
         },
         "seed": {
-          "description": "Random seed for reproducibility.",
+          "description": "Seed of the bootstrap resampling (and of the cross-fitting folds with ``ps_learner``); ``random_state=`` is accepted as an alias. The same seed reproduces the standard error exactly. The default ``None`` draws fresh resamples on every call, so the bootstrap standard error then varies from run to run by its Monte Carlo error; pass a seed for a reproducible result.",
           "type": "integer",
+          "x-aliases": [
+            "random_state"
+          ],
           "x-statspai-source": "signature"
         },
         "treat": {

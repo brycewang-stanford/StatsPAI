@@ -95,6 +95,7 @@ def drop_collinear(
     formula: Optional[str] = None,
     design_info: Any = None,
     stacklevel: int = 3,
+    order: Optional[Sequence[int]] = None,
 ) -> Tuple[np.ndarray, List[str], List[Dict[str, str]], List[int]]:
     """Remove dependent columns from a design and announce it.
 
@@ -102,14 +103,17 @@ def drop_collinear(
     (empty when the design has full rank) and the positions kept. With a
     formula and its patsy design, columns are scanned in the order the
     formula writes them, so ``y ~ a + b + c`` with ``a + b + c = 1`` omits
-    ``c``, as Stata would.
+    ``c``, as Stata would. ``order`` gives the scan order directly, for
+    a design that holds more than the formula's columns (fixed-effect
+    indicators appended after them).
     """
     X = np.asarray(X, dtype=float)
     labels = [str(n) for n in names]
     if X.ndim != 2 or X.shape[1] < 2:
         return X, labels, [], list(range(X.shape[1] if X.ndim == 2 else 0))
-    order: Optional[List[int]] = None
-    if formula and design_info is not None:
+    if order is not None:
+        order = [int(j) for j in order]
+    elif formula and design_info is not None:
         from ..regression.ols import _written_column_order
 
         order = _written_column_order(formula, design_info, X.shape[1])

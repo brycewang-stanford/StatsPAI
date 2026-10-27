@@ -570,6 +570,47 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
 `tests/test_output_option_scan_r6.py`,
 `tests/test_plots_output_option_scan_r6.py` and
 `tests/test_fast_option_scan_r6.py`).
+Option scan round 7, the items round 6 left open (tests in
+`tests/test_option_scan_r7_openA.py`).
+
+- ⚠️ **`CausalResult.conf_int(alpha)` at a level other than the fit's used
+  the normal even when the fit recorded `model_info['df_resid']`.** It now
+  uses the fit's own reference distribution, t(df_resid) when recorded and
+  the normal otherwise, so `conf_int(a)`, `tidy(conf_level=1 - a)` and
+  `summary(alpha=a)` give one interval. Estimate 1.5, SE 0.5, 12 residual
+  df, `alpha=0.10`: [0.6776, 2.3224] before, [0.6089, 2.3911] now.
+- ⚠️ **`sp.ipw` with an exactly collinear propensity covariate.** The
+  sandwich standard error raised a bare `LinAlgError`, and every bootstrap
+  refit stopped wherever Newton left it: with `x2 = 2 * x` after `x` and
+  `z`, the bootstrap SE was 0.4296 against 0.1260 without the duplicate.
+  The dependent covariate is now omitted from the propensity model, as in
+  `sp.logit`, with a warning and a record in `model_info['omitted']`; both
+  standard errors equal those of the reduced fit.
+- ⚠️ **`sp.poisson` / `sp.nbreg` omitted a different collinear term than
+  `sp.regress` / `sp.logit`.** The count models scanned patsy's column
+  order, which puts factors first; the others scan the written order, as
+  Stata does. `c ~ z + C(g) + x` with `z = (g == 'b')` dropped `z`; it now
+  drops `C(g)[T.b]`, as `regress` and `logit` do. Fitted values do not
+  change; the reported coefficients do.
+- ⚠️ **`sp.logit` / `sp.probit` / `sp.cloglog(weights=)`:
+  `model_info['auc']` ignored the weights.** It is now the weighted
+  Mann-Whitney AUC under the fit's weights, which is what Stata `lroc`
+  reports after `logit [fw=]` and `logit [iw=]` (0.650319412662089813 on
+  the test data, equal to 1e-15; 0.6457 before). `lroc` refuses `[pw=]`;
+  sampling weights get the same weighted statistic. Unweighted fits are
+  unchanged.
+- ⚠️ **`sp.fast.boottest` counted the constant-weight draws as more
+  extreme.** A draw whose wild weights are all equal reproduces `±t_obs`
+  and is a tie; Stata `boottest` and R `fwildclusterboot` count only
+  `|t*| > |t|`. The p-value used `>=`, so with few clusters it was
+  inflated by about `2 / 2^G`. Four clusters, Rademacher, B = 400: 0.1275
+  before, 0 now (Stata `boottest`: p = 0 over its 16 draws). The draws are
+  identified by their weights, as `sp.wild_cluster_bootstrap` does.
+
+Option scan round 6: `output/`, `plots/` and `fast/` (tests in
+`tests/test_output_option_scan_r6.py`,
+`tests/test_plots_output_option_scan_r6.py` and
+`tests/test_fast_option_scan_r6.py`).
 
 
 ### Fixed
@@ -758,6 +799,19 @@ Option scan round 6: `output/`, `plots/` and `fast/` (tests in
   the unweighted statistics.
 - `sp.stata`: `estat gof` after `logit ... [pw=]` stops with Stata's
   "pweights not allowed".
+- `sp.qreg(vce="vce(cluster f)")` and the other `vce(...)` spellings
+  raised `MethodIncompatibility`; the wrapper is now read as in the shared
+  vce parser (`"vce(robust)"` equals `"robust"`).
+- `sp.regress(vcov={"CRV1": "f+h"})` raised `ColumnNotFound`. `"f+h"` and
+  `["f", "h"]` are two-way clustering, as in pyfixest / fixest, equal bit
+  for bit to `cluster=["f", "h"]`; `sp.ivreg` / `sp.iv` read the same
+  spelling through the same parser. `{"CRV3": "f+h"}` (and CR2) is refused
+  with `MethodIncompatibility` (it used to raise `KeyError` in `sp.ivreg`).
+- `sp.fast.boottest` docstring: the p-value was described as equal-tailed
+  (the code computed the symmetric one), and `extra_df` was said to change
+  the p-value. It rescales `t_obs` and every bootstrap t by one constant
+  and cancels from the p-value; the docstring now says so.
+
 
 ### Added
 
@@ -866,6 +920,14 @@ says what evidence backs it. Notes for maintainers are in
   in 1.42; see MIGRATION.md.
 - `sp.epi.relative_risk(correction="haldane")` and
   `sp.epi.attributable_risk(prevalence=)`.
+- `sp.fast.boottest(p_val_type=)`: `'symmetric'` (the default, unchanged),
+  `'equal-tailed'`, `'lower'` and `'upper'`, as Stata `boottest, ptype()`.
+  Each equals boottest's `r(p)` on boottest's own bootstrap distribution
+  (Stata 18, `svmat(t)`, to 1e-15).
+- `sp.ipw(random_state=)` as an alias of `seed=`. The default bootstrap
+  stays unseeded; the docstring now says that a seed is needed for a
+  reproducible standard error.
+
 
 The tools that QJE 141(4) (November 2026) papers use around their
 estimators. Nine of its fifteen papers are experiments; every item below is

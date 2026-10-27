@@ -91,6 +91,8 @@ def normalize_vcov(
     vcov : str or dict, optional
         pyfixest-style specification: ``"iid"`` / ``"hetero"`` /
         ``"HC1"`` …, or ``{"CRV1": "firm"}`` / ``{"CRV3": "firm"}``.
+        ``{"CRV1": "firm+year"}`` (or a list of names) is multiway
+        clustering and comes back as ``cluster=["firm", "year"]``.
     robust, cluster, vce : optional
         The estimator's native arguments, passed through unchanged when
         ``vcov`` is not supplied.
@@ -164,13 +166,38 @@ def normalize_vcov(
                     '{"CRV1": "firm"}.'
                 ),
             )
-        if not isinstance(column, str):
+        # One column, or several as pyfixest / fixest write them: "f+h" or
+        # ["f", "h"] is two-way clustering, the same request as
+        # cluster=["f", "h"]. A single name is passed through unchanged.
+        if isinstance(column, str):
+            names = [c for c in re.split(r"\s*\+\s*", column.strip()) if c]
+        elif isinstance(column, (list, tuple)) and all(
+            isinstance(c, str) for c in column
+        ):
+            names = [c.strip() for c in column if c.strip()]
+        else:
+            names = []
+        if not names:
             raise MethodIncompatibility(
-                f"{function}: vcov={vcov!r} must map to a column name "
-                f"(string), got {type(column).__name__}.",
-                recovery_hint='Pass e.g. {"CRV1": "firm"}.',
+                f"{function}: vcov={vcov!r} must map to a column name, "
+                f"'a+b', or a list of column names; got {column!r}.",
+                recovery_hint='Pass e.g. {"CRV1": "firm"} or {"CRV1": "firm+year"}.',
             )
-        return None, column, _CLUSTER_VCOV[key]
+        if len(names) == 1:
+            single = column if isinstance(column, str) else names[0]
+            return None, single, _CLUSTER_VCOV[key]
+        if _CLUSTER_VCOV[key] is not None:
+            raise MethodIncompatibility(
+                f"{function}: vcov={vcov!r} asks for {kind} on "
+                f"{len(names)} clustering dimensions; the {kind} small-sample "
+                "correction is one-way only.",
+                recovery_hint=(
+                    'Use {"CRV1": "' + "+".join(names) + '"} for multiway '
+                    "clustering, or one cluster variable with " + str(kind) + "."
+                ),
+                diagnostics={"vcov": repr(vcov), "clusters": names},
+            )
+        return None, names, None
 
     raise MethodIncompatibility(
         f"{function}: vcov must be a string or a one-entry dict, got "

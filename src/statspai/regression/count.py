@@ -216,6 +216,7 @@ class _DesignNames(list):
     """Coefficient names that also carry the patsy design they came from."""
 
     design_info: Any = None
+    formula: Optional[str] = None
 
 
 def _seen_factor_levels(var_names: Any, data: pd.DataFrame) -> Dict[str, Any]:
@@ -248,6 +249,8 @@ def _patsy_count_design(
         "_cons" if c == "Intercept" else str(c) for c in X_df.columns
     )
     var_names.design_info = getattr(X_df, "design_info", None)
+    # the formula patsy expanded, for the written-order collinearity scan
+    var_names.formula = f"{lhs.strip()} ~ {rhs}"
     kept = data.loc[X_df.index] if len(X_df) != len(data) else data
     return (
         y_df.to_numpy(dtype=np.float64).ravel(),
@@ -257,6 +260,24 @@ def _patsy_count_design(
         list(fe_vars),
         kept,
     )
+
+
+def _written_order(var_names: Sequence[str], n_own: int) -> Optional[List[int]]:
+    """Columns in the order the formula writes its terms, or ``None``.
+
+    patsy moves categorical terms ahead of numeric ones; ``sp.regress`` /
+    ``sp.logit`` scan for collinearity in the written order (Stata's), so
+    the count models do too and all omit the same term. Columns beyond the
+    formula's own ``n_own`` (absorbed indicators) keep their place at the
+    end. ``None`` (design order) when the design did not come from patsy.
+    """
+    design_info = getattr(var_names, "design_info", None)
+    formula = getattr(var_names, "formula", None)
+    if design_info is None or not formula:
+        return None
+    from .ols import _written_column_order
+
+    return _written_column_order(formula, design_info, n_own)
 
 
 def _complete_cases(data: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
@@ -1484,7 +1505,9 @@ def poisson(
     seen_levels = _seen_factor_levels(var_names, data)
     from ..core._collinear import drop_collinear
 
-    X, var_names, collinear_omitted, _ = drop_collinear(X, var_names, "poisson")
+    X, var_names, collinear_omitted, _ = drop_collinear(
+        X, var_names, "poisson", order=_written_order(var_names, X.shape[1])
+    )
     n, k = X.shape
 
     # Offset / exposure
@@ -1805,12 +1828,24 @@ def nbreg(
     )
     seen_levels = _seen_factor_levels(var_names, data)
     n_own = len(var_names)
+    # scan order of the formula's own columns, taken before the absorbed
+    # indicators are appended (they come last whatever the formula says)
+    _scan_order = _written_order(var_names, n_own)
     X, var_names, fe_level_counts = _append_fixed_effect_dummies(
         X, var_names, data, formula_fe
     )
     from ..core._collinear import drop_collinear
 
-    X, var_names, collinear_omitted, _kept = drop_collinear(X, var_names, "nbreg")
+    X, var_names, collinear_omitted, _kept = drop_collinear(
+        X,
+        var_names,
+        "nbreg",
+        order=(
+            None
+            if _scan_order is None
+            else _scan_order + list(range(n_own, X.shape[1]))
+        ),
+    )
     n, k = X.shape
     # fixed-effect indicators that survive the collinearity scan
     n_fe_params = sum(1 for j in _kept if j >= n_own)

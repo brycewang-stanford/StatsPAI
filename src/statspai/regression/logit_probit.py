@@ -501,8 +501,21 @@ def _hosmer_lemeshow(
     return chi2, p_value
 
 
-def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
-    """Area under the ROC curve (Mann-Whitney U statistic)."""
+def _roc_auc(
+    y: np.ndarray, p_hat: np.ndarray, weights: Optional[np.ndarray] = None
+) -> float:
+    """Area under the ROC curve (Mann-Whitney U statistic).
+
+    With ``weights`` it is the weighted statistic
+    ``sum_{i: y=1} sum_{j: y=0} w_i w_j [1(p_i > p_j) + 1(p_i = p_j) / 2]
+    / (sum_{y=1} w * sum_{y=0} w)``: the AUC of the data with each row
+    repeated ``w`` times. Stata ``lroc`` after ``logit [fw=]`` and
+    ``logit [iw=]`` reports exactly this number (Stata 18, checked to
+    1e-15); ``lroc`` refuses ``[pw=]``, and sampling weights get the same
+    weighted statistic, the estimate of the population AUC.
+    """
+    if weights is not None:
+        return _weighted_roc_auc(y, p_hat, np.asarray(weights, dtype=float))
     pos = p_hat[y == 1]
     neg = p_hat[y == 0]
     if len(pos) == 0 or len(neg) == 0:
@@ -521,6 +534,23 @@ def _roc_auc(y: np.ndarray, p_hat: np.ndarray) -> float:
     rank_sum = ranks[labels == 1].sum()
     u = rank_sum - n1 * (n1 + 1) / 2
     return float(u / (n1 * n0))
+
+
+def _weighted_roc_auc(y: np.ndarray, p_hat: np.ndarray, w: np.ndarray) -> float:
+    """Weighted Mann-Whitney AUC, ``O(n log n)`` by sorting the scores."""
+    if not np.isfinite(p_hat).all():
+        return np.nan
+    w1 = np.where(y == 1, w, 0.0)
+    w0 = np.where(y == 0, w, 0.0)
+    total1, total0 = float(w1.sum()), float(w0.sum())
+    if not (total1 > 0 and total0 > 0):
+        return np.nan
+    # weights of each arm at every distinct score, in increasing order
+    scores, inverse = np.unique(p_hat, return_inverse=True)
+    pos = np.bincount(inverse, weights=w1, minlength=len(scores))
+    neg = np.bincount(inverse, weights=w0, minlength=len(scores))
+    below = np.cumsum(neg) - neg  # control weight strictly below each score
+    return float(np.sum(pos * (below + 0.5 * neg)) / (total1 * total0))
 
 
 def _classification_table(
@@ -893,7 +923,8 @@ def _fit_binary(
     bic = -2.0 * ll + np.log(n) * k
     cls_table = _classification_table(y_vec, p_hat)
     hl_chi2, hl_pval = _hosmer_lemeshow(y_vec, p_hat)
-    auc = _roc_auc(y_vec, p_hat)
+    # under the fit's weights, as Stata's lroc after a weighted logit
+    auc = _roc_auc(y_vec, p_hat, w)
 
     # ── Marginal effects ────────────────────────────────────────────────
     me_df = None
@@ -1298,6 +1329,10 @@ def logit(
     -------
     EconometricResults
         Fitted model with ``.summary()``, ``.predict()``, diagnostics, etc.
+        ``model_info['auc']`` is the area under the ROC curve of the
+        fitted probabilities, weighted by the fit's weights when there are
+        any (Stata ``lroc`` after a ``[fw=]`` or ``[iw=]`` fit gives the
+        same number).
 
     Examples
     --------
@@ -1436,6 +1471,10 @@ def probit(
     -------
     EconometricResults
         Fitted model with ``.summary()``, ``.predict()``, diagnostics, etc.
+        ``model_info['auc']`` is the area under the ROC curve of the
+        fitted probabilities, weighted by the fit's weights when there are
+        any (Stata ``lroc`` after a ``[fw=]`` or ``[iw=]`` fit gives the
+        same number).
 
     Examples
     --------
@@ -1559,6 +1598,10 @@ def cloglog(
     -------
     EconometricResults
         Fitted model with ``.summary()``, ``.predict()``, diagnostics, etc.
+        ``model_info['auc']`` is the area under the ROC curve of the
+        fitted probabilities, weighted by the fit's weights when there are
+        any (Stata ``lroc`` after a ``[fw=]`` or ``[iw=]`` fit gives the
+        same number).
 
     Examples
     --------

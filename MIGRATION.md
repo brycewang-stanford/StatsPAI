@@ -5,6 +5,30 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ conf_int levels, ipw collinearity, count omissions, weighted AUC, boottest ties (option scan round 7)
+
+- `CausalResult.conf_int(alpha)` at a level other than the fit's uses
+  t(`model_info['df_resid']`) when the fit recorded it, as `tidy()` and
+  `summary()` do. Results without `df_resid` are unchanged.
+- `sp.ipw` omits a propensity covariate that is an exact linear
+  combination of the others, with a warning, and records it in
+  `model_info['omitted']`. Standard errors with such a covariate change to
+  those of the reduced fit; `se_method='sandwich'` no longer raises.
+- `sp.poisson` / `sp.nbreg` omit the later collinear term in the written
+  order of the formula. When a factor and a dummy are collinear, the other
+  one may now be reported.
+- `model_info['auc']` of a weighted `sp.logit` / `sp.probit` /
+  `sp.cloglog` is the weighted AUC (Stata `lroc`). Unweighted fits are
+  unchanged.
+- `sp.fast.boottest`: draws with constant weights are ties and no longer
+  count toward the p-value. With few clusters the p-value can fall by
+  about `2 / 2^G`. The p-value type stays symmetric, Stata boottest's
+  default; `p_val_type=` selects the others.
+- `sp.regress(vcov={"CRV1": "a+b"})` now clusters two ways instead of
+  raising. `{"CRV3": "a+b"}` raises `MethodIncompatibility`.
+
+---
+
 ## 1.41 → 1.42: ⚠️ ITS time order, ICP intervals, NOTEARS diagonal, deprecated arguments (option scan round 7)
 
 - `sp.its` and `sp.bayes_its` sort the data on `time` before fitting.

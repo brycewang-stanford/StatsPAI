@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numbers
 import warnings
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ from .basic_tests import _check_alpha
 
 
 @records_call("ipw")
-@accepts_aliases(_strict=True, controls="covariates")
+@accepts_aliases(_strict=True, controls="covariates", random_state="seed")
 @accepts_vce(
     default=None,
     native={
@@ -99,6 +99,11 @@ def ipw(
         Binary treatment indicator (0/1).
     covariates : list of str
         Variables for the propensity score model (logistic regression).
+        A covariate that is an exact linear combination of the constant
+        and the covariates listed before it is omitted from the
+        propensity model with a warning and recorded in
+        ``model_info['omitted']`` (``[{variable, reason}]``), as
+        ``sp.logit`` does; the fitted scores do not depend on it.
     estimand : {'ATE', 'ATT', 'ATC', 'ATO', 'ATM'}, default 'ATE'
         The population the weights target. With propensity score ``e``
         and tilting function ``h(e)``, treated units get ``h / e`` and
@@ -137,7 +142,12 @@ def ipw(
     alpha : float, default 0.05
         Significance level for confidence intervals.
     seed : int, optional
-        Random seed for reproducibility.
+        Seed of the bootstrap resampling (and of the cross-fitting folds
+        with ``ps_learner``); ``random_state=`` is accepted as an alias.
+        The same seed reproduces the standard error exactly. The default
+        ``None`` draws fresh resamples on every call, so the bootstrap
+        standard error then varies from run to run by its Monte Carlo
+        error; pass a seed for a reproducible result.
     weights : str, optional
         Column of sampling (probability) weights, Stata ``[pw=]``. The
         propensity logit is a weighted fit and each unit's IPW weight is
@@ -350,7 +360,21 @@ def ipw(
     df = data[used_cols].dropna()
     Y = df[y].values.astype(np.float64)
     T = _treatment_as_float(df[treat], function="ipw")
-    X = df[covariates].values.astype(np.float64)
+    # A covariate that is a linear combination of the others (and the
+    # constant) leaves the propensity likelihood flat in one direction:
+    # the sandwich then met a singular Hessian (bare LinAlgError) and each
+    # bootstrap refit stopped wherever Newton left it. Omit the later
+    # member of each dependent set, as the likelihood estimators do
+    # (core/_collinear.py); the fitted scores are unchanged by the drop.
+    ps_covariates = list(covariates)
+    collinear_omitted: List[Dict[str, str]] = []
+    if propensity is None and ps_learner is None:
+        from ..core._collinear import drop_collinear_names
+
+        ps_covariates, collinear_omitted = drop_collinear_names(
+            df, ps_covariates, "ipw", stacklevel=4
+        )
+    X = df[ps_covariates].values.astype(np.float64)
     n = len(Y)
     # Sampling weights normalised to mean one; None keeps the unweighted
     # path byte-identical to earlier releases.
@@ -413,7 +437,7 @@ def ipw(
     separation = (
         None
         if ps_known or (ps_learner is not None and not cross_fit)
-        else _check_separation(pscore, T, covariates)
+        else _check_separation(pscore, T, ps_covariates)
     )
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
@@ -617,6 +641,9 @@ def ipw(
     # unchanged.
     if n_boot_failed:
         model_info["n_bootstrap_failed"] = n_boot_failed
+    if collinear_omitted:
+        # same shape as sp.logit / sp.regress: [{variable, reason}]
+        model_info["omitted"] = collinear_omitted
     if ps_learner is not None:
         model_info["cross_fit"] = bool(cross_fit)
         model_info["n_folds"] = n_folds if cross_fit else None

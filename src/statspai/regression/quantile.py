@@ -155,7 +155,8 @@ def qreg(
 
         Every choice reports t(N - k) p-values and intervals, as Stata
         ``qreg`` / ``qreg2`` and R ``quantreg::summary.rq`` do (normal
-        before 1.32).
+        before 1.32). Each may also be written in Stata's wrapper,
+        ``vce='vce(robust)'`` or ``vce='vce(cluster f)'``.
     cluster : str, optional
         Cluster column; implies ``vce='cluster'``. Rows with a missing
         cluster id are dropped, as ``qreg2`` does.
@@ -720,7 +721,14 @@ def _parse_qreg_vce(
     """Resolve ``vce`` / ``cluster`` into ``(kind, cluster column)``."""
     import re
 
+    from ..core._vcov_spec import _VCE_WRAPPER
+
     raw = "" if vce is None else str(vce).strip()
+    # Stata's own spelling ``vce(cluster f)`` / ``vce(robust)`` is the bare
+    # one inside a wrapper, as the shared vce parser reads it.
+    wrapped = _VCE_WRAPPER.match(raw)
+    if wrapped is not None:
+        raw = wrapped.group("body").strip()
     m = re.fullmatch(r"(?i)cluster\s*(?:\(\s*([^()\s]+)\s*\)|\s+(\S+))?", raw)
     if m:
         named = m.group(1) or m.group(2)
