@@ -59255,7 +59255,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_expected_instrument.py: simulated mu converges to the closed form at the Monte Carlo rate, permutation draws give the stratum mean, and the draws fed to sp.recentered_iv recover a known beta"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -69022,7 +69024,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/reference_parity/test_ivreport_stata_parity.py: equals Stata's e(beta) and regress / ivreg2 / reghdfe / ivreghdfe on z-scored variables (T2, same bytes); tests/test_ivreport_tools.py: weighted OLS on z-scores identity"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -69155,7 +69159,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_ivreport_tools.py: matches a by-hand group-estimate t test, IV groups are sp.iv fits, and the size is controlled with few heterogeneous clusters"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -69317,7 +69323,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/reference_parity/test_ivreport_stata_parity.py: matches Stata acreg at each cutoff (T2, same bytes); tests/test_ivreport_tools.py: every row equals sp.conley and a tiny cutoff gives HC0"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -74326,7 +74334,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_placebo_dates.py: proportional allocation reproduces the treated date frequencies exactly, independent draws pass a binomial screen, results are row-order invariant, and an event study with placebo dates on a no-effect design with strong calendar effects is centred on zero"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -85209,7 +85219,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_noisy_covariates.py: known-truth recovery on low-rank designs with noise and missing cells, a replication of the paper's simulation design, and an exact identity with a hand-written per-arm OLS and balancing-weight computation at full rank"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -85533,7 +85545,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_adverse_selection.py: closed-form interior and full-coverage corner cases, the delta-method SE of the slope equals HC0 OLS, and the bootstrap is reproducible and close to the delta method"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -85674,7 +85688,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_adverse_selection.py: exact on discrete distributions, closed forms for uniform and beta(t = 80) types, and weights equal duplicated rows"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -85918,7 +85934,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_ddc.py: recovers the structural parameters of the Rust bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient is zero at the optimum, and beta = 0 reduces to a static logit"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -86049,7 +86067,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "tests/test_ddc.py: frequency transitions reproduce the increment model and sp.ddc recovers the DGP's parameters; seeded draws are reproducible"
+    ],
     "validation_status": "api_stable"
   },
   {

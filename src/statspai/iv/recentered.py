@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
     AssumptionViolation,
@@ -293,6 +294,7 @@ def _balance_tests(
 # --------------------------------------------------------------------
 
 
+@records_call("recentered_iv")
 def recentered_iv(
     data: pd.DataFrame,
     y: str,

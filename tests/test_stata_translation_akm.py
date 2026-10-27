@@ -60,10 +60,13 @@ def _quiet(fn, *a, **k):
     "tag, formula, kwargs, cols",
     [
         ("reghdfe2", "lnw ~ x | worker + firm", {}, {"worker": "wfe2", "firm": "ffe2"}),
+        # Three-way FE: the NumPy demeaning path (no Rust extension) stops at
+        # its default tolerance with the SE 8.6e-9 relative from reghdfe's;
+        # at tol=1e-12 both backends are within 4e-10, inside the 1e-9 check.
         (
             "reghdfe3",
             "lnw ~ x | worker + firm + year",
-            {"cluster": "firm"},
+            {"cluster": "firm", "tol": 1e-12},
             {"worker": "wfe3", "firm": "ffe3", "year": "yfe3"},
         ),
         (

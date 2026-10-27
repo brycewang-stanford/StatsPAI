@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from ...core._call_record import records_call
 from ...exceptions import ConvergenceWarning, MethodIncompatibility
 from ._core import (
     centred_scores,
@@ -172,6 +173,7 @@ def _vcov(
     return np.asarray(Ainv @ (sc.T @ sc) @ Ainv)
 
 
+@records_call("ddc")
 def ddc(
     data: pd.DataFrame,
     choice: str,

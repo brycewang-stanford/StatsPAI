@@ -141,6 +141,11 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "ring boundaries are the analyst's choice",
         "covariate adjustment is not implemented",
     ],
+    "fuzzy_did": [
+        # Scope statement, not a code path that raises: sp.fuzzy_did has no
+        # argument for these fuzzydid options, so there is nothing to reject.
+        "fuzzydid lqte (quantile effects), partial (bounds without a stable",
+    ],
     "cgs_continuous_did": [
         # All three are scope statements about this implementation, not
         # code paths that raise. The per-cell estimator is pinned; what is

@@ -42,6 +42,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._input_validation import check_columns
+from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import (
     ConvergenceFailure,
@@ -265,6 +266,7 @@ def _mentions(term: str, name: str) -> bool:
     return re.search(r"(?<![\w.])" + re.escape(name) + r"(?![\w.])", term) is not None
 
 
+@records_call("simex")
 def simex(
     formula: str,
     data: pd.DataFrame,

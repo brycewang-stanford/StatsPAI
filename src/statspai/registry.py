@@ -26031,6 +26031,12 @@ def _build_registry() -> None:
                 "8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws)."
             ),
             alternatives=["recentered_iv", "bartik", "shift_share_se"],
+            validation_notes=[
+                "tests/test_expected_instrument.py: simulated mu converges to the "
+                "closed form at the Monte Carlo rate, permutation draws give the "
+                "stratum mean, and the draws fed to sp.recentered_iv recover a "
+                "known beta"
+            ],
         )
     )
 
@@ -29999,6 +30005,12 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["regress", "iv", "hdfe_ols"],
+            validation_notes=[
+                "tests/reference_parity/test_ivreport_stata_parity.py: equals "
+                "Stata's e(beta) and regress / ivreg2 / reghdfe / ivreghdfe on "
+                "z-scored variables (T2, same bytes); tests/test_ivreport_tools.py: "
+                "weighted OLS on z-scores identity"
+            ],
         )
     )
 
@@ -30096,6 +30108,11 @@ def _build_registry() -> None:
             not_recommended_when=[
                 "Many large clusters with homogeneous designs — a cluster-"
                 "robust SE (cluster=) is more powerful",
+            ],
+            validation_notes=[
+                "tests/test_ivreport_tools.py: matches a by-hand group-estimate t "
+                "test, IV groups are sp.iv fits, and the size is controlled with "
+                "few heterogeneous clusters"
             ],
         )
     )
@@ -30210,6 +30227,12 @@ def _build_registry() -> None:
                 "n x n distance matrix, so beyond ~20,000 rows prefer "
                 "distance='haversine' (KD-tree)."
             ),
+            validation_notes=[
+                "tests/reference_parity/test_ivreport_stata_parity.py: matches "
+                "Stata acreg at each cutoff (T2, same bytes); "
+                "tests/test_ivreport_tools.py: every row equals sp.conley and a "
+                "tiny cutoff gives HC0"
+            ],
         )
     )
 
@@ -33418,6 +33441,13 @@ def _build_registry() -> None:
                 "up at a date with the same distribution (within strata)",
             ],
             alternatives=["event_study", "stacked_did", "callaway_santanna"],
+            validation_notes=[
+                "tests/test_placebo_dates.py: proportional allocation reproduces "
+                "the treated date frequencies exactly, independent draws pass a "
+                "binomial screen, results are row-order invariant, and an event "
+                "study with placebo dates on a no-effect design with strong "
+                "calendar effects is centred on zero"
+            ],
         )
     )
 
@@ -38856,6 +38886,12 @@ def _build_registry() -> None:
                 "keeps an errors-in-variables bias",
             ],
             alternatives=["eivreg", "simex", "aipw", "dml", "residual_balance"],
+            validation_notes=[
+                "tests/test_noisy_covariates.py: known-truth recovery on low-rank "
+                "designs with noise and missing cells, a replication of the paper's "
+                "simulation design, and an exact identity with a hand-written "
+                "per-arm OLS and balancing-weight computation at full rank"
+            ],
         )
     )
 
@@ -38993,6 +39029,12 @@ def _build_registry() -> None:
                 "make delta-method SEs invalid (use the bootstrap)",
             ],
             alternatives=["positive_correlation_test", "pooled_price_ratio"],
+            validation_notes=[
+                "tests/test_adverse_selection.py: closed-form interior and "
+                "full-coverage corner cases, the delta-method SE of the slope "
+                "equals HC0 OLS, and the bootstrap is reproducible and close to the "
+                "delta method"
+            ],
         )
     )
 
@@ -39064,6 +39106,11 @@ def _build_registry() -> None:
                 "The bootstrap resamples p only, not the model that predicted it",
             ],
             alternatives=["efc_welfare", "positive_correlation_test"],
+            validation_notes=[
+                "tests/test_adverse_selection.py: exact on discrete distributions, "
+                "closed forms for uniform and beta(t = 80) types, and weights equal "
+                "duplicated rows"
+            ],
         )
     )
 
@@ -39253,6 +39300,11 @@ def _build_registry() -> None:
                 "errors ignore first-stage transition sampling error",
             ],
             alternatives=["dgp_ddc", "clogit", "logit", "structural_mdp"],
+            validation_notes=[
+                "tests/test_ddc.py: recovers the structural parameters of the Rust "
+                "bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient "
+                "is zero at the optimum, and beta = 0 reduces to a static logit"
+            ],
         )
     )
 
@@ -39303,6 +39355,11 @@ def _build_registry() -> None:
             tags=["dgp", "simulation", "structural", "dynamic_discrete_choice"],
             reference="rust1987optimal",
             alternatives=["ddc"],
+            validation_notes=[
+                "tests/test_ddc.py: frequency transitions reproduce the increment "
+                "model and sp.ddc recovers the DGP's parameters; seeded draws are "
+                "reproducible"
+            ],
         )
     )
 
