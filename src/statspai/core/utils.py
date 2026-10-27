@@ -872,7 +872,7 @@ def create_design_matrices(
                 + ", which this estimator's design matrix cannot hold.",
                 recovery_hint=(
                     "Absorb fixed effects with sp.feols('y ~ x | fe') or "
-                    "sp.reghdfe, and fit IV blocks with sp.iv / sp.ivreg."
+                    "sp.hdfe_ols, and fit IV blocks with sp.iv / sp.ivreg."
                 ),
                 diagnostics={"formula": formula, **dropped},
             ) from patsy_error
