@@ -5730,6 +5730,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-28 — trace ledgers re-recorded after the QJE gap pass
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ce6a77604`.
+- **Reason.** The pass added exports to `src/statspai/__init__.py`
+  (`sp.fmm`, `sp.summary_index`, `sp.sharpened_qvalues`, `sp.shapley_r2`,
+  `sp.krippendorff_alpha`, `sp.llm_code_responses`, `sp.iv_mediate`, result
+  classes), the only file on the traced paths of Track A modules 03, 13,
+  15, 24, 25, 26, 27, 53, 65, 66 and original-data module 08 that changed.
+  `verify_reproduce_py.py` on those ten modules reports 10 reproduce, 0
+  drift.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-27 — trace ledgers re-recorded after option scan round 6
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
