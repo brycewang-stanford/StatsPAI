@@ -5734,7 +5734,8 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `76c01ecc7`.
+- **Commits.** `76c01ecc7`, `3fe717d60` (the second after a hint-text fix in
+  `core/utils.py`).
 - **Reason.** Round 5 (aipw / tmle / policy_tree / metalearner / conformal,
   spatial ML search and impacts, heckman and ipcw input checks,
   `panel/hdfe.py` absorb_ols warning, the 1.41 removals including
