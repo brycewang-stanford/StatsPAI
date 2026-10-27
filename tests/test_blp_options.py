@@ -376,3 +376,60 @@ def test_nested_logit_diversion_and_markups(df):
     firm = d.loc[i, "firm"].to_numpy()
     foc = s + ((firm[:, None] == firm[None, :]) * dS.T) @ mk
     np.testing.assert_allclose(foc, 0.0, atol=1e-13)
+
+
+# ---------------------------------------------------------------------------
+# Option scan, round 6 (2026-10-27)
+# ---------------------------------------------------------------------------
+
+
+def test_alpha_sets_the_confidence_level_of_the_summary(df):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.blp(df, x_random=[], instruments=IV, alpha=0.10, **KW)
+    line = next(ln for ln in fit.summary().splitlines() if ln.strip().startswith("x1"))
+    lo, hi = (float(v) for v in line.split()[-2:])
+    b, se = fit.linear_params["x1"], fit.se_linear["x1"]
+    z = 1.6448536269514722  # norm.ppf(0.95)
+    assert lo == pytest.approx(round(b - z * se, 4), abs=1e-4)
+    assert hi == pytest.approx(round(b + z * se, 4), abs=1e-4)
+    assert "[0.05" in fit.summary() and "0.95]" in fit.summary()
+
+
+def test_row_level_outputs_are_indexed_like_the_data(df):
+    """Shuffled rows with non-default labels: ``markups()``, ``mean_utility``
+    and ``own_elasticities`` line up with the data by label."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        base = sp.blp(df, x_random=[], instruments=IV, firm_id="firm", **KW)
+        shuffled = df.sample(frac=1.0, random_state=4)
+        shuffled.index = shuffled.index + 500
+        fit = sp.blp(shuffled, x_random=[], instruments=IV, firm_id="firm", **KW)
+    for name in ("mean_utility", "own_elasticities"):
+        s = getattr(fit, name)
+        assert s.index.equals(shuffled.index)
+        np.testing.assert_allclose(
+            s.loc[df.index + 500].to_numpy(),
+            getattr(base, name).to_numpy(),
+            rtol=1e-10,
+        )
+    mk = fit.markups()
+    assert mk.index.equals(shuffled.index)
+    np.testing.assert_allclose(
+        mk.loc[df.index + 500].to_numpy(), base.markups().to_numpy(), rtol=1e-10
+    )
+    mc = fit.marginal_costs()
+    np.testing.assert_allclose(
+        mc.to_numpy(), shuffled["price"].to_numpy() - mk.to_numpy(), rtol=1e-12
+    )
+
+
+@pytest.mark.parametrize("column", ["share", "price", "x1", "z2", "market_id"])
+def test_missing_values_are_refused(df, column):
+    from statspai.exceptions import DataInsufficient
+
+    bad = df.copy()
+    bad[column] = bad[column].astype(float)
+    bad.loc[5, column] = np.nan
+    with pytest.raises(DataInsufficient, match=column):
+        sp.blp(bad, x_random=[], instruments=IV, **KW)

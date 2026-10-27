@@ -332,7 +332,7 @@ def blp(
         projected gradient of the objective divided by ``N``; with
         ``'nelder-mead'``, on the simplex and the objective.
     alpha : float, default 0.05
-        Significance level (used in summary output).
+        One minus the confidence level of the intervals in ``summary()``.
     seed : int, optional
         Random seed for reproducibility of Monte Carlo draws.
     firm_id : str, optional
@@ -464,6 +464,23 @@ def blp(
     if x_random is None:
         x_random = list(x_linear)
     x_random = list(x_random)
+    if not 0.0 < float(alpha) < 1.0:
+        raise MethodIncompatibility(f"alpha must be in (0, 1); got {alpha!r}.")
+    used = [shares, prices, market_id, product_id, *x_linear]
+    used += [*(instruments or []), *(c for c in (firm_id, nest) if c is not None)]
+    holes = {c: int(n) for c, n in data[list(dict.fromkeys(used))].isna().sum().items()}
+    holes = {c: n for c, n in holes.items() if n}
+    if holes:
+        raise DataInsufficient(
+            f"blp: missing values in {holes} (column: number of rows). A "
+            "product with a missing share, price or characteristic leaves "
+            "its market's inversion undefined.",
+            recovery_hint=(
+                "Drop the incomplete products (or whole markets) before "
+                "fitting, or fill in the values."
+            ),
+            diagnostics={"n_missing": holes},
+        )
     if gmm_steps not in (1, 2):
         raise MethodIncompatibility(f"gmm_steps must be 1 or 2, got {gmm_steps!r}.")
     if nest is not None and x_random:
@@ -493,6 +510,8 @@ def blp(
                 "column, or be 'const' (the intercept)."
             )
 
+    # positions are used from here on; row-level outputs carry the labels
+    row_index = data.index
     data = data.copy().reset_index(drop=True)
     N = len(data)
 
@@ -932,8 +951,8 @@ def blp(
     nonlinear_params = pd.Series(sigma_final, index=rc_names, name="sigma")
     se_lin = pd.Series(se_linear, index=linear_names, name="se")
     se_nonlin = pd.Series(se_nonlinear, index=rc_names, name="se")
-    mean_util = pd.Series(delta_final, name="delta")
-    own_e = pd.Series(own_elast, name="own_elasticity")
+    mean_util = pd.Series(delta_final, index=row_index, name="delta")
+    own_e = pd.Series(own_elast, index=row_index, name="own_elasticity")
 
     return BLPResult(
         linear_params=linear_params,
@@ -949,8 +968,9 @@ def blp(
         _elasticity_matrices=elasticity_matrices,
         _market_ids=market_ids,
         _product_ids=product_ids,
-        _data_index=data.index,
+        _data_index=row_index,
         alpha=alpha_hat,
+        ci_alpha=float(alpha),
         model=model,
         rho=rho_hat,
         instruments=z_names,

@@ -41,9 +41,14 @@ class BLPResult(ResultProtocolMixin):
     se_nonlinear : pd.Series
         Standard errors for nonlinear parameters.
     mean_utility : pd.Series
-        Estimated mean utility δ for each product-market.
+        Estimated mean utility δ for each product-market, indexed like the
+        estimation data.
     own_elasticities : pd.Series
-        Own-price elasticities for each product-market.
+        Own-price elasticities for each product-market, indexed like the
+        estimation data.
+    ci_alpha : float
+        One minus the confidence level of the intervals in ``summary()``
+        (``sp.blp(alpha=)``).
     n_markets : int
         Number of markets.
     n_products : int
@@ -136,6 +141,7 @@ class BLPResult(ResultProtocolMixin):
         _prices: Optional[np.ndarray] = None,
         _firm_ids: Optional[np.ndarray] = None,
         model_info: Optional[dict] = None,
+        ci_alpha: float = 0.05,
     ):
         self.linear_params = linear_params
         self.nonlinear_params = nonlinear_params
@@ -152,6 +158,7 @@ class BLPResult(ResultProtocolMixin):
         self._product_ids = _product_ids
         self._data_index = _data_index
         self._alpha = alpha
+        self.ci_alpha = float(ci_alpha)
         self.model = model
         self.rho = rho
         self.instruments = list(instruments or [])
@@ -211,9 +218,12 @@ class BLPResult(ResultProtocolMixin):
 
         # Linear parameters table
         lines.append("Linear Parameters (Mean Utility)")
+        a = self.ci_alpha
+        crit = float(stats.norm.ppf(1 - a / 2))
+        lo_lab, hi_lab = f"[{a / 2:g}", f"{1 - a / 2:g}]"
         lines.append(
             f"  {'Variable':<20} {'Coef':>10} {'Std.Err':>10} "
-            f"{'z':>8} {'P>|z|':>8} {'[0.025':>8} {'0.975]':>8}"
+            f"{'z':>8} {'P>|z|':>8} {lo_lab:>8} {hi_lab:>8}"
         )
         lines.append("  " + "-" * 68)
         for name in self.linear_params.index:
@@ -221,8 +231,8 @@ class BLPResult(ResultProtocolMixin):
             se = self.se_linear[name]
             z = coef / se if se > 0 else np.nan
             pval = 2 * stats.norm.sf(np.abs(z))
-            ci_lo = coef - 1.96 * se
-            ci_hi = coef + 1.96 * se
+            ci_lo = coef - crit * se
+            ci_hi = coef + crit * se
             lines.append(
                 f"  {name:<20} {coef:>10.4f} {se:>10.4f} "
                 f"{z:>8.3f} {pval:>8.4f} {ci_lo:>8.4f} {ci_hi:>8.4f}"
@@ -485,10 +495,12 @@ class BLPResult(ResultProtocolMixin):
                     "Hansen J p-value": self.hansen_p,
                 }
             )
-        return EconometricResults(
+        res = EconometricResults(
             params=all_params,
             std_errors=all_se,
             model_info=model_info,
             data_info=data_info,
             diagnostics=diagnostics,
         )
+        res.alpha = self.ci_alpha
+        return res
