@@ -5730,6 +5730,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
 
+### 2026-10-27 — trace ledgers re-recorded after option scan round 5
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `76c01ecc7`.
+- **Reason.** Round 5 (aipw / tmle / policy_tree / metalearner / conformal,
+  spatial ML search and impacts, heckman and ipcw input checks,
+  `panel/hdfe.py` absorb_ols warning, the 1.41 removals including
+  `evalue(rare_outcome=)`, `core/utils.py` formula guards,
+  `regression/iv.py` absorb t / p) changed source files on Track A and
+  original-data estimation paths. `verify_reproduce_py.py` reports 89
+  reproduce, 0 drift, and the original-data results reproduce unchanged.
+- **Effect on the paper.** None. No committed parity result changed.
+  Track C stays stale on main (`diagnostics/evalue.py` and
+  `_article_aliases.py` also changed); the committed timings back v1.40.2.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-27 — Track C re-timed on 1.40.2 (JSS re-anchor); manifest re-hashed
 
 The freeze is inactive (not submitted). The manifest

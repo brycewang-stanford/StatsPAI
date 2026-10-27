@@ -152,3 +152,40 @@ scan yet: `agent`, `smart`, `core`, `diagnostics`, `mcmc`, `output`, `fast`,
   path hides. Under `-n`, tests that rerun Track A scripts race on
   `tests/r_parity/data/*.csv`; rerun a collection error serially before
   believing it.
+
+## Round 5 (same day, coordinator statspai-04)
+
+The owner delegated the decisions above. Five lines (`wt/c4-*`) closed them
+and scanned four more packages:
+
+- Decided: `sp.aipw(cluster=)` folds by cluster (coverage 85.8% to 94.6% in
+  a cluster-randomised DGP); `sp.distributional_te` bootstrap SEs use
+  ddof = 1; `sp.absorb_ols` warns on multi-way clustering without
+  `cluster_df` and moves to `'min'` in 1.42; the `sp.policy_tree` null
+  coverage is documented and flagged in `diagnostics`, not re-derived;
+  the four overdue removals are done (`surrogate/index.py` lost only the
+  deprecated `SurrogateResult`; the file's live functions stay).
+- Fixed from the open list: heckman 0/1 check, ipcw missing covariates
+  (dropped with a warning, as in `sp.cox`), pate convergence, weighted
+  R-learner nuisances, tmle cluster-in-one-fold check, weighted conformal
+  test weights (`weights_test=`), `subgroup_analysis` keeps degenerate
+  groups, `sp.impacts` and the spatial ML search on the eigenvalue
+  interval, SLX / SDEM / GNS impacts, PAF with zero cells, the Altman NNT
+  interval, `ndcg` ties, `mr_bma` limits, narrowed provenance excepts.
+- Scanned: `power/`, `rlasso`, `crossval`, `interference/`, plus the
+  leftover files of survival / mendelian / epi. Seventeen defects, among
+  them `sp.regress("y ~ d | fe")` silently fitting pooled OLS and
+  `sp.iv(absorb=)` t / p values not following the rescaled SEs.
+
+Still open after round 5: `aipw(design=)` PSU folds; `pate` IPW separation
+hidden by clipping; one-tailed normal-approximation power at a zero effect;
+`power_two_proportions` Wald vs pooled chi2; `cluster_matched_pair`
+variance; `dnc_gnn_did` network features; the `"parmigiani"` interference
+alias (deprecation); `cross_validate` DML `n_folds` / `seed`, misspelt
+`reference=`, fixed 95% CIs; `relative_risk` zero-cell Haldane point
+estimate (Stata reports the plain ratio); the PAF interval treats
+exposure prevalence as fixed; `ipcw` event column read with `astype(int)`.
+Packages never scanned: `agent`, `smart`, `core`, `diagnostics`, `mcmc`,
+`output`, `fast`, `plots`, `dag`, `causal_discovery`, `structural`, `doe`,
+`bayes`, `experimental`, `workflow`, `network`, `neural_causal`,
+`nonparametric`, `causal_llm`.
