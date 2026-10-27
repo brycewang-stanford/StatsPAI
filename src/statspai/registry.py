@@ -11594,6 +11594,153 @@ def _build_registry() -> None:
         )
     )
 
+    # --- QJE field-experiment toolkit: sharpened q-values, summary indices ---
+    register(
+        FunctionSpec(
+            name="sharpened_qvalues",
+            category="inference",
+            description=(
+                "Benjamini-Krieger-Yekutieli (2006) sharpened two-stage FDR "
+                "q-values. The default reproduces Anderson's (2008) Stata do-file "
+                "fdr_sharpened_qvalues.do bit for bit: a grid search over q = 1, "
+                "0.999, ..., 0.001, so q-values are multiples of 0.001. "
+                "exact=True gives the continuous infimum instead. Also "
+                "sp.adjust_pvalues(method='bky')."
+            ),
+            params=[
+                ParamSpec(
+                    "pvalues",
+                    "list[float]",
+                    True,
+                    None,
+                    "Unadjusted p-values in [0, 1]",
+                ),
+                ParamSpec(
+                    "exact",
+                    "bool",
+                    False,
+                    False,
+                    "False: the do-file's 0.001 grid with its single-precision "
+                    "storage. True: the infimum level at which each hypothesis "
+                    "is rejected, in double precision.",
+                ),
+                ParamSpec(
+                    "missing",
+                    "str",
+                    False,
+                    "count",
+                    "'count': a missing p-value stays missing and counts in the "
+                    "family size (as sp.adjust_pvalues). 'drop': the family is "
+                    "the non-missing p-values, as the do-file.",
+                    ["count", "drop"],
+                ),
+            ],
+            returns="ndarray",
+            example="sp.sharpened_qvalues([0.001, 0.01, 0.03, 0.04, 0.2])",
+            tags=["inference", "multiple testing", "fdr", "q-values", "experiments"],
+            reference="benjamini2006adaptive; anderson2008multiple",
+            assumptions=[
+                "FDR control of the two-stage procedure assumes independent "
+                "p-values (Benjamini, Krieger and Yekutieli 2006)"
+            ],
+            alternatives=["adjust_pvalues", "romano_wolf", "westfall_young"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="summary_index",
+            category="inference",
+            description=(
+                "Summary index of several outcomes: Kling-Liebman-Katz (equal "
+                "weights on z-scores standardized by the control group) or "
+                "Anderson (inverse-covariance weights, as Stata swindex with "
+                "normby(control)). Returns the index aligned to data.index and "
+                "the per-outcome means, SDs and weights."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per unit"),
+                ParamSpec(
+                    "outcomes", "list[str]", True, None, "Numeric component columns"
+                ),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    None,
+                    "Treatment column; the reference group is treat == "
+                    "control_value. None: standardize on every row.",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "klk",
+                    "'klk': equal weights. 'anderson': weights are row sums of "
+                    "the inverse covariance of the z-scores (swindex).",
+                    ["klk", "anderson"],
+                ),
+                ParamSpec(
+                    "control_value",
+                    "Any",
+                    False,
+                    0,
+                    "Value of treat that marks the reference (control) group",
+                ),
+                ParamSpec(
+                    "reverse",
+                    "list[str]",
+                    False,
+                    None,
+                    "Outcomes where lower is better; sign flipped (swindex flip())",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Analytic weights column (Stata [aweight=] convention)",
+                ),
+                ParamSpec(
+                    "missing",
+                    "str",
+                    False,
+                    "available",
+                    "'available': average the observed components, dropping "
+                    "the weights of missing ones (swindex). 'impute': missing "
+                    "z-scores at the treat-group mean (KLK). 'listwise': index "
+                    "missing unless every component is observed.",
+                    ["available", "impute", "listwise"],
+                ),
+                ParamSpec(
+                    "rescale",
+                    "bool | str",
+                    False,
+                    None,
+                    "Standardize the final index: 'reference' (by the control "
+                    "group; swindex default), 'full' (every row; swindex "
+                    "fullrescale) or 'none' (swindex norescale). None: "
+                    "'reference' for anderson, 'none' for klk.",
+                    ["reference", "full", "none"],
+                ),
+            ],
+            returns="SummaryIndexResult",
+            example=(
+                "sp.summary_index(df, ['y1', 'y2', 'y3'], treat='d', "
+                "method='anderson', reverse=['y3'])"
+            ),
+            tags=["experiments", "multiple outcomes", "index", "anderson", "klk"],
+            reference=(
+                "kling2007experimental; anderson2008multiple; schwab2020constructing"
+            ),
+            pre_conditions=[
+                "Every component varies in the reference group",
+                "anderson: at least two rows observe every component",
+            ],
+            alternatives=["romano_wolf", "westfall_young", "sharpened_qvalues"],
+        )
+    )
+
     register(
         FunctionSpec(
             name="amplify",

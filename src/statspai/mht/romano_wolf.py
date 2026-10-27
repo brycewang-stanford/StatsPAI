@@ -855,11 +855,15 @@ def adjust_pvalues(
           the same condition.
         - ``'bh'`` or ``'fdr'`` -- Benjamini-Hochberg FDR.
         - ``'by'`` -- Benjamini-Yekutieli (2001) FDR under any dependence.
+        - ``'bky'`` -- Benjamini-Krieger-Yekutieli (2006) sharpened
+          two-stage q-values, as Anderson's Stata do-file computes them
+          (a grid of step 0.001); see :func:`sharpened_qvalues`.
 
-        These are the methods of R's ``p.adjust`` (plus Sidak), and return
-        the same numbers. A missing p-value stays missing and still counts
-        towards the size of the family, which is where this differs from
-        ``p.adjust``: R drops it from the count.
+        Apart from ``'bky'``, these are the methods of R's ``p.adjust``
+        (plus Sidak), and return the same numbers. A missing p-value
+        stays missing and still counts towards the size of the family,
+        which is where this differs from ``p.adjust``: R drops it from the
+        count.
 
         For Romano-Wolf or Westfall-Young adjustments (which require
         the original data and bootstrap), use :func:`romano_wolf`
@@ -876,14 +880,18 @@ def adjust_pvalues(
     >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='holm')
     array([0.04, 0.09, 0.09, 0.2 ])
     >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='hommel')
-    array([0.04, 0.08, 0.08, 0.2 ])
+    array([0.04, 0.08, 0.06, 0.2 ])
+    >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='bky')
+    array([0.042, 0.042, 0.042, 0.057])
 
     References
     ----------
     [@holm1979simple], [@hochberg1988sharper], [@hommel1988stagewise],
     [@wright1992adjusted], [@benjamini1995controlling],
-    [@benjamini2001control]
+    [@benjamini2001control], [@benjamini2006adaptive]
     """
+    from .sharpened import sharpened_qvalues
+
     _dispatch = {
         "bonferroni": bonferroni,
         "bonf": bonferroni,
@@ -898,10 +906,20 @@ def adjust_pvalues(
         "benjamini_yekutieli": _benjamini_yekutieli,
         "benjamini-yekutieli": _benjamini_yekutieli,
         "sidak": _sidak,
+        "bky": sharpened_qvalues,
     }
     method_lower = str(method).lower()
     if method_lower not in _dispatch:
-        available = ["bonferroni", "sidak", "holm", "hochberg", "hommel", "bh", "by"]
+        available = [
+            "bonferroni",
+            "sidak",
+            "holm",
+            "hochberg",
+            "hommel",
+            "bh",
+            "by",
+            "bky",
+        ]
         raise ValueError(
             f"Unknown adjustment method '{method}'. "
             f"Available: {available}. "
