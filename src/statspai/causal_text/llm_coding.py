@@ -67,6 +67,15 @@ class LLMClientRequired(MethodIncompatibility, LLMConfigurationError):
     Subclasses both the StatsPAI taxonomy (``MethodIncompatibility``,
     with ``recovery_hint``) and ``sp.causal_llm.LLMConfigurationError``,
     the error the package's client resolver raises.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> try:
+    ...     sp.llm_code_responses(["sold after the news"], ["news", "price"])
+    ... except sp.LLMClientRequired as e:
+    ...     print(type(e).__name__)
+    LLMClientRequired
     """
 
 
