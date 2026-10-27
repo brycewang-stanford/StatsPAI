@@ -14185,6 +14185,158 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="fmm",
+            category="regression",
+            description=(
+                "Finite mixture of regressions (Stata fmm): k latent classes, "
+                "each with its own linear (with its own error variance), logit "
+                "or Poisson regression on the same covariates, and class "
+                "membership by a multinomial logit in optional class "
+                "covariates (Stata lcprob()). Maximum likelihood: EM and "
+                "quasi-Newton from several starts, Newton-Raphson on the best, "
+                "OIM / robust / cluster standard errors. Returns coefficients "
+                "by class, marginal class probabilities and class means with "
+                "delta-method SEs (estat lcprob / lcmean), posterior class "
+                "probabilities per observation, log-likelihood, AIC and BIC. "
+                "Classes are ordered by ascending class mean."
+            ),
+            params=[
+                ParamSpec(
+                    "formula",
+                    "str",
+                    True,
+                    description="Outcome equation, e.g. 'y ~ x1 + x2'",
+                ),
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "k", "int", True, description="Number of latent classes (>= 1)"
+                ),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "Class density: Stata regress / logit / poisson",
+                    ["gaussian", "logit", "poisson"],
+                ),
+                ParamSpec(
+                    "class_covariates",
+                    "list[str]",
+                    False,
+                    None,
+                    "Columns in the multinomial logit for class membership (Stata "
+                    "lcprob()); a constant is always included",
+                ),
+                ParamSpec(
+                    "weights", "str", False, None, "Column of non-negative weights"
+                ),
+                ParamSpec(
+                    "weights_as",
+                    "str",
+                    False,
+                    None,
+                    "How to read weights: 'frequency' (default reading, Stata "
+                    "[fw=]) or 'sampling' (Stata [pw=], robust variance)",
+                    ["frequency", "sampling"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "Covariance: inverse observed information (default), "
+                    "sandwich x N/(N-1), or cluster sandwich x G/(G-1)",
+                    ["oim", "robust", "cluster"],
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster identifier for vce='cluster'",
+                ),
+                ParamSpec(
+                    "n_starts",
+                    "int",
+                    False,
+                    10,
+                    "Starts (one deterministic, the rest random); the best "
+                    "log-likelihood is kept",
+                ),
+                ParamSpec("seed", "int", False, None, "Seed of the random starts"),
+                ParamSpec("max_iter", "int", False, 200, "Newton-Raphson iterations"),
+                ParamSpec("tol", "float", False, 1e-8, "Newton-Raphson step tolerance"),
+                ParamSpec("em_iter", "int", False, 30, "EM iterations per start"),
+                ParamSpec(
+                    "class_order",
+                    "str",
+                    False,
+                    "mean",
+                    "Class labelling: ascending class mean, descending class "
+                    "share, or the labels of the best start",
+                    ["mean", "share", "none"],
+                ),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Level of the reported intervals"
+                ),
+            ],
+            returns="FMMResult",
+            example='sp.fmm("y ~ x1 + x2", df, k=2, class_covariates=["z"], seed=1)',
+            tags=["regression", "mixture", "latent class", "em", "heterogeneity"],
+            reference="mclachlan2000finite",
+            assumptions=[
+                "The class densities are correctly specified (a skewed outcome "
+                "can be fitted by spurious extra classes)",
+                "Observations are independent given the class (or clustered with "
+                "vce='cluster')",
+                "k is fixed in advance; compare k by BIC, not by a likelihood-ratio "
+                "test (its null is on the boundary)",
+            ],
+            pre_conditions=[
+                "Logit outcome coded 0 / 1; Poisson outcome non-negative",
+                "More observations than parameters in every class",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Only one start reaches the best log-likelihood",
+                    exception="ConvergenceWarning",
+                    remedy="Raise n_starts and check that the best value is "
+                    "reached again; otherwise the maximum is fragile.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="A class is empty at the maximum",
+                    exception="IdentificationFailure",
+                    remedy="Use fewer classes; compare BIC across k.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="A Gaussian class variance collapses to zero (the "
+                    "likelihood is unbounded) in every start",
+                    exception="NumericalInstability",
+                    remedy="Use fewer classes or more starts.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Information matrix not positive definite at the maximum",
+                    exception="IdentificationFailure",
+                    remedy="Use fewer classes or drop class covariates.",
+                    alternative="",
+                ),
+            ],
+            not_recommended_when=[
+                "The classes are known (observed groups): interact the "
+                "regressors with the group instead",
+                "The heterogeneity is continuous: a random-coefficient model "
+                "(sp.multilevel, sp.mixlogit) describes it with fewer parameters",
+            ],
+            alternatives=["bayes_mixture", "regress", "logit", "poisson", "multilevel"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="gam",
             category="regression",
             description=(

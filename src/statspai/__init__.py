@@ -1109,6 +1109,7 @@ from .regression.count import nbreg, poisson, ppmlhdfe, xtnbreg
 from .regression.et_count import etpoisson
 
 # Fractional Response & Beta Regression
+from .regression.fmm import FMMResult, fmm
 from .regression.fracreg import betareg, fracreg
 from .regression.gam import GAMResult, gam
 from .regression.gee import gee
@@ -2125,6 +2126,8 @@ __all__ = [
     "best_subset",
     "gam",
     "GAMResult",
+    "fmm",
+    "FMMResult",
     "gee",
     "ridge",
     "robreg",

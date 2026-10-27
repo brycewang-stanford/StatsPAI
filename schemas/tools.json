@@ -15129,6 +15129,111 @@
     "name": "fisher_exact"
   },
   {
+    "description": "Finite mixture of regressions (Stata fmm): k latent classes, each with its own linear (with its own error variance), logit or Poisson regression on the same covariates, and class membership by a multinomial logit in optional class covariates (Stata lcprob()). Maximum likelihood: EM and quasi-Newton from several starts, Newton-Raphson on the best, OIM / robust / cluster standard errors. Returns coefficients by class, marginal class probabilities and class means with delta-method SEs (estat lcprob / lcmean), posterior class probabilities per observation, log-likelihood, AIC and BIC. Classes are ordered by ascending class mean. Do NOT use when: The classes are known (observed groups): interact the regressors with the group instead; The heterogeneity is continuous: a random-coefficient model (sp.multilevel, sp.mixlogit) describes it with fewer parameters. Assumptions: The class densities are correctly specified (a skewed outcome can be fitted by spurious extra classes); Observations are independent given the class (or clustered with vce='cluster'); k is fixed in advance; compare k by BIC, not by a likelihood-ratio test (its null is on the boundary). Pre-conditions: Logit outcome coded...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the reported intervals",
+          "type": "number"
+        },
+        "class_covariates": {
+          "description": "Columns in the multinomial logit for class membership (Stata lcprob()); a constant is always included",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "class_order": {
+          "default": "mean",
+          "description": "Class labelling: ascending class mean, descending class share, or the labels of the best start",
+          "enum": [
+            "mean",
+            "share",
+            "none"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster identifier for vce='cluster'",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "em_iter": {
+          "default": 30,
+          "description": "EM iterations per start",
+          "type": "integer"
+        },
+        "family": {
+          "default": "gaussian",
+          "description": "Class density: Stata regress / logit / poisson",
+          "enum": [
+            "gaussian",
+            "logit",
+            "poisson"
+          ],
+          "type": "string"
+        },
+        "formula": {
+          "description": "Outcome equation, e.g. 'y ~ x1 + x2'",
+          "type": "string",
+          "x-statspai-role": "formula"
+        },
+        "k": {
+          "description": "Number of latent classes (>= 1)",
+          "type": "integer"
+        },
+        "max_iter": {
+          "default": 200,
+          "description": "Newton-Raphson iterations",
+          "type": "integer"
+        },
+        "n_starts": {
+          "default": 10,
+          "description": "Starts (one deterministic, the rest random); the best log-likelihood is kept",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Seed of the random starts",
+          "type": "integer"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Newton-Raphson step tolerance",
+          "type": "number"
+        },
+        "vce": {
+          "description": "Covariance: inverse observed information (default), sandwich x N/(N-1), or cluster sandwich x G/(G-1)",
+          "enum": [
+            "oim",
+            "robust",
+            "cluster"
+          ],
+          "type": "string"
+        },
+        "weights": {
+          "description": "Column of non-negative weights",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights_as": {
+          "description": "How to read weights: 'frequency' (default reading, Stata [fw=]) or 'sampling' (Stata [pw=], robust variance)",
+          "enum": [
+            "frequency",
+            "sampling"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "formula",
+        "k"
+      ],
+      "type": "object"
+    },
+    "name": "fmm"
+  },
+  {
     "description": "Functional doubly-robust CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
