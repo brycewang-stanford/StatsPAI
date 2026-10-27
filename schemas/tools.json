@@ -40838,7 +40838,7 @@
           "type": "number"
         },
         "censor_covariates": {
-          "description": "Censoring-model covariates; pass ``[]`` for a model with a constant only. The censoring time model may not depend on the treatment.",
+          "description": "Censoring-model covariates; pass ``[]`` for a model with a constant only. The list may include the treatment variable, as Stata's ``cmodel()`` allows.",
           "items": {
             "type": "string"
           },
