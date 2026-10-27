@@ -5752,7 +5752,8 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `ce6a77604`.
+- **Commits.** `ce6a77604`, `c2d3165f1` (the merge with the Econometrica
+  94(5) round, re-recorded on the merged tree).
 - **Reason.** The pass added exports to `src/statspai/__init__.py`
   (`sp.fmm`, `sp.summary_index`, `sp.sharpened_qvalues`, `sp.shapley_r2`,
   `sp.krippendorff_alpha`, `sp.llm_code_responses`, `sp.iv_mediate`, result
