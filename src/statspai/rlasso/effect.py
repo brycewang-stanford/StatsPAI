@@ -45,6 +45,7 @@ from .._result_serialize import ResultProtocolMixin, attach_result_protocol
 from ..core._call_record import records_call
 from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
+from ._absorb import absorb_codes, absorbed_levels, within
 from ._core import _cluster_codes, rlasso
 
 
@@ -71,6 +72,8 @@ class RLassoEffectResult(ResultProtocolMixin):
     #: ``e * v / mean(v**2)``. Used for joint inference across targets.
     resid_e: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
     resid_v: Optional[np.ndarray] = field(default=None, repr=False, compare=False)
+    #: Levels of each factor removed by ``absorb=`` (empty without it).
+    absorb_levels: Tuple[int, ...] = ()
 
     def conf_int(self, level: float = 0.95) -> tuple:
         zc = stats.norm.ppf(0.5 + level / 2.0)
@@ -83,6 +86,14 @@ class RLassoEffectResult(ResultProtocolMixin):
                 f"Rigorous-Lasso treatment effect  ({self.method})",
                 "-" * 60,
                 f"  Observations         : {self.n_obs}",
+                *(
+                    [
+                        "  Absorbed levels      : "
+                        + ", ".join(map(str, self.absorb_levels))
+                    ]
+                    if self.absorb_levels
+                    else []
+                ),
                 f"  Controls selected    : {int(self.selection_index.sum())}",
                 "",
                 "             coef     std.err      z      P>|z|      95% CI",
@@ -113,6 +124,77 @@ def _cluster_var(
     """
     sums = np.bincount(codes, weights=v * e, minlength=n_clusters)
     return float(sums @ sums) / float(v @ v) ** 2
+
+
+def _ols_nocons(y: np.ndarray, X: np.ndarray) -> tuple:
+    """OLS without an intercept; returns (coef, resid, XtX_inv)."""
+    beta, *_ = np.linalg.lstsq(X, y, rcond=None)
+    resid = y - X @ beta
+    return beta, resid, np.linalg.inv(X.T @ X)
+
+
+def _absorbed_effect(
+    X: np.ndarray,
+    yv: np.ndarray,
+    dv: np.ndarray,
+    method: str,
+    post: bool,
+    I3: Optional[np.ndarray],
+    penalty: Optional[Dict[str, Any]],
+    control: Dict[str, Any],
+    codes: Optional[np.ndarray],
+    n_clusters: int,
+    robust: Optional[bool],
+    target: Any,
+) -> tuple:
+    """``pdslasso ..., fe``: the effect on within-transformed data.
+
+    No intercept anywhere, and no small-sample factor in any variance (the
+    ``ivreg2`` defaults pdslasso uses; the absorbed levels are not
+    subtracted either): homoskedastic ``e'e / n``, robust HC0, cluster
+    without ``G / (G - 1)``.
+    """
+    n = len(yv)
+
+    def _sel(target_v: np.ndarray) -> Any:
+        return rlasso(
+            X,
+            target_v,
+            post=post,
+            intercept=False,
+            penalty=penalty,
+            control=control,
+            cluster=codes,
+        )
+
+    if method == "partialling out":
+        reg1, reg2 = _sel(yv), _sel(dv)
+        e_y, v = reg1.residuals, reg2.residuals
+        _warn_if_unidentified(v, dv, target)
+        alpha = float(v @ e_y) / float(v @ v)
+        resid = e_y - alpha * v
+        sel = np.asarray(reg1.index | reg2.index, dtype=bool)
+    elif method == "double selection":
+        union = _sel(dv).index | _sel(yv).index
+        if I3 is not None:
+            union = union | np.asarray(I3, bool)
+        sel = np.asarray(union, dtype=bool)
+        Xsel = np.column_stack([dv, X[:, sel]])
+        beta, resid, _ = _ols_nocons(yv, Xsel)
+        alpha = float(beta[0])
+        v = dv - X[:, sel] @ _ols_nocons(dv, X[:, sel])[0] if sel.any() else dv
+        _warn_if_unidentified(v, dv, target)
+    else:
+        raise ValueError(
+            f"method must be 'partialling out' or 'double selection', got {method!r}"
+        )
+    if codes is not None:
+        var = _cluster_var(resid, v, codes, n_clusters)
+    elif robust or (robust is None and method == "double selection"):
+        var = _cluster_var(resid, v, np.arange(n), n)
+    else:
+        var = float(resid @ resid) / n / float(v @ v)
+    return alpha, float(np.sqrt(var)), sel, resid, v
 
 
 def _warn_if_unidentified(resid_d: np.ndarray, d: np.ndarray, target: Any) -> None:
@@ -153,6 +235,7 @@ def rlasso_effect(
     control: Optional[Dict[str, Any]] = None,
     cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
     robust: Optional[bool] = None,
+    absorb: Optional[Any] = None,
 ) -> RLassoEffectResult:
     """Effect of ``d`` on ``y`` after Lasso-selecting controls ``x``.
 
@@ -194,6 +277,21 @@ def rlasso_effect(
         .. versionchanged:: 1.41
            ``vce="robust"`` used to be accepted and ignored, returning the
            homoskedastic SE of partialling out.
+    absorb : str, list of str, or array-like, optional
+        Fixed effects to absorb (column names when ``data`` is given, or
+        one identifier array per factor). ``y``, ``d`` and every control
+        are within-transformed before any Lasso, and the estimator then
+        follows Stata's ``pdslasso y d (x...), fe`` [@belloni2016inference]
+        rather than hdm, which has no fixed-effects option: the selection
+        steps use ``control={"iteration": "lassopack"}`` unless ``control``
+        says otherwise, the final regressions have no intercept, and no
+        variance carries a small-sample factor. ``robust=None`` then means
+        homoskedastic ``e'e / n`` for partialling out and HC0 for double
+        selection; ``robust=True`` is HC0 for both, ``robust=False`` the
+        homoskedastic form for both. Selection matches ``pdslasso ..., fe
+        robust`` or ``fe cluster()`` (Stata's default homoskedastic
+        penalty is not offered). With several factors the result equals
+        ``pdslasso ..., fe partial(i.<f2> ...)``.
 
     Returns
     -------
@@ -260,6 +358,39 @@ def rlasso_effect(
             "cluster= gives a cluster-robust SE; it cannot be combined with "
             "robust=False (vce='iid').",
             recovery_hint="Drop one of cluster= and robust=False.",
+        )
+
+    if absorb is not None:
+        fe_codes = absorb_codes(absorb, n, data)
+        X, yv, dv = within(X, fe_codes), within(yv, fe_codes), within(dv, fe_codes)
+        ctrl = {"iteration": "lassopack", **dict(control or {})}
+        alpha, se, sel, res_e, res_v = _absorbed_effect(
+            X,
+            yv,
+            dv,
+            method,
+            post,
+            I3,
+            penalty,
+            ctrl,
+            codes,
+            n_clusters,
+            robust,
+            target,
+        )
+        tval = alpha / se if se > 0 else np.nan
+        return RLassoEffectResult(
+            alpha=alpha,
+            se=se,
+            tstat=float(tval),
+            pvalue=2.0 * float(stats.norm.cdf(-abs(tval))),
+            method=method,
+            n_obs=n,
+            selection_index=sel,
+            target=target,
+            resid_e=np.asarray(res_e, dtype=float),
+            resid_v=np.asarray(res_v, dtype=float),
+            absorb_levels=absorbed_levels(fe_codes),
         )
 
     if method == "partialling out":
@@ -465,13 +596,15 @@ def rlasso_effects(
     control: Optional[Dict[str, Any]] = None,
     cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
     robust: Optional[bool] = None,
+    absorb: Optional[Any] = None,
 ) -> "RLassoEffectsResult":
     """Estimate the effect of each targeted column of ``X`` on ``y``.
 
     Faithful port of ``hdm::rlassoEffects``: for every target column
     ``j`` in ``index``, treat column ``j`` as ``d`` and the remaining
-    columns as controls. ``robust`` (and ``vce=``) is passed to
-    :func:`rlasso_effect` for every target.
+    columns as controls. ``robust`` (and ``vce=``) and ``absorb`` are
+    passed to :func:`rlasso_effect` for every target; with ``absorb`` each
+    target follows ``pdslasso ..., fe`` (see :func:`rlasso_effect`).
 
     Returns
     -------
@@ -522,6 +655,10 @@ def rlasso_effects(
         else cluster
     )
 
+    absorb_arr: Any = None
+    if absorb is not None:
+        absorb_arr = absorb_codes(absorb, len(yv), data)
+
     out = RLassoEffectsResult()
     out._cluster = cluster_arr
     for j in index:
@@ -537,6 +674,7 @@ def rlasso_effects(
             control=control,
             cluster=cluster_arr,
             robust=robust,
+            absorb=absorb_arr,
         )
         res.target = cols[j]
         out[cols[j]] = res
