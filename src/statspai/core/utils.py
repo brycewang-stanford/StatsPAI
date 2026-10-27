@@ -853,6 +853,30 @@ def create_design_matrices(
                 diagnostics={"formula": formula, "unknown_terms": unknown},
             ) from patsy_error
 
+        # The manual parser recognises a fixed-effect block (``| fe``) and an
+        # IV block (``(d ~ z)``), but the design below holds only the plain
+        # regressors. Until 2026-10 both blocks were dropped without a word:
+        # sp.regress("y ~ d + x | fe") fitted pooled OLS (2.63 against the
+        # within estimate 0.71), and "y ~ x + (d ~ z)" left d out.
+        dropped = {
+            "fixed effects": [v.strip() for v in parsed["fixed_effects"] if v.strip()],
+            "endogenous regressors": parsed["endogenous"],
+        }
+        dropped = {k: v for k, v in dropped.items() if v}
+        if dropped:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"The formula {formula!r} has "
+                + " and ".join(f"{k} {v}" for k, v in dropped.items())
+                + ", which this estimator's design matrix cannot hold.",
+                recovery_hint=(
+                    "Absorb fixed effects with sp.feols('y ~ x | fe') or "
+                    "sp.reghdfe, and fit IV blocks with sp.iv / sp.ivreg."
+                ),
+                diagnostics={"formula": formula, **dropped},
+            ) from patsy_error
+
         y = data[parsed["dependent"]].values
         if return_type == "dataframe":
             y = pd.DataFrame(

@@ -2731,6 +2731,14 @@ def _scale_vcov_for_fe_dof(
         result.std_errors = result.std_errors * sqrt_factor
     if hasattr(result, "data_info") and isinstance(result.data_info, dict):
         result.data_info["df_resid"] = int(df_resid_new)
+        V = result.data_info.get("var_cov")
+        if V is not None:
+            result.data_info["var_cov"] = np.asarray(V) * factor
+    # t statistics, p-values and intervals from the rescaled SEs. Until
+    # 2026-10 they kept the unscaled values (t 0.861 for a reported
+    # coef / SE of 0.734, p 0.393 against 0.467 in fixest).
+    if hasattr(result, "_compute_statistics"):
+        result._compute_statistics()
 
 
 _PLAIN_NAME = re.compile(r"[^\W\d]\w*$")
