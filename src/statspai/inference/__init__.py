@@ -28,7 +28,7 @@ from .multiway_cluster import (
 )
 from .pate import PATEEstimator, pate
 from .ppi import ppi_mean, ppi_ols
-from .randomization import FisherResult, fisher_exact, ri_test
+from .randomization import FisherResult, RITestResult, fisher_exact, ri_test
 from .rank_tests import (
     ClassicTestResult,
     ksmirnov,
@@ -58,6 +58,7 @@ __all__ = [
     "SuestResult",
     "fisher_exact",
     "FisherResult",
+    "RITestResult",
     "ipw",
     "g_computation",
     "front_door",

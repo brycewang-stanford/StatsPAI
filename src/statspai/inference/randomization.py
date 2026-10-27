@@ -291,6 +291,111 @@ class FisherResult(ResultProtocolMixin):
         )
 
 
+class RITestResult(dict):
+    """Result of :func:`sp.ri_test`.
+
+    A ``dict`` (the keys ``observed``, ``p_value``, ``p_one_sided``,
+    ``n_perms``, ``exact``, ``perm_distribution`` are unchanged, so
+    ``result['p_value']`` keeps working) that also reads as attributes and
+    prints a short summary instead of the whole permutation array.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> d = rng.integers(0, 2, 60)
+    >>> df = pd.DataFrame({"y": 0.5 * d + rng.normal(size=60), "d": d})
+    >>> r = sp.ri_test(df, y="y", treat="d", n_perms=500, seed=1)
+    >>> r.p_value == r["p_value"]
+    True
+    """
+
+    def __init__(
+        self, values: Dict[str, Any], *, stat: str, y: str, treat: str, alpha: float
+    ) -> None:
+        super().__init__(values)
+        self.stat = stat
+        self.y = y
+        self.treat = treat
+        self.alpha = alpha
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def summary(self) -> str:
+        """Return a formatted summary string."""
+        kind = "exact (all assignments)" if self["exact"] else "random draws"
+        lines = [
+            "=" * 60,
+            "Randomization Inference",
+            "=" * 60,
+            f"  Outcome / treatment:         {self.y} / {self.treat}",
+            f"  Test statistic ({self.stat}):  {self['observed']:.6f}",
+            f"  Two-sided p-value:           {self['p_value']:.4f}",
+            f"  One-sided p-value (greater):  {self['p_one_sided']:.4f}",
+            "-" * 60,
+            f"  Permutations:  {self['n_perms']:,} ({kind})",
+            "=" * 60,
+        ]
+        return "\n".join(lines)
+
+    def plot(
+        self, ax: Optional[Any] = None, figsize: Tuple[int, int] = (8, 5)
+    ) -> Tuple[Any, Any]:
+        """Histogram of the permutation distribution with the observed value."""
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=figsize)
+        else:
+            fig = ax.get_figure()
+        perm = np.asarray(self["perm_distribution"], dtype=float)
+        ax.hist(
+            perm,
+            bins=min(50, max(20, perm.size // 20)),
+            density=True,
+            alpha=0.7,
+            color="steelblue",
+            edgecolor="white",
+            label="Permutation distribution",
+        )
+        ax.axvline(
+            self["observed"],
+            color="red",
+            linewidth=2,
+            linestyle="--",
+            label=f"Observed = {self['observed']:.4f}",
+        )
+        ax.set_xlabel(f"Test statistic ({self.stat})")
+        ax.set_ylabel("Density")
+        ax.set_title(f"Randomization inference (p = {self['p_value']:.4f})")
+        ax.legend()
+        return fig, ax
+
+    def __repr__(self) -> str:
+        return (
+            f"RITestResult(stat={self.stat!r}, observed={self['observed']:.4f}, "
+            f"p_value={self['p_value']:.4f}, n_perms={self['n_perms']}, "
+            f"exact={self['exact']})"
+        )
+
+    def __reduce__(self) -> Any:
+        return (
+            _rebuild_ri_result,
+            (dict(self), self.stat, self.y, self.treat, self.alpha),
+        )
+
+
+def _rebuild_ri_result(
+    values: Dict[str, Any], stat: str, y: str, treat: str, alpha: float
+) -> "RITestResult":
+    return RITestResult(values, stat=stat, y=y, treat=treat, alpha=alpha)
+
+
 # ======================================================================
 # Main functions
 # ======================================================================
@@ -605,7 +710,7 @@ def ri_test(
     covariates: Optional[List[str]] = None,
     absorb: Optional[Union[str, List[str]]] = None,
     interact: Optional[str] = None,
-) -> Dict[str, Any]:
+) -> "RITestResult":
     """
     Randomization inference p-value.
 
@@ -685,7 +790,9 @@ def ri_test(
 
     Returns
     -------
-    dict
+    RITestResult
+        A ``dict`` subclass with ``.summary()`` / ``.plot()`` and attribute
+        access (``result.p_value``); its keys are
         ``'observed'``: observed test statistic
         ``'p_value'``: two-sided randomization p-value
         ``'p_one_sided'``: one-sided (greater) p-value
@@ -923,14 +1030,20 @@ def ri_test(
     p_two_sided = _share_at_least(perm_stats, obs_stat, two_sided=True)
     p_one_sided = _share_at_least(perm_stats, obs_stat, two_sided=False)
 
-    return {
-        "observed": obs_stat,
-        "p_value": p_two_sided,
-        "p_one_sided": p_one_sided,
-        "n_perms": int(perm_stats.size),
-        "exact": assignments is not None,
-        "perm_distribution": perm_stats,
-    }
+    return RITestResult(
+        {
+            "observed": obs_stat,
+            "p_value": p_two_sided,
+            "p_one_sided": p_one_sided,
+            "n_perms": int(perm_stats.size),
+            "exact": assignments is not None,
+            "perm_distribution": perm_stats,
+        },
+        stat=stat if isinstance(stat, str) else getattr(stat, "__name__", "callable"),
+        y=y,
+        treat=treat,
+        alpha=alpha,
+    )
 
 
 # ======================================================================
