@@ -15797,7 +15797,7 @@
         },
         "alpha": {
           "default": 0.05,
-          "description": "Family-wise significance level.",
+          "description": "Level of each subset's invariance test. A subset is accepted when its p-value is at least ``alpha``; only the test of the true parent set matters for the guarantee that ``parents`` is a subset of the true parents with probability at least ``1 - alpha``, so no correction for the number of subsets is applied (as in R ``InvariantCausalPrediction::ICP``).",
           "type": "number"
         },
         "environment": {
@@ -71124,7 +71124,7 @@
         },
         "standardize": {
           "default": true,
-          "description": "Zero-mean / unit-variance each variable before the algorithm.",
+          "description": "Scale each variable to unit variance before the algorithm. The variables are centred either way, so ``adjacency`` (OLS slopes in the original units) does not depend on the column means. Rows with a missing value are dropped.",
           "type": "boolean"
         }
       },
@@ -72337,7 +72337,7 @@
         },
         "alpha": {
           "default": 0.05,
-          "description": "Family-wise significance level.",
+          "description": "Level of each subset's invariance test. A subset is accepted when its p-value is at least ``alpha``; only the test of the true parent set matters for the guarantee that ``parents`` is a subset of the true parents with probability at least ``1 - alpha``, so no correction for the number of subsets is applied (as in R ``InvariantCausalPrediction::ICP``).",
           "type": "number"
         },
         "environment": {

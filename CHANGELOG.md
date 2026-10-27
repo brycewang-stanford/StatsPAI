@@ -167,6 +167,59 @@ Option scan round 6: `diagnostics` and `network`. Tests in
   standard deviation.** The unweighted one was used, so the distances
   were those of a different distribution from the one the points
   represent. Unweighted calls are unchanged.
+Option scan round 6 of `dag/`, `causal_discovery/` and `causal_llm/`
+(tests in `tests/test_option_scan_r6_graph.py`). 250 random graphs with
+latents and bidirected edges agree with R `dagitty` on minimal adjustment
+sets, implied independencies and d-separation; the defects were elsewhere.
+
+- ⚠️ **`sp.dag`: two bidirected edges could share one latent.** The latent
+  of `a <-> b` was named `_L_a_b`, so `A_B <-> C` and `A <-> B_C` both
+  became `_L_A_B_C`, a common cause of all four nodes. `A_B` and `A` were
+  reported d-connected (`d_separated` False, truth True), and adjustment
+  sets and identification followed. A clashing name now gets a numeric
+  suffix. Graphs without such a clash are unchanged.
+- ⚠️ **`sp.lingam(standardize=False)` returned wrong coefficients when a
+  column mean was not zero.** The structural regressions have no
+  intercept and the data were not centred. With means (5, -3, 10) and true
+  slopes 0.9 and -0.7, `adjacency` gave -0.581 and -1.423; it now gives
+  0.880 and -0.682, the same as `standardize=True`. The default path is
+  unchanged.
+- ⚠️ **`sp.icp` tested each subset at `alpha / (2**p - 1)`.** ICP tests every
+  set at `alpha`, and only the test of the true parent set matters for the
+  guarantee, as in R `InvariantCausalPrediction::ICP`. The division made
+  the answer depend on how many predictors were passed: adding five
+  pure-noise columns to a design with one parent changed `parents` from
+  `{'X1'}` to the empty set. Results change whenever `p >= 2`; more
+  subsets are rejected, so `parents` is larger or equal.
+- ⚠️ **`sp.pc_algorithm` / `sp.fci` on a constant column or exactly
+  collinear columns.** A constant gave NaN p-values, which PC read as
+  "dependent": it was joined to every variable (`a -> k`, `b -> k`, ...).
+  A column equal to `2 * a` made PC's partial correlation return 0 on the
+  singular matrix, which deleted the true edge `a - c`. Both now raise
+  `DataInsufficient` naming the column. Categorical tests are unaffected.
+- ⚠️ **`sp.pc_algorithm`, `sp.fci` and `sp.notears` dropped boolean
+  columns** when `variables=` was not given (pandas counts `bool` as
+  numeric; `sp.ges` and `sp.lingam` already used them). They are now
+  included, so the learned graph can gain a node.
+- ⚠️ **`sp.pcmci`, `sp.lpcmci` and `sp.dynotears` on series with a missing
+  value.** One NaN made PCMCI drop two of three true links and DYNOTEARS
+  return an all-zero `W`. They now raise `DataInsufficient`; deleting the
+  row would shift every later lag.
+- ⚠️ **`sp.llm_dag_validate` counted untestable edges as unsupported.** An
+  edge touching a node that is not a column of the data, or a node
+  declared `latent=`, got `supported=False` and entered `n_unsupported`,
+  the verdict for an edge the data rejects. Edges at declared latents are
+  now skipped like the `_L_*` nodes of `<->`; the rest are reported in the
+  new `n_untestable` and the `testable` column, with a warning naming the
+  missing columns. A constant conditioning variable is dropped from the
+  conditioning set (conditioning on a constant is conditioning on
+  nothing) instead of making the test NaN.
+- ⚠️ **`sp.causal_mas` with an LLM client mangled multi-word names and
+  kept invented ones.** The last word left of `->` and the first word
+  right of it were taken, so `years of schooling -> log wage` became the
+  edge `schooling -> log`, and `Foo -> Bar` entered the consensus DAG.
+  Each side is now matched against `variables`; lines that name no
+  variable are dropped with a `UserWarning`.
 
 ### Fixed
 
@@ -204,6 +257,42 @@ Option scan round 6: `diagnostics` and `network`. Tests in
   so `data.loc[res.sample.index, col]` brings in a column such as revenue
   for `sp.markup` (the example in its docstring did this and picked the
   wrong rows, since the index was reset).
+- `sp.DAG.add_edge` refuses an edge that closes a directed cycle (or a
+  self-loop) with `MethodIncompatibility`. It used to accept it, after
+  which `adjustment_sets` returned `[]` and `d_separated` answered as if
+  nothing were wrong. The parser already refused cycles.
+- `sp.DAG` queries (`adjustment_sets`, `frontdoor_sets`, `d_separated`,
+  `all_paths` and the path methods built on it, `path_status`,
+  `classify_variable`, `bad_controls`, `do`) and `sp.swig` raise
+  `MethodIncompatibility` on a name that is not a node, as R `dagitty`
+  does. Before, `adjustment_sets('Q', 'Y')` returned `[set()]` ("adjust
+  for nothing"), `frontdoor_sets('Q', 'Y')` returned `[{'X'}]` and
+  `d_separated('Q', 'Y')` returned `True`.
+- `sp.DAG.edges` is sorted, and `bad_controls` iterates the nodes in
+  sorted order. Both followed set order, which depends on the string hash,
+  so `edges`, `bad_controls`, `summary` and the row order of
+  `sp.llm_dag_validate` changed between two runs of the same script.
+- `sp.DAG.adjustment_sets(minimal=False)` documents that it lists backdoor
+  sets. R `dagitty::adjustmentSets(type = "all")` uses the adjustment
+  criterion and also lists sets holding descendants of the exposure that
+  lie off every causal path.
+- `sp.notears` and `sp.dynotears` warn (`RuntimeWarning`) when the
+  thresholded graph has a directed cycle, which happens when the optimiser
+  stops early (`max_iter=3` on a six-node graph). `sp.notears` also
+  returns `is_dag`. Converged fits are unchanged.
+- `sp.lingam` drops rows with a missing value, like the other learners;
+  a NaN used to stop in `np.linalg.lstsq` with "SVD did not converge".
+- `sp.pc_algorithm`, `sp.fci`, `sp.icp`, `sp.pcmci` and `sp.lpcmci` reject
+  a significance level outside (0, 1); `sp.pc_algorithm` rejects a
+  negative `max_cond_size`. `alpha=1.5` used to return a complete graph.
+- `sp.llm_dag_constrained` warns when the oracle raises (the result is
+  then plain PC; the error was only stored in `provenance`) and when the
+  oracle proposes edges over names that are not in `variables` (they were
+  dropped silently).
+- `sp.icp` raises `MethodIncompatibility` when `y` or `environment` is not
+  aligned with `X` (it was an `assert`), and its summary no longer says
+  "no subset accepted" when subsets were accepted with an empty
+  intersection.
 
 ### Added
 

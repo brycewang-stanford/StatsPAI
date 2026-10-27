@@ -109,16 +109,70 @@ class DAG:
         return self
 
     def add_edge(self, parent: str, child: str) -> "DAG":
+        """Add ``parent -> child``; an edge that closes a cycle raises."""
+        if parent == child or (
+            parent in self._nodes
+            and child in self._nodes
+            and parent in self.descendants(child)
+        ):
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"dag: adding {parent!r} -> {child!r} would create a directed "
+                "cycle; a causal DAG must be acyclic.",
+                recovery_hint=(
+                    "Feedback over time is drawn by indexing the nodes: "
+                    "'X0 -> Y1 -> X2'."
+                ),
+                diagnostics={"edge": (parent, child)},
+            )
+        return self._link(parent, child)
+
+    def _link(self, parent: str, child: str) -> "DAG":
+        """``parent -> child`` without the cycle check, for callers that
+        copy edges of a graph already known to be acyclic (or, like the
+        parser and :meth:`equivalent_dags`, check acyclicity afterwards)."""
         self._nodes.update([parent, child])
         self._edges.setdefault(parent, set()).add(child)
         return self
 
     def add_bidirected(self, a: str, b: str) -> "DAG":
-        """Add a latent common cause of *a* and *b*."""
-        latent = f"_L_{a}_{b}"
-        self.add_edge(latent, a)
-        self.add_edge(latent, b)
+        """Add a latent common cause of *a* and *b*.
+
+        The latent is named ``_L_<a>_<b>``. When that name is already taken
+        by a node that is not the latent of this same pair (``A_B <-> C``
+        and ``A <-> B_C`` both spell ``_L_A_B_C``), a numeric suffix keeps
+        the two latents apart.
+        """
+        base = f"_L_{a}_{b}"
+        latent, k = base, 2
+        while latent in self._nodes:
+            if self.children(latent) == {a, b} and not self.parents(latent):
+                return self
+            latent, k = f"{base}_{k}", k + 1
+        self._link(latent, a)
+        self._link(latent, b)
         return self
+
+    def _require_nodes(self, function: str, *names: Any) -> None:
+        """Raise when a queried name is not a node of the graph."""
+        flat: List[str] = []
+        for name in names:
+            if name is None:
+                continue
+            if isinstance(name, str):
+                flat.append(name)
+            else:
+                flat.extend(name)
+        missing = sorted({str(n) for n in flat if n not in self._nodes})
+        if missing:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"{function}: {missing} not a node of the DAG.",
+                recovery_hint=f"Nodes: {sorted(self._nodes)}.",
+                diagnostics={"missing": missing},
+            )
 
     def set_latent(self, *names: str) -> "DAG":
         """Declare nodes as unobserved."""
@@ -149,7 +203,12 @@ class DAG:
 
     @property
     def edges(self) -> List[Tuple[str, str]]:
-        return [(p, c) for p, children in self._edges.items() for c in children]
+        # Sorted: the children are a set, whose order follows the string
+        # hash and so changed between Python processes.
+        return sorted(
+            ((p, c) for p, children in self._edges.items() for c in children),
+            key=lambda e: (str(e[0]), str(e[1])),
+        )
 
     # ------------------------------------------------------------------ #
     #  Graph queries
@@ -230,6 +289,7 @@ class DAG:
         list of list of str
             Each inner list is an ordered path from *x* to *y*.
         """
+        self._require_nodes("all_paths", x, y)
         results: List[List[str]] = []
         self._find_paths(x, y, [x], set(), results, directed_only)
         return results
@@ -445,6 +505,7 @@ class DAG:
         >>> sorted(g.classify_variable('Z', 'X', 'Y'))
         ['ancestor_of_outcome', 'ancestor_of_treatment', 'confounder']
         """
+        self._require_nodes("classify_variable", node, exposure, outcome)
         roles: Set[str] = set()
         if node == exposure or node == outcome:
             return roles
@@ -489,7 +550,7 @@ class DAG:
             for parent, children in self._edges.items():
                 for child in children:
                     if parent != exposure:
-                        modified.add_edge(parent, child)
+                        modified._link(parent, child)
             if modified.d_separated(node, outcome):
                 roles.add("instrument")
 
@@ -524,11 +585,12 @@ class DAG:
         >>> [reason.split(' — ')[0] for reason in bad['O']]
         ['mediator', 'collider']
         """
+        self._require_nodes("bad_controls", exposure, outcome)
         warnings: dict = {}
         descendants_x = self.descendants(exposure)
         observed = self.observed_nodes - {exposure, outcome}
 
-        for v in observed:
+        for v in sorted(observed, key=str):
             reasons = []
 
             # 1. Descendant of treatment (not mediator)
@@ -595,6 +657,7 @@ class DAG:
         """
         if isinstance(intervention, str):
             intervention = {intervention}
+        self._require_nodes("do", intervention)
 
         modified = DAG()
         for n in self._nodes:
@@ -602,7 +665,7 @@ class DAG:
         for parent, children in self._edges.items():
             for child in children:
                 if child not in intervention:
-                    modified.add_edge(parent, child)
+                    modified._link(parent, child)
         modified._latent = set(self._latent)
         return modified
 
@@ -662,6 +725,7 @@ class DAG:
         >>> g.frontdoor_sets('X', 'Y')
         [{'M'}]
         """
+        self._require_nodes("frontdoor_sets", exposure, outcome)
         # Candidates: observed, not exposure, not outcome
         candidates = self.observed_nodes - {exposure, outcome}
         valid: List[Set[str]] = []
@@ -723,6 +787,7 @@ class DAG:
         Uses the Bayes-Ball algorithm (Shachter 1998).
         """
         conditioned = conditioned or set()
+        self._require_nodes("d_separated", x, y, conditioned)
         # Use reachability via active paths
         reachable = self._active_reachable(x, conditioned)
         return y not in reachable
@@ -796,8 +861,13 @@ class DAG:
         minimal : bool
             If True, return the minimal sufficient adjustment sets: valid
             sets none of whose proper subsets is valid. They need not all
-            be the same size. If False, return every valid set (R
-            ``dagitty::adjustmentSets(type = "all")``).
+            be the same size; they are the sets R
+            ``dagitty::adjustmentSets()`` returns. If False, return every
+            valid backdoor set, which excludes all descendants of the
+            exposure. R ``dagitty::adjustmentSets(type = "all")`` applies
+            the adjustment criterion instead and also lists sets holding
+            descendants of the exposure that lie off every causal path
+            (``X -> W`` with ``W`` not on a path to the outcome).
 
         Returns
         -------
@@ -829,6 +899,7 @@ class DAG:
             raise ValueError(
                 "Only 'backdoor' method is currently supported, " f"got {method!r}"
             )
+        self._require_nodes("adjustment_sets", exposure, outcome)
 
         # Candidate nodes: observed and not exposure/outcome/descendant.
         descendants_x = self.descendants(exposure)
@@ -843,7 +914,7 @@ class DAG:
         for parent, children in self._edges.items():
             for child in children:
                 if parent != exposure:
-                    modified.add_edge(parent, child)
+                    modified._link(parent, child)
 
         def valid(s: Set[str]) -> bool:
             return modified.d_separated(exposure, outcome, s)
@@ -912,7 +983,7 @@ class DAG:
         for parent, children in self._edges.items():
             for child in children:
                 if parent != exposure:
-                    modified.add_edge(parent, child)
+                    modified._link(parent, child)
 
         return modified.d_separated(exposure, outcome, conditioned)
 
@@ -965,7 +1036,7 @@ class DAG:
             projected.add_node(node)
         for node in sorted(observed):
             for child in sorted(observed_reach(node)):
-                projected.add_edge(node, child)
+                projected._link(node, child)
         pairs: Set[Tuple[str, str]] = set()
         for node in latent:
             reached = sorted(observed_reach(node))
@@ -1305,9 +1376,9 @@ class DAG:
                 g.add_node(n)
             for i, (a, b) in enumerate(edges):
                 if mask >> i & 1:
-                    g.add_edge(b, a)
+                    g._link(b, a)
                 else:
-                    g.add_edge(a, b)
+                    g._link(a, b)
             if g._is_acyclic() and g._v_structures() == target:
                 g._latent = set(latent)
                 members.append(g)
@@ -1819,9 +1890,9 @@ class DAG:
                 for a in left:
                     for b in right:
                         if op == "->":
-                            self.add_edge(a, b)
+                            self._link(a, b)
                         elif op == "<-":
-                            self.add_edge(b, a)
+                            self._link(b, a)
                         else:
                             self.add_bidirected(a, b)
 

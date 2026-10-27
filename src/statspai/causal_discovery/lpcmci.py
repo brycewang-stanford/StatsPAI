@@ -28,8 +28,8 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from .pcmci import partial_corr_pvalue
 from .._result_serialize import ResultProtocolMixin
+from .pcmci import partial_corr_pvalue
 
 __all__ = ["lpcmci", "LPCMCIResult"]
 
@@ -199,6 +199,10 @@ def lpcmci(
     variables = list(variables)
     if len(variables) < 2:
         raise ValueError("Need at least 2 variables for LPCMCI.")
+    from ._data import check_alpha, check_no_missing
+
+    check_alpha(alpha, "lpcmci")
+    check_no_missing(data[variables], "lpcmci")
     X = data[variables].to_numpy(dtype=float)
     T, N = X.shape
     if T <= tau_max + 5:

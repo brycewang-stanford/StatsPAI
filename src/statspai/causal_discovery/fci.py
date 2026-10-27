@@ -253,12 +253,17 @@ def fci(
     if ci_test != "fisherz":
         raise NotImplementedError("Only 'fisherz' is supported at the moment")
 
+    from ._data import check_alpha, check_gaussian_columns, numeric_columns
+
+    check_alpha(alpha, "fci")
     if variables is None:
-        variables = list(data.select_dtypes(include=[np.number]).columns)
+        variables = numeric_columns(data)
     variables = list(variables)
     X = data[variables].dropna().to_numpy(dtype=float)
     n = X.shape[0]
     d = X.shape[1]
+    if d >= 2:
+        check_gaussian_columns(X, variables, "fci")
     if d < 2:
         dropped = [c for c in data.columns if c not in variables]
         raise ValueError(

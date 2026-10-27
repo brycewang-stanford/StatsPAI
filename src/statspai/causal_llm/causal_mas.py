@@ -28,6 +28,7 @@ preserved for auditability.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -281,6 +282,8 @@ def causal_mas(
         roles[v] = "confounder"
 
     transcript: List[Dict[str, Any]] = []
+    # Agent lines naming something that is not one of ``variables``.
+    unknown: List[str] = []
     endorsement_counts: Dict[Tuple[str, str], float] = {}
 
     # --- Debate loop ------------------------------------------------------
@@ -303,7 +306,7 @@ def causal_mas(
                 "Return one edge per line as 'A -> B'."
             )
             raw = _run_llm_agent(client, "proposer", prompt)
-            proposed = _parse_edges(raw)
+            proposed = _parse_edges(raw, variables, unknown)
             transcript.append(
                 {
                     "round": r,
@@ -324,7 +327,9 @@ def causal_mas(
                 "exclusion restrictions, or common-sense.  Return "
                 "rejections one per line as 'A -> B'."
             )
-            rejected = _parse_edges(_run_llm_agent(client, "critic", prompt))
+            rejected = _parse_edges(
+                _run_llm_agent(client, "critic", prompt), variables, unknown
+            )
         transcript.append(
             {
                 "round": r,
@@ -345,7 +350,9 @@ def causal_mas(
                 f"domain knowledge: {proposed}.  Return endorsements one "
                 "per line as 'A -> B'."
             )
-            endorsed = _parse_edges(_run_llm_agent(client, "domain_expert", prompt))
+            endorsed = _parse_edges(
+                _run_llm_agent(client, "domain_expert", prompt), variables, unknown
+            )
         transcript.append(
             {
                 "round": r,
@@ -371,6 +378,18 @@ def causal_mas(
             }
         )
 
+    if unknown:
+        import warnings
+
+        seen = list(dict.fromkeys(unknown))
+        warnings.warn(
+            f"causal_mas: {len(seen)} edge line(s) from the LLM name "
+            f"variables that are not in `variables` and were dropped: "
+            f"{seen[:6]}" + (" ..." if len(seen) > 6 else ""),
+            UserWarning,
+            stacklevel=2,
+        )
+
     # --- Aggregate confidences --------------------------------------------
     confidence: Dict[Tuple[str, str], float] = {
         e: count / rounds for e, count in endorsement_counts.items()
@@ -394,16 +413,58 @@ def causal_mas(
     )
 
 
-def _parse_edges(text: str) -> List[Tuple[str, str]]:
-    """Parse ``A -> B`` edges from free-text agent output."""
+_BULLET = re.compile(r"^\s*(?:[-*\u2022]+|\d+[.)])\s*")
+
+
+def _match_side(text: str, variables: Sequence[str], at_end: bool) -> Optional[str]:
+    """The variable ``text`` names: all of it, or else the longest variable
+    that ends it (left of the arrow) or starts it (right of the arrow) on a
+    word boundary."""
+    text = text.strip().strip("\"'`").strip()
+    if text in variables:
+        return text
+    best: Optional[str] = None
+    for v in variables:
+        pat = (
+            (r"(?:^|\W)" + re.escape(v) + r"\W*$")
+            if at_end
+            else (r"^\W*" + re.escape(v) + r"(?:\W|$)")
+        )
+        if re.search(pat, text) and (best is None or len(v) > len(best)):
+            best = v
+    return best
+
+
+def _parse_edges(
+    text: str,
+    variables: Optional[Sequence[str]] = None,
+    unknown: Optional[List[str]] = None,
+) -> List[Tuple[str, str]]:
+    """Parse ``A -> B`` edges from free-text agent output.
+
+    With ``variables`` each side is matched against the known names, so a
+    name with spaces survives and a name the LLM invented is dropped (and
+    recorded in ``unknown``). Through 1.41 the last word left of the arrow
+    and the first word right of it were taken, so ``years of schooling ->
+    log wage`` became the edge ``schooling -> log`` and invented names
+    went straight into the consensus DAG.
+    """
     edges: List[Tuple[str, str]] = []
     for line in str(text).splitlines():
-        line = line.strip()
+        line = _BULLET.sub("", line.strip())
         if not line or "->" not in line:
             continue
         p, _, c = line.partition("->")
-        p = p.strip().strip("-*• ").split()[-1] if p.strip() else ""
-        c = c.strip().split()[0] if c.strip() else ""
-        if p and c:
-            edges.append((p, c))
+        if variables is None:
+            p = p.strip().strip("-*\u2022 ").split()[-1] if p.strip() else ""
+            c = c.strip().split()[0] if c.strip() else ""
+            if p and c:
+                edges.append((p, c))
+            continue
+        a = _match_side(p, variables, at_end=True)
+        b = _match_side(c, variables, at_end=False)
+        if a is not None and b is not None and a != b:
+            edges.append((a, b))
+        elif unknown is not None:
+            unknown.append(line)
     return edges

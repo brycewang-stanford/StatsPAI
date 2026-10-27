@@ -202,7 +202,10 @@ def lingam(
     ----------
     data : pd.DataFrame or (n, k) ndarray
     standardize : bool, default True
-        Zero-mean / unit-variance each variable before the algorithm.
+        Scale each variable to unit variance before the algorithm. The
+        variables are centred either way, so ``adjacency`` (OLS slopes in
+        the original units) does not depend on the column means. Rows
+        with a missing value are dropped.
 
     Returns
     -------
@@ -246,11 +249,18 @@ def lingam(
     else:
         X = np.asarray(data, dtype=float).copy()
         names = [f"x{i}" for i in range(X.shape[1])]
+    # Listwise deletion, as in the other structure learners; a NaN used to
+    # reach np.linalg.lstsq and stop with "SVD did not converge".
+    X = X[~np.isnan(X).any(axis=1)]
     # Keep original scales so we can de-standardise B at the end.
     scales = X.std(axis=0)
     means = X.mean(axis=0)
+    # Centre always: the structural coefficients are slopes, and the
+    # regressions below have no intercept. Without centring, a column mean
+    # leaked into B whenever standardize=False.
+    X = X - means
     if standardize:
-        X = (X - means) / np.maximum(scales, 1e-12)
+        X = X / np.maximum(scales, 1e-12)
     n, k = X.shape
     remaining = list(range(k))
     order: List[int] = []

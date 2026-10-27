@@ -35,6 +35,7 @@ from scipy import stats as sp_stats
 from .._input_validation import check_columns
 from ..dag._ci_tests import discrete_ci_test
 from ..exceptions import MethodIncompatibility
+from ._data import check_alpha, check_gaussian_columns, numeric_columns
 
 #: Tests that cross-tabulate their columns.
 _DISCRETE_TESTS = ("chi-square", "g-test")
@@ -283,6 +284,13 @@ class PCAlgorithm:
 
     def fit(self) -> Dict[str, Any]:
         """Run the PC algorithm and return learned structure."""
+        check_alpha(self.alpha, "pc_algorithm")
+        if self.max_cond_size is not None and int(self.max_cond_size) < 0:
+            raise MethodIncompatibility(
+                f"pc_algorithm: max_cond_size={self.max_cond_size!r} must be "
+                "a non-negative integer or None.",
+                recovery_hint="Pass max_cond_size=None to test up to d - 2.",
+            )
         # Prepare data
         if self.variables is not None:
             check_columns(
@@ -294,7 +302,7 @@ class PCAlgorithm:
         elif self.ci_test in _DISCRETE_TESTS:
             frame = self.data.dropna()
         else:
-            frame = self.data.select_dtypes(include=[np.number]).dropna()
+            frame = self.data[numeric_columns(self.data)].dropna()
         var_names = list(frame.columns)
 
         if self.ci_test not in ("fisherz",) + _DISCRETE_TESTS:
@@ -331,6 +339,8 @@ class PCAlgorithm:
                     diagnostics={"non_numeric_columns": labelled},
                 )
             X = frame.values.astype(np.float64)
+            if X.shape[1] >= 2:
+                check_gaussian_columns(X, var_names, "pc_algorithm")
 
         n, d = X.shape
         if d < 2:

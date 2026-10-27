@@ -303,10 +303,15 @@ def pcmci(
     else:
         variables = list(variables)
 
+    from ._data import check_alpha, check_no_missing
+
+    check_no_missing(data[variables], "pcmci")
     X = data[variables].to_numpy(dtype=float)
     T, d = X.shape
     if mci_alpha is None:
         mci_alpha = pc_alpha
+    check_alpha(pc_alpha, "pcmci", "pc_alpha")
+    check_alpha(mci_alpha, "pcmci", "mci_alpha")
     ci = ci_test or partial_corr_pvalue
 
     Y, L = _make_lagged(X, tau_max)

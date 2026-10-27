@@ -46,7 +46,7 @@ def _without_first_causal_edges(dag: "DAG", x: str, on_path: Set[str]) -> "DAG":
         g.add_node(n)
     for parent, child in dag.edges:
         if not (parent == x and child in on_path):
-            g.add_edge(parent, child)
+            g._link(parent, child)
     g._latent = set(dag._latent)
     return g
 

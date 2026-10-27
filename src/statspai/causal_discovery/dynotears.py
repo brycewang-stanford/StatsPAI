@@ -280,6 +280,9 @@ def dynotears(
         raise ValueError("Need at least 2 variables for DYNOTEARS.")
     if lag < 0:
         raise ValueError("`lag` must be >= 0.")
+    from ._data import check_no_missing
+
+    check_no_missing(data[variables], "dynotears")
     X_full = data[variables].to_numpy(dtype=float)
     T = X_full.shape[0]
     scale = float(np.median(np.nanstd(X_full, axis=0)))
@@ -344,6 +347,9 @@ def dynotears(
     if lag > 0:
         A = np.asarray(np.where(np.abs(A) > threshold, A, 0.0), dtype=float)
     loss = float(result.fun)
+    from ._data import warn_if_cyclic
+
+    warn_if_cyclic(W, "dynotears", _h_acyclicity(W))
 
     _result = DYNOTEARSResult(
         variables=variables,

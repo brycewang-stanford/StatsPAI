@@ -21967,7 +21967,7 @@
       "properties": {
         "standardize": {
           "default": true,
-          "description": "Zero-mean / unit-variance each variable before the algorithm.",
+          "description": "Scale each variable to unit variance before the algorithm. The variables are centred either way, so ``adjacency`` (OLS slopes in the original units) does not depend on the column means. Rows with a missing value are dropped.",
           "type": "boolean"
         }
       },

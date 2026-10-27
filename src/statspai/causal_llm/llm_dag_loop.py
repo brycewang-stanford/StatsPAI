@@ -201,13 +201,18 @@ class DAGValidationResult(ResultProtocolMixin):
         ``declared`` (bool), ``ci_pvalue`` (float or NaN) and
         ``supported`` (bool -- ``True`` when the partial-correlation CI
         test rejects conditional independence at ``alpha``, i.e. the data
-        backs keeping the edge).
+        backs keeping the edge) and ``testable`` (bool -- ``False`` when
+        no test could be run: an endpoint is not a column of the data, or
+        the test is undefined, as for a constant column).
     n_supported : int
         Number of edges the data supports.
     n_unsupported : int
-        Number of edges the data does not support.
+        Number of tested edges the data does not support.
     alpha : float
         CI-test significance level used.
+    n_untestable : int
+        Number of edges no test could be run on. They are neither
+        supported nor unsupported.
 
     Examples
     --------
@@ -232,6 +237,7 @@ class DAGValidationResult(ResultProtocolMixin):
     n_supported: int
     n_unsupported: int
     alpha: float
+    n_untestable: int = 0
 
     def summary(self) -> str:
         lines = [
@@ -240,10 +246,14 @@ class DAGValidationResult(ResultProtocolMixin):
             f"  Alpha            : {self.alpha}",
             f"  Edges supported  : {self.n_supported}",
             f"  Edges unsupported: {self.n_unsupported}",
+            f"  Edges untestable : {self.n_untestable}",
         ]
         for _, row in self.edge_evidence.iterrows():
             edge = row["edge"]
-            mark = "OK" if row["supported"] else "REJECT"
+            if not row.get("testable", True):
+                mark = "UNTESTED"
+            else:
+                mark = "OK" if row["supported"] else "REJECT"
             pval = row["ci_pvalue"]
             pval_s = f"{pval:.3f}" if pd.notna(pval) else "NA"
             lines.append(f"    {edge[0]} -> {edge[1]}  p={pval_s}  [{mark}]")
@@ -254,6 +264,7 @@ class DAGValidationResult(ResultProtocolMixin):
             "alpha": self.alpha,
             "n_supported": self.n_supported,
             "n_unsupported": self.n_unsupported,
+            "n_untestable": self.n_untestable,
             "edges": [
                 {
                     "edge": list(row["edge"]),
@@ -262,6 +273,7 @@ class DAGValidationResult(ResultProtocolMixin):
                         None if pd.isna(row["ci_pvalue"]) else float(row["ci_pvalue"])
                     ),
                     "supported": bool(row["supported"]),
+                    "testable": bool(row.get("testable", True)),
                 }
                 for _, row in self.edge_evidence.iterrows()
             ],
@@ -316,6 +328,9 @@ def _partial_corr_pvalue(
     independent and avoids importing private helpers).
     """
     n = data.shape[0]
+    # Conditioning on a constant is conditioning on nothing; left in, it
+    # made the correlation matrix NaN and the edge untestable.
+    conditioning = [k for k in conditioning if np.ptp(data[:, k]) > 0]
     cols = [i, j] + list(conditioning)
     sub = data[:, cols]
     # If conditioning set non-empty, compute partial correlation via
@@ -454,8 +469,29 @@ def llm_dag_constrained(
             proposal = _normalize_oracle_output(raw)
         except Exception as exc:
             oracle_error = f"{type(exc).__name__}: {exc}"
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "llm_dag_constrained: the oracle call",
+                exc,
+                "the result is plain PC discovery with no LLM edges "
+                "(provenance['oracle_error'] holds the error)",
+            )
     # Keep proposals only over known variables.
     var_set = set(var_list)
+    off_list = [
+        (a, b) for (a, b, _) in proposal if a not in var_set or b not in var_set
+    ]
+    if off_list:
+        import warnings
+
+        warnings.warn(
+            f"llm_dag_constrained: the oracle proposed {len(off_list)} "
+            f"edge(s) over names not in `variables`, which were dropped: "
+            f"{off_list[:6]}" + (" ..." if len(off_list) > 6 else ""),
+            UserWarning,
+            stacklevel=2,
+        )
     proposal = [
         (a, b, c) for (a, b, c) in proposal if a in var_set and b in var_set and a != b
     ]
@@ -724,16 +760,22 @@ def llm_dag_validate(
             recovery_hint="Pass sp.dag('X -> Y; Z -> Y'), an object with an "
             "`edges` attribute, an edge list, or a {parent: [children]} dict.",
         )
+    # Edges touching an unobserved node have nothing to test: the ``_L_*``
+    # nodes of ``<->`` and the nodes declared ``latent=``.
+    latent = {str(v) for v in getattr(dag, "latent_nodes", None) or ()}
     declared_edges = [
         (a, b)
         for a, b in declared_edges
-        if not str(a).startswith("_L_") and not str(b).startswith("_L_")
+        if not str(a).startswith("_L_")
+        and not str(b).startswith("_L_")
+        and str(a) not in latent
+        and str(b) not in latent
     ]
 
     if not declared_edges:
         return DAGValidationResult(
             edge_evidence=pd.DataFrame(
-                columns=["edge", "declared", "ci_pvalue", "supported"]
+                columns=["edge", "declared", "ci_pvalue", "supported", "testable"]
             ),
             n_supported=0,
             n_unsupported=0,
@@ -741,6 +783,17 @@ def llm_dag_validate(
         )
 
     nodes = sorted({n for e in declared_edges for n in e})
+    absent = [n for n in nodes if n not in data.columns]
+    if absent:
+        import warnings
+
+        warnings.warn(
+            f"llm_dag_validate: {absent} are not columns of `data`; the "
+            "edges that touch them are reported as untestable. Declare an "
+            "unobserved node with sp.dag(..., latent=[...]).",
+            UserWarning,
+            stacklevel=2,
+        )
     nodes = [n for n in nodes if n in data.columns]
     if len(nodes) < 2:
         raise ValueError(
@@ -763,6 +816,7 @@ def llm_dag_validate(
                     "declared": True,
                     "ci_pvalue": float("nan"),
                     "supported": False,
+                    "testable": False,
                 }
             )
             continue
@@ -779,12 +833,15 @@ def llm_dag_validate(
                 "declared": True,
                 "ci_pvalue": pval,
                 "supported": supported,
+                "testable": not np.isnan(pval),
             }
         )
     df = pd.DataFrame(rows)
+    testable = df["testable"].astype(bool)
     return DAGValidationResult(
         edge_evidence=df,
         n_supported=int(df["supported"].sum()),
-        n_unsupported=int((~df["supported"]).sum()),
+        n_unsupported=int((testable & ~df["supported"]).sum()),
         alpha=alpha,
+        n_untestable=int((~testable).sum()),
     )

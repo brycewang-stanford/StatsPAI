@@ -80,6 +80,9 @@ def notears(
         'variables' : list of str
         'h_value' : float
             Final acyclicity constraint value (should be ~0).
+        'is_dag' : bool
+            Whether the thresholded graph is acyclic. When the optimiser
+            stops early it may not be, and a ``RuntimeWarning`` says so.
         'n_edges' : int
         'n_obs' : int
         'lambda1' : float
@@ -203,7 +206,9 @@ class NOTEARS:
             X = self.data[self.variables].dropna().values.astype(np.float64)
             var_names = list(self.variables)
         else:
-            numeric = self.data.select_dtypes(include=[np.number])
+            from ._data import numeric_columns
+
+            numeric = self.data[numeric_columns(self.data)]
             X = numeric.dropna().values.astype(np.float64)
             var_names = list(numeric.columns)
 
@@ -233,6 +238,9 @@ class NOTEARS:
 
         # Compute final acyclicity
         h_val = float(_h_func(W_est))
+        from ._data import warn_if_cyclic
+
+        is_dag = warn_if_cyclic(W_est, "notears", h_val)
 
         # Build results
         adj_df = pd.DataFrame(W_est, index=var_names, columns=var_names)
@@ -259,6 +267,7 @@ class NOTEARS:
                 "dag": dag_df,
                 "variables": var_names,
                 "h_value": h_val,
+                "is_dag": is_dag,
                 "n_edges": len(edges),
                 "n_obs": n,
                 "lambda1": self.lambda1,

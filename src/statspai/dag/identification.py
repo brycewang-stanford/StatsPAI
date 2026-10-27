@@ -864,7 +864,7 @@ def _subgraph(dag: Any, V: Iterable[str]) -> Any:
         elif p in keep_obs:
             for c in ch:
                 if c in keep_obs and not _is_latent(c):
-                    sub.add_edge(p, c)
+                    sub._link(p, c)
     return sub
 
 

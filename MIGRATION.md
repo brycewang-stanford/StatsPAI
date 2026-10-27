@@ -5,6 +5,39 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ DAGs, structure learners and LLM-DAG helpers (option scan round 6)
+
+- `sp.dag` / `DAG.add_bidirected`: when two bidirected edges spell the
+  same latent name (`A_B <-> C` and `A <-> B_C`), the second latent gets a
+  suffix (`_L_A_B_C_2`). d-separation, adjustment sets and identification
+  change for such graphs only.
+- `DAG.add_edge` raises on an edge that closes a cycle. Build the graph
+  in one `sp.dag(...)` string or check the edge first.
+- DAG queries and `sp.swig` raise `MethodIncompatibility` on a name that
+  is not a node. Code that relied on `adjustment_sets` returning `[set()]`
+  for a misspelt exposure now fails loudly.
+- `sp.lingam(standardize=False)`: `adjacency` and `residuals` change when
+  a column mean is not zero (the data are now centred).
+- `sp.icp`: each subset is tested at `alpha`, not `alpha / (2**p - 1)`.
+  `parents` can grow and `accepted_subsets` shrink for `p >= 2`. To
+  reproduce the old, more conservative answer pass
+  `alpha=alpha / (2**p - 1)`.
+- `sp.pc_algorithm` / `sp.fci`: a constant column or exactly collinear
+  columns raise `DataInsufficient`; drop the column. Boolean columns are
+  now used when `variables=` is not given (also in `sp.notears`); pass
+  `variables=` to leave them out.
+- `sp.pcmci` / `sp.lpcmci` / `sp.dynotears`: a missing value raises
+  `DataInsufficient`; fill the series first.
+- `sp.llm_dag_validate`: `n_unsupported` counts tested edges only; edges
+  that cannot be tested are in the new `n_untestable` and the new
+  `testable` column of `edge_evidence`. Edges at nodes declared
+  `latent=` are left out, like those of `<->`.
+- `sp.causal_mas` with a client: edges are matched against `variables`,
+  so multi-word names survive and invented names are dropped with a
+  warning.
+
+---
+
 ## 1.41 → 1.42: ⚠️ production functions, `sp.cevae`, neural treatment codes, `sp.blp` row labels (round-6 scan)
 
 - `sp.olley_pakes` / `sp.levinsohn_petrin` / `sp.ackerberg_caves_frazer`:

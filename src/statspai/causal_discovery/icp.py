@@ -27,12 +27,15 @@ tractable.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from itertools import combinations
 from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -51,7 +54,7 @@ class ICPResult(ResultProtocolMixin):
     rejection_reason : dict
         Maps each rejected subset to a human-readable reason string.
     alpha : float
-        Family-wise significance level used.
+        Level at which each subset's invariance test was run.
     coefficients : dict
         ``var -> (lo, hi)`` 95% confidence interval for each parent's
         coefficient in the pooled OLS fit on ``parents``.
@@ -85,10 +88,16 @@ class ICPResult(ResultProtocolMixin):
     method: str
 
     def summary(self) -> str:
+        if not self.accepted_subsets:
+            return (
+                f"ICP @ alpha={self.alpha}: no subset accepted, not even the "
+                "empty set; the invariance model is rejected for these data."
+            )
         if not self.parents:
             return (
-                f"ICP @ alpha={self.alpha}: no subset accepted -- the empty "
-                f"set is the only provably-causal estimate (conservative)."
+                f"ICP @ alpha={self.alpha}: {len(self.accepted_subsets)} "
+                "subsets accepted, with an empty intersection; no variable "
+                "is a provable parent (the conservative answer)."
             )
         lines = [
             f"ICP (method={self.method}, alpha={self.alpha}) -- "
@@ -129,7 +138,12 @@ def icp(
         Integer-coded environment label (length n). At least two
         environments required; more give stronger identification.
     alpha : float, default 0.05
-        Family-wise significance level.
+        Level of each subset's invariance test. A subset is accepted when
+        its p-value is at least ``alpha``; only the test of the true
+        parent set matters for the guarantee that ``parents`` is a subset
+        of the true parents with probability at least ``1 - alpha``, so no
+        correction for the number of subsets is applied (as in R
+        ``InvariantCausalPrediction::ICP``).
     method : {"linear", "nonlinear"}, default "linear"
         Linear uses F-test on residual distributions; ``nonlinear``
         uses a two-sample K-S test on residuals from a local linear
@@ -161,12 +175,24 @@ def icp(
     y = np.asarray(y, dtype=float)
     env = np.asarray(environment)
     n, p = X.shape
-    assert len(y) == n and len(env) == n
+    if len(y) != n or len(env) != n:
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"icp: X has {n} rows but y has {len(y)} and environment " f"{len(env)}.",
+            recovery_hint="Pass y and environment aligned with the rows of X.",
+        )
     env_labels = np.unique(env)
     if len(env_labels) < 2:
         raise ValueError("ICP needs at least 2 environments.")
 
-    per_subset_alpha = alpha / max(1, 2**p - 1)
+    from ._data import check_alpha
+
+    check_alpha(alpha, "icp")
+    # Each subset is tested at alpha. Through 1.41 alpha was divided by
+    # 2**p - 1, so adding pure-noise predictors made the test of every
+    # subset stricter and the true parent dropped out of the intersection.
+    per_subset_alpha = alpha
 
     if max_subset_size is None:
         max_subset_size = min(p, 6)
@@ -187,7 +213,7 @@ def icp(
                 accepted.append(S)
             else:
                 rejection[S] = (
-                    f"pval={pval:.4g} < alpha/m={per_subset_alpha:.2g}: " f"{reason}"
+                    f"pval={pval:.4g} < alpha={per_subset_alpha:.2g}: " f"{reason}"
                 )
 
     if not accepted:

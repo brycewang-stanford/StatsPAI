@@ -67,6 +67,14 @@ class SWIGGraph:
     def _build(self) -> None:
         V = set(self.parent._nodes)
         X = set(self.intervention)
+        if X - V:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"swig: {sorted(X - V)} not a node of the DAG.",
+                recovery_hint=f"Nodes: {sorted(V)}.",
+                diagnostics={"missing": sorted(X - V)},
+            )
 
         def _label(v: str) -> str:
             if v in X:
