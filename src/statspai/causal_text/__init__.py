@@ -32,6 +32,7 @@ References
 """
 
 from .llm_annotator import LLMAnnotatorResult, llm_annotator_correct
+from .llm_coding import LLMClientRequired, LLMCodingResult, llm_code_responses
 from .text_treatment import TextTreatmentResult, text_treatment_effect
 
 __all__ = [
@@ -39,4 +40,7 @@ __all__ = [
     "TextTreatmentResult",
     "llm_annotator_correct",
     "LLMAnnotatorResult",
+    "llm_code_responses",
+    "LLMCodingResult",
+    "LLMClientRequired",
 ]

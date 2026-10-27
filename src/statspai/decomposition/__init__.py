@@ -30,6 +30,7 @@ Methods (19 in total — Yu-Elwert added in v1.15)
 **Inequality decomposition**
 - ``subgroup`` — between/within decomposition (Theil T/L, GE, Gini,
   Atkinson, CV²)
+- ``shapley_r2`` — exact Shapley / Owen decomposition of an OLS R-squared.
 - ``shapley_inequality`` — Shorrocks-Shapley (2013) allocation of
   inequality to covariates
 - ``gini_source`` — Lerman-Yitzhaki (1985) Gini source decomposition
@@ -109,6 +110,7 @@ from .rif import (
     rif_values,
     rifreg,
 )
+from .shapley_r2 import ShapleyR2Result, shapley_r2
 from .yu_elwert import YuElwertResult, yu_elwert_decompose
 
 __all__ = [
@@ -149,6 +151,8 @@ __all__ = [
     "SubgroupDecompResult",
     "SourceDecompResult",
     "ShapleyInequalityResult",
+    "shapley_r2",
+    "ShapleyR2Result",
     # Kitagawa / Das Gupta
     "kitagawa_decompose",
     "das_gupta",

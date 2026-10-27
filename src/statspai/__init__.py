@@ -758,6 +758,7 @@ from .datasets.ingest import from_fred, from_sdmx, from_worldbank
 from .decomposition import (  # Tier C additions
     GelbachResult,
     OaxacaResult,
+    ShapleyR2Result,
     YuElwertResult,
     available_methods,
     bauer_sinning,
@@ -784,6 +785,7 @@ from .decomposition import (  # Tier C additions
     rif_decomposition,
     rifreg,
     shapley_inequality,
+    shapley_r2,
     source_decompose,
     subgroup_decompose,
     yu_elwert_decompose,
@@ -2674,6 +2676,8 @@ __all__ = [
     "diversity_index",
     "inequality_index",
     "shapley_inequality",
+    "shapley_r2",
+    "ShapleyR2Result",
     # Panel / DID extras
     "aggte",
     "cs_jackknife",
@@ -2846,6 +2850,8 @@ __all__ = [
     "DiagnosticTestResult",
     "ROCResult",
     "KappaResult",
+    "krippendorff_alpha",
+    "KrippendorffAlphaResult",
     # v0.9.17 additions (MR full suite)
     "mr",
     "mendelian",
@@ -2984,6 +2990,9 @@ __all__ = [
     "TextTreatmentResult",
     "llm_annotator_correct",
     "LLMAnnotatorResult",
+    "llm_code_responses",
+    "LLMCodingResult",
+    "LLMClientRequired",
     # Causal RL
     "causal_dqn",
     "CausalDQNResult",
@@ -3511,6 +3520,9 @@ _register_lazy(
     "TextTreatmentResult",
     "llm_annotator_correct",
     "LLMAnnotatorResult",
+    "llm_code_responses",
+    "LLMCodingResult",
+    "LLMClientRequired",
 )
 _register_lazy(
     "causal_rl",
@@ -3756,6 +3768,8 @@ _register_lazy(
     "DiagnosticTestResult",
     "ROCResult",
     "KappaResult",
+    "krippendorff_alpha",
+    "KrippendorffAlphaResult",
 )
 _register_lazy(
     "longitudinal",
