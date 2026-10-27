@@ -479,7 +479,7 @@ def shapley_r2(
 
     References
     ----------
-    [@shorrocks2013decomposition] [@lipovetsky2001analysis]
+    [@shorrocks2013decomposition; @lipovetsky2001analysis]
     [@huettner2012axiomatic]
     """
     if isinstance(x, str):

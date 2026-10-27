@@ -51,7 +51,7 @@ contributions too).
 
 References
 ----------
-[@mcfadden1989method] [@pakes1989simulation] [@lee1991simulation]
+[@mcfadden1989method; @pakes1989simulation; @lee1991simulation]
 [@hansen1982large]
 """
 
@@ -245,7 +245,7 @@ def smm(
 
     References
     ----------
-    [@mcfadden1989method] [@pakes1989simulation] [@lee1991simulation]
+    [@mcfadden1989method; @pakes1989simulation; @lee1991simulation]
     [@hansen1982large]
     """
     # ---- argument validation ---------------------------------------------

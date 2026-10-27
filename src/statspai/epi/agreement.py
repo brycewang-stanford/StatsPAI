@@ -378,7 +378,7 @@ def krippendorff_alpha(
 
     References
     ----------
-    [@krippendorff1970estimating] [@hayes2007answering]
+    [@krippendorff1970estimating; @hayes2007answering]
     """
     if level not in _LEVELS:
         raise MethodIncompatibility(

@@ -735,7 +735,7 @@ def llm_code_responses(
 
     References
     ----------
-    [@hayes2007answering] [@cohen1960coefficient]
+    [@hayes2007answering; @cohen1960coefficient]
     """
     cb = _normalise_codebook(codebook)
     if isinstance(texts, str):

@@ -10,7 +10,7 @@ definitions and the conventions they follow.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from scipy import stats
@@ -101,7 +101,9 @@ class _Atoms:
         self.atom_of_row = inv.reshape(-1)
         self.rows = rows
 
-    def stats(self, des: _Design, w: Optional[np.ndarray] = None):
+    def stats(
+        self, des: _Design, w: Optional[np.ndarray] = None
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         k = len(self.key)
         rows = self.rows
         ww = np.ones(len(rows)) if w is None else w
@@ -110,11 +112,13 @@ class _Atoms:
         sd = np.bincount(self.atom_of_row, weights=ww * des.d[rows], minlength=k)
         return n, sy, sd
 
-    def mask(self, period: int, col: int, value: int, cat: Optional[int] = None):
+    def mask(
+        self, period: int, col: int, value: int, cat: Optional[int] = None
+    ) -> np.ndarray:
         m = (self.key[:, 0] == period) & (self.key[:, col] == value + 1)
         if cat is not None:
             m &= self.key[:, 3] == cat
-        return m
+        return cast(np.ndarray, m)
 
 
 def _did_tc_from_stats(
@@ -126,7 +130,7 @@ def _did_tc_from_stats(
     want: Sequence[str],
     numerator: bool,
     n_cat: int,
-):
+) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
     """Wald-DID / Wald-TC (or numerators) from atom sums; complex-safe."""
     num = {k: 0.0 for k in want}
     den = {k: 0.0 for k in want}
@@ -138,7 +142,7 @@ def _did_tc_from_stats(
         cpre = atoms.mask(a, 2, 0)
         cpost = atoms.mask(a + 1, 1, 0)
 
-        def mean(m, v):
+        def mean(m: np.ndarray, v: np.ndarray) -> Any:
             return v[m].sum() / n[m].sum()
 
         dy = mean(post, sy) - mean(pre, sy)
@@ -214,7 +218,13 @@ def _qq(
     return s1[k - 1]
 
 
-def _cic(des: _Design, rows: np.ndarray, comps, numerator: bool, rule: str):
+def _cic(
+    des: _Design,
+    rows: np.ndarray,
+    comps: Sequence[_Comparison],
+    numerator: bool,
+    rule: str,
+) -> Tuple[Any, List[Dict[str, Any]]]:
     t = des.tcode[rows]
     gt = des.gt[rows]
     gf = des.gf[rows]
@@ -305,14 +315,16 @@ def _glm_fit(x: np.ndarray, v: np.ndarray, link: str) -> np.ndarray:
     )
 
 
-def _fit_predict(xtr: np.ndarray, v: np.ndarray, xte: np.ndarray, model: str):
+def _fit_predict(
+    xtr: np.ndarray, v: np.ndarray, xte: np.ndarray, model: str
+) -> np.ndarray:
     xtr1 = np.column_stack([np.ones(len(xtr)), xtr])
     xte1 = np.column_stack([np.ones(len(xte)), xte])
     keep = _keep_columns(xtr1)
     xtr1, xte1 = xtr1[:, keep], xte1[:, keep]
     if model == "ols":
         beta = np.linalg.lstsq(xtr1, v, rcond=None)[0]
-        return xte1 @ beta
+        return cast(np.ndarray, xte1 @ beta)
     vals = np.unique(v)
     if not np.all(np.isin(vals, (0.0, 1.0))):
         raise MethodIncompatibility(
@@ -326,17 +338,25 @@ def _fit_predict(xtr: np.ndarray, v: np.ndarray, xte: np.ndarray, model: str):
     beta = _glm_fit(xtr1, v, model)
     eta = xte1 @ beta
     if model == "logit":
-        return 1.0 / (1.0 + np.exp(-eta))
-    return stats.norm.cdf(eta)
+        return cast(np.ndarray, 1.0 / (1.0 + np.exp(-eta)))
+    return cast(np.ndarray, stats.norm.cdf(eta))
 
 
-def _did_tc_cov(des: _Design, rows, comps, want, numerator, modelx):
+def _did_tc_cov(
+    des: _Design,
+    rows: np.ndarray,
+    comps: Sequence[_Comparison],
+    want: Sequence[str],
+    numerator: bool,
+    modelx: Sequence[str],
+) -> Tuple[np.ndarray, List[Dict[str, Any]]]:
     t = des.tcode[rows]
     gt = des.gt[rows]
     gf = des.gf[rows]
     y = des.y[rows]
     d = des.d[rows]
     cat = des.cat[rows]
+    assert des.x is not None  # only called when covariates are given
     x = des.x[rows]
     m_y, m_d, m_p = modelx
     binary_d = des.n_cat == 2 and set(np.unique(des.d)) <= {0.0, 1.0}
@@ -351,7 +371,7 @@ def _did_tc_cov(des: _Design, rows, comps, want, numerator, modelx):
         cpost = (t == a + 1) & (gt == 0)
         xt = x[post]
 
-        def m(cell, v, model):
+        def m(cell: np.ndarray, v: np.ndarray, model: str) -> Any:
             return _fit_predict(x[cell], v[cell], xt, model).mean()
 
         my_pre = m(pre, y, m_y)
@@ -405,7 +425,14 @@ def _did_tc_cov(des: _Design, rows, comps, want, numerator, modelx):
 # ----------------------------------------------------------------------
 
 
-def _estimate(des: _Design, rows: np.ndarray, want, numerator, modelx, rule="exact"):
+def _estimate(
+    des: _Design,
+    rows: np.ndarray,
+    want: Sequence[str],
+    numerator: bool,
+    modelx: Sequence[str],
+    rule: str = "exact",
+) -> Tuple[Dict[str, float], List[_Comparison], Dict[str, Any]]:
     comps = _comparisons(des, rows)
     if not comps:
         raise IdentificationFailure(
@@ -458,7 +485,9 @@ def _estimate(des: _Design, rows: np.ndarray, want, numerator, modelx, rule="exa
     return out, comps, parts
 
 
-def _analytic_if(des: _Design, rows, want, numerator):
+def _analytic_if(
+    des: _Design, rows: np.ndarray, want: Sequence[str], numerator: bool
+) -> np.ndarray:
     """Per-row derivative of each estimator w.r.t. its row weight."""
     comps = _comparisons(des, rows)
     atoms = _Atoms(des, rows)
@@ -477,8 +506,9 @@ def _analytic_if(des: _Design, rows, want, numerator):
     a = atoms.atom_of_row
     # Every estimator is a function of cell means, hence homogeneous of
     # degree 0 in the row weights: these derivatives sum to zero (Euler).
-    return (
+    return cast(
+        np.ndarray,
         grad[a]
         + des.y[rows][:, None] * grad[k + a]
-        + des.d[rows][:, None] * grad[2 * k + a]
+        + des.d[rows][:, None] * grad[2 * k + a],
     )

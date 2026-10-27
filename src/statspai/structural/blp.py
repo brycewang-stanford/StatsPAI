@@ -440,7 +440,7 @@ def blp(
 
     References
     ----------
-    [@berry1995automobile] [@berry1994estimating] [@nevo2000practitioner]
+    [@berry1995automobile; @berry1994estimating; @nevo2000practitioner]
     """
     # ---- Validate inputs --------------------------------------------------
     x_linear = list(x_linear)

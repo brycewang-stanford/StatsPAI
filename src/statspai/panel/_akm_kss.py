@@ -43,7 +43,7 @@ estimate does not change when a constant is added to ``y``).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Callable, Dict, Optional, Tuple, cast
 
 import numpy as np
 
@@ -66,10 +66,14 @@ class TwoWayFit:
     n_f_rows: np.ndarray  # rows per firm
     comp_firm: np.ndarray  # component of each firm
     grounded: np.ndarray  # bool per firm
-    solve: object  # grounded solver: rhs (J,) or (J, k) -> solution
+    solve: Callable[
+        [np.ndarray], np.ndarray
+    ]  # grounded solver: rhs (J,) or (J, k) -> solution
 
 
-def _firm_laplacian(wc, fc, n_w, n_f, T):
+def _firm_laplacian(
+    wc: np.ndarray, fc: np.ndarray, n_w: int, n_f: int, T: np.ndarray
+) -> Tuple[Any, Any, Any]:
     """``L = F' F - F' D (D' D)^{-1} D' F`` as a sparse matrix."""
     from scipy import sparse
 
@@ -161,7 +165,9 @@ def plugin_components(fit: TwoWayFit) -> Dict[str, float]:
 # ---------------------------------------------------------------------------
 
 
-def _row_supports(fit: TwoWayFit):
+def _row_supports(
+    fit: TwoWayFit,
+) -> Dict[int, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """For movers' rows, grouped by ``s`` (firms of the worker): row index,
     the worker's firms ``(m, s)``, ``g_i`` and ``fbar_w`` on them."""
     wc, fc, n_f = fit.wc, fit.fc, fit.n_f
@@ -169,7 +175,7 @@ def _row_supports(fit: TwoWayFit):
     upair, cnt = np.unique(pair, return_counts=True)
     pw, pf = upair // n_f, upair % n_f
     s_w = np.bincount(pw, minlength=fit.n_w)
-    groups = {}
+    groups: Dict[int, Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
     for s in np.unique(s_w[wc]):
         if s < 2:
             continue
@@ -189,7 +195,7 @@ def _row_supports(fit: TwoWayFit):
 
 def _quad(M_sub: np.ndarray, a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """``a_m' M_m b_m`` for stacked (m, s) vectors and (m, s, s) blocks."""
-    return np.einsum("ma,mab,mb->m", a, M_sub, b)
+    return cast(np.ndarray, np.einsum("ma,mab,mb->m", a, M_sub, b))
 
 
 @dataclass
@@ -217,7 +223,7 @@ def leverages_exact(fit: TwoWayFit) -> Leverage:
     c = G @ (nf / n)
     mats = {"G": G, "psi": K_psi, "D": K_D}
 
-    def dense(Fi, a, b, which):
+    def dense(Fi: np.ndarray, a: np.ndarray, b: np.ndarray, which: str) -> np.ndarray:
         M = mats[which]
         return _quad(M[Fi[:, :, None], Fi[:, None, :]], a, b)
 
@@ -232,18 +238,20 @@ def leverages_jla(fit: TwoWayFit, n_draws: int, seed: Optional[int]) -> Leverage
     n, J, k = len(fit.y), fit.n_f, int(n_draws)
     wc, fc, T = fit.wc, fit.fc, fit.T
 
-    def rademacher():
-        return rng.choice(np.array([-1.0, 1.0]), size=(n, k)) / np.sqrt(k)
+    def rademacher() -> np.ndarray:
+        return cast(
+            np.ndarray, rng.choice(np.array([-1.0, 1.0]), size=(n, k)) / np.sqrt(k)
+        )
 
-    def firm_sum(V):  # F' V
+    def firm_sum(V: np.ndarray) -> np.ndarray:  # F' V
         out = np.zeros((J, V.shape[1]))
         np.add.at(out, fc, V)
         return out
 
-    def worker_mean(V):  # P_D V
+    def worker_mean(V: np.ndarray) -> np.ndarray:  # P_D V
         s = np.zeros((fit.n_w, V.shape[1]))
         np.add.at(s, wc, V)
-        return (s / T[:, None])[wc]
+        return cast(np.ndarray, (s / T[:, None])[wc])
 
     R = rademacher()
     Z0 = fit.solve(firm_sum(R - worker_mean(R)))  # G F' M_D R'
@@ -255,16 +263,22 @@ def leverages_jla(fit: TwoWayFit, n_draws: int, seed: Optional[int]) -> Leverage
     nf = fit.n_f_rows
     c = fit.solve(nf / n)
 
-    def sketch(Fi, a, b, which):
+    def sketch(Fi: np.ndarray, a: np.ndarray, b: np.ndarray, which: str) -> np.ndarray:
         Z = Zs[which][Fi]  # (m, s, k)
         za = np.einsum("ma,mak->mk", a, Z)
         zb = np.einsum("mb,mbk->mk", b, Z)
-        return (za * zb).sum(axis=1)
+        return cast(np.ndarray, (za * zb).sum(axis=1))
 
     return _assemble(fit, sketch, c, "jla", k)
 
 
-def _assemble(fit: TwoWayFit, form, c: np.ndarray, method: str, k) -> Leverage:
+def _assemble(
+    fit: TwoWayFit,
+    form: Callable[[np.ndarray, np.ndarray, np.ndarray, str], np.ndarray],
+    c: np.ndarray,
+    method: str,
+    k: Optional[int],
+) -> Leverage:
     n = len(fit.y)
     T_row = fit.T[fit.wc]
     P = 1.0 / T_row

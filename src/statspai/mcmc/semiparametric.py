@@ -34,7 +34,7 @@ retained chain is a fixed-kernel Markov chain with the same target.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Literal, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -119,7 +119,11 @@ class SemiparametricBayesResult(BayesRegressResult):
 
 
 def _rejected_proposals(
-    spec: _Spec, u: np.ndarray, d: np.ndarray, X: np.ndarray, rng
+    spec: _Spec,
+    u: np.ndarray,
+    d: np.ndarray,
+    X: np.ndarray,
+    rng: np.random.Generator,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Run the acceptance sampler once per observation; return the row
     index of every rejected proposal and the proposals themselves.
@@ -160,7 +164,15 @@ def _rejected_proposals(
     return np.concatenate(idx), np.concatenate(ys)
 
 
-def _aug_log_post(spec, v, m, n, y_all, X_all, delta_sd) -> float:
+def _aug_log_post(
+    spec: _Spec,
+    v: np.ndarray,
+    m: int,
+    n: int,
+    y_all: np.ndarray,
+    X_all: np.ndarray,
+    delta_sd: float,
+) -> float:
     """Log posterior of (theta, delta) given the rejected proposals.
 
     ``y_all`` stacks the ``n`` observations and then the rejected
@@ -181,7 +193,14 @@ def _aug_log_post(spec, v, m, n, y_all, X_all, delta_sd) -> float:
     return val if np.isfinite(val) else -np.inf
 
 
-def _initial_cov(spec, u0, y, X, prior_sd, delta_sd) -> np.ndarray:
+def _initial_cov(
+    spec: _Spec,
+    u0: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    prior_sd: float,
+    delta_sd: float,
+) -> np.ndarray:
     """Outer product of the per-observation scores of (theta, delta) at
     (u0, 0), plus the prior precision: the starting proposal."""
     m = u0.size
@@ -201,22 +220,22 @@ def _initial_cov(spec, u0, y, X, prior_sd, delta_sd) -> np.ndarray:
         linalg.cholesky(cov, lower=True)
     except linalg.LinAlgError:
         cov = np.diag(1.0 / np.maximum(np.diag(J), 1e-12))
-    return 0.5 * (cov + cov.T)
+    return cast(np.ndarray, 0.5 * (cov + cov.T))
 
 
 def _augmented_chain(
-    spec,
-    rng,
-    start,
-    y,
-    X,
-    n_iter,
-    burnin,
-    thin,
-    draws,
-    cov0,
-    delta_sd,
-    mh_steps=_MH_STEPS,
+    spec: _Spec,
+    rng: np.random.Generator,
+    start: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    n_iter: int,
+    burnin: int,
+    thin: int,
+    draws: int,
+    cov0: np.ndarray,
+    delta_sd: float,
+    mh_steps: int = _MH_STEPS,
 ) -> Tuple[np.ndarray, float, float]:
     m = spec.start.size
     n_obs = y.shape[0]
@@ -237,7 +256,7 @@ def _augmented_chain(
         y_all = np.concatenate([y, yt])
         X_all = np.vstack([X, X[ridx]])
 
-        def target(v):
+        def target(v: np.ndarray) -> float:
             return _aug_log_post(spec, v, m, n_obs, y_all, X_all, delta_sd)
 
         states, acc = random_walk_metropolis(rng, target, cur, scale**2 * cov, mh_steps)
@@ -271,7 +290,12 @@ def _augmented_chain(
 
 
 def _efficient_estimate(
-    model, spec, y, X0, names, base_mean_u
+    model: str,
+    spec: _Spec,
+    y: np.ndarray,
+    X0: np.ndarray,
+    names: List[str],
+    base_mean_u: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray, str]:
     n, p = X0.shape
     if model == "student_t":
@@ -517,7 +541,7 @@ def semiparametric_bayes(
         maker = _student_t_spec if model == "student_t" else _weibull_spec
         spec = maker(y, X, names, pos, Pi, prior_sd)
 
-    def neg_base(u):
+    def neg_base(u: np.ndarray) -> float:
         with np.errstate(all="ignore"):
             v = -(spec.loglik(u, y, X).sum() + spec.log_prior(u))
         return float(v) if np.isfinite(v) else 1e300

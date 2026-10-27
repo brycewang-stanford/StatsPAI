@@ -20,7 +20,7 @@ Contents
 
 References
 ----------
-[@calonico2019nprobust] [@calonico2018effect] [@calonico2014robust]
+[@calonico2019nprobust; @calonico2018effect; @calonico2014robust]
 """
 
 from __future__ import annotations

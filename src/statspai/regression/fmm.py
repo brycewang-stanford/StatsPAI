@@ -182,7 +182,7 @@ def fmm(
 
     References
     ----------
-    [@mclachlan2000finite] [@dempster1977maximum]
+    [@mclachlan2000finite; @dempster1977maximum]
     """
     fam = str(family).lower()
     if fam not in core.FAMILIES:

@@ -8,7 +8,7 @@ the map from the sampler's unconstrained scale to the reported one.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional, Sequence, Tuple
+from typing import Any, Callable, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 from scipy import linalg, special
@@ -50,7 +50,7 @@ def _norm_logpdf(x: Any, mean: float, sd: float) -> float:
 
 def _log_k0(z: np.ndarray) -> np.ndarray:
     # log(2 / (1 + exp(-2z)))
-    return np.log(2.0) - np.logaddexp(0.0, -2.0 * z)
+    return cast(np.ndarray, np.log(2.0) - np.logaddexp(0.0, -2.0 * z))
 
 
 def _log_one_minus_half_k0(z: np.ndarray) -> np.ndarray:
@@ -118,46 +118,52 @@ def _back_transform(
 
 
 def _student_t_spec(
-    y: np.ndarray, X: np.ndarray, names: List[str], pos: List[int], Pi, prior_sd
+    y: np.ndarray,
+    X: np.ndarray,
+    names: List[str],
+    pos: List[int],
+    Pi: np.ndarray,
+    prior_sd: float,
 ) -> _Spec:
     p = X.shape[1]
 
-    def unpack(u):
+    def unpack(u: np.ndarray) -> Tuple[np.ndarray, Any, Any]:
         return u[:p], np.exp(u[p]), 2.0 + np.exp(u[p + 1])
 
-    def loglik(u, yy, XX):
+    def loglik(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         b, s, nu = unpack(u)
         e = (yy - XX @ b) / s
-        return (
+        return cast(
+            np.ndarray,
             special.gammaln((nu + 1) / 2)
             - special.gammaln(nu / 2)
             - 0.5 * np.log(nu * np.pi)
             - (nu + 1) / 2 * np.log1p(e * e / nu)
-            - np.log(s)
+            - np.log(s),
         )
 
-    def simulate(u, XX, rng):
+    def simulate(u: np.ndarray, XX: np.ndarray, rng: np.random.Generator) -> np.ndarray:
         b, s, nu = unpack(u)
-        return XX @ b + s * rng.standard_t(nu, size=XX.shape[0])
+        return cast(np.ndarray, XX @ b + s * rng.standard_t(nu, size=XX.shape[0]))
 
-    def efficient_score(u, yy, XX):
+    def efficient_score(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         b, s, nu = unpack(u)
         e = yy - XX @ b
         # var(e) = s^2 nu / (nu - 2) under the baseline (eq. 11 of the paper)
-        return XX[:, pos] * (e * (nu - 2) / (nu * s * s))[:, None]
+        return cast(np.ndarray, XX[:, pos] * (e * (nu - 2) / (nu * s * s))[:, None])
 
-    def ldelta(u, yy, XX):
+    def ldelta(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         b, s, nu = unpack(u)
         e = yy - XX @ b
         w = (nu + 1) / (nu * s * s + e * e) - (nu - 2) / (nu * s * s)
-        return XX[:, pos] * (e * w)[:, None]
+        return cast(np.ndarray, XX[:, pos] * (e * w)[:, None])
 
-    def log_prior(u):
+    def log_prior(u: np.ndarray) -> float:
         return _norm_logpdf(u[: p + 1], 0.0, prior_sd) + _norm_logpdf(
             u[p + 1], float(np.log(2.0)), 1.0
         )
 
-    def to_report(U):
+    def to_report(U: np.ndarray) -> np.ndarray:
         B = _back_transform(U[:, :p], pos, Pi, p)
         return np.column_stack([B, np.exp(U[:, p]), 2.0 + np.exp(U[:, p + 1])])
 
@@ -191,49 +197,54 @@ def _gamma_qmle(y: np.ndarray, X: np.ndarray) -> np.ndarray:
         b = b + step
         if np.max(np.abs(step)) < 1e-12 * (1.0 + np.max(np.abs(b))):
             break
-    return b
+    return cast(np.ndarray, b)
 
 
-def _weibull_c(alpha):
+def _weibull_c(alpha: Any) -> Any:
     return (
         np.exp(special.gammaln(1 + 2 / alpha) - 2 * special.gammaln(1 + 1 / alpha)) - 1
     )
 
 
 def _weibull_spec(
-    y: np.ndarray, X: np.ndarray, names: List[str], pos: List[int], Pi, prior_sd
+    y: np.ndarray,
+    X: np.ndarray,
+    names: List[str],
+    pos: List[int],
+    Pi: np.ndarray,
+    prior_sd: float,
 ) -> _Spec:
     p = X.shape[1]
 
-    def log_lam(u, XX):
+    def log_lam(u: np.ndarray, XX: np.ndarray) -> Tuple[np.ndarray, Any]:
         alpha = np.exp(u[p])
         return XX @ u[:p] - special.gammaln(1 + 1 / alpha), alpha
 
-    def loglik(u, yy, XX):
+    def loglik(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         ll, alpha = log_lam(u, XX)
         d = np.log(yy) - ll
-        return u[p] - ll + (alpha - 1) * d - np.exp(alpha * d)
+        return cast(np.ndarray, u[p] - ll + (alpha - 1) * d - np.exp(alpha * d))
 
-    def simulate(u, XX, rng):
+    def simulate(u: np.ndarray, XX: np.ndarray, rng: np.random.Generator) -> np.ndarray:
         ll, alpha = log_lam(u, XX)
-        return np.exp(ll) * rng.weibull(alpha, size=XX.shape[0])
+        return cast(np.ndarray, np.exp(ll) * rng.weibull(alpha, size=XX.shape[0]))
 
-    def efficient_score(u, yy, XX):
+    def efficient_score(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         alpha = np.exp(u[p])
         r = yy * np.exp(-(XX @ u[:p])) - 1.0
-        return XX[:, pos] * (r / _weibull_c(alpha))[:, None]
+        return cast(np.ndarray, XX[:, pos] * (r / _weibull_c(alpha))[:, None])
 
-    def ldelta(u, yy, XX):
+    def ldelta(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
         ll, alpha = log_lam(u, XX)
         z = np.exp(alpha * (np.log(yy) - ll))
         base = alpha * (z - 1.0)
         eff = (yy * np.exp(-(XX @ u[:p])) - 1.0) / _weibull_c(alpha)
-        return XX[:, pos] * (base - eff)[:, None]
+        return cast(np.ndarray, XX[:, pos] * (base - eff)[:, None])
 
-    def log_prior(u):
+    def log_prior(u: np.ndarray) -> float:
         return _norm_logpdf(u, 0.0, prior_sd)
 
-    def to_report(U):
+    def to_report(U: np.ndarray) -> np.ndarray:
         B = _back_transform(U[:, :p], pos, Pi, p)
         return np.column_stack([B, np.exp(U[:, p])])
 
@@ -255,16 +266,16 @@ def _weibull_spec(
 
 
 def _custom_spec(
-    y,
-    X,
-    loglik,
-    score,
-    efficient_score,
-    simulate,
-    log_prior,
-    theta_start,
-    param_names,
-    interest,
+    y: np.ndarray,
+    X: np.ndarray,
+    loglik: Any,
+    score: Any,
+    efficient_score: Any,
+    simulate: Any,
+    log_prior: Any,
+    theta_start: Any,
+    param_names: Optional[Sequence[str]],
+    interest: Optional[Sequence[Any]],
 ) -> _Spec:
     missing = [
         nm
@@ -298,8 +309,10 @@ def _custom_spec(
             f"param_names has {len(names)} entries for {m} parameters."
         )
 
-    def as_scores(f, label):
-        def g(u, yy, XX):
+    def as_scores(
+        f: Callable[..., Any], label: str
+    ) -> Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
+        def g(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
             s = np.asarray(f(u, yy, XX), dtype=float)
             if s.ndim == 1:
                 s = s[:, None]
@@ -349,8 +362,8 @@ def _custom_spec(
             recovery_hint=_SCORE_HINT,
         )
 
-    def ldelta(u, yy, XX):
-        return sc(u, yy, XX) - ef(u, yy, XX)
+    def ldelta(u: np.ndarray, yy: np.ndarray, XX: np.ndarray) -> np.ndarray:
+        return cast(np.ndarray, sc(u, yy, XX) - ef(u, yy, XX))
 
     return _Spec(
         names_u=names,

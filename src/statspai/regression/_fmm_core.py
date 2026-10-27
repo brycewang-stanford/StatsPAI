@@ -21,7 +21,7 @@ likelihood takes it to the maximum.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, cast
 
 import numpy as np
 from scipy import special
@@ -35,13 +35,15 @@ _LOG_2PI = float(np.log(2.0 * np.pi))
 def _lse(a: np.ndarray) -> np.ndarray:
     """Row-wise log-sum-exp, complex-safe (the shift uses the real part)."""
     m = np.max(np.real(a), axis=1, keepdims=True)
-    return (m + np.log(np.sum(np.exp(a - m), axis=1, keepdims=True)))[:, 0]
+    return cast(
+        np.ndarray, (m + np.log(np.sum(np.exp(a - m), axis=1, keepdims=True)))[:, 0]
+    )
 
 
 def _softplus(eta: np.ndarray) -> np.ndarray:
     """``log(1 + exp(eta))``, stable and complex-safe."""
     if np.isrealobj(eta):
-        return np.logaddexp(0.0, eta)
+        return cast(np.ndarray, np.logaddexp(0.0, eta))
     pos = np.real(eta) > 0
     with np.errstate(over="ignore", invalid="ignore"):
         a = eta + np.log1p(np.exp(-eta))
@@ -109,7 +111,7 @@ class MixtureModel:
     ) -> np.ndarray:
         G, _, _ = self.unpack(theta)
         eta = (self.Z if Z is None else Z) @ G
-        return eta - _lse(eta)[:, None]
+        return cast(np.ndarray, eta - _lse(eta)[:, None])
 
     def class_mean(
         self, theta: np.ndarray, X: Optional[np.ndarray] = None
@@ -118,10 +120,10 @@ class MixtureModel:
         _, B, _ = self.unpack(theta)
         eta = (self.X if X is None else X) @ B
         if self.family == "gaussian":
-            return eta
+            return cast(np.ndarray, eta)
         if self.family == "logit":
-            return np.exp(eta - _softplus(eta))
-        return np.exp(eta)
+            return cast(np.ndarray, np.exp(eta - _softplus(eta)))
+        return cast(np.ndarray, np.exp(eta))
 
     def _log_density(
         self, theta: np.ndarray, X: np.ndarray, y: np.ndarray
@@ -184,7 +186,7 @@ class MixtureModel:
         return np.hstack(cols)
 
     def total_score(self, theta: np.ndarray) -> np.ndarray:
-        return self.w @ self.scores(theta)
+        return cast(np.ndarray, self.w @ self.scores(theta))
 
     def hessian(self, theta: np.ndarray, h: float = 1e-30) -> np.ndarray:
         """Hessian of the weighted log-likelihood by the complex step of the

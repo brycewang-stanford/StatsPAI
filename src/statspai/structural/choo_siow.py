@@ -230,7 +230,7 @@ def choo_siow(
 
     References
     ----------
-    [@choo2006who] [@galichon2022cupid] [@galichon2024estimating]
+    [@choo2006who; @galichon2022cupid; @galichon2024estimating]
     """
     if not (0 < float(alpha) < 1):
         raise MethodIncompatibility(
