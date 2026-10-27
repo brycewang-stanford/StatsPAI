@@ -11705,7 +11705,8 @@ def _build_registry() -> None:
                     "missing",
                     "str",
                     False,
-                    "available",
+                    None,
+                    "Default None = 'impute' for klk, 'available' for anderson. "
                     "'available': average the observed components, dropping "
                     "the weights of missing ones (swindex). 'impute': missing "
                     "z-scores at the treat-group mean (KLK). 'listwise': index "

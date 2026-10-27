@@ -173,7 +173,7 @@ def summary_index(
     control_value: Any = 0,
     reverse: Optional[Sequence[str]] = None,
     weights: Optional[str] = None,
-    missing: Literal["available", "impute", "listwise"] = "available",
+    missing: Optional[Literal["available", "impute", "listwise"]] = None,
     rescale: Union[bool, Literal["reference", "full", "none"], None] = None,
 ) -> SummaryIndexResult:
     """
@@ -209,7 +209,10 @@ def summary_index(
         Analytic weights. Means, standard deviations, the covariance and the
         rescaling constants are then weighted as Stata's ``[aweight=]``
         does (weights rescaled to sum to n, divisor n - 1).
-    missing : {'available', 'impute', 'listwise'}, default 'available'
+    missing : {'available', 'impute', 'listwise'}, optional
+        Default None: 'impute' for ``method='klk'`` (the rule Kling,
+        Liebman and Katz describe) and 'available' for
+        ``method='anderson'`` (what ``swindex`` does).
         'available': the index is the weighted mean of the components the
         row has, with the weights of the missing ones dropped from the
         denominator. This is what the ``swindex`` code does. (Its help file
@@ -301,6 +304,8 @@ def summary_index(
             recovery_hint="Use method='klk' (equal weights) or "
             "method='anderson' (inverse-covariance weights, as swindex).",
         )
+    if missing is None:
+        missing = "impute" if method == "klk" else "available"
     if missing not in _MISSING:
         raise MethodIncompatibility(
             f"missing must be one of {_MISSING}; got {missing!r}.",

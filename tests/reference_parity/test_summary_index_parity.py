@@ -89,13 +89,20 @@ CONFIGS = {
     "K_none": dict(outcomes=Y, treat="treat", reverse=["y5"]),
     "K_ref": dict(outcomes=Y, treat="treat", reverse=["y5"], rescale=True),
     "K_fullsample": dict(outcomes=Y, reverse=["y5"]),
-    "K_miss_avail": dict(outcomes=M, treat="treat", reverse=["m5"]),
+    "K_miss_avail": dict(
+        outcomes=M, treat="treat", reverse=["m5"], missing="available"
+    ),
     "K_miss_listwise": dict(
         outcomes=M, treat="treat", reverse=["m5"], missing="listwise"
     ),
     "K_miss_impute": dict(outcomes=M, treat="treat", reverse=["m5"], missing="impute"),
     "K_w_miss_ref": dict(
-        outcomes=M, treat="treat", reverse=["m5"], weights="w", rescale="reference"
+        outcomes=M,
+        treat="treat",
+        reverse=["m5"],
+        weights="w",
+        rescale="reference",
+        missing="available",
     ),
     "A_w_miss_ref": dict(
         outcomes=M,
@@ -257,7 +264,7 @@ def test_missing_rules_differ_where_components_are_missing():
     df = _toy()
     df.loc[11, "a"] = np.nan
     df.loc[22, ["a", "b"]] = np.nan
-    avail = sp.summary_index(df, ["a", "b"], treat="d")
+    avail = sp.summary_index(df, ["a", "b"], treat="d", missing="available")
     imp = sp.summary_index(df, ["a", "b"], treat="d", missing="impute")
     lw = sp.summary_index(df, ["a", "b"], treat="d", missing="listwise")
     assert np.isnan(avail.index[22]) and np.isnan(imp.index[22])
@@ -296,3 +303,17 @@ def test_result_object():
     assert list(res.to_frame().index) == ["a", "b"]
     assert res.covariance is not None and res.covariance.shape == (2, 2)
     assert set(res.cite().split()) >= {"anderson2008multiple"}
+
+
+def test_klk_default_imputes_and_anderson_default_uses_available():
+    # Kling, Liebman and Katz impute a missing component at the mean of the
+    # row's group; swindex averages the components the row has.
+    df = _toy()
+    df.loc[11, "a"] = np.nan
+    for method, rule in (("klk", "impute"), ("anderson", "available")):
+        default = sp.summary_index(df, ["a", "b"], treat="d", method=method)
+        explicit = sp.summary_index(
+            df, ["a", "b"], treat="d", method=method, missing=rule
+        )
+        np.testing.assert_array_equal(default.index, explicit.index)
+        assert default.missing == rule
