@@ -61932,7 +61932,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level (used in summary output).",
+          "description": "One minus the confidence level of the intervals in ``summary()``.",
           "type": "number"
         },
         "data": {

@@ -130147,6 +130147,7 @@
       "description": "BLPResult: Estimation results including parameters, standard errors, mean utilities, and elasticities; diversion_ratios(), markups() and marginal_costs() are computed from them.",
       "fields": {
         "alpha": "float",
+        "ci_alpha": "float",
         "converged": "bool",
         "gmm_objective": "float",
         "gmm_steps": "int",
@@ -130175,7 +130176,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level (used in summary output).",
+            "description": "One minus the confidence level of the intervals in ``summary()``.",
             "type": "number"
           },
           "data": {

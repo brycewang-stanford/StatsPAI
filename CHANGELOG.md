@@ -117,6 +117,56 @@ Option scan round 6: `diagnostics` and `network`. Tests in
   one numeric term. It now has one term per level except the first, as
   `ergm`'s `nodefactor`; estimates and SEs match `ergm(estimate = "MPLE")`
   to 5e-7.
+- ⚠️ **`sp.olley_pakes` / `sp.levinsohn_petrin` / `sp.ackerberg_caves_frazer`
+  (and `sp.prod_fn`) no longer depend on the units of the log inputs.**
+  Stage 2 started at the linear coefficients of the raw stage-1
+  polynomial, i.e. its slopes where every log input is zero. Log capital
+  in dollars instead of thousands is the same data plus a constant, but
+  it moved that start, and with it the local minimum (OP / LP) or the
+  root (ACF) the estimator returned, with `stage2_converged=True`. On a
+  simulated panel with log capital and materials shifted by 3, LP gave a
+  capital elasticity of −2.1231 (sum of squares 113.33) instead of 0.4296
+  (109.94); OP with log capital shifted by 8 gave −2.7816 instead of
+  0.4042; ACF on the `prodest` parity panel with log capital shifted by 5
+  gave (2.5532, −0.2448) instead of (0.9833, 0.2157). The start is now the
+  slope of the stage-1 polynomial at the sample means, which a shift does
+  not move. The prodest parity panel, R `prodest`'s Chilean panel and the
+  test panels give the same estimates as before.
+- ⚠️ **`sp.wooldridge_prod`: `productivity_process['rho']` is the slope of
+  the linear projection of productivity on its lag**, as for OP / LP / ACF
+  and as `ProductionResult` documents. It was the linear coefficient of
+  the Markov polynomial in `h`, its slope where `h = 0`, which moved with
+  the units of the inputs: on R `prodest`'s Chilean panel 1.0622, and
+  0.8293 with log capital shifted by −5; now 0.9796 for both.
+  `diagnostics['markov_coef']` is the polynomial in powers of lagged TFP
+  (as for OP / LP / ACF). With `convention='prodest'` the coefficients
+  are unchanged and `rho` changes from the imposed 1.0 to the projection
+  slope.
+- ⚠️ **`sp.wooldridge_prod` (default `convention='statspai'`) works on
+  standardised inputs.** The raw powers of log inputs far from zero are
+  close to collinear: with log capital and materials near 6 to 7 the fit
+  raised `LinAlgError`, and near 8 the capital elasticity drifted to
+  0.43729 from 0.43858. The span is the same, so elasticities and
+  standard errors agree with before to the solver's tolerance on data
+  centred near zero. `convention='prodest'` keeps the raw design (Stata
+  parity).
+- ⚠️ **`sp.cevae` requires PyTorch.** Without it the fit fell back to a
+  numpy "linear variational approximation" whose encoder update had a
+  zero gradient, so it regressed the outcome on a fixed random projection
+  of `X`: with ten confounders the ATE was 3.45 / 3.86 / 3.43 for seeds
+  0 / 1 / 2 against a truth of 2.0 (the PyTorch fit gave 2.13), and
+  nothing warned. It now raises `ImportError`, as `sp.tarnet`,
+  `sp.cfrnet` and `sp.dragonnet` do.
+- ⚠️ **`sp.tarnet` / `sp.cfrnet` / `sp.dragonnet` / `sp.cevae` /
+  `sp.gnn_causal` refuse a treatment not coded 0/1.** Codes that truncate
+  to 0 and 1 passed the check: with the treatment coded 0 / 1.5,
+  `sp.tarnet` weighted its outcome heads by 1.5 and returned an ATE of
+  1.41 (truth 2.0 in 0/1 units); `sp.gnn_causal` cast 0.5 to 0. They now
+  raise `MethodIncompatibility`.
+- ⚠️ **`sp.support_points(weights=)` scales the columns by the weighted
+  standard deviation.** The unweighted one was used, so the distances
+  were those of a different distribution from the one the points
+  represent. Unweighted calls are unchanged.
 
 ### Fixed
 
@@ -137,6 +187,23 @@ Option scan round 6: `diagnostics` and `network`. Tests in
   equivalent to Stata's `estat hettest` / `estat ovtest`. They are R
   `lmtest` defaults (Stata `estat hettest, rhs iid`; `reset_test(powers=4)`
   for `estat ovtest`); the docstrings now say so.
+- `sp.blp(alpha=)` sets the level of the intervals in `summary()`; it was
+  ignored and the intervals were always 95% (with z = 1.96, now the exact
+  quantile). `BLPResult.ci_alpha` holds it.
+- `sp.blp`: `markups()`, `marginal_costs()`, `mean_utility` and
+  `own_elasticities` are indexed like the data. They carried positions
+  0..N-1, so with shuffled or filtered input, assigning them back to the
+  data by label put each value on the wrong product.
+- `sp.blp` refuses missing values in the shares, prices, characteristics,
+  instruments and identifiers with `DataInsufficient`. A missing share or
+  price returned all-NaN estimates, a missing instrument value silently
+  dropped the whole instrument, and a missing characteristic was reported
+  as a collinear column.
+- `sp.olley_pakes` / `sp.levinsohn_petrin` / `sp.ackerberg_caves_frazer` /
+  `sp.wooldridge_prod`: `result.sample` keeps the row labels of the data,
+  so `data.loc[res.sample.index, col]` brings in a column such as revenue
+  for `sp.markup` (the example in its docstring did this and picked the
+  wrong rows, since the index was reset).
 
 ### Added
 

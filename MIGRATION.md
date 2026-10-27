@@ -5,6 +5,31 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ production functions, `sp.cevae`, neural treatment codes, `sp.blp` row labels (round-6 scan)
+
+- `sp.olley_pakes` / `sp.levinsohn_petrin` / `sp.ackerberg_caves_frazer`:
+  the stage-2 start is the slope of the stage-1 polynomial at the sample
+  means. Estimates change only where the old start led to another local
+  minimum (OP / LP) or root (ACF), which happened when log inputs were far
+  from zero; compare `diagnostics['stage2_objective']` and
+  `diagnostics['acf_roots']`.
+- `sp.wooldridge_prod`: `productivity_process['rho']` / `diagnostics['ar_rho']`
+  are the projection slope of TFP on its lag, and
+  `diagnostics['markov_coef']` / `['markov_intercept']` describe the
+  polynomial in powers of lagged TFP. Elasticities move only by solver
+  tolerance, except where the old fit lost digits or raised `LinAlgError`.
+- `sp.cevae` raises `ImportError` without PyTorch; install the `neural`
+  extra. There is no numpy backend any more.
+- Neural estimators and `sp.gnn_causal` raise `MethodIncompatibility` for a
+  treatment not coded exactly 0/1; recode it.
+- `sp.blp`: row-level outputs carry the data's index (use `.to_numpy()` for
+  positions). Missing values in the model's columns raise
+  `DataInsufficient`; drop those products first.
+- Production-function `result.sample` keeps the data's row labels instead
+  of 0..n-1; use `.reset_index(drop=True)` for the old index.
+
+---
+
 ## 1.41 → 1.42: ⚠️ `sp.estat` after weighted and likelihood fits, directed network measures (option scan round 6)
 
 - `sp.estat` after `sp.regress(weights=)`: `hettest`, `reset`, `vif` and
