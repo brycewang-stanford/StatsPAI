@@ -47,7 +47,7 @@ from scipy import stats
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
 from ..core._vcov_spec import accepts_vce
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import _cluster_codes, rlasso
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -209,6 +209,7 @@ def _select_z(
     control: Optional[Dict[str, Any]],
     treat_names: List[str],
     codes: Optional[np.ndarray] = None,
+    robust: bool = True,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float)
@@ -294,6 +295,7 @@ def _select_z(
     W_parts = [] if x is None else [x]
     if intercept:
         W_parts.append(np.ones((n, 1)))
+    rank = 0
     if W_parts:
         W = np.column_stack(W_parts)
         Q, R, _ = scipy_linalg.qr(W, mode="economic", pivoting=True)
@@ -317,7 +319,12 @@ def _select_z(
     coef = np.atleast_1d(Ainv @ (Dh_r.T @ _partial(y)))
     # Residuals of the full second stage equal the partialled ones.
     residuals = _partial(y) - D_r @ coef
-    if codes is None:
+    if codes is None and not robust:
+        # Classical 2SLS with instruments [dhat, x, 1]: s^2 (X'P_Z X)^{-1},
+        # s^2 dividing by n minus every second-stage coefficient.
+        s2 = float(residuals @ residuals) / max(n - ke - rank, 1)
+        Omega = s2 * (Dh_r.T @ Dh_r)
+    elif codes is None:
         Omega = Dh_r.T @ (Dh_r * (residuals**2)[:, None])
     else:
         n_clusters = int(codes.max()) + 1
@@ -362,6 +369,7 @@ def _select_x(
     treat_names: List[str],
     codes: Optional[np.ndarray] = None,
     intercept: bool = True,
+    robust: bool = False,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
@@ -390,7 +398,13 @@ def _select_x(
         nsel_x += int(lasso_z_x.index.sum())
 
     res = _tsls(
-        y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=True, codes=codes
+        y=Yr,
+        d=Dr,
+        x=None,
+        z=Zr,
+        intercept=False,
+        homoscedastic=not robust,
+        codes=codes,
     )
     return RLassoIVResult(
         coef=np.atleast_1d(res["coefficients"]),
@@ -420,6 +434,7 @@ def _select_both(
     treat_names: List[str],
     codes: Optional[np.ndarray] = None,
     intercept: bool = True,
+    robust: bool = True,
 ) -> RLassoIVResult:
     n = len(y)
     d = np.asarray(d, dtype=float).ravel()
@@ -470,7 +485,13 @@ def _select_both(
         Yr = lasso_y_x.residuals
 
     res = _tsls(
-        y=Yr, d=Dr, x=None, z=Zr, intercept=False, homoscedastic=False, codes=codes
+        y=Yr,
+        d=Dr,
+        x=None,
+        z=Zr,
+        intercept=False,
+        homoscedastic=not robust,
+        codes=codes,
     )
     n_sel_z = int(lasso_d_zx.index.sum())
     return RLassoIVResult(
@@ -507,7 +528,10 @@ def _grab(v: Any, data: Optional[pd.DataFrame], cols: bool = False) -> np.ndarra
 
 
 @records_call("rlasso_iv")
-@accepts_vce(default="robust")
+@accepts_vce(
+    default=None,
+    native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
+)
 def rlasso_iv(
     y: Union[np.ndarray, pd.Series, str],
     d: Union[np.ndarray, pd.Series, str],
@@ -521,6 +545,7 @@ def rlasso_iv(
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
     cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
+    robust: Optional[bool] = None,
 ) -> RLassoIVResult:
     """Instrumental-variables estimation with rigorous-Lasso selection.
 
@@ -558,6 +583,16 @@ def rlasso_iv(
         ``intercept=False``. With ``select_Z=True, select_X=False`` and no
         controls the point estimate is the post-Lasso IV estimate of
         Stata's ``ivlasso, cluster()``.
+    robust : bool, optional
+        Standard error without ``cluster``. ``None`` keeps hdm's choice for
+        each path: homoskedastic for ``select_Z=False, select_X=True``,
+        heteroskedasticity-robust (HC0) for the other three. ``True`` /
+        ``False`` force the robust / classical 2SLS variance on any path;
+        ``vce="robust"`` / ``vce="iid"`` set it.
+
+        .. versionchanged:: 1.41
+           ``vce="robust"`` used to be accepted and ignored, returning the
+           homoskedastic SE of the ``select_X``-only path.
 
     Returns
     -------
@@ -637,6 +672,23 @@ def rlasso_iv(
                 )
             cluster = data[cluster].values
         codes, _ = _cluster_codes(cluster, len(Y))
+    if robust is not None and not isinstance(robust, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"robust must be True, False or None, got {robust!r}.",
+            recovery_hint="Use vce='robust' or vce='iid'.",
+        )
+    if codes is not None and robust is False:
+        raise MethodIncompatibility(
+            "cluster= gives a cluster-robust SE; it cannot be combined with "
+            "robust=False (vce='iid').",
+            recovery_hint="Drop one of cluster= and robust=False.",
+        )
+    for label, arr in (("y", Y), ("d", D), ("z", Zmat), ("x", Xmat)):
+        if arr is not None and not np.all(np.isfinite(arr)):
+            raise DataInsufficient(
+                f"rlasso_iv: {label} contains missing or infinite values.",
+                recovery_hint="Drop or impute the incomplete rows first.",
+            )
 
     if not select_Z and not select_X:
         res = _tsls(
@@ -645,7 +697,7 @@ def rlasso_iv(
             x=Xmat,
             z=Zmat,
             intercept=intercept,
-            homoscedastic=False,
+            homoscedastic=robust is False,
             codes=codes,
         )
         a1 = res["a1"]
@@ -660,17 +712,47 @@ def rlasso_iv(
         )
     if select_Z and not select_X:
         return _select_z(
-            Xmat, D, Y, Zmat, post, intercept, penalty, control, treat_names, codes
+            Xmat,
+            D,
+            Y,
+            Zmat,
+            post,
+            intercept,
+            penalty,
+            control,
+            treat_names,
+            codes,
+            robust=robust is not False,
         )
     if select_X and not select_Z:
         if Xmat is None:
             raise ValueError("select_X=True requires controls `x`.")
         return _select_x(
-            Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes, intercept
+            Xmat,
+            D,
+            Y,
+            Zmat,
+            post,
+            penalty,
+            control,
+            treat_names,
+            codes,
+            intercept,
+            robust=robust is True,
         )
     # both
     if Xmat is None:
         raise ValueError("select_X=True requires controls `x`.")
     return _select_both(
-        Xmat, D, Y, Zmat, post, penalty, control, treat_names, codes, intercept
+        Xmat,
+        D,
+        Y,
+        Zmat,
+        post,
+        penalty,
+        control,
+        treat_names,
+        codes,
+        intercept,
+        robust=robust is not False,
     )

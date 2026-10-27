@@ -137,7 +137,10 @@ def _warn_if_unidentified(resid_d: np.ndarray, d: np.ndarray, target: Any) -> No
 
 
 @records_call("rlasso_effect")
-@accepts_vce(default="robust")
+@accepts_vce(
+    default=None,
+    native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
+)
 def rlasso_effect(
     x: Union[np.ndarray, pd.DataFrame, Sequence[str]],
     y: Union[np.ndarray, pd.Series, str],
@@ -149,6 +152,7 @@ def rlasso_effect(
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
     cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
+    robust: Optional[bool] = None,
 ) -> RLassoEffectResult:
     """Effect of ``d`` on ``y`` after Lasso-selecting controls ``x``.
 
@@ -177,6 +181,19 @@ def rlasso_effect(
         variance by ``G / (G - 1)`` for the ``regress, cluster()``
         convention). For a fixed-effects panel pass within-transformed
         ``x``, ``y`` and ``d``. hdm has no counterpart.
+    robust : bool, optional
+        Standard error without ``cluster``. ``None`` keeps hdm's choice for
+        the method: homoskedastic for ``"partialling out"`` (the OLS slope
+        variance of the residual regression), heteroskedasticity-robust for
+        ``"double selection"``. ``True`` gives the robust variance
+        ``sum_i v_i^2 e_i^2 / (sum_i v_i^2)^2`` for partialling out (no
+        small-sample factor, the cluster formula with one row per cluster);
+        ``False`` gives the OLS variance of the final regression for
+        double selection. ``vce="robust"`` / ``vce="iid"`` set it.
+
+        .. versionchanged:: 1.41
+           ``vce="robust"`` used to be accepted and ignored, returning the
+           homoskedastic SE of partialling out.
 
     Returns
     -------
@@ -233,6 +250,17 @@ def rlasso_effect(
                 )
             cluster = data[cluster].values
         codes, n_clusters = _cluster_codes(cluster, n)
+    if robust is not None and not isinstance(robust, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"robust must be True, False or None, got {robust!r}.",
+            recovery_hint="Use vce='robust' or vce='iid'.",
+        )
+    if codes is not None and robust is False:
+        raise MethodIncompatibility(
+            "cluster= gives a cluster-robust SE; it cannot be combined with "
+            "robust=False (vce='iid').",
+            recovery_hint="Drop one of cluster= and robust=False.",
+        )
 
     if method == "partialling out":
         reg1 = rlasso(X, yv, post=post, penalty=penalty, control=control, cluster=codes)
@@ -247,6 +275,8 @@ def rlasso_effect(
         var = sigma2 * XtX_inv[1, 1]
         if codes is not None:
             var = _cluster_var(resid, dr - dr.mean(), codes, n_clusters)
+        elif robust:
+            var = _cluster_var(resid, dr - dr.mean(), np.arange(n), n)
         se = float(np.sqrt(var))
         sel = np.asarray(reg1.index | reg2.index, dtype=bool)
         res_e, res_v = resid, dr
@@ -266,13 +296,13 @@ def rlasso_effect(
         sum_I = int(idx_union.sum())
         if sum_I == 0:
             Xsel = dv.reshape(-1, 1)
-            beta, resid, _, _ = _ols(yv, Xsel)
+            beta, resid, XtX_inv, dof = _ols(yv, Xsel)
             alpha = float(beta[1])
             xi = resid * np.sqrt(n / (n - sum_I - 1))
             v = dv - dv.mean()
         else:
             Xsel = np.column_stack([dv, X[:, idx_union]])
-            beta, resid, _, _ = _ols(yv, Xsel)
+            beta, resid, XtX_inv, dof = _ols(yv, Xsel)
             alpha = float(beta[1])
             xi = resid * np.sqrt(n / (n - sum_I - 1))
             # reg2 <- lm(d ~ selected controls)  (drop d column → X[:, union])
@@ -282,6 +312,8 @@ def rlasso_effect(
         var = (1.0 / n) * (1.0 / mv2) * float(np.mean(v**2 * xi**2)) * (1.0 / mv2)
         if codes is not None:
             var = _cluster_var(resid, v, codes, n_clusters)
+        elif robust is False:
+            var = float(resid @ resid) / dof * XtX_inv[1, 1]
         se = float(np.sqrt(var))
         sel = idx_union
         res_e, res_v = xi, v
@@ -418,7 +450,10 @@ class RLassoEffectsResult(Dict[str, RLassoEffectResult]):
 
 @records_call("rlasso_effects")
 @accepts_aliases(covariates="X")
-@accepts_vce(default="robust")
+@accepts_vce(
+    default=None,
+    native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
+)
 def rlasso_effects(
     X: Union[np.ndarray, pd.DataFrame],
     y: Union[np.ndarray, pd.Series],
@@ -429,12 +464,14 @@ def rlasso_effects(
     penalty: Optional[Dict[str, Any]] = None,
     control: Optional[Dict[str, Any]] = None,
     cluster: Optional[Union[np.ndarray, pd.Series, str]] = None,
+    robust: Optional[bool] = None,
 ) -> "RLassoEffectsResult":
     """Estimate the effect of each targeted column of ``X`` on ``y``.
 
     Faithful port of ``hdm::rlassoEffects``: for every target column
     ``j`` in ``index``, treat column ``j`` as ``d`` and the remaining
-    columns as controls.
+    columns as controls. ``robust`` (and ``vce=``) is passed to
+    :func:`rlasso_effect` for every target.
 
     Returns
     -------
@@ -499,6 +536,7 @@ def rlasso_effects(
             penalty=penalty,
             control=control,
             cluster=cluster_arr,
+            robust=robust,
         )
         res.target = cols[j]
         out[cols[j]] = res

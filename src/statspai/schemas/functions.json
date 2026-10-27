@@ -54560,7 +54560,7 @@
         },
         "alternative": {
           "default": "two-sided",
-          "description": "Test sidedness.",
+          "description": "Test sidedness (R's ``\"two.sided\"`` is accepted; other values are refused).",
           "enum": [
             "two-sided",
             "one-sided"
@@ -57376,12 +57376,18 @@
           "description": "Post-Lasso inside the selection steps.",
           "type": "boolean"
         },
+        "robust": {
+          "description": "Standard error without ``cluster``. ``None`` keeps hdm's choice for the method: homoskedastic for ``\"partialling out\"`` (the OLS slope variance of the residual regression), heteroskedasticity-robust for ``\"double selection\"``. ``True`` gives the robust variance ``sum_i v_i^2 e_i^2 / (sum_i v_i^2)^2`` for partialling out (no small-sample factor, the cluster formula with one row per cluster); ``False`` gives the OLS variance of the final regression for double selection. ``vce=\"robust\"`` / ``vce=\"iid\"`` set it. .. versionchanged:: 1.41 ``vce=\"robust\"`` used to be accepted and ignored, returning the homoskedastic SE of partialling out.",
+          "type": "boolean",
+          "x-canonical": "vce"
+        },
         "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'nonrobust', 'robust'. Any other kind raises.",
           "type": "string",
           "x-statspai-grammar": "vce",
           "x-statspai-vce-kinds": [
             "cluster",
+            "nonrobust",
             "robust"
           ]
         },
@@ -57457,12 +57463,18 @@
           "description": "post parameter (bool).",
           "type": "boolean"
         },
+        "robust": {
+          "description": "Robust standard-error or covariance estimator option.",
+          "type": "boolean",
+          "x-canonical": "vce"
+        },
         "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'nonrobust', 'robust'. Any other kind raises.",
           "type": "string",
           "x-statspai-grammar": "vce",
           "x-statspai-vce-kinds": [
             "cluster",
+            "nonrobust",
             "robust"
           ]
         },
@@ -57515,6 +57527,11 @@
           "description": "Post-Lasso (OLS refit) inside every selection step.",
           "type": "boolean"
         },
+        "robust": {
+          "description": "Standard error without ``cluster``. ``None`` keeps hdm's choice for each path: homoskedastic for ``select_Z=False, select_X=True``, heteroskedasticity-robust (HC0) for the other three. ``True`` / ``False`` force the robust / classical 2SLS variance on any path; ``vce=\"robust\"`` / ``vce=\"iid\"`` set it. .. versionchanged:: 1.41 ``vce=\"robust\"`` used to be accepted and ignored, returning the homoskedastic SE of the ``select_X``-only path.",
+          "type": "boolean",
+          "x-canonical": "vce"
+        },
         "select_X": {
           "default": true,
           "description": "Lasso-select among the controls (partialling-out).",
@@ -57526,11 +57543,12 @@
           "type": "boolean"
         },
         "vce": {
-          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'robust'. Any other kind raises. Omitting it gives the default: heteroskedasticity-robust (sandwich or influence-function) standard errors.",
+          "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'nonrobust', 'robust'. Any other kind raises.",
           "type": "string",
           "x-statspai-grammar": "vce",
           "x-statspai-vce-kinds": [
             "cluster",
+            "nonrobust",
             "robust"
           ]
         },
@@ -74605,7 +74623,7 @@
           "type": "number"
         },
         "cluster": {
-          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated).",
+          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated). Event time is counted in observed periods, so unevenly spaced times (2000, 2002, ...) work; a cohort treated at a time that is not observed starts at the next observed period.",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -74615,7 +74633,7 @@
           "x-statspai-role": "dataframe"
         },
         "first_treat": {
-          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated).",
+          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated). Event time is counted in observed periods, so unevenly spaced times (2000, 2002, ...) work; a cohort treated at a time that is not observed starts at the next observed period.",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -74635,12 +74653,12 @@
           "type": "integer"
         },
         "time": {
-          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated).",
+          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated). Event time is counted in observed periods, so unevenly spaced times (2000, 2002, ...) work; a cohort treated at a time that is not observed starts at the next observed period.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "y": {
-          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated).",
+          "description": "first_treat = first calendar time the cluster is treated (0 / NaN for never-treated). Event time is counted in observed periods, so unevenly spaced times (2000, 2002, ...) work; a cohort treated at a time that is not observed starts at the next observed period.",
           "type": "string",
           "x-statspai-role": "column"
         }

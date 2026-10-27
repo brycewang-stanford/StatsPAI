@@ -136,6 +136,28 @@ def _score_norm(
     return out
 
 
+def _require_finite(X: np.ndarray, y: np.ndarray, function: str) -> None:
+    """Refuse missing or infinite values.
+
+    A NaN in one column made every penalty loading NaN, the coordinate
+    descent then set every coefficient to zero, and the fit reported
+    "nothing selected" (so ``rlasso_effect`` silently dropped all controls).
+    """
+    if y.shape[0] != X.shape[0]:
+        raise MethodIncompatibility(
+            f"{function}: X has {X.shape[0]} rows but y has {y.shape[0]}."
+        )
+    bad_y = int((~np.isfinite(y)).sum())
+    bad_x = int((~np.isfinite(X)).any(axis=1).sum())
+    if bad_y or bad_x:
+        raise DataInsufficient(
+            f"{function}: {bad_y} missing/infinite value(s) in y and {bad_x} "
+            "row(s) with a missing/infinite value in X.",
+            recovery_hint="Drop or impute the incomplete rows first.",
+            diagnostics={"rows_bad_y": bad_y, "rows_bad_X": bad_x},
+        )
+
+
 def _default_control(user: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     user = dict(user) if user else {}
     return {
@@ -506,6 +528,7 @@ def rlasso(
         X = X.reshape(-1, 1)
     y = np.asarray(y, dtype=float).ravel()
     n, p = X.shape
+    _require_finite(X, y, "rlasso")
     if colnames is None:
         colnames = [f"V{j + 1}" for j in range(p)]
 

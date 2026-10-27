@@ -339,6 +339,9 @@ def rlassologit(
         X = X.reshape(-1, 1)
     y = np.asarray(y, dtype=float).ravel()
     n, p = X.shape
+    from ._core import _require_finite
+
+    _require_finite(X, y, "rlassologit")
 
     # Fail loudly on non-binary input (CLAUDE.md §7): a logistic model is
     # only defined for a 0/1 response.  Without this guard, continuous or
