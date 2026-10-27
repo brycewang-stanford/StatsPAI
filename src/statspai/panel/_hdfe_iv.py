@@ -16,9 +16,11 @@ nested in the cluster excluded, as ``e(sdofminus)``), ``K`` the regressors,
   or ``s² = rss/(N-K-sdof)`` (iid); t reference ``G-1`` or ``N-K-sdof``;
 * first-stage Wald tests of the excluded instruments on the included ones
   partialled out: ``chi2`` without, ``F`` with the first-stage ``q``
-  (``N-L-sdof`` in place of ``N-K-sdof``) -- the Sanderson-Windmeijer /
-  Angrist-Pischke F, which for one endogenous regressor is also the
-  Kleibergen-Paap rk Wald F (``e(rkf)``);
+  (``N-L-sdof`` in place of ``N-K-sdof``); for one endogenous regressor
+  this is also the Kleibergen-Paap rk Wald F (``e(rkf)``);
+* the Sanderson-Windmeijer conditional first-stage F / chi2 of each
+  endogenous regressor (``sw_F``, ``sw_chi2``; ``_iv_sw.py``), which equal
+  the plain first-stage statistics when there is one;
 * Kleibergen-Paap rk LM (``e(idstat)``): the score test of the excluded
   instruments in the first stage, variance under the null; Anderson's
   canonical-correlation LM ``N·R²`` under iid;
@@ -267,6 +269,16 @@ def hdfe_iv(
             "chi2": chi2,
             "partial_r2": float(1 - (u @ u) / (Dt[:, j] @ Dt[:, j])),
         }
+    # Sanderson-Windmeijer conditional first stage (ivreg2's SW F / chi2);
+    # equals the entries above when there is one endogenous regressor
+    from ._iv_sw import sw_first_stage
+
+    _sw = sw_first_stage(
+        Dt, Zt, list(endog_names), groups=groups, robust=vce is not None,
+        n_obs=N, n_instruments_total=L, sdof=sdof,
+    )  # fmt: skip
+    for nm in endog_names:
+        first_stage[nm].update(_sw[nm])
 
     nan = float("nan")
     kp_f = kp_lm = cd_f = nan
