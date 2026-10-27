@@ -95,7 +95,8 @@ def stteffects(
         ``covariates``.
     censor_covariates : list of str, optional
         Censoring-model covariates; pass ``[]`` for a model with a constant
-        only. The censoring time model may not depend on the treatment.
+        only. The list may include the treatment variable, as Stata's
+        ``cmodel()`` allows.
     dist : {'weibull', 'exponential', 'lognormal'}, default 'weibull'
         Outcome model (Stata's ``omodel``).
     censor_dist : {'weibull', 'exponential', 'lognormal'}, default 'weibull'
