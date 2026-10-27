@@ -5850,3 +5850,24 @@ submission the only step is `"active": true`.
   - `tests/perf/results/_timed_path.json`
   - `tests/perf/results/perf_table.md`
   - `tests/perf/results/perf_table.tex`
+
+### 2026-10-28 — trace ledgers re-recorded after the AER 116(10) batch
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `8ce4a31dc`.
+- **Reason.** The AER 116(10) batch (`227691d7b`, derived files in
+  `25b568688`) added lazy exports to `src/statspai/__init__.py` (ten Track A
+  paths: 03, 13, 15, 24, 25, 26, 27, 53, 65, 66; original-data path of
+  `08_nhefs_ch14_gestimation`), added `tvc=` / `texp=` to
+  `src/statspai/survival/models.py` (24_coxph) and vectorised the
+  nested-in-cluster check in `src/statspai/panel/hdfe.py` (68_demean_within,
+  75_stacked). Default outputs of the touched estimators are bit-identical.
+  `verify_reproduce_py.py` on the twelve modules reports 12 reproduce,
+  0 drift; module 08 left its result file byte-identical.
+- **Effect on the paper.** None. No committed parity result changed. The
+  batch's ⚠️ fix to `sp.hdfe_ols` IV degrees of freedom is outside Track A
+  (`panel/_hdfe_iv.py` is on no traced path) and outside Track C.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
