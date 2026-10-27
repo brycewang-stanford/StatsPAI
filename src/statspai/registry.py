@@ -37602,6 +37602,7 @@ def _build_registry() -> None:
             ),
             tags=["text", "llm", "coding", "measurement", "survey", "reliability"],
             reference="[@hayes2007answering] [@cohen1960coefficient]",
+            stability="experimental",
             failure_modes=[
                 FailureMode(
                     symptom="no client",

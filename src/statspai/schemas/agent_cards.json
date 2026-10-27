@@ -83136,11 +83136,11 @@
     "alternatives": [
       "llm_annotator_correct"
     ],
-    "api_contract": "deprecation-cycle",
+    "api_contract": "unstable",
     "assumptions": [],
     "category": "causal_text",
     "cost_profile": "",
-    "description": "Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes.",
+    "description": "[experimental] Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes. Validation status: experimental.",
     "evidence": {
       "grade": null,
       "grade_basis": "no numerical evidence",
@@ -83192,7 +83192,7 @@
       }
     },
     "signature": {
-      "description": "Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes.",
+      "description": "[experimental] Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes. Validation status: experimental.",
       "name": "llm_code_responses",
       "parameters": {
         "properties": {
@@ -83262,10 +83262,10 @@
         "type": "object"
       }
     },
-    "stability": "stable",
+    "stability": "experimental",
     "typical_n_min": null,
     "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_status": "experimental"
   },
   {
     "alias_of": null,

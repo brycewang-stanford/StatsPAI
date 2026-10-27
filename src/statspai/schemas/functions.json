@@ -37874,7 +37874,7 @@
     }
   },
   {
-    "description": "Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes.",
+    "description": "[experimental] Code open-ended text responses into codebook categories with an LLM client (no offline fallback), validating every label strictly (one retry, then flagged), with provenance hashes and reliability (Krippendorff alpha / Cohen kappa) across repeated passes and against human codes. Validation status: experimental.",
     "name": "llm_code_responses",
     "parameters": {
       "properties": {

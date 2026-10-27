@@ -410,7 +410,7 @@ def summary_index(
                 recovery_hint="Drop a component that is a linear combination "
                 "of the others, or use method='klk'.",
                 diagnostics={"condition_number": float(cond)},
-                alternative_functions=["summary_index"],
+                alternative_functions=["sp.summary_index"],
             )
         wt = np.linalg.solve(S, np.ones(K))
         cov_df = pd.DataFrame(S, index=outcomes, columns=outcomes)

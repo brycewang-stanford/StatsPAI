@@ -284,8 +284,8 @@ def _resolve_client(
             "llm_code_responses needs an LLM client; there is no offline "
             "fallback for coding text.",
             recovery_hint=(
-                "Pass client=sp.causal_llm.anthropic_client(model=...) or "
-                "openai_client(...), any callable prompt -> str, or "
+                "Pass client=statspai.causal_llm.anthropic_client(model=...) "
+                "or openai_client(...), any callable prompt -> str, or "
                 "client='auto' to resolve one from ANTHROPIC_API_KEY / "
                 "OPENAI_API_KEY."
             ),
@@ -343,7 +343,7 @@ def _resolve_client(
     raise MethodIncompatibility(
         f"client of type {type(client).__name__} has no chat(role, prompt) and is "
         "not callable.",
-        recovery_hint="Pass an sp.causal_llm client or a function prompt -> str.",
+        recovery_hint="Pass a statspai.causal_llm client or a function prompt -> str.",
     )
 
 

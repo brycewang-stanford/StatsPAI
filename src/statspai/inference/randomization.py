@@ -32,7 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._result_serialize import ResultProtocolMixin
+from .._result_serialize import ResultProtocolMixin, attach_result_protocol
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .basic_tests import _check_alpha
@@ -291,6 +291,7 @@ class FisherResult(ResultProtocolMixin):
         )
 
 
+@attach_result_protocol
 class RITestResult(dict):
     """Result of :func:`sp.ri_test`.
 

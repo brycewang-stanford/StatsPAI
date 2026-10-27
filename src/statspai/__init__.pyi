@@ -187,6 +187,9 @@ from .causal_rl.offline_safe import OfflineSafeResult as OfflineSafeResult
 from .causal_rl.offline_safe import offline_safe_policy as offline_safe_policy
 from .causal_text.llm_annotator import LLMAnnotatorResult as LLMAnnotatorResult
 from .causal_text.llm_annotator import llm_annotator_correct as llm_annotator_correct
+from .causal_text.llm_coding import LLMClientRequired as LLMClientRequired
+from .causal_text.llm_coding import LLMCodingResult as LLMCodingResult
+from .causal_text.llm_coding import llm_code_responses as llm_code_responses
 from .causal_text.text_treatment import TextTreatmentResult as TextTreatmentResult
 from .causal_text.text_treatment import text_treatment_effect as text_treatment_effect
 from .censoring.ipcw import IPCWResult as IPCWResult
@@ -310,6 +313,8 @@ from .decomposition.oaxaca import gelbach as gelbach
 from .decomposition.oaxaca import oaxaca as oaxaca
 from .decomposition.rif import rif_decomposition as rif_decomposition
 from .decomposition.rif import rifreg as rifreg
+from .decomposition.shapley_r2 import ShapleyR2Result as ShapleyR2Result
+from .decomposition.shapley_r2 import shapley_r2 as shapley_r2
 from .decomposition.yu_elwert import YuElwertResult as YuElwertResult
 from .decomposition.yu_elwert import yu_elwert_decompose as yu_elwert_decompose
 from .deepiv.deep_iv import DeepIV as DeepIV
@@ -530,6 +535,8 @@ from .dtr.q_learning import QLearningResult as QLearningResult
 from .dtr.q_learning import q_learning as q_learning
 from .dtr.snmm import SNMMResult as SNMMResult
 from .dtr.snmm import snmm as snmm
+from .epi.agreement import KrippendorffAlphaResult as KrippendorffAlphaResult
+from .epi.agreement import krippendorff_alpha as krippendorff_alpha
 from .epi.bradford_hill import bradford_hill as bradford_hill
 from .epi.diagnostic import DiagnosticTestResult as DiagnosticTestResult
 from .epi.diagnostic import KappaResult as KappaResult
@@ -701,6 +708,7 @@ from .inference.pate import pate as pate
 from .inference.ppi import ppi_mean as ppi_mean
 from .inference.ppi import ppi_ols as ppi_ols
 from .inference.randomization import FisherResult as FisherResult
+from .inference.randomization import RITestResult as RITestResult
 from .inference.randomization import fisher_exact as fisher_exact
 from .inference.randomization import ri_test as ri_test
 from .inference.rank_tests import ClassicTestResult as ClassicTestResult
@@ -883,6 +891,8 @@ from .mcmc.trees import BARTResult as BARTResult
 from .mcmc.trees import bart as bart
 from .mediation.four_way import FourWayResult as FourWayResult
 from .mediation.four_way import four_way_decomposition as four_way_decomposition
+from .mediation.iv_mediate import IVMediateResult as IVMediateResult
+from .mediation.iv_mediate import iv_mediate as iv_mediate
 from .mediation.mediate import MediationAnalysis as MediationAnalysis
 from .mediation.mediate import mediate as mediate
 from .mediation.mediate import mediate_interventional as mediate_interventional
@@ -954,12 +964,15 @@ from .metalearners.metalearners import SLearner as SLearner
 from .metalearners.metalearners import TLearner as TLearner
 from .metalearners.metalearners import XLearner as XLearner
 from .metalearners.metalearners import metalearner as metalearner
+from .mht.index import SummaryIndexResult as SummaryIndexResult
+from .mht.index import summary_index as summary_index
 from .mht.romano_wolf import RomanoWolfResult as RomanoWolfResult
 from .mht.romano_wolf import adjust_pvalues as adjust_pvalues
 from .mht.romano_wolf import benjamini_hochberg as benjamini_hochberg
 from .mht.romano_wolf import bonferroni as bonferroni
 from .mht.romano_wolf import holm as holm
 from .mht.romano_wolf import romano_wolf as romano_wolf
+from .mht.sharpened import sharpened_qvalues as sharpened_qvalues
 from .mht.westfall_young import westfall_young as westfall_young
 from .msm.msm import MarginalStructuralModel as MarginalStructuralModel
 from .msm.msm import msm as msm
@@ -1304,6 +1317,7 @@ from .registry import function_schema as function_schema
 from .registry import list_functions as list_functions
 from .registry import search_functions as search_functions
 from .registry import support_tier as support_tier
+from .regression._fmm_result import FMMResult as FMMResult
 from .regression.advanced_iv import jive as jive
 from .regression.advanced_iv import lasso_iv as lasso_iv
 from .regression.advanced_iv import liml as liml
@@ -1315,6 +1329,7 @@ from .regression.count import poisson as poisson
 from .regression.count import ppmlhdfe as ppmlhdfe
 from .regression.count import xtnbreg as xtnbreg
 from .regression.et_count import etpoisson as etpoisson
+from .regression.fmm import fmm as fmm
 from .regression.fracreg import betareg as betareg
 from .regression.fracreg import fracreg as fracreg
 from .regression.gam import GAMResult as GAMResult
