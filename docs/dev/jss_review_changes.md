@@ -5893,3 +5893,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-28 — Track A trace re-recorded for 24_coxph (sp.cox convergence fix)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `17807fc00`.
+- **Reason.** `sp.cox` stopped one Newton step short when a step between
+  ~1e-9 and ~1e-6 exhausted its line search. The fix changes
+  `src/statspai/survival/models.py`, on the traced path of Track A module
+  24. `verify_reproduce_py.py 24_coxph` reproduces (fixture byte-identical,
+  worst relative difference 7.8e-16), so the committed result is unchanged.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
