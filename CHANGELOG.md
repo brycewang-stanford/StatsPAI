@@ -4,6 +4,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### pandas 3 lane and optional extras (main CI after round 7)
+
+- ⚠️ **`sp.ddc(method='npl' | 'ccp')` could return an unmoved theta.**
+  The inner conditional-logit Newton loop ran its line search before
+  testing the predicted gain. When the gain was at rounding level the
+  search could reject the step (seen with Linux BLAS), and the loop then
+  returned the starting value. NPL read that as convergence and stopped
+  1.4e-6 from the NFXP estimate. A step whose predicted gain is at
+  rounding level is now taken in full; the objective is concave.
+- `sp.llm_code_responses`: under pandas 3 the codes frame was inferred as
+  `str` and the documented `None` for a flagged item became `NaN`. The
+  frame is now `object`.
+- Tests no longer fail where an optional extra is missing (`networkx`,
+  `torch`). The `sp.sar` test near the upper end of the admissible
+  interval now allows Brent's step floor (1.5e-8 relative; Linux lands
+  1.5e-8 from spatialreg, macOS 1e-9).
+
 ### AER 116(10) batch (methods from the October 2026 AER issue)
 
 Methods that the six empirical papers of AER Vol. 116 No. 10 use and

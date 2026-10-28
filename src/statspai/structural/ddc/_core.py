@@ -171,6 +171,11 @@ def fit_linear_logit(
         except np.linalg.LinAlgError:
             step = -np.linalg.lstsq(H, grad, rcond=None)[0]
         dec = float(grad @ step)
+        if dec <= tol * max(1.0, abs(f)):
+            # The predicted gain is at rounding level, where the line search
+            # can reject the step (seen on Linux BLAS) and the fit returned
+            # an unmoved theta. The objective is concave: take the step.
+            return theta + step, True, it
         t = 1.0
         while True:
             f_new = objective(theta + t * step)

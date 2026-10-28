@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import warnings
 
-import networkx as nx
 import numpy as np
 import pandas as pd
 import pytest
@@ -206,21 +205,29 @@ def _sem(seed, k=6, n=500):
     return pd.DataFrame(X, columns=[f"v{i}" for i in range(k)])
 
 
+def _acyclic(edges):
+    # A directed graph is acyclic iff its adjacency matrix is nilpotent.
+    nodes = sorted({v for a, b, _ in edges for v in (a, b)})
+    pos = {v: i for i, v in enumerate(nodes)}
+    A = np.zeros((len(nodes), len(nodes)), dtype=np.int64)
+    for a, b, _ in edges:
+        A[pos[a], pos[b]] = 1
+    return not np.linalg.matrix_power(A, max(len(nodes), 1)).any()
+
+
 def test_notears_flags_a_cyclic_result():
     # Stopped after three outer iterations the thresholded graph has a
     # cycle; it used to come back as a "DAG" without a word.
     df = _sem(0)
     with pytest.warns(RuntimeWarning, match="cycle"):
         res = sp.notears(df, max_iter=3)
-    G = nx.DiGraph([(a, b) for a, b, _ in res["edges"]])
     assert res["is_dag"] is False
-    assert not nx.is_directed_acyclic_graph(G)
+    assert not _acyclic(res["edges"])
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
         ok = sp.notears(df)
-    G = nx.DiGraph([(a, b) for a, b, _ in ok["edges"]])
     assert ok["is_dag"] is True
-    assert nx.is_directed_acyclic_graph(G)
+    assert _acyclic(ok["edges"])
 
 
 def test_dynotears_flags_a_cyclic_contemporaneous_graph():

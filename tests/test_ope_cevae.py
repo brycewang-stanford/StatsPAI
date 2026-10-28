@@ -133,6 +133,7 @@ def test_evaluate_rejects_missing_required_arguments_with_taxonomy():
 
 
 def test_cevae_recovers_ate_in_simple_setting():
+    pytest.importorskip("torch")
     rng = np.random.default_rng(0)
     n = 600
     z = rng.normal(0, 1, n)  # latent confounder
@@ -149,6 +150,7 @@ def test_cevae_recovers_ate_in_simple_setting():
 
 
 def test_cevae_backend_reported():
+    pytest.importorskip("torch")
     rng = np.random.default_rng(1)
     n = 100
     x = rng.normal(0, 1, (n, 2))

@@ -27,6 +27,14 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ `sp.ddc` inner logit stopping rule
+
+- `sp.ddc(method='npl')` and `method='ccp'` no longer stop at an unmoved
+  inner logit. Fits that were affected move by up to about 1e-6 relative;
+  the others are unchanged bit for bit.
+
+---
+
 ## 1.41 → 1.42: ⚠️ conf_int levels, ipw collinearity, count omissions, weighted AUC, boottest ties (option scan round 7)
 
 - `CausalResult.conf_int(alpha)` at a level other than the fit's uses

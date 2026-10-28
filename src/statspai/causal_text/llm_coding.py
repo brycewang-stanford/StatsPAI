@@ -843,7 +843,10 @@ def llm_code_responses(
             UserWarning,
             stacklevel=2,
         )
-    codes_df = pd.DataFrame(codes, columns=[f"coder_{c + 1}" for c in range(n_coders)])
+    # object dtype: pandas 3 would infer str and turn the flagged None into NaN.
+    codes_df = pd.DataFrame(
+        codes, columns=[f"coder_{c + 1}" for c in range(n_coders)], dtype=object
+    )
     agreement = (
         _agreement(codes_df, human, cb, multi_label) if (n_coders > 1 or human) else {}
     )

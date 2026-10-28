@@ -94,8 +94,10 @@ def test_ml_rho_near_upper_end_of_unstandardised_w_matches_spatialreg():
     W, df = _binary_ring_near_bound()
     res = sp.sar(W, df, "y ~ x1", row_normalize=False)
     # spatialreg: rho 0.2479713895537652 (interval (-0.4444458, 0.25)); 1.40.2
-    # stopped at 0.99 * 0.25 = 0.2475.
-    assert res.params["rho"] == pytest.approx(0.2479713895537652, rel=1e-8)
+    # stopped at 0.99 * 0.25 = 0.2475. Both sides locate rho by Brent's
+    # method, whose step floor is sqrt(eps) * |rho| (1.5e-8 relative): the
+    # likelihood is flat here and Linux BLAS lands 1.5e-8 from R, macOS 1e-9.
+    assert res.params["rho"] == pytest.approx(0.2479713895537652, rel=5e-8)
     assert res.std_errors["rho"] == pytest.approx(8.167996609578137e-04, rel=1e-6)
 
 
