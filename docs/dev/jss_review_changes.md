@@ -5907,3 +5907,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None. No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-10-28 — trace ledgers re-recorded after the Econometrica 94(5) follow-up
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `08236dd01`.
+- **Reason.** The follow-up (`02c56a30d`) added the `rust_bus` loader to
+  `src/statspai/datasets/__init__.py` and a lazy export to
+  `src/statspai/__init__.py`. Between them these files are on 30 Track A
+  paths (01-09, 11-20, 22, 24-27, 53, 55, 65, 66, 73, 88) and on the six
+  NHEFS original-data paths (06-11). No estimation code changed.
+  `verify_reproduce_py.py` on the 30 modules reports 30 reproduce, 0
+  drift (worst relative 1.4e-10). Re-running the six NHEFS modules left
+  four result files byte-identical; two (07, 09) moved by at most 1.9e-13
+  and were restored. Recorded on top of `17807fc00` (the Cox Newton-step
+  fix); `24_coxph` was re-verified on that tree (reproduces, 0 drift).
+- **Effect on the paper.** None. No committed parity result changed. The
+  functions of the follow-up are outside Track A.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
