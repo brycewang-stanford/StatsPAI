@@ -729,9 +729,13 @@ def llm_code_responses(
     ['risk', 'cost', 'risk']
     >>> res.n_invalid, res.agreement["human_accuracy"]
     (0, 1.0)
-    >>> sp.llm_code_responses(["x"], ["a", "b"])  # doctest: +IGNORE_EXCEPTION_DETAIL
-    Traceback (most recent call last):
-    LLMClientRequired: llm_code_responses needs an LLM client
+    Without a client there is no offline fallback:
+
+    >>> try:
+    ...     sp.llm_code_responses(["x"], ["a", "b"])
+    ... except sp.LLMClientRequired as e:
+    ...     print(type(e).__name__)
+    LLMClientRequired
 
     References
     ----------

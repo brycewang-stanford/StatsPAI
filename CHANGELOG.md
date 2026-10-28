@@ -933,7 +933,22 @@ says what evidence backs it. Notes for maintainers are in
 
 #### ⚠️ Correctness
 
-- ⚠️ **`sp.iv`'s "SW conditional F" diagnostics were classical under
+- ⚠️ **`sp.cox` could stop one Newton step short of the maximiser.** The
+  step-halving search demanded a decrease of 1e-10 in the negative log
+  partial likelihood; a Newton step between about 1e-9 and 1e-6 changes it
+  by less, so the search ran out and the 2^-20-damped step passed the
+  convergence test. On 800 simulated fits 436 stopped short, by up to
+  5.8e-7 on a coefficient; on Linux / numpy 2.2 `sp.cox(tvc=)` landed 4e-6
+  from Stata `stcox` and R `coxph` (the Parity guards failure on main since
+  e99ee0311). Convergence is now judged on the undamped Newton step before
+  it is taken (below 1e-9, the point where R `coxph` stops as well), and
+  the search accepts a larger step that leaves the likelihood flat to
+  rounding (`tests/test_cox_newton_convergence.py` checks the score
+  equation at the reported coefficients). Fits that converged before are
+  unchanged: Track A `24_coxph` reproduces to 8e-16 and the weighted /
+  counting-process R parity stays at ~1e-15. The `svycoxph` jk1 row is the
+  exception, 1.1e-9 off because R stops with a 1.08e-9 Newton step left.
+ were classical under
   robust / clustered fits and ignored absorbed fixed effects.** With two or
   more endogenous regressors, `diagnostics["SW conditional F (name)"]` now
   uses the fit's own variance, as `ivreg2, robust first` / `cluster() first`

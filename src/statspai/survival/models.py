@@ -1505,19 +1505,29 @@ def cox(
         except np.linalg.LinAlgError:
             step = np.linalg.lstsq(neg_H, score, rcond=None)[0]
 
-        # Step-halving line search
+        # Converged when the Newton step itself is below 1e-9; that step is
+        # not taken, which is where R coxph stops too (the R parity of the
+        # weighted / counting-process fits is to ~1e-15 on this rule).
+        if np.max(np.abs(step)) < 1e-9:
+            converged = True
+            break
+
+        # Step-halving line search. A larger step may still leave the
+        # likelihood flat to rounding: near the optimum a Newton step of
+        # 1e-7 changes it by ~1e-12. Requiring a decrease of 1e-10 used to
+        # exhaust the search on such a step, and the 2^-20-damped step then
+        # passed the convergence test, so the fit stopped one Newton step
+        # short (up to ~1e-6 on the coefficients, depending on where the
+        # iterates fell).
         step_size = 1.0
         current_nll = neg_logpl(beta)
+        slack = 1e-12 * max(1.0, abs(current_nll))
         for _ in range(20):
             candidate = beta + step_size * step
-            if neg_logpl(candidate) < current_nll - 1e-10:
+            if neg_logpl(candidate) <= current_nll + slack:
                 break
             step_size *= 0.5
         beta = beta + step_size * step
-
-        if np.max(np.abs(step_size * step)) < 1e-9:
-            converged = True
-            break
 
     if not converged:
         # Fallback to scipy optimizer

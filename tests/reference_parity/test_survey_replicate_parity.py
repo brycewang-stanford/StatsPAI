@@ -182,7 +182,12 @@ def test_cox_efron_difference_is_rs_zero_weight_rows(data):
     D = _design(data, "jk1")
     ref = R["jk1"]
     ours = sp.cox(data=data, duration="time", event="status", x=["x1", "x2"], design=D)
-    _close(ours.params, ref["cox_coef"], 1e-10)
+    # 5e-9, not 1e-10: svycoxph stops (coxph eps = 1e-9 on the log
+    # likelihood) with a Newton step of 1.08e-9 still to take; ours takes it
+    # and its remaining step is 2e-16 (until 2026-10-28 sp.cox stopped at the
+    # same point as R through a line-search bug, see
+    # tests/test_cox_newton_convergence.py)
+    _close(ours.params, ref["cox_coef"], 5e-9)
     gap = np.abs(ours.std_errors.to_numpy() / np.asarray(ref["cox_se"]) - 1)
     assert gap.max() < 2e-3
     reps = []

@@ -158,7 +158,9 @@ def test_ri_counts_match_ritest_on_fixed_permutations(beta0, method):
     assert r.diagnostics["ri_pvalue"] == pytest.approx((1 + count) / 201, abs=1e-15)
     # The stratum mean is absorbed, so both methods are the unadjusted IV and
     # the Hodges-Lehmann root of the test is that estimate.
-    assert r.estimate == r.diagnostics["unadjusted_estimate"]
+    # equal in exact arithmetic; the two paths round differently (1 ulp on
+    # Linux numpy 2.2)
+    assert r.estimate == pytest.approx(r.diagnostics["unadjusted_estimate"], rel=1e-12)
     assert r.diagnostics["ri_hodges_lehmann"] == pytest.approx(r.estimate, rel=1e-9)
 
 

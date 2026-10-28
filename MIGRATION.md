@@ -5,6 +5,15 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ `sp.cox` runs to the maximiser
+
+- `sp.cox` (with or without `tvc=`) no longer stops one Newton step short
+  of the maximum of the partial likelihood. Where it did, coefficients
+  move by up to about 1e-6, usually far less, and standard errors with
+  them. Fits that already converged give the same numbers as before.
+
+---
+
 ## 1.41 → 1.42: ⚠️ Sanderson-Windmeijer F in `sp.iv` diagnostics (QJE gap pass)
 
 - With two or more endogenous regressors, `sp.iv(...).diagnostics["SW
