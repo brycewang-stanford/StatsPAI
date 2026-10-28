@@ -2,11 +2,14 @@
 
 ## Supported Versions
 
-| Version  | Supported          |
-| -------- | ------------------ |
-| 1.17.x   | :white_check_mark: |
-| 1.16.x   | :white_check_mark: |
-| < 1.16   | :x:                |
+Security fixes ship in the next release on top of the latest version on
+PyPI. Earlier minor lines are not patched separately; upgrade to the
+latest release to receive a fix.
+
+| Version                     | Supported          |
+| --------------------------- | ------------------ |
+| Latest release on PyPI      | :white_check_mark: |
+| Any earlier version         | :x:                |
 
 ## Reporting a Vulnerability
 

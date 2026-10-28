@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Security
+
+- `sp.paper(question=...)`: the question parser took time quadratic in
+  the length of a long run of word characters (CWE-1333, ReDoS). Its
+  `Y ~ X` pattern tried a new match at every position inside a word, and
+  each attempt rescanned to the word's end, so a 64 KB string took about
+  a minute. The pattern now starts only at a word start, which finds the
+  same matches; the same input takes a few milliseconds. Every release
+  before this fix is affected. Reported privately by Siwen Jin, Jiahao
+  Zeng, Yanwei Sun and Zifeng Kang (Beijing University of Posts and
+  Telecommunications). `SECURITY.md` now lists the latest release as the
+  supported version; its table had not been updated since 1.17.
+
 ### pandas 3 lane and optional extras (main CI after round 7)
 
 - ⚠️ **`sp.ddc(method='npl' | 'ccp')` could return an unmoved theta.**

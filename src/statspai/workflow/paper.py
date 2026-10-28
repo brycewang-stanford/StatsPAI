@@ -126,8 +126,11 @@ def parse_question(question: str, columns: List[str]) -> Dict[str, Any]:
         if y in cols_lower:
             out.setdefault("y", cols_lower[y])
 
-    # Pattern: "Y ~ X" / "Y = X"
-    m = re.search(r"([a-z0-9_]+)\s*[~=]\s*([a-z0-9_]+)", q)
+    # Pattern: "Y ~ X" / "Y = X". The lookbehind starts a match only at the
+    # start of a word; without it every position inside a long word is a
+    # new start that rescans to the word's end, quadratic in its length.
+    # A match can only end at a word's end, so the matches are unchanged.
+    m = re.search(r"(?<![a-z0-9_])([a-z0-9_]+)\s*[~=]\s*([a-z0-9_]+)", q)
     if m:
         y, treat = m.group(1), m.group(2)
         if y in cols_lower:

@@ -82,6 +82,42 @@ def test_parse_question_empty_string():
     assert out == {"raw_question": ""}
 
 
+def test_parse_question_tilde_matches_unchanged_by_word_start_anchor():
+    # The word-start lookbehind only removes match attempts that start
+    # inside a word, so it finds the same span as the unanchored pattern.
+    import re
+
+    old = re.compile(r"([a-z0-9_]+)\s*[~=]\s*([a-z0-9_]+)")
+    new = re.compile(r"(?<![a-z0-9_])([a-z0-9_]+)\s*[~=]\s*([a-z0-9_]+)")
+    for q in [
+        "y ~ x1",
+        "log_wage~educ",
+        "regress (y = x) please",
+        "foo-bar ~ baz",
+        "a b c = d e",
+        "é~x",
+        "~ x",
+        "no formula here",
+    ]:
+        mo, mn = old.search(q), new.search(q)
+        assert (mo and (mo.span(), mo.groups())) == (mn and (mn.span(), mn.groups())), q
+    out = parse_question("model: wage ~ trained, please", ["wage", "trained"])
+    assert out["y"] == "wage"
+    assert out["treatment"] == "trained"
+
+
+def test_parse_question_runtime_is_linear_on_long_repetitive_input():
+    # A 64 KB run of word characters took ~65 s when the "Y ~ X" pattern
+    # was unanchored (each start rescanned to the end). It now takes a few
+    # milliseconds; the 2 s bound leaves room for slow CI runners.
+    import time
+
+    for q in ("a" * 65536, "a " * 32768, "effect of a " * 5462):
+        t0 = time.perf_counter()
+        parse_question(q, ["y", "x"])
+        assert time.perf_counter() - t0 < 2.0
+
+
 # --------------------------------------------------------------------- #
 #  paper() end-to-end
 # --------------------------------------------------------------------- #
