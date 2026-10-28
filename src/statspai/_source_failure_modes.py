@@ -592,19 +592,19 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "use 'partial' (Rust's stage 2) or 'full' (stage 3)",
+            "symptom": "stage=<stage> is not supported",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "use method='nfxp' with stage='full'",
+            "symptom": "stage='full' maximises the full likelihood by nested "
+            "fixed point",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "use 'hessian', 'opg' or 'sandwich'",
             "symptom": "vce=<vce> is not supported",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "pass a discount factor below one, e.g. 0.95 or 0.9999",
-            "symptom": "beta=<beta> is outside [0, 1); the infinite-horizon "
-            "value is undefined",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "a small pseudo-count such as 0.5 keeps log CCPs finite",
-            "symptom": "ccp_smoothing must be positive",
         },
     ],
     "dgp_ddc": [
@@ -651,6 +651,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
     "efc_welfare": [
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use demand='linear' (the paper's baseline).",
+            "symptom": "demand must be 'linear', 'probit' or "
+            "'quadratic', got <demand>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Use se_method='delta' or 'bootstrap'.",
             "symptom": "se_method must be 'delta' or 'bootstrap', got " "<se_method>",
         },
@@ -662,12 +668,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.DataInsufficient",
             "remedy": "Cost must be observed for everyone with coverage " "== 1.",
-            "symptom": "<cost> is missing for some covered observations",
-        },
-        {
-            "exception": "statspai.DataInsufficient",
-            "remedy": "Both curves need more observations than " "coefficients.",
-            "symptom": "too few covered or uncovered observations",
+            "symptom": "<cost> is missing for some covered " "observations",
         },
     ],
     "eivreg": [
@@ -1510,6 +1511,28 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "series.",
         },
     ],
+    "private_info_bound": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use model='probit'.",
+            "symptom": "model must be 'probit' or 'linear', got " "<model>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1), got <alpha>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use n_boot=0 for no bootstrap or e.g. " "1000.",
+            "symptom": "n_boot must be >= 0, got <n_boot>",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Include the interactions in your basis " "columns.",
+            "symptom": "interact= applies to the built-in basis " "only",
+        },
+    ],
     "prtest": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1976,8 +1999,8 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use kernel='bin'.",
-            "symptom": "kernel must be 'bin' or 'triangular', got " "<kernel>.",
+            "remedy": "Use learner='ols' or learner='post_lasso'.",
+            "symptom": "learner must be 'ols' or 'post_lasso', got " "<learner>.",
         },
     ],
     "stl": [

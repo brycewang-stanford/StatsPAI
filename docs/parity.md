@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 448 |
+| **Compared against R/Stata** (T2) | bit-exact | 449 |
 | | aligned | 59 |
-| | **subtotal** | **507** |
+| | **subtotal** | **508** |
 | **No external software reference** | analytical-only (T1) | 432 |
-| | external-replication (published numbers) | 63 |
-| | **subtotal** | **495** |
+| | external-replication (published numbers) | 64 |
+| | **subtotal** | **496** |
 | No numerical evidence yet | unverified | 676 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 507 | 983 | 1011 | 50.1% |
+| estimator callables | 508 | 985 | 1012 | 50.2% |
 | infrastructure (parity N/A) | 0 | 13 | 233 | 0.0% |
-| result / exception classes | 0 | 6 | 434 | 0.0% |
-| **all registered** | 507 | 1002 | 1678 | 30.2% |
+| result / exception classes | 0 | 6 | 435 | 0.0% |
+| **all registered** | 508 | 1004 | 1680 | 30.2% |
 
 ### Coverage by estimator family
 
@@ -63,8 +63,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | experimental | 3 | 26 | 29 |
 | decomposition | 21 | 25 | 25 |
 | network | 23 | 24 | 24 |
+| structural | 7 | 16 | 20 |
 | mendelian | 18 | 20 | 20 |
-| structural | 6 | 14 | 19 |
 | epi | 17 | 18 | 18 |
 | postestimation | 13 | 14 | 15 |
 | power | 8 | 13 | 13 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 448 functions
+## bit-exact — 449 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -414,6 +414,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2; pretrends 0.1.0 | rel_est<=1e-06 | 1.6e-08 / — | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `prevalence_ratio` | base-R closed form (Katz-log; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed ~2e-16) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `principal_strat` | AER::ivreg 1.2.16 (Wald LATE); SACE bounds via Stata leebounds | R 4.5.2; AER 1.2.16 | 1e-10 rel on the monotonicity complier LATE | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
+| `private_info_bound` | Hendren's own makem.do (Econometrica supplement 10931) in Stata 18, the method author's code | Stata 18 | bound and Wald statistic 1e-9 relative (observed 2e-11, 1.3e-11), per-row m_Z 1e-9 (observed 1e-10), Wald p 1e-8 on a p of 4e-35 | — / — | [`test_private_info_bound_stata_parity.py`](../tests/reference_parity/test_private_info_bound_stata_parity.py) (+1) |
 | `probit` | stats::glm(family=binomial("probit")) | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 9.8e-10 / 1.6e-08 | [`48_probit.py`](../tests/r_parity/48_probit.py) (+2) |
 | `psis` | loo::psis through loo::loo (smoothed log weights, Pareto k, n_eff) | R 4.5.2; loo 2.9.0 | 1e-9 abs | — / — | [`test_regression_stories_r_parity.py`](../tests/reference_parity/test_regression_stories_r_parity.py) (+1) |
 | `psm` | MatchIt::matchit | R 4.5.2; MatchIt 4.7.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-15 / 2.0e-16 | [`11_psm.py`](../tests/r_parity/11_psm.py) (+2) |
@@ -618,7 +619,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=3e-06, rel_se<=1e-06 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 63 functions
+## external-replication — 64 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -646,6 +647,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `ddc` | [`test_rust1987_bus.py`](../tests/external_parity/test_rust1987_bus.py) |
 | `did_had` | [`test_dcdh_did_textbook.py`](../tests/external_parity/test_dcdh_did_textbook.py) |
 | `difference_in_means` | [`test_ding_first_course.py`](../tests/external_parity/test_ding_first_course.py) |
+| `efc_welfare` | [`test_efc2010_appendix_table_a2.py`](../tests/external_parity/test_efc2010_appendix_table_a2.py) |
 | `ess` | [`test_barrett_causal_inference_in_r.py`](../tests/external_parity/test_barrett_causal_inference_in_r.py) |
 | `estat` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) (+2) |
 | `ets` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |

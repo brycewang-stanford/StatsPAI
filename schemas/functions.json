@@ -38652,6 +38652,10 @@
           ],
           "type": "string"
         },
+        "resid_cov": {
+          "description": "Non-diagonal Omega = E[ee'|w] for the efficient instrument (Omega + psi psi')^{-1}(z - mu): a dense n x n covariance over the rows of data (omit resid_var), or {'cluster': col, 'rho': r} for residuals equicorrelated within clusters with resid_var as the diagonal; method='recenter' only",
+          "type": "object"
+        },
         "resid_mean": {
           "description": "psi_i = E[eps_i | w]; with resid_var, partially residualises the instrument on psi (Lemma 3 of the working paper)",
           "type": "string"
@@ -38767,6 +38771,15 @@
           "enum": [
             "bin",
             "triangular"
+          ],
+          "type": "string"
+        },
+        "learner": {
+          "default": "ols",
+          "description": "method='dml' only: first-step learners; 'post_lasso' is the paper's choice (rlassologit for the design probabilities, ring-by-ring post-LASSO outcome model keeping the intercept and that ring's exposure, hdm data-driven penalty)",
+          "enum": [
+            "ols",
+            "post_lasso"
           ],
           "type": "string"
         },
@@ -38928,12 +38941,11 @@
           "x-statspai-role": "column"
         },
         "weighted_fit": {
-          "default": false,
-          "description": "Also weight the regression and the balancing weight by weights= (the authors' replication code; Stata [aw=] coefficient)",
+          "description": "Weight the regression and the balancing weight by weights= as in the authors' replication code (Stata [aw=] coefficient); None means True when weights= is given; False keeps the regression unweighted and weights only the functional",
           "type": "boolean"
         },
         "weights": {
-          "description": "Known unit weights for a weighted estimand (normalised to mean one)",
+          "description": "Known unit weights for a weighted estimand (normalised to mean one); by default they also weight the fit (weighted_fit)",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -39019,7 +39031,7 @@
     }
   },
   {
-    "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors.",
+    "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "efc_welfare",
     "parameters": {
       "properties": {
@@ -39053,6 +39065,23 @@
           "description": "One row per potential buyer",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "demand": {
+          "default": "linear",
+          "description": "Demand curve: linear probability model (paper), probit Phi(a + b p) or quadratic in price (Online Appendix Table A2 rows 2 and 5); cost stays linear",
+          "enum": [
+            "linear",
+            "probit",
+            "quadratic"
+          ],
+          "type": "string"
+        },
+        "demand_through": {
+          "description": "[(coverage, price), ...] points the linear or quadratic demand must pass through, by restricted least squares (Table A2 rows 3-5); not with covariates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "n_boot": {
           "default": 500,
@@ -39217,6 +39246,122 @@
     }
   },
   {
+    "description": "Hendren (2013) nonparametric lower bound on private information from subjective probability elicitations: P_Z = Pr{L | X, Z} by probit (or LPM) on public information X and a basis in the elicitation Z, the average magnitude E[m_Z(P_Z)] with m_Z(p) = E[P_Z | P_Z >= p] - p within aggregation cells, a Wald test of no private information, and the rejectee-minus-non-rejectee difference with the paper's conservative p-value. Validation: certified parity evidence.",
+    "name": "private_info_bound",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the percentile intervals",
+          "type": "number"
+        },
+        "cells": {
+          "description": "Aggregation cells inside a class (the paper's age groups)",
+          "type": "string"
+        },
+        "classes": {
+          "description": "Sample classification (e.g. rejected); fits and bound per class",
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster for the Wald test and the block bootstrap (household)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "compare": {
+          "description": "(a, b): Delta_Z = bound[a] - bound[b] with the conservative p-value max(Wald p of a, bootstrap Pr(Delta <= 0))",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "covariates": {
+          "description": "Public information insurers price on",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "One row per person",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "elicitation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Elicited probability column (0-1 or 0-100), whose Chebyshev + focal-point basis is built, or a list of basis columns used as given"
+        },
+        "focal": {
+          "default": [
+            0.0,
+            0.5,
+            1.0
+          ],
+          "description": "Focal responses on the probability scale with their own indicator",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "interact": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Columns the built-in basis is interacted with (linear age)"
+        },
+        "loss": {
+          "description": "0/1 indicator of the insured event",
+          "type": "string"
+        },
+        "model": {
+          "default": "probit",
+          "description": "Pr{L | X, Z} by probit or linear probability model",
+          "enum": [
+            "probit",
+            "linear"
+          ],
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 0,
+          "description": "Bootstrap replications refitting everything (paper: 1000)",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed for the bootstrap",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "data",
+        "loss",
+        "elicitation",
+        "covariates"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Single-agent dynamic discrete choice: infinite-horizon, stationary, discrete states, i.i.d. type-I extreme value shocks, flow utility linear in the parameters. Three estimators of the same parameters: Rust's nested fixed point (method='nfxp', Newton-Kantorovich inner solver so beta=0.9999 is cheap), the two-step Hotz-Miller CCP pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested pseudo-likelihood ('npl', whose fixed point is the partial MLE). Built-in Rust (1987) engine-replacement utility, or any feature array (S, J, K) / callable. Transitions are estimated in a first stage (frequencies, or Rust's pooled increments) or supplied. Returns parameters, partial-likelihood standard errors, model CCPs, the value function and .counterfactual() for policy changes. The discount factor is fixed, not estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ddc",
     "parameters": {
@@ -39234,9 +39379,22 @@
           "type": "number"
         },
         "beta": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            }
+          ],
           "default": 0.95,
-          "description": "Discount factor in [0, 1); beta=0 is a static logit",
-          "type": "number"
+          "description": "Discount factor in [0, 1); beta=0 is a static logit; a list fits each value and returns the best with the profile in diagnostics['beta_profile']; 'estimate' maximises the profile likelihood over [0, 0.999999] with a likelihood-ratio interval in diagnostics['beta_ci'] (other SEs treat beta as known)"
         },
         "ccp_smoothing": {
           "default": 0.5,
@@ -39271,6 +39429,10 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "increment": {
+          "description": "Column of observed state increments per row (NaN = unobserved), e.g. rust_bus()['increment']; transitions become its frequencies and stage='full' uses these rows",
+          "type": "string"
+        },
         "method": {
           "default": "nfxp",
           "description": "Nested fixed point, two-step Hotz-Miller CCP, or nested pseudo-likelihood",
@@ -39303,6 +39465,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "stage": {
+          "default": "partial",
+          "description": "'partial' = Rust's stage 2 (choice likelihood at the first-stage transitions); 'full' = stage 3, joint MLE of utilities and increment probabilities with standard errors that account for the transitions (method='nfxp', increment transitions only)",
+          "enum": [
+            "partial",
+            "full"
+          ],
+          "type": "string"
         },
         "state": {
           "description": "Discretised state column: integer codes 0..S-1",
@@ -39469,7 +39640,7 @@
     }
   },
   {
-    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence.",
+    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary or categorical variable (as R mcsimex). Validation: certified parity evidence.",
     "name": "simex",
     "parameters": {
       "properties": {
@@ -39544,7 +39715,7 @@
           "type": "array"
         },
         "misclassification": {
-          "description": "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 regressor or outcome; P[j][i] = Pr(observed j | true i), columns sum to one. Not combined with error_sd",
+          "description": "MC-SIMEX (R mcsimex): {'x': P}, P[j][i] = Pr(observed j | true i), columns sum to one; 2 x 2 for a 0/1 regressor or outcome, k x k for a factor entered as C(x) (array: levels 0..k-1; DataFrame: by label). Not combined with error_sd",
           "type": "object"
         },
         "seed": {

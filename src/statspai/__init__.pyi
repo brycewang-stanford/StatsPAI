@@ -55,9 +55,11 @@ from .adverse_selection._results import PooledPriceRatioResult as PooledPriceRat
 from .adverse_selection._results import (
     PositiveCorrelationResult as PositiveCorrelationResult,
 )
+from .adverse_selection._results import PrivateInfoBoundResult as PrivateInfoBoundResult
 from .adverse_selection._results import (
     RiskClassSelectionResult as RiskClassSelectionResult,
 )
+from .adverse_selection.elicitation import private_info_bound as private_info_bound
 from .adverse_selection.risk_class import risk_class_selection as risk_class_selection
 from .adverse_selection.tests import efc_welfare as efc_welfare
 from .adverse_selection.tests import (

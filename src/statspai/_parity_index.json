@@ -6870,6 +6870,23 @@
       "tolerance": "ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10"
     },
     {
+      "function": "efc_welfare",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_efc2010_appendix_table_a2.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_anderson_rubin_parity.py",
         "tests/reference_parity/test_effective_f_critical_values.py",
@@ -17886,6 +17903,30 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "1e-10 rel on the monotonicity complier LATE"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "private_info_bound",
+      "notes": [
+        "Frozen-Stata fixture on a synthetic HRS-like sample (two classes, age cells, household clusters, the pnc* basis of createhrs_all.do); probit and linear. The only change to the loop body is tighter ML tolerances. No ties in the fixture, where the tie rules differ."
+      ],
+      "reference": "Hendren's own makem.do (Econometrica supplement 10931) in Stata 18, the method author's code",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_private_info_bound_stata_parity.py",
+        "tests/reference_parity/_fixtures/private_info_bound_Stata.txt"
+      ],
+      "tolerance": "bound and Wald statistic 1e-9 relative (observed 2e-11, 1.3e-11), per-row m_Z 1e-9 (observed 1e-10), Wald p 1e-8 on a p of 4e-35"
     },
     {
       "function": "probability_forest",

@@ -27846,12 +27846,11 @@
           "x-statspai-role": "column"
         },
         "weighted_fit": {
-          "default": false,
-          "description": "Also weight the regression and the balancing weight by weights= (the authors' replication code; Stata [aw=] coefficient)",
+          "description": "Weight the regression and the balancing weight by weights= as in the authors' replication code (Stata [aw=] coefficient); None means True when weights= is given; False keeps the regression unweighted and weights only the functional",
           "type": "boolean"
         },
         "weights": {
-          "description": "Known unit weights for a weighted estimand (normalised to mean one)",
+          "description": "Known unit weights for a weighted estimand (normalised to mean one); by default they also weight the fit (weighted_fit)",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -36927,6 +36926,10 @@
           ],
           "type": "string"
         },
+        "resid_cov": {
+          "description": "Non-diagonal Omega = E[ee'|w] for the efficient instrument (Omega + psi psi')^{-1}(z - mu): a dense n x n covariance over the rows of data (omit resid_var), or {'cluster': col, 'rho': r} for residuals equicorrelated within clusters with resid_var as the diagonal; method='recenter' only",
+          "type": "object"
+        },
         "resid_mean": {
           "description": "psi_i = E[eps_i | w]; with resid_var, partially residualises the instrument on psi (Lemma 3 of the working paper)",
           "type": "string"
@@ -40328,7 +40331,7 @@
     "name": "signrank"
   },
   {
-    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence. Assumptions: Additive normal measurement error with known SD, independent of everything else; The extrapolant approximates the coefficient path in lambda; the quadratic usually corrects only part of the bias; The jackknife variance treats the error SD as known. Failure modes: sp.simex: data must be a pandas DataFrame -> Pass the data as a DataFrame; sp.simex: family=<family> is not one of <list(_FAMILIES)> -> Use family='gaussian', 'logit', 'probit' or 'poisson'; sp.simex: vce=<vce> is not 'ols' or 'robust' -> Use vce='ols' (model-based) or 'robust' (sandwich). Alternatives: sp.eivreg, sp.noisy_covariates, sp.regress, sp.logit.",
+    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary or categorical variable (as R mcsimex). Validation: certified parity evidence. Assumptions: Additive normal measurement error with known SD, independent of everything else; The extrapolant approximates the coefficient path in lambda; the quadratic usually corrects only part of the bias; The jackknife variance treats the error SD as known. Failure modes: sp.simex: data must be a pandas DataFrame -> Pass the data as a DataFrame; sp.simex: family=<family> is not one of <list(_FAMILIES)> -> Use family='gaussian', 'logit', 'probit' or 'poisson'; sp.simex: vce=<vce> is not 'ols' or 'robust' -> Use vce='ols' (model-based) or 'robust' (sandwich). Alternatives: sp.eivreg, sp.noisy_covariates, sp.regress, sp.logit.",
     "input_schema": {
       "properties": {
         "B": {
@@ -40397,7 +40400,7 @@
           "type": "array"
         },
         "misclassification": {
-          "description": "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 regressor or outcome; P[j][i] = Pr(observed j | true i), columns sum to one. Not combined with error_sd",
+          "description": "MC-SIMEX (R mcsimex): {'x': P}, P[j][i] = Pr(observed j | true i), columns sum to one; 2 x 2 for a 0/1 regressor or outcome, k x k for a factor entered as C(x) (array: levels 0..k-1; DataFrame: by label). Not combined with error_sd",
           "type": "object"
         },
         "seed": {
@@ -40783,6 +40786,15 @@
           "enum": [
             "bin",
             "triangular"
+          ],
+          "type": "string"
+        },
+        "learner": {
+          "default": "ols",
+          "description": "method='dml' only: first-step learners; 'post_lasso' is the paper's choice (rlassologit for the design probabilities, ring-by-ring post-LASSO outcome model keeping the intercept and that ring's exposure, hdm data-driven penalty)",
+          "enum": [
+            "ols",
+            "post_lasso"
           ],
           "type": "string"
         },

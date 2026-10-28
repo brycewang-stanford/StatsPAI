@@ -84802,6 +84802,10 @@
             ],
             "type": "string"
           },
+          "resid_cov": {
+            "description": "Non-diagonal Omega = E[ee'|w] for the efficient instrument (Omega + psi psi')^{-1}(z - mu): a dense n x n covariance over the rows of data (omit resid_var), or {'cluster': col, 'rho': r} for residuals equicorrelated within clusters with resid_var as the diagonal; method='recenter' only",
+            "type": "object"
+          },
           "resid_mean": {
             "description": "psi_i = E[eps_i | w]; with resid_var, partially residualises the instrument on psi (Lemma 3 of the working paper)",
             "type": "string"
@@ -84933,8 +84937,8 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use kernel='bin'.",
-        "symptom": "kernel must be 'bin' or 'triangular', got <kernel>."
+        "remedy": "Use learner='ols' or learner='post_lasso'.",
+        "symptom": "learner must be 'ols' or 'post_lasso', got <learner>."
       }
     ],
     "inherits_from": null,
@@ -85025,6 +85029,15 @@
             "enum": [
               "bin",
               "triangular"
+            ],
+            "type": "string"
+          },
+          "learner": {
+            "default": "ols",
+            "description": "method='dml' only: first-step learners; 'post_lasso' is the paper's choice (rlassologit for the design probabilities, ring-by-ring post-LASSO outcome model keeping the intercept and that ring's exposure, hdm data-driven penalty)",
+            "enum": [
+              "ols",
+              "post_lasso"
             ],
             "type": "string"
           },
@@ -85289,12 +85302,11 @@
             "x-statspai-role": "column"
           },
           "weighted_fit": {
-            "default": false,
-            "description": "Also weight the regression and the balancing weight by weights= (the authors' replication code; Stata [aw=] coefficient)",
+            "description": "Weight the regression and the balancing weight by weights= as in the authors' replication code (Stata [aw=] coefficient); None means True when weights= is given; False keeps the regression unweighted and weights only the functional",
             "type": "boolean"
           },
           "weights": {
-            "description": "Known unit weights for a weighted estimand (normalised to mean one)",
+            "description": "Known unit weights for a weighted estimand (normalised to mean one); by default they also weight the fit (weighted_fit)",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -85502,26 +85514,36 @@
     "api_contract": "deprecation-cycle",
     "assumptions": [
       "Price variation is exogenous given the covariates",
-      "Demand and average cost are linear in price",
+      "Average cost is linear in price; demand is linear unless demand= says otherwise",
       "Welfare is per potential buyer; corners of [0, 1] coverage make delta-method SEs invalid (use the bootstrap)"
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors.",
+    "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_efc2010_appendix_table_a2.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.efc_welfare(df, \"price\", \"insured\", \"claims\")",
     "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use demand='linear' (the paper's baseline).",
+        "symptom": "demand must be 'linear', 'probit' or 'quadratic', got <demand>"
+      },
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
@@ -85539,12 +85561,6 @@
         "exception": "statspai.DataInsufficient",
         "remedy": "Cost must be observed for everyone with coverage == 1.",
         "symptom": "<cost> is missing for some covered observations"
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.DataInsufficient",
-        "remedy": "Both curves need more observations than coefficients.",
-        "symptom": "too few covered or uncovered observations"
       }
     ],
     "inherits_from": null,
@@ -85567,6 +85583,7 @@
       "fields": {
         "alpha": "float",
         "curves": "Dict[str, float]",
+        "demand": "str",
         "diagnostics": "Dict[str, Any]",
         "n_covered": "int",
         "n_obs": "int",
@@ -85576,7 +85593,7 @@
       }
     },
     "signature": {
-      "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors.",
+      "description": "Einav-Finkelstein-Cullen welfare cost of selection from exogenous price variation: linear demand and average cost curves, implied marginal cost, competitive equilibrium (price = average cost), efficient allocation (price = marginal cost) and the deadweight loss, with delta-method or bootstrap standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "efc_welfare",
       "parameters": {
         "properties": {
@@ -85610,6 +85627,23 @@
             "description": "One row per potential buyer",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "demand": {
+            "default": "linear",
+            "description": "Demand curve: linear probability model (paper), probit Phi(a + b p) or quadratic in price (Online Appendix Table A2 rows 2 and 5); cost stays linear",
+            "enum": [
+              "linear",
+              "probit",
+              "quadratic"
+            ],
+            "type": "string"
+          },
+          "demand_through": {
+            "description": "[(coverage, price), ...] points the linear or quadratic demand must pass through, by restricted least squares (Table A2 rows 3-5); not with covariates",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "n_boot": {
             "default": 500,
@@ -85647,9 +85681,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_adverse_selection.py: closed-form interior and full-coverage corner cases, the delta-method SE of the slope equals HC0 OLS, and the bootstrap is reproducible and close to the delta method"
+      "tests/test_adverse_selection.py: closed-form interior and full-coverage corner cases, the delta-method SE of the slope equals HC0 OLS, and the bootstrap is reproducible and close to the delta method",
+      "tests/external_parity/test_efc2010_appendix_table_a2.py: the welfare numbers of EFC (2010) Online Appendix Table A2 rows 1-5 follow from its published coefficients within their rounding; tests/test_efc_nonlinear_demand.py: general solver = closed form (1e-10), probit sandwich = sp.probit robust, restricted LS = KKT",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_efc2010_appendix_table_a2.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -85971,6 +86007,221 @@
   {
     "alias_of": null,
     "alternatives": [
+      "pooled_price_ratio",
+      "positive_correlation_test",
+      "risk_class_selection"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Z carries no information about L beyond true beliefs P (Assumption 1)",
+      "Beliefs are unbiased, Pr{L | X, P} = P (Assumption 2)",
+      "Within a cell the distribution of P_Z - Pr{L | X} does not vary with X",
+      "The bootstrap SE is not valid when there is no private information; use the Wald test then"
+    ],
+    "category": "structural",
+    "cost_profile": "",
+    "description": "Hendren (2013) nonparametric lower bound on private information from subjective probability elicitations: P_Z = Pr{L | X, Z} by probit (or LPM) on public information X and a basis in the elicitation Z, the average magnitude E[m_Z(P_Z)] with m_Z(p) = E[P_Z | P_Z >= p] - p within aggregation cells, a Wald test of no private information, and the rejectee-minus-non-rejectee difference with the paper's conservative p-value. Validation: certified parity evidence.",
+    "evidence": {
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "Hendren's own makem.do (Econometrica supplement 10931) in Stata 18, the method author's code",
+      "reference_versions": {
+        "Stata": "18"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_private_info_bound_stata_parity.py",
+        "tests/reference_parity/_fixtures/private_info_bound_Stata.txt"
+      ],
+      "tolerance": "bound and Wald statistic 1e-9 relative (observed 2e-11, 1.3e-11), per-row m_Z 1e-9 (observed 1e-10), Wald p 1e-8 on a p of 4e-35"
+    },
+    "example": "sp.private_info_bound(df, \"nrshom5y\", \"selfprob\", pricing_vars, classes=\"reject\", compare=(1, 0), cells=\"agegroup\", interact=\"age\", cluster=\"hhid\", n_boot=1000)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use model='probit'.",
+        "symptom": "model must be 'probit' or 'linear', got <model>"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use e.g. alpha=0.05.",
+        "symptom": "alpha must be in (0, 1), got <alpha>"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use n_boot=0 for no bootstrap or e.g. 1000.",
+        "symptom": "n_boot must be >= 0, got <n_boot>"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Include the interactions in your basis columns.",
+        "symptom": "interact= applies to the built-in basis only"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "private_info_bound",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "hendren2013private",
+    "returns": {
+      "class": "PrivateInfoBoundResult",
+      "description": "PrivateInfoBoundResult",
+      "fields": {
+        "alpha": "float",
+        "delta": "Optional[Dict[str, Any]]",
+        "estimate": "Optional[float]",
+        "model_info": "Dict[str, Any]",
+        "n_obs": "int",
+        "rows": "pd.DataFrame",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Hendren (2013) nonparametric lower bound on private information from subjective probability elicitations: P_Z = Pr{L | X, Z} by probit (or LPM) on public information X and a basis in the elicitation Z, the average magnitude E[m_Z(P_Z)] with m_Z(p) = E[P_Z | P_Z >= p] - p within aggregation cells, a Wald test of no private information, and the rejectee-minus-non-rejectee difference with the paper's conservative p-value. Validation: certified parity evidence.",
+      "name": "private_info_bound",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the percentile intervals",
+            "type": "number"
+          },
+          "cells": {
+            "description": "Aggregation cells inside a class (the paper's age groups)",
+            "type": "string"
+          },
+          "classes": {
+            "description": "Sample classification (e.g. rejected); fits and bound per class",
+            "type": "string"
+          },
+          "cluster": {
+            "description": "Cluster for the Wald test and the block bootstrap (household)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "compare": {
+            "description": "(a, b): Delta_Z = bound[a] - bound[b] with the conservative p-value max(Wald p of a, bootstrap Pr(Delta <= 0))",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "covariates": {
+            "description": "Public information insurers price on",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "One row per person",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "elicitation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Elicited probability column (0-1 or 0-100), whose Chebyshev + focal-point basis is built, or a list of basis columns used as given"
+          },
+          "focal": {
+            "default": [
+              0.0,
+              0.5,
+              1.0
+            ],
+            "description": "Focal responses on the probability scale with their own indicator",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "interact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Columns the built-in basis is interacted with (linear age)"
+          },
+          "loss": {
+            "description": "0/1 indicator of the insured event",
+            "type": "string"
+          },
+          "model": {
+            "default": "probit",
+            "description": "Pr{L | X, Z} by probit or linear probability model",
+            "enum": [
+              "probit",
+              "linear"
+            ],
+            "type": "string"
+          },
+          "n_boot": {
+            "default": 0,
+            "description": "Bootstrap replications refitting everything (paper: 1000)",
+            "type": "integer"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed for the bootstrap",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "loss",
+          "elicitation",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "tests/reference_parity/test_private_info_bound_stata_parity.py: the author's makem.do (Econometrica supplement 10931) in Stata 18, bound to 2e-11, Wald statistic to 1e-11, per-row m_Z to 1e-10, probit and linear; tests/test_private_info_bound.py: closed-form LPM bound, probit garbling population bound below the true magnitude (Prop. 2)",
+      "Cross-language parity (bit-exact) vs Hendren's own makem.do (Econometrica supplement 10931) in Stata 18, the method author's code [Stata 18]; tolerance bound and Wald statistic 1e-9 relative (observed 2e-11, 1.3e-11), per-row m_Z 1e-9 (observed 1e-10), Wald p 1e-8 on a p of 4e-35 -- tests/reference_parity/test_private_info_bound_stata_parity.py"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "dgp_ddc",
       "clogit",
       "logit",
@@ -86013,20 +86264,20 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
+        "remedy": "use 'partial' (Rust's stage 2) or 'full' (stage 3)",
+        "symptom": "stage=<stage> is not supported"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "use method='nfxp' with stage='full'",
+        "symptom": "stage='full' maximises the full likelihood by nested fixed point"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
         "remedy": "use 'hessian', 'opg' or 'sandwich'",
         "symptom": "vce=<vce> is not supported"
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "pass a discount factor below one, e.g. 0.95 or 0.9999",
-        "symptom": "beta=<beta> is outside [0, 1); the infinite-horizon value is undefined"
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "a small pseudo-count such as 0.5 keeps log CCPs finite",
-        "symptom": "ccp_smoothing must be positive"
       }
     ],
     "inherits_from": null,
@@ -86088,9 +86339,22 @@
             "type": "number"
           },
           "beta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              }
+            ],
             "default": 0.95,
-            "description": "Discount factor in [0, 1); beta=0 is a static logit",
-            "type": "number"
+            "description": "Discount factor in [0, 1); beta=0 is a static logit; a list fits each value and returns the best with the profile in diagnostics['beta_profile']; 'estimate' maximises the profile likelihood over [0, 0.999999] with a likelihood-ratio interval in diagnostics['beta_ci'] (other SEs treat beta as known)"
           },
           "ccp_smoothing": {
             "default": 0.5,
@@ -86125,6 +86389,10 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "increment": {
+            "description": "Column of observed state increments per row (NaN = unobserved), e.g. rust_bus()['increment']; transitions become its frequencies and stage='full' uses these rows",
+            "type": "string"
+          },
           "method": {
             "default": "nfxp",
             "description": "Nested fixed point, two-step Hotz-Miller CCP, or nested pseudo-likelihood",
@@ -86157,6 +86425,15 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "stage": {
+            "default": "partial",
+            "description": "'partial' = Rust's stage 2 (choice likelihood at the first-stage transitions); 'full' = stage 3, joint MLE of utilities and increment probabilities with standard errors that account for the transitions (method='nfxp', increment transitions only)",
+            "enum": [
+              "partial",
+              "full"
+            ],
+            "type": "string"
           },
           "state": {
             "description": "Discretised state column: integer codes 0..S-1",
@@ -86215,7 +86492,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "tests/test_ddc.py: recovers the structural parameters of the Rust bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient is zero at the optimum, and beta = 0 reduces to a static logit",
-      "tests/external_parity/test_rust1987_bus.py: Rust (1987) Tables V, VI and VIII-X on the bus data (sp.datasets.rust_bus), parameters within 2e-4 and BHHH standard errors within 5e-3 relative",
+      "tests/external_parity/test_rust1987_bus.py: Rust (1987) Tables V, VI and VIII-X on the bus data (sp.datasets.rust_bus), parameters within 2e-4 and BHHH standard errors within 5e-3 relative; stage='full' reproduces Tables IX/X standard errors and log-likelihoods to the printed digit at beta=.9999",
+      "tests/test_ddc_full_beta.py: full-likelihood gradient, block-diagonality at beta=0, Schur ordering of SEs, beta recovery by profile likelihood",
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_rust1987_bus.py"
     ],
     "validation_status": "validated"
@@ -86520,7 +86798,7 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence.",
+    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary or categorical variable (as R mcsimex). Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
@@ -86597,7 +86875,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence.",
+      "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary or categorical variable (as R mcsimex). Validation: certified parity evidence.",
       "name": "simex",
       "parameters": {
         "properties": {
@@ -86672,7 +86950,7 @@
             "type": "array"
           },
           "misclassification": {
-            "description": "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 regressor or outcome; P[j][i] = Pr(observed j | true i), columns sum to one. Not combined with error_sd",
+            "description": "MC-SIMEX (R mcsimex): {'x': P}, P[j][i] = Pr(observed j | true i), columns sum to one; 2 x 2 for a 0/1 regressor or outcome, k x k for a factor entered as C(x) (array: levels 0..k-1; DataFrame: by label). Not combined with error_sd",
             "type": "object"
           },
           "seed": {

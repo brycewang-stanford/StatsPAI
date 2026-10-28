@@ -115,7 +115,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,678 registered functions across 92 submodules; 756k LOC (core) + 519k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,680 registered functions across 92 submodules; 756k LOC (core) + 519k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
