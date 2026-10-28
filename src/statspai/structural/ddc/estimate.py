@@ -28,7 +28,18 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 import pandas as pd
@@ -36,6 +47,7 @@ from scipy import optimize
 
 from ...core._call_record import records_call
 from ...exceptions import ConvergenceWarning, MethodIncompatibility
+from ._beta import beta_search
 from ._core import (
     centred_scores,
     fit_linear_logit,
@@ -53,6 +65,7 @@ from ._data import (
     estimate_transitions,
     increments_matrix,
 )
+from ._full import IncrementModel, full_mle, full_vcov, row_increments
 from ._result import DDCResult
 
 __all__ = ["ddc"]
@@ -195,6 +208,36 @@ def _vcov(
     return np.asarray(Ainv @ (sc.T @ sc) @ Ainv)
 
 
+def _full_diagnostics(
+    model: IncrementModel,
+    q: np.ndarray,
+    vfull: np.ndarray,
+    names: List[str],
+    two_step: np.ndarray,
+    phi: np.ndarray,
+    beta: float,
+    theta: np.ndarray,
+    counts: np.ndarray,
+) -> Dict[str, Any]:
+    """Stage-3 extras: increment SEs, the full variance matrix, stage 2."""
+    K = len(names)
+    # SE of every increment probability; the dependent one by the delta method
+    Vq = vfull[K:, K:]
+    se = np.zeros(model.D)
+    se[model.free] = np.sqrt(np.clip(np.diag(Vq), 0, None))
+    se[model.dep] = float(np.sqrt(max(np.sum(Vq), 0.0)))
+    return {
+        "stage": "full",
+        "_increment_se": se.tolist(),
+        "loglik_transition": model.loglik(q),
+        "vcov_full": {
+            "names": names + model.names,
+            "matrix": vfull.tolist(),
+        },
+        "two_step_params": dict(zip(names, two_step.tolist())),
+    }
+
+
 @records_call("ddc")
 def ddc(
     data: pd.DataFrame,
@@ -204,7 +247,7 @@ def ddc(
     time: Optional[str] = None,
     method: Literal["nfxp", "ccp", "npl"] = "nfxp",
     utility: Union[str, np.ndarray, Callable] = "rust",
-    beta: float = 0.95,
+    beta: Union[float, Sequence[float], str] = 0.95,
     transition: Union[str, np.ndarray, Dict[Any, np.ndarray]] = "auto",
     actions: Optional[Sequence[Any]] = None,
     n_states: Optional[int] = None,
@@ -218,6 +261,8 @@ def ddc(
     vce: Literal["hessian", "opg", "sandwich"] = "hessian",
     tol: float = 1e-8,
     alpha: float = 0.05,
+    stage: Literal["partial", "full"] = "partial",
+    increment: Optional[str] = None,
 ) -> DDCResult:
     """Estimate a single-agent dynamic discrete choice model.
 
@@ -248,8 +293,15 @@ def ddc(
         when ``cost='quadratic'``). Otherwise an array ``phi`` of shape
         ``(S, J, K)`` or a callable ``f(s, j) -> (K,)`` giving the features
         of state ``s`` and action index ``j``.
-    beta : float, default 0.95
-        Discount factor in ``[0, 1)``. ``beta = 0`` is a static logit.
+    beta : float, list of float or 'estimate', default 0.95
+        Discount factor in ``[0, 1)``. ``beta = 0`` is a static logit. A
+        list fits every value and returns the fit with the highest
+        log-likelihood, with the whole profile in
+        ``diagnostics['beta_profile']`` (and ``.beta_profile``).
+        ``'estimate'`` maximises the profile likelihood over
+        ``[0, 0.999999]`` (the joint MLE of ``beta``) and reports the
+        likelihood-ratio interval in ``diagnostics['beta_ci']``; standard
+        errors of the other parameters treat ``beta`` as known.
     transition : 'auto', 'estimate', 'increments', array or dict
         ``'estimate'``: action-specific frequency matrices from consecutive
         rows. ``'increments'``: Rust's first stage, one distribution of
@@ -290,6 +342,24 @@ def ddc(
         Convergence tolerance on the parameters.
     alpha : float, default 0.05
         Level of the confidence intervals.
+    stage : {'partial', 'full'}, default 'partial'
+        ``'partial'`` maximises the choice likelihood at the first-stage
+        transition estimate (Rust's stage 2). ``'full'`` continues to Rust's
+        stage 3: the full likelihood of choices and state increments,
+        maximised jointly over the utility parameters and the increment
+        probabilities (``method='nfxp'`` and an increment transition model
+        only). Its standard errors account for the estimation of the
+        transitions; the increment estimates and their standard errors are
+        in ``transition_params`` and ``loglik`` stays the choice part
+        (the full value is ``diagnostics['loglik_full']``).
+    increment : str, optional
+        Column of observed state increments, one per row (NaN where
+        unobserved), such as the ``increment`` column of
+        ``sp.datasets.rust_bus()``. The transitions are then the increment
+        frequencies of this column (``transition`` must be ``'auto'`` or
+        ``'increments'``), and ``stage='full'`` uses these rows for the
+        increment likelihood. Without it, increments come from consecutive
+        panel rows.
 
     Returns
     -------
@@ -304,9 +374,10 @@ def ddc(
     partial MLE's variance; for the two-step CCP estimator it is its
     asymptotic variance too, because the pseudo-likelihood estimators are
     asymptotically equivalent to the partial MLE in single-agent models
-    [@aguirregabiria2002swapping]. None of them account for the sampling
-    error of the first-stage transitions (Rust's third, full-likelihood
-    step is not implemented). The discount factor is not estimated.
+    [@aguirregabiria2002swapping]. They do not account for the sampling
+    error of the first-stage transitions; ``stage='full'`` does (Rust's
+    third step). At ``beta = 0`` the choice probabilities do not depend on
+    the transitions, so the two stages coincide.
 
     Rust's own bus data are ``sp.datasets.rust_bus()``. Fitting its
     ``rust_sample`` rows with ``transition=`` set to the frequencies of its
@@ -315,7 +386,9 @@ def ddc(
     Tables VIII-X (``tests/external_parity/test_rust1987_bus.py``). The
     default ``transition='increments'`` measures the step after a
     replacement from state 0, one bin below Rust's convention; on groups
-    1-4 that moves ``RC`` and ``theta_1`` by about 0.01 to 0.02.
+    1-4 that moves ``RC`` and ``theta_1`` by about 0.01 to 0.02. Passing
+    ``increment="increment"`` instead of ``transition=`` gives the same
+    second stage, and ``stage='full'`` Rust's third.
 
     Examples
     --------
@@ -329,23 +402,50 @@ def ddc(
     >>> cf.attrs["long_run"]["counterfactual"][1] > cf.attrs["long_run"]["base"][1]
     True
 
+    Rust's third stage, and a profile over the discount factor:
+
+    >>> full = sp.ddc(df, "replace", "mileage", id="bus", time="t",
+    ...               beta=0.9999, n_states=90, stage="full")
+    >>> len(full.transition_params["increment_se"])
+    3
+    >>> prof = sp.ddc(df, "replace", "mileage", id="bus", time="t",
+    ...               beta=[0.9, 0.99, 0.9999], n_states=90).beta_profile
+    >>> list(prof.index)
+    [0.9, 0.99, 0.9999]
+
     References
     ----------
     [@rust1987optimal]
     [@hotz1993conditional]
     [@aguirregabiria2002swapping]
     """
+    if isinstance(beta, str) or np.ndim(beta) > 0:
+        kw = dict(locals())
+        del kw["beta"], kw["data"]
+        grid = cast(Union[str, Sequence[float]], beta)
+        best: DDCResult = beta_search(lambda b: ddc(data, beta=b, **kw), grid, alpha)
+        return best
     if method not in ("nfxp", "ccp", "npl"):
         raise MethodIncompatibility(
             f"method={method!r} is not supported",
             recovery_hint="use 'nfxp', 'ccp' or 'npl'",
+        )
+    if stage not in ("partial", "full"):
+        raise MethodIncompatibility(
+            f"stage={stage!r} is not supported",
+            recovery_hint="use 'partial' (Rust's stage 2) or 'full' (stage 3)",
+        )
+    if stage == "full" and method != "nfxp":
+        raise MethodIncompatibility(
+            "stage='full' maximises the full likelihood by nested fixed point",
+            recovery_hint="use method='nfxp' with stage='full'",
         )
     if vce not in ("hessian", "opg", "sandwich"):
         raise MethodIncompatibility(
             f"vce={vce!r} is not supported",
             recovery_hint="use 'hessian', 'opg' or 'sandwich'",
         )
-    beta = float(beta)
+    beta = float(cast(float, beta))
     if not 0.0 <= beta < 1.0:
         raise MethodIncompatibility(
             f"beta={beta} is outside [0, 1); the infinite-horizon value is undefined",
@@ -357,7 +457,7 @@ def ddc(
             recovery_hint="a small pseudo-count such as 0.5 keeps log CCPs finite",
         )
 
-    enc = encode_panel(data, choice, state, id, time, actions, n_states)
+    enc = encode_panel(data, choice, state, id, time, actions, n_states, increment)
     S, labels, counts = enc["S"], enc["labels"], enc["counts"]
     J = len(labels)
     phi, names = build_features(utility, S, J, cost, cost_scale, param_names)
@@ -365,7 +465,25 @@ def ddc(
     diag: Dict[str, Any] = {}
 
     # transitions --------------------------------------------------------
-    if isinstance(transition, str):
+    if increment is not None:
+        if not (isinstance(transition, str) and transition in ("auto", "increments")):
+            raise MethodIncompatibility(
+                "increment= estimates the transitions from that column; it "
+                "cannot be combined with supplied transitions",
+                recovery_hint="drop transition= (or set it to 'increments')",
+            )
+        reset_idx = _reset_indices(reset_actions, utility, labels)
+        inc_rows = row_increments(enc, reset_idx)
+        obs_inc = inc_rows[np.isfinite(inc_rows)].astype(np.int64)
+        p_inc = np.bincount(obs_inc) / obs_inc.size
+        F = increments_matrix(p_inc, S, J, reset_idx)
+        tparams = {
+            "n_transitions": int(obs_inc.size),
+            "increments": list(range(p_inc.size)),
+            "increment_probs": p_inc.tolist(),
+            "mode": "increments_column",
+        }
+    elif isinstance(transition, str):
         mode = transition
         if mode == "auto":
             mode = "increments" if isinstance(utility, str) else "estimate"
@@ -377,6 +495,8 @@ def ddc(
         reset_idx = _reset_indices(reset_actions, utility, labels)
         F, tparams = estimate_transitions(enc, mode, reset_idx, diag)
         tparams["mode"] = mode
+        if stage == "full" and mode == "increments":
+            inc_rows = row_increments(enc, reset_idx)
     elif not isinstance(transition, dict) and np.ndim(transition) == 1:
         p_inc = check_increments(transition)
         reset_idx = _reset_indices(reset_actions, utility, labels)
@@ -390,6 +510,15 @@ def ddc(
         F = check_transitions(transition, S, J, labels)
         tparams = {"mode": "supplied"}
 
+    if stage == "full" and tparams["mode"] not in ("increments", "increments_column"):
+        raise MethodIncompatibility(
+            "stage='full' estimates an increment distribution jointly with the "
+            "utility parameters; the transitions here are not increments",
+            recovery_hint=(
+                "use transition='increments' (with id=, time=) or "
+                "increment=<column of observed increments>"
+            ),
+        )
     unvisited = np.flatnonzero(counts.sum(axis=1) == 0)
     if unvisited.size:
         diag["unvisited_states"] = unvisited.tolist()
@@ -424,7 +553,9 @@ def ddc(
         theta, converged, iterations = _nfxp(
             phi, F, beta, counts, theta_ccp if theta0 is None else start, tol
         )
-    if not converged:
+    # Under stage='full' the two-step NFXP only supplies starting values;
+    # convergence is that of the full likelihood, checked below.
+    if not converged and stage == "partial":
         warnings.warn(
             ConvergenceWarning(
                 f"sp.ddc(method={method!r}) did not converge",
@@ -435,8 +566,39 @@ def ddc(
             stacklevel=2,
         )
 
-    V, v, P, _, loglik = _model_scores(phi, F, beta, theta, counts)
-    vc = _vcov(vce, phi, F, beta, theta, counts, enc)
+    if stage == "full":
+        model = IncrementModel(inc_rows, S, J, reset_idx)
+        two_step = theta.copy()
+        theta, q, conv_full, it_full = full_mle(phi, model, beta, counts, theta, tol)
+        converged = conv_full
+        iterations += it_full
+        if not conv_full:
+            warnings.warn(
+                ConvergenceWarning(
+                    "the full-likelihood (stage 3) Newton ascent did not converge",
+                    recovery_hint="check the two-step fit, or use stage='partial'",
+                ),
+                stacklevel=2,
+            )
+        F = model.transitions(q)
+        vfull = full_vcov(vce, phi, model, beta, theta, q, counts, enc, inc_rows)
+        vc = vfull[:K, :K]
+        diag.update(
+            _full_diagnostics(
+                model, q, vfull, names, two_step, phi, beta, theta, counts
+            )
+        )
+        p_full = model.probs(q)
+        tparams = {
+            **tparams,
+            "increment_probs": p_full.tolist(),
+            "increment_se": diag.pop("_increment_se"),
+        }
+        V, v, P, _, loglik = _model_scores(phi, F, beta, theta, counts)
+        diag["loglik_full"] = loglik + model.loglik(q)
+    else:
+        V, v, P, _, loglik = _model_scores(phi, F, beta, theta, counts)
+        vc = _vcov(vce, phi, F, beta, theta, counts, enc)
     if not np.all(np.isfinite(vc)) or np.any(np.diag(vc) <= 0):
         warnings.warn(
             ConvergenceWarning(

@@ -31,7 +31,10 @@ def _factor_data(seed, n, p, r=3, noise=0.4, miss=0.15, mu=None):
 
 def test_default_outputs_unchanged():
     # Values from the pre-change code (bit-identical locally, 7 configs);
-    # rtol leaves room for other BLAS builds only.
+    # rtol leaves room for other BLAS builds only. Since weighted_fit
+    # defaults to True when weights= is given (2026-10-28, before any
+    # release), the weighted configurations pin the old projection through
+    # an explicit weighted_fit=False.
     rng = np.random.default_rng(1)
     n, p, r = 300, 60, 3
     L = rng.normal(size=(n, r))
@@ -47,7 +50,7 @@ def test_default_outputs_unchanged():
     df["w"] = np.exp(0.3 * L[:, 1])
     pinned = {
         "ate_w": (
-            dict(treat="d", weights="w", rank=3),
+            dict(treat="d", weights="w", rank=3, weighted_fit=False),
             1.5764155924913292,
             0.14175155400662678,
         ),
@@ -57,7 +60,13 @@ def test_default_outputs_unchanged():
             0.06182859862986305,
         ),
         "plr_w": (
-            dict(treat="dc", estimand="partially_linear", weights="w", rank=4),
+            dict(
+                treat="dc",
+                estimand="partially_linear",
+                weights="w",
+                rank=4,
+                weighted_fit=False,
+            ),
             0.0631496223536246,
             0.06725227886083687,
         ),
@@ -68,6 +77,18 @@ def test_default_outputs_unchanged():
         np.testing.assert_allclose(res.se, se, rtol=1e-10)
         assert res.model_info["weighted_fit"] is False
         assert res.model_info["fold_assignment"] == "random"
+    # weights= alone now means weighted_fit=True, bit for bit.
+    for kw, _, _ in pinned.values():
+        if "weights" not in kw:
+            continue
+        kw = {k: v for k, v in kw.items() if k != "weighted_fit"}
+        default = sp.noisy_covariates(df, "y", covariates=cols, **kw)
+        explicit = sp.noisy_covariates(
+            df, "y", covariates=cols, weighted_fit=True, **kw
+        )
+        assert default.estimate == explicit.estimate
+        assert default.se == explicit.se
+        assert default.model_info["weighted_fit"] is True
 
 
 def test_elasticity_recovers_average_derivative():
@@ -216,9 +237,9 @@ def test_partially_linear_iv_known_truth_and_identity():
 def test_weighted_fit_targets_weighted_projection():
     # Y = tau(L1) D + L0 + e, D = 0.8 L0 + v with v independent of L.
     # The weighted partially linear coefficient is E[W tau] / E[W]; with
-    # W = exp(0.5 L1), tau = 1 + 0.5 L1 it is 1.25 (lognormal tilt). The
-    # default (unweighted regression; the functional's moment is constant)
-    # stays near the unweighted value 1.
+    # W = exp(0.5 L1), tau = 1 + 0.5 L1 it is 1.25 (lognormal tilt), which
+    # weights= alone now targets. weighted_fit=False (unweighted regression;
+    # the functional's moment is constant) stays near the unweighted value 1.
     df, cols, L, _, rng = _factor_data(10, n=4000, p=200)
     n = len(df)
     dose = 0.8 * L[:, 0] + rng.normal(size=n)
@@ -227,8 +248,8 @@ def test_weighted_fit_targets_weighted_projection():
     df["dose"], df["w"] = dose, w
     df["y"] = tau * dose + L[:, 0] + rng.normal(size=n)
     kw = dict(estimand="partially_linear", rank=3, weights="w")
-    wf = sp.noisy_covariates(df, "y", "dose", cols, weighted_fit=True, **kw)
-    de = sp.noisy_covariates(df, "y", "dose", cols, **kw)
+    wf = sp.noisy_covariates(df, "y", "dose", cols, **kw)
+    de = sp.noisy_covariates(df, "y", "dose", cols, weighted_fit=False, **kw)
     truth_w = float(np.sum(w * tau) / np.sum(w))
     assert abs(wf.estimate - truth_w) < 4 * wf.se
     assert abs(de.estimate - float(np.mean(tau))) < 4 * de.se

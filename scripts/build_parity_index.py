@@ -8026,6 +8026,29 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "an S screen only."
         ),
     },
+    "private_info_bound": {
+        "status": "bit-exact",
+        "reference": (
+            "Hendren's own makem.do (Econometrica supplement 10931) in Stata "
+            "18, the method author's code"
+        ),
+        "reference_versions": {"Stata": "18"},
+        "tolerance": (
+            "bound and Wald statistic 1e-9 relative (observed 2e-11, 1.3e-11), "
+            "per-row m_Z 1e-9 (observed 1e-10), Wald p 1e-8 on a p of 4e-35"
+        ),
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_private_info_bound_stata_parity.py",
+            "tests/reference_parity/_fixtures/private_info_bound_Stata.txt",
+        ],
+        "note": (
+            "Frozen-Stata fixture on a synthetic HRS-like sample (two classes, "
+            "age cells, household clusters, the pnc* basis of createhrs_all.do); "
+            "probit and linear. The only change to the loop body is tighter ML "
+            "tolerances. No ties in the fixture, where the tie rules differ."
+        ),
+    },
 }
 
 # ---- marginaleffects-style post-estimation (2026-10-17) ----

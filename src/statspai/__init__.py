@@ -2486,6 +2486,8 @@ __all__ = [
     "PooledPriceRatioResult",
     "risk_class_selection",
     "RiskClassSelectionResult",
+    "private_info_bound",
+    "PrivateInfoBoundResult",
     "ddc",
     "dgp_ddc",
     "DDCResult",
@@ -3525,9 +3527,11 @@ _register_lazy(
     "EFCWelfareResult",
     "PooledPriceRatioResult",
     "RiskClassSelectionResult",
+    "PrivateInfoBoundResult",
 )
 _register_lazy("adverse_selection.unraveling", "pooled_price_ratio")
 _register_lazy("adverse_selection.risk_class", "risk_class_selection")
+_register_lazy("adverse_selection.elicitation", "private_info_bound")
 _register_lazy("structural.ddc", "ddc", "dgp_ddc", "DDCResult")
 _register_lazy(
     "mcmc.semiparametric", "semiparametric_bayes", "SemiparametricBayesResult"

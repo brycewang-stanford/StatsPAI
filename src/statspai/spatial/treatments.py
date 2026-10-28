@@ -428,6 +428,7 @@ def spatial_treatment(
     covariates: Optional[Sequence[str]] = None,
     location_covariates: Optional[Sequence[str]] = None,
     n_folds: int = 10,
+    learner: Literal["ols", "post_lasso"] = "ols",
 ) -> SpatialTreatmentResult:
     """
     Effects of spatial treatments by distance, with design-based inference.
@@ -520,6 +521,13 @@ def spatial_treatment(
         cross-fitting. Each fold's nuisances are fitted on units and
         locations far enough from the fold to be design-independent of it,
         so dense candidate sets need more folds.
+    learner : {"ols", "post_lasso"}, default "ols"
+        ``method="dml"`` only: first-step learners. ``"ols"`` fits the
+        logit and the linear outcome model on every regressor.
+        ``"post_lasso"`` is the paper's choice: ``sp.rlassologit(post=True)``
+        for the design probabilities and, ring by ring, a post-LASSO
+        outcome model (hdm's data-driven penalty) that always keeps the
+        intercept and that ring's exposure.
 
     Returns
     -------
@@ -568,7 +576,8 @@ def spatial_treatment(
     ``method="dml"``: nuisances follow the paper's application, a logit
     for the design probabilities and a linear outcome model on unit
     covariates and ring exposure counts whose prediction with location
-    ``s`` removed is ``m_{s,i}`` (the paper used post-LASSO for both).
+    ``s`` removed is ``m_{s,i}``; ``learner="post_lasso"`` uses the
+    paper's post-LASSO for both.
     Estimated probabilities are clipped to ``[1e-6, 1 - 1e-6]``. The
     standard error is the design-based variance of Theorem 1(iv) applied
     to the linearised estimator (treated terms centred at the estimate,
@@ -639,6 +648,16 @@ def spatial_treatment(
                 f"n_folds must be an integer of at least 2, got {n_folds!r}.",
                 recovery_hint="Use n_folds=10.",
             )
+    if learner not in ("ols", "post_lasso"):
+        raise MethodIncompatibility(
+            f"learner must be 'ols' or 'post_lasso', got {learner!r}.",
+            recovery_hint="Use learner='ols' or learner='post_lasso'.",
+        )
+    if learner != "ols" and method != "dml":
+        raise MethodIncompatibility(
+            "learner= is used by method='dml' only.",
+            recovery_hint="Pass method='dml', or drop learner=.",
+        )
     if kernel not in ("bin", "triangular"):
         raise MethodIncompatibility(
             f"kernel must be 'bin' or 'triangular', got {kernel!r}.",
@@ -872,6 +891,7 @@ def spatial_treatment(
             propensity,
             int(n_folds),
             rng,
+            learner,
         )
         if dml_info is not None:
             p = dml_info["p_hat"]
@@ -951,38 +971,18 @@ def spatial_treatment(
             "of terms that cannot occur together"
         )
     if dml_info is not None:
-        model_info.update(
-            covariates=list(covariates or []),
-            location_covariates=list(location_covariates or []),
-            n_folds=int(n_folds),
+        from ._treatments_common import dml_report
+
+        dml_report(
+            dml_info,
+            model_info,
+            diagnostics,
+            covariates,
+            location_covariates,
+            int(n_folds),
+            p_source,
+            bool(n_perm),
         )
-        p_hat = dml_info["p_hat"]
-        diagnostics.update(
-            propensity_source=(
-                "cross-fitted logit" if location_covariates else p_source
-            ),
-            propensity_hat=p_hat,
-            n_propensity_clipped=dml_info["n_clipped"],
-            n_train_units=dml_info["n_train_units"],
-            n_train_locations=dml_info["n_train_locations"],
-            randomization=None,
-        )
-        if n_perm:
-            diagnostics["randomization_note"] = (
-                "not computed for method='dml': the first steps would have "
-                "to be refit under every draw"
-            )
-        if location_covariates and float(p_hat.max()) > 0.99:
-            warnings.warn(
-                AssumptionWarning(
-                    f"Estimated design probabilities reach {p_hat.max():.4f}; "
-                    "the inverse odds of those candidates dominate the control "
-                    "mean (Assumption 6(iii) needs them bounded below 1).",
-                    recovery_hint="Use coarser location covariates or drop "
-                    "candidates that are near-certain to be realised.",
-                ),
-                stacklevel=2,
-            )
     return SpatialTreatmentResult(
         table=table,
         alpha=float(alpha),

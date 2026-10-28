@@ -37,10 +37,9 @@ Sources of the reference numbers
 Tolerances
 ----------
 * Printed numbers: half a unit in the last printed decimal.
-* Tables IX and X: their parameters and standard errors come from Rust's
-  third stage (full likelihood, transitions re-estimated jointly), ours
-  from the second stage (partial likelihood at the frequency estimate of
-  the transitions). Rust (p. 1019) reports the two "nearly identical";
+* Tables IX and X print Rust's third stage (full likelihood, transitions
+  re-estimated jointly). The two-step tests below compare our second
+  stage with them: Rust (p. 1019) reports the two "nearly identical";
   here they differ by at most 1.1e-4 in a parameter, so the bound is
   2e-4, and by at most 0.43 per cent in a standard error (group 1-3,
   ``beta = 0``, ``RC``: 1.0462 against 1.0417), so the bound is 5e-3
@@ -49,6 +48,39 @@ Tolerances
   transition-plus-partial sum; the gap is at most 1.1e-3, so the bound on
   a Table IX / X log-likelihood is 1.5e-3 and on a myopia statistic
   (twice a difference of two of them) 3e-3.
+* ``stage='full'`` (Rust's third stage) at ``beta = .9999``: every
+  standard error (utility parameters and increment probabilities) and
+  every log-likelihood of Tables IX and X lies within half a unit of the
+  printed last digit, and so do the parameters in five of the six cells
+  and the increment probabilities but one (Table X pooled ``theta_32``:
+  .36216 against .3621; the frequency .36219 rounds to .3622 as well).
+  The sixth, groups 1-3 in Table IX, has ``theta_11`` 4.82575 against
+  4.8259 printed (our two-step value, 4.82587, lies between): the bound
+  there is 2e-4, Rust's stopping point. Where the two-step estimates
+  missed the printed digit (Table IX group 4 ``theta_11`` SE .6383 for
+  .639, pooled ``RC`` 9.7557 for 9.7558), the third stage hits it. At
+  ``beta = 0`` the choice probabilities do not depend on the transitions,
+  so the third stage equals the second exactly; the 0.43 per cent ``RC``
+  standard error above is a ``beta = 0`` cell and stays.
+* The pooled 90-bin ``theta_30`` standard error prints as .0052 at both
+  discount factors; the data give .00528, i.e. the multinomial
+  sqrt(p (1 - p) / n) with p = .3489 and n = 8156. Truncated, like the
+  pooled .348 of Table VI. Table X prints the pooled ``beta = 0``
+  ``theta_33`` standard error as .0143 (the estimate itself, repeated);
+  the ``beta = .9999`` column next to it prints .0013, as do the data.
+* ``beta``: Rust (p. 1023) found that changing ``beta`` to .98 or .999999
+  "produced negligible changes in the likelihood function and parameter
+  estimates" and that a free ``beta`` was "driven to 1". The profile on
+  the data rises monotonically to the upper end of the search range, the
+  likelihood-ratio statistic between .98 and .9999 is below 3.84, and
+  .999999 moves the log-likelihood by less than 0.01 and the parameters by
+  less than 0.05 standard errors. The parameters at .98 are a different
+  matter: ``RC`` stays within one standard error, but ``theta_11`` moves
+  by one to two (group 4: 3.48 against 2.29, SE .639), so "negligible"
+  holds for the likelihood, not for ``theta_11``. The profile
+  likelihood-ratio interval for group 4 includes 0, matching Table IX's
+  myopia test (marginal significance .0529), and excludes 0 for the
+  pooled sample (.0035).
 * Table VIII prints the second-stage log-likelihood itself; the bound is
   1e-3 (one value, -165.4585, prints as -165.458).
 
@@ -421,3 +453,179 @@ def test_default_increments_match_ferrall_correction(bus, groups):
     np.testing.assert_allclose(
         fit.params.to_numpy(), FERRALL_175[groups], rtol=0, atol=2e-4
     )
+
+
+# ---------------------------------------------------------------------------
+# Rust's third stage: stage='full' (Tables IX and X as printed)
+# ---------------------------------------------------------------------------
+
+# (bins, groups) -> printed beta = .9999 column as strings, so the number of
+# printed decimals sets the tolerance: (RC, se), (theta_11, se), the free
+# increment probabilities with their standard errors, LL.
+STAGE3 = {
+    (90, (1, 2, 3)): (
+        ("11.7270", "2.602"),
+        ("4.8259", "1.792"),
+        (("0.3010", "0.0074"), ("0.6884", "0.0075")),
+        "-2708.366",
+    ),
+    (90, (4,)): (
+        ("10.0750", "1.582"),
+        ("2.2930", "0.639"),
+        (("0.3919", "0.0075"), ("0.5953", "0.0075")),
+        "-3304.155",
+    ),
+    (90, (1, 2, 3, 4)): (
+        ("9.7558", "1.227"),
+        ("2.6275", "0.618"),
+        (("0.3489", "0.0052"), ("0.6394", "0.0053")),
+        "-6055.250",
+    ),
+    (175, (1, 2, 3)): (
+        ("11.7257", "2.597"),
+        ("2.4569", "0.9122"),
+        (
+            ("0.0937", "0.0047"),
+            ("0.4475", "0.0080"),
+            ("0.4459", "0.0080"),
+            ("0.0127", "0.0018"),
+        ),
+        "-3993.991",
+    ),
+    (175, (4,)): (
+        ("10.0896", "1.581"),  # printed 10.896 (lost digit, see above)
+        ("1.1732", "0.327"),
+        (
+            ("0.1191", "0.0050"),
+            ("0.5762", "0.0075"),
+            ("0.2868", "0.0069"),
+            ("0.0158", "0.0019"),
+        ),
+        "-4495.135",
+    ),
+    (175, (1, 2, 3, 4)): (
+        ("9.7687", "1.226"),
+        ("1.3428", "0.315"),
+        (
+            ("0.1071", "0.0034"),
+            ("0.5152", "0.0055"),
+            ("0.3621", "0.0053"),
+            ("0.0143", "0.0013"),
+        ),
+        "-8607.889",
+    ),
+}
+
+
+def _printed(value, text, slack=1e-9):
+    """``value`` is within half a unit of the last printed decimal."""
+    decimals = len(text.split(".")[1])
+    return abs(value - float(text)) <= 0.5 * 10.0 ** (-decimals) + slack
+
+
+def _full(bus, groups, beta, n):
+    s = _sample(bus, groups, n)
+    return sp.ddc(
+        s,
+        "replace",
+        "state",
+        beta=beta,
+        n_states=n,
+        increment="increment",
+        stage="full",
+        vce="opg",
+    )
+
+
+@pytest.mark.parametrize("key", list(STAGE3), ids=lambda k: f"{k[0]}-{k[1]}")
+def test_stage3_matches_printed_digits(bus, key):
+    n, groups = key
+    (rc, rc_se), (th, th_se), incs, ll = STAGE3[key]
+    fit = _full(bus, groups, BETA, n)
+    assert fit.converged and fit.diagnostics["stage"] == "full"
+    est, se = fit.params.to_numpy(), fit.se.to_numpy()
+    assert _printed(est[0], rc)
+    if key == (90, (1, 2, 3)):
+        # 4.82575 against 4.8259; Rust's stopping point (module docstring)
+        assert abs(est[1] - float(th)) <= 2e-4 and not _printed(est[1], th)
+    else:
+        assert _printed(est[1], th)
+    assert _printed(se[0], rc_se) and _printed(se[1], th_se)
+    p = fit.transition_params["increment_probs"]
+    p_se = fit.transition_params["increment_se"]
+    for d, (pt, st) in enumerate(incs):
+        if key == (175, (1, 2, 3, 4)) and d == 2:
+            # .36216 against .3621; the frequency .36219 rounds to .3622 too
+            assert abs(p[d] - float(pt)) <= 1e-4 and not _printed(p[d], pt)
+        else:
+            assert _printed(p[d], pt), (d, p[d], pt)
+        if key == (90, (1, 2, 3, 4)) and d == 0:
+            # printed .0052 truncates .00528 (module docstring)
+            assert np.floor(p_se[d] * 1e4) / 1e4 == float(st)
+            assert not _printed(p_se[d], st)
+        else:
+            assert _printed(p_se[d], st), (d, p_se[d], st)
+    assert _printed(fit.diagnostics["loglik_full"], ll)
+
+
+@pytest.mark.parametrize("groups", list(OBS), ids=str)
+def test_stage3_at_beta_zero_is_the_second_stage(bus, groups):
+    full = _full(bus, groups, 0.0, 90)
+    two = _fit(_sample(bus, groups), 0.0)
+    np.testing.assert_allclose(full.params, two.params, rtol=1e-8)
+    # BHHH: the sample cross-products of choice and increment scores have
+    # mean zero but are not exactly zero, so the OPG blocks differ slightly
+    # (observed 7e-5 relative; the Hessian version is exactly block diagonal)
+    np.testing.assert_allclose(full.se, two.se, rtol=2e-4)
+
+
+def test_stage3_moves_little_from_the_second_stage(bus):
+    """Rust (p. 1019): the two stages are "nearly identical"."""
+    full = _full(bus, (1, 2, 3, 4), BETA, 90)
+    two = full.diagnostics["two_step_params"]
+    for name in ("RC", "theta_1"):
+        assert abs(full.params[name] - two[name]) < 0.01 * full.se[name]
+    V = np.asarray(full.diagnostics["vcov_full"]["matrix"])
+    corr = V / np.sqrt(np.outer(np.diag(V), np.diag(V)))
+    # "almost perfectly block diagonal"
+    assert np.max(np.abs(corr[:2, 2:])) < 0.05
+
+
+# ---------------------------------------------------------------------------
+# The discount factor (Rust 1987, p. 1023)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("groups", list(OBS), ids=str)
+def test_beta_profile_is_flat_and_rises_to_one(bus, groups):
+    grid = [0.98, 0.999, 0.9999, 0.999999]
+    fit = _full(bus, groups, grid, 90)
+    prof = fit.beta_profile
+    assert prof["converged"].all()
+    ll = prof["loglik"].to_numpy()
+    assert np.all(np.diff(ll) > 0) and fit.beta == grid[-1]
+    # "negligible changes in the likelihood function" at .98 and .999999
+    assert 2 * (prof.loc[0.9999, "loglik"] - prof.loc[0.98, "loglik"]) < 3.84
+    assert abs(prof.loc[0.999999, "loglik"] - prof.loc[0.9999, "loglik"]) < 0.01
+    # ... and in the parameters: true at .999999; at .98 RC stays within one
+    # standard error but theta_11 moves one to two (module docstring)
+    ref = _full(bus, groups, BETA, 90)
+    se = ref.se.to_numpy()
+
+    def z(b):
+        return np.abs(prof.loc[b, ["RC", "theta_1"]].to_numpy(float) - ref.params) / se
+
+    assert np.all(z(0.999999) < 0.05)
+    assert z(0.98)[0] < 1 and 0.9 < z(0.98)[1] < 2
+
+
+@pytest.mark.parametrize(
+    "groups, zero_inside", [((4,), True), ((1, 2, 3, 4), False)], ids=str
+)
+def test_beta_estimate_is_driven_to_one(bus, groups, zero_inside):
+    with pytest.warns(sp.exceptions.AssumptionWarning, match="boundary"):
+        fit = _full(bus, groups, "estimate", 90)
+    d = fit.diagnostics
+    assert d["beta_at_bound"] and fit.beta > 0.99999
+    # the profile LR interval agrees with Table IX's myopia test
+    assert (d["beta_ci"][0] == 0.0) is zero_inside

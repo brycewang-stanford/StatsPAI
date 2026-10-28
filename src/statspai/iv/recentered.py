@@ -42,7 +42,18 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 import pandas as pd
@@ -64,6 +75,12 @@ from ._recentered_extras import (
     conley_refit,
     efficient_transform,
     singleton_keep_mask,
+)
+from ._recentered_omega import (
+    check_resid_cov,
+    dense_solver,
+    efficient_transform_cov,
+    equicorrelated_solver,
 )
 from ._recentered_ri import _balance_tests, _ri_confidence_set, _ri_pvalue
 
@@ -213,6 +230,7 @@ def recentered_iv(
     conley_cutoff: Optional[float] = None,
     conley_kernel: Literal["uniform", "bartlett"] = "uniform",
     conley_distance: Literal["haversine", "planar"] = "haversine",
+    resid_cov: Optional[Union[np.ndarray, Mapping[str, Any]]] = None,
 ) -> CausalResult:
     """Recentered IV for treatments built from exogenous shocks (Borusyak-Hull).
 
@@ -307,6 +325,17 @@ def recentered_iv(
         cutoff, as in the paper's Table 1.
     conley_distance : {'haversine', 'planar'}, default 'haversine'
         Great-circle distance, or Stata ``acreg``'s planar approximation.
+    resid_cov : array of shape (n, n) or dict, optional
+        A non-diagonal ``Omega = E[eps eps' | w]`` for the efficient
+        instrument ``(Omega + psi psi')^{-1} (z - mu)``. Either the dense
+        covariance over the rows of ``data`` (then ``resid_var`` must be
+        omitted: the diagonal is in the matrix), or
+        ``{'cluster': col, 'rho': r}``: residuals equicorrelated within
+        the clusters of ``col``, ``Omega_ij = r sqrt(v_i v_j)``, with
+        ``resid_var`` as the diagonal ``v``. ``resid_mean`` adds the
+        ``psi psi'`` term as before. Like ``resid_var``, any positive
+        definite ``Omega`` that depends on the exposure only keeps the
+        instrument valid; ``method='recenter'`` only.
 
     Returns
     -------
@@ -430,7 +459,8 @@ def recentered_iv(
         cluster,
         weights,
     )
-    has_var, has_mean = check_efficient(method, resid_var, resid_mean)
+    cov_kind = check_resid_cov(resid_cov, resid_var is not None, len(data))
+    has_var, has_mean = check_efficient(method, resid_var, resid_mean, cov_kind)
     covariates = list(covariates or [])
     balance = list(balance or [])
     fe_terms = _absorb_terms(absorb)
@@ -589,12 +619,14 @@ def recentered_iv(
                 stacklevel=2,
             )
 
-    eff_info: Dict[str, float] = {}
+    eff_info: Dict[str, Any] = {}
     omega = psi = None
+    cov_solve = None
     zt_inst = zt
+    if psi_all is not None:
+        psi = psi_all[idx]
     if has_var:
         omega = omega_all[idx]  # type: ignore[index]
-        psi = psi_all[idx] if psi_all is not None else None
         if np.any(omega <= 0):
             raise MethodIncompatibility(
                 "resid_var must be positive: it is the conditional variance "
@@ -602,6 +634,16 @@ def recentered_iv(
                 recovery_hint="Check the resid_var values (no zeros or negatives).",
                 diagnostics={"min_resid_var": float(np.min(omega))},
             )
+    if cov_kind is not None:
+        if cov_kind == "dense":
+            cov_solve, cov_info = dense_solver(resid_cov, idx)
+        else:
+            cov_solve, cov_info = equicorrelated_solver(
+                data, resid_cov, idx, omega  # type: ignore[arg-type]
+            )
+        zt_inst, eff_info = efficient_transform_cov(zt, cov_solve, psi)
+        eff_info.update(cov_info)
+    elif omega is not None:
         zt_inst, eff_info = efficient_transform(zt, omega, psi)
 
     same = treat == exposure
@@ -711,9 +753,9 @@ def recentered_iv(
             "kernel": conley_kernel,
             "distance": conley_distance,
         }
-    if has_var:
+    if has_var or cov_kind is not None:
         model_info["efficient_instrument"] = {
-            "resid_var": True,
+            "resid_var": bool(has_var),
             "resid_mean": bool(has_mean),
             **eff_info,
         }
@@ -768,9 +810,12 @@ def recentered_iv(
         y_r, x_r = resid[:, 0], resid[:, 1]
         Zt_s = Zc - mu_all[:, None]
         zt_ri = zt_all
-        if omega is not None:
-            # The efficient map is linear and fixed given w, so every draw
-            # goes through it and the test stays exact.
+        # The efficient map is linear and fixed given w, so every draw
+        # goes through it and the test stays exact.
+        if cov_solve is not None:
+            zt_ri, _ = efficient_transform_cov(zt_all, cov_solve, psi)
+            Zt_s, _ = efficient_transform_cov(Zt_s, cov_solve, psi)
+        elif omega is not None:
             zt_ri, _ = efficient_transform(zt_all, omega, psi)
             Zt_s, _ = efficient_transform(Zt_s, omega, psi)
         a = float(np.sum(wv * zt_ri * y_r))

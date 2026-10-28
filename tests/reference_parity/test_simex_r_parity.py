@@ -15,7 +15,9 @@ compute the same numbers, so this is deterministic parity for
 * the asymptotic variance of [@carroll1996asymptotics]
   (``variance='asymptotic'``, R ``asymptotic = TRUE``);
 * MC-SIMEX (R ``mcsimex``) for a misclassified regressor and a
-  misclassified outcome, with the quadratic and log-linear extrapolants.
+  misclassified outcome, with the quadratic and log-linear extrapolants;
+* MC-SIMEX for a three-level misclassified factor (3 x 3 matrix) entered as
+  ``C(xf)``, least squares and logit (``simex_det_factor_*``).
 
 Observed relative differences: estimates and asymptotic SEs 7e-15 or
 less; jackknife SEs 8e-15 (least squares) to 1.7e-9 (logit), because R's
@@ -178,3 +180,51 @@ def test_mcsimex_matches_r(monkeypatch, target, family, formula, extrapolant):
     names = {"Intercept": "Intercept"}
     names.update({t: ("xs1" if t == "xs" else t) for t in terms})
     _check(fit, f"mc{target}_{family}_{extrapolant}", names, 1e-12)
+
+
+@lru_cache(maxsize=1)
+def _factor_data() -> pd.DataFrame:
+    return pd.read_csv(_FIX / "simex_det_factor_data.csv")
+
+
+@lru_cache(maxsize=1)
+def _factor_mc() -> pd.DataFrame:
+    return pd.read_csv(_FIX / "simex_det_factor_mc.csv.gz")
+
+
+P_F = [[0.80, 0.10, 0.05], [0.10, 0.80, 0.15], [0.10, 0.10, 0.80]]
+FACTOR_CASES = [
+    ("gaussian", "yf ~ C(xf) + z", "quadratic"),
+    ("gaussian", "yf ~ C(xf) + z", "loglinear"),
+    ("logit", "df ~ C(xf) + z", "quadratic"),
+]
+
+
+@pytest.mark.parametrize("family, formula, extrapolant", FACTOR_CASES)
+def test_mcsimex_factor_matches_r(monkeypatch, family, formula, extrapolant):
+    count = {"i": 0}
+
+    def flips(values, P_lam, rng):
+        assert P_lam.shape == (3, 3)
+        out = _factor_mc()[f"f{count['i']}"].to_numpy(dtype=float)
+        count["i"] += 1
+        return out
+
+    monkeypatch.setattr(_simex_misclass, "misclassify", flips)
+    fit = sp.simex(
+        formula,
+        _factor_data(),
+        misclassification={"xf": P_F},
+        family=family,
+        B=B,
+        extrapolant=extrapolant,
+        variance="asymptotic",
+    )
+    assert count["i"] == 4 * B
+    names = {
+        "Intercept": "Intercept",
+        "C(xf)[T.1]": "xf1",
+        "C(xf)[T.2]": "xf2",
+        "z": "z",
+    }
+    _check(fit, f"mcf_{family}_{extrapolant}", names, 1e-12)

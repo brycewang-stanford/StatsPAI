@@ -124,6 +124,7 @@ def alternative_rows(
     propensity: Optional[str],
     n_folds: int,
     rng: np.random.Generator,
+    learner: str = "ols",
 ) -> Tuple[List[Dict[str, Any]], List[int], Optional[Dict[str, Any]]]:
     """Per-ring table rows for ``method='nearest'`` and ``method='dml'``."""
     from .treatments import _ring_weights
@@ -178,6 +179,7 @@ def alternative_rows(
             Xunit,
             n_folds,
             rng,
+            learner=learner,
         )
         dml_info = dml
         for k, (wk, fit) in enumerate(zip(ring_w, dml["rings"])):
@@ -203,3 +205,54 @@ def alternative_rows(
                 )
             rows.append(row)
     return rows, empty, dml_info
+
+
+def dml_report(
+    dml_info: Dict[str, Any],
+    model_info: Dict[str, Any],
+    diagnostics: Dict[str, Any],
+    covariates: Optional[Sequence[str]],
+    location_covariates: Optional[Sequence[str]],
+    n_folds: int,
+    p_source: str,
+    asked_for_ri: bool,
+) -> None:
+    """Record the DML first steps in ``model_info`` / ``diagnostics``."""
+    model_info.update(
+        covariates=list(covariates or []),
+        location_covariates=list(location_covariates or []),
+        n_folds=int(n_folds),
+    )
+    p_hat = dml_info["p_hat"]
+    diagnostics.update(
+        propensity_source=("cross-fitted logit" if location_covariates else p_source),
+        propensity_hat=p_hat,
+        n_propensity_clipped=dml_info["n_clipped"],
+        n_train_units=dml_info["n_train_units"],
+        n_train_locations=dml_info["n_train_locations"],
+        randomization=None,
+    )
+    if dml_info["learner"] != "ols":
+        model_info["learner"] = dml_info["learner"]
+        diagnostics.update(
+            n_selected_outcome=dml_info["n_selected_outcome"],
+            n_selected_propensity=dml_info["n_selected_propensity"],
+        )
+        if location_covariates:
+            diagnostics["propensity_source"] = "cross-fitted post-LASSO logit"
+    if asked_for_ri:
+        diagnostics["randomization_note"] = (
+            "not computed for method='dml': the first steps would have "
+            "to be refit under every draw"
+        )
+    if location_covariates and float(p_hat.max()) > 0.99:
+        warnings.warn(
+            AssumptionWarning(
+                f"Estimated design probabilities reach {p_hat.max():.4f}; "
+                "the inverse odds of those candidates dominate the control "
+                "mean (Assumption 6(iii) needs them bounded below 1).",
+                recovery_hint="Use coarser location covariates or drop "
+                "candidates that are near-certain to be realised.",
+            ),
+            stacklevel=3,
+        )

@@ -974,9 +974,9 @@ Econometrica 94(5) follow-up (same day): the open items of the round above.
   and the same noisy, missing and privatised inputs to 3e-10 or better.
   The test fetches the archive by SHA-256 and skips when it is not cached.
   The paper's noisy rows come from one unpublished draw, so they are an S
-  screen. Reproducing the paper needs `weighted_fit=True`; the default,
-  which is unchanged, targets the unweighted coefficient and gives -0.448
-  on the same data.
+  screen. With `weights=` the fit is weighted by default, as in the
+  authors' code; `weighted_fit=False` targets the unweighted-regression
+  projection and gives -0.448 on the same data.
 - `sp.datasets.rust_bus()` and `sp.ddc(transition=<1-D increment
   distribution>)`. The Rust (1987) Madison Metro bus panel (8 groups, 162
   buses) is fetched from Zenodo 3385050 (MIT; values identical to Rust's
@@ -1009,6 +1009,69 @@ Econometrica 94(5) follow-up (same day): the open items of the round above.
   residuals, the score of the bivariate model with ordered margins at
   rho = 0. This matches Stata 18 `oprobit` / `probit` to 4e-10. Binary
   inputs give byte-identical output.
+
+Econometrica 94(5) remaining items (same day): what the follow-up above
+left open.
+
+- `sp.recentered_iv(resid_cov=)`. The efficient recentered instrument with
+  a non-diagonal Omega = E[ee'|w]: a dense n x n covariance, or
+  `{'cluster': col, 'rho': r}` for residuals equicorrelated within
+  clusters around the `resid_var` diagonal, solved in closed form without
+  building the matrix. Randomization inference stays exact. Evidence is
+  T1. It matches a dense solve to 1e-10, and both forms reduce to the
+  diagonal path at 1e-12. With within-cluster correlation 0.6 a
+  known-truth Monte Carlo gives a variance ratio of 0.42 against the
+  diagonal instrument.
+- `sp.spatial_treatment(method='dml', learner='post_lasso')`. The
+  first-step learners of Pollmann's application: a post-LASSO logit
+  (`sp.rlassologit`) for the design probabilities and a ring-by-ring
+  post-LASSO outcome model with hdm's data-driven penalty, always keeping
+  the intercept and the exposure at the distance of interest. With every
+  column selected it reproduces the OLS path to 1e-10. With 500 noise
+  covariates, where OLS DML breaks (RMSE around 1e4), it recovers the
+  effects (mean 1.98 for a truth of 2).
+- `sp.simex(misclassification=)` for factors with more than two levels.
+  The factor enters as `C(x)` with a k x k matrix, and R's
+  `check.mc.matrix` condition applies. It is deterministic against R
+  `mcsimex` on shared draws (estimates 4e-15, SEs 1.6e-14).
+- `sp.noisy_covariates(weighted_fit=)` now defaults to `None`, which
+  weights the fit whenever `weights=` is given, as the authors' code
+  does. The ADH application (-0.61799) is reproduced without extra
+  arguments. `weighted_fit=False` keeps the earlier projection. The
+  function has not been released, so no deprecation is needed.
+- `sp.datasets.china_shock()`. The Autor-Dorn-Hanson (2013)
+  commuting-zone workfile (1,444 x 191), fetched from the Agarwal-Singh
+  Zenodo package (CC-BY-4.0, SHA-256 pinned). It is not named `adh`
+  because `california_prop99` is the other ADH.
+- `sp.ddc(stage='full')`, `sp.ddc(increment=)` and
+  `sp.ddc(beta=[...] | 'estimate')`. `stage='full'` is Rust's third
+  stage, the joint likelihood of choices and state increments, with
+  standard errors that account for estimating the transitions. At beta =
+  .9999 on the bus data it reproduces every standard error and log
+  likelihood of Rust (1987) Tables IX and X to the printed digit. Two
+  more misprints are pinned. A list of `beta` values gives the profile
+  likelihood; `'estimate'` maximises it and reports a likelihood-ratio
+  interval. On the bus data the profile rises to the upper bound, as Rust
+  reports.
+- `sp.private_info_bound`. Hendren's (2013) nonparametric lower bound on
+  private information from subjective probability elicitations, with the
+  Wald test of no private information and the rejectee-minus-non-rejectee
+  difference with the paper's conservative p-value. The author's own
+  `makem.do` (Econometrica supplement 10931), run in Stata 18 on a
+  synthetic sample, gives the same bound to 2e-11 and the same per-person
+  m_Z to 1e-10. Tied residuals enter together; the author's code breaks
+  ties by sort order, and the two agree when there are no ties.
+- `sp.efc_welfare(demand='probit' | 'quadratic', demand_through=)`. The
+  demand specifications of Einav, Finkelstein and Cullen's (2010) Online
+  Appendix Table A2, with average cost kept linear. The published
+  coefficients reproduce all 25 published welfare numbers of rows 1 to 5
+  within their rounding.
+
+Not done, with reasons in the module notes: the unordered multinomial
+Chiappori-Salanie test (no citable construction found), non-linear EFC
+cost curves (the appendix reports no numbers), sampling weights in
+`private_info_bound` and `risk_class_selection`, and a Wald standard error
+for the DDC discount factor.
 
 - `sp.eigenvector_centrality(mode=)`. On a directed graph the references
   disagree: `sna::evcent` scores a node by the nodes it points to

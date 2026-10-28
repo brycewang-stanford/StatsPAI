@@ -250,3 +250,25 @@ Empirical Model of Harold Zurcher. *Econometrica*, 55(5), 999-1033.
 `paper.bib` key `rust1987optimal`.
 
 Test: `test_rust1987_bus.py`.
+
+With `stage='full'` (Rust's third stage, the joint likelihood of choices
+and increments) every BHHH standard error and log-likelihood of Tables IX
+and X at beta = .9999 matches the printed digit, and the parameters do in
+five of six cells. Two further misprints are recorded in the test: the
+pooled 90-bin `theta_30` standard error (printed .0052 for .00528) and the
+Table X pooled `theta_33` standard error at beta = 0 (printed .0143, which
+repeats the estimate; the data give .0013).
+
+## Einav, Finkelstein and Cullen (2010) Online Appendix Table A2
+
+`sp.efc_welfare` solver with the published Panel B demand and cost
+coefficients (rows 1-5: linear, probit, linear through (1, $0), linear
+through (0, $800), quadratic through both).
+
+| Statistic | Published | StatsPAI | Source |
+| --- | --- | --- | --- |
+| Q_eq, P_eq, Q_eff, P_eff, DWL (rows 1-5) | Panel A, 25 numbers | all within the range implied by the rounding of the Panel B coefficients | QJE 125(3), Online Appendix Table A2 |
+
+Citation: `paper.bib` key `einav2010estimating`.
+
+Test: `test_efc2010_appendix_table_a2.py`.

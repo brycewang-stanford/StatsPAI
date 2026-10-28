@@ -5,7 +5,8 @@ CC-BY-4.0; ``src/wt/stage2.R::rrr_iv``) estimates the Autor-Dorn-Hanson
 (2013) effect of import competition on manufacturing employment as a
 weighted partially linear IV coefficient with PCA cleaning (k = 5, five
 folds, the 31 covariates of their augmented specification). Here that is
-``estimand="partially_linear_iv"`` with ``weighted_fit=True`` and the
+``estimand="partially_linear_iv"`` with population ``weights=`` (which
+implies ``weighted_fit=True``, the authors' weighted regression) and the
 authors' fold assignment passed through ``folds=``.
 
 Three kinds of evidence:
@@ -47,22 +48,10 @@ import pytest
 
 import statspai as sp
 from statspai.datasets import _fetch
+from statspai.datasets._china_shock import AGARWAL_SINGH_PACKAGE
 
 HERE = Path(__file__).parent / "_fixtures"
 GOLDEN = json.loads((HERE / "noisy_covariates_adh_R.json").read_text(encoding="utf-8"))
-
-AGARWAL_SINGH_PACKAGE = _fetch.RemoteFile(
-    filename="agarwal_singh_2026_replication_package.zip",
-    url="https://zenodo.org/records/19866751/files/replication_package.zip"
-    "?download=1",
-    sha256="92d2df42204f38e9e70d077bfa01b514ab102f9c4614b12a1761fe4a0e633348",
-    size=9615512,
-    licence="CC-BY-4.0 (Zenodo record 19866751); the ADH workfile inside is "
-    "(c) 2013 American Economic Association, CC-BY-4.0; fetched, not "
-    "redistributed",
-    origin="Agarwal and Singh (2026) Econometrica replication package, "
-    "doi:10.5281/zenodo.19866751",
-)
 
 # results/census_unscaled_pcr_table3.csv and census_scaled_pcr_table3.csv
 PUBLISHED_CLEAN = {
@@ -101,7 +90,7 @@ def adh():
     return g, g.load_adh(path)
 
 
-def _fit(g, df, X):
+def _fit(g, df, X, **extra):
     data = df.copy()
     data[g.COVARIATES] = X
     with warnings.catch_warnings():
@@ -115,8 +104,8 @@ def _fit(g, df, X):
             instrument=g.U,
             rank=5,
             weights=g.W,
-            weighted_fit=True,
             folds=np.asarray(GOLDEN["fold"]),
+            **extra,
         )
 
 
@@ -128,6 +117,20 @@ def test_published_clean_estimate(adh, scaled):
     rtol = 1e-12 if scaled else 1e-8
     np.testing.assert_allclose(res.estimate, est, rtol=rtol)
     np.testing.assert_allclose(res.se, se, rtol=rtol)
+
+
+def test_explicit_weighted_fit_equals_the_default(adh):
+    # weights= implies weighted_fit=True; spelling it out changes nothing,
+    # and weighted_fit=False is the other projection (-0.448, SE 0.154).
+    g, df = adh
+    X = g.covariate_matrix(df, False)
+    default = _fit(g, df, X)
+    explicit = _fit(g, df, X, weighted_fit=True)
+    assert default.estimate == explicit.estimate
+    assert default.se == explicit.se
+    other = _fit(g, df, X, weighted_fit=False)
+    np.testing.assert_allclose(other.estimate, -0.448, atol=5e-4)
+    np.testing.assert_allclose(other.se, 0.154, atol=5e-4)
 
 
 @pytest.mark.parametrize("name", list(GOLDEN["results"]))

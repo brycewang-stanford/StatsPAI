@@ -58,7 +58,8 @@ class DDCResult(ResultProtocolMixin):
         First-stage transition estimates (increment probabilities for
         ``transition='increments'``).
     beta : float
-        Discount factor (fixed, not estimated).
+        Discount factor: fixed, or the profile-likelihood maximiser when
+        ``beta`` was a list or ``'estimate'`` (see ``beta_profile``).
     n_obs, n_units, n_states : int
     converged : bool
     iterations : int
@@ -125,6 +126,21 @@ class DDCResult(ResultProtocolMixin):
     def ci(self) -> pd.DataFrame:
         return self.conf_int()
 
+    @property
+    def beta_profile(self) -> Optional[pd.DataFrame]:
+        """Log-likelihood and estimates over the ``beta`` values fitted.
+
+        Present when ``beta`` was a list or ``'estimate'``; ``None`` otherwise.
+        """
+        prof = self.diagnostics.get("beta_profile")
+        if prof is None:
+            return None
+        out = pd.DataFrame({"loglik": prof["loglik"], "converged": prof["converged"]})
+        for name, vals in prof["params"].items():
+            out[name] = vals
+        out.index = pd.Index(prof["beta"], name="beta")
+        return out
+
     def tidy(self, conf_level: float | None = None) -> pd.DataFrame:
         """Broom-style coefficient table."""
         ci = self.conf_int(None if conf_level is None else 1 - conf_level)
@@ -148,7 +164,12 @@ class DDCResult(ResultProtocolMixin):
             f"{list(self.ccp.columns)}",
             f"  N = {self.n_obs}   units = {self.n_units}   "
             f"log-likelihood = {self.loglik:.4f}",
-            f"  vce = {self.vce} (conditional on the first-stage transitions)",
+            f"  vce = {self.vce} "
+            + (
+                "(full likelihood, transitions estimated jointly)"
+                if self.diagnostics.get("stage") == "full"
+                else "(conditional on the first-stage transitions)"
+            ),
             "",
             f"{'':<12}{'coef':>12}{'std.err':>12}{'z':>9}{'P>|z|':>9}",
         ]

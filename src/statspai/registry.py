@@ -38654,6 +38654,17 @@ def _build_registry() -> None:
                     "Great-circle distance, or Stata acreg's 'planar' metric",
                     ["haversine", "planar"],
                 ),
+                ParamSpec(
+                    "resid_cov",
+                    "array | dict",
+                    False,
+                    None,
+                    "Non-diagonal Omega = E[ee'|w] for the efficient instrument "
+                    "(Omega + psi psi')^{-1}(z - mu): a dense n x n covariance over "
+                    "the rows of data (omit resid_var), or {'cluster': col, 'rho': "
+                    "r} for residuals equicorrelated within clusters with resid_var "
+                    "as the diagonal; method='recenter' only",
+                ),
             ],
             returns="CausalResult",
             example=(
@@ -38843,6 +38854,17 @@ def _build_registry() -> None:
                     "method='dml' only: cross-fitting folds of candidate "
                     "locations; dense candidates need more folds",
                 ),
+                ParamSpec(
+                    "learner",
+                    "str",
+                    False,
+                    "ols",
+                    "method='dml' only: first-step learners; 'post_lasso' is the "
+                    "paper's choice (rlassologit for the design probabilities, "
+                    "ring-by-ring post-LASSO outcome model keeping the intercept "
+                    "and that ring's exposure, hdm data-driven penalty)",
+                    ["ols", "post_lasso"],
+                ),
             ],
             returns="SpatialTreatmentResult",
             example=(
@@ -38858,6 +38880,7 @@ def _build_registry() -> None:
                 "att",
                 "double_machine_learning",
                 "nearest_location",
+                "post_lasso",
             ],
             reference="pollmann2026causal",
             assumptions=[
@@ -38955,7 +38978,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Known unit weights for a weighted estimand (normalised "
-                    "to mean one)",
+                    "to mean one); by default they also weight the fit "
+                    "(weighted_fit)",
                 ),
                 ParamSpec(
                     "add_constant",
@@ -38980,10 +39004,12 @@ def _build_registry() -> None:
                     "weighted_fit",
                     "bool",
                     False,
-                    False,
-                    "Also weight the regression and the balancing weight by "
-                    "weights= (the authors' replication code; Stata [aw=] "
-                    "coefficient)",
+                    None,
+                    "Weight the regression and the balancing weight by weights= "
+                    "as in the authors' replication code (Stata [aw=] "
+                    "coefficient); None means True when weights= is given; False "
+                    "keeps the regression unweighted and weights only the "
+                    "functional",
                 ),
                 ParamSpec(
                     "folds",
@@ -39178,6 +39204,25 @@ def _build_registry() -> None:
                 ParamSpec("n_boot", "int", False, 500, "Bootstrap draws"),
                 ParamSpec("seed", "int", False, 0, "Seed for the bootstrap"),
                 ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "demand",
+                    "str",
+                    False,
+                    "linear",
+                    "Demand curve: linear probability model (paper), probit "
+                    "Phi(a + b p) or quadratic in price (Online Appendix Table A2 "
+                    "rows 2 and 5); cost stays linear",
+                    ["linear", "probit", "quadratic"],
+                ),
+                ParamSpec(
+                    "demand_through",
+                    "list",
+                    False,
+                    None,
+                    "[(coverage, price), ...] points the linear or quadratic "
+                    "demand must pass through, by restricted least squares "
+                    "(Table A2 rows 3-5); not with covariates",
+                ),
             ],
             returns="EFCWelfareResult",
             example='sp.efc_welfare(df, "price", "insured", "claims")',
@@ -39185,7 +39230,8 @@ def _build_registry() -> None:
             reference="einav2010estimating",
             assumptions=[
                 "Price variation is exogenous given the covariates",
-                "Demand and average cost are linear in price",
+                "Average cost is linear in price; demand is linear unless "
+                "demand= says otherwise",
                 "Welfare is per potential buyer; corners of [0, 1] coverage "
                 "make delta-method SEs invalid (use the bootstrap)",
             ],
@@ -39194,7 +39240,12 @@ def _build_registry() -> None:
                 "tests/test_adverse_selection.py: closed-form interior and "
                 "full-coverage corner cases, the delta-method SE of the slope "
                 "equals HC0 OLS, and the bootstrap is reproducible and close to the "
-                "delta method"
+                "delta method",
+                "tests/external_parity/test_efc2010_appendix_table_a2.py: the "
+                "welfare numbers of EFC (2010) Online Appendix Table A2 rows 1-5 "
+                "follow from its published coefficients within their rounding; "
+                "tests/test_efc_nonlinear_demand.py: general solver = closed form "
+                "(1e-10), probit sandwich = sp.probit robust, restricted LS = KKT",
             ],
         )
     )
@@ -39407,6 +39458,144 @@ def _build_registry() -> None:
         )
     )
 
+    register(
+        FunctionSpec(
+            name="private_info_bound",
+            category="structural",
+            description=(
+                "Hendren (2013) nonparametric lower bound on private information "
+                "from subjective probability elicitations: P_Z = Pr{L | X, Z} by "
+                "probit (or LPM) on public information X and a basis in the "
+                "elicitation Z, the average magnitude E[m_Z(P_Z)] with "
+                "m_Z(p) = E[P_Z | P_Z >= p] - p within aggregation cells, a Wald "
+                "test of no private information, and the rejectee-minus-"
+                "non-rejectee difference with the paper's conservative p-value."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per person"),
+                ParamSpec(
+                    "loss", "str", True, None, "0/1 indicator of the insured event"
+                ),
+                ParamSpec(
+                    "elicitation",
+                    "str | list",
+                    True,
+                    None,
+                    "Elicited probability column (0-1 or 0-100), whose "
+                    "Chebyshev + focal-point basis is built, or a list of "
+                    "basis columns used as given",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "Public information insurers price on",
+                ),
+                ParamSpec(
+                    "classes",
+                    "str",
+                    False,
+                    None,
+                    "Sample classification (e.g. rejected); fits and bound per "
+                    "class",
+                ),
+                ParamSpec(
+                    "compare",
+                    "tuple",
+                    False,
+                    None,
+                    "(a, b): Delta_Z = bound[a] - bound[b] with the conservative "
+                    "p-value max(Wald p of a, bootstrap Pr(Delta <= 0))",
+                ),
+                ParamSpec(
+                    "cells",
+                    "str",
+                    False,
+                    None,
+                    "Aggregation cells inside a class (the paper's age groups)",
+                ),
+                ParamSpec(
+                    "interact",
+                    "str | list",
+                    False,
+                    None,
+                    "Columns the built-in basis is interacted with (linear age)",
+                ),
+                ParamSpec(
+                    "focal",
+                    "list",
+                    False,
+                    (0.0, 0.5, 1.0),
+                    "Focal responses on the probability scale with their own "
+                    "indicator",
+                ),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "probit",
+                    "Pr{L | X, Z} by probit or linear probability model",
+                    ["probit", "linear"],
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster for the Wald test and the block bootstrap (household)",
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap replications refitting everything (paper: 1000)",
+                ),
+                ParamSpec("seed", "int", False, 0, "Seed for the bootstrap"),
+                ParamSpec(
+                    "alpha", "float", False, 0.05, "Level of the percentile intervals"
+                ),
+            ],
+            returns="PrivateInfoBoundResult",
+            example=(
+                'sp.private_info_bound(df, "nrshom5y", "selfprob", pricing_vars, '
+                'classes="reject", compare=(1, 0), cells="agegroup", '
+                'interact="age", cluster="hhid", n_boot=1000)'
+            ),
+            tags=[
+                "insurance",
+                "adverse_selection",
+                "private_information",
+                "subjective_probabilities",
+                "lower_bound",
+            ],
+            reference="hendren2013private",
+            assumptions=[
+                "Z carries no information about L beyond true beliefs P "
+                "(Assumption 1)",
+                "Beliefs are unbiased, Pr{L | X, P} = P (Assumption 2)",
+                "Within a cell the distribution of P_Z - Pr{L | X} does not vary "
+                "with X",
+                "The bootstrap SE is not valid when there is no private "
+                "information; use the Wald test then",
+            ],
+            alternatives=[
+                "pooled_price_ratio",
+                "positive_correlation_test",
+                "risk_class_selection",
+            ],
+            validation_notes=[
+                "tests/reference_parity/test_private_info_bound_stata_parity.py: "
+                "the author's makem.do (Econometrica supplement 10931) in Stata "
+                "18, bound to 2e-11, Wald statistic to 1e-11, per-row m_Z to "
+                "1e-10, probit and linear; tests/test_private_info_bound.py: "
+                "closed-form LPM bound, probit garbling population bound below "
+                "the true magnitude (Prop. 2)"
+            ],
+        )
+    )
+
     # ------------------------------------------------------------------
     # Dynamic discrete choice (structural/ddc/, ECTA 94(5) round 2026-10-28)
     # ------------------------------------------------------------------
@@ -39478,10 +39667,15 @@ def _build_registry() -> None:
                 ),
                 ParamSpec(
                     "beta",
-                    "float",
+                    "float | list | str",
                     False,
                     0.95,
-                    "Discount factor in [0, 1); beta=0 is a static logit",
+                    "Discount factor in [0, 1); beta=0 is a static logit; a list "
+                    "fits each value and returns the best with the profile in "
+                    "diagnostics['beta_profile']; 'estimate' maximises the "
+                    "profile likelihood over [0, 0.999999] with a "
+                    "likelihood-ratio interval in diagnostics['beta_ci'] (other "
+                    "SEs treat beta as known)",
                 ),
                 ParamSpec(
                     "transition",
@@ -39570,6 +39764,27 @@ def _build_registry() -> None:
                     "tol", "float", False, 1e-8, "Parameter convergence tolerance"
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+                ParamSpec(
+                    "stage",
+                    "str",
+                    False,
+                    "partial",
+                    "'partial' = Rust's stage 2 (choice likelihood at the "
+                    "first-stage transitions); 'full' = stage 3, joint MLE of "
+                    "utilities and increment probabilities with standard errors "
+                    "that account for the transitions (method='nfxp', increment "
+                    "transitions only)",
+                    ["partial", "full"],
+                ),
+                ParamSpec(
+                    "increment",
+                    "str",
+                    False,
+                    None,
+                    "Column of observed state increments per row (NaN = "
+                    "unobserved), e.g. rust_bus()['increment']; transitions "
+                    "become its frequencies and stage='full' uses these rows",
+                ),
             ],
             returns="DDCResult",
             example=(
@@ -39602,7 +39817,12 @@ def _build_registry() -> None:
                 "is zero at the optimum, and beta = 0 reduces to a static logit",
                 "tests/external_parity/test_rust1987_bus.py: Rust (1987) Tables V, "
                 "VI and VIII-X on the bus data (sp.datasets.rust_bus), parameters "
-                "within 2e-4 and BHHH standard errors within 5e-3 relative",
+                "within 2e-4 and BHHH standard errors within 5e-3 relative; "
+                "stage='full' reproduces Tables IX/X standard errors and "
+                "log-likelihoods to the printed digit at beta=.9999",
+                "tests/test_ddc_full_beta.py: full-likelihood gradient, "
+                "block-diagonality at beta=0, Schur ordering of SEs, beta "
+                "recovery by profile likelihood",
             ],
         )
     )
@@ -39745,7 +39965,7 @@ def _build_registry() -> None:
                 "extrapolates the coefficients back to zero error, with the "
                 "SIMEX jackknife or the Carroll et al. (1996) asymptotic "
                 "variance (as R simex), and misclassification SIMEX for a "
-                "binary regressor or outcome (as R mcsimex)."
+                "binary or categorical variable (as R mcsimex)."
             ),
             params=[
                 ParamSpec(
@@ -39785,9 +40005,10 @@ def _build_registry() -> None:
                     "dict",
                     False,
                     None,
-                    "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 "
-                    "regressor or outcome; P[j][i] = Pr(observed j | true i), "
-                    "columns sum to one. Not combined with error_sd",
+                    "MC-SIMEX (R mcsimex): {'x': P}, P[j][i] = Pr(observed j | "
+                    "true i), columns sum to one; 2 x 2 for a 0/1 regressor or "
+                    "outcome, k x k for a factor entered as C(x) (array: levels "
+                    "0..k-1; DataFrame: by label). Not combined with error_sd",
                 ),
                 ParamSpec(
                     "lambdas",

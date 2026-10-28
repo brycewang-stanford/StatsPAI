@@ -7,7 +7,9 @@
 # replacing stats::rnorm in simex's imports environment and simex::misclass
 # in its namespace; nothing else in simex() / mcsimex() consumes random
 # numbers. B = 20, lambda = (0.5, 1, 1.5, 2), jackknife variance
-# extrapolated with the quadratic.
+# extrapolated with the quadratic. The factor case reads
+# simex_det_factor_data.csv / simex_det_factor_mc.csv.gz (a three-level
+# misclassified regressor with a 3 x 3 matrix).
 # Run from this directory. Writes simex_det_R.txt ("key value" per line).
 suppressPackageStartupMessages(library(simex))
 df <- read.csv("simex_det_data.csv")
@@ -103,6 +105,32 @@ for (cs in mc_cases) {
   }
   stopifnot(counter == B * length(lam))
   record(sprintf("mc%s_%s_%s", mc_prefix, fam, ex), s)
+}
+dff <- read.csv("simex_det_factor_data.csv")
+dff$xf <- factor(dff$xf, levels = c(0, 1, 2))
+mcv <- read.csv(gzfile("simex_det_factor_mc.csv.gz"))
+P_f <- matrix(c(0.80, 0.10, 0.10, 0.10, 0.80, 0.10, 0.05, 0.15, 0.80), 3,
+              dimnames = list(c("0", "1", "2"), c("0", "1", "2")))
+stopifnot(simex:::check.mc.matrix(list(P_f)))
+mc_prefix <- "f"
+factor_cases <- list(
+  list("gaussian", "quadratic"), list("gaussian", "loglinear"),
+  list("logit", "quadratic")
+)
+for (cs in factor_cases) {
+  fam <- cs[[1]]; ex <- cs[[2]]
+  counter <- 0L
+  m <- if (fam == "gaussian") {
+    glm(yf ~ xf + z, family = gaussian, data = dff, x = TRUE, y = TRUE)
+  } else {
+    glm(df ~ xf + z, family = binomial, data = dff, control = ctl, x = TRUE,
+        y = TRUE)
+  }
+  s <- mcsimex(m, SIMEXvariable = "xf", mc.matrix = P_f, lambda = lam,
+               B = B, fitting.method = ex, jackknife.estimation = "quadratic",
+               asymptotic = TRUE)
+  stopifnot(counter == B * length(lam))
+  record(sprintf("mcf_%s_%s", fam, ex), s)
 }
 add("simex_version", as.numeric(gsub("\\.", "", as.character(packageVersion("simex")))))
 writeLines(out, "simex_det_R.txt")

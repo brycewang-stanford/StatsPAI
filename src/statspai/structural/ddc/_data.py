@@ -24,10 +24,17 @@ def encode_panel(
     time: Optional[str],
     actions: Optional[Sequence[Any]],
     n_states: Optional[int],
+    increment: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Integer state / action codes, in panel order when ``id`` is given."""
+    """Integer state / action codes, in panel order when ``id`` is given.
+
+    ``increment`` names an optional column of observed state increments,
+    returned row-aligned as ``"increment"`` (NaN where unobserved).
+    """
     cols = [c for c in (choice, state, id, time) if c is not None]
-    missing = [c for c in cols if c not in data.columns]
+    missing = [
+        c for c in cols + ([increment] if increment else []) if c not in data.columns
+    ]
     if missing:
         raise DataInsufficient(
             f"columns not found in data: {missing}",
@@ -42,7 +49,7 @@ def encode_panel(
         raise DataInsufficient(
             "no observations", recovery_hint="pass a non-empty panel"
         )
-    df = data[cols].reset_index(drop=True)
+    df = data[cols + ([increment] if increment else [])].reset_index(drop=True)
     if id is not None:
         order = [id] + ([time] if time is not None else [])
         df = df.sort_values(order, kind="mergesort").reset_index(drop=True)
@@ -109,6 +116,9 @@ def encode_panel(
         "S": S,
         "labels": labels,
         "counts": counts,
+        "increment": (
+            None if increment is None else df[increment].to_numpy(dtype=float)
+        ),
     }
 
 

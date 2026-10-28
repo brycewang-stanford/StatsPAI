@@ -260,7 +260,7 @@ def noisy_covariates(
     seed: Optional[int] = 0,
     alpha: float = 0.05,
     policy: Optional[Dict[str, Any]] = None,
-    weighted_fit: bool = False,
+    weighted_fit: Optional[bool] = None,
     folds: Optional[Any] = None,
 ) -> CausalResult:
     """
@@ -316,12 +316,10 @@ def noisy_covariates(
     weights : str, optional
         Column of known unit weights (e.g. population) for a weighted
         estimand; they are normalised to mean one. By default the
-        regression stays unweighted and only the functional is weighted.
-        For the partially linear estimands the functional's moment is
-        constant, so the default estimates (up to the weights' mean in
-        each training fold) the unweighted coefficient; pass
-        ``weighted_fit=True`` for the weighted-regression coefficient
-        that Stata's ``[aw=]`` reports.
+        regression and the balancing weight are weighted too
+        (``weighted_fit``), as in the authors' replication code; for the
+        partially linear estimands this is the weighted-regression
+        coefficient that Stata's ``[aw=]`` reports.
     add_constant : bool, default True
         Append an exactly observed constant column after cleaning, so
         each arm gets its own intercept. The paper's dictionary has no
@@ -338,14 +336,18 @@ def noisy_covariates(
         Columns not named stay as they are. Keys are covariates or
         ``treat``. The counterfactual applies to the true covariates;
         their cleaned values stand in for them.
-    weighted_fit : bool, default False
+    weighted_fit : bool, optional
         With ``weights``: also weight the regression and the balancing
         weight's normal equations, and multiply the score's correction
         term by the weight. This is the authors' replication code for
-        the Autor-Dorn-Hanson application. The default keeps the
-        regression unweighted and weights only the functional; both are
-        doubly robust for the weighted estimand and agree when the
-        regression is correctly specified.
+        the Autor-Dorn-Hanson application. The default ``None`` means
+        ``True`` when ``weights`` is given and ``False`` otherwise.
+        ``False`` with ``weights`` keeps the regression unweighted and
+        weights only the functional; both are doubly robust for the
+        weighted estimand and agree when the regression is correctly
+        specified, but for the partially linear estimands the functional's
+        moment is constant, so ``False`` estimates (up to the weights'
+        mean in each training fold) the unweighted coefficient.
     folds : str or array-like, optional
         Fold label of each row (a column name or a length-n array), to
         reproduce an external cross-fitting split. Overrides ``n_folds``
@@ -403,13 +405,13 @@ def noisy_covariates(
 
     On the paper's Autor-Dorn-Hanson application
     (``estimand="partially_linear_iv"``, ``rank=5``, population weights
-    with ``weighted_fit=True`` and the authors' folds) the estimate
-    equals the authors' replication code: -0.61799 (SE 0.06331) on the
-    raw covariates and -0.48986 (SE 0.07193) on standardised ones, and
-    the same code on noisy, missing and privatised covariates agrees to
-    1e-10 or better. With the default (unweighted) fit the same data give
-    -0.448 (SE 0.154): there the two weightings target different
-    projections.
+    and the authors' folds) the estimate equals the authors' replication
+    code: -0.61799 (SE 0.06331) on the raw covariates and -0.48986 (SE
+    0.07193) on standardised ones, and the same code on noisy, missing
+    and privatised covariates agrees to 1e-10 or better. With
+    ``weighted_fit=False`` (unweighted regression, weighted functional)
+    the same data give -0.448 (SE 0.154): the two weightings target
+    different projections.
 
     ``"policy_effect"`` is identified only for counterfactuals that stay
     in the span of the low-rank covariates. Shifting a single covariate
@@ -499,6 +501,8 @@ def noisy_covariates(
             recovery_hint="Pass policy={'column': shift} with "
             "estimand='policy_effect', or drop policy=.",
         )
+    if weighted_fit is None:
+        weighted_fit = weights is not None
     if weighted_fit and weights is None:
         raise MethodIncompatibility(
             "weighted_fit=True needs weights=.",

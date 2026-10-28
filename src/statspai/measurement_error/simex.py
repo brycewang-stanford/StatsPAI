@@ -14,8 +14,8 @@ Stefanski and Cook: at each ``lambda`` the average model-based covariance
 of the simulated fits minus the sample covariance of the simulated
 estimates, extrapolated to ``lambda = -1`` the same way. The asymptotic
 (estimating-equation) variance of Carroll et al. is in
-``_simex_asymptotic.py``; misclassification SIMEX for a binary variable in
-``_simex_misclass.py``.
+``_simex_asymptotic.py``; misclassification SIMEX for a binary or
+categorical variable in ``_simex_misclass.py``.
 
 References
 ----------
@@ -284,12 +284,17 @@ def simex(
         Column of prior weights for the naive fits (``lm`` / ``glm``
         weights in R).
     misclassification : dict, optional
-        MC-SIMEX (R ``mcsimex``): ``{"x": P}`` for a misclassified 0/1
-        variable, with ``P`` the 2 x 2 matrix ``P[j][i] = Pr(observed j |
-        true i)`` (columns sum to one; a DataFrame is read by its 0/1
-        labels). The variable is a plain regressor or the 0/1 outcome. It
-        is re-misclassified with ``P ** lambda`` instead of receiving
-        normal error. Not combined with ``error_sd``.
+        MC-SIMEX (R ``mcsimex``): ``{"x": P}`` for a misclassified
+        variable, with ``P[j][i] = Pr(observed j | true i)`` (columns sum
+        to one). A 0/1 variable has a 2 x 2 matrix (a DataFrame is read by
+        its 0/1 labels) and is a plain regressor or the 0/1 outcome. A
+        variable with ``k > 2`` levels has a ``k x k`` matrix and enters
+        the formula as a factor (``C(x)``, ``i.x`` or a categorical
+        column); an array is read by the levels ``0 .. k-1``, a DataFrame
+        by its labels. The variable is re-misclassified with
+        ``P ** lambda`` instead of receiving normal error, and a factor's
+        indicators are rebuilt from the new levels. Not combined with
+        ``error_sd``.
     lambdas : sequence of float, default (0.5, 1, 1.5, 2)
         Positive multiples of the error variance (or exponents of the
         misclassification matrix) to simulate. The naive fit is added at
@@ -345,8 +350,11 @@ def simex(
     agree for unweighted least squares, logit and Poisson and differ for
     probit, where R's is not the score of the fitted model.
 
-    MC-SIMEX [@kuchenhoff2006general] needs ``P[0][0] + P[1][1] > 1`` so
-    that every power of ``P`` is a misclassification matrix.
+    MC-SIMEX [@kuchenhoff2006general] needs every power of ``P`` to be a
+    misclassification matrix: ``P[0][0] + P[1][1] > 1`` for two levels,
+    and for ``k > 2`` R's ``check.mc.matrix`` condition that the matrix
+    logarithm has no negative off-diagonal entry. A misclassified outcome
+    must be 0/1.
 
     Examples
     --------
@@ -521,22 +529,37 @@ def simex(
         cols.append(j)
         sds.append(s)
 
-    # MC-SIMEX targets: (column index, or None for the outcome; matrix)
-    mc_specs: List[Tuple[Optional[int], np.ndarray]] = []
+    # MC-SIMEX targets: (column index, or None for the outcome, or the
+    # factor's dummy columns; matrix; level codes of the observed values)
+    mc_specs: List[Tuple[Any, np.ndarray, Optional[np.ndarray]]] = []
     for name, value in (misclassification or {}).items():
-        P = _simex_misclass.mc_matrix(name, value)
+        P, levels = _simex_misclass.mc_matrix_levels(name, value)
+        if P.shape == (2, 2) and (name == d["depvar"] or name in names):
+            if name == d["depvar"]:
+                target, values = None, y
+            else:
+                target = _plain_column(name, names, df, X, rows)
+                values = X[:, target]
+            if not np.all(np.isin(values, (0.0, 1.0))):
+                raise MethodIncompatibility(
+                    f"sp.simex: the misclassified variable {name!r} must be "
+                    "coded 0/1.",
+                    recovery_hint="Recode it to 0/1 (the matrix rows and "
+                    "columns are in the order 0, 1).",
+                )
+            mc_specs.append((target, P, None))
+            continue
         if name == d["depvar"]:
-            target, values = None, y
-        else:
-            target = _plain_column(name, names, df, X, rows)
-            values = X[:, target]
-        if not np.all(np.isin(values, (0.0, 1.0))):
             raise MethodIncompatibility(
-                f"sp.simex: the misclassified variable {name!r} must be coded " "0/1.",
-                recovery_hint="Recode it to 0/1 (the matrix rows and columns "
-                "are in the order 0, 1).",
+                f"sp.simex: a misclassified outcome must be 0/1 with a 2 x 2 "
+                f"matrix; {name!r} has a {P.shape[0]} x {P.shape[0]} one.",
+                recovery_hint="MC-SIMEX for a categorical outcome would need a "
+                "multinomial model; R mcsimex has the same restriction.",
             )
-        mc_specs.append((target, P))
+        dummies, level_codes = _simex_misclass.factor_columns(
+            name, levels, names, df, X, rows
+        )
+        mc_specs.append((dummies, P, level_codes))
 
     if weights is not None:
         w = pd.to_numeric(df[weights], errors="coerce").to_numpy(dtype=float)[rows]
@@ -562,7 +585,9 @@ def simex(
         jac_blocks.append(jac0 / n)
     sd_mat = np.column_stack(sds) if sds else np.zeros((n, 0))
     if mc_specs:
-        no_error = all(np.allclose(P, np.eye(2), rtol=0, atol=0) for _, P in mc_specs)
+        no_error = all(
+            np.allclose(P, np.eye(P.shape[0]), rtol=0, atol=0) for _, P, _ in mc_specs
+        )
     else:
         no_error = float(sd_mat.max()) == 0.0
     rng = np.random.default_rng(seed)
@@ -578,7 +603,7 @@ def simex(
         for g, lam in enumerate(grid_pos, start=1):
             draws = np.empty((B, k))
             covs = np.zeros((k, k))
-            powers = [_simex_misclass.mc_power(P, lam) for _, P in mc_specs]
+            powers = [_simex_misclass.mc_power(P, lam) for _, P, _ in mc_specs]
             psi_sum = np.zeros((n, k))
             jac_sum = np.zeros((k, k))
             for b in range(B):
@@ -588,13 +613,17 @@ def simex(
                     Xb[:, cols] += (
                         np.sqrt(lam) * sd_mat * _pseudo_errors(rng, n, len(cols))
                     )
-                for (target, _), P_lam in zip(mc_specs, powers):
+                for (target, _, mc_codes), P_lam in zip(mc_specs, powers):
                     if target is None:
                         yb = _simex_misclass.misclassify(y, P_lam, rng)
-                    else:
+                    elif mc_codes is None:
                         Xb[:, target] = _simex_misclass.misclassify(
                             X[:, target], P_lam, rng
                         )
+                    else:
+                        new = _simex_misclass.misclassify(mc_codes, P_lam, rng)
+                        for j, level in target:
+                            Xb[:, j] = (new == level).astype(float)
                 draws[b], Vb = _fit(Xb, yb, w, family, vce, start=beta0)
                 covs += Vb
                 if asymptotic:
@@ -681,7 +710,8 @@ def simex(
     }
     if mc_specs:
         model_info["misclassification"] = {
-            name: P.tolist() for name, (_, P) in zip(misclassification or {}, mc_specs)
+            name: P.tolist()
+            for name, (_, P, _) in zip(misclassification or {}, mc_specs)
         }
     if jack_cov is not None:
         model_info["jackknife_cov"] = jack_cov

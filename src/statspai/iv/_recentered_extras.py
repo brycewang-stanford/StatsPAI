@@ -35,11 +35,17 @@ def column_or_array(data: pd.DataFrame, value: Any, name: str) -> np.ndarray:
     return arr
 
 
-def check_efficient(method: str, resid_var: Any, resid_mean: Any) -> Tuple[bool, bool]:
-    """Validate the efficient-instrument arguments; return which are set."""
+def check_efficient(
+    method: str, resid_var: Any, resid_mean: Any, cov_kind: Optional[str] = None
+) -> Tuple[bool, bool]:
+    """Validate the efficient-instrument arguments; return which are set.
+
+    ``cov_kind`` is ``'dense'`` when a full ``resid_cov`` matrix supplies
+    the variances, in which case ``resid_mean`` needs no ``resid_var``.
+    """
     has_var = resid_var is not None
     has_mean = resid_mean is not None
-    if has_mean and not has_var:
+    if has_mean and not has_var and cov_kind != "dense":
         raise MethodIncompatibility(
             "resid_mean= needs resid_var=: the efficient instrument weighs "
             "the predictable part of the residual against its variance.",
@@ -48,11 +54,14 @@ def check_efficient(method: str, resid_var: Any, resid_mean: Any) -> Tuple[bool,
                 "column for homoskedastic residuals."
             ),
         )
-    if (has_var or has_mean) and method != "recenter":
+    if (has_var or has_mean or cov_kind is not None) and method != "recenter":
         raise MethodIncompatibility(
-            "resid_var= / resid_mean= build the efficient recentered "
-            "instrument, which is defined for method='recenter' only.",
-            recovery_hint="Use method='recenter', or drop resid_var / resid_mean.",
+            "resid_var= / resid_mean= / resid_cov= build the efficient "
+            "recentered instrument, which is defined for method='recenter' "
+            "only.",
+            recovery_hint=(
+                "Use method='recenter', or drop resid_var / resid_mean / " "resid_cov."
+            ),
             diagnostics={"method": method},
         )
     return has_var, has_mean

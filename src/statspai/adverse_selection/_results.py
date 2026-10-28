@@ -109,6 +109,17 @@ class PositiveCorrelationResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _demand_line(demand: str, c: Dict[str, float]) -> str:
+    if demand == "probit":
+        return f"Demand        D(p)  = Phi({c['alpha']:.6g} + ({c['beta']:.6g}) p)"
+    if demand == "quadratic":
+        return (
+            f"Demand        D(p)  = {c['alpha']:.6g} + ({c['beta']:.6g}) p "
+            f"+ ({c['beta2']:.6g}) p^2"
+        )
+    return f"Demand        D(p)  = {c['alpha']:.6g} + ({c['beta']:.6g}) p"
+
+
 class EFCWelfareResult(ResultProtocolMixin):
     """Outcome of :func:`statspai.efc_welfare`.
 
@@ -122,8 +133,11 @@ class EFCWelfareResult(ResultProtocolMixin):
         efficient price and coverage, deadweight loss) with estimate,
         standard error and confidence interval.
     curves : dict
-        Intercepts and slopes of demand ``D(p)``, average cost ``AC(p)``
-        and marginal cost ``MC(p)``, all linear in price.
+        Coefficients of demand ``D(p)`` (``alpha``, ``beta`` and, for
+        quadratic demand, ``beta2``; probit index coefficients for probit
+        demand) and of average cost ``AC(p) = gamma + delta p``.
+    demand : str
+        ``'linear'``, ``'probit'`` or ``'quadratic'``.
 
     Examples
     --------
@@ -153,8 +167,14 @@ class EFCWelfareResult(ResultProtocolMixin):
         n_covered: int,
         price_range: Tuple[float, float],
         diagnostics: Dict[str, Any],
+        demand: str = "linear",
     ) -> None:
-        self.method = "Einav-Finkelstein-Cullen welfare (linear curves)"
+        self.method = (
+            "Einav-Finkelstein-Cullen welfare (linear curves)"
+            if demand == "linear" and not diagnostics.get("demand_through")
+            else f"Einav-Finkelstein-Cullen welfare ({demand} demand, linear cost)"
+        )
+        self.demand = demand
         self.estimand = "deadweight loss per potential buyer"
         self.table = table
         self.curves = curves
@@ -174,9 +194,13 @@ class EFCWelfareResult(ResultProtocolMixin):
         lines = [
             self.method,
             f"Number of obs = {self.n_obs} (covered: {self.n_covered})",
-            f"Demand        D(p)  = {c['alpha']:.6g} + ({c['beta']:.6g}) p",
+            _demand_line(self.demand, c),
             f"Average cost  AC(p) = {c['gamma']:.6g} + ({c['delta']:.6g}) p",
-            "Marginal cost MC(p) = AC(p) + delta * D(p) / beta",
+            (
+                "Marginal cost MC(p) = AC(p) + delta * D(p) / beta"
+                if self.demand == "linear"
+                else "Marginal cost MC(q) = AC(P(q)) + delta * q * P'(q)"
+            ),
             f"Standard errors: {self.se_method}",
             "",
             self.table.to_string(float_format=lambda v: f"{v:.6g}"),
@@ -197,10 +221,19 @@ class EFCWelfareResult(ResultProtocolMixin):
         if ax is None:
             _, ax = plt.subplots(figsize=(6.4, 4.4))
         c = self.curves
-        q = np.linspace(0.0, 1.0, n_points)
-        inv = (q - c["alpha"]) / c["beta"]
-        ac = c["gamma"] + c["delta"] * inv
-        mc = ac + c["delta"] * q / c["beta"]
+        if self.demand == "linear":
+            q = np.linspace(0.0, 1.0, n_points)
+            inv = (q - c["alpha"]) / c["beta"]
+            ac = c["gamma"] + c["delta"] * inv
+            mc = ac + c["delta"] * q / c["beta"]
+        else:
+            from ._efc_nonlinear import inverse_demand
+
+            q_top = float(self.diagnostics.get("max_coverage", 1.0))
+            q = np.linspace(0.0, q_top, n_points)[1:-1]
+            inv = inverse_demand(self.demand, c, q)
+            ac = c["gamma"] + c["delta"] * inv
+            mc = ac + c["delta"] * q * np.gradient(inv, q)
         ax.plot(q, inv, label="Demand")
         ax.plot(q, ac, label="Average cost")
         ax.plot(q, mc, label="Marginal cost")
@@ -434,5 +467,97 @@ class RiskClassSelectionResult(ResultProtocolMixin):
         ax.axvline(self.upto_quantile, ls=":", lw=1)
         ax.set_xlabel("Risk quantile within the class")
         ax.set_ylabel("Implicit tax")
+        ax.legend(frameon=False)
+        return ax
+
+
+class PrivateInfoBoundResult(ResultProtocolMixin):
+    """Outcome of :func:`statspai.private_info_bound`.
+
+    Attributes
+    ----------
+    table : pandas.DataFrame
+        One row per class with ``n``, ``mean_loss``, ``estimate`` (the
+        lower bound ``E[m_Z(P_Z)]``), the Wald test of no private
+        information (``wald_stat``, ``wald_df``, ``wald_p``), the bootstrap
+        ``se`` and percentile interval, ``sd_residual`` (SD of
+        ``P_Z - Pr{L | X}``) and the number of elicitation terms kept.
+    estimate : float or None
+        ``Delta_Z`` with ``compare``, else the bound of the only class.
+    delta : dict or None
+        With ``compare=(a, b)``: ``estimate``, bootstrap ``se`` and ``ci``,
+        ``p_wald`` (no private information in ``a``), ``p_boot`` (share of
+        bootstrap draws with ``Delta <= 0``) and ``pvalue``, their maximum
+        (the paper's conservative p-value).
+    rows : pandas.DataFrame
+        Per person: ``class``, ``p_z``, ``p_x``, ``residual`` and ``m_z``.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> v = rng.normal(size=2000)
+    >>> df = pd.DataFrame({"loss": (v + rng.normal(size=2000) > 1).astype(int),
+    ...                    "z": 1 / (1 + np.exp(-v)), "x": rng.normal(size=2000)})
+    >>> res = sp.private_info_bound(df, "loss", "z", ["x"])
+    >>> type(res).__name__
+    'PrivateInfoBoundResult'
+    """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = ("hendren2013private",)
+
+    def __init__(
+        self,
+        *,
+        table: pd.DataFrame,
+        estimate: Optional[float],
+        delta: Optional[Dict[str, Any]],
+        rows: pd.DataFrame,
+        alpha: float,
+        n_obs: int,
+        model_info: Dict[str, Any],
+    ) -> None:
+        self.method = "Hendren lower bound on private information"
+        self.estimand = "E[m_Z(P_Z)], m_Z(p) = E[P_Z | P_Z >= p] - p"
+        self.table = table
+        self.estimate = estimate
+        self.delta = delta
+        self.rows = rows
+        self.alpha = alpha
+        self.n_obs = n_obs
+        self.model_info = model_info
+
+    def summary(self) -> str:
+        lines = [
+            "Lower bound on private information (Hendren 2013)",
+            f"Number of obs = {self.n_obs}; model = {self.model_info['model']}",
+            self.table[["n", "mean_loss", "estimate", "se", "wald_p"]].to_string(
+                float_format=lambda v: f"{v:.4f}"
+            ),
+        ]
+        if self.delta is not None:
+            d = self.delta
+            lines.append(
+                f"Delta_Z = bound[{d['a']!r}] - bound[{d['b']!r}] = "
+                f"{d['estimate']:.4f} (se {d['se']:.4f}), conservative "
+                f"p(Delta <= 0) = {d['pvalue']:.4f}"
+            )
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+    def plot(self, ax: Any = None) -> Any:
+        """Density of ``P_Z - Pr{L | X}`` by class (the paper's Figure 2)."""
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            _, ax = plt.subplots(figsize=(6.4, 4.4))
+        for lab, g in self.rows.groupby("class", sort=False):
+            r = g["residual"].to_numpy()
+            ax.hist(r, bins=40, density=True, histtype="step", label=str(lab))
+        ax.set_xlabel("Estimated residual private information")
+        ax.set_ylabel("Density")
         ax.legend(frameon=False)
         return ax
