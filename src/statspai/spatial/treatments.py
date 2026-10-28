@@ -122,8 +122,20 @@ class SpatialTreatmentResult(ResultProtocolMixin):
             return (float("nan"), float("nan"))
         return (float(row["ci_lower"]), float(row["ci_upper"]))
 
-    def tidy(self) -> pd.DataFrame:
-        """The per-ring table (a copy)."""
+    def tidy(self, conf_level: Optional[float] = None) -> pd.DataFrame:
+        """The per-ring table (a copy).
+
+        The intervals are at the level the estimator was fitted with;
+        ``conf_level`` is accepted for the common result interface and must
+        equal ``1 - alpha`` of the fit.
+        """
+        if conf_level is not None and abs(conf_level - (1 - self.alpha)) > 1e-12:
+            raise MethodIncompatibility(
+                f"conf_level={conf_level} differs from the fitted level "
+                f"{1 - self.alpha}.",
+                recovery_hint="Refit sp.spatial_treatment with "
+                "alpha = 1 - conf_level.",
+            )
         return self.table.copy()
 
     def summary(self) -> str:
@@ -199,13 +211,13 @@ def _numeric_coords(frame: pd.DataFrame, cols: Sequence[str], name: str) -> np.n
             recovery_hint="Drop or geocode the rows with missing coordinates.",
             diagnostics={"n_bad": int((~np.isfinite(xy)).any(axis=1).sum())},
         )
-    return xy
+    return np.asarray(xy)
 
 
 def _distances(a: np.ndarray, b: np.ndarray, metric: str, unit: str) -> np.ndarray:
     if metric == "euclidean":
         diff = a[:, None, :] - b[None, :, :]
-        return np.sqrt((diff**2).sum(axis=2))
+        return np.asarray(np.sqrt((diff**2).sum(axis=2)))
     # haversine on (latitude, longitude) in degrees
     lat1, lon1 = np.radians(a[:, 0])[:, None], np.radians(a[:, 1])[:, None]
     lat2, lon2 = np.radians(b[:, 0])[None, :], np.radians(b[:, 1])[None, :]
@@ -213,7 +225,9 @@ def _distances(a: np.ndarray, b: np.ndarray, metric: str, unit: str) -> np.ndarr
         np.sin((lat2 - lat1) / 2) ** 2
         + np.cos(lat1) * np.cos(lat2) * np.sin((lon2 - lon1) / 2) ** 2
     )
-    return 2 * _EARTH_RADIUS[unit] * np.arcsin(np.sqrt(np.clip(h, 0.0, 1.0)))
+    return np.asarray(
+        2 * _EARTH_RADIUS[unit] * np.arcsin(np.sqrt(np.clip(h, 0.0, 1.0)))
+    )
 
 
 def _ring_weights(
@@ -235,7 +249,7 @@ def _ring_weights(
 
 def _ring_means(
     colY: np.ndarray, colw: np.ndarray, W: np.ndarray, r: np.ndarray
-) -> Tuple[float, float]:
+) -> Tuple[Any, Any]:
     """Treated and inverse-odds control means; ``W`` may be (B, S)."""
     den_t = W @ colw
     den_c = ((1.0 - W) * r) @ colw

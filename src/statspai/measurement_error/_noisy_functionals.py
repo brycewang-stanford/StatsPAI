@@ -190,4 +190,4 @@ def user_folds(
                 "a training fold has fewer than two rows.",
                 recovery_hint="Use larger folds.",
             )
-    return codes
+    return np.asarray(codes)

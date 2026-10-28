@@ -37,7 +37,7 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -148,7 +148,7 @@ def _cross_fit(
     """
     n = Y.shape[0]
     a = U if estimand in _IV else D  # variable the dictionary is built on
-    targets = [Y, D] if estimand in _IV else [Y]
+    targets: List[np.ndarray] = [Y, cast(np.ndarray, D)] if estimand in _IV else [Y]
     psi = np.zeros((n, len(targets)))
     alpha_hat = np.zeros(n)
     ranks: List[int] = []
@@ -173,7 +173,7 @@ def _cross_fit(
         if estimand in FUNCTIONALS:
             B = functional_dictionary(estimand, a_tr, X_hat, add_constant)
         else:
-            B = _dictionary(estimand, a_tr, X_hat, add_constant)
+            B = _dictionary(estimand, cast(np.ndarray, a_tr), X_hat, add_constant)
         sw = np.sqrt(ell[tr])
         P = _pinv(B * sw[:, None]) if weighted_fit else _pinv(B)
         if estimand in FUNCTIONALS:
@@ -193,7 +193,7 @@ def _cross_fit(
             b_obs = functional_dictionary(estimand, a_te, F_te, add_constant)
             m_te = functional_moment(estimand, a_te, F_te, add_constant, policy)
         else:
-            b_obs = _dictionary(estimand, a_te, F_te, add_constant)
+            b_obs = _dictionary(estimand, cast(np.ndarray, a_te), F_te, add_constant)
         alpha = b_obs @ eta
         alpha_hat[te] = alpha
         for t, target in enumerate(targets):
@@ -560,7 +560,7 @@ def noisy_covariates(
                 "instrument must be finite.",
                 recovery_hint="Drop or recode infinite values first.",
             )
-    split = U if estimand in _IV else D
+    split = cast(np.ndarray, U if estimand in _IV else D)
     binary = estimand in ("ATE", "LATE")
     if binary:
         n1 = int(split.sum())
@@ -633,13 +633,35 @@ def noisy_covariates(
             )
         rank = int(rank)
 
-    opts = dict(weighted_fit=bool(weighted_fit), policy=pol)
+    wfit = bool(weighted_fit)
     fit = _cross_fit(
-        estimand, Y, D, U, Z, ell, fold_id, rank, add_constant, True, **opts
+        estimand,
+        Y,
+        D,
+        U,
+        Z,
+        ell,
+        fold_id,
+        rank,
+        add_constant,
+        True,
+        weighted_fit=wfit,
+        policy=pol,
     )
     theta, se, inf, extra = _summarise(estimand, fit["psi"])
     raw = _cross_fit(
-        estimand, Y, D, U, Z, ell, fold_id, None, add_constant, False, **opts
+        estimand,
+        Y,
+        D,
+        U,
+        Z,
+        ell,
+        fold_id,
+        None,
+        add_constant,
+        False,
+        weighted_fit=wfit,
+        policy=pol,
     )
     theta_raw, se_raw, _, _ = _summarise(estimand, raw["psi"])
 

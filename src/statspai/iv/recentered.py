@@ -42,7 +42,7 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -132,7 +132,7 @@ def _wls_residualize(V: np.ndarray, C: np.ndarray, w: np.ndarray) -> np.ndarray:
     """Residuals of each column of ``V`` from a weighted projection on ``C``."""
     sw = np.sqrt(w)[:, None]
     coef, *_ = np.linalg.lstsq(C * sw, V * sw, rcond=None)
-    return V - C @ coef
+    return np.asarray(V - C @ coef)
 
 
 def _absorb_terms(absorb: Any) -> List[List[str]]:
@@ -152,7 +152,7 @@ def _fe_codes(data: pd.DataFrame, idx: np.ndarray, parts: List[str]) -> np.ndarr
         codes, _ = pd.factorize(sub[parts[0]], sort=True)
     else:
         codes, _ = pd.factorize(pd.MultiIndex.from_frame(sub), sort=True)
-    return codes.astype(np.int64)
+    return np.asarray(codes, dtype=np.int64)
 
 
 def _fe_demean(V: np.ndarray, fe: pd.DataFrame) -> np.ndarray:
@@ -489,7 +489,7 @@ def recentered_iv(
 
     numeric = [y, treat, exposure] + covariates + balance
     if vce == "conley":
-        numeric += [conley_lat, conley_lon]
+        numeric += [str(conley_lat), str(conley_lon)]
     if weights is not None:
         numeric.append(weights)
     frame = data[list(dict.fromkeys(numeric))].apply(pd.to_numeric, errors="coerce")
@@ -674,9 +674,11 @@ def recentered_iv(
         )
         if fe_frame is not None:
             coords = coords[singleton_keep_mask(fe_frame)]
-        c_args = (coords, conley_cutoff, conley_kernel, conley_distance, alpha)
-        main = conley_refit(main, *c_args)
-        naive = conley_refit(naive, *c_args)
+        cutoff = float(cast(float, conley_cutoff))
+        main = conley_refit(main, coords, cutoff, conley_kernel, conley_distance, alpha)
+        naive = conley_refit(
+            naive, coords, cutoff, conley_kernel, conley_distance, alpha
+        )
 
     est = float(main.params["_rc_x"])
     se = float(main.std_errors["_rc_x"])
