@@ -6,14 +6,14 @@
   "sides": {
     "R": {
       "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
-      "report_sha256": "70cccead20bdc65153e09a4d42e5c5207791b0d040bfb055e20c9b8ab3909eeb",
+      "report_sha256": "f7cb983161748838a784ecdb12ec34d28ebc30af82091655fb6b6425a162826b",
       "rederive_with": "python tests/r_parity/verify_reproduce.py",
       "last_reproduced": {
         "commit": "1a6efc8c5",
         "date": "2026-10-27T01:35:57+08:00"
       },
-      "n_modules": 89,
-      "n_reproduce": 89,
+      "n_modules": 91,
+      "n_reproduce": 91,
       "modules": {
         "01_ols": {
           "status": "reproduces",
@@ -1143,7 +1143,7 @@
         "76_pretrends": {
           "status": "reproduces",
           "statistics_shared": "16/16",
-          "worst_rel_estimate": 0.000434,
+          "worst_rel_estimate": 0.000307,
           "worst_rel_se": 0.0,
           "golden_sha256": "82e3e68fdff72db098968a6d3a3ebe93c66ab80e895863909de5fd33d9f08274",
           "input_sha256": null,
@@ -1349,19 +1349,49 @@
             "n_packages": 25
           },
           "rederived_in_ci": false
+        },
+        "90_eivreg": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "2dc66121be5bafa8c30325c91bd0b8226fd0b8b1536bfce32fc03734be72e13c",
+          "input_sha256": "22a33e2be322966febd15a33faaa06b6db4cdf884cd4503efaddf61f90d665f8",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.6.2",
+            "n_packages": 3
+          },
+          "rederived_in_ci": false
+        },
+        "91_biprobit": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 7.87e-15,
+          "worst_rel_se": 1.01e-16,
+          "golden_sha256": "d550818ca4fa179e67df1cee030215ce5d49a010aa04629bf31498e5166480df",
+          "input_sha256": "4442435c658b6b0fda6f6de25bae0bf7df12ce54a9f8941b188649f9451d449f",
+          "reference": {
+            "r_version": "R version 4.5.2 (2025-10-31)",
+            "platform": "aarch64-apple-darwin20",
+            "running": "macOS Tahoe 26.6.2",
+            "n_packages": 75
+          },
+          "rederived_in_ci": false
         }
       }
     },
     "Stata": {
       "report": "tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md",
-      "report_sha256": "7b3573990dbde1d9d069dffc3a752ea96e55b5212e91e35854f3bbe8dc99b047",
+      "report_sha256": "cae0b2d1efc18d7322b332f163e8985e9432c142b45ab5755bb53b20ff6c9809",
       "rederive_with": "python tests/stata_parity/verify_reproduce_stata.py",
       "last_reproduced": {
         "commit": "1a6efc8c5",
         "date": "2026-10-27T01:35:57+08:00"
       },
-      "n_modules": 85,
-      "n_reproduce": 85,
+      "n_modules": 87,
+      "n_reproduce": 87,
       "modules": {
         "01_ols": {
           "status": "reproduces",
@@ -2483,19 +2513,45 @@
             "edition": "MP",
             "os": "Unix"
           }
+        },
+        "90_eivreg": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "b6439a1f44cb73dec092c766587808d54882a5307159f1ff4582178f39026dfd",
+          "input_sha256": "22a33e2be322966febd15a33faaa06b6db4cdf884cd4503efaddf61f90d665f8",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
+        },
+        "91_biprobit": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0,
+          "golden_sha256": "0f40ef9c06cb4df7c796534102a1b6c0f26a30c898f17e2e59f1307add0d2e31",
+          "input_sha256": "4442435c658b6b0fda6f6de25bae0bf7df12ce54a9f8941b188649f9451d449f",
+          "reference": {
+            "stata_version": 18,
+            "edition": "MP",
+            "os": "Unix"
+          }
         }
       }
     },
     "py": {
       "report": "tests/r_parity/results/REPRODUCIBILITY_REPORT_PY.md",
-      "report_sha256": "9e47bd6c4610dec3a0203d6d28f28c9052070bb43191feedc86c64b4a9e4a702",
+      "report_sha256": "19785ee8e42ffc549cc46d3a146e56b537fca4810994f630e8e9de942939f362",
       "rederive_with": "python tests/r_parity/verify_reproduce_py.py",
       "last_reproduced": {
         "commit": "1a6efc8c5",
         "date": "2026-10-27T01:35:57+08:00"
       },
-      "n_modules": 89,
-      "n_reproduce": 89,
+      "n_modules": 91,
+      "n_reproduce": 91,
       "modules": {
         "01_ols": {
           "status": "reproduces",
@@ -2638,7 +2694,7 @@
         "24_coxph": {
           "status": "reproduces",
           "statistics_shared": "3/3",
-          "worst_rel_estimate": 6.66e-16,
+          "worst_rel_estimate": 7.77e-16,
           "worst_rel_se": 5.55e-17
         },
         "25_lmm": {
@@ -3030,6 +3086,18 @@
           "statistics_shared": "15/15",
           "worst_rel_estimate": 3.84e-12,
           "worst_rel_se": 1.85e-12
+        },
+        "90_eivreg": {
+          "status": "reproduces",
+          "statistics_shared": "8/8",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
+        },
+        "91_biprobit": {
+          "status": "reproduces",
+          "statistics_shared": "10/10",
+          "worst_rel_estimate": 0.0,
+          "worst_rel_se": 0.0
         }
       }
     }

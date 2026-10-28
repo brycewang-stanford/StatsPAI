@@ -249,8 +249,11 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # native FLCI is held against HonestDiD with the exact folded-normal
     # quantile and against the closed form at M = 0, and the old 5e-4 budget
     # only ever covered HonestDiD's simulated quantile.
+    # 90_eivreg and 91_biprobit join the machine tier: Stata eivreg and
+    # eivtools at 7e-15; Stata biprobit at 7e-12 and GJRM at 5e-7 (GJRM's
+    # bivariate normal CDF, VGAM::pbinorm, is accurate to about 1e-7).
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 82,
+        "machine": 84,
         "iterative": 5,
         "moderate": 1,
         "methodological": 1,

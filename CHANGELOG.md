@@ -993,6 +993,20 @@ Econometrica 94(5) follow-up (same day): the open items of the round above.
   10.07, within two standard errors). NPL converges to NFXP.
 - `sp.search_functions` understands Chinese queries for the eleven
   functions of this round.
+- Track A modules `90_eivreg` and `91_biprobit` (three-way R / Stata /
+  Python parity on frozen CSV bytes). `sp.eivreg` agrees with Stata 18
+  `eivreg` and R `eivtools::eivreg` 0.1-8 to 7e-15 on coefficients and
+  standard errors, unweighted and with analytic weights. `eivtools` was
+  archived on CRAN in 2025; it is installed from the archive into a
+  private library with only its unused `R2jags` dependency removed
+  (`tests/r_parity/R_ENVIRONMENT.md`). `sp.biprobit` agrees with Stata 18
+  `biprobit` to 7e-12 on the six coefficients, athrho with its standard
+  error, rho, the log likelihood and the LR test of rho = 0. R
+  `GJRM::gjrm(model = "B")` is 5e-7 away, inside the 1e-6 budget: its
+  bivariate normal CDF (`VGAM::pbinorm`) is accurate to about 1e-7, which
+  moves the maximum by that much. `VGAM::vglm(binom2.rho)` lands on the
+  same point as GJRM but reports expected-information standard errors, so
+  it is not the reference.
 - `sp.risk_class_selection`. The full pipeline of Azevedo, Beauchamp and
   Karlsson Linner (2026). It fits a probit risk model and builds the
   insurer's standard risk class (0.75 to 1.25 times the mean

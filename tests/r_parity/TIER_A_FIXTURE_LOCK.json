@@ -1,14 +1,14 @@
 {
-  "aggregate_sha256": "fe7b6e2457ae2e166c50c91332bb8c1dc475a8cfe11b84dee6e4605de937ae99",
+  "aggregate_sha256": "e2c6a7c0adf498d7a2447994dd3db2f78e5747947108991acbb1351e92c446b7",
   "counts": {
-    "files": 637,
-    "input_csvs": 88,
-    "python_golden_jsons": 89,
-    "python_scripts": 92,
-    "r_golden_jsons": 89,
-    "r_scripts": 91,
-    "stata_do_files": 87,
-    "stata_golden_jsons": 85
+    "files": 651,
+    "input_csvs": 90,
+    "python_golden_jsons": 91,
+    "python_scripts": 94,
+    "r_golden_jsons": 91,
+    "r_scripts": 93,
+    "stata_do_files": 89,
+    "stata_golden_jsons": 87
   },
   "description": "Hash lock for the Track/Tier A parity scripts, fixture inputs, golden outputs, rendered tables, and R/Stata reference environment files.",
   "files": [
@@ -913,14 +913,34 @@
       "sha256": "01c5a0be02f53e66b2f5f900dc60ff871dff96219ada19013c99fce5a6c14192"
     },
     {
-      "bytes": 15068,
-      "path": "tests/r_parity/README.md",
-      "sha256": "a3081e58a186d64ad319c218794e211f3f51e384b5588e3d651317a135f4130e"
+      "bytes": 2905,
+      "path": "tests/r_parity/90_eivreg.R",
+      "sha256": "4bf53fe35b5cf9d617fa441c6e1c2a5c1806b335af3726eb5ca0841d038fb63f"
     },
     {
-      "bytes": 10603,
+      "bytes": 3435,
+      "path": "tests/r_parity/90_eivreg.py",
+      "sha256": "a82e42161130251d38ba505ba413015bfffbdca9fb720498fe54cbe567b86c6b"
+    },
+    {
+      "bytes": 2907,
+      "path": "tests/r_parity/91_biprobit.R",
+      "sha256": "6234005238c8070e88f4be7e52ed5748fca3a8f7977d4009013ceb7c788646c2"
+    },
+    {
+      "bytes": 3870,
+      "path": "tests/r_parity/91_biprobit.py",
+      "sha256": "393fe7094ec15c3c7ef8560059a6ff519da1cbb18ef35fe71013e41e5f3fa625"
+    },
+    {
+      "bytes": 15655,
+      "path": "tests/r_parity/README.md",
+      "sha256": "f74558a8ed6eedc9a91bdf1c5c07b38e1e54bfdcf574f38b58d0bfc806d4b446"
+    },
+    {
+      "bytes": 12043,
       "path": "tests/r_parity/R_ENVIRONMENT.md",
-      "sha256": "9f268591aa761c6e1912f58471a4da7ddf3a9d5376f9473bf50d848e836ee821"
+      "sha256": "9c10879eefc070da9d8a0a36f6fd9d5f87b4343f3452e867370aa33e40e5245f"
     },
     {
       "bytes": 5229,
@@ -933,14 +953,14 @@
       "sha256": "ed7b06b275ae4fdcc4e0aac8f272aa0760cd96165d415389e04b271c05e7bb93"
     },
     {
-      "bytes": 4993,
+      "bytes": 5272,
       "path": "tests/r_parity/_gen_renv_lock.R",
-      "sha256": "ac58c5186daa282abcafe45dc6b6ca334a1993ed71b26759fd4de308c1087683"
+      "sha256": "04c36c161c6e73da21b5428632be472695713d966cf73cc7169270c0904dc3b0"
     },
     {
-      "bytes": 123060,
+      "bytes": 124817,
       "path": "tests/r_parity/compare.py",
-      "sha256": "6a73c9832fadef62608e5d73b99983186141530974aac304c65bde0af8cf730d"
+      "sha256": "e7a437cf27a3f8b4694dbcccd9aeb26aac2f3c75158653c20db8dfaa363fbdf9"
     },
     {
       "bytes": 104713,
@@ -1383,9 +1403,19 @@
       "sha256": "7317adac5e5a1e72e8e2d51f88dad4f63540eccf0740c35a447572c9dee709ad"
     },
     {
-      "bytes": 48009,
+      "bytes": 188342,
+      "path": "tests/r_parity/data/90_eivreg.csv",
+      "sha256": "22a33e2be322966febd15a33faaa06b6db4cdf884cd4503efaddf61f90d665f8"
+    },
+    {
+      "bytes": 185480,
+      "path": "tests/r_parity/data/91_biprobit.csv",
+      "sha256": "4442435c658b6b0fda6f6de25bae0bf7df12ce54a9f8941b188649f9451d449f"
+    },
+    {
+      "bytes": 51237,
       "path": "tests/r_parity/renv.lock",
-      "sha256": "0a30872a233616b9515b20ae03ba1e8a6f8aa402688be6e19ac99f11b011e7be"
+      "sha256": "64d0061e169babfbad895b05bebbd49643488659dc3ada5f3e435d43a4104e60"
     },
     {
       "bytes": 2429,
@@ -2278,29 +2308,49 @@
       "sha256": "3a396cea2303bce2063f8e3a95b6706084bde6cc19eb78629ca543d8327fd094"
     },
     {
-      "bytes": 16123,
+      "bytes": 2614,
+      "path": "tests/r_parity/results/90_eivreg_R.json",
+      "sha256": "2dc66121be5bafa8c30325c91bd0b8226fd0b8b1536bfce32fc03734be72e13c"
+    },
+    {
+      "bytes": 2239,
+      "path": "tests/r_parity/results/90_eivreg_py.json",
+      "sha256": "7b0323eacffa8c1c99eeb5b09bcb1f44be06199eacc05667b13b0cd085574939"
+    },
+    {
+      "bytes": 4760,
+      "path": "tests/r_parity/results/91_biprobit_R.json",
+      "sha256": "d550818ca4fa179e67df1cee030215ce5d49a010aa04629bf31498e5166480df"
+    },
+    {
+      "bytes": 2641,
+      "path": "tests/r_parity/results/91_biprobit_py.json",
+      "sha256": "7070028a46ec49eec6911eb48c8e91637686d6a4fb8a2298feed199d99bc7da8"
+    },
+    {
+      "bytes": 16842,
       "path": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
-      "sha256": "70cccead20bdc65153e09a4d42e5c5207791b0d040bfb055e20c9b8ab3909eeb"
+      "sha256": "f7cb983161748838a784ecdb12ec34d28ebc30af82091655fb6b6425a162826b"
     },
     {
-      "bytes": 136125,
+      "bytes": 138600,
       "path": "tests/r_parity/results/parity_table.md",
-      "sha256": "2f82c1bf64b7c623937a0118f3ccd5c707434285cf112f8cc5e9347c9fda9fab"
+      "sha256": "b89b372b4ceb307b0cead80d5d3966ab238783f4a200d736fc6999d6bf4c8070"
     },
     {
-      "bytes": 14470,
+      "bytes": 15019,
       "path": "tests/r_parity/results/parity_table.tex",
-      "sha256": "6bce4fee512ccb0451ac72d049c4511c7050f32988466dd64f76a147a4e2c152"
+      "sha256": "9da3f58f7535ba1e315f469de8e0730430db5bcccb9ca6a2eb9dcfcbd423e508"
     },
     {
-      "bytes": 177974,
+      "bytes": 181339,
       "path": "tests/r_parity/results/parity_table_3way.md",
-      "sha256": "32a272b993c9443fef8216f9d1688666e2e1e3adbb9dd394c8530cb3b2112683"
+      "sha256": "c743188a4466a5ecb72896a538a95a4eec7a2af803b3857e59910f0f4e279b1d"
     },
     {
-      "bytes": 17470,
+      "bytes": 18041,
       "path": "tests/r_parity/results/parity_table_3way.tex",
-      "sha256": "df9e1680fdd25d94509dd8e796629427d60ee30e16f309436b16290ac3417f22"
+      "sha256": "c6289196b55b77d6b9c8db07e86f7c10f1ad286d83f2d6b89b50dc8000d651e0"
     },
     {
       "bytes": 13260,
@@ -2733,9 +2783,19 @@
       "sha256": "49f94ec9e7a518399aacfa732c36b87a90ccd63a68ff64baa8e7fdf009afafc6"
     },
     {
-      "bytes": 23928,
+      "bytes": 1182,
+      "path": "tests/stata_parity/90_eivreg.do",
+      "sha256": "95d6502e19308fadcd6f2223a95c625fc8f5f774cc2e0f1ce41be31b12bf4fe5"
+    },
+    {
+      "bytes": 1791,
+      "path": "tests/stata_parity/91_biprobit.do",
+      "sha256": "7be0deb42e5a71258c753745c4d05676ad121a83ac241efdea25b72afb2bc97a"
+    },
+    {
+      "bytes": 24485,
       "path": "tests/stata_parity/README.md",
-      "sha256": "3a2e321d1a2b091692e57308d816ab634638e3e057e1a399d75ca73266d60fb6"
+      "sha256": "434f47e46c4297ebb6e7eb261d5b87efc9a5ad141b280f8d31221d8ac6ea4100"
     },
     {
       "bytes": 4119,
@@ -3188,9 +3248,19 @@
       "sha256": "5f1c3f56bbb0f8add4658ec2d53bdc9d5e09f6c72a88bcddb89bdb0350e0514d"
     },
     {
-      "bytes": 7022,
+      "bytes": 2400,
+      "path": "tests/stata_parity/results/90_eivreg_Stata.json",
+      "sha256": "b6439a1f44cb73dec092c766587808d54882a5307159f1ff4582178f39026dfd"
+    },
+    {
+      "bytes": 2918,
+      "path": "tests/stata_parity/results/91_biprobit_Stata.json",
+      "sha256": "0f40ef9c06cb4df7c796534102a1b6c0f26a30c898f17e2e59f1307add0d2e31"
+    },
+    {
+      "bytes": 7168,
       "path": "tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md",
-      "sha256": "7b3573990dbde1d9d069dffc3a752ea96e55b5212e91e35854f3bbe8dc99b047"
+      "sha256": "cae0b2d1efc18d7322b332f163e8985e9432c142b45ab5755bb53b20ff6c9809"
     },
     {
       "bytes": 10429,

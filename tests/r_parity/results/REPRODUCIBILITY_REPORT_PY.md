@@ -29,7 +29,7 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `21_honest_relmags` | ✅ reproduces | in-script | 10/10 | 0.00e+00 | 0.00e+00 |
 | `22_sensemakr` | ✅ reproduces | same bytes | 7/7 | 7.47e-15 | 4.07e-15 |
 | `23_evalue` | ✅ reproduces | in-script | 26/26 | 5.68e-14 | 0.00e+00 |
-| `24_coxph` | ✅ reproduces | same bytes | 3/3 | 6.66e-16 | 5.55e-17 |
+| `24_coxph` | ✅ reproduces | same bytes | 3/3 | 7.77e-16 | 5.55e-17 |
 | `25_lmm` | ✅ reproduces | same bytes | 4/4 | 1.69e-10 | 5.00e-11 |
 | `26_glmm_logit` | ✅ reproduces | same bytes | 3/3 | 5.10e-11 | 2.38e-10 |
 | `27_glmm_aghq` | ✅ reproduces | same bytes | 3/3 | 4.12e-11 | 4.71e-10 |
@@ -95,4 +95,6 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `87_interflex` | ✅ reproduces | same bytes | 26/26 | 3.49e-15 | 9.44e-16 |
 | `88_rdbwselect` | ✅ reproduces | same bytes | 68/68 | 1.41e-10 | 0.00e+00 |
 | `89_rdms` | ✅ reproduces | same bytes | 15/15 | 3.84e-12 | 1.85e-12 |
+| `90_eivreg` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
+| `91_biprobit` | ✅ reproduces | same bytes | 10/10 | 0.00e+00 | 0.00e+00 |
 

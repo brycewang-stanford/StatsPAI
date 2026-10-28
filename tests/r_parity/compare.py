@@ -594,6 +594,19 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # Packaging this module is what exposed that sp.rdms was not computing
     # rdmulti::rdms at all (PARITY_SWEEP_FINDINGS.md O8 -> F12).
     "89_rdms": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Errors-in-variables regression with known reliabilities (Stata
+    # eivreg is canonical; R eivtools 0.1-8, archived on CRAN, is a port of
+    # it). Unweighted and [aw=] designs, coefficients and M-estimation
+    # sandwich SEs. Observed: 6.7e-15 against R, 6.7e-15 against Stata.
+    "90_eivreg": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Seemingly unrelated bivariate probit (Stata biprobit canonical, R
+    # GJRM as a bridge): six index coefficients and athrho with
+    # observed-information SEs, rho, log likelihood, LR test of rho = 0.
+    # Observed: 6.8e-12 against Stata (tight ML tolerances), 4.7e-7
+    # against R -- GJRM evaluates the bivariate normal CDF with
+    # VGAM::pbinorm, accurate to about 1e-7, so its maximum moves by that
+    # much; below the 1e-6 row-note threshold.
+    "91_biprobit": {"rel_est": 1e-6, "rel_se": 1e-6},
     # dCDH 2020 DID_M: the static effect, the horizon-1 dynamic effect and
     # the lag-1 placebo all match at 5e-15 on a panel where treatment
     # switches both on and off. Pinned against the ARCHIVED 0.1.4 -- the
@@ -1492,6 +1505,28 @@ def render_md(modules: list[str]) -> str:
 # expected to pass, not the worst-case row -- so a documented
 # convention gap doesn't shadow the bit-equal point-estimate result.
 HEADLINE: dict[str, dict[str, Any]] = {
+    "90_eivreg": {
+        "name": "Errors-in-variables regression (known reliabilities)",
+        "headline_filter": lambda d: "_b_" in d.statistic,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "unweighted and analytic-weight designs: coefficients and "
+            "M-estimation SEs agree with Stata \\code{eivreg} and "
+            "\\pkg{eivtools} to 7e-15"
+        ),
+    },
+    "91_biprobit": {
+        "name": "Bivariate probit (seemingly unrelated)",
+        "headline_filter": lambda d: d.statistic.startswith("eq"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "coefficients, athrho, log likelihood and LR test agree with "
+            "Stata \\code{biprobit} to 7e-12; \\pkg{GJRM} within 5e-7 "
+            "(its bivariate normal CDF is accurate to about 1e-7)"
+        ),
+    },
     "89_rdms": {
         "name": "Multi-score / geographic RD at boundary points",
         # The headline is the bias-corrected point estimate at each of the

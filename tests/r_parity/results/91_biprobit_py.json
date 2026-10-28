@@ -1,0 +1,124 @@
+{
+  "module": "91_biprobit",
+  "side": "py",
+  "rows": [
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq1_b_x1",
+      "estimate": 0.8128658675553339,
+      "se": 0.03100026845898961,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq1_b_x3",
+      "estimate": -0.4253209451885151,
+      "se": 0.04572008312232825,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq1_b_cons",
+      "estimate": 0.31414000200018466,
+      "se": 0.0260862476567985,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq2_b_x2",
+      "estimate": 0.5798820973427684,
+      "se": 0.027013409513622653,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq2_b_x3",
+      "estimate": 0.4119791795012305,
+      "se": 0.043155625829057145,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "eq2_b_cons",
+      "estimate": -0.18095029141752875,
+      "se": 0.02455492161277041,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "athrho",
+      "estimate": 0.4002909588665756,
+      "se": 0.036534513582670035,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "rho",
+      "estimate": 0.3801978904207076,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "loglik",
+      "estimate": -3279.067794736679,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    },
+    {
+      "module": "91_biprobit",
+      "side": "py",
+      "statistic": "lr_rho0",
+      "estimate": 126.33354608492209,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 3000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "equations": [
+      "y1 = x1 x3",
+      "y2 = x2 x3"
+    ],
+    "n_rows": 10,
+    "reference": "Stata 18 biprobit (canonical); R GJRM::gjrm model='B', copula='N' (bridge)"
+  }
+}

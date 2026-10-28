@@ -33,7 +33,7 @@ bytes the R side reads), runs the canonical Stata reference, and
 writes one row per parity statistic to
 `results/NN_<name>_Stata.json` via the helpers in `_common.do`.
 
-## Materialized Stata golden modules (85 of 89 Python modules)
+## Materialized Stata golden modules (87 of 91 Python modules)
 
 | # | Method                       | StatsPAI                       | Stata reference                                              |
 | --- | --- | --- | --- |
@@ -122,10 +122,12 @@ writes one row per parity statistic to
 | 87 | interflex marginal effects     | `sp.interflex(estimator=...)`  | `interflex Y D X Z1, type(linear|binning|kernel) vce(robust) neval(5) nbins(3) bw(1)` (SSC) |
 | 88 | RD bandwidth selection (10 CCT selectors) | `sp.rdbwselect` | `rdbwselect y x, c(0) bwselect(...)`; also p(), kernel(), covs(), vce(cluster), deriv() (rdrobust 10.0.0, SSC). `certwo` is omitted: the ado exits r(3200) on it, including on its own `rdrobust_senate.dta` |
 | 89 | Multi-score / geographic RD  | `sp.rdms` | `rdms y x1 x2 z, cvar(Cvar C2var)` (rdmulti, rdpackages GitHub, local ado path) |
+| 90 | Errors-in-variables regression | `sp.eivreg` | `eivreg y x1 x2 z [aw=w], r(x1 .8 x2 .7)` (built in) |
+| 91 | Bivariate probit             | `sp.biprobit` | `biprobit (y1 = x1 x3) (y2 = x2 x3), tolerance(1e-12) ltolerance(1e-14) nrtolerance(1e-14)` (built in) |
 
 ### Modules **without** a materialized Stata JSON
 
-Four of the 89 Python modules have no Stata artifact.
+Four of the 91 Python modules have no Stata artifact.
 `compare.py::STATA_SKIP_REASON` records the exact reason and the 3-way table
 prints it explicitly. Every reason was re-measured against a licensed Stata 18
 runtime with SSC reachable (2026-08-06, re-checked 2026-09-22), so none of
@@ -193,6 +195,8 @@ checked; two more were skipped as "no Stata implementation" when in fact
 | 74 cic | `cic` (`discrete_ci`) | 6.0e-3 | 8 of 9 deciles bit-identical; `qte_50` and the ATT are a documented tie-break gap |
 | 88 rdbwselect | `rdbwselect` | 3.7e-9 | 64 of the 68 bandwidths the R side pins; the four `certwo` cells are R-only because Stata rdbwselect 10.0.0 errors on that selector. Worst cell is the `msesum`/`cersum` bias bandwidth |
 | 89 rdms | `rdms` | 3.3e-9 | three boundary points x (bias-corrected est, conventional est, bandwidth, effective N each side); the six effective sample sizes are exactly equal across Python, R and Stata |
+| 90 eivreg | `eivreg` | 6.7e-15 | unweighted and `[aw=]` designs, coefficients and SEs |
+| 91 biprobit | `biprobit` | 6.8e-12 | six coefficients, athrho with SEs, rho, log likelihood, LR test of rho = 0; tight ML tolerances (at the defaults Stata stops about 3e-9 short of the maximum) |
 
 `08_dml`, `31_dfl`, `32_rif`, `53_cr2`, `54_twoway_cluster`, and
 `56_multiway_cluster` are deliberately labelled audited Stata/Mata algorithm

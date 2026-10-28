@@ -103,4 +103,6 @@ Module & Method & Worst headline diff & Verdict \\
 \code{87\_interflex} & interflex marginal effects (linear / binning / kernel) & rel $\le 4e-15$ {\footnotesize (native port incl. R's density() grid for the adaptive kernel bandwidth)} & \textbf{PASS} \\
 \code{88\_rdbwselect} & RD bandwidth selection (all ten CCT selectors) & rel $\le 9.4e-13$ {\footnotesize (68 bandwidths: \pkg{rdrobust} 1.8e-12, Stata 3.7e-9; \code{certwo} R only (Stata \code{rdbwselect} 10.0.0 exits \code{r(3200)}))} & \textbf{PASS} \\
 \code{89\_rdms} & Multi-score / geographic RD at boundary points & rel $\le 1.2e-12$ {\footnotesize (three boundary points: estimates, SEs, bandwidths and effective sample sizes agree with \pkg{rdmulti} to 7.6e-12 and Stata to 3.3e-9; sample sizes exactly equal)} & \textbf{PASS} \\
+\code{90\_eivreg} & Errors-in-variables regression (known reliabilities) & rel $\le 3.2e-15$ {\footnotesize (unweighted and analytic-weight designs: coefficients and M-estimation SEs agree with Stata \code{eivreg} and \pkg{eivtools} to 7e-15)} & \textbf{PASS} \\
+\code{91\_biprobit} & Bivariate probit (seemingly unrelated) & rel $\le 1.4e-07$ {\footnotesize (coefficients, athrho, log likelihood and LR test agree with Stata \code{biprobit} to 7e-12; \pkg{GJRM} within 5e-7 (its bivariate normal CDF is accurate to about 1e-7))} & \textbf{PASS} \\
 \end{longtable}

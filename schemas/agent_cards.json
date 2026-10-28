@@ -86372,23 +86372,26 @@
     "description": "Errors-in-variables regression (Stata eivreg): least squares corrected for classical measurement error in regressors whose reliability ratio is known, with the M-estimation sandwich variance. Matches Stata 18 to rounding. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
-      "grade_basis": "derived from status and sides",
-      "module_id": null,
-      "reference": "Stata 18 eivreg (StataNow 18 MP)",
+      "grade_basis": "recorded",
+      "module_id": "90_eivreg",
+      "reference": "eivtools::eivreg 0.1-8 (a port of Stata's eivreg; archived on CRAN, installed from the archive into a private library, see R_ENVIRONMENT.md); Stata side is the built-in eivreg, the canonical implementation",
       "reference_versions": {
-        "Stata": "18"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "eivtools": "0.1.8"
       },
       "sides": [
         "py",
+        "R",
         "Stata"
       ],
-      "source": "reference_parity_frozen",
+      "source": "track_a",
       "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_eivreg_stata_parity.py",
-        "tests/reference_parity/_fixtures/eivreg_stata.txt"
+        "tests/r_parity/90_eivreg.py",
+        "tests/r_parity/90_eivreg.R",
+        "tests/stata_parity/90_eivreg.do"
       ],
-      "tolerance": "1e-6 relative (CLAUDE.md 5.1 default); observed 5e-15 at worst"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "sp.eivreg(\"y ~ x + z\", df, reliability={\"x\": 0.8})",
     "failure_modes": [
@@ -86493,7 +86496,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 eivreg (StataNow 18 MP) [Stata 18]; tolerance 1e-6 relative (CLAUDE.md 5.1 default); observed 5e-15 at worst -- tests/reference_parity/test_eivreg_stata_parity.py"
+      "R parity module 90_eivreg",
+      "Stata parity module 90_eivreg",
+      "Cross-language parity (bit-exact) vs eivtools::eivreg 0.1-8 (a port of Stata's eivreg; archived on CRAN, installed from the archive into a private library, see R_ENVIRONMENT.md); Stata side is the built-in eivreg, the canonical implementation [R version 4.5.2 (2025-10-31), eivtools 0.1.8]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 90_eivreg -- tests/r_parity/90_eivreg.py",
+      "tests/reference_parity/test_eivreg_stata_parity.py",
+      "tests/reference_parity/_fixtures/eivreg_stata.txt"
     ],
     "validation_status": "certified"
   },
@@ -134941,24 +134948,27 @@
     "description": "Bivariate probit model. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "evidence": {
       "grade": "T2",
-      "grade_basis": "derived from status and sides",
-      "module_id": null,
-      "reference": "R VGAM::vglm(binom2.rho) bivariate probit",
+      "grade_basis": "recorded",
+      "module_id": "91_biprobit",
+      "reference": "GJRM::gjrm(margins = c(\"probit\", \"probit\"), model = \"B\", copula = \"N\"); Stata side is the built-in biprobit (canonical). GJRM's bivariate normal CDF (VGAM::pbinorm) is accurate to about 1e-7, which is the size of the R gap",
       "reference_versions": {
+        "GJRM": "0.2.6.9",
         "R": "R version 4.5.2 (2025-10-31)",
         "VGAM": "1.1.14"
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity_frozen",
+      "source": "track_a",
       "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_biprobit_parity.py",
-        "tests/reference_parity/_fixtures/biprobit_R.json"
+        "tests/r_parity/91_biprobit.py",
+        "tests/r_parity/91_biprobit.R",
+        "tests/stata_parity/91_biprobit.do"
       ],
-      "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     "example": "result = sp.biprobit(df, y1='employed', y2='married',\n x1=['age', 'education'])",
     "failure_modes": [
@@ -135083,7 +135093,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R VGAM::vglm(binom2.rho) bivariate probit [R version 4.5.2 (2025-10-31), VGAM 1.1.14]; tolerance coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel -- tests/reference_parity/test_biprobit_parity.py",
+      "R parity module 91_biprobit",
+      "Stata parity module 91_biprobit",
+      "Cross-language parity (bit-exact) vs GJRM::gjrm(margins = c(\"probit\", \"probit\"), model = \"B\", copula = \"N\"); Stata side is the built-in biprobit (canonical). GJRM's bivariate normal CDF (VGAM::pbinorm) is accurate to about 1e-7, which is the size of the R gap [GJRM 0.2.6.9, R version 4.5.2 (2025-10-31), VGAM 1.1.14]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 91_biprobit -- tests/r_parity/91_biprobit.py",
+      "tests/reference_parity/test_biprobit_parity.py",
+      "tests/reference_parity/_fixtures/biprobit_R.json",
       "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"

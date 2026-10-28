@@ -1,0 +1,113 @@
+{
+  "module": "90_eivreg",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "unw_b_x1",
+      "estimate": 0.79552748429851372,
+      "se": 0.035684943083625201,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "unw_b_x2",
+      "estimate": -0.61751350068205113,
+      "se": 0.036075273996684198,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "unw_b_z",
+      "estimate": 0.28577921121222921,
+      "se": 0.0251430369667556,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "unw_b_cons",
+      "estimate": 0.98110619767441953,
+      "se": 0.025663343029960199,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "aw_b_x1",
+      "estimate": 0.80231392969930992,
+      "se": 0.037945281871193101,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "aw_b_x2",
+      "estimate": -0.63453286588042968,
+      "se": 0.037984384549696097,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "aw_b_z",
+      "estimate": 0.29092626339950312,
+      "se": 0.026732089895112901,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "90_eivreg",
+      "side": "Stata",
+      "statistic": "aw_b_cons",
+      "estimate": 0.980934365431406,
+      "se": 0.0273991155899448,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "eivreg y x1 x2 z [aw=w], r(x1 .8 x2 .7)",
+    "reference_role": "canonical (built-in eivreg)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

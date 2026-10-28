@@ -51,8 +51,8 @@ different questions and should not be read as one claim.
 | Level | What runs | When | Environment |
 |---|---|---|---|
 | Automatic | The R reference of 17 Track A modules, diffed against the committed `_R.json` at 1e-9 (`.github/workflows/r-parity.yml`) | A push or pull request that touches `tests/r_parity/**` or the workflow; every Monday; on demand | Current CRAN binaries (`any::`), not `renv.lock` |
-| Local, full R | All 89 R modules (`python tests/r_parity/verify_reproduce.py`) | Before a release and whenever a golden value is refreshed; recorded in [`results/REPRODUCIBILITY_REPORT.md`](results/REPRODUCIBILITY_REPORT.md) | The pinned library of this file and `renv.lock` |
-| Local, Stata | All 85 Stata modules (`python tests/stata_parity/verify_reproduce_stata.py`) | Same; recorded in `tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md` | A licensed Stata 18 MP with the ado versions listed below |
+| Local, full R | All 91 R modules (`python tests/r_parity/verify_reproduce.py`) | Before a release and whenever a golden value is refreshed; recorded in [`results/REPRODUCIBILITY_REPORT.md`](results/REPRODUCIBILITY_REPORT.md) | The pinned library of this file and `renv.lock` |
+| Local, Stata | All 87 Stata modules (`python tests/stata_parity/verify_reproduce_stata.py`) | Same; recorded in `tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md` | A licensed Stata 18 MP with the ado versions listed below |
 
 The 17 modules re-derived automatically are the ones whose reference
 packages install in seconds:
@@ -74,7 +74,7 @@ Three boundaries follow from how the job is built.
   or fixture, or an upstream release that moved a number; the weekly run
   exists to surface the second kind without waiting for a push. The
   locked environment is reproduced locally.
-- **The other 72 R modules and every Stata module are frozen
+- **The other 74 R modules and every Stata module are frozen
   artefacts.** Their reference packages are slow to install (`grf`,
   `did`, `gsynth`, `augsynth`, `DoubleML` with `mlr3`, ...) or need a
   licence. Each `_R.json` carries the versions it was produced under, the
@@ -170,6 +170,8 @@ closure, 354 packages) is [`renv.lock`](renv.lock), which
 | `fect` | 2.4.1 | 86 (panel counterfactuals) |
 | `interflex` | 1.4.0 | 87 (interaction effects; `Lmoments` 1.3.2) |
 | `rdmulti` | 2.0.0 | 89 (multi-score RD) |
+| `eivtools` | **0.1-8** (CRAN archive, private library) | 90 (errors-in-variables regression) |
+| `GJRM` | 0.2-6.9 (private library) | 91 (bivariate probit) |
 | `jsonlite` | 2.0.0 | (harness I/O — full-precision result serialisation) |
 
 > **Module 81 needs an archived release.** CRAN's `DIDmultiplegt` 2.x
@@ -187,6 +189,29 @@ closure, 354 packages) is [`renv.lock`](renv.lock), which
 > then `export STATSPAI_DIDM_LIB=~/.cache/statspai/didm_lib` before
 > `verify_reproduce.py`. Without it the module stops with that message
 > rather than emitting 2.x's `NaN`.
+
+> **Modules 90 and 91 use private libraries too.** `eivtools` was archived
+> on CRAN on 2025-03-24 (maintainer address undeliverable). Its DESCRIPTION
+> depends on `R2jags`, which needs the JAGS system library and is used
+> only by `lr_ancova()`; module 90 calls `eivreg()` alone. Install the
+> archived 0.1-8 with that one dependency removed and every `.R` file
+> unchanged (`R/eivreg.R` SHA-256 `0e14b0cc321f20b7eb8a7dc9fdf686acf7ddea1c208d12b3a54e3b526559dd4c`;
+> archive SHA-256 `64de6a6dfd387a0ee3981be36f4759cadcbd28ffb5a8c5d9a920ec6628ced57a`):
+>
+> ```sh
+> curl -sO https://cran.r-project.org/src/contrib/Archive/eivtools/eivtools_0.1-8.tar.gz
+> tar xzf eivtools_0.1-8.tar.gz
+> sed -i.bak 's/, R2jags$//' eivtools/DESCRIPTION
+> sed -i.bak '/importFrom("R2jags"/d' eivtools/NAMESPACE
+> rm eivtools/*.bak && R CMD INSTALL -l ~/.statspai-rlib-eiv eivtools
+> ```
+>
+> `GJRM` pulls in a large dependency tree (`copula`, `VineCopula`, `scam`,
+> `distrEx`, ...); install it into its own library with
+> `install.packages("GJRM", lib = "~/.statspai-rlib-biprobit")`. Then
+> `export STATSPAI_EIV_LIB=~/.statspai-rlib-eiv STATSPAI_GJRM_LIB=~/.statspai-rlib-biprobit`
+> before `verify_reproduce.py`. To regenerate `renv.lock`, put both
+> libraries (and the module 81 one) on `R_LIBS`.
 
 ## Stata
 

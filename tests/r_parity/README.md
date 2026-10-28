@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (87 materialized StatsPAI--R rows; 81 carry a Stata artifact)
+## Modules (89 materialized StatsPAI--R rows; 83 carry a Stata artifact)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
@@ -149,6 +149,8 @@ a shared explicit fold partition.
 | 87 | interflex marginal effects (linear / binning / kernel) | `sp.interflex(estimator="linear" / "binning" / "kernel")` | `interflex::interflex(vartype="delta", vcov.type="robust", neval=5, nbins=3, bw=1)`; Stata side uses the SSC `interflex` command |
 | 88 | RD bandwidth selection (all ten CCT selectors) | `sp.rdbwselect` | `rdrobust::rdbwselect`; Stata side uses the authors' `rdbwselect` ado. `certwo` is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own `rdrobust_senate.dta` |
 | 89 | Multi-score / geographic RD at boundary points | `sp.rdms` | `rdmulti::rdms`; Stata side uses the `rdms` ado from the rdpackages GitHub mirror (rdmulti is not on SSC: `ssc describe rdmulti` returns r(601)), installed into a local gitignored ado path |
+| 90 | Errors-in-variables regression (known reliabilities) | `sp.eivreg` | `eivtools::eivreg` 0.1-8 (a port of Stata's `eivreg`; archived on CRAN, installed from the archive into a private library, see `R_ENVIRONMENT.md`); Stata side is the built-in `eivreg`, the canonical implementation |
+| 91 | Bivariate probit (seemingly unrelated) | `sp.biprobit` | `GJRM::gjrm(margins = c("probit", "probit"), model = "B", copula = "N")`; Stata side is the built-in `biprobit` (canonical). GJRM's bivariate normal CDF (`VGAM::pbinorm`) is accurate to about 1e-7, which is the size of the R gap |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running

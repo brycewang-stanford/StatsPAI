@@ -47,7 +47,12 @@ REFERENCE_PKGS <- c(
   # tests/test_r_lock_covers_references.py now enforces it).
   "contdid", "did2s", "didFF", "DIDmultiplegt", "DIDmultiplegtDYN",
   "polars", "fect", "interflex", "Lmoments", "panelView", "pretrends",
-  "qte", "rdmulti", "staggered", "triplediff"
+  "qte", "rdmulti", "staggered", "triplediff",
+  # Modules 90-91: errors-in-variables (eivtools 0.1-8 from the CRAN
+  # archive, private library STATSPAI_EIV_LIB) and bivariate probit (GJRM,
+  # private library STATSPAI_GJRM_LIB). Regenerate with both libraries on
+  # R_LIBS so they are in the closure.
+  "eivtools", "GJRM"
 )
 
 ip <- installed.packages()

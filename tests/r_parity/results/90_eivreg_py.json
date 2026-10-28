@@ -1,0 +1,106 @@
+{
+  "module": "90_eivreg",
+  "side": "py",
+  "rows": [
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "unw_b_x1",
+      "estimate": 0.7955274842985163,
+      "se": 0.03568494308362531,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "unw_b_x2",
+      "estimate": -0.617513500682054,
+      "se": 0.03607527399668444,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "unw_b_z",
+      "estimate": 0.285779211212229,
+      "se": 0.02514303696675572,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "unw_b_cons",
+      "estimate": 0.9811061976744206,
+      "se": 0.025663343029960237,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "aw_b_x1",
+      "estimate": 0.8023139296993084,
+      "se": 0.03794528187119301,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "aw_b_x2",
+      "estimate": -0.634532865880432,
+      "se": 0.0379843845496963,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "aw_b_z",
+      "estimate": 0.2909262633995035,
+      "se": 0.026732089895112936,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "90_eivreg",
+      "side": "py",
+      "statistic": "aw_b_cons",
+      "estimate": 0.9809343654314046,
+      "se": 0.02739911558994485,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "reliability": {
+      "x1": 0.8,
+      "x2": 0.7
+    },
+    "designs": [
+      "unweighted",
+      "analytic weights [aw=w]"
+    ],
+    "n_rows": 8,
+    "reference": "Stata 18 eivreg (canonical); R eivtools::eivreg 0.1-8 (bridge)"
+  }
+}

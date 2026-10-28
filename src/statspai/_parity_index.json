@@ -2132,31 +2132,64 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_biprobit_parity.py",
+        "tests/reference_parity/_fixtures/biprobit_R.json",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
+        "reference_parity_frozen",
         "reference_parity"
       ],
+      "evidence_grade": "T2",
       "function": "biprobit",
-      "notes": [
-        "Frozen-R fixture: both maximize the same joint bivariate-normal likelihood, so the two equations' coefficients and the error correlation rho match R VGAM to the shared optimizer tolerance on a committed dataset. Regenerate via _generate_biprobit_R.R."
-      ],
-      "reference": "R VGAM::vglm(binom2.rho) bivariate probit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.4400313407463023e-07,
+        "rel_vs_Stata": 3.0677569401184425e-16,
+        "statistic": [
+          "eq1_b_x1",
+          "eq1_b_x3",
+          "eq1_b_cons",
+          "eq2_b_x2",
+          "eq2_b_x3",
+          "eq2_b_cons"
+        ],
+        "tolerance": 1e-06
+      },
+      "implementation": "native",
+      "label": "Bivariate probit (seemingly unrelated)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "91_biprobit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.4400313407463023e-07,
+        "Stata": 3.0677569401184425e-16
+      },
+      "python_call": "sp.biprobit",
+      "reference": "GJRM::gjrm(margins = c(\"probit\", \"probit\"), model = \"B\", copula = \"N\"); Stata side is the built-in biprobit (canonical). GJRM's bivariate normal CDF (VGAM::pbinorm) is accurate to about 1e-7, which is the size of the R gap",
       "reference_versions": {
+        "GJRM": "0.2.6.9",
         "R": "R version 4.5.2 (2025-10-31)",
         "VGAM": "1.1.14"
       },
+      "se_rel": {
+        "R": 1.970061979407371e-07,
+        "Stata": 6.7996094708120064e-12
+      },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity_frozen",
+      "source": "track_a",
       "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_biprobit_parity.py",
-        "tests/reference_parity/_fixtures/biprobit_R.json"
+        "tests/r_parity/91_biprobit.py",
+        "tests/r_parity/91_biprobit.R",
+        "tests/stata_parity/91_biprobit.do"
       ],
-      "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel"
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -6898,28 +6931,65 @@
       "tolerance": "5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
-      "function": "eivreg",
-      "notes": [
-        "Frozen-Stata fixture. Cases: two error-prone regressors, one, analytic weights, frequency weights, and analytic weights with zero-weight rows."
-      ],
-      "reference": "Stata 18 eivreg (StataNow 18 MP)",
-      "reference_versions": {
-        "Stata": "18"
-      },
-      "sides": [
-        "py",
-        "Stata"
-      ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_eivreg_stata_parity.py",
         "tests/reference_parity/_fixtures/eivreg_stata.txt"
       ],
-      "tolerance": "1e-6 relative (CLAUDE.md 5.1 default); observed 5e-15 at worst"
+      "also_verified_by": [
+        "reference_parity_frozen",
+        "reference_parity"
+      ],
+      "evidence_grade": "T2",
+      "function": "eivreg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.2362068879757616e-15,
+        "rel_vs_Stata": 4.67452106040944e-15,
+        "statistic": [
+          "unw_b_x1",
+          "unw_b_x2",
+          "unw_b_z",
+          "unw_b_cons",
+          "aw_b_x1",
+          "aw_b_x2",
+          "aw_b_z",
+          "aw_b_cons"
+        ],
+        "tolerance": 1e-06
+      },
+      "implementation": "native",
+      "label": "Errors-in-variables regression (known reliabilities)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "90_eivreg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.2362068879757616e-15,
+        "Stata": 4.67452106040944e-15
+      },
+      "python_call": "sp.eivreg",
+      "reference": "eivtools::eivreg 0.1-8 (a port of Stata's eivreg; archived on CRAN, installed from the archive into a private library, see R_ENVIRONMENT.md); Stata side is the built-in eivreg, the canonical implementation",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "eivtools": "0.1.8"
+      },
+      "se_rel": {
+        "R": 6.7320704662998594e-15,
+        "Stata": 6.7320704662998594e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/90_eivreg.py",
+        "tests/r_parity/90_eivreg.R",
+        "tests/stata_parity/90_eivreg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "energy_distance",
