@@ -272,13 +272,45 @@ def estimate_transitions(
     support = np.arange(inc.max() + 1)
     p = np.bincount(inc, minlength=support.size) / inc.size
     params.update({"increments": support.tolist(), "increment_probs": p.tolist()})
+    return increments_matrix(p, S, J, reset_actions), params
+
+
+def increments_matrix(
+    p: np.ndarray, S: int, J: int, reset_actions: Sequence[int]
+) -> np.ndarray:
+    """Transitions from one increment distribution ``p[d] = Pr(x' = x + d)``.
+
+    The increment is added to the current state, or to 0 after an action in
+    ``reset_actions``; mass beyond the last state stays in the last state.
+    """
     F = np.zeros((J, S, S))
     for j in range(J):
         for x in range(S):
             start = 0 if j in reset_actions else x
-            for d, pd_ in zip(support, p):
+            for d, pd_ in enumerate(p):
                 F[j, x, min(start + d, S - 1)] += pd_
-    return F, params
+    return F
+
+
+def check_increments(p: Any) -> np.ndarray:
+    """Validate a supplied increment distribution (Rust's theta_3)."""
+    arr = np.asarray(p, dtype=float)
+    if arr.ndim != 1 or arr.size == 0:
+        raise MethodIncompatibility(
+            "an increment distribution must be a non-empty 1-D array",
+            recovery_hint="pass p with p[d] = Pr(state rises by d), d = 0, 1, ...",
+        )
+    if not np.all(np.isfinite(arr)) or np.any(arr < 0):
+        raise MethodIncompatibility(
+            "increment probabilities must be finite and non-negative",
+            recovery_hint="pass the empirical frequencies of the state increments",
+        )
+    if abs(arr.sum() - 1.0) > 1e-8:
+        raise MethodIncompatibility(
+            f"increment probabilities sum to {arr.sum():.10g}, not 1",
+            recovery_hint="normalise the counts, e.g. np.bincount(inc) / len(inc)",
+        )
+    return arr
 
 
 def check_transitions(F: Any, S: int, J: int, labels: List[Any]) -> np.ndarray:

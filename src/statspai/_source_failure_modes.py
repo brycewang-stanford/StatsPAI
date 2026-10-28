@@ -1607,7 +1607,8 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use vce='robust', or pass cluster= for " "clustering.",
-            "symptom": "vce must be one of <sorted(_VCE_TO_ROBUST)>, " "got <vce>",
+            "symptom": "vce must be one of <sorted(_VCE_TO_ROBUST) + "
+            "['conley']>, got <vce>",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1676,6 +1677,28 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ridge: lambda = 0 is least squares, which is not "
             "unique with at least as many regressors as "
             "observations.",
+        },
+    ],
+    "risk_class_selection": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass the variables insurers price on.",
+            "symptom": "covariates must name at least one " "variable",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. upto_quantile=0.8.",
+            "symptom": "upto_quantile must be in (0, 1]",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. alpha=0.05.",
+            "symptom": "alpha must be in (0, 1)",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass e.g. n_draws=10.",
+            "symptom": "n_draws must be at least 1",
         },
     ],
     "rmst": [
@@ -1870,9 +1893,9 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use the default (0.5, 1, 1.5, 2).",
-            "symptom": "sp.simex: lambdas=<list(lambdas)> must be distinct "
-            "positive numbers.",
+            "remedy": "Use variance='jackknife' (default) or 'asymptotic'.",
+            "symptom": "sp.simex: variance=<variance> is not 'jackknife' or "
+            "'asymptotic'.",
         },
     ],
     "simple_forecast": [
@@ -1940,18 +1963,21 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         },
         {
             "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='ipw' (additive effects), "
+            "'nearest' (only the nearest realised "
+            "location matters) or 'dml'.",
+            "symptom": "method must be 'ipw', 'nearest' or 'dml', " "got <method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Pass method='dml', or drop the covariates.",
+            "symptom": "covariates= and location_covariates= are "
+            "used by method='dml' only.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
             "remedy": "Use kernel='bin'.",
             "symptom": "kernel must be 'bin' or 'triangular', got " "<kernel>.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use metric='euclidean' or pass distances=.",
-            "symptom": "metric must be 'euclidean' or 'haversine', " "got <metric>.",
-        },
-        {
-            "exception": "statspai.MethodIncompatibility",
-            "remedy": "Use distance_unit='km'.",
-            "symptom": "distance_unit must be 'km' or 'mi', got " "<distance_unit>.",
         },
     ],
     "stl": [

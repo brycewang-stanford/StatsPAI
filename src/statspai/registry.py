@@ -38540,8 +38540,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "robust",
-                    "Asymptotic variance without clustering; 'robust' is HC1",
-                    ["robust", "hc0", "hc1", "hc2", "hc3", "nonrobust"],
+                    "Asymptotic variance without clustering; 'robust' is HC1; "
+                    "'conley' is sp.conley's spatial HAC (needs conley_lat / "
+                    "conley_lon / conley_cutoff; not with cluster or weights)",
+                    ["robust", "hc0", "hc1", "hc2", "hc3", "nonrobust", "conley"],
                 ),
                 ParamSpec(
                     "method",
@@ -38595,6 +38597,62 @@ def _build_registry() -> None:
                     "array), e.g. the stratum mean under within-stratum "
                     "permutation; replaces the row mean of the draws, and "
                     "every draw is centred at it in the RI test",
+                ),
+                ParamSpec(
+                    "resid_var",
+                    "str | array",
+                    False,
+                    None,
+                    "Var[eps_i | w] per row (diagonal Omega); turns the instrument "
+                    "into the efficient recentered instrument "
+                    "E[ee'|w]^{-1}(z - mu) (Borusyak-Hull WP eq. 9); valid for any "
+                    "positive exposure-only values; method='recenter' only",
+                ),
+                ParamSpec(
+                    "resid_mean",
+                    "str | array",
+                    False,
+                    None,
+                    "psi_i = E[eps_i | w]; with resid_var, partially residualises "
+                    "the instrument on psi (Lemma 3 of the working paper)",
+                ),
+                ParamSpec(
+                    "conley_lat",
+                    "str",
+                    False,
+                    None,
+                    "Latitude column (degrees) for vce='conley'",
+                ),
+                ParamSpec(
+                    "conley_lon",
+                    "str",
+                    False,
+                    None,
+                    "Longitude column (degrees) for vce='conley'",
+                ),
+                ParamSpec(
+                    "conley_cutoff",
+                    "float",
+                    False,
+                    None,
+                    "Distance cutoff in km for vce='conley'",
+                ),
+                ParamSpec(
+                    "conley_kernel",
+                    "str",
+                    False,
+                    "uniform",
+                    "Spatial kernel for vce='conley'; 'bartlett' decays linearly "
+                    "(the paper's Table 1)",
+                    ["uniform", "bartlett"],
+                ),
+                ParamSpec(
+                    "conley_distance",
+                    "str",
+                    False,
+                    "haversine",
+                    "Great-circle distance, or Stata acreg's 'planar' metric",
+                    ["haversine", "planar"],
                 ),
             ],
             returns="CausalResult",
@@ -38751,6 +38809,40 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("seed", "int", False, 0, "Seed for randomization draws"),
                 ParamSpec("alpha", "float", False, 0.05, "Level of the intervals"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "ipw",
+                    "Estimator: 'ipw' (ring estimator, effects add up), 'nearest' "
+                    "(only the nearest realised location matters; Theorem 2) or "
+                    "'dml' (cross-fitted double machine learning, latent "
+                    "experiment)",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "method='dml' only: unit covariates (columns of data) in the "
+                    "outcome model",
+                ),
+                ParamSpec(
+                    "location_covariates",
+                    "list",
+                    False,
+                    None,
+                    "method='dml' only: location columns for a cross-fitted logit "
+                    "of the design probabilities (exclusive with propensity=)",
+                ),
+                ParamSpec(
+                    "n_folds",
+                    "int",
+                    False,
+                    10,
+                    "method='dml' only: cross-fitting folds of candidate "
+                    "locations; dense candidates need more folds",
+                ),
             ],
             returns="SpatialTreatmentResult",
             example=(
@@ -38764,6 +38856,8 @@ def _build_registry() -> None:
                 "distance",
                 "counterfactual_locations",
                 "att",
+                "double_machine_learning",
+                "nearest_location",
             ],
             reference="pollmann2026causal",
             assumptions=[
@@ -38774,6 +38868,10 @@ def _build_registry() -> None:
                 "Effects of different locations add up, for the ATT reading; "
                 "otherwise the estimand is the average marginal effect",
                 "No effect beyond max_effect_distance (standard error only)",
+                "method='nearest': only the nearest realised location within "
+                "max_effect_distance affects a unit",
+                "method='dml': design probabilities depend on observed location "
+                "characteristics",
             ],
             alternatives=["recentered_iv", "spatial_did", "conley", "ri_test"],
             not_recommended_when=[
@@ -38806,8 +38904,9 @@ def _build_registry() -> None:
                     "str",
                     True,
                     None,
-                    "Treatment column: 0/1 for ATE and LATE, any numeric dose "
-                    "for partially_linear",
+                    "Treatment column: 0/1 for ATE and LATE, numeric for "
+                    "partially_linear, partially_linear_iv and elasticity; "
+                    "optional (None) for policy_effect",
                 ),
                 ParamSpec(
                     "covariates",
@@ -38821,17 +38920,26 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "ATE",
-                    "ATE of a binary treatment, LATE with a binary instrument, "
-                    "or the partially linear coefficient of a continuous "
-                    "treatment",
-                    ["ATE", "LATE", "partially_linear"],
+                    "ATE / LATE (binary), partially_linear, partially_linear_iv "
+                    "(continuous instrument), elasticity (average derivative in "
+                    "a continuous treat), policy_effect (affine counterfactual "
+                    "in policy=)",
+                    [
+                        "ATE",
+                        "LATE",
+                        "partially_linear",
+                        "partially_linear_iv",
+                        "elasticity",
+                        "policy_effect",
+                    ],
                 ),
                 ParamSpec(
                     "instrument",
                     "str",
                     False,
                     None,
-                    "0/1 instrument column, required for estimand='LATE'",
+                    "Instrument column: 0/1 for LATE, numeric for "
+                    "partially_linear_iv",
                 ),
                 ParamSpec(
                     "rank",
@@ -38860,6 +38968,31 @@ def _build_registry() -> None:
                 ParamSpec("n_folds", "int", False, 2, "Cross-fitting folds"),
                 ParamSpec("seed", "int", False, 0, "Seed for the fold split"),
                 ParamSpec("alpha", "float", False, 0.05, "Level"),
+                ParamSpec(
+                    "policy",
+                    "dict",
+                    False,
+                    None,
+                    "For policy_effect: {column: shift} or {column: (scale, "
+                    "shift)}; keys are covariates or treat",
+                ),
+                ParamSpec(
+                    "weighted_fit",
+                    "bool",
+                    False,
+                    False,
+                    "Also weight the regression and the balancing weight by "
+                    "weights= (the authors' replication code; Stata [aw=] "
+                    "coefficient)",
+                ),
+                ParamSpec(
+                    "folds",
+                    "str | array",
+                    False,
+                    None,
+                    "Fold label per row (column name or array aligned with "
+                    "data); overrides n_folds and seed",
+                ),
             ],
             returns="CausalResult",
             example='sp.noisy_covariates(df, "y", "d", noisy_cols)',
@@ -38873,6 +39006,9 @@ def _build_registry() -> None:
                 "doubly_robust",
                 "ate",
                 "late",
+                "elasticity",
+                "policy_effect",
+                "iv",
             ],
             reference="agarwal2026causal",
             assumptions=[
@@ -38890,7 +39026,14 @@ def _build_registry() -> None:
                 "tests/test_noisy_covariates.py: known-truth recovery on low-rank "
                 "designs with noise and missing cells, a replication of the paper's "
                 "simulation design, and an exact identity with a hand-written "
-                "per-arm OLS and balancing-weight computation at full rank"
+                "per-arm OLS and balancing-weight computation at full rank",
+                "tests/reference_parity/test_noisy_covariates_authors_parity.py: "
+                "the authors' replication code (Zenodo 19866751) on the ADH "
+                "application, published values to 2e-11 and same-input parity to "
+                "3e-10 on clean, noisy, missing and privatised covariates",
+                "tests/test_noisy_covariates_functionals.py: known truth and "
+                "identities for elasticity, policy_effect, partially_linear_iv and "
+                "weighted_fit",
             ],
         )
     )
@@ -38912,9 +39055,21 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True, None, "Input data"),
                 ParamSpec(
-                    "coverage", "str", True, None, "0/1 indicator of more coverage"
+                    "coverage",
+                    "str",
+                    True,
+                    None,
+                    "0/1 indicator of the more comprehensive contract, or "
+                    "(method='residuals') 3-20 ordered coverage levels",
                 ),
-                ParamSpec("claim", "str", True, None, "0/1 indicator of a claim"),
+                ParamSpec(
+                    "claim",
+                    "str",
+                    True,
+                    None,
+                    "0/1 claim indicator, or (method='residuals') 3-20 ordered "
+                    "levels such as claim counts top-coded at 2",
+                ),
                 ParamSpec(
                     "covariates",
                     "list",
@@ -38963,6 +39118,12 @@ def _build_registry() -> None:
                 "separate adverse selection from moral hazard",
             ],
             alternatives=["biprobit", "efc_welfare", "pooled_price_ratio"],
+            validation_notes=[
+                "tests/reference_parity/test_positive_correlation_ordered_stata_"
+                "parity.py: ordered outcomes vs Stata 18 oprobit / probit, score, "
+                "variance, W and correlation within 4e-10 (1.3e-15 with a binary "
+                "claim)",
+            ],
         )
     )
 
@@ -39114,6 +39275,138 @@ def _build_registry() -> None:
         )
     )
 
+    register(
+        FunctionSpec(
+            name="risk_class_selection",
+            category="structural",
+            description=(
+                "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk "
+                "model, the insurer's standard risk class (0.75-1.25 x mean "
+                "covariate-only risk), private-risk distributions when consumers "
+                "know the covariates only, a current predictor (e.g. a polygenic "
+                "index) or a future predictor of known liability R2, and the "
+                "minimum implicit tax t80 per scenario with a bootstrap over "
+                "the whole pipeline."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per person"),
+                ParamSpec(
+                    "loss",
+                    "str",
+                    True,
+                    None,
+                    "0/1 loss indicator (e.g. disease by 65)",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    None,
+                    "Covariates insurers observe and use to form risk classes",
+                ),
+                ParamSpec(
+                    "pgi",
+                    "str",
+                    False,
+                    None,
+                    "Current predictor consumers know but insurers cannot use; "
+                    "needed for Scenarios 2 and 3",
+                ),
+                ParamSpec(
+                    "r2_future",
+                    "float",
+                    False,
+                    None,
+                    "Liability-scale R2 of a future predictor (float, list, or "
+                    "dict naming scenarios, e.g. {'3L': 0.18, '3U': 0.57})",
+                ),
+                ParamSpec(
+                    "risk_class",
+                    "tuple",
+                    False,
+                    (0.75, 1.25),
+                    "Class = Scenario 1 risk within [lo, hi] x its sample mean; "
+                    "None = no underwriting",
+                ),
+                ParamSpec(
+                    "at",
+                    "dict",
+                    False,
+                    None,
+                    "Covariate values used for prediction, e.g. {'age': 65}",
+                ),
+                ParamSpec(
+                    "upto_quantile",
+                    "float",
+                    False,
+                    0.8,
+                    "Summary = minimum implicit tax up to this quantile (t80)",
+                ),
+                ParamSpec(
+                    "n_draws",
+                    "int",
+                    False,
+                    10,
+                    "Draws of the future predictor per person (Scenario 3)",
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    200,
+                    "Bootstrap replications repeating every step (0 = none)",
+                ),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    0,
+                    "Seed for Scenario 3 draws and bootstrap",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Level of the percentile interval",
+                ),
+            ],
+            returns="RiskClassSelectionResult",
+            example=(
+                'sp.risk_class_selection(df, "cancer65", ["age", "bmi", "famhist"], '
+                'pgi="pgi", r2_future={"3L": 0.18, "3U": 0.57}, at={"age": 65})'
+            ),
+            tags=[
+                "insurance",
+                "adverse_selection",
+                "genetic",
+                "risk_class",
+                "implicit_tax",
+            ],
+            reference="azevedo2026genetic",
+            assumptions=[
+                "Probit loss model; future predictor Gf = W theta + V and current "
+                "Gc = Gf + eps with normal V, eps (paper Assumptions 2-5)",
+                "R2c from the probit on Gc alone equals the latent-scale R2 "
+                "exactly only when W is normal (as in the paper)",
+                "No sampling weights",
+            ],
+            alternatives=[
+                "pooled_price_ratio",
+                "positive_correlation_test",
+                "efc_welfare",
+            ],
+            validation_notes=[
+                "tests/test_risk_class_selection.py: DGP satisfying Assumptions "
+                "1-5 (closed-form risks): parameters and t80 of all scenarios "
+                "recovered at n=1e5; Scenario 1 = pooled_price_ratio on the "
+                "class exactly; Scenario 2 = sp.probit predictions; r2_future = "
+                "R2c reproduces Scenario 2 to 1e-12; bootstrap coverage 0.94 "
+                "(200 x 199, slow)"
+            ],
+        )
+    )
+
     # ------------------------------------------------------------------
     # Dynamic discrete choice (structural/ddc/, ECTA 94(5) round 2026-10-28)
     # ------------------------------------------------------------------
@@ -39197,8 +39490,10 @@ def _build_registry() -> None:
                     "auto",
                     "'estimate' (action-specific frequencies), 'increments' "
                     "(Rust's pooled increments, from 0 after a reset action), "
-                    "'auto' (increments for utility='rust', else estimate), or "
-                    "matrices of shape (J, S, S) / {action: (S, S)}",
+                    "'auto' (increments for utility='rust', else estimate), "
+                    "matrices of shape (J, S, S) / {action: (S, S)}, or a 1-D "
+                    "increment distribution p[d] = Pr(s' = s + d) such as Rust's "
+                    "theta_3 (from 0 after a reset action)",
                 ),
                 ParamSpec(
                     "actions",
@@ -39234,8 +39529,9 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Actions that restart the state at 0 (transition='increments'; "
-                    "default the second action for utility='rust')",
+                    "Actions that restart the state at 0 (transition='increments' "
+                    "or a 1-D increment distribution; default the second action "
+                    "for utility='rust')",
                 ),
                 ParamSpec(
                     "param_names",
@@ -39303,7 +39599,10 @@ def _build_registry() -> None:
             validation_notes=[
                 "tests/test_ddc.py: recovers the structural parameters of the Rust "
                 "bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient "
-                "is zero at the optimum, and beta = 0 reduces to a static logit"
+                "is zero at the optimum, and beta = 0 reduces to a static logit",
+                "tests/external_parity/test_rust1987_bus.py: Rust (1987) Tables V, "
+                "VI and VIII-X on the bus data (sp.datasets.rust_bus), parameters "
+                "within 2e-4 and BHHH standard errors within 5e-3 relative",
             ],
         )
     )
@@ -39444,7 +39743,9 @@ def _build_registry() -> None:
                 "additive normal error of known SD: adds more simulated error, "
                 "refits the naive linear / logit / probit / Poisson model and "
                 "extrapolates the coefficients back to zero error, with the "
-                "SIMEX jackknife variance (as R simex)."
+                "SIMEX jackknife or the Carroll et al. (1996) asymptotic "
+                "variance (as R simex), and misclassification SIMEX for a "
+                "binary regressor or outcome (as R mcsimex)."
             ),
             params=[
                 ParamSpec(
@@ -39458,10 +39759,11 @@ def _build_registry() -> None:
                 ParamSpec(
                     "error_sd",
                     "dict",
-                    True,
+                    False,
                     None,
                     "{'x': 0.5}: measurement-error SD per error-prone regressor, "
-                    "a number or a column of per-row SDs",
+                    "a number or a column of per-row SDs; required unless "
+                    "misclassification is given",
                 ),
                 ParamSpec(
                     "family",
@@ -39479,6 +39781,15 @@ def _build_registry() -> None:
                     "Column of prior weights for the naive fits",
                 ),
                 ParamSpec(
+                    "misclassification",
+                    "dict",
+                    False,
+                    None,
+                    "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 "
+                    "regressor or outcome; P[j][i] = Pr(observed j | true i), "
+                    "columns sum to one. Not combined with error_sd",
+                ),
+                ParamSpec(
                     "lambdas",
                     "list",
                     False,
@@ -39493,8 +39804,8 @@ def _build_registry() -> None:
                     False,
                     "quadratic",
                     "Curve fitted to the coefficient paths; 'nonlinear' is "
-                    "a + b / (c + lambda)",
-                    ["quadratic", "linear", "nonlinear"],
+                    "a + b / (c + lambda); 'loglinear' is R mcsimex 'logl'",
+                    ["quadratic", "linear", "nonlinear", "loglinear"],
                 ),
                 ParamSpec(
                     "jackknife_extrapolant",
@@ -39502,7 +39813,7 @@ def _build_registry() -> None:
                     False,
                     "quadratic",
                     "Curve fitted to the jackknife variance paths",
-                    ["quadratic", "linear", "nonlinear"],
+                    ["quadratic", "linear", "nonlinear", "loglinear"],
                 ),
                 ParamSpec(
                     "vce",
@@ -39512,6 +39823,16 @@ def _build_registry() -> None:
                     "Covariance of each naive fit in the jackknife variance: "
                     "model-based or HC0 sandwich",
                     ["ols", "robust"],
+                ),
+                ParamSpec(
+                    "variance",
+                    "str",
+                    False,
+                    "jackknife",
+                    "Standard errors: SIMEX jackknife, or the asymptotic "
+                    "estimating-equation variance of Carroll et al. 1996 (R "
+                    "asymptotic=TRUE; homoskedastic error only)",
+                    ["jackknife", "asymptotic"],
                 ),
                 ParamSpec("seed", "int", False, 0, "Seed for the simulated errors"),
                 ParamSpec(
@@ -39528,6 +39849,13 @@ def _build_registry() -> None:
                 "attenuation",
             ],
             reference="cook1994simulation",
+            validation_notes=[
+                "tests/reference_parity/test_simex_r_parity.py: deterministic "
+                "parity with R simex 1.8 / mcsimex on shared pseudo-errors; "
+                "estimates and asymptotic SEs to 8e-15, jackknife SEs to 1.7e-9",
+                "tests/test_simex_asymptotic_mc.py: asymptotic SE against the "
+                "Monte Carlo SD, MC-SIMEX bias reduction, score identities",
+            ],
             assumptions=[
                 "Additive normal measurement error with known SD, independent "
                 "of everything else",

@@ -833,7 +833,7 @@ says what evidence backs it. Notes for maintainers are in
   confidence set, which can be unbounded or a union of intervals.
   `balance=` adds the paper's falsification tests. Evidence is known-truth
   recovery and identities with `sp.iv` at 1e-10. Conley standard errors
-  and the efficient instrument (Section 3.5) are not implemented.
+  and the efficient instrument came in the follow-up below.
 - `sp.spatial_treatment`. Pollmann (2026). Effects of a spatial treatment
   (a store, a plant) on nearby units, ring by ring, comparing units near
   realised locations with units near counterfactual candidate locations
@@ -842,8 +842,8 @@ says what evidence backs it. Notes for maintainers are in
   reference code to 1e-12 on two designs
   (`tests/reference_parity/test_spatial_treatment_R_parity.py`). Two small
   differences from that code are documented. The CNN that proposes
-  candidates, the cross-fitted DML estimator and the nearest-location
-  estimator are not included.
+  candidates is not included; the DML and nearest-location estimators came
+  in the follow-up below.
 - `sp.eivreg`. Errors-in-variables regression with assumed reliability
   ratios, as Stata's `eivreg`. Coefficients, standard errors, F, R-squared
   and root MSE equal Stata 18 to 5e-15 on unweighted, `[aw=]`, `[fw=]` and
@@ -891,8 +891,8 @@ says what evidence backs it. Notes for maintainers are in
   parameters, utilities or transitions. Evidence is known-truth recovery
   and two identities (NPL at convergence equals NFXP to 1e-7; `beta=0`
   equals `sp.logit`). Standard errors condition on the estimated
-  transitions. The discount factor is fixed. No comparison with Rust's
-  bus data yet, because the data are not bundled.
+  transitions. The discount factor is fixed. The comparison with Rust's
+  bus data is in the follow-up below.
 - `sp.semiparametric_bayes`. Mueller and Norets (2026). A parametric
   baseline likelihood is multiplied by a factor built from the baseline
   and efficient scores and an auxiliary parameter `delta`, so the
@@ -907,6 +907,91 @@ says what evidence backs it. Notes for maintainers are in
   from the paper. The sampler is random-walk Metropolis, not the paper's
   HMC, and mixes slowly (effective sample size about 5 to 10 percent of
   draws).
+
+Econometrica 94(5) follow-up (same day): the open items of the round above.
+
+- `sp.recentered_iv(vce='conley', conley_lat=, conley_lon=,
+  conley_cutoff=, conley_kernel=, conley_distance=)`. Conley spatial HAC
+  standard errors for both methods, the OLS case and `absorb=`, computed by
+  `sp.conley` on the same regression. They equal `sp.conley(sp.iv(...))` on
+  the recentered instrument to 1e-10, a dense hand computation to 1e-9,
+  and, in planar-uniform form, the acreg-pinned `sp.ivreg(vce='conley')`.
+  Not combined with `cluster=` or `weights=`.
+- `sp.recentered_iv(resid_var=, resid_mean=)`. The efficient recentered
+  instrument E[ee'|w]^{-1}(z - mu), with a diagonal Omega and a rank-one
+  mean term, from Section 3.5 (eq. 9 and Lemma 3) of the Borusyak-Hull
+  NBER working paper 27845. The Econometrica article cites that section
+  without reproducing it. Randomization inference stays exact because
+  every draw goes through the same linear map. Evidence is T1: identity
+  to a dense solve at 1e-10, and a known-truth Monte Carlo with variance
+  ratios 0.84 and 0.58 against plain recentering.
+- `sp.spatial_treatment(method='nearest' | 'dml')`. Two more estimators
+  from Pollmann (2026). `'nearest'` (Theorem 2, Online Appendix 6) is for
+  designs where only a unit's nearest realised location matters. Its
+  standard error is a conservative Aronow-Samii variance in closed form,
+  because the paper does not write one out; on a fully enumerated design
+  its expectation equals the true variance plus the incompatible-pair
+  bound to 1e-15. `'dml'` (Section 4.1.1) is cross-fitted, with a logit
+  propensity on `location_covariates=` and a linear outcome model on
+  `covariates=` plus ring exposure. The paper uses post-LASSO; this uses
+  OLS and logit, and has no randomization p-value. With the control mean
+  set to the IPW one it reproduces the ring estimator to 1e-12. The
+  author's example code implements neither, so evidence is T1.
+- `sp.simex(variance='asymptotic')`, `sp.simex(misclassification={'x': P})`
+  and the `'loglinear'` extrapolant. These are the estimating-equation
+  variance of Carroll, Kuchenhoff, Lombard and Stefanski (1996) and
+  MC-SIMEX for a misclassified 0/1 regressor or outcome (Kuchenhoff,
+  Mwalili and Lesaffre 2006). Both sides were fed the same pseudo-errors
+  and misclassified vectors, which gives deterministic parity with R
+  `simex` 1.8 / `mcsimex`: estimates and asymptotic SEs to 8e-15,
+  jackknife SEs to 1.7e-9, rational extrapolant to 2.9e-7 (R's `nls`
+  stopping rule). The asymptotic score is the likelihood score; R uses
+  `x (y - mu)` and ignores prior weights. The two agree for unweighted
+  least squares, logit and Poisson, and differ for probit and weighted
+  fits.
+- `sp.noisy_covariates(estimand='elasticity' | 'policy_effect' |
+  'partially_linear_iv', weighted_fit=, folds=, policy=)`. Agarwal-Singh
+  Appendix E.4, E.3 and E.6. On the paper's Autor-Dorn-Hanson application
+  the estimate equals the authors' replication code (Zenodo
+  10.5281/zenodo.19866751): the published -0.61799 (SE 0.06331) to 2e-11,
+  and the same noisy, missing and privatised inputs to 3e-10 or better.
+  The test fetches the archive by SHA-256 and skips when it is not cached.
+  The paper's noisy rows come from one unpublished draw, so they are an S
+  screen. Reproducing the paper needs `weighted_fit=True`; the default,
+  which is unchanged, targets the unweighted coefficient and gives -0.448
+  on the same data.
+- `sp.datasets.rust_bus()` and `sp.ddc(transition=<1-D increment
+  distribution>)`. The Rust (1987) Madison Metro bus panel (8 groups, 162
+  buses) is fetched from Zenodo 3385050 (MIT; values identical to Rust's
+  `nfxp.zip`) and discretised as in Rust's `stordat.gpr`. On these data
+  `sp.ddc` reproduces Rust (1987) Tables V, VI and VIII-X. For groups 1-4,
+  RC is 9.7557 (1.2265) and theta_1 2.6276 (0.6173), against 9.7558
+  (1.227) and 2.6275 (0.618) printed. The default transitions reproduce
+  Ferrall's (2023) corrected replication to 2e-4. The data contradict
+  three printed values: Table X group 4 RC 10.896, which should be
+  10.0896; Table IX groups 1-3 at beta = 0, whose log likelihood is below
+  the sum of its Table VI and VIII parts; and a truncated Table VI share.
+  `tests/external_parity/test_rust1987_bus.py` pins all three. Two-step
+  CCP misses the MLE on sparse high-mileage cells (group 4 RC 9.13 against
+  10.07, within two standard errors). NPL converges to NFXP.
+- `sp.search_functions` understands Chinese queries for the eleven
+  functions of this round.
+- `sp.risk_class_selection`. The full pipeline of Azevedo, Beauchamp and
+  Karlsson Linner (2026). It fits a probit risk model and builds the
+  insurer's standard risk class (0.75 to 1.25 times the mean
+  covariate-only risk). It then forms the private-risk distribution for
+  three cases: consumers who know only the covariates, a current
+  predictor, or a future predictor of known liability R2 (Appendix A,
+  Lemma 1). For each scenario it reports the minimum implicit tax t80,
+  with a bootstrap that repeats every step. Evidence is T1: closed-form
+  DGP recovery, exact identities with `sp.pooled_price_ratio` and
+  `sp.probit`, and bootstrap coverage 0.94 in 200 replications.
+  `sp.pooled_price_ratio` is unchanged.
+- `sp.positive_correlation_test(method='residuals')` accepts coverage or
+  claims with 3 to 20 ordered levels. It uses ordered-probit generalized
+  residuals, the score of the bivariate model with ordered margins at
+  rho = 0. This matches Stata 18 `oprobit` / `probit` to 4e-10. Binary
+  inputs give byte-identical output.
 
 - `sp.eigenvector_centrality(mode=)`. On a directed graph the references
   disagree: `sna::evcent` scores a node by the nodes it points to

@@ -57,6 +57,10 @@ DID / panel
     ``lalonde_panel()``         — NSW + CPS + PSID 1975/1978 panel of
                                   Sant'Anna-Zhao (real, fetched)
 
+Structural / dynamic discrete choice
+    ``rust_bus()``              — Rust (1987) bus engine replacements
+                                  (real, fetched)
+
 RD
     ``lee_2008_senate()``       — US Senate RD (Lee 2008 design; CFT 2015 data)
 
@@ -120,14 +124,20 @@ from ._canonical import (
     thornton_hiv,
 )
 from ._currency_union import currency_union_panel
-from ._did_gallery import REMOTE as _REMOTE
+from ._did_gallery import REMOTE as _DID_REMOTE
 from ._did_gallery import bacon_divorce, jel_medicaid, lalonde_panel
 from ._fetch import is_cached as _is_cached
+from ._rust_bus import COLUMNS as _RUST_BUS_COLUMNS
+from ._rust_bus import RUST_BUS as _RUST_BUS
+from ._rust_bus import rust_bus
 
 # Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
 # These reshape payloads a data MCP already fetched into tidy StatsPAI frames;
 # they do not hit the network.
 from .ingest import from_fred, from_sdmx, from_worldbank
+
+#: Remote files by loader name (for list_datasets and the fetch tests).
+_REMOTE = {**_DID_REMOTE, "rust_bus": _RUST_BUS}
 
 
 def california_prop99(simulated: bool = False) -> pd.DataFrame:
@@ -211,6 +221,7 @@ _DEFAULT_SOURCE = {
     "jel_medicaid": "fetched",
     "bacon_divorce": "fetched",
     "lalonde_panel": "fetched",
+    "rust_bus": "fetched",
 }
 
 #: Loaders whose bare call downloads (then caches) the real file. Their
@@ -271,6 +282,8 @@ _FETCHED_COLUMNS = {
         "re",
     ],
 }
+
+_FETCHED_COLUMNS["rust_bus"] = list(_RUST_BUS_COLUMNS)
 
 #: The real variant of a loader whose bare call returns a replica.
 _REAL_VARIANT = {
@@ -475,6 +488,16 @@ def list_datasets() -> pd.DataFrame:
             "DR -901, OR -1301 (truth 0)",
             "REAL data: all 54 cells of Table 3 reproduced (= Stata drdid)",
         ),
+        (
+            "rust_bus",
+            "dynamic discrete choice / NFXP (real, fetched)",
+            8260,
+            "Rust (1987), Econometrica 55(5), Tables V-X",
+            "Groups 1-4, beta=.9999, 90 bins: RC 9.7558 (1.227), "
+            "theta_11 2.6275 (0.618), LL -6055.250 (Table IX)",
+            "REAL data: sp.ddc with Rust's increments and vce='opg' gives "
+            "9.7557 (1.2265), 2.6276 (0.6173); Tables V, VI, VIII-X reproduced",
+        ),
     ]
     table = pd.DataFrame(
         registry,
@@ -609,6 +632,7 @@ _LOADERS = (
     "jel_medicaid",
     "bacon_divorce",
     "lalonde_panel",
+    "rust_bus",
 )
 for _name in _LOADERS:
     globals()[_name] = _flagged(
@@ -694,6 +718,7 @@ __all__ = [
     "jel_medicaid",
     "bacon_divorce",
     "lalonde_panel",
+    "rust_bus",
     "list_datasets",
     "load_dataset",
     "from_worldbank",

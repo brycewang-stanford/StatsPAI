@@ -319,3 +319,120 @@ class PooledPriceRatioResult(ResultProtocolMixin):
         ax.set_ylabel("Implicit tax")
         ax.legend(frameon=False)
         return ax
+
+
+class RiskClassSelectionResult(ResultProtocolMixin):
+    """Outcome of :func:`statspai.risk_class_selection`.
+
+    Attributes
+    ----------
+    table : pandas.DataFrame
+        One row per scenario (``'1'`` covariates only, ``'2'`` with the
+        current predictor, then one per future-predictor scenario) with
+        ``t80`` (minimum implicit tax up to ``upto_quantile`` inside the
+        risk class), bootstrap ``se``, ``ci_lower`` and ``ci_upper``, and
+        the mean and SD of risk in the class.
+    curves : dict of pandas.DataFrame
+        Implicit tax curve of each scenario (columns as in
+        :func:`statspai.pooled_price_ratio`).
+    params : dict
+        Probit coefficients of Scenarios 1 and 2 and, for Scenario 3,
+        ``theta``, ``sigma_t2``, ``r2_current`` and per scenario
+        ``sigma_eps2``, ``sigma_v2``, ``beta_g``, ``beta_w``.
+    risk : pandas.DataFrame
+        Scenario 1 risk of every person and whether she is in the class.
+    t_no_underwriting : float
+        Scenario 1 ``t80`` when everyone pays the same premium.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(1)
+    >>> w = rng.normal(size=3000)
+    >>> loss = (-1.4 + 0.7 * w + rng.normal(size=3000) > 0).astype(int)
+    >>> res = sp.risk_class_selection(pd.DataFrame({"loss": loss, "w": w}),
+    ...                               "loss", ["w"], n_boot=0)
+    >>> type(res).__name__
+    'RiskClassSelectionResult'
+    """
+
+    _citation_keys: ClassVar[Tuple[str, ...]] = (
+        "azevedo2026genetic",
+        "hendren2013private",
+    )
+
+    def __init__(
+        self,
+        *,
+        table: pd.DataFrame,
+        curves: Dict[str, pd.DataFrame],
+        params: Dict[str, Any],
+        risk: pd.DataFrame,
+        risk_class: Optional[Tuple[float, float]],
+        mean_risk: float,
+        t_no_underwriting: float,
+        upto_quantile: float,
+        n_boot: int,
+        alpha: float,
+        n_obs: int,
+        boot_draws: pd.DataFrame,
+        diagnostics: Dict[str, Any],
+    ) -> None:
+        self.method = "Implicit tax within a risk class (Azevedo et al. 2026)"
+        self.estimand = (
+            f"minimum implicit tax up to quantile {upto_quantile:g} in the "
+            "risk class, by information scenario"
+        )
+        self.table = table
+        self.curves = curves
+        self.params = params
+        self.risk = risk
+        self.risk_class = risk_class
+        self.mean_risk = mean_risk
+        self.t_no_underwriting = t_no_underwriting
+        self.upto_quantile = upto_quantile
+        self.n_boot = n_boot
+        self.alpha = alpha
+        self.n_obs = n_obs
+        self.boot_draws = boot_draws
+        self.diagnostics = diagnostics
+        last = table.index[-1]
+        self.estimate = float(table.loc[last, "t80"])
+        self.se = float(table.loc[last, "se"])
+
+    def summary(self) -> str:
+        if self.risk_class is None:
+            cls = "everyone (no underwriting)"
+        else:
+            cls = (
+                f"risk in [{self.risk_class[0]:g}, {self.risk_class[1]:g}] x "
+                f"sample mean {self.mean_risk:.6g}"
+            )
+        lines = [
+            "Implicit tax within a risk class (Azevedo et al. 2026)",
+            f"Number of obs = {self.n_obs}; class: {cls}",
+            f"Scenario 1 t at quantile {self.upto_quantile:g} without "
+            f"underwriting = {self.t_no_underwriting:.6f}",
+            f"Bootstrap replications = {self.n_boot}",
+            self.table.to_string(float_format=lambda v: f"{v:.6f}"),
+        ]
+        return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        return self.summary()
+
+    def plot(self, ax: Any = None) -> Any:
+        """Implicit tax curves of all scenarios against the risk quantile."""
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            _, ax = plt.subplots(figsize=(6.4, 4.4))
+        for name, curve in self.curves.items():
+            inner = curve[(curve["r"] > 0) & (curve["r"] < 1)]
+            ax.plot(inner["quantile"], inner["t"], label=f"Scenario {name}")
+        ax.axvline(self.upto_quantile, ls=":", lw=1)
+        ax.set_xlabel("Risk quantile within the class")
+        ax.set_ylabel("Implicit tax")
+        ax.legend(frameon=False)
+        return ax

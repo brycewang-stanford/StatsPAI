@@ -393,3 +393,124 @@ def test_ppr_errors():
         sp.pooled_price_ratio([0.0, 0.0, 1.0])
     with pytest.raises(MethodIncompatibility):
         sp.pooled_price_ratio([0.1, 0.2], upto_quantile=0.0)
+
+
+# ---------------------------------------------------------------------
+# positive_correlation_test with ordered outcomes
+# ---------------------------------------------------------------------
+
+
+def _ordered_data(n: int = 1200, rho: float = 0.0, seed: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=n)
+    z = rng.normal(size=n)
+    a = np.sqrt(abs(rho))
+    u = rng.normal(size=n)
+    e1 = a * u + np.sqrt(1 - a**2) * rng.normal(size=n)
+    e2 = a * u + np.sqrt(1 - a**2) * rng.normal(size=n)
+    return pd.DataFrame(
+        {
+            "x": x,
+            "z": z,
+            "cover": np.digitize(0.4 * x + e1, [-0.4, 0.5]),
+            "nclaim": np.digitize(0.3 * x + 0.4 * z + e2, [0.4, 1.3]),
+            "w": rng.integers(1, 4, size=n).astype(float),
+        }
+    )
+
+
+def _rect_prob(l1, u1, l2, u2, rho):
+    """P(l1 < e1 <= u1, l2 < e2 <= u2) for a standard bivariate normal."""
+    from scipy import integrate
+
+    s = np.sqrt(1 - rho**2)
+
+    def f(t):
+        return stats.norm.pdf(t) * (
+            stats.norm.cdf((u2 - rho * t) / s) - stats.norm.cdf((l2 - rho * t) / s)
+        )
+
+    return integrate.quad(f, l1, u1, epsabs=1e-14, epsrel=1e-13)[0]
+
+
+def test_ordered_residual_score_is_bivariate_ordered_probit_rho_derivative():
+    # sum e1 e2 equals d logL / d rho at rho = 0 of the bivariate model with
+    # ordered probit margins held at their separate fits (central
+    # difference, step 1e-4: truncation error about 1e-8 relative).
+    df = _ordered_data(n=120, seed=3)
+    res = sp.positive_correlation_test(
+        df, "cover", "nclaim", ["x"], method="residuals", claim_covariates=["x", "z"]
+    )
+    bounds = []
+    for y, x in (("cover", ["x"]), ("nclaim", ["x", "z"])):
+        fit = sp.oprobit(data=df, y=y, x=x)
+        cuts = fit.model_info["cutpoints"]
+        k = np.r_[-np.inf, [cuts[f"cut{j + 1}"] for j in range(len(cuts))], np.inf]
+        xb = df[x].to_numpy() @ fit.params[x].to_numpy()
+        j = df[y].to_numpy()
+        bounds.append((k[j] - xb, k[j + 1] - xb))
+    (l1, u1), (l2, u2) = bounds
+
+    def loglik(rho):
+        return sum(
+            np.log(_rect_prob(l1[i], u1[i], l2[i], u2[i], rho)) for i in range(len(df))
+        )
+
+    h = 1e-4
+    deriv = (loglik(h) - loglik(-h)) / (2 * h)
+    assert res.detail["score"] == pytest.approx(deriv, rel=1e-6)
+    assert set(res.detail["ordered"]) == {"cover", "nclaim"}
+
+
+def test_ordered_residual_with_two_levels_is_probit_residual():
+    from statspai.adverse_selection._ordered import ordered_generalized_residual
+    from statspai.adverse_selection.tests import _generalized_residual, _probit_index
+
+    df = _pcp_data(n=500, seed=4)
+    e_ord = ordered_generalized_residual(df, "claim", [])
+    e_bin = _generalized_residual(
+        df["claim"].to_numpy(float), _probit_index(df, "claim", [], None)
+    )
+    np.testing.assert_allclose(e_ord, e_bin, rtol=1e-12)
+
+
+def test_ordered_residual_test_size_and_power():
+    # 200 null samples: rejection rate at 5% within [0.02, 0.09] (binomial
+    # SE 0.015). Under rho = 0.4 the one-sided test rejects.
+    rej = [
+        sp.positive_correlation_test(
+            _ordered_data(n=400, seed=100 + r),
+            "cover",
+            "nclaim",
+            ["x"],
+            method="residuals",
+            claim_covariates=["x", "z"],
+        ).pvalue
+        < 0.05
+        for r in range(200)
+    ]
+    assert 0.02 <= np.mean(rej) <= 0.09
+    res = sp.positive_correlation_test(
+        _ordered_data(rho=0.4, seed=5),
+        "cover",
+        "nclaim",
+        ["x"],
+        method="residuals",
+        claim_covariates=["x", "z"],
+    )
+    assert res.z > 0 and res.pvalue_greater < 1e-4
+
+
+def test_ordered_outcomes_rejections():
+    df = _ordered_data(n=300, seed=6)
+    with pytest.raises(MethodIncompatibility):
+        sp.positive_correlation_test(df, "cover", "nclaim", ["x"])  # biprobit
+    with pytest.raises(MethodIncompatibility):
+        sp.positive_correlation_test(
+            df, "cover", "nclaim", ["x"], method="residuals", weights="w"
+        )
+    with pytest.raises(MethodIncompatibility):
+        sp.positive_correlation_test(df, "cover", "z", ["x"], method="residuals")
+    two = df.assign(c2=(df["cover"] > 0).astype(int) + 1)  # coded 1/2
+    with pytest.raises(MethodIncompatibility, match="0/1"):
+        sp.positive_correlation_test(two, "c2", "nclaim", ["x"], method="residuals")

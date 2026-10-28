@@ -84657,7 +84657,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use vce='robust', or pass cluster= for clustering.",
-        "symptom": "vce must be one of <sorted(_VCE_TO_ROBUST)>, got <vce>"
+        "symptom": "vce must be one of <sorted(_VCE_TO_ROBUST) + ['conley']>, got <vce>"
       },
       {
         "alternative": "",
@@ -84734,6 +84734,36 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "conley_cutoff": {
+            "description": "Distance cutoff in km for vce='conley'",
+            "type": "number"
+          },
+          "conley_distance": {
+            "default": "haversine",
+            "description": "Great-circle distance, or Stata acreg's 'planar' metric",
+            "enum": [
+              "haversine",
+              "planar"
+            ],
+            "type": "string"
+          },
+          "conley_kernel": {
+            "default": "uniform",
+            "description": "Spatial kernel for vce='conley'; 'bartlett' decays linearly (the paper's Table 1)",
+            "enum": [
+              "uniform",
+              "bartlett"
+            ],
+            "type": "string"
+          },
+          "conley_lat": {
+            "description": "Latitude column (degrees) for vce='conley'",
+            "type": "string"
+          },
+          "conley_lon": {
+            "description": "Longitude column (degrees) for vce='conley'",
+            "type": "string"
+          },
           "counterfactual": {
             "description": "The instrument recomputed under S >= 2 counterfactual shock draws (e.g. permutations), one column per draw, rows aligned with data; their row mean is the expected instrument",
             "items": {
@@ -84772,6 +84802,15 @@
             ],
             "type": "string"
           },
+          "resid_mean": {
+            "description": "psi_i = E[eps_i | w]; with resid_var, partially residualises the instrument on psi (Lemma 3 of the working paper)",
+            "type": "string"
+          },
+          "resid_var": {
+            "description": "Var[eps_i | w] per row (diagonal Omega); turns the instrument into the efficient recentered instrument E[ee'|w]^{-1}(z - mu) (Borusyak-Hull WP eq. 9); valid for any positive exposure-only values; method='recenter' only",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "ri": {
             "default": true,
             "description": "Compute the randomization p-value and the exact randomization confidence set",
@@ -84789,14 +84828,15 @@
           },
           "vce": {
             "default": "robust",
-            "description": "Asymptotic variance without clustering; 'robust' is HC1",
+            "description": "Asymptotic variance without clustering; 'robust' is HC1; 'conley' is sp.conley's spatial HAC (needs conley_lat / conley_lon / conley_cutoff; not with cluster or weights)",
             "enum": [
               "robust",
               "hc0",
               "hc1",
               "hc2",
               "hc3",
-              "nonrobust"
+              "nonrobust",
+              "conley"
             ],
             "type": "string"
           },
@@ -84841,7 +84881,9 @@
       "Treatment is assigned independently across candidate locations with the given (or a constant) design probability",
       "Counterfactual candidates are locations where the treatment could plausibly have been realised (the user supplies them)",
       "Effects of different locations add up, for the ATT reading; otherwise the estimand is the average marginal effect",
-      "No effect beyond max_effect_distance (standard error only)"
+      "No effect beyond max_effect_distance (standard error only)",
+      "method='nearest': only the nearest realised location within max_effect_distance affects a unit",
+      "method='dml': design probabilities depend on observed location characteristics"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -84879,20 +84921,20 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='ipw' (additive effects), 'nearest' (only the nearest realised location matters) or 'dml'.",
+        "symptom": "method must be 'ipw', 'nearest' or 'dml', got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass method='dml', or drop the covariates.",
+        "symptom": "covariates= and location_covariates= are used by method='dml' only."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
         "remedy": "Use kernel='bin'.",
         "symptom": "kernel must be 'bin' or 'triangular', got <kernel>."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use metric='euclidean' or pass distances=.",
-        "symptom": "metric must be 'euclidean' or 'haversine', got <metric>."
-      },
-      {
-        "alternative": "",
-        "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use distance_unit='km'.",
-        "symptom": "distance_unit must be 'km' or 'mi', got <distance_unit>."
       }
     ],
     "inherits_from": null,
@@ -84951,6 +84993,14 @@
             },
             "type": "array"
           },
+          "covariates": {
+            "description": "method='dml' only: unit covariates (columns of data) in the outcome model",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Outcome units, one row each",
             "type": "object",
@@ -84985,6 +85035,13 @@
             },
             "type": "array"
           },
+          "location_covariates": {
+            "description": "method='dml' only: location columns for a cross-fitted logit of the design probabilities (exclusive with propensity=)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "location_weights": {
             "default": false,
             "description": "Weight each candidate location equally within a ring rather than each unit (changes the estimand)",
@@ -84998,6 +85055,16 @@
             "description": "Distance beyond which treatments have no effect (d0); enters the standard error only. Default: last ring edge",
             "type": "number"
           },
+          "method": {
+            "default": "ipw",
+            "description": "Estimator: 'ipw' (ring estimator, effects add up), 'nearest' (only the nearest realised location matters; Theorem 2) or 'dml' (cross-fitted double machine learning, latent experiment)",
+            "enum": [
+              "ipw",
+              "nearest",
+              "dml"
+            ],
+            "type": "string"
+          },
           "metric": {
             "default": "euclidean",
             "description": "Distance between coordinates",
@@ -85006,6 +85073,11 @@
               "haversine"
             ],
             "type": "string"
+          },
+          "n_folds": {
+            "default": 10,
+            "description": "method='dml' only: cross-fitting folds of candidate locations; dense candidates need more folds",
+            "type": "integer"
           },
           "n_perm": {
             "default": 999,
@@ -85064,18 +85136,26 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank.",
+    "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Agarwal and Singh replication package (Zenodo 10.5281/zenodo.19866751, CC-BY-4.0), src/wt/stage2.R::rrr_iv, the method authors' own code",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_noisy_covariates_authors_parity.py",
+        "tests/reference_parity/_fixtures/noisy_covariates_adh_R.json"
+      ],
+      "tolerance": "estimate and SE 1e-12 relative on standardised covariates (observed 1e-15), 1e-8 on raw covariates (observed 5e-12 to 2.6e-10; the R reference moves 1.8e-11 across platforms)"
     },
     "example": "sp.noisy_covariates(df, \"y\", \"d\", noisy_cols)",
     "failure_modes": [
@@ -85136,7 +85216,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank.",
+      "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank. Validation: certified parity evidence.",
       "name": "noisy_covariates",
       "parameters": {
         "properties": {
@@ -85165,16 +85245,23 @@
           },
           "estimand": {
             "default": "ATE",
-            "description": "ATE of a binary treatment, LATE with a binary instrument, or the partially linear coefficient of a continuous treatment",
+            "description": "ATE / LATE (binary), partially_linear, partially_linear_iv (continuous instrument), elasticity (average derivative in a continuous treat), policy_effect (affine counterfactual in policy=)",
             "enum": [
               "ATE",
               "LATE",
-              "partially_linear"
+              "partially_linear",
+              "partially_linear_iv",
+              "elasticity",
+              "policy_effect"
             ],
             "type": "string"
           },
+          "folds": {
+            "description": "Fold label per row (column name or array aligned with data); overrides n_folds and seed",
+            "type": "string"
+          },
           "instrument": {
-            "description": "0/1 instrument column, required for estimand='LATE'",
+            "description": "Instrument column: 0/1 for LATE, numeric for partially_linear_iv",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -85182,6 +85269,10 @@
             "default": 2,
             "description": "Cross-fitting folds",
             "type": "integer"
+          },
+          "policy": {
+            "description": "For policy_effect: {column: shift} or {column: (scale, shift)}; keys are covariates or treat",
+            "type": "object"
           },
           "rank": {
             "description": "Principal components kept when cleaning; None uses the Gavish-Donoho hard threshold in each training fold",
@@ -85193,9 +85284,14 @@
             "type": "integer"
           },
           "treat": {
-            "description": "Treatment column: 0/1 for ATE and LATE, any numeric dose for partially_linear",
+            "description": "Treatment column: 0/1 for ATE and LATE, numeric for partially_linear, partially_linear_iv and elasticity; optional (None) for policy_effect",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "weighted_fit": {
+            "default": false,
+            "description": "Also weight the regression and the balancing weight by weights= (the authors' replication code; Stata [aw=] coefficient)",
+            "type": "boolean"
           },
           "weights": {
             "description": "Known unit weights for a weighted estimand (normalised to mean one)",
@@ -85220,9 +85316,12 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_noisy_covariates.py: known-truth recovery on low-rank designs with noise and missing cells, a replication of the paper's simulation design, and an exact identity with a hand-written per-arm OLS and balancing-weight computation at full rank"
+      "tests/test_noisy_covariates.py: known-truth recovery on low-rank designs with noise and missing cells, a replication of the paper's simulation design, and an exact identity with a hand-written per-arm OLS and balancing-weight computation at full rank",
+      "tests/reference_parity/test_noisy_covariates_authors_parity.py: the authors' replication code (Zenodo 19866751) on the ADH application, published values to 2e-11 and same-input parity to 3e-10 on clean, noisy, missing and privatised covariates",
+      "tests/test_noisy_covariates_functionals.py: known truth and identities for elasticity, policy_effect, partially_linear_iv and weighted_fit",
+      "Cross-language parity (bit-exact) vs Agarwal and Singh replication package (Zenodo 10.5281/zenodo.19866751, CC-BY-4.0), src/wt/stage2.R::rrr_iv, the method authors' own code [R version 4.5.2 (2025-10-31)]; tolerance estimate and SE 1e-12 relative on standardised covariates (observed 1e-15), 1e-8 on raw covariates (observed 5e-12 to 2.6e-10; the R reference moves 1.8e-11 across platforms) -- tests/reference_parity/test_noisy_covariates_authors_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -85330,7 +85429,7 @@
             "type": "number"
           },
           "claim": {
-            "description": "0/1 indicator of a claim",
+            "description": "0/1 claim indicator, or (method='residuals') 3-20 ordered levels such as claim counts top-coded at 2",
             "type": "string"
           },
           "claim_covariates": {
@@ -85354,7 +85453,7 @@
             "x-statspai-role": "columns"
           },
           "coverage": {
-            "description": "0/1 indicator of more coverage",
+            "description": "0/1 indicator of the more comprehensive contract, or (method='residuals') 3-20 ordered coverage levels",
             "type": "string"
           },
           "data": {
@@ -85388,7 +85487,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 biprobit (method='biprobit') [Stata 18]; tolerance log likelihood and LR statistic 1e-12 relative; rho and athrho 1e-8 (observed 1.6e-9); athrho standard error and Wald statistic 1e-8 (observed 2e-10) -- tests/reference_parity/test_positive_correlation_test_stata_parity.py"
+      "tests/reference_parity/test_positive_correlation_ordered_stata_parity.py: ordered outcomes vs Stata 18 oprobit / probit, score, variance, W and correlation within 4e-10 (1.3e-15 with a binary claim)",
+      "Cross-language parity (bit-exact) vs Stata 18 biprobit (method='biprobit') [Stata 18]; tolerance log likelihood and LR statistic 1e-12 relative; rho and athrho 1e-8 (observed 1.6e-9); athrho standard error and Wald statistic 1e-8 (observed 2e-10) -- tests/reference_parity/test_positive_correlation_test_stata_parity.py",
+      "tests/reference_parity/test_positive_correlation_ordered_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -85696,6 +85797,180 @@
   {
     "alias_of": null,
     "alternatives": [
+      "pooled_price_ratio",
+      "positive_correlation_test",
+      "efc_welfare"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Probit loss model; future predictor Gf = W theta + V and current Gc = Gf + eps with normal V, eps (paper Assumptions 2-5)",
+      "R2c from the probit on Gc alone equals the latent-scale R2 exactly only when W is normal (as in the paper)",
+      "No sampling weights"
+    ],
+    "category": "structural",
+    "cost_profile": "",
+    "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.risk_class_selection(df, \"cancer65\", [\"age\", \"bmi\", \"famhist\"], pgi=\"pgi\", r2_future={\"3L\": 0.18, \"3U\": 0.57}, at={\"age\": 65})",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass the variables insurers price on.",
+        "symptom": "covariates must name at least one variable"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. upto_quantile=0.8.",
+        "symptom": "upto_quantile must be in (0, 1]"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. alpha=0.05.",
+        "symptom": "alpha must be in (0, 1)"
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Pass e.g. n_draws=10.",
+        "symptom": "n_draws must be at least 1"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "risk_class_selection",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "azevedo2026genetic",
+    "returns": {
+      "class": "RiskClassSelectionResult",
+      "description": "RiskClassSelectionResult",
+      "fields": {
+        "alpha": "float",
+        "boot_draws": "pd.DataFrame",
+        "curves": "Dict[str, pd.DataFrame]",
+        "diagnostics": "Dict[str, Any]",
+        "mean_risk": "float",
+        "n_boot": "int",
+        "n_obs": "int",
+        "params": "Dict[str, Any]",
+        "risk": "pd.DataFrame",
+        "risk_class": "Optional[Tuple[float, float]]",
+        "t_no_underwriting": "float",
+        "table": "pd.DataFrame",
+        "upto_quantile": "float"
+      }
+    },
+    "signature": {
+      "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline.",
+      "name": "risk_class_selection",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Level of the percentile interval",
+            "type": "number"
+          },
+          "at": {
+            "description": "Covariate values used for prediction, e.g. {'age': 65}",
+            "type": "object"
+          },
+          "covariates": {
+            "description": "Covariates insurers observe and use to form risk classes",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "One row per person",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "loss": {
+            "description": "0/1 loss indicator (e.g. disease by 65)",
+            "type": "string"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap replications repeating every step (0 = none)",
+            "type": "integer"
+          },
+          "n_draws": {
+            "default": 10,
+            "description": "Draws of the future predictor per person (Scenario 3)",
+            "type": "integer"
+          },
+          "pgi": {
+            "description": "Current predictor consumers know but insurers cannot use; needed for Scenarios 2 and 3",
+            "type": "string"
+          },
+          "r2_future": {
+            "description": "Liability-scale R2 of a future predictor (float, list, or dict naming scenarios, e.g. {'3L': 0.18, '3U': 0.57})",
+            "type": "number"
+          },
+          "risk_class": {
+            "default": [
+              0.75,
+              1.25
+            ],
+            "description": "Class = Scenario 1 risk within [lo, hi] x its sample mean; None = no underwriting",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed for Scenario 3 draws and bootstrap",
+            "type": "integer"
+          },
+          "upto_quantile": {
+            "default": 0.8,
+            "description": "Summary = minimum implicit tax up to this quantile (t80)",
+            "type": "number"
+          }
+        },
+        "required": [
+          "data",
+          "loss",
+          "covariates"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "tests/test_risk_class_selection.py: DGP satisfying Assumptions 1-5 (closed-form risks): parameters and t80 of all scenarios recovered at n=1e5; Scenario 1 = pooled_price_ratio on the class exactly; Scenario 2 = sp.probit predictions; r2_future = R2c reproduces Scenario 2 to 1e-12; bootstrap coverage 0.94 (200 x 199, slow)"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "dgp_ddc",
       "clogit",
       "logit",
@@ -85710,17 +85985,21 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Single-agent dynamic discrete choice: infinite-horizon, stationary, discrete states, i.i.d. type-I extreme value shocks, flow utility linear in the parameters. Three estimators of the same parameters: Rust's nested fixed point (method='nfxp', Newton-Kantorovich inner solver so beta=0.9999 is cheap), the two-step Hotz-Miller CCP pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested pseudo-likelihood ('npl', whose fixed point is the partial MLE). Built-in Rust (1987) engine-replacement utility, or any feature array (S, J, K) / callable. Transitions are estimated in a first stage (frequencies, or Rust's pooled increments) or supplied. Returns parameters, partial-likelihood standard errors, model CCPs, the value function and .counterfactual() for policy changes. The discount factor is fixed, not estimated.",
+    "description": "Single-agent dynamic discrete choice: infinite-horizon, stationary, discrete states, i.i.d. type-I extreme value shocks, flow utility linear in the parameters. Three estimators of the same parameters: Rust's nested fixed point (method='nfxp', Newton-Kantorovich inner solver so beta=0.9999 is cheap), the two-step Hotz-Miller CCP pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested pseudo-likelihood ('npl', whose fixed point is the partial MLE). Built-in Rust (1987) engine-replacement utility, or any feature array (S, J, K) / callable. Transitions are estimated in a first stage (frequencies, or Rust's pooled increments) or supplied. Returns parameters, partial-likelihood standard errors, model CCPs, the value function and .counterfactual() for policy changes. The discount factor is fixed, not estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "external",
+      "grade_basis": "derived from status",
       "module_id": null,
-      "reference": "",
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "tests": [
+        "tests/external_parity/test_rust1987_bus.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.ddc(df, \"replace\", \"mileage\", id=\"bus\", time=\"t\", beta=0.9999, n_states=90)",
@@ -85792,7 +86071,7 @@
       }
     },
     "signature": {
-      "description": "Single-agent dynamic discrete choice: infinite-horizon, stationary, discrete states, i.i.d. type-I extreme value shocks, flow utility linear in the parameters. Three estimators of the same parameters: Rust's nested fixed point (method='nfxp', Newton-Kantorovich inner solver so beta=0.9999 is cheap), the two-step Hotz-Miller CCP pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested pseudo-likelihood ('npl', whose fixed point is the partial MLE). Built-in Rust (1987) engine-replacement utility, or any feature array (S, J, K) / callable. Transitions are estimated in a first stage (frequencies, or Rust's pooled increments) or supplied. Returns parameters, partial-likelihood standard errors, model CCPs, the value function and .counterfactual() for policy changes. The discount factor is fixed, not estimated.",
+      "description": "Single-agent dynamic discrete choice: infinite-horizon, stationary, discrete states, i.i.d. type-I extreme value shocks, flow utility linear in the parameters. Three estimators of the same parameters: Rust's nested fixed point (method='nfxp', Newton-Kantorovich inner solver so beta=0.9999 is cheap), the two-step Hotz-Miller CCP pseudo-likelihood ('ccp') and Aguirregabiria-Mira nested pseudo-likelihood ('npl', whose fixed point is the partial MLE). Built-in Rust (1987) engine-replacement utility, or any feature array (S, J, K) / callable. Transitions are estimated in a first stage (frequencies, or Rust's pooled increments) or supplied. Returns parameters, partial-likelihood standard errors, model CCPs, the value function and .counterfactual() for policy changes. The discount factor is fixed, not estimated. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ddc",
       "parameters": {
         "properties": {
@@ -85873,7 +86152,7 @@
             "type": "array"
           },
           "reset_actions": {
-            "description": "Actions that restart the state at 0 (transition='increments'; default the second action for utility='rust')",
+            "description": "Actions that restart the state at 0 (transition='increments' or a 1-D increment distribution; default the second action for utility='rust')",
             "items": {
               "type": "string"
             },
@@ -85902,7 +86181,7 @@
           },
           "transition": {
             "default": "auto",
-            "description": "'estimate' (action-specific frequencies), 'increments' (Rust's pooled increments, from 0 after a reset action), 'auto' (increments for utility='rust', else estimate), or matrices of shape (J, S, S) / {action: (S, S)}",
+            "description": "'estimate' (action-specific frequencies), 'increments' (Rust's pooled increments, from 0 after a reset action), 'auto' (increments for utility='rust', else estimate), matrices of shape (J, S, S) / {action: (S, S)}, or a 1-D increment distribution p[d] = Pr(s' = s + d) such as Rust's theta_3 (from 0 after a reset action)",
             "type": [
               "object",
               "string"
@@ -85935,9 +86214,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_ddc.py: recovers the structural parameters of the Rust bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient is zero at the optimum, and beta = 0 reduces to a static logit"
+      "tests/test_ddc.py: recovers the structural parameters of the Rust bus-engine DGP, NPL converges to the NFXP MLE, the NFXP gradient is zero at the optimum, and beta = 0 reduces to a static logit",
+      "tests/external_parity/test_rust1987_bus.py: Rust (1987) Tables V, VI and VIII-X on the bus data (sp.datasets.rust_bus), parameters within 2e-4 and BHHH standard errors within 5e-3 relative",
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_rust1987_bus.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -86232,22 +86513,27 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife variance (as R simex). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R simex 1.8 simex(asymptotic=TRUE) and mcsimex, fed the same pseudo-errors and re-misclassified vectors as StatsPAI",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "simex": "1.8"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_simex_r_screen.py"
+        "tests/reference_parity/test_simex_r_parity.py",
+        "tests/reference_parity/_fixtures/simex_det_R.txt"
       ],
-      "tolerance": ""
+      "tolerance": "estimates and asymptotic SEs 1e-12 relative (observed 8e-15); jackknife SEs 1e-8 (observed 1.7e-9, R glm covariance at the pre-update weights); rational extrapolant 1e-6 (observed 2.9e-7, R nls stopping rule)"
     },
     "example": "sp.simex(\"y ~ w + z\", df, error_sd={\"w\": 0.5})",
     "failure_modes": [
@@ -86272,8 +86558,8 @@
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
-        "remedy": "Use the default (0.5, 1, 1.5, 2).",
-        "symptom": "sp.simex: lambdas=<list(lambdas)> must be distinct positive numbers."
+        "remedy": "Use variance='jackknife' (default) or 'asymptotic'.",
+        "symptom": "sp.simex: variance=<variance> is not 'jackknife' or 'asymptotic'."
       }
     ],
     "inherits_from": null,
@@ -86304,7 +86590,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife variance (as R simex). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence.",
       "name": "simex",
       "parameters": {
         "properties": {
@@ -86324,16 +86610,17 @@
             "x-statspai-role": "dataframe"
           },
           "error_sd": {
-            "description": "{'x': 0.5}: measurement-error SD per error-prone regressor, a number or a column of per-row SDs",
+            "description": "{'x': 0.5}: measurement-error SD per error-prone regressor, a number or a column of per-row SDs; required unless misclassification is given",
             "type": "object"
           },
           "extrapolant": {
             "default": "quadratic",
-            "description": "Curve fitted to the coefficient paths; 'nonlinear' is a + b / (c + lambda)",
+            "description": "Curve fitted to the coefficient paths; 'nonlinear' is a + b / (c + lambda); 'loglinear' is R mcsimex 'logl'",
             "enum": [
               "quadratic",
               "linear",
-              "nonlinear"
+              "nonlinear",
+              "loglinear"
             ],
             "type": "string"
           },
@@ -86359,7 +86646,8 @@
             "enum": [
               "quadratic",
               "linear",
-              "nonlinear"
+              "nonlinear",
+              "loglinear"
             ],
             "type": "string"
           },
@@ -86376,10 +86664,23 @@
             },
             "type": "array"
           },
+          "misclassification": {
+            "description": "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 regressor or outcome; P[j][i] = Pr(observed j | true i), columns sum to one. Not combined with error_sd",
+            "type": "object"
+          },
           "seed": {
             "default": 0,
             "description": "Seed for the simulated errors",
             "type": "integer"
+          },
+          "variance": {
+            "default": "jackknife",
+            "description": "Standard errors: SIMEX jackknife, or the asymptotic estimating-equation variance of Carroll et al. 1996 (R asymptotic=TRUE; homoskedastic error only)",
+            "enum": [
+              "jackknife",
+              "asymptotic"
+            ],
+            "type": "string"
           },
           "vce": {
             "default": "ols",
@@ -86398,8 +86699,7 @@
         },
         "required": [
           "formula",
-          "data",
-          "error_sd"
+          "data"
         ],
         "type": "object"
       }
@@ -86407,9 +86707,12 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_simex_r_screen.py"
+      "tests/reference_parity/test_simex_r_parity.py: deterministic parity with R simex 1.8 / mcsimex on shared pseudo-errors; estimates and asymptotic SEs to 8e-15, jackknife SEs to 1.7e-9",
+      "tests/test_simex_asymptotic_mc.py: asymptotic SE against the Monte Carlo SD, MC-SIMEX bias reduction, score identities",
+      "Cross-language parity (bit-exact) vs R simex 1.8 simex(asymptotic=TRUE) and mcsimex, fed the same pseudo-errors and re-misclassified vectors as StatsPAI [R version 4.5.2 (2025-10-31), simex 1.8]; tolerance estimates and asymptotic SEs 1e-12 relative (observed 8e-15); jackknife SEs 1e-8 (observed 1.7e-9, R glm covariance at the pre-update weights); rational extrapolant 1e-6 (observed 2.9e-7, R nls stopping rule) -- tests/reference_parity/test_simex_r_parity.py",
+      "tests/reference_parity/test_simex_r_screen.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -122920,8 +123223,8 @@
       "Cross-language parity (bit-exact) vs MASS::polr(method=\"probit\") [MASS 7.3.65, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 49_oprobit -- tests/r_parity/49_oprobit.py",
       "tests/external_parity/test_ramirez_hassan_bayes.py",
       "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py",
-      "tests/reference_parity/test_vuong_pscl_parity.py"
+      "tests/reference_parity/test_positive_correlation_ordered_stata_parity.py",
+      "tests/reference_parity/test_vce_grammar_stata_parity.py"
     ],
     "validation_status": "certified"
   },

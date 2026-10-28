@@ -28,7 +28,7 @@ References
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, Dict, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -45,7 +45,14 @@ from ._core import (
     solve_value,
     value_derivative,
 )
-from ._data import build_features, check_transitions, encode_panel, estimate_transitions
+from ._data import (
+    build_features,
+    check_increments,
+    check_transitions,
+    encode_panel,
+    estimate_transitions,
+    increments_matrix,
+)
 from ._result import DDCResult
 
 __all__ = ["ddc"]
@@ -130,6 +137,21 @@ def _nfxp(
             converged = True
             break
     return theta, converged, iterations
+
+
+def _reset_indices(
+    reset_actions: Optional[Sequence[Any]], utility: Any, labels: Sequence[Any]
+) -> List[int]:
+    """Model indices of the actions that restart the state at 0."""
+    if reset_actions is None:
+        return [1] if isinstance(utility, str) else []
+    unknown = [r for r in reset_actions if r not in labels]
+    if unknown:
+        raise MethodIncompatibility(
+            f"reset_actions {unknown} are not action labels",
+            recovery_hint=f"use labels from {list(labels)}",
+        )
+    return [list(labels).index(r) for r in reset_actions]
 
 
 def _ccp_first_stage(counts: np.ndarray, smoothing: float) -> np.ndarray:
@@ -234,7 +256,11 @@ def ddc(
         state increments pooled over states, measured from 0 after a
         ``reset_actions`` choice. ``'auto'`` is ``'increments'`` for
         ``utility='rust'`` and ``'estimate'`` otherwise. An array of shape
-        ``(J, S, S)`` (or ``{action: (S, S)}``) is used as given.
+        ``(J, S, S)`` (or ``{action: (S, S)}``) is used as given. A 1-D
+        array ``p`` is an increment distribution, ``p[d] = Pr(s' = s + d)``
+        (from 0 after a ``reset_actions`` choice, capped at the last state),
+        such as Rust's published ``theta_3`` or one computed from the
+        ``increment`` column of ``sp.datasets.rust_bus()``.
     actions : sequence, optional
         Action labels in model order (default: sorted unique values).
     n_states : int, optional
@@ -244,8 +270,9 @@ def ddc(
     cost_scale : float, default 0.001
         Scale of the state in the Rust cost function (Rust's 0.001).
     reset_actions : sequence, optional
-        Action labels that restart the state at 0 (``'increments'`` only;
-        default the second action for ``utility='rust'``).
+        Action labels that restart the state at 0 (``'increments'`` or a
+        1-D increment distribution only; default the second action for
+        ``utility='rust'``).
     param_names : sequence of str, optional
         Names of the utility parameters for array / callable utilities.
     theta0 : sequence of float, optional
@@ -280,6 +307,15 @@ def ddc(
     [@aguirregabiria2002swapping]. None of them account for the sampling
     error of the first-stage transitions (Rust's third, full-likelihood
     step is not implemented). The discount factor is not estimated.
+
+    Rust's own bus data are ``sp.datasets.rust_bus()``. Fitting its
+    ``rust_sample`` rows with ``transition=`` set to the frequencies of its
+    ``increment`` column and ``vce='opg'`` (Rust's BHHH variance) gives
+    the estimates, standard errors and log-likelihoods of Rust (1987),
+    Tables VIII-X (``tests/external_parity/test_rust1987_bus.py``). The
+    default ``transition='increments'`` measures the step after a
+    replacement from state 0, one bin below Rust's convention; on groups
+    1-4 that moves ``RC`` and ``theta_1`` by about 0.01 to 0.02.
 
     Examples
     --------
@@ -338,18 +374,18 @@ def ddc(
                 f"transition={transition!r} is not supported",
                 recovery_hint="use 'auto', 'estimate', 'increments' or an array",
             )
-        if reset_actions is None:
-            reset_idx = [1] if isinstance(utility, str) else []
-        else:
-            unknown = [r for r in reset_actions if r not in labels]
-            if unknown:
-                raise MethodIncompatibility(
-                    f"reset_actions {unknown} are not action labels",
-                    recovery_hint=f"use labels from {labels}",
-                )
-            reset_idx = [labels.index(r) for r in reset_actions]
+        reset_idx = _reset_indices(reset_actions, utility, labels)
         F, tparams = estimate_transitions(enc, mode, reset_idx, diag)
         tparams["mode"] = mode
+    elif not isinstance(transition, dict) and np.ndim(transition) == 1:
+        p_inc = check_increments(transition)
+        reset_idx = _reset_indices(reset_actions, utility, labels)
+        F = increments_matrix(p_inc, S, J, reset_idx)
+        tparams = {
+            "mode": "increments_supplied",
+            "increments": list(range(p_inc.size)),
+            "increment_probs": p_inc.tolist(),
+        }
     else:
         F = check_transitions(transition, S, J, labels)
         tparams = {"mode": "supplied"}

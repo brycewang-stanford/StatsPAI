@@ -7970,6 +7970,62 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "normalisation of the own terms coincides with Theorem 1's |S|."
         ),
     },
+    "simex": {
+        "status": "bit-exact",
+        "reference": (
+            "R simex 1.8 simex(asymptotic=TRUE) and mcsimex, fed the same "
+            "pseudo-errors and re-misclassified vectors as StatsPAI"
+        ),
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "simex": "1.8",
+        },
+        "tolerance": (
+            "estimates and asymptotic SEs 1e-12 relative (observed 8e-15); "
+            "jackknife SEs 1e-8 (observed 1.7e-9, R glm covariance at the "
+            "pre-update weights); rational extrapolant 1e-6 (observed 2.9e-7, "
+            "R nls stopping rule)"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_simex_r_parity.py",
+            "tests/reference_parity/_fixtures/simex_det_R.txt",
+        ],
+        "note": (
+            "Deterministic on shared draws: R's rnorm and misclass are swapped "
+            "for replay of the committed draw files, so simex() and mcsimex() "
+            "run unmodified. Covers least squares, logit and Poisson SIMEX and "
+            "MC-SIMEX on a misclassified regressor and outcome. The S-tier "
+            "screen with each side's own draws stays as a separate test."
+        ),
+    },
+    "noisy_covariates": {
+        "status": "bit-exact",
+        "reference": (
+            "Agarwal and Singh replication package (Zenodo "
+            "10.5281/zenodo.19866751, CC-BY-4.0), src/wt/stage2.R::rrr_iv, "
+            "the method authors' own code"
+        ),
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": (
+            "estimate and SE 1e-12 relative on standardised covariates "
+            "(observed 1e-15), 1e-8 on raw covariates (observed 5e-12 to "
+            "2.6e-10; the R reference moves 1.8e-11 across platforms)"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_noisy_covariates_authors_parity.py",
+            "tests/reference_parity/_fixtures/noisy_covariates_adh_R.json",
+        ],
+        "note": (
+            "estimand='partially_linear_iv', weighted_fit=True, rank=5 on the "
+            "paper's Autor-Dorn-Hanson application, clean and with noisy, "
+            "missing and privatised covariates fed to both sides. The ADH "
+            "archive is fetched by SHA-256; the test skips when it is absent. "
+            "The paper's own noisy rows come from one unpublished draw and are "
+            "an S screen only."
+        ),
+    },
 }
 
 # ---- marginaleffects-style post-estimation (2026-10-17) ----

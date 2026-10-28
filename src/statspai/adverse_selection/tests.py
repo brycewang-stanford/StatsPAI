@@ -40,6 +40,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
+from ._ordered import ordered_generalized_residual, outcome_kind
 from ._results import EFCWelfareResult, PositiveCorrelationResult
 
 __all__ = ["positive_correlation_test", "efc_welfare"]
@@ -130,9 +131,12 @@ def positive_correlation_test(
     ----------
     data : pandas.DataFrame
     coverage : str
-        0/1 indicator of the more comprehensive contract.
+        0/1 indicator of the more comprehensive contract, or (with
+        ``method='residuals'``) 3 to 20 ordered coverage levels.
     claim : str
-        0/1 indicator of a claim (the ex post risk).
+        0/1 indicator of a claim (the ex post risk), or (with
+        ``method='residuals'``) 3 to 20 ordered levels such as a claim
+        count top-coded at 2.
     covariates : list of str, optional
         Variables the insurer prices on; they enter both equations.
     method : {'biprobit', 'residuals'}, default 'biprobit'
@@ -170,6 +174,14 @@ def positive_correlation_test(
     the score of the bivariate probit likelihood with respect to ``rho``
     at ``rho = 0``; ``W`` uses the outer product of that score for its
     variance, which is what makes weights and clusters easy to add.
+
+    An outcome with three or more ordered levels gets an ordered probit
+    and its generalized residual ``(phi(l) - phi(u)) / (Phi(u) - Phi(l))``,
+    where ``(l, u]`` is the interval of the latent error that produces the
+    observed level. ``sum e1 e2`` is then the score with respect to the
+    error correlation of the bivariate model with ordered probit margins
+    at zero correlation; the binary case is the special case of two
+    levels.
 
     A rejection is evidence of asymmetric information of some kind; the
     test does not separate adverse selection from moral hazard.
@@ -231,8 +243,20 @@ def positive_correlation_test(
             f"only {n} complete observations",
             recovery_hint="Use fewer covariates or more data.",
         )
-    _require_binary(df[coverage].to_numpy(dtype=float), coverage)
-    _require_binary(df[claim].to_numpy(dtype=float), claim)
+    ordered = [
+        c
+        for c in (coverage, claim)
+        if outcome_kind(df[c].to_numpy(dtype=float), c) == "ordered"
+    ]
+    if ordered and (method == "biprobit" or weights is not None):
+        raise MethodIncompatibility(
+            f"ordered outcomes {ordered} need method='residuals' without weights",
+            recovery_hint="Use method='residuals' (ordered probit residuals), "
+            "or recode the outcomes as 0/1.",
+        )
+    for c in (coverage, claim):
+        if c not in ordered:
+            _require_binary(df[c].to_numpy(dtype=float), c)
     if weights is not None and (df[weights].to_numpy(dtype=float) <= 0).any():
         raise MethodIncompatibility(
             "weights must be positive",
@@ -241,7 +265,7 @@ def positive_correlation_test(
 
     if method == "biprobit":
         return _pcp_biprobit(df, coverage, claim, x1, x2, cluster, alpha)
-    return _pcp_residuals(df, coverage, claim, x1, x2, weights, cluster, alpha)
+    return _pcp_residuals(df, coverage, claim, x1, x2, weights, cluster, alpha, ordered)
 
 
 def _pcp_biprobit(
@@ -335,13 +359,18 @@ def _pcp_residuals(
     weights: Optional[str],
     cluster: Optional[str],
     alpha: float,
+    ordered: Sequence[str] = (),
 ) -> PositiveCorrelationResult:
     w = np.ones(len(df)) if weights is None else df[weights].to_numpy(dtype=float)
-    e1 = _generalized_residual(
-        df[coverage].to_numpy(dtype=float), _probit_index(df, coverage, x1, weights)
-    )
-    e2 = _generalized_residual(
-        df[claim].to_numpy(dtype=float), _probit_index(df, claim, x2, weights)
+    e1, e2 = (
+        (
+            ordered_generalized_residual(df, y, x)
+            if y in ordered
+            else _generalized_residual(
+                df[y].to_numpy(dtype=float), _probit_index(df, y, x, weights)
+            )
+        )
+        for y, x in ((coverage, x1), (claim, x2))
     )
     s = w * e1 * e2
     if cluster is None:
@@ -377,7 +406,12 @@ def _pcp_residuals(
         test="Score test on generalized residuals (W)",
         alpha=alpha,
         n_obs=len(df),
-        detail={"score": score, "score_variance": var, "n_clusters": n_clusters},
+        detail={
+            "score": score,
+            "score_variance": var,
+            "n_clusters": n_clusters,
+            **({"ordered": list(ordered)} if ordered else {}),
+        },
         diagnostics={},
     )
 

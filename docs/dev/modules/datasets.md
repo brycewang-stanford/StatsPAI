@@ -8,3 +8,4 @@
 - **测试**：需要下载数据的测试在数据未缓存且 `STATSPAI_FETCH_DATASETS` 未设时跳过，并写明原因。nightly 的全量覆盖率任务设了这个变量（约 7 MB 下载），push 触发的 CI 不下载。目录类测试只加载随包数据。
 - **sdist**：缓存目录在仓库之外，不会进 sdist；若有人把数据下载到仓库内，`MANIFEST.in` 的 `recursive-include tests *` 会把它打包，发版前按 CLAUDE.md §7 第 4 步核对文件清单。
 - **随包数据与原文数据不一定相同**：`nsw_lalonde` 是 MatchIt 的 614 行截面，不是 Sant'Anna-Zhao 用的 NSW + CPS + PSID 面板（那是 `lalonde_panel()`）；`castle_doctrine` 是 Mixtape `castle.dta` 的 29 列子集，`popwt` 等 float32 列有 1e-7 量级的差。论文复现画廊见 `docs/guides/did_paper_gallery.md`，对数测试在 `tests/external_parity/test_did_paper_gallery.py`。
+- **`rust_bus`（2026-10-28）。** 从 Zenodo 3385050（zurcher-data v0.14，OpenSourceEconomics，MIT）按需下载 319 kB 的 zip，钉 SHA-256 `8b1c267c…f16f`；九个 `.asc` 与 Rust 的 `nfxp.zip` 逐值相同。数据本身无单独许可证，因此只下载、不随包。测试在 `tests/external_parity/test_rust1987_bus.py`，未缓存且未设 `STATSPAI_FETCH_DATASETS` 时跳过；离线部分在 `tests/test_rust_bus_loader.py`。

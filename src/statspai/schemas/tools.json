@@ -27779,7 +27779,7 @@
     "name": "noether_test"
   },
   {
-    "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank. Assumptions: Selection on the true covariates, which are approximately low rank (approximate repeated measurements); Corruption is mean zero given the true covariates and independent across units; missingness does not depend on the outcome; Many covariates per latent factor: the theory asks for n^(2/3) <= p <= n^(3/2); with few covariates the estimate keeps an errors-in-variables bias. Failure modes: estimand must be one of <_ESTIMANDS>; got <estimand> -> Use 'ATE' for a 0/1 treatment, 'LATE' with an instrument, or 'partially_linear' for a continuous treatment; alpha must be in (0, 1) -> Pass e.g. alpha=0.05; n_folds must be an integer >= 2; got <n_folds> -> Use n_folds=2 as in the paper. Alternatives: sp.eivreg, sp.simex, sp.aipw, sp.dml.",
+    "description": "Treatment effects when the covariates are observed with noise, missing cells, randomised rounding or differential-privacy noise (Agarwal-Singh). Cleans the covariates by principal components, fits an error-in-variable regression and balancing weight, and reports a cross-fitted doubly robust estimate whose interval accounts for the cleaning. Needs no model of the noise; assumes the true covariates are approximately low rank. Validation: certified parity evidence. Assumptions: Selection on the true covariates, which are approximately low rank (approximate repeated measurements); Corruption is mean zero given the true covariates and independent across units; missingness does not depend on the outcome; Many covariates per latent factor: the theory asks for n^(2/3) <= p <= n^(3/2); with few covariates the estimate keeps an errors-in-variables bias. Failure modes: estimand must be one of <_ESTIMANDS>; got <estimand> -> Use 'ATE' for a 0/1 treatment, 'LATE' with an instrument, or 'partially_linear' for a continuous treatment; alpha must be in (0, 1) -> Pass e.g. alpha=0.05; n_folds must be an integer >= 2; got <n_folds> -> Use n_folds=2 as in the paper. Alternatives: sp.eivreg, sp.simex,...",
     "input_schema": {
       "properties": {
         "add_constant": {
@@ -27802,16 +27802,23 @@
         },
         "estimand": {
           "default": "ATE",
-          "description": "ATE of a binary treatment, LATE with a binary instrument, or the partially linear coefficient of a continuous treatment",
+          "description": "ATE / LATE (binary), partially_linear, partially_linear_iv (continuous instrument), elasticity (average derivative in a continuous treat), policy_effect (affine counterfactual in policy=)",
           "enum": [
             "ATE",
             "LATE",
-            "partially_linear"
+            "partially_linear",
+            "partially_linear_iv",
+            "elasticity",
+            "policy_effect"
           ],
           "type": "string"
         },
+        "folds": {
+          "description": "Fold label per row (column name or array aligned with data); overrides n_folds and seed",
+          "type": "string"
+        },
         "instrument": {
-          "description": "0/1 instrument column, required for estimand='LATE'",
+          "description": "Instrument column: 0/1 for LATE, numeric for partially_linear_iv",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -27819,6 +27826,10 @@
           "default": 2,
           "description": "Cross-fitting folds",
           "type": "integer"
+        },
+        "policy": {
+          "description": "For policy_effect: {column: shift} or {column: (scale, shift)}; keys are covariates or treat",
+          "type": "object"
         },
         "rank": {
           "description": "Principal components kept when cleaning; None uses the Gavish-Donoho hard threshold in each training fold",
@@ -27830,9 +27841,14 @@
           "type": "integer"
         },
         "treat": {
-          "description": "Treatment column: 0/1 for ATE and LATE, any numeric dose for partially_linear",
+          "description": "Treatment column: 0/1 for ATE and LATE, numeric for partially_linear, partially_linear_iv and elasticity; optional (None) for policy_effect",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "weighted_fit": {
+          "default": false,
+          "description": "Also weight the regression and the balancing weight by weights= (the authors' replication code; Stata [aw=] coefficient)",
+          "type": "boolean"
         },
         "weights": {
           "description": "Known unit weights for a weighted estimand (normalised to mean one)",
@@ -30287,7 +30303,7 @@
           "type": "number"
         },
         "claim": {
-          "description": "0/1 indicator of a claim",
+          "description": "0/1 claim indicator, or (method='residuals') 3-20 ordered levels such as claim counts top-coded at 2",
           "type": "string"
         },
         "claim_covariates": {
@@ -30311,7 +30327,7 @@
           "x-statspai-role": "columns"
         },
         "coverage": {
-          "description": "0/1 indicator of more coverage",
+          "description": "0/1 indicator of the more comprehensive contract, or (method='residuals') 3-20 ordered coverage levels",
           "type": "string"
         },
         "method": {
@@ -36813,7 +36829,7 @@
     "name": "rdwinselect"
   },
   {
-    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The shocks are as-good-as-randomly assigned given the exposure, and the counterfactual draws come from that assignment process (for example exchangeable shocks); The shocks affect the outcome only through the treatment; The RI test is for the sharp null of a constant effect; with heterogeneous effects report the asymptotic standard error. Failure modes: data must be a pandas DataFrame -> Pass the data as a DataFrame; method must be 'recenter' or 'control', got <method> -> Use method='recenter' or method='control'; vce must be one of <sorted(_VCE_TO_ROBUST)>, got <vce> -> Use vce='robust', or pass cluster= for clustering. Alternatives: sp.expected_instrument, sp.iv, sp.bartik, sp.shift_share_se.",
+    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The shocks are as-good-as-randomly assigned given the exposure, and the counterfactual draws come from that assignment process (for example exchangeable shocks); The shocks affect the outcome only through the treatment; The RI test is for the sharp null of a constant effect; with heterogeneous effects report the asymptotic standard error. Failure modes: data must be a pandas DataFrame -> Pass the data as a DataFrame; method must be 'recenter' or 'control', got <method> -> Use method='recenter' or method='control'; vce must be one of <sorted(_VCE_TO_ROBUST) + ['conley']>, got <vce> -> Use vce='robust', or pass cluster= for clustering. Alternatives: sp.expected_instrument, sp.iv, sp.bartik, sp.shift_share_se.",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -36848,6 +36864,36 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "conley_cutoff": {
+          "description": "Distance cutoff in km for vce='conley'",
+          "type": "number"
+        },
+        "conley_distance": {
+          "default": "haversine",
+          "description": "Great-circle distance, or Stata acreg's 'planar' metric",
+          "enum": [
+            "haversine",
+            "planar"
+          ],
+          "type": "string"
+        },
+        "conley_kernel": {
+          "default": "uniform",
+          "description": "Spatial kernel for vce='conley'; 'bartlett' decays linearly (the paper's Table 1)",
+          "enum": [
+            "uniform",
+            "bartlett"
+          ],
+          "type": "string"
+        },
+        "conley_lat": {
+          "description": "Latitude column (degrees) for vce='conley'",
+          "type": "string"
+        },
+        "conley_lon": {
+          "description": "Longitude column (degrees) for vce='conley'",
+          "type": "string"
+        },
         "counterfactual": {
           "description": "The instrument recomputed under S >= 2 counterfactual shock draws (e.g. permutations), one column per draw, rows aligned with data; their row mean is the expected instrument",
           "items": {
@@ -36881,6 +36927,15 @@
           ],
           "type": "string"
         },
+        "resid_mean": {
+          "description": "psi_i = E[eps_i | w]; with resid_var, partially residualises the instrument on psi (Lemma 3 of the working paper)",
+          "type": "string"
+        },
+        "resid_var": {
+          "description": "Var[eps_i | w] per row (diagonal Omega); turns the instrument into the efficient recentered instrument E[ee'|w]^{-1}(z - mu) (Borusyak-Hull WP eq. 9); valid for any positive exposure-only values; method='recenter' only",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "ri": {
           "default": true,
           "description": "Compute the randomization p-value and the exact randomization confidence set",
@@ -36898,14 +36953,15 @@
         },
         "vce": {
           "default": "robust",
-          "description": "Asymptotic variance without clustering; 'robust' is HC1",
+          "description": "Asymptotic variance without clustering; 'robust' is HC1; 'conley' is sp.conley's spatial HAC (needs conley_lat / conley_lon / conley_cutoff; not with cluster or weights)",
           "enum": [
             "robust",
             "hc0",
             "hc1",
             "hc2",
             "hc3",
-            "nonrobust"
+            "nonrobust",
+            "conley"
           ],
           "type": "string"
         },
@@ -40272,7 +40328,7 @@
     "name": "signrank"
   },
   {
-    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife variance (as R simex). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Additive normal measurement error with known SD, independent of everything else; The extrapolant approximates the coefficient path in lambda; the quadratic usually corrects only part of the bias; The jackknife variance treats the error SD as known. Failure modes: sp.simex: data must be a pandas DataFrame -> Pass the data as a DataFrame; sp.simex: family=<family> is not one of <list(_FAMILIES)> -> Use family='gaussian', 'logit', 'probit' or 'poisson'; sp.simex: vce=<vce> is not 'ols' or 'robust' -> Use vce='ols' (model-based) or 'robust' (sandwich). Alternatives: sp.eivreg, sp.noisy_covariates, sp.regress, sp.logit.",
+    "description": "Simulation-extrapolation (SIMEX) for regressors measured with additive normal error of known SD: adds more simulated error, refits the naive linear / logit / probit / Poisson model and extrapolates the coefficients back to zero error, with the SIMEX jackknife or the Carroll et al. (1996) asymptotic variance (as R simex), and misclassification SIMEX for a binary regressor or outcome (as R mcsimex). Validation: certified parity evidence. Assumptions: Additive normal measurement error with known SD, independent of everything else; The extrapolant approximates the coefficient path in lambda; the quadratic usually corrects only part of the bias; The jackknife variance treats the error SD as known. Failure modes: sp.simex: data must be a pandas DataFrame -> Pass the data as a DataFrame; sp.simex: family=<family> is not one of <list(_FAMILIES)> -> Use family='gaussian', 'logit', 'probit' or 'poisson'; sp.simex: vce=<vce> is not 'ols' or 'robust' -> Use vce='ols' (model-based) or 'robust' (sandwich). Alternatives: sp.eivreg, sp.noisy_covariates, sp.regress, sp.logit.",
     "input_schema": {
       "properties": {
         "B": {
@@ -40286,16 +40342,17 @@
           "type": "number"
         },
         "error_sd": {
-          "description": "{'x': 0.5}: measurement-error SD per error-prone regressor, a number or a column of per-row SDs",
+          "description": "{'x': 0.5}: measurement-error SD per error-prone regressor, a number or a column of per-row SDs; required unless misclassification is given",
           "type": "object"
         },
         "extrapolant": {
           "default": "quadratic",
-          "description": "Curve fitted to the coefficient paths; 'nonlinear' is a + b / (c + lambda)",
+          "description": "Curve fitted to the coefficient paths; 'nonlinear' is a + b / (c + lambda); 'loglinear' is R mcsimex 'logl'",
           "enum": [
             "quadratic",
             "linear",
-            "nonlinear"
+            "nonlinear",
+            "loglinear"
           ],
           "type": "string"
         },
@@ -40321,7 +40378,8 @@
           "enum": [
             "quadratic",
             "linear",
-            "nonlinear"
+            "nonlinear",
+            "loglinear"
           ],
           "type": "string"
         },
@@ -40338,10 +40396,23 @@
           },
           "type": "array"
         },
+        "misclassification": {
+          "description": "MC-SIMEX (R mcsimex): {'x': P} for a misclassified 0/1 regressor or outcome; P[j][i] = Pr(observed j | true i), columns sum to one. Not combined with error_sd",
+          "type": "object"
+        },
         "seed": {
           "default": 0,
           "description": "Seed for the simulated errors",
           "type": "integer"
+        },
+        "variance": {
+          "default": "jackknife",
+          "description": "Standard errors: SIMEX jackknife, or the asymptotic estimating-equation variance of Carroll et al. 1996 (R asymptotic=TRUE; homoskedastic error only)",
+          "enum": [
+            "jackknife",
+            "asymptotic"
+          ],
+          "type": "string"
         },
         "vce": {
           "default": "ols",
@@ -40359,7 +40430,6 @@
         }
       },
       "required": [
-        "error_sd",
         "formula"
       ],
       "type": "object"
@@ -40664,7 +40734,7 @@
     "name": "source_decompose"
   },
   {
-    "description": "Effects of spatial treatments (stores, schools, plants) on nearby units by distance ring, comparing units near realised locations with units near counterfactual candidate locations, with design-based standard errors (Pollmann 2026). Validation: certified parity evidence. Do NOT use when: Comparing an inner ring with an outer ring around the same realised locations is the intended design (not justified by the randomization this function relies on). Assumptions: Treatment is assigned independently across candidate locations with the given (or a constant) design probability; Counterfactual candidates are locations where the treatment could plausibly have been realised (the user supplies them); Effects of different locations add up, for the ATT reading; otherwise the estimand is the average marginal effect. Failure modes: alpha must be in (0, 1) -> Use e.g. alpha=0.05; kernel must be 'bin' or 'triangular', got <kernel> -> Use kernel='bin'; metric must be 'euclidean' or 'haversine', got <metric> -> Use metric='euclidean' or pass distances=. Alternatives: sp.recentered_iv, sp.spatial_did, sp.conley, sp.ri_test.",
+    "description": "Effects of spatial treatments (stores, schools, plants) on nearby units by distance ring, comparing units near realised locations with units near counterfactual candidate locations, with design-based standard errors (Pollmann 2026). Validation: certified parity evidence. Do NOT use when: Comparing an inner ring with an outer ring around the same realised locations is the intended design (not justified by the randomization this function relies on). Assumptions: Treatment is assigned independently across candidate locations with the given (or a constant) design probability; Counterfactual candidates are locations where the treatment could plausibly have been realised (the user supplies them); Effects of different locations add up, for the ATT reading; otherwise the estimand is the average marginal effect. Failure modes: alpha must be in (0, 1) -> Use e.g. alpha=0.05; method must be 'ipw', 'nearest' or 'dml', got <method> -> Use method='ipw' (additive effects), 'nearest' (only the nearest realised location matters) or 'dml'; covariates= and location_covariates= are used by method='dml' only -> Pass method='dml', or drop the covariates. Alternatives: sp.recentered_iv, sp.spatial_did,...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -40685,6 +40755,14 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "covariates": {
+          "description": "method='dml' only: unit covariates (columns of data) in the outcome model",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
         },
         "distance_unit": {
           "default": "km",
@@ -40715,6 +40793,13 @@
           },
           "type": "array"
         },
+        "location_covariates": {
+          "description": "method='dml' only: location columns for a cross-fitted logit of the design probabilities (exclusive with propensity=)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "location_weights": {
           "default": false,
           "description": "Weight each candidate location equally within a ring rather than each unit (changes the estimand)",
@@ -40728,6 +40813,16 @@
           "description": "Distance beyond which treatments have no effect (d0); enters the standard error only. Default: last ring edge",
           "type": "number"
         },
+        "method": {
+          "default": "ipw",
+          "description": "Estimator: 'ipw' (ring estimator, effects add up), 'nearest' (only the nearest realised location matters; Theorem 2) or 'dml' (cross-fitted double machine learning, latent experiment)",
+          "enum": [
+            "ipw",
+            "nearest",
+            "dml"
+          ],
+          "type": "string"
+        },
         "metric": {
           "default": "euclidean",
           "description": "Distance between coordinates",
@@ -40736,6 +40831,11 @@
             "haversine"
           ],
           "type": "string"
+        },
+        "n_folds": {
+          "default": 10,
+          "description": "method='dml' only: cross-fitting folds of candidate locations; dense candidates need more folds",
+          "type": "integer"
         },
         "n_perm": {
           "default": 999,

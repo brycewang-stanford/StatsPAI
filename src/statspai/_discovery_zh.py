@@ -357,6 +357,33 @@ ZH_TERMS: Tuple[Tuple[str, str], ...] = (
     ("\u7a7a\u95f4\u81ea\u76f8\u5173", "moran spatial"),
     # 空间
     ("\u7a7a\u95f4", "spatial"),
+    # Econometrica 94(5) round (2026-10-28)
+    # 测量误差
+    ("\u6d4b\u91cf\u8bef\u5dee", "measurement error errors in variables"),
+    # 变量误差
+    ("\u53d8\u91cf\u8bef\u5dee", "errors in variables"),
+    # 模拟外推
+    ("\u6a21\u62df\u5916\u63a8", "simex simulation extrapolation"),
+    # 逆向选择
+    ("\u9006\u5411\u9009\u62e9", "adverse selection insurance"),
+    # 信息不对称
+    ("\u4fe1\u606f\u4e0d\u5bf9\u79f0", "asymmetric information adverse selection"),
+    # 私人信息
+    ("\u79c1\u4eba\u4fe1\u606f", "private information unraveling"),
+    # 正相关检验
+    ("\u6b63\u76f8\u5173\u68c0\u9a8c", "positive correlation test insurance"),
+    # 福利损失
+    ("\u798f\u5229\u635f\u5931", "welfare cost adverse selection"),
+    # 动态离散选择
+    ("\u52a8\u6001\u79bb\u6563\u9009\u62e9", "dynamic discrete choice"),
+    # 重新中心化
+    ("\u91cd\u65b0\u4e2d\u5fc3\u5316", "recentered instrument"),
+    # 非随机暴露
+    ("\u975e\u968f\u673a\u66b4\u9732", "recentered instrument nonrandom exposure"),
+    # 空间处理
+    ("\u7a7a\u95f4\u5904\u7406", "spatial treatment ring"),
+    # 半参数贝叶斯
+    ("\u534a\u53c2\u6570\u8d1d\u53f6\u65af", "locally robust bayesian semiparametric"),
     # 限制平均生存时间
     ("\u9650\u5236\u5e73\u5747\u751f\u5b58\u65f6\u95f4", "rmst"),
     # 生存时间处理效应

@@ -217,3 +217,36 @@ in the repository. Pinned regression tests live in
 
 Test: `test_cdlz_bunching_table1.py`, from the column's regression
 coefficients (`data/cdlz_table1_col1.json`).
+
+## Rust (1987) bus engine replacement (REAL data, fetched)
+
+`sp.datasets.rust_bus()` (Zenodo record 3385050, the files of Rust's
+`nfxp.zip`), discretised as Rust's `stordat.gpr`; `sp.ddc` on the
+`rust_sample` rows with `transition=` the frequencies of the `increment`
+column and `vce='opg'`.
+
+| Statistic (groups 1-4, beta = .9999, 90 bins) | Published | StatsPAI | Source |
+| --- | --- | --- | --- |
+| RC | 9.7558 (1.227) | 9.7557 (1.2265) | Econometrica 55(5), Table IX |
+| theta_11 | 2.6275 (0.618) | 2.6276 (0.6173) | Table IX |
+| theta_30, theta_31 | .3489, .6394 | .3488, .6394 | Table IX |
+| Partial log-likelihood | -300.250 | -300.2502 | Table VIII, model 19 |
+| Full log-likelihood | -6055.250 | -6055.250 | Table IX |
+
+Also reproduced: Table V (all eight groups), Table VI (seven poolings),
+Table VIII (linear and quadratic, three samples, both discount factors),
+Tables IX and X (three samples, both discount factors, parameters, BHHH
+standard errors, log-likelihoods, myopia and heterogeneity statistics),
+and ruspy's group 4 replication to 1e-9 in the log-likelihood. Three
+printed values disagree with the data and are recorded in the test:
+Table X group 4 `RC` (printed 10.896, data 10.0896), Table IX groups 1-3
+`beta = 0` log-likelihood (printed -2710.746, 0.02 below the sum of the
+paper's own Tables VI and VIII), and Table VI pooled 1-4 `theta_31`
+(printed .348 for .34882). Second sources: Ferrall's replication page
+(Tables IX, X) and ruspy (group 4).
+
+Citation: Rust, J. (1987). Optimal Replacement of GMC Bus Engines: An
+Empirical Model of Harold Zurcher. *Econometrica*, 55(5), 999-1033.
+`paper.bib` key `rust1987optimal`.
+
+Test: `test_rust1987_bus.py`.

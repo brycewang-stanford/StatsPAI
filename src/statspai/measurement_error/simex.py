@@ -9,15 +9,20 @@ to the estimates as a function of ``lambda`` (including the naive fit at
 ``lambda = 0``) and reads the curve off at ``lambda = -1``, where the
 error variance is zero.
 
-The variance is the simulation-extrapolation jackknife of Stefanski and
-Cook: at each ``lambda`` the average model-based covariance of the
-simulated fits minus the sample covariance of the simulated estimates,
-extrapolated to ``lambda = -1`` the same way.
+The default variance is the simulation-extrapolation jackknife of
+Stefanski and Cook: at each ``lambda`` the average model-based covariance
+of the simulated fits minus the sample covariance of the simulated
+estimates, extrapolated to ``lambda = -1`` the same way. The asymptotic
+(estimating-equation) variance of Carroll et al. is in
+``_simex_asymptotic.py``; misclassification SIMEX for a binary variable in
+``_simex_misclass.py``.
 
 References
 ----------
 [@cook1994simulation]
 [@stefanski1995simulation]
+[@carroll1996asymptotics]
+[@kuchenhoff2006general]
 """
 
 from __future__ import annotations
@@ -39,7 +44,7 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import stats
 
 from .._input_validation import check_columns
 from ..core._call_record import records_call
@@ -50,12 +55,14 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from . import _simex_asymptotic, _simex_misclass
+from ._simex_extrapolate import _curves, _extrapolate
 from .eivreg import _design
 
 __all__ = ["simex"]
 
 _FAMILIES = ("gaussian", "logit", "probit", "poisson")
-_EXTRAPOLANTS = ("quadratic", "linear", "nonlinear")
+_EXTRAPOLANTS = ("quadratic", "linear", "nonlinear", "loglinear")
 
 
 # --------------------------------------------------------------------
@@ -183,83 +190,45 @@ def _fit(
 
 
 # --------------------------------------------------------------------
-# Extrapolation
-# --------------------------------------------------------------------
-
-
-def _poly_at_minus_one(grid: np.ndarray, values: np.ndarray, degree: int) -> np.ndarray:
-    """Least-squares polynomial in lambda, evaluated at lambda = -1 (columns)."""
-    V = np.vander(grid, degree + 1, increasing=True)
-    coef = np.linalg.lstsq(V, values, rcond=None)[0]
-    out: np.ndarray = np.vander(np.array([-1.0]), degree + 1, increasing=True) @ coef
-    return out.ravel()
-
-
-def _rational_at_minus_one(grid: np.ndarray, path: np.ndarray) -> float:
-    """Fit ``a + b / (c + lambda)`` to one coefficient path; value at -1.
-
-    Starting values interpolate the quadratic fit at ``0``, ``max / 2`` and
-    ``max``; the curve is then refined by nonlinear least squares. Returns
-    NaN when the fit has its pole at or beyond ``-1`` (no finite limit).
-    """
-    V = np.vander(grid, 3, increasing=True)
-    q = np.linalg.lstsq(V, path, rcond=None)[0]
-    h = float(grid.max()) / 2.0
-    p0, p1, p2 = (float(q @ np.array([1.0, t, t * t])) for t in (0.0, h, 2 * h))
-    scale = max(abs(p0), abs(p1), abs(p2), 1e-12)
-    if abs(p1 - p2) <= 1e-12 * scale or abs(p0 - p1) <= 1e-12 * scale:
-        return float(path.mean())  # flat path: no error effect to undo
-    ratio = (p0 - p1) / (p1 - p2)
-    c0 = 2.0 * h / (ratio - 1.0) if abs(ratio - 1.0) > 1e-12 else 1e6
-    if not np.isfinite(c0) or c0 <= 1.0:
-        c0 = max(2.0, 4.0 * h)
-    b0 = (p0 - p1) * c0 * (c0 + h) / h
-    a0 = p0 - b0 / c0
-
-    def resid(theta: np.ndarray) -> np.ndarray:
-        a, b, c = theta
-        out: np.ndarray = a + b / (c + grid) - path
-        return out
-
-    fit = optimize.least_squares(
-        resid,
-        np.array([a0, b0, c0]),
-        bounds=([-np.inf, -np.inf, 1.0 + 1e-8], [np.inf, np.inf, np.inf]),
-        xtol=1e-14,
-        ftol=1e-14,
-        gtol=1e-14,
-        max_nfev=5000,
-    )
-    a, b, c = fit.x
-    if c - 1.0 <= 1e-6:
-        return float("nan")
-    return float(a + b / (c - 1.0))
-
-
-def _extrapolate(
-    grid: np.ndarray, values: np.ndarray, method: str
-) -> Tuple[np.ndarray, List[int]]:
-    """Extrapolate every column of ``values`` (rows = grid) to lambda = -1.
-
-    A column whose rational fit has no finite limit at -1 falls back to the
-    quadratic; the indices of those columns are returned.
-    """
-    if method == "linear":
-        return _poly_at_minus_one(grid, values, 1), []
-    quad = _poly_at_minus_one(grid, values, 2)
-    if method == "quadratic":
-        return quad, []
-    out = np.array(
-        [_rational_at_minus_one(grid, values[:, j]) for j in range(values.shape[1])]
-    )
-    failed = [j for j in range(out.size) if not np.isfinite(out[j])]
-    out[failed] = quad[failed]
-    return out, failed
-
-
-# --------------------------------------------------------------------
 # Public entry
 # --------------------------------------------------------------------
+
+
+def _plain_column(
+    name: str, names: List[str], df: pd.DataFrame, X: np.ndarray, rows: np.ndarray
+) -> int:
+    """Index of ``name`` in the design; it must enter as the plain column."""
+    if name not in names:
+        raise MethodIncompatibility(
+            f"sp.simex: {name!r} is not a term of the model {names}.",
+            recovery_hint="Key error_sd / misclassification by a regressor of "
+            "the formula.",
+            diagnostics={"terms": names},
+        )
+    others = [t for t in names if t != name and _mentions(t, name)]
+    j = names.index(name)
+    raw = (
+        pd.to_numeric(df[name], errors="coerce").to_numpy(dtype=float)[rows]
+        if name in df.columns
+        else None
+    )
+    if others or raw is None or not np.allclose(raw, X[:, j], rtol=0, atol=0):
+        raise MethodIncompatibility(
+            f"sp.simex: {name!r} must enter the model as a plain column; it "
+            f"also appears in {others or 'a transformed term'}.",
+            recovery_hint="SIMEX perturbs the column itself, so every term "
+            "built from it would have to be rebuilt. Fit the model with "
+            "the plain column, or construct the interaction by hand and "
+            "treat it as its own error-prone variable only if its error "
+            "is additive and normal.",
+        )
+    return j
+
+
+def _pseudo_errors(rng: Any, n: int, p: int) -> np.ndarray:
+    """Standard normal pseudo-errors for one simulated data set (``n x p``)."""
+    out: np.ndarray = rng.standard_normal((n, p))
+    return out
 
 
 def _mentions(term: str, name: str) -> bool:
@@ -270,15 +239,19 @@ def _mentions(term: str, name: str) -> bool:
 def simex(
     formula: str,
     data: pd.DataFrame,
-    error_sd: Mapping[str, Union[float, str]],
+    error_sd: Optional[Mapping[str, Union[float, str]]] = None,
     family: Literal["gaussian", "logit", "probit", "poisson"] = "gaussian",
     weights: Optional[str] = None,
     *,
+    misclassification: Optional[Mapping[str, Any]] = None,
     lambdas: Sequence[float] = (0.5, 1.0, 1.5, 2.0),
     B: int = 100,
-    extrapolant: Literal["quadratic", "linear", "nonlinear"] = "quadratic",
-    jackknife_extrapolant: Literal["quadratic", "linear", "nonlinear"] = "quadratic",
+    extrapolant: Literal["quadratic", "linear", "nonlinear", "loglinear"] = "quadratic",
+    jackknife_extrapolant: Literal[
+        "quadratic", "linear", "nonlinear", "loglinear"
+    ] = "quadratic",
     vce: Literal["ols", "robust"] = "ols",
+    variance: Literal["jackknife", "asymptotic"] = "jackknife",
     seed: Optional[int] = 0,
     alpha: float = 0.05,
 ) -> EconometricResults:
@@ -299,32 +272,51 @@ def simex(
         term (not inside an interaction or a transformation).
     data : pandas.DataFrame
         The data. Rows with a missing value in a model variable are dropped.
-    error_sd : dict
+    error_sd : dict, optional
         ``{"x": 0.5}``: the standard deviation of the measurement error of
         each error-prone regressor, either a number or the name of a column
         holding a per-row standard deviation (heteroskedastic error).
+        Required unless ``misclassification`` is given.
     family : {'gaussian', 'logit', 'probit', 'poisson'}, default 'gaussian'
         The naive model: least squares, or a GLM fitted by maximum
         likelihood.
     weights : str, optional
         Column of prior weights for the naive fits (``lm`` / ``glm``
         weights in R).
+    misclassification : dict, optional
+        MC-SIMEX (R ``mcsimex``): ``{"x": P}`` for a misclassified 0/1
+        variable, with ``P`` the 2 x 2 matrix ``P[j][i] = Pr(observed j |
+        true i)`` (columns sum to one; a DataFrame is read by its 0/1
+        labels). The variable is a plain regressor or the 0/1 outcome. It
+        is re-misclassified with ``P ** lambda`` instead of receiving
+        normal error. Not combined with ``error_sd``.
     lambdas : sequence of float, default (0.5, 1, 1.5, 2)
-        Positive multiples of the error variance to simulate. The naive fit
-        is added at ``lambda = 0``.
+        Positive multiples of the error variance (or exponents of the
+        misclassification matrix) to simulate. The naive fit is added at
+        ``lambda = 0``.
     B : int, default 100
         Simulated data sets per ``lambda``.
-    extrapolant : {'quadratic', 'linear', 'nonlinear'}, default 'quadratic'
+    extrapolant : {'quadratic', 'linear', 'nonlinear', 'loglinear'}, default 'quadratic'
         Curve fitted to the coefficient paths. ``'nonlinear'`` is the
         rational function ``a + b / (c + lambda)``, which is exact for a
         linear model with homoskedastic error; the quadratic is more stable
-        and usually corrects only part of the bias.
-    jackknife_extrapolant : {'quadratic', 'linear', 'nonlinear'}, default 'quadratic'
-        Curve fitted to the variance paths.
+        and usually corrects only part of the bias. ``'loglinear'`` fits
+        ``log(path + shift)`` linearly in ``lambda`` (R ``mcsimex``; the
+        shift is ``|min| + 1`` for a path with a non-positive value).
+    jackknife_extrapolant : str, default 'quadratic'
+        Curve fitted to the jackknife variance paths, one of the
+        ``extrapolant`` values.
     vce : {'ols', 'robust'}, default 'ols'
         Covariance of each naive fit used by the jackknife variance:
         model-based (classical least squares, inverse information) or the
         HC0 sandwich.
+    variance : {'jackknife', 'asymptotic'}, default 'jackknife'
+        Standard errors from the simulation-extrapolation jackknife, or the
+        asymptotic estimating-equation variance of
+        [@carroll1996asymptotics] (R ``asymptotic = TRUE``), which stacks
+        the scores of the naive and simulated fits and applies the delta
+        method through the extrapolant. The asymptotic variance needs a
+        homoskedastic error standard deviation.
     seed : int, optional
         Seed for the simulated errors.
     alpha : float, default 0.05
@@ -333,9 +325,10 @@ def simex(
     Returns
     -------
     EconometricResults
-        SIMEX coefficients with jackknife standard errors. ``model_info``
-        holds ``naive_params``, the averaged coefficient path ``path`` (one
-        row per ``lambda``, starting at 0) and the settings.
+        SIMEX coefficients with jackknife or asymptotic standard errors.
+        ``model_info`` holds ``naive_params``, the averaged coefficient path
+        ``path`` (one row per ``lambda``, starting at 0) and the settings;
+        with ``variance='asymptotic'`` also ``jackknife_cov``.
 
     Notes
     -----
@@ -344,10 +337,16 @@ def simex(
     privacy mechanism). SIMEX assumes the error is normal, additive and
     independent of everything else.
 
-    The asymptotic (estimating-equation) variance of
-    [@carroll1996asymptotics] is not implemented; the jackknife variance
-    is, as in R ``simex``. A variance path whose extrapolated diagonal is
-    negative leaves that standard error undefined and is warned about.
+    A jackknife variance path whose extrapolated diagonal is negative
+    leaves that standard error undefined and is warned about.
+
+    The asymptotic variance uses the likelihood score ``w x (y - mu) d /
+    v``. R ``simex`` uses ``x (y - mu)`` and ignores prior weights; the two
+    agree for unweighted least squares, logit and Poisson and differ for
+    probit, where R's is not the score of the fitted model.
+
+    MC-SIMEX [@kuchenhoff2006general] needs ``P[0][0] + P[1][1] > 1`` so
+    that every power of ``P`` is a misclassification matrix.
 
     Examples
     --------
@@ -362,11 +361,29 @@ def simex(
     >>> naive = fit.model_info["naive_params"]["w"]
     >>> bool(abs(fit.params["w"] - 2) < abs(naive - 2))
     True
+    >>> asy = sp.simex("y ~ w", df, error_sd={"w": 0.5}, B=50,
+    ...                variance="asymptotic")
+    >>> bool(asy.std_errors["w"] > 0)
+    True
+
+    A misclassified binary regressor (sensitivity 0.9, specificity 0.8):
+
+    >>> xb = rng.binomial(1, 0.5, size=n)
+    >>> flip = np.where(xb == 1, rng.random(n) > 0.9, rng.random(n) > 0.8)
+    >>> df["xb"] = np.where(flip, 1 - xb, xb)
+    >>> df["yb"] = 1 + 2 * xb + rng.normal(size=n)
+    >>> P = [[0.8, 0.1], [0.2, 0.9]]
+    >>> mc = sp.simex("yb ~ xb", df, misclassification={"xb": P}, B=50)
+    >>> naive = mc.model_info["naive_params"]["xb"]
+    >>> bool(abs(mc.params["xb"] - 2) < abs(naive - 2))
+    True
 
     References
     ----------
     [@cook1994simulation]
     [@stefanski1995simulation]
+    [@carroll1996asymptotics]
+    [@kuchenhoff2006general]
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
@@ -379,19 +396,25 @@ def simex(
             f"sp.simex: family={family!r} is not one of {list(_FAMILIES)}.",
             recovery_hint="Use family='gaussian', 'logit', 'probit' or 'poisson'.",
         )
-    for label, value in (
+    for label, choice in (
         ("extrapolant", extrapolant),
         ("jackknife_extrapolant", jackknife_extrapolant),
     ):
-        if value not in _EXTRAPOLANTS:
+        if choice not in _EXTRAPOLANTS:
             raise MethodIncompatibility(
-                f"sp.simex: {label}={value!r} is not one of {list(_EXTRAPOLANTS)}.",
-                recovery_hint="Use 'quadratic', 'linear' or 'nonlinear'.",
+                f"sp.simex: {label}={choice!r} is not one of {list(_EXTRAPOLANTS)}.",
+                recovery_hint="Use 'quadratic', 'linear', 'nonlinear' or "
+                "'loglinear'.",
             )
     if vce not in ("ols", "robust"):
         raise MethodIncompatibility(
             f"sp.simex: vce={vce!r} is not 'ols' or 'robust'.",
             recovery_hint="Use vce='ols' (model-based) or 'robust' (sandwich).",
+        )
+    if variance not in ("jackknife", "asymptotic"):
+        raise MethodIncompatibility(
+            f"sp.simex: variance={variance!r} is not 'jackknife' or 'asymptotic'.",
+            recovery_hint="Use variance='jackknife' (default) or 'asymptotic'.",
         )
     grid_pos = np.asarray(sorted(float(v) for v in lambdas), dtype=float)
     if grid_pos.size < 1 or np.any(grid_pos <= 0) or len(set(grid_pos)) < grid_pos.size:
@@ -399,7 +422,7 @@ def simex(
             f"sp.simex: lambdas={list(lambdas)!r} must be distinct positive numbers.",
             recovery_hint="Use the default (0.5, 1, 1.5, 2).",
         )
-    need = {"linear": 2, "quadratic": 3, "nonlinear": 3}
+    need = {"linear": 2, "quadratic": 3, "nonlinear": 3, "loglinear": 2}
     worst = max(need[extrapolant], need[jackknife_extrapolant])
     if grid_pos.size + 1 < worst:
         raise MethodIncompatibility(
@@ -419,11 +442,19 @@ def simex(
             f"sp.simex: alpha={alpha!r} is not in (0, 1).",
             recovery_hint="Use alpha=0.05 for 95% intervals.",
         )
-    if not error_sd:
+    if error_sd and misclassification:
+        raise MethodIncompatibility(
+            "sp.simex: pass error_sd (additive normal error) or "
+            "misclassification (a 0/1 variable), not both.",
+            recovery_hint="Fit the two error models separately.",
+        )
+    if not error_sd and not misclassification:
         raise MethodIncompatibility(
             "sp.simex: error_sd names no error-prone regressor.",
-            recovery_hint="Pass error_sd={'x': <error standard deviation>}.",
+            recovery_hint="Pass error_sd={'x': <error standard deviation>}, or "
+            "misclassification={'x': P} for a misclassified 0/1 variable.",
         )
+    error_sd = dict(error_sd or {})
 
     df = data.reset_index(drop=True)
     sd_cols = {k: v for k, v in error_sd.items() if isinstance(v, str)}
@@ -465,29 +496,7 @@ def simex(
     cols: List[int] = []
     sds: List[np.ndarray] = []
     for name, value in error_sd.items():
-        if name not in names:
-            raise MethodIncompatibility(
-                f"sp.simex: {name!r} is not a term of the model {names}.",
-                recovery_hint="Key error_sd by a regressor of the formula.",
-                diagnostics={"terms": names},
-            )
-        others = [t for t in names if t != name and _mentions(t, name)]
-        j = names.index(name)
-        raw = (
-            pd.to_numeric(df[name], errors="coerce").to_numpy(dtype=float)[rows]
-            if name in df.columns
-            else None
-        )
-        if others or raw is None or not np.allclose(raw, X[:, j], rtol=0, atol=0):
-            raise MethodIncompatibility(
-                f"sp.simex: {name!r} must enter the model as a plain column; it "
-                f"also appears in {others or 'a transformed term'}.",
-                recovery_hint="SIMEX perturbs the column itself, so every term "
-                "built from it would have to be rebuilt. Fit the model with "
-                "the plain column, or construct the interaction by hand and "
-                "treat it as its own error-prone variable only if its error "
-                "is additive and normal.",
-            )
+        j = _plain_column(name, names, df, X, rows)
         if isinstance(value, str):
             s = pd.to_numeric(df[value], errors="coerce").to_numpy(dtype=float)[rows]
         else:
@@ -502,8 +511,32 @@ def simex(
                 recovery_hint="Pass error_sd={'x': 0.5} or the name of a column "
                 "of standard deviations.",
             )
+        if variance == "asymptotic" and float(np.ptp(s)) > 0:
+            raise MethodIncompatibility(
+                f"sp.simex: variance='asymptotic' needs one error standard "
+                f"deviation for all rows; {name!r} has a per-row one.",
+                recovery_hint="Use variance='jackknife' for heteroskedastic "
+                "error (R simex has the same restriction).",
+            )
         cols.append(j)
         sds.append(s)
+
+    # MC-SIMEX targets: (column index, or None for the outcome; matrix)
+    mc_specs: List[Tuple[Optional[int], np.ndarray]] = []
+    for name, value in (misclassification or {}).items():
+        P = _simex_misclass.mc_matrix(name, value)
+        if name == d["depvar"]:
+            target, values = None, y
+        else:
+            target = _plain_column(name, names, df, X, rows)
+            values = X[:, target]
+        if not np.all(np.isin(values, (0.0, 1.0))):
+            raise MethodIncompatibility(
+                f"sp.simex: the misclassified variable {name!r} must be coded " "0/1.",
+                recovery_hint="Recode it to 0/1 (the matrix rows and columns "
+                "are in the order 0, 1).",
+            )
+        mc_specs.append((target, P))
 
     if weights is not None:
         w = pd.to_numeric(df[weights], errors="coerce").to_numpy(dtype=float)[rows]
@@ -520,9 +553,20 @@ def simex(
     path = np.empty((grid.size, k))
     var_path = np.empty((grid.size, k, k))
     path[0], var_path[0] = beta0, V0
-    sd_mat = np.column_stack(sds)
-    no_error = float(sd_mat.max()) == 0.0
+    asymptotic = variance == "asymptotic"
+    psi_blocks: List[np.ndarray] = []
+    jac_blocks: List[np.ndarray] = []
+    if asymptotic:
+        psi0, jac0 = _simex_asymptotic.score_parts(X, y, w, family, beta0)
+        psi_blocks.append(psi0)
+        jac_blocks.append(jac0 / n)
+    sd_mat = np.column_stack(sds) if sds else np.zeros((n, 0))
+    if mc_specs:
+        no_error = all(np.allclose(P, np.eye(2), rtol=0, atol=0) for _, P in mc_specs)
+    else:
+        no_error = float(sd_mat.max()) == 0.0
     rng = np.random.default_rng(seed)
+    jack_cov: Optional[np.ndarray] = None
     fallback: List[str] = []
     fallback_var: List[str] = []
     if no_error:
@@ -534,21 +578,50 @@ def simex(
         for g, lam in enumerate(grid_pos, start=1):
             draws = np.empty((B, k))
             covs = np.zeros((k, k))
+            powers = [_simex_misclass.mc_power(P, lam) for _, P in mc_specs]
+            psi_sum = np.zeros((n, k))
+            jac_sum = np.zeros((k, k))
             for b in range(B):
                 Xb = X.copy()
-                Xb[:, cols] += (
-                    np.sqrt(lam) * sd_mat * rng.standard_normal((n, len(cols)))
-                )
-                draws[b], Vb = _fit(Xb, y, w, family, vce, start=beta0)
+                yb = y
+                if cols:
+                    Xb[:, cols] += (
+                        np.sqrt(lam) * sd_mat * _pseudo_errors(rng, n, len(cols))
+                    )
+                for (target, _), P_lam in zip(mc_specs, powers):
+                    if target is None:
+                        yb = _simex_misclass.misclassify(y, P_lam, rng)
+                    else:
+                        Xb[:, target] = _simex_misclass.misclassify(
+                            X[:, target], P_lam, rng
+                        )
+                draws[b], Vb = _fit(Xb, yb, w, family, vce, start=beta0)
                 covs += Vb
+                if asymptotic:
+                    psi_b, jac_b = _simex_asymptotic.score_parts(
+                        Xb, yb, w, family, draws[b]
+                    )
+                    psi_sum += psi_b
+                    jac_sum += jac_b
             path[g] = draws.mean(axis=0)
             var_path[g] = covs / B - np.cov(draws, rowvar=False, ddof=1).reshape(k, k)
+            if asymptotic:
+                psi_blocks.append(psi_sum / B)
+                jac_blocks.append(jac_sum / (B * n))
         estimate, failed = _extrapolate(grid, path, extrapolant)
         flat, failed_v = _extrapolate(
             grid, var_path.reshape(grid.size, k * k), jackknife_extrapolant
         )
         cov = flat.reshape(k, k)
         cov = (cov + cov.T) / 2.0
+        if asymptotic:
+            jack_cov = cov
+            cov = _simex_asymptotic.asymptotic_covariance(
+                psi_blocks,
+                jac_blocks,
+                grid,
+                _curves(grid, path, extrapolant, failed),
+            )
         fallback = [names[j] for j in failed]
         fallback_var = sorted(
             {names[j // k] for j in failed_v} | {names[j % k] for j in failed_v}
@@ -574,8 +647,9 @@ def simex(
     if neg_var_terms:
         warnings.warn(
             ConvergenceWarning(
-                f"sp.simex: the extrapolated jackknife variance is not positive "
-                f"for {neg_var_terms}; their standard errors are undefined.",
+                f"sp.simex: the extrapolated {variance} variance is not "
+                f"positive for {neg_var_terms}; their standard errors are "
+                "undefined.",
                 recovery_hint="Increase B, use jackknife_extrapolant='linear', or "
                 "bootstrap the whole SIMEX procedure.",
                 diagnostics={"terms": neg_var_terms},
@@ -585,8 +659,12 @@ def simex(
 
     index = pd.Index(names)
     labels = {"ols": "model-based", "robust": "sandwich (HC0)"}
+    if asymptotic:
+        robust_label = "asymptotic SIMEX (estimating equations)"
+    else:
+        robust_label = f"jackknife SIMEX; naive {labels[vce]}"
     model_info: Dict[str, Any] = {
-        "model_type": f"SIMEX ({family})",
+        "model_type": f"{'MC-' if mc_specs else ''}SIMEX ({family})",
         "family": family,
         "error_sd": dict(error_sd),
         "lambdas": grid.tolist(),
@@ -597,9 +675,16 @@ def simex(
         "naive_std_errors": pd.Series(np.sqrt(np.diag(V0)), index=index),
         "path": pd.DataFrame(path, index=pd.Index(grid, name="lambda"), columns=index),
         "seed": seed,
-        "robust": f"jackknife SIMEX; naive {labels[vce]}",
+        "robust": robust_label,
         "alpha": alpha,
+        "variance": variance,
     }
+    if mc_specs:
+        model_info["misclassification"] = {
+            name: P.tolist() for name, (_, P) in zip(misclassification or {}, mc_specs)
+        }
+    if jack_cov is not None:
+        model_info["jackknife_cov"] = jack_cov
     data_info: Dict[str, Any] = {
         "nobs": n,
         "df_model": k - 1,
@@ -613,7 +698,7 @@ def simex(
     if family != "gaussian":
         data_info["inference"] = "z"
     diagnostics: Dict[str, Any] = {
-        "error_prone_terms": list(error_sd),
+        "error_prone_terms": list(error_sd) + list(misclassification or {}),
         "nonpositive_variance_terms": neg_var_terms,
         "no_measurement_error": no_error,
         "quadratic_fallback_terms": fallback,

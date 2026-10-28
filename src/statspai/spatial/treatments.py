@@ -255,6 +255,7 @@ def _ring_variance(
     mu_c: float,
     nbar: float,
     n_locations: int,
+    Ypair: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """Design-based variance of the ring estimator (Theorem 1(iv)).
 
@@ -262,6 +263,12 @@ def _ring_variance(
     candidates within the exposure radius of each unit. Returns the
     observable components ``V_t``, ``V_c``, ``V_x`` (each already divided
     by ``|S|``) and ``var = (V_t + V_c + V_x) / |S|``.
+
+    ``Ypair`` (units x candidates, dense) replaces the unit outcome ``Y``
+    by an outcome per (unit, candidate) term, as in the double machine
+    learning estimator where the outcome of term ``(i, s)`` is
+    ``Y_i - m_{s,i}``. ``mu_t`` / ``mu_c`` are then the values the treated
+    and control terms are centred at.
     """
     S = n_locations
     Wb = W.astype(bool)
@@ -295,7 +302,8 @@ def _ring_variance(
     pi_ms = pm[ti] * np.where(in_E, 1.0, q[ts])
     v = f[ts] * ((1.0 - pi_ms) * f[ts] * tw / nbar + conflict[ti])
     mu_real = np.where(Wb[ts], mu_t, mu_c)
-    contrib = (tw / nbar) * v * (Y[ti] - mu_real) ** 2
+    Yt = Y[ti] if Ypair is None else Ypair[ti, ts]
+    contrib = (tw / nbar) * v * (Yt - mu_real) ** 2
     Vt = float(contrib[Wb[ts]].sum()) / S
     Vc = float(contrib[~Wb[ts]].sum()) / S
 
@@ -312,6 +320,9 @@ def _ring_variance(
     )
     order = np.argsort(t_i, kind="stable")
     t_i, t_s, t_w, t_a = t_i[order], t_s[order], t_w[order], t_a[order]
+    t_y = None
+    if Ypair is not None:
+        t_y = np.concatenate([Yt[in_E], Yt[~in_E], Yt[~in_E]])[order]
     n_units = w.shape[0]
     counts = np.bincount(t_i, minlength=n_units)
     starts = np.concatenate([[0], np.cumsum(counts)[:-1]])
@@ -362,8 +373,9 @@ def _ring_variance(
         marg = pm[u1] * np.where(e11, 1.0, q1) * pm[u2] * np.where(e22, 1.0, q2)
         c1 = np.where(a1 == 1, 1.0, -p[s1] / (1.0 - p[s1]))
         c2 = np.where(a2 == 1, 1.0, -p[s2] / (1.0 - p[s2]))
-        y1 = Y[u1] - np.where(a1 == 1, mu_t, mu_c)
-        y2 = Y[u2] - np.where(a2 == 1, mu_t, mu_c)
+        yv1, yv2 = (Y[u1], Y[u2]) if t_y is None else (t_y[k1], t_y[k2])
+        y1 = yv1 - np.where(a1 == 1, mu_t, mu_c)
+        y2 = yv2 - np.where(a2 == 1, mu_t, mu_c)
         Vx = (
             float(
                 np.sum((joint - marg) / pmm * c1 * c2 * t_w[k1] * t_w[k2] * y1 * y2)
@@ -398,6 +410,10 @@ def spatial_treatment(
     n_perm: int = 999,
     seed: Optional[int] = 0,
     alpha: float = 0.05,
+    method: Literal["ipw", "nearest", "dml"] = "ipw",
+    covariates: Optional[Sequence[str]] = None,
+    location_covariates: Optional[Sequence[str]] = None,
+    n_folds: int = 10,
 ) -> SpatialTreatmentResult:
     """
     Effects of spatial treatments by distance, with design-based inference.
@@ -466,6 +482,30 @@ def spatial_treatment(
         Seed for the randomization draws.
     alpha : float, default 0.05
         Level of the normal intervals.
+    method : {"ipw", "nearest", "dml"}, default "ipw"
+        ``"ipw"`` is the ring estimator of Equation 3, which assumes the
+        effects of different locations add up. ``"nearest"`` assumes only
+        the nearest realised location matters to a unit (Assumption 4)
+        and uses the estimator of Theorem 2 / Online Appendix 6: treated
+        units are those whose nearest realised location is ``s``, controls
+        those with no realised location within ``max_effect_distance``,
+        each reweighted by the closed-form probability of that event.
+        ``"dml"`` is the cross-fitted double machine learning estimator of
+        Section 4.1.1 (latent experiment perspective).
+    covariates : list of str, optional
+        ``method="dml"`` only: unit covariates (columns of ``data``) in the
+        linear outcome model, next to the unit's exposure to realised
+        locations in each ring.
+    location_covariates : list of str, optional
+        ``method="dml"`` only: location characteristics (columns of
+        ``locations``) for a cross-fitted logit of the design
+        probabilities. Without them the probabilities are ``propensity``
+        or the realised share.
+    n_folds : int, default 10
+        ``method="dml"`` only: folds of candidate locations for
+        cross-fitting. Each fold's nuisances are fitted on units and
+        locations far enough from the fold to be design-independent of it,
+        so dense candidate sets need more folds.
 
     Returns
     -------
@@ -474,7 +514,13 @@ def spatial_treatment(
         ``estimate``, ``se``, ``ci_lower``, ``ci_upper``, ``pvalue``,
         ``ri_pvalue``, ``midpoint``, ``n_units``, ``n_pairs_treated``,
         ``n_pairs_control``, ``mu_treated``, ``mu_control`` and the
-        variance components ``V_t``, ``V_c``, ``V_x``.
+        variance components ``V_t``, ``V_c``, ``V_x``. With
+        ``method="nearest"`` the components are ``V_cov`` (pairs of terms
+        that can be observed together) and ``V_bound`` (the bound for
+        pairs that cannot) and ``V_t`` / ``V_c`` / ``V_x`` are missing.
+        With ``method="dml"``, ``mu_treated`` and ``mu_control`` are the
+        treated and inverse-odds control sums of ``Y - m`` divided by the
+        treated weight, so that ``estimate = mu_treated - mu_control``.
 
     Notes
     -----
@@ -494,16 +540,39 @@ def spatial_treatment(
     to the ring instead; the two agree when every candidate has a unit
     within reach.
 
+    ``method="nearest"``: the paper says the variance "can be derived
+    analogously" without writing it out. The standard error here is the
+    conservative Aronow-Samii estimator of the variance of the linearised
+    estimator, with every inclusion probability in closed form under
+    independent assignment; its expectation equals the true variance plus
+    the bound for pairs of terms that can never be observed together.
+    The control group is units with no realised location within
+    ``max_effect_distance`` (inclusive, as for the exposure sets of the
+    ring estimator), so the estimator uses few units when locations are
+    dense, as the paper warns.
+
+    ``method="dml"``: nuisances follow the paper's application, a logit
+    for the design probabilities and a linear outcome model on unit
+    covariates and ring exposure counts whose prediction with location
+    ``s`` removed is ``m_{s,i}`` (the paper used post-LASSO for both).
+    Estimated probabilities are clipped to ``[1e-6, 1 - 1e-6]``. The
+    standard error is the design-based variance of Theorem 1(iv) applied
+    to the linearised estimator (treated terms centred at the estimate,
+    control terms at zero); by Theorem 3 the first steps do not enter it.
+    Randomization p-values are not computed, since the nuisances would
+    have to be refit under every draw.
+
     Not implemented: the convolutional network that proposes
-    counterfactual candidates, the cross-fitted double machine learning
-    estimator of Section 4.1.1, and the nearest-location estimator of
-    Theorem 2. The design-based perspective is shared with
+    counterfactual candidates, reweighting the cross-fitting samples by
+    their inclusion probabilities, and penalised first steps. The
+    design-based perspective is shared with
     :func:`sp.recentered_iv` (Borusyak and Hull), which recentres an
     exposure by its average over counterfactual assignments.
 
     References
     ----------
     [@pollmann2026causal]
+    [@aronow2017estimating] (the variance bound of ``method="nearest"``)
 
     Examples
     --------
@@ -522,11 +591,40 @@ def spatial_treatment(
     ...                          bins=[0, 0.04, 0.08], n_perm=99)
     >>> bool(abs(r.table.estimate.iloc[0] - 2) < 1)
     True
+    >>> rn = sp.spatial_treatment(units, "visits", ["x", "y"], locs,
+    ...                           bins=[0, 0.04, 0.08], n_perm=0,
+    ...                           method="nearest")
+    >>> rn.model_info["estimator"]
+    'nearest'
     """
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
             "alpha must be in (0, 1).", recovery_hint="Use e.g. alpha=0.05."
         )
+    if method not in ("ipw", "nearest", "dml"):
+        raise MethodIncompatibility(
+            f"method must be 'ipw', 'nearest' or 'dml', got {method!r}.",
+            recovery_hint="Use method='ipw' (additive effects), 'nearest' "
+            "(only the nearest realised location matters) or 'dml'.",
+        )
+    if method != "dml" and (covariates or location_covariates):
+        raise MethodIncompatibility(
+            "covariates= and location_covariates= are used by method='dml' only.",
+            recovery_hint="Pass method='dml', or drop the covariates.",
+        )
+    if method == "dml":
+        if location_covariates and propensity is not None:
+            raise MethodIncompatibility(
+                "Pass either known design probabilities (propensity=) or "
+                "location covariates to estimate them (location_covariates=), "
+                "not both.",
+                recovery_hint="Drop one of propensity= and location_covariates=.",
+            )
+        if not isinstance(n_folds, (int, np.integer)) or n_folds < 2:
+            raise MethodIncompatibility(
+                f"n_folds must be an integer of at least 2, got {n_folds!r}.",
+                recovery_hint="Use n_folds=10.",
+            )
     if kernel not in ("bin", "triangular"):
         raise MethodIncompatibility(
             f"kernel must be 'bin' or 'triangular', got {kernel!r}.",
@@ -649,7 +747,7 @@ def spatial_treatment(
     r = p / (1.0 - p)
     rng = np.random.default_rng(seed)
     draws = None
-    if n_perm and n_perm > 0:
+    if n_perm and n_perm > 0 and method != "dml":
         if propensity is None:
             draws = np.array([rng.permutation(W) for _ in range(int(n_perm))])
         else:
@@ -658,84 +756,111 @@ def spatial_treatment(
     z = stats.norm.ppf(1 - alpha / 2)
     rows: List[Dict[str, Any]] = []
     empty: List[int] = []
-    for k in range(edges.size - 1):
-        lo, hi = float(edges[k]), float(edges[k + 1])
-        wk = _ring_weights(D, lo, hi, kernel, first=(k == 0))
-        if location_weights:
-            tot = wk.sum(axis=0)
-            wk = np.divide(wk, tot, out=np.zeros_like(wk), where=tot > 0)
-        colw = wk.sum(axis=0)
-        colY = Y @ wk
-        mu_t, mu_c = _ring_means(colY, colw, W, r)
-        n_t = int(((wk > 0) & (W[None, :] == 1)).sum())
-        n_c = int(((wk > 0) & (W[None, :] == 0)).sum())
-        row: Dict[str, Any] = {
-            "ring": k,
-            "lower": lo,
-            "upper": hi,
-            "midpoint": 0.5 * (lo + hi),
-            "n_units": int((wk > 0).any(axis=1).sum()),
-            "n_pairs_treated": n_t,
-            "n_pairs_control": n_c,
-        }
-        if n_t == 0 or n_c == 0:
-            empty.append(k)
+    dml_info: Optional[Dict[str, Any]] = None
+    if method == "ipw":
+        for k in range(edges.size - 1):
+            lo, hi = float(edges[k]), float(edges[k + 1])
+            wk = _ring_weights(D, lo, hi, kernel, first=(k == 0))
+            if location_weights:
+                tot = wk.sum(axis=0)
+                wk = np.divide(wk, tot, out=np.zeros_like(wk), where=tot > 0)
+            colw = wk.sum(axis=0)
+            colY = Y @ wk
+            mu_t, mu_c = _ring_means(colY, colw, W, r)
+            n_t = int(((wk > 0) & (W[None, :] == 1)).sum())
+            n_c = int(((wk > 0) & (W[None, :] == 0)).sum())
+            row: Dict[str, Any] = {
+                "ring": k,
+                "lower": lo,
+                "upper": hi,
+                "midpoint": 0.5 * (lo + hi),
+                "n_units": int((wk > 0).any(axis=1).sum()),
+                "n_pairs_treated": n_t,
+                "n_pairs_control": n_c,
+            }
+            if n_t == 0 or n_c == 0:
+                empty.append(k)
+                row.update(
+                    estimate=np.nan,
+                    se=np.nan,
+                    ci_lower=np.nan,
+                    ci_upper=np.nan,
+                    pvalue=np.nan,
+                    ri_pvalue=np.nan,
+                    mu_treated=np.nan,
+                    mu_control=np.nan,
+                    V_t=np.nan,
+                    V_c=np.nan,
+                    V_x=np.nan,
+                )
+                rows.append(row)
+                continue
+            est = float(mu_t - mu_c)
+            nbar = float(colw @ p) / n_loc
+            comp = _ring_variance(
+                sparse.csr_matrix(wk), E, W, p, Y, float(mu_t), float(mu_c), nbar, n_loc
+            )
+            var = comp["var"]
+            if var < 0:
+                warnings.warn(
+                    AssumptionWarning(
+                        f"Ring {k}: the variance estimate is negative ({var:.3g}); "
+                        "the standard error is set to 0.",
+                        recovery_hint="Use more candidate locations or a wider ring.",
+                    ),
+                    stacklevel=2,
+                )
+            se = float(np.sqrt(max(var, 0.0)))
+            pval = float(2 * stats.norm.sf(abs(est) / se)) if se > 0 else np.nan
+            ri_p = np.nan
+            if draws is not None:
+                mt, mc = _ring_means(colY, colw, draws, r)
+                tb = mt - mc
+                ok = np.isfinite(tb)
+                if ok.any():
+                    # Relative slack so the observed draw counts against itself.
+                    tol = 1e-12 * max(1.0, abs(est))
+                    hits = np.sum(np.abs(tb[ok]) >= abs(est) - tol)
+                    ri_p = float((1 + hits) / (1 + ok.sum()))
             row.update(
-                estimate=np.nan,
-                se=np.nan,
-                ci_lower=np.nan,
-                ci_upper=np.nan,
-                pvalue=np.nan,
-                ri_pvalue=np.nan,
-                mu_treated=np.nan,
-                mu_control=np.nan,
-                V_t=np.nan,
-                V_c=np.nan,
-                V_x=np.nan,
+                estimate=est,
+                se=se,
+                ci_lower=est - z * se,
+                ci_upper=est + z * se,
+                pvalue=pval,
+                ri_pvalue=ri_p,
+                mu_treated=float(mu_t),
+                mu_control=float(mu_c),
+                V_t=comp["Vt"],
+                V_c=comp["Vc"],
+                V_x=comp["Vx"],
             )
             rows.append(row)
-            continue
-        est = float(mu_t - mu_c)
-        nbar = float(colw @ p) / n_loc
-        comp = _ring_variance(
-            sparse.csr_matrix(wk), E, W, p, Y, float(mu_t), float(mu_c), nbar, n_loc
+    else:
+        from ._treatments_common import alternative_rows
+
+        rows, empty, dml_info = alternative_rows(
+            method,
+            D,
+            W,
+            p,
+            Y,
+            edges,
+            kernel,
+            bool(location_weights),
+            d0,
+            draws,
+            z,
+            data,
+            locations,
+            covariates,
+            location_covariates,
+            propensity,
+            int(n_folds),
+            rng,
         )
-        var = comp["var"]
-        if var < 0:
-            warnings.warn(
-                AssumptionWarning(
-                    f"Ring {k}: the variance estimate is negative ({var:.3g}); "
-                    "the standard error is set to 0.",
-                    recovery_hint="Use more candidate locations or a wider ring.",
-                ),
-                stacklevel=2,
-            )
-        se = float(np.sqrt(max(var, 0.0)))
-        pval = float(2 * stats.norm.sf(abs(est) / se)) if se > 0 else np.nan
-        ri_p = np.nan
-        if draws is not None:
-            mt, mc = _ring_means(colY, colw, draws, r)
-            tb = mt - mc
-            ok = np.isfinite(tb)
-            if ok.any():
-                # Relative slack so the observed draw counts against itself.
-                tol = 1e-12 * max(1.0, abs(est))
-                hits = np.sum(np.abs(tb[ok]) >= abs(est) - tol)
-                ri_p = float((1 + hits) / (1 + ok.sum()))
-        row.update(
-            estimate=est,
-            se=se,
-            ci_lower=est - z * se,
-            ci_upper=est + z * se,
-            pvalue=pval,
-            ri_pvalue=ri_p,
-            mu_treated=float(mu_t),
-            mu_control=float(mu_c),
-            V_t=comp["Vt"],
-            V_c=comp["Vc"],
-            V_x=comp["Vx"],
-        )
-        rows.append(row)
+        if dml_info is not None:
+            p = dml_info["p_hat"]
 
     if len(empty) == edges.size - 1:
         raise DataInsufficient(
@@ -773,6 +898,8 @@ def spatial_treatment(
         "V_c",
         "V_x",
     ]
+    if method == "nearest":
+        cols += ["V_cov", "V_bound"]
     table = pd.DataFrame(rows)[cols]
     diagnostics: Dict[str, Any] = {
         "empty_rings": empty,
@@ -791,13 +918,65 @@ def spatial_treatment(
         "location_weights": bool(location_weights),
         "max_effect_distance": d0,
         "metric": "precomputed" if distances is not None else metric,
+        "estimator": method,
     }
+    labels = {
+        "ipw": ("Spatial treatment (design-based, Pollmann 2026)", "ATT(d)"),
+        "nearest": (
+            "Spatial treatment, nearest realised location (Pollmann 2026)",
+            "ATT(d), only the nearest realised location matters",
+        ),
+        "dml": (
+            "Spatial treatment, cross-fitted DML (Pollmann 2026)",
+            "ATT(d), latent experiment",
+        ),
+    }
+    if method == "nearest":
+        diagnostics["variance"] = (
+            "Aronow-Samii conservative bound; V_bound is the part from pairs "
+            "of terms that cannot occur together"
+        )
+    if dml_info is not None:
+        model_info.update(
+            covariates=list(covariates or []),
+            location_covariates=list(location_covariates or []),
+            n_folds=int(n_folds),
+        )
+        p_hat = dml_info["p_hat"]
+        diagnostics.update(
+            propensity_source=(
+                "cross-fitted logit" if location_covariates else p_source
+            ),
+            propensity_hat=p_hat,
+            n_propensity_clipped=dml_info["n_clipped"],
+            n_train_units=dml_info["n_train_units"],
+            n_train_locations=dml_info["n_train_locations"],
+            randomization=None,
+        )
+        if n_perm:
+            diagnostics["randomization_note"] = (
+                "not computed for method='dml': the first steps would have "
+                "to be refit under every draw"
+            )
+        if location_covariates and float(p_hat.max()) > 0.99:
+            warnings.warn(
+                AssumptionWarning(
+                    f"Estimated design probabilities reach {p_hat.max():.4f}; "
+                    "the inverse odds of those candidates dominate the control "
+                    "mean (Assumption 6(iii) needs them bounded below 1).",
+                    recovery_hint="Use coarser location covariates or drop "
+                    "candidates that are near-certain to be realised.",
+                ),
+                stacklevel=2,
+            )
     return SpatialTreatmentResult(
         table=table,
         alpha=float(alpha),
         n_obs=int(len(data)),
         n_locations=int(n_loc),
         n_realized=n_real,
+        method=labels[method][0],
+        estimand=labels[method][1],
         diagnostics=diagnostics,
         model_info=model_info,
     )

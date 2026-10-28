@@ -4942,6 +4942,23 @@
       "tolerance": "Das Gupta's Table 2.1 (two factors) and Table 6.5 (four factors x six age groups), every factor effect and both crude rates at 1e-10."
     },
     {
+      "function": "ddc",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_rust1987_bus.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12388,6 +12405,7 @@
         "tests/external_parity/test_ding_linear_model.py",
         "tests/external_parity/test_gelman_ros_examples.py",
         "tests/external_parity/test_gow_ding_accounting.py",
+        "tests/external_parity/test_rust1987_bus.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
@@ -15754,6 +15772,30 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "noisy_covariates",
+      "notes": [
+        "estimand='partially_linear_iv', weighted_fit=True, rank=5 on the paper's Autor-Dorn-Hanson application, clean and with noisy, missing and privatised covariates fed to both sides. The ADH archive is fetched by SHA-256; the test skips when it is absent. The paper's own noisy rows come from one unpublished draw and are an S screen only."
+      ],
+      "reference": "Agarwal and Singh replication package (Zenodo 10.5281/zenodo.19866751, CC-BY-4.0), src/wt/stage2.R::rrr_iv, the method authors' own code",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_noisy_covariates_authors_parity.py",
+        "tests/reference_parity/_fixtures/noisy_covariates_adh_R.json"
+      ],
+      "tolerance": "estimate and SE 1e-12 relative on standardised covariates (observed 1e-15), 1e-8 on raw covariates (observed 5e-12 to 2.6e-10; the R reference moves 1.8e-11 across platforms)"
+    },
+    {
       "function": "nonlinear_icp",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -16083,6 +16125,7 @@
       "additional_tests": [
         "tests/external_parity/test_ramirez_hassan_bayes.py",
         "tests/reference_parity/test_oprobit_dummies_Stata_parity.py",
+        "tests/reference_parity/test_positive_correlation_ordered_stata_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py",
         "tests/reference_parity/test_vuong_pscl_parity.py"
       ],
@@ -17094,6 +17137,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_positive_correlation_ordered_stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -21947,21 +21993,32 @@
       "tolerance": "z, positive rank sum and adjusted variance 1e-9 rel"
     },
     {
-      "function": "simex",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_simex_r_screen.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "simex",
+      "notes": [
+        "Deterministic on shared draws: R's rnorm and misclass are swapped for replay of the committed draw files, so simex() and mcsimex() run unmodified. Covers least squares, logit and Poisson SIMEX and MC-SIMEX on a misclassified regressor and outcome. The S-tier screen with each side's own draws stays as a separate test."
+      ],
+      "reference": "R simex 1.8 simex(asymptotic=TRUE) and mcsimex, fed the same pseudo-errors and re-misclassified vectors as StatsPAI",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "simex": "1.8"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_simex_r_parity.py",
+        "tests/reference_parity/_fixtures/simex_det_R.txt"
+      ],
+      "tolerance": "estimates and asymptotic SEs 1e-12 relative (observed 8e-15); jackknife SEs 1e-8 (observed 1.7e-9, R glm covariance at the pre-update weights); rational extrapolant 1e-6 (observed 2.9e-7, R nls stopping rule)"
     },
     {
       "additional_tests": [

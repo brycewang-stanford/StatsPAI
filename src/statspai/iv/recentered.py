@@ -57,6 +57,15 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from ._recentered_extras import (
+    check_conley,
+    check_efficient,
+    column_or_array,
+    conley_refit,
+    efficient_transform,
+    singleton_keep_mask,
+)
+from ._recentered_ri import _balance_tests, _ri_confidence_set, _ri_pvalue
 
 __all__ = ["recentered_iv"]
 
@@ -173,123 +182,6 @@ def _wvar(v: np.ndarray, w: np.ndarray) -> float:
 
 
 # --------------------------------------------------------------------
-# Randomization inference
-# --------------------------------------------------------------------
-
-
-def _ri_pvalue(a: float, c: float, a_s: np.ndarray, c_s: np.ndarray, b: float) -> float:
-    """Two-sided RI p-value of ``beta = b`` (the realised draw counted once)."""
-    t_obs = abs(a - b * c)
-    t_sim = np.abs(a_s - b * c_s)
-    tol = 1e-12 * max(t_obs, float(np.max(t_sim, initial=0.0)), 1e-300)
-    exceed = int(np.sum(t_sim >= t_obs - tol))
-    return (1.0 + exceed) / (len(a_s) + 1.0)
-
-
-def _ri_confidence_set(
-    a: float,
-    c: float,
-    a_s: np.ndarray,
-    c_s: np.ndarray,
-    alpha: float,
-) -> List[Tuple[float, float]]:
-    """Exact inversion of the RI test over ``b``.
-
-    Draw ``s`` counts against ``b`` when ``|a_s - b c_s| >= |a - b c|``,
-    i.e. when the quadratic ``f_s(b) = A b^2 + B b + C >= 0``. The count
-    is piecewise constant between the roots of the ``f_s``, so a sweep
-    over the sorted roots gives the accepted set exactly.
-    """
-    S = len(a_s)
-    A = c_s**2 - c**2
-    B = -2.0 * (a_s * c_s - a * c)
-    C0 = a_s**2 - a**2
-    scale_a = np.maximum(c_s**2 + c**2, 1e-300)
-    scale_b = np.maximum(np.abs(a_s * c_s) + abs(a * c), 1e-300)
-    quad = np.abs(A) > 1e-12 * scale_a
-    lin = (~quad) & (np.abs(B) > 1e-12 * scale_b)
-
-    count0 = 0
-    roots: List[float] = []
-    deltas: List[int] = []
-    for s in range(S):
-        if quad[s]:
-            disc = B[s] ** 2 - 4.0 * A[s] * C0[s]
-            if A[s] > 0:
-                count0 += 1
-            if disc <= 0:
-                continue
-            sq = np.sqrt(disc)
-            r1, r2 = sorted(((-B[s] - sq) / (2 * A[s]), (-B[s] + sq) / (2 * A[s])))
-            sign = -1 if A[s] > 0 else 1
-            roots += [r1, r2]
-            deltas += [sign, -sign]
-        elif lin[s]:
-            if B[s] < 0:
-                count0 += 1
-            roots.append(-C0[s] / B[s])
-            deltas.append(1 if B[s] > 0 else -1)
-        elif C0[s] >= 0:
-            count0 += 1
-
-    def accepted(count: int) -> bool:
-        return (1.0 + count) / (S + 1.0) > alpha
-
-    if not roots:
-        return [(-np.inf, np.inf)] if accepted(count0) else []
-    order = np.argsort(roots)
-    r_sorted = np.asarray(roots)[order]
-    d_sorted = np.asarray(deltas)[order]
-    counts = count0 + np.concatenate([[0], np.cumsum(d_sorted)])
-    # Segment k runs from r_sorted[k-1] to r_sorted[k] (open ends at +-inf).
-    edges = np.concatenate([[-np.inf], r_sorted, [np.inf]])
-    intervals: List[Tuple[float, float]] = []
-    for k, cnt in enumerate(counts):
-        if not accepted(int(cnt)):
-            continue
-        lo, hi = float(edges[k]), float(edges[k + 1])
-        if intervals and intervals[-1][1] >= lo:
-            intervals[-1] = (intervals[-1][0], hi)
-        else:
-            intervals.append((lo, hi))
-    return intervals
-
-
-def _balance_tests(
-    zt: np.ndarray,
-    zt_s: np.ndarray,
-    R: np.ndarray,
-    names: Sequence[str],
-    w: np.ndarray,
-) -> pd.DataFrame:
-    """RI falsification tests that ``z - mu`` is orthogonal to each ``r``."""
-    rows = []
-    S = zt_s.shape[1]
-    for j, name in enumerate(names):
-        r = R[:, j]
-        t = float(np.sum(w * zt * r) / np.sum(w))
-        t_s = (w * r) @ zt_s / np.sum(w)
-        tol = 1e-12 * max(abs(t), float(np.max(np.abs(t_s), initial=0.0)), 1e-300)
-        p = (1.0 + np.sum(np.abs(t_s) >= abs(t) - tol)) / (S + 1.0)
-        rows.append({"variable": name, "statistic": t, "ri_pvalue": float(p)})
-    if R.shape[1] > 1:
-        sw = np.sqrt(w)
-        Rw = R * sw[:, None]
-        proj = Rw @ np.linalg.pinv(Rw.T @ Rw) @ Rw.T
-
-        def quad(v: np.ndarray) -> float:
-            vw = v * sw
-            return float(vw @ proj @ vw)
-
-        t = quad(zt)
-        t_s = np.array([quad(zt_s[:, s]) for s in range(S)])
-        tol = 1e-12 * max(t, float(np.max(t_s, initial=0.0)), 1e-300)
-        p = (1.0 + np.sum(t_s >= t - tol)) / (S + 1.0)
-        rows.append({"variable": "joint", "statistic": t, "ri_pvalue": float(p)})
-    return pd.DataFrame(rows)
-
-
-# --------------------------------------------------------------------
 # Public entry point
 # --------------------------------------------------------------------
 
@@ -304,7 +196,9 @@ def recentered_iv(
     covariates: Optional[Sequence[str]] = None,
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
-    vce: Literal["robust", "hc0", "hc1", "hc2", "hc3", "nonrobust"] = "robust",
+    vce: Literal[
+        "robust", "hc0", "hc1", "hc2", "hc3", "nonrobust", "conley"
+    ] = "robust",
     method: Literal["recenter", "control"] = "recenter",
     ri: bool = True,
     ri_null: float = 0.0,
@@ -312,6 +206,13 @@ def recentered_iv(
     alpha: float = 0.05,
     absorb: Optional[Union[str, Sequence[str]]] = None,
     expected: Optional[Union[str, np.ndarray, pd.Series]] = None,
+    resid_var: Optional[Union[str, np.ndarray, pd.Series]] = None,
+    resid_mean: Optional[Union[str, np.ndarray, pd.Series]] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
+    conley_kernel: Literal["uniform", "bartlett"] = "uniform",
+    conley_distance: Literal["haversine", "planar"] = "haversine",
 ) -> CausalResult:
     """Recentered IV for treatments built from exogenous shocks (Borusyak-Hull).
 
@@ -344,9 +245,12 @@ def recentered_iv(
         Analytic weights column.
     cluster : str, optional
         Cluster column for the asymptotic standard error.
-    vce : {'robust', 'hc0', 'hc1', 'hc2', 'hc3', 'nonrobust'}, default 'robust'
-        Asymptotic variance when ``cluster`` is not given; ``'robust'``
-        is HC1.
+    vce : str, default 'robust'
+        One of 'robust', 'hc0', 'hc1', 'hc2', 'hc3', 'nonrobust',
+        'conley'. Asymptotic variance when ``cluster`` is not given; ``'robust'``
+        is HC1. ``'conley'`` is the Conley (1999) spatial HAC variance of
+        ``sp.conley`` (the paper's application reports it), with the
+        ``conley_*`` arguments; the unadjusted fit gets the same variance.
     method : {'recenter', 'control'}, default 'recenter'
         ``'recenter'`` instruments with ``exposure - mu``; ``'control'``
         instruments with ``exposure`` and controls for ``mu``.
@@ -379,6 +283,30 @@ def recentered_iv(
         still needed for randomization inference;
         ``diagnostics['expected_draw_gap']`` reports the largest gap
         between ``mu`` and their row mean.
+    resid_var : str or array of length n, optional
+        ``Var[eps_i | w]``, the conditional variance of the structural
+        residual given the exposure, one value per row (a diagonal
+        ``Omega``). With it the instrument becomes the efficient
+        recentered instrument of the working paper (eq. 9),
+        ``E[eps eps' | w]^{-1} (z - mu)``, instead of ``z - mu``. Any
+        positive values that depend on the exposure only keep the
+        instrument valid (its mean over the shock draws stays zero); they
+        give the efficiency gain when they are the true variances.
+        ``method='recenter'`` only.
+    resid_mean : str or array of length n, optional
+        ``psi_i = E[eps_i | w]``, the part of the residual predictable
+        from the exposure (requires ``resid_var``). The instrument is then
+        partially residualised on it, ``Omega^{-1}(z - mu - nu rho psi)``
+        (Lemma 3 of the working paper).
+    conley_lat, conley_lon : str, optional
+        Latitude and longitude columns in degrees, for ``vce='conley'``.
+    conley_cutoff : float, optional
+        Distance cutoff in km for ``vce='conley'``.
+    conley_kernel : {'uniform', 'bartlett'}, default 'uniform'
+        Spatial kernel; ``'bartlett'`` decays linearly to zero at the
+        cutoff, as in the paper's Table 1.
+    conley_distance : {'haversine', 'planar'}, default 'haversine'
+        Great-circle distance, or Stata ``acreg``'s planar approximation.
 
     Returns
     -------
@@ -419,9 +347,22 @@ def recentered_iv(
     building them by hand, use ``sp.expected_instrument`` and pass its
     ``draws`` here.
 
-    The paper's spatial (Conley) standard errors are not offered here;
-    use ``cluster`` or compute them with ``sp.conley`` on the
-    recentered instrument.
+    ``vce='conley'`` applies ``sp.conley`` to the fitted IV (or OLS)
+    regression, so it equals ``sp.conley(sp.iv(...))`` on the
+    recentered instrument; with ``absorb`` it runs on the rows that
+    survive singleton dropping. The paper cautions that common exposure
+    to the shocks can correlate the scores beyond any distance cutoff;
+    the randomization inference does not rely on a cutoff.
+
+    The efficient instrument follows Section 3.5 of the working paper
+    (Borusyak and Hull, NBER WP 27845, revised 2021; the article refers
+    to it for efficiency). Its first two steps, predicting the treatment
+    from the shocks and recentering the prediction, are what
+    ``exposure`` and ``counterfactual`` already express: pass the
+    predicted treatment and its counterfactual draws there.
+    ``resid_mean`` and ``resid_var`` are its steps 3 and 4. Randomization
+    inference uses the same transformed instrument for every draw, so it
+    stays exact; the balance tests keep the plain ``z - mu``.
 
     Examples
     --------
@@ -456,7 +397,7 @@ def recentered_iv(
 
     References
     ----------
-    [@borusyak2023nonrandom]
+    [@borusyak2023nonrandom], [@borusyak2020nonrandom], [@conley1999estimation]
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
@@ -468,9 +409,10 @@ def recentered_iv(
             f"method must be 'recenter' or 'control', got {method!r}",
             recovery_hint="Use method='recenter' or method='control'.",
         )
-    if vce not in _VCE_TO_ROBUST:
+    if vce not in _VCE_TO_ROBUST and vce != "conley":
         raise MethodIncompatibility(
-            f"vce must be one of {sorted(_VCE_TO_ROBUST)}, got {vce!r}",
+            f"vce must be one of {sorted(_VCE_TO_ROBUST) + ['conley']}, got "
+            f"{vce!r}",
             recovery_hint="Use vce='robust', or pass cluster= for clustering.",
         )
     if not 0 < alpha < 1:
@@ -478,6 +420,17 @@ def recentered_iv(
             f"alpha must be in (0, 1), got {alpha!r}",
             recovery_hint="Use alpha=0.05 for 95% intervals.",
         )
+    check_conley(
+        vce,
+        conley_lat,
+        conley_lon,
+        conley_cutoff,
+        conley_kernel,
+        conley_distance,
+        cluster,
+        weights,
+    )
+    has_var, has_mean = check_efficient(method, resid_var, resid_mean)
     covariates = list(covariates or [])
     balance = list(balance or [])
     fe_terms = _absorb_terms(absorb)
@@ -503,7 +456,11 @@ def recentered_iv(
         named["weights"] = weights
     if cluster is not None:
         named["cluster"] = cluster
+    if vce == "conley":
+        named["conley"] = [conley_lat, conley_lon]
     check_columns(data, named, function="recentered_iv")
+    omega_all = column_or_array(data, resid_var, "resid_var") if has_var else None
+    psi_all = column_or_array(data, resid_mean, "resid_mean") if has_mean else None
 
     Zcf, cf_names = _counterfactual_matrix(data, counterfactual)
     mu_given: Optional[np.ndarray] = None
@@ -531,6 +488,8 @@ def recentered_iv(
         )
 
     numeric = [y, treat, exposure] + covariates + balance
+    if vce == "conley":
+        numeric += [conley_lat, conley_lon]
     if weights is not None:
         numeric.append(weights)
     frame = data[list(dict.fromkeys(numeric))].apply(pd.to_numeric, errors="coerce")
@@ -538,6 +497,9 @@ def recentered_iv(
     keep &= np.isfinite(Zcf).all(axis=1)
     if mu_given is not None:
         keep &= np.isfinite(mu_given)
+    for extra in (omega_all, psi_all):
+        if extra is not None:
+            keep &= np.isfinite(extra)
     if cluster is not None:
         keep &= data[cluster].notna().to_numpy()
     if fe_cols:
@@ -627,14 +589,29 @@ def recentered_iv(
                 stacklevel=2,
             )
 
+    eff_info: Dict[str, float] = {}
+    omega = psi = None
+    zt_inst = zt
+    if has_var:
+        omega = omega_all[idx]  # type: ignore[index]
+        psi = psi_all[idx] if psi_all is not None else None
+        if np.any(omega <= 0):
+            raise MethodIncompatibility(
+                "resid_var must be positive: it is the conditional variance "
+                "of the residual",
+                recovery_hint="Check the resid_var values (no zeros or negatives).",
+                diagnostics={"min_resid_var": float(np.min(omega))},
+            )
+        zt_inst, eff_info = efficient_transform(zt, omega, psi)
+
     same = treat == exposure
     # Working frame with safe names so any column name works in a formula.
-    work = pd.DataFrame({"_rc_y": yv, "_rc_x": xv, "_rc_z": zv, "_rc_zt": zt})
+    work = pd.DataFrame({"_rc_y": yv, "_rc_x": xv, "_rc_z": zv, "_rc_zt": zt_inst})
     work["_rc_mu"] = mu
     cov_names = [f"_rc_c{j}" for j in range(Xc.shape[1])]
     for j, nm in enumerate(cov_names):
         work[nm] = Xc[:, j]
-    fit_kw: Dict[str, Any] = {"robust": _VCE_TO_ROBUST[vce]}
+    fit_kw: Dict[str, Any] = {"robust": _VCE_TO_ROBUST.get(vce, "hc1")}
     if weights is not None:
         work["_rc_w"] = wv
         fit_kw["weights"] = "_rc_w"
@@ -688,6 +665,18 @@ def recentered_iv(
         if same
         else _fit_iv("_rc_z", "".join(f" + {c}" for c in cov_names))
     )
+    if vce == "conley":
+        coords = pd.DataFrame(
+            {
+                "_rc_lat": frame[conley_lat].to_numpy(dtype=float)[idx],
+                "_rc_lon": frame[conley_lon].to_numpy(dtype=float)[idx],
+            }
+        )
+        if fe_frame is not None:
+            coords = coords[singleton_keep_mask(fe_frame)]
+        c_args = (coords, conley_cutoff, conley_kernel, conley_distance, alpha)
+        main = conley_refit(main, *c_args)
+        naive = conley_refit(naive, *c_args)
 
     est = float(main.params["_rc_x"])
     se = float(main.std_errors["_rc_x"])
@@ -714,6 +703,18 @@ def recentered_iv(
         ),
         "inference_rule": main.inference_rule(),
     }
+    if vce == "conley":
+        model_info["conley"] = {
+            "cutoff_km": float(conley_cutoff),  # type: ignore[arg-type]
+            "kernel": conley_kernel,
+            "distance": conley_distance,
+        }
+    if has_var:
+        model_info["efficient_instrument"] = {
+            "resid_var": True,
+            "resid_mean": bool(has_mean),
+            **eff_info,
+        }
     fs_f = (
         main.model_info.get("first_stage_f")
         if not (method == "control" and same)
@@ -764,8 +765,14 @@ def recentered_iv(
                 resid = _wls_residualize(resid, swept[:, 2:], wv)
         y_r, x_r = resid[:, 0], resid[:, 1]
         Zt_s = Zc - mu_all[:, None]
-        a = float(np.sum(wv * zt_all * y_r))
-        c = float(np.sum(wv * zt_all * x_r))
+        zt_ri = zt_all
+        if omega is not None:
+            # The efficient map is linear and fixed given w, so every draw
+            # goes through it and the test stays exact.
+            zt_ri, _ = efficient_transform(zt_all, omega, psi)
+            Zt_s, _ = efficient_transform(Zt_s, omega, psi)
+        a = float(np.sum(wv * zt_ri * y_r))
+        c = float(np.sum(wv * zt_ri * x_r))
         a_s = (wv * y_r) @ Zt_s
         c_s = (wv * x_r) @ Zt_s
         sets = _ri_confidence_set(a, c, a_s, c_s, alpha)

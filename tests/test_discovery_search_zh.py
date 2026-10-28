@@ -57,6 +57,16 @@ QUERIES = [
     # 内生性 弱工具变量 检验 (2026-10-20: 工具变量 swallowed the 弱 of
     # 弱工具变量, so the weak-IV diagnostics were not in the top three)
     ("内生性 弱工具变量 检验", "iv_diag"),
+    # Econometrica 94(5) round (2026-10-28)
+    ("测量误差 回归", "eivreg"),
+    ("模拟外推", "simex"),
+    ("保险市场的逆向选择检验", "positive_correlation_test"),
+    ("逆向选择的福利损失", "efc_welfare"),
+    ("私人信息 市场解体", "pooled_price_ratio"),
+    ("动态离散选择模型", "ddc"),
+    ("非随机暴露的工具变量", "recentered_iv"),
+    ("空间处理效应", "spatial_treatment"),
+    ("半参数贝叶斯", "semiparametric_bayes"),
 ]
 
 
