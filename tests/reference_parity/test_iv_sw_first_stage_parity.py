@@ -111,3 +111,21 @@ def test_exactly_identified_has_one_numerator_df(data):
         assert fs[n]["sw_F"] == pytest.approx(
             fs[n]["sw_chi2"] * (N - L - sdof) / N, rel=1e-12
         )
+
+
+@pytest.mark.parametrize("case", sorted(REF))
+def test_sp_iv_matches_ivreg2_first(data, case):
+    # sp.iv attaches the same SW F to its diagnostics (absorb= for the FE
+    # rows); before 2026-10-28 it was classical under robust / cluster and
+    # ignored the absorbed degrees of freedom (13% off under iid)
+    k, fe, v = case.split("_")
+    endog, inst = SPECS[k]
+    kw = {"robust": "robust"} if v == "robust" else dict(VCE[v])
+    if fe == "fe":
+        kw["absorb"] = ["f", "g"]
+    r = sp.iv(f"y ~ ({' + '.join(endog)} ~ {inst}) + w", data, **kw)
+    np.testing.assert_allclose(
+        [r.diagnostics[f"SW conditional F ({n})"] for n in endog],
+        REF[case]["SWF"],
+        rtol=REL,
+    )

@@ -834,19 +834,44 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
         result.diagnostics["KP rk Wald F"] = kp.rk_f
 
         if D.shape[1] >= 2:
-            sw = sanderson_windmeijer(
-                endog=D,
-                instruments=Z,
-                exog=exog_rf,
-                # the constant stripped from ``exog_rf`` above is partialled
-                # out like the other exogenous regressors (add_const=False
-                # here left it in the first stages: 120.18 for ivreg2's SW F
-                # of 120.07)
-                add_const=has_const,
-                endog_names=getattr(model, "_endog_names", None),
+            from ..panel._hdfe_iv import _partial
+            from ..panel._iv_sw import sw_first_stage
+
+            # ivreg2's SW first stage: the fit's own variance (as for the rk
+            # statistics above) and the absorbed fixed effects charged to the
+            # residual degrees of freedom. Until 2026-10-28 the classical F
+            # was reported next to robust / clustered coefficients, and under
+            # absorb= its denominator ignored the fixed effects (13% off
+            # ivreghdfe). Multiway clustering has no reference here and
+            # keeps the classical F, labelled as such.
+            one_way = cluster_values is None or cluster_values.shape[1] == 1
+            robust_sw = cov_type != "nonrobust" and one_way
+            if robust_sw:
+                sw_cov = cov_type
+            elif cov_type != "nonrobust":
+                sw_cov = "nonrobust (multiway clustering not supported)"
+            else:
+                sw_cov = "nonrobust"
+            names = list(getattr(model, "_endog_names", None) or []) or [
+                f"endog{j}" for j in range(D.shape[1])
+            ]
+            sw = sw_first_stage(
+                _partial(np.asarray(D, dtype=float), W),
+                _partial(np.asarray(Z, dtype=float), W),
+                names,
+                groups=(
+                    cluster_values[:, 0]
+                    if robust_sw and cluster_values is not None
+                    else None
+                ),
+                robust=robust_sw,
+                n_obs=D.shape[0],
+                n_instruments_total=Z.shape[1] + W.shape[1],
+                sdof=int((result.model_info or {}).get("fe_dof_charged", 0) or 0),
             )
-            for name, f in sw.sw_f.items():
-                result.diagnostics[f"SW conditional F ({name})"] = f
+            result.diagnostics["SW conditional F cov type"] = sw_cov
+            for name in names:
+                result.diagnostics[f"SW conditional F ({name})"] = sw[name]["sw_F"]
 
         # Olea-Pflueger effective F (single-endogenous case only).
         absorb_ctx = getattr(model, "_absorb_context", None)

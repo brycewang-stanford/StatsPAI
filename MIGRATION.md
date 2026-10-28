@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: ⚠️ Sanderson-Windmeijer F in `sp.iv` diagnostics (QJE gap pass)
+
+- With two or more endogenous regressors, `sp.iv(...).diagnostics["SW
+  conditional F (name)"]` under `robust=` or a one-way `cluster=` is now the
+  robust / cluster-robust SW F (ivreg2's), not the classical one. Under
+  `absorb=` it charges the absorbed fixed effects to the residual degrees of
+  freedom, so the iid value falls too. Multiway clusters keep the classical
+  F. `diagnostics["SW conditional F cov type"]` records which variance was
+  used. Code that compared the SW F to a threshold may cross it either way.
+  `sp.iv.sanderson_windmeijer` itself is unchanged.
+
+---
+
 ## 1.41 → 1.42: ⚠️ conf_int levels, ipw collinearity, count omissions, weighted AUC, boottest ties (option scan round 7)
 
 - `CausalResult.conf_int(alpha)` at a level other than the fit's uses

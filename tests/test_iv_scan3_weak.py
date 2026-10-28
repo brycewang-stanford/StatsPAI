@@ -539,6 +539,16 @@ _IVREG2_SWF = {
     "B": (120.068908194, 63.1486945896),
     "C": (61.460616944, 57.987142134, 53.4184521449),
 }
+# e(first)["SWF", .] of ``ivreg2 y x (...), robust first`` / ``cluster(g)
+# first`` (ivreg2 4.1.12, Stata 18, printed %21.15g; 2026-10-28)
+_IVREG2_SWF_ROBUST = {
+    ("A", "robust"): (161.55131446773, 2.28741036040931),
+    ("A", "cluster"): (129.669971868042, 1.74774311263619),
+    ("B", "robust"): (147.435027912521, 69.6253715262835),
+    ("B", "cluster"): (140.059636548602, 53.7777059702282),
+    ("C", "robust"): (74.0945794165751, 61.2097862457252, 58.4157709513561),
+    ("C", "cluster"): (76.257064038924, 57.0418747487982, 53.8234024433963),
+}
 _IVREG2_SPECS = {
     "A": (["d1", "d2"], ["z0", "z1", "z2"]),
     "B": (["d1", "d2b"], ["z0", "z1", "z2"]),
@@ -605,11 +615,42 @@ class TestSeveralEndogenousAgainstIvreg2:
         f, lm, _ = _IVREG2_RK[("B", cov)]
         np.testing.assert_allclose(res.diagnostics["KP rk Wald F"], f, rtol=1e-9)
         np.testing.assert_allclose(res.diagnostics["KP rk LM"], lm, rtol=1e-9)
+        # ivreg2 tests the SW first stage with the fit's variance too
+        # (until 2026-10-28 sp.iv reported the classical F here)
+        swf = _IVREG2_SWF["B"] if cov == "nonrobust" else _IVREG2_SWF_ROBUST[("B", cov)]
         np.testing.assert_allclose(
             [
                 res.diagnostics["SW conditional F (d1)"],
                 res.diagnostics["SW conditional F (d2b)"],
             ],
-            _IVREG2_SWF["B"],
+            swf,
             rtol=1e-9,
+        )
+        assert res.diagnostics["SW conditional F cov type"] == cov
+
+    @pytest.mark.parametrize("key", sorted(_IVREG2_SWF_ROBUST))
+    def test_sp_iv_robust_sw_f(self, key):
+        import statspai as sp
+
+        spec, cov = key
+        endog, inst = _IVREG2_SPECS[spec]
+        kw = {"robust": {"robust": "robust"}, "cluster": {"cluster": "g"}}[cov]
+        df = _ivreg2_design()
+        res = sp.iv(f"y ~ ({' + '.join(endog)} ~ {' + '.join(inst)}) + x", df, **kw)
+        np.testing.assert_allclose(
+            [res.diagnostics[f"SW conditional F ({n})"] for n in endog],
+            _IVREG2_SWF_ROBUST[key],
+            rtol=1e-9,
+        )
+
+    def test_sp_iv_multiway_cluster_keeps_the_labelled_classical_f(self):
+        import statspai as sp
+
+        df = _ivreg2_design().assign(h=lambda d: np.arange(len(d)) % 7)
+        res = sp.iv("y ~ (d1 + d2b ~ z0 + z1 + z2) + x", df, cluster=["g", "h"])
+        assert res.diagnostics["SW conditional F cov type"].startswith(
+            "nonrobust (multiway"
+        )
+        np.testing.assert_allclose(
+            res.diagnostics["SW conditional F (d1)"], _IVREG2_SWF["B"][0], rtol=1e-9
         )

@@ -929,6 +929,31 @@ says what evidence backs it. Notes for maintainers are in
   reproducible standard error.
 
 
+### QJE 141(4) gap pass (tools from the November 2026 QJE issue)
+
+#### ⚠️ Correctness
+
+- ⚠️ **`sp.iv`'s "SW conditional F" diagnostics were classical under
+  robust / clustered fits and ignored absorbed fixed effects.** With two or
+  more endogenous regressors, `diagnostics["SW conditional F (name)"]` now
+  uses the fit's own variance, as `ivreg2, robust first` / `cluster() first`
+  do and as the KP rk statistics next to it already did (Stata 18, ivreg2
+  4.1.12, to 1e-9; on the test design the robust F of `d1` moves from
+  120.07 to 147.44). Under `absorb=` the absorbed fixed effects are now
+  charged to the residual degrees of freedom; the iid F was 13% above
+  `ivreghdfe`'s. All 14 cells of the `sp.hdfe_ols` SW fixture now agree to
+  3e-10. Multiway-clustered fits keep the classical F, and the new key
+  `diagnostics["SW conditional F cov type"]` says which variance was used.
+  Coefficients and SEs are unchanged.
+
+#### Fixed
+
+- `paper.bib` entry `sanderson2016weak` carried Crossref's MathML in its
+  title and had no volume or pages; now *Journal of Econometrics* 190(2),
+  212--221 (refs verified via Crossref and RePEc).
+
+#### Added
+
 The tools that QJE 141(4) (November 2026) papers use around their
 estimators. Nine of its fifteen papers are experiments; every item below is
 matched to Stata or R on committed data (`tests/reference_parity/`).
