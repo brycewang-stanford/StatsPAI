@@ -5928,3 +5928,50 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+
+### 2026-10-28 — Track A modules 90_eivreg and 91_biprobit added
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `ee4b0c796`.
+- **Reason.** Two new Track A modules promote `sp.eivreg` and
+  `sp.biprobit` from reference_parity frozen fixtures to three-way parity.
+  `90_eivreg` agrees with Stata 18 `eivreg` and R `eivtools::eivreg`
+  0.1-8 to 6.7e-15; `91_biprobit` agrees with Stata 18 `biprobit` to
+  6.8e-12 and with R `GJRM` to 4.7e-7 (GJRM's bivariate normal CDF is
+  accurate to about 1e-7). The full R, Python and Stata reproducibility
+  runs that regenerated the three reports found 91 / 91 / 87 modules
+  reproducing with 0 drift; no existing golden value changed. The trace
+  ledger gains the two modules.
+- **Effect on the paper.** None on the anchored tables. At the next
+  re-anchor the Track A inventory grows from 89 to 91 modules (87 with a
+  Stata reference) and the machine tier from 82 to 84; both rows join the
+  appendix table as T2.
+- **Paths.**
+  - `tests/r_parity/results/90_eivreg_R.json`
+  - `tests/r_parity/results/90_eivreg_py.json`
+  - `tests/r_parity/results/91_biprobit_R.json`
+  - `tests/r_parity/results/91_biprobit_py.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/stata_parity/results/90_eivreg_Stata.json`
+  - `tests/stata_parity/results/91_biprobit_Stata.json`
+
+### 2026-10-28 — trace ledgers re-recorded after the Econometrica 94(5) remaining items
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `f2a102393`.
+- **Reason.** The remaining-items round (`778ee2c34`) added the
+  `china_shock` loader to `src/statspai/datasets/__init__.py` and the
+  `private_info_bound` export to `src/statspai/__init__.py`, which are on
+  31 Track A paths (01-09, 11-20, 22, 24-27, 53, 55, 65, 66, 73, 88, 90)
+  and on the original-data paths 06-11. No estimation code on those
+  paths changed. `verify_reproduce_py.py` on the 31 modules reports 31
+  reproduce, 0 drift. Re-running the eleven original-data modules moved
+  four result files by at most 1.6e-11 (last-digit jitter, restored);
+  the rest were byte-identical.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
