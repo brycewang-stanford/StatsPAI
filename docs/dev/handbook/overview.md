@@ -20,7 +20,7 @@
 
 ## 8. 文档
 
-- MkDocs（[`mkdocs.yml`](mkdocs.yml)），源在 [`docs/`](docs/)，`mkdocs serve` 本地预览。
+- MkDocs（[`mkdocs.yml`](mkdocs.yml)），源在 `docs/`，`mkdocs serve` 本地预览。
 - 当前 guide：`synth` / `choosing_did_estimator` / `choosing_iv_estimator` / `choosing_rd_estimator` / `choosing_matching_estimator` / `callaway_santanna` / `cs_report` / `honest_did` / `repeated_cross_sections` / `robustness_workflow` / `bayesian_econometrics` / `migration-from-r` / `mixtape_ch09_did` / `stock_watson_4e` / `design_based_econometrics` / `ding_first_course` / `xu_lan_causal_econometrics` / `facure_causal_inference_in_python` / `schuler_vanderlaan_modern_causal_inference` / `forecasting_fpp` / `time_series_econometrics` / `design_of_experiments` / `wager_causal_inference` / `regression_and_other_stories` / `yuksel_aydede_causal_ml` / `conditional_inference_trees` / `figure_editor`。相关估计器改动要同步对应 guide。
 - JOSS 论文 [`paper.md`](paper.md) + [`paper.bib`](paper.bib)——对外 API 或项目范围变更时同步。
 

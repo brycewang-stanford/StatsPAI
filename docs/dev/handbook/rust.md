@@ -4,7 +4,7 @@
 
 ## 6. Rust 组件
 
-路径 [`rust/statspai_hdfe/`](rust/statspai_hdfe/)：HDFE demean、GLM（Poisson / logit / probit）的整段 IRLS、聚类 meat 的 Rust 内核，PyO3 + maturin，**单独发布为 PyPI 包 `statspai-hdfe`**。StatsPAI 本体仍是纯 Python wheel，不改 build-backend；**2026-10-18 起 `statspai-hdfe` 是核心依赖，但只限有 wheel 的平台**（`pyproject.toml` 里的环境标记：macOS arm64/x86_64、Linux x86_64/aarch64（glibc 与 musl）、Windows AMD64/ARM64），这样 pip 永远不需要编译 Rust；其他平台走 NumPy / Numba，`statspai[rust]` 在那里从 sdist 编译。加平台先在 `rust-hdfe.yml` 出 wheel，再放宽标记。`sp.feols` / `sp.fepois` / `sp.feglm` 默认（`backend="auto"`）走这套内核，见 `fixest/_native.py`。行方向的循环（`par.rs`）按问题规模固定分块、按块序相加，**结果与线程数无关**（逐位一致，有测试守着）；改并行代码时保持这一点。
+路径 `rust/statspai_hdfe/`：HDFE demean、GLM（Poisson / logit / probit）的整段 IRLS、聚类 meat 的 Rust 内核，PyO3 + maturin，**单独发布为 PyPI 包 `statspai-hdfe`**。StatsPAI 本体仍是纯 Python wheel，不改 build-backend；**2026-10-18 起 `statspai-hdfe` 是核心依赖，但只限有 wheel 的平台**（`pyproject.toml` 里的环境标记：macOS arm64/x86_64、Linux x86_64/aarch64（glibc 与 musl）、Windows AMD64/ARM64），这样 pip 永远不需要编译 Rust；其他平台走 NumPy / Numba，`statspai[rust]` 在那里从 sdist 编译。加平台先在 `rust-hdfe.yml` 出 wheel，再放宽标记。`sp.feols` / `sp.fepois` / `sp.feglm` 默认（`backend="auto"`）走这套内核，见 `fixest/_native.py`。行方向的循环（`par.rs`）按问题规模固定分块、按块序相加，**结果与线程数无关**（逐位一致，有测试守着）；改并行代码时保持这一点。
 
 ```bash
 uvx maturin build --release -o /tmp/w && pip install /tmp/w/statspai_hdfe-*.whl   # 本地装
