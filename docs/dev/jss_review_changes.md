@@ -5980,7 +5980,8 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commit.** `ba68f6b4a`.
+- **Commits.** `ba68f6b4a`; `09f45b58e` (modules 35 and 69 again, after
+  isort reformatted an import line of `src/statspai/panel/panel_reg.py`).
 - **Reason.** The 1.42 default flips changed `src/statspai/regression/iv.py`
   (GMM weight matrix), `src/statspai/panel/panel_reg.py` and
   `src/statspai/panel/_ssc.py` (`ssc='stata'` default),
