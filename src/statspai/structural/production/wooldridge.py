@@ -247,6 +247,22 @@ class _WooldridgeGMM:
         )
         if fit.status <= 0 or not np.all(np.isfinite(fit.x)):
             raise ConvergenceFailure(f"Wooldridge GMM did not converge: {fit.message}")
+        # As in OP / LP / ACF stage 2: LM stops on the relative fall of the
+        # criterion, which on this flat objective leaves the estimates ~1e-7
+        # short and makes them depend on the origin of the log inputs at that
+        # level. Finish on the first-order condition J'r = 0.
+
+        def gradient(th: np.ndarray) -> np.ndarray:
+            _ret: np.ndarray = self._scaled_jac(th).T @ self._scaled(th)
+            return _ret
+
+        polish = optimize.root(gradient, fit.x, method="hybr", options={"xtol": 1e-15})
+        sse = lambda th: float(np.sum(self._scaled(th) ** 2))  # noqa: E731
+        # equal to rounding at a stationary point, hence the relative slack
+        if np.all(np.isfinite(polish.x)) and sse(polish.x) <= sse(fit.x) * (
+            1.0 + 1e-12
+        ):
+            fit.x = polish.x
         return fit
 
     def vcov(self, th: np.ndarray, vce: str) -> np.ndarray:

@@ -613,7 +613,10 @@ def test_beta_profile_is_flat_and_rises_to_one(bus, groups):
     se = ref.se.to_numpy()
 
     def z(b):
-        return np.abs(prof.loc[b, ["RC", "theta_1"]].to_numpy(float) - ref.params) / se
+        # positional result: ndarray - Series is a labelled Series, and
+        # pandas 3 no longer reads [0] as a position on it
+        est = prof.loc[b, ["RC", "theta_1"]].to_numpy(float)
+        return np.abs(est - ref.params.to_numpy(float)) / se
 
     assert np.all(z(0.999999) < 0.05)
     assert z(0.98)[0] < 1 and 0.9 < z(0.98)[1] < 2

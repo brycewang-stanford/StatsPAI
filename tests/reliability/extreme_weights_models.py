@@ -85,6 +85,9 @@ def draw_poisson(n: int, sigma: float, seed: int) -> Tuple[pd.DataFrame, float]:
 
 
 def fit_panel(df: pd.DataFrame, **kw: object):
+    # The stored results were computed under linearmodels' scaling, the
+    # sp.panel default until 1.42 (now xtreg's under robust / cluster).
+    kw.setdefault("ssc", "linearmodels")
     return sp.panel(df, "y ~ x", entity="id", time="t", method="fe", weights="w", **kw)
 
 

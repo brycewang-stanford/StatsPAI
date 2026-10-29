@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.41 → 1.42: announced defaults take effect
+
+The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 with a
+`FutureWarning` change now, and the warnings are gone. Code that named the
+argument is unaffected; the last column of the table restores the 1.41
+behaviour.
+
+| function | 1.41 default | 1.42 default | keep 1.41 |
+| --- | --- | --- | --- |
+| ⚠️ `sp.iv(method='gmm')`, over-identified, no robust `robust=` / `cluster=` | `wmatrix='unadjusted'` (the 2SLS estimate) | `wmatrix='robust'` (Stata `ivregress gmm`) | `wmatrix='unadjusted'` |
+| ⚠️ `sp.panel` with one-way `cluster=`, `robust='robust'` (fe / twoway / re / CRE), or method re / mundlak / chamberlain | `ssc='linearmodels'` | `ssc='stata'` | `ssc='linearmodels'` |
+| ⚠️ `sp.did_multiplegt_dyn` | `aggregation='simple'` | `aggregation='switchers'` (`Av_tot_eff`) | `aggregation='simple'` |
+| ⚠️ `sp.did_multiplegt_dyn` | `se_method='bootstrap'` | `se_method='analytic'` | `se_method='bootstrap'` |
+| ⚠️ `sp.absorb_ols`, two or more clusters | `cluster_df='per_term'` | `cluster_df='min'` | `cluster_df='per_term'` |
+
+`sp.panel` keeps linearmodels' scaling where the two conventions give the
+same number (classical fe / twoway / pooled / fd / be) and where Stata has
+no counterpart (kernel, Driscoll-Kraay, two-way clustering);
+`result.model_info['ssc']` names the convention used.
+
+---
+
 ## 1.41 → 1.42: ⚠️ `sp.cox` runs to the maximiser
 
 - `sp.cox` (with or without `tvc=`) no longer stops one Newton step short

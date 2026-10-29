@@ -56,12 +56,14 @@ def _fit(pn, **kw):
     ],
 )
 def test_weighted_fit_matches_feols(pn, method, feols_formula):
-    got = _fit(pn, method=method, weights="w", robust="robust")
+    # heteroskedasticity-only White SEs: linearmodels' robust='robust'
+    # (since 1.42 the default follows xtreg and clusters on the unit)
+    got = _fit(pn, method=method, weights="w", robust="robust", ssc="linearmodels")
     ref = sp.feols(feols_formula, data=pn, weights="w", vce="hetero")
     # Same WLS problem; twoway demeaning is iterative, hence 1e-8 on the SE.
     assert got.params["treat"] == pytest.approx(ref.params["treat"], abs=1e-12)
     assert got.std_errors["treat"] == pytest.approx(ref.std_errors["treat"], rel=1e-8)
-    unweighted = _fit(pn, method=method, robust="robust")
+    unweighted = _fit(pn, method=method, robust="robust", ssc="linearmodels")
     assert abs(got.params["treat"] - unweighted.params["treat"]) > 1e-3
 
 
@@ -88,11 +90,14 @@ def test_named_cluster_column_is_used(pn, method):
 
 
 def test_state_cluster_matches_feols_up_to_documented_ssc(pn):
-    got = _fit(pn, method="fe", cluster="st")
     ref = sp.feols("y ~ treat + x1 | id", data=pn, cluster="st")
+    # the default (xtreg's convention since 1.42) is fixest's here
+    got = _fit(pn, method="fe", cluster="st")
+    assert got.std_errors["treat"] == pytest.approx(ref.std_errors["treat"], rel=1e-10)
     # linearmodels omits fixest's G/(G-1) and (n-1)/(n-K) factors; the ratio
     # is sqrt((G-1)/G) up to the (n-1)/(n-K) term, which here is ~1e-6.
-    ratio = got.std_errors["treat"] / ref.std_errors["treat"]
+    lm = _fit(pn, method="fe", cluster="st", ssc="linearmodels")
+    ratio = lm.std_errors["treat"] / ref.std_errors["treat"]
     assert ratio == pytest.approx(np.sqrt(11 / 12), rel=1e-5)
 
 

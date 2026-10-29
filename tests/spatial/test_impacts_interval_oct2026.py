@@ -85,8 +85,10 @@ def test_ml_spatial_parameter_below_minus_099_matches_spatialreg(model):
     W, df = _row_std_data()
     y, par, r_est, r_ll = _R_ROW_STD[model]
     res = getattr(sp, model)(W, df, f"{y} ~ x1 + x2")
-    # 1.40.2: -0.98999998 (the bracket end) for all three.
-    assert res.params[par] == pytest.approx(r_est, rel=1e-8)
+    # 1.40.2: -0.98999998 (the bracket end) for all three. 5e-8, not 1e-8:
+    # both sides stop Brent's method at sqrt(eps) * |rho| (1.5e-8 relative),
+    # and Linux BLAS lands 1.5e-8 from R on the sem row.
+    assert res.params[par] == pytest.approx(r_est, rel=5e-8)
     assert res.diagnostics["Log-Likelihood"] == pytest.approx(r_ll, abs=1e-4)
 
 
@@ -98,7 +100,9 @@ def test_ml_rho_near_upper_end_of_unstandardised_w_matches_spatialreg():
     # method, whose step floor is sqrt(eps) * |rho| (1.5e-8 relative): the
     # likelihood is flat here and Linux BLAS lands 1.5e-8 from R, macOS 1e-9.
     assert res.params["rho"] == pytest.approx(0.2479713895537652, rel=5e-8)
-    assert res.std_errors["rho"] == pytest.approx(8.167996609578137e-04, rel=1e-6)
+    # The SE moves with rho steeply this close to 1 / omega_max = 0.25: the
+    # 1.5e-8 Brent floor in rho moved it by 1.3e-6 on Linux, hence 5e-6.
+    assert res.std_errors["rho"] == pytest.approx(8.167996609578137e-04, rel=5e-6)
 
 
 # ---------------------------------------------------------------------- #

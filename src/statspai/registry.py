@@ -1239,10 +1239,10 @@ def _build_registry() -> None:
                     False,
                     None,
                     "method='gmm' only: the weight matrix, as ivregress gmm's "
-                    "wmatrix(). None derives it from the variance options "
-                    "(cluster -> cluster, robust -> robust, else unadjusted, "
-                    "which makes the estimate 2SLS); from 1.42 None means "
-                    "'robust', Stata's default. cluster= sets the variance "
+                    "wmatrix(). None is 'cluster' with cluster=, else "
+                    "'robust', Stata's default (since 1.42; before, an "
+                    "over-identified fit without a robust variance got "
+                    "'unadjusted', the 2SLS estimate). cluster= sets the variance "
                     "separately, e.g. wmatrix='robust', cluster='g' is "
                     "wmatrix(robust) vce(cluster g)",
                     ["robust", "unadjusted", "cluster"],
@@ -7452,10 +7452,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Small-sample convention: None keeps linearmodels (and "
-                    "warns where 'stata' would differ: from 1.42 None means "
-                    "'stata' wherever it is defined); 'linearmodels' keeps it "
-                    "silently; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), "
+                    "Small-sample convention: None is 'stata' wherever it "
+                    "is defined and differs from linearmodels (since 1.42), "
+                    "linearmodels' scaling elsewhere; 'linearmodels' keeps the "
+                    "pre-1.42 numbers; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), "
                     "t(G-1), z for RE, xtreg vce(robust) = cluster on unit); "
                     "'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
                     ["stata", "fixest", "linearmodels"],
@@ -34159,8 +34159,8 @@ def _build_registry() -> None:
                         "'bootstrap' resamples clusters; 'analytic' is the "
                         "authors' influence-function variance, ~100x faster "
                         "and pinned to DIDmultiplegtDYN / Stata to 1e-6. "
-                        "None (default) is 'bootstrap' and warns "
-                        "(FutureWarning): 'analytic' from 1.42. Pass it."
+                        "None (default) is 'analytic' since 1.42 "
+                        "('bootstrap' before)."
                     ),
                     enum=["bootstrap", "analytic"],
                 ),
@@ -34173,10 +34173,9 @@ def _build_registry() -> None:
                         "Headline weighting over dynamic horizons: 'simple' "
                         "(equal weight) or 'switchers' (weight by switchers "
                         "per horizon -- DIDmultiplegtDYN / Stata's "
-                        "Av_tot_eff). None (default) is 'simple' and warns "
-                        "(FutureWarning): 'switchers' from 1.42. The two "
-                        "differ whenever later horizons rest on fewer "
-                        "cohorts. Pass it."
+                        "Av_tot_eff). None (default) is 'switchers' since "
+                        "1.42 ('simple' before). The two differ whenever "
+                        "later horizons rest on fewer cohorts."
                     ),
                     enum=["simple", "switchers"],
                 ),

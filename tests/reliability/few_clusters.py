@@ -275,8 +275,16 @@ def draw_did(n_treated: int, seed: int) -> pd.DataFrame:
 def did_pvalues(df: pd.DataFrame) -> Dict[str, float]:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
+        # linearmodels' scaling, the sp.panel default when the stored results
+        # were computed (xtreg's convention is the default since 1.42)
         twfe = sp.panel(
-            df, "y ~ d", entity="id", time="t", method="twoway", cluster="id"
+            df,
+            "y ~ d",
+            entity="id",
+            time="t",
+            method="twoway",
+            cluster="id",
+            ssc="linearmodels",
         )
         placebo = sp.did_few_treated(df, y="y", unit="id", time="t", treat="d")
     return {"cr1": float(twfe.pvalues["d"]), "placebo": float(placebo.pvalue)}

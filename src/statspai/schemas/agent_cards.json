@@ -427,7 +427,7 @@
             "type": "string"
           },
           "wmatrix": {
-            "description": "method='gmm' only: the weight matrix, as ivregress gmm's wmatrix(). None derives it from the variance options (cluster -> cluster, robust -> robust, else unadjusted, which makes the estimate 2SLS); from 1.42 None means 'robust', Stata's default. cluster= sets the variance separately, e.g. wmatrix='robust', cluster='g' is wmatrix(robust) vce(cluster g)",
+            "description": "method='gmm' only: the weight matrix, as ivregress gmm's wmatrix(). None is 'cluster' with cluster=, else 'robust', Stata's default (since 1.42; before, an over-identified fit without a robust variance got 'unadjusted', the 2SLS estimate). cluster= sets the variance separately, e.g. wmatrix='robust', cluster='g' is wmatrix(robust) vce(cluster g)",
             "enum": [
               "robust",
               "unadjusted",
@@ -10407,7 +10407,7 @@
             "type": "string"
           },
           "ssc": {
-            "description": "Small-sample convention: None keeps linearmodels (and warns where 'stata' would differ: from 1.42 None means 'stata' wherever it is defined); 'linearmodels' keeps it silently; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+            "description": "Small-sample convention: None is 'stata' wherever it is defined and differs from linearmodels (since 1.42), linearmodels' scaling elsewhere; 'linearmodels' keeps the pre-1.42 numbers; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
             "enum": [
               "stata",
               "fixest",
@@ -75829,7 +75829,7 @@
       "parameters": {
         "properties": {
           "aggregation": {
-            "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- DIDmultiplegtDYN / Stata's Av_tot_eff). None (default) is 'simple' and warns (FutureWarning): 'switchers' from 1.42. The two differ whenever later horizons rest on fewer cohorts. Pass it.",
+            "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- DIDmultiplegtDYN / Stata's Av_tot_eff). None (default) is 'switchers' since 1.42 ('simple' before). The two differ whenever later horizons rest on fewer cohorts.",
             "enum": [
               "simple",
               "switchers"
@@ -75929,7 +75929,7 @@
             "type": "boolean"
           },
           "se_method": {
-            "description": "'bootstrap' resamples clusters; 'analytic' is the authors' influence-function variance, ~100x faster and pinned to DIDmultiplegtDYN / Stata to 1e-6. None (default) is 'bootstrap' and warns (FutureWarning): 'analytic' from 1.42. Pass it.",
+            "description": "'bootstrap' resamples clusters; 'analytic' is the authors' influence-function variance, ~100x faster and pinned to DIDmultiplegtDYN / Stata to 1e-6. None (default) is 'analytic' since 1.42 ('bootstrap' before).",
             "enum": [
               "bootstrap",
               "analytic"
@@ -101792,7 +101792,7 @@
             "type": "array"
           },
           "cluster_df": {
-            "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering. ``None`` (the default) is ``\"per_term\"`` for now; with multi-way clustering it emits a ``FutureWarning``, because the default becomes ``\"min\"`` in 1.42 (``sp.hdfe_ols`` made that switch in 1.41). Pass the value explicitly to keep a result and silence the warning. .. deprecated:: 1.41 The implicit ``\"per_term\"`` default for multi-way clustering.",
+            "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering. ``None`` (the default) is ``\"min\"``, as in ``sp.hdfe_ols``. .. versionchanged:: 1.42.0 The default was ``\"per_term\"`` (with a ``FutureWarning`` for multi-way clustering in 1.41).",
             "enum": [
               "per_term",
               "min"

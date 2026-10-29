@@ -159,7 +159,8 @@ def test_dyn_continuous_needs_enough_not_yet_switched_rows(panel):
 # horizons the panel cannot support
 # ======================================================================
 def test_dyn_unsupported_horizons_are_nan_rows_not_dropped(panel):
-    res = dyn(panel, dynamic=6, placebo=3)
+    # the equal-weight headline (aggregation='simple', the default until 1.42)
+    res = dyn(panel, dynamic=6, placebo=3, aggregation="simple")
     tab = es(res)
     assert tab.index.tolist() == list(range(-3, 7))
     # the latest switch is at t=5 of 7, so effects 5 and 6 have no switcher
@@ -172,7 +173,7 @@ def test_dyn_unsupported_horizons_are_nan_rows_not_dropped(panel):
     assert np.isfinite(res.se) and res.se > 0
     # a joint test cannot be formed over effects that include a missing one
     assert res.model_info["joint_effects_test"] is None
-    short = dyn(panel, dynamic=4, placebo=3)
+    short = dyn(panel, dynamic=4, placebo=3, aggregation="simple")
     assert short.model_info["joint_effects_test"]["df"] == 5
     assert short.estimate == pytest.approx(res.estimate)
 
@@ -198,7 +199,9 @@ def test_dyn_bootstrap_draw_without_switchers_is_not_fatal(panel):
     tiny = panel[panel["u"].isin([0, 3, 7, 11, 15])]
     with warnings.catch_warnings(record=True) as rec:
         warnings.simplefilter("always")
-        res = sp.did_multiplegt_dyn(tiny, **K, n_boot=30, seed=4, dynamic=1)
+        res = sp.did_multiplegt_dyn(
+            tiny, **K, n_boot=30, seed=4, dynamic=1, se_method="bootstrap"
+        )
     assert np.isfinite(res.estimate)
     assert np.isfinite(res.se) and res.se > 0
     assert any("bootstrap replicates failed" in str(w.message) for w in rec)

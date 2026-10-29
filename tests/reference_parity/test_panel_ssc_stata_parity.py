@@ -131,16 +131,23 @@ def test_stata_and_fixest_differ_where_their_conventions_do(data):
     assert (a / b) ** 2 == pytest.approx((540 - 92) / (540 - 99), rel=1e-10)
 
 
-def test_default_scaling_is_unchanged(data):
+def test_linearmodels_scaling_is_linearmodels(data):
     from linearmodels.panel import PanelOLS
 
     p = data.set_index(["id", "t"])
     lm = PanelOLS(p.y, p[["x1", "x2"]], entity_effects=True).fit(
         cov_type="clustered", cluster_entity=True
     )
-    res = sp.panel(data, "y ~ x1 + x2", entity="id", time="t", cluster="entity")
+    res = sp.panel(
+        data,
+        "y ~ x1 + x2",
+        entity="id",
+        time="t",
+        cluster="entity",
+        ssc="linearmodels",
+    )
     np.testing.assert_allclose(res.std_errors, lm.std_errors, rtol=1e-14)
-    # The default is named, not left blank (numbers above are unchanged).
+    # The convention is named, not left blank.
     assert res.model_info["ssc"] == "linearmodels"
     assert (
         abs(
@@ -176,11 +183,23 @@ def test_full_covariance_is_stored_for_postestimation(data):
 
 
 def test_first_differences_cluster_on_time_needs_ssc(data):
+    # linearmodels cannot cluster first differences on time ...
     with pytest.raises(MethodIncompatibility, match="constant within each unit"):
         sp.panel(
-            data, "y ~ x1 + x2", entity="id", time="t", method="fd", cluster="time"
+            data,
+            "y ~ x1 + x2",
+            entity="id",
+            time="t",
+            method="fd",
+            cluster="time",
+            ssc="linearmodels",
         )
-    _fit(data, "fd_cluster_t", "stata")  # the native path handles it
+    # ... Stata's regress D.y D.x, cluster(t) can, and is the default since 1.42
+    native = _fit(data, "fd_cluster_t", "stata")
+    bare = sp.panel(
+        data, "y ~ x1 + x2", entity="id", time="t", method="fd", cluster="time"
+    )
+    np.testing.assert_allclose(bare.std_errors, native.std_errors, rtol=1e-14)
 
 
 @pytest.mark.parametrize(

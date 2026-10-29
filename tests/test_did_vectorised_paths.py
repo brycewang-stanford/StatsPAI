@@ -583,7 +583,13 @@ def test_did_multiplegt_dyn_bootstrap_scales_to_two_thousand_units():
     d = _panel(n_units=2_000, seed=15)
     r, seconds = _timed(
         lambda: sp.did_multiplegt_dyn(
-            d, "y", group="id", time="t", treatment="treated", seed=1
+            d,
+            "y",
+            group="id",
+            time="t",
+            treatment="treated",
+            seed=1,
+            se_method="bootstrap",
         )
     )
     assert np.isfinite(r.se) and r.se > 0

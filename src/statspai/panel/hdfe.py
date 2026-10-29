@@ -1144,13 +1144,12 @@ def absorb_ols(
         ``"min"`` scales every term by ``G_min/(G_min − 1)`` with ``G_min`` the
         smallest one-way cluster count -- Stata ``reghdfe``'s convention (and
         ``fixest``'s ``cluster.df = "min"``).  Identical for one-way
-        clustering.  ``None`` (the default) is ``"per_term"`` for now; with
-        multi-way clustering it emits a ``FutureWarning``, because the default
-        becomes ``"min"`` in 1.42 (``sp.hdfe_ols`` made that switch in 1.41).
-        Pass the value explicitly to keep a result and silence the warning.
+        clustering.  ``None`` (the default) is ``"min"``, as in
+        ``sp.hdfe_ols``.
 
-        .. deprecated:: 1.41
-            The implicit ``"per_term"`` default for multi-way clustering.
+        .. versionchanged:: 1.42.0
+            The default was ``"per_term"`` (with a ``FutureWarning`` for
+            multi-way clustering in 1.41).
 
     Returns
     -------
@@ -1195,17 +1194,9 @@ def absorb_ols(
     if y.shape[0] != n:
         raise ValueError("y and X length mismatch.")  # pragma: no cover
     if cluster_df is None:
-        if isinstance(cluster, list) and len(cluster) > 1:
-            warnings.warn(
-                "sp.absorb_ols: with multi-way clustering the default "
-                "cluster_df='per_term' becomes 'min' (reghdfe / fixest, and "
-                "sp.hdfe_ols since 1.41) in 1.42. Pass cluster_df='per_term' "
-                "to keep these standard errors or cluster_df='min' for the "
-                "new ones. See MIGRATION.md.",
-                FutureWarning,
-                stacklevel=2,
-            )
-        cluster_df = "per_term"
+        # 1.42: reghdfe / fixest (and sp.hdfe_ols since 1.41); identical to
+        # 'per_term' for one-way clustering
+        cluster_df = "min"
     if cluster_df not in ("per_term", "min"):
         raise MethodIncompatibility(
             f"cluster_df must be 'per_term' or 'min'; got {cluster_df!r}.",

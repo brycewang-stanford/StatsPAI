@@ -685,15 +685,19 @@ def test_panel_scope_separates_the_default_and_the_reference_conventions():
 
     df = pd.read_csv(ROOT / "tests/reference_parity/_fixtures/panel_ssc_data.csv")
     kw = dict(entity="id", time="t", cluster="st")
-    default = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", **kw))
+    lm = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", ssc="linearmodels", **kw))
     stata = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", ssc="stata", **kw))
-    assert default["configuration"]["ssc"] == "linearmodels"
+    bare = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", **kw))
+    assert lm["configuration"]["ssc"] == "linearmodels"
     assert stata["configuration"]["ssc"] == "stata"
     assert stata["status"] == "covered"
     assert stata["outputs"]["se"]["status"] == "reference"
+    # the default is xtreg's here since 1.42, and graded like it
+    assert bare["configuration"]["ssc"] == "stata"
+    assert bare["status"] == "covered"
     # linearmodels' own clustered scaling has no reference row.
-    assert default["status"] == "estimate_only"
-    assert default["outputs"]["se"]["status"] == "not_covered"
+    assert lm["status"] == "estimate_only"
+    assert lm["outputs"]["se"]["status"] == "not_covered"
 
 
 def test_sdid_treat_path_has_its_own_rows():
@@ -1028,16 +1032,19 @@ def test_nonlinear_etwfe_has_its_own_map():
 
 
 def test_panel_clustered_joint_test_depends_on_the_small_sample_convention():
-    """Same fit, same hypothesis: a match under ssc='stata', a disclosure by default."""
+    """Same fit, same hypothesis: a match under ssc='stata' (the default
+    here since 1.42), a disclosure under linearmodels' scaling."""
     panel = pd.read_csv(ROOT / "tests/stata_translation_holdout/holdout_panel.csv")
     keys = dict(entity="id", time="t", method="fe", cluster="id")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        default = sp.validation_scope(sp.panel(panel, "y ~ x", **keys))
+        lm = sp.validation_scope(sp.panel(panel, "y ~ x", ssc="linearmodels", **keys))
         stata = sp.validation_scope(sp.panel(panel, "y ~ x", ssc="stata", **keys))
-    assert default["outputs"]["joint_test"]["status"] == "disclosure"
+        bare = sp.validation_scope(sp.panel(panel, "y ~ x", **keys))
+    assert lm["outputs"]["joint_test"]["status"] == "disclosure"
     assert stata["outputs"]["joint_test"]["status"] == "reference"
-    assert "ssc='stata'" in default["outputs"]["joint_test"]["evidence"][0]["compares"]
+    assert bare["outputs"]["joint_test"]["status"] == "reference"
+    assert "ssc='stata'" in lm["outputs"]["joint_test"]["evidence"][0]["compares"]
 
 
 def test_iv_joint_test_is_covered_where_the_variance_is():
@@ -1224,11 +1231,27 @@ def test_did_multiplegt_dyn_scope_is_read_from_the_fit():
         cont = sp.did_multiplegt_dyn(
             df, "yc", treatment="dc", continuous=1, se_method="analytic", **keys
         )
+        # the pre-1.42 defaults, named
         default = sp.did_multiplegt_dyn(
-            df, "y", treatment="d", n_boot=20, seed=0, **keys
+            df,
+            "y",
+            treatment="d",
+            aggregation="simple",
+            se_method="bootstrap",
+            n_boot=20,
+            seed=0,
+            **keys,
         )
+        bare = sp.did_multiplegt_dyn(df, "y", treatment="d", **keys)
         boot = sp.did_multiplegt_dyn(
-            df, "y", treatment="d", aggregation="switchers", n_boot=20, seed=0, **keys
+            df,
+            "y",
+            treatment="d",
+            aggregation="switchers",
+            se_method="bootstrap",
+            n_boot=20,
+            seed=0,
+            **keys,
         )
         untested = sp.did_multiplegt_dyn(
             df,
@@ -1244,7 +1267,11 @@ def test_did_multiplegt_dyn_scope_is_read_from_the_fit():
     assert scope["configuration"]["treatment"] == "continuous"
     assert scope["status"] == "covered"
     assert scope["outputs"]["vcov"]["status"] == "reference"
-    # the default call: the bootstrap SE of the equal-weight mean has no row
+    # the 1.42 defaults are the reference's: switchers, analytic
+    b = sp.validation_scope(bare)
+    assert b["configuration"]["aggregation"] == "switchers"
+    assert b["outputs"]["estimate"]["status"] == "reference"
+    # the old defaults: the bootstrap SE of the equal-weight mean has no row
     d = sp.validation_scope(default)
     assert d["configuration"]["aggregation"] == "simple"
     assert d["outputs"]["estimate"]["status"] == "reference"

@@ -82,8 +82,16 @@ def test_fe_within_matches_plm(panel_data, r_reference):
 
 
 def test_fe_within_cluster_se_matches_plm(panel_data, r_reference):
+    # plm's vcovHC(HC1, cluster = "group") is closest to linearmodels'
+    # scaling; since 1.42 the default is xtreg's, so name it
     res = sp.panel(
-        panel_data, "y ~ x1 + x2", entity="id", time="year", method="fe", cluster="id"
+        panel_data,
+        "y ~ x1 + x2",
+        entity="id",
+        time="year",
+        method="fe",
+        cluster="id",
+        ssc="linearmodels",
     )
     # Coefficients are unchanged by clustering; the cluster block re-checks
     # them and validates the cluster-robust SE against plm vcovHC HC1/group.

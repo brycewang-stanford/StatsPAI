@@ -309,7 +309,9 @@ class TestRefusals:
         with pytest.raises(MethodIncompatibility, match="strictly positive"):
             sp.panel(df.assign(w=w), "y ~ x1 + x2", entity="id", time="t", weights="w")
 
-    def test_fd_cannot_cluster_on_time_through_default_path(self):
+    def test_fd_cannot_cluster_on_time_through_linearmodels(self):
+        # linearmodels' path refuses; the default (ssc='stata' since 1.42) is
+        # Stata's regress D.y D.x, cluster(t) and fits
         with pytest.raises(MethodIncompatibility, match="constant within each unit"):
             sp.panel(
                 _panel(),
@@ -318,6 +320,7 @@ class TestRefusals:
                 time="t",
                 method="fd",
                 cluster="time",
+                ssc="linearmodels",
             )
 
     def test_ssc_refused_with_extended_menu(self):

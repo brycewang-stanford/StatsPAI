@@ -405,7 +405,8 @@ def test_dag_outputs_do_not_depend_on_the_string_hash_seed():
     )
     outs = set()
     for seed in ("1", "2", "3"):
-        env = dict(os.environ, PYTHONHASHSEED=seed)
+        # the summary prints a warning sign; a Windows pipe defaults to cp1252
+        env = dict(os.environ, PYTHONHASHSEED=seed, PYTHONIOENCODING="utf-8")
         out = subprocess.run(
             [sys.executable, "-W", "ignore", "-c", code],
             env=env,

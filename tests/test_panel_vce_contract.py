@@ -48,10 +48,14 @@ def test_the_refusal_names_the_working_spelling(frame):
 
 def test_supported_spellings_still_change_the_standard_error(frame):
     classical = _se(frame, method="fe")
-    robust = _se(frame, method="fe", robust="robust")
+    robust = _se(frame, method="fe", robust="robust", ssc="linearmodels")
     clustered = _se(frame, method="fe", cluster="id")
     cr2 = _se(frame, method="fe", vce="CR2", cluster="id")
     assert len({round(v, 10) for v in (classical, robust, clustered, cr2)}) == 4
+    # Since 1.42 the default is xtreg's: vce(robust) clusters on the unit.
+    assert _se(frame, method="fe", robust="robust") == pytest.approx(
+        clustered, rel=1e-12
+    )
     # Omitting vce= is still the classical SE.
     assert _se(frame, method="fe", vce=None) == classical
 
@@ -62,7 +66,8 @@ def test_supported_spellings_still_change_the_standard_error(frame):
 
 
 def test_default_convention_is_recorded_and_differs_by_the_cluster_factor(frame):
-    """``ssc=None`` is linearmodels' scaling: no G/(G-1), tests on N - K.
+    """``ssc='linearmodels'`` is linearmodels' scaling: no G/(G-1), tests on
+    N - K; since 1.42 the default under one-way clustering is xtreg's.
 
     On an entity-clustered within fit xtreg scales the sandwich by
     ``G/(G-1) * (N-1)/(N-K)`` with K counting the slope and the constant
@@ -70,8 +75,13 @@ def test_default_convention_is_recorded_and_differs_by_the_cluster_factor(frame)
     it by ``N/(N-k)`` with k the slopes only and has no cluster factor.
     Asserted so the recorded description stays true.
     """
-    default = sp.panel(frame, "y ~ x", entity="id", time="t", cluster="id")
+    default = sp.panel(
+        frame, "y ~ x", entity="id", time="t", cluster="id", ssc="linearmodels"
+    )
     stata = sp.panel(frame, "y ~ x", entity="id", time="t", cluster="id", ssc="stata")
+    bare = sp.panel(frame, "y ~ x", entity="id", time="t", cluster="id")
+    assert bare.model_info["ssc"] == "stata"
+    np.testing.assert_allclose(bare.std_errors, stata.std_errors, rtol=1e-14)
     assert default.model_info["ssc"] == "linearmodels"
     assert "G/(G-1)" in default.model_info["ssc_reference"]
     assert stata.model_info["ssc"] == "stata"
@@ -88,19 +98,23 @@ def test_default_convention_is_recorded_and_differs_by_the_cluster_factor(frame)
     assert float(stata.pvalues["x"]) > float(default.pvalues["x"])
 
 
-def test_few_cluster_warning_points_at_the_convention_only_under_the_default(frame):
+def test_few_cluster_warning_points_at_the_convention_only_under_linearmodels(frame):
     from statspai.exceptions import AssumptionWarning
 
     small = frame[frame["id"] < 12]
     with pytest.warns(AssumptionWarning) as caught:
-        sp.panel(small, "y ~ x", entity="id", time="t", cluster="id")
+        sp.panel(
+            small, "y ~ x", entity="id", time="t", cluster="id", ssc="linearmodels"
+        )
     hints = [getattr(w.message, "recovery_hint", "") for w in caught]
     assert any("ssc='stata'" in h for h in hints)
-    # the first AssumptionWarning; the 1.42 ssc FutureWarning comes first
     few = next(w for w in caught if isinstance(w.message, AssumptionWarning))
     assert int(few.message.diagnostics["n_clusters"]) == 12
 
-    with pytest.warns(AssumptionWarning) as caught:
-        sp.panel(small, "y ~ x", entity="id", time="t", cluster="id", ssc="stata")
-    hints = [getattr(w.message, "recovery_hint", "") for w in caught]
-    assert not any("ssc='stata'" in h for h in hints)
+    # the default (xtreg's convention since 1.42) and ssc='stata' do not
+    # point at the convention
+    for kw in ({}, {"ssc": "stata"}):
+        with pytest.warns(AssumptionWarning) as caught:
+            sp.panel(small, "y ~ x", entity="id", time="t", cluster="id", **kw)
+        hints = [getattr(w.message, "recovery_hint", "") for w in caught]
+        assert not any("ssc='stata'" in h for h in hints)

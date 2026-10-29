@@ -283,15 +283,14 @@ def _absorb_inputs(seed=2, n=400):
     return y, X, pd.DataFrame({"firm": firm, "year": year}), firm, st
 
 
-def test_absorb_ols_multiway_default_warns_and_is_still_per_term():
+def test_absorb_ols_multiway_default_is_min_since_1_42():
     y, X, fe, firm, st = _absorb_inputs()
-    with pytest.warns(FutureWarning, match="1.42"):
-        out = sp.absorb_ols(y, X, fe, cluster=[firm, st])
     with warnings.catch_warnings():
         warnings.simplefilter("error")
+        out = sp.absorb_ols(y, X, fe, cluster=[firm, st])
         pt = sp.absorb_ols(y, X, fe, cluster=[firm, st], cluster_df="per_term")
         mn = sp.absorb_ols(y, X, fe, cluster=[firm, st], cluster_df="min")
-    np.testing.assert_array_equal(out["vcov"], pt["vcov"])
+    np.testing.assert_array_equal(out["vcov"], mn["vcov"])
     assert not np.allclose(mn["vcov"], pt["vcov"], rtol=1e-6)  # the two differ
 
 

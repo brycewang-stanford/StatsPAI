@@ -181,8 +181,10 @@ def test_panel_fe_clustered_joint_test_matches_xtreg(panel, ssc):
     _check("xtfe_cluster_time", sp.test(fit, _time_effects(fit)), RTOL_EXACT)
 
 
-def test_panel_default_convention_differs_from_xtreg_under_clustering(panel):
-    """Not agreement: a different small-sample convention and reference law."""
+def test_panel_linearmodels_convention_differs_from_xtreg_under_clustering(panel):
+    """Not agreement: a different small-sample convention and reference law.
+
+    (The default until 1.42; since then ``ssc=None`` is xtreg's here.)"""
     fit = sp.panel(
         panel,
         "y ~ x + C(t)",
@@ -190,6 +192,7 @@ def test_panel_default_convention_differs_from_xtreg_under_clustering(panel):
         time="t",
         method="fe",
         cluster="id",
+        ssc="linearmodels",
     )
     wald = sp.test(fit, _time_effects(fit))
     gold = _GOLD["xtfe_cluster_time"]
@@ -198,3 +201,7 @@ def test_panel_default_convention_differs_from_xtreg_under_clustering(panel):
     assert wald["statistic"] / gold["stat"] == pytest.approx(1.017, abs=2e-3)
     # The p-value is less than half of xtreg's on 60 clusters.
     assert wald["pvalue"] < 0.5 * gold["p"]
+    bare = sp.panel(
+        panel, "y ~ x + C(t)", entity="id", time="t", method="fe", cluster="id"
+    )
+    _check("xtfe_cluster_time", sp.test(bare, _time_effects(bare)), RTOL_EXACT)

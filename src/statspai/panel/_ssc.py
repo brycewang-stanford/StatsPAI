@@ -61,7 +61,12 @@ _STATA_COMMAND = {
 
 
 def resolve_ssc(ssc: Optional[str], method: str) -> Optional[str]:
-    """Validate ``ssc=`` for ``method``; ``None`` keeps linearmodels' scaling."""
+    """Validate an explicit ``ssc=`` for ``method``.
+
+    ``None`` and ``'linearmodels'`` return ``None`` (linearmodels' scaling);
+    the caller turns a default ``None`` into ``'stata'`` where
+    :func:`default_change_applies`.
+    """
     if ssc is None:
         return None
     key = str(ssc).lower()
@@ -99,10 +104,10 @@ _Z_METHODS = {"re", "mundlak", "chamberlain"}
 
 
 def default_change_applies(method: str, robust: Any, cluster: Any) -> bool:
-    """Would ``ssc='stata'`` (the 1.42 default) change this fit's inference?
+    """Does the default ``ssc=None`` resolve to ``'stata'`` for this fit?
 
-    True where it changes the standard errors or the reference
-    distribution and is defined: one-way clustering (all methods but
+    It does (since 1.42) where ``'stata'`` changes the standard errors or
+    the reference distribution and is defined: one-way clustering (all methods but
     ``be``), ``robust='robust'`` where ``xtreg`` clusters on the panel
     variable, and the random-effects family (z rather than t). The
     classical ``fe`` / ``twoway`` / ``pooled`` / ``fd`` / ``be`` fits are
@@ -122,25 +127,6 @@ def default_change_applies(method: str, robust: Any, cluster: Any) -> bool:
         # pooled / fd: HC1 in both conventions
         return method in _ROBUST_IS_CLUSTER
     return method in _Z_METHODS
-
-
-def warn_default_change(method: str, stacklevel: int) -> None:
-    """``FutureWarning``: the default ``ssc`` becomes ``'stata'`` in 1.42."""
-    import warnings
-
-    warnings.warn(
-        f"sp.panel(method={method!r}): standard errors and p-values follow "
-        "linearmodels' small-sample convention (no G/(G-1) cluster factor, "
-        "t(N-K) also under clustering and after RE, White SEs for "
-        "robust='robust'). From 1.42 the default is ssc='stata', the "
-        f"conventions of `{_STATA_COMMAND[method]}`: G/(G-1)*(N-1)/(N-K) and "
-        "t(G-1) under clustering, vce(robust) clustering on the panel "
-        "variable after xtreg, z / chi2 after RE. Coefficients do not change. "
-        "Pass ssc='stata' to adopt it now, or ssc='linearmodels' to keep these "
-        "numbers. See MIGRATION.md.",
-        FutureWarning,
-        stacklevel=stacklevel,
-    )
 
 
 @dataclass
@@ -173,6 +159,18 @@ def _cluster_groups(
         col = time
     else:
         col = cluster
+    if col not in frame.columns:
+        from ..exceptions import ColumnNotFound
+
+        # the same error as the linearmodels path (a bare KeyError before,
+        # reached by default since ssc='stata' became the default in 1.42)
+        raise ColumnNotFound.from_missing(
+            {"cluster": cluster},
+            list(frame.columns),
+            message=f"cluster column {cluster!r} not found in data.",
+            extra_hint="Or pass 'entity', 'time' or 'twoway'.",
+            extra_diagnostics={"cluster": cluster},
+        )
     codes: np.ndarray = pd.factorize(frame[col])[0]
     return codes
 

@@ -133,8 +133,16 @@ class TestFewClusters:
         df = _balanced_panel(n_units=12)
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
+            # White SEs; the default robust='robust' after fe clusters on
+            # the unit since 1.42 (xtreg), so name linearmodels' scaling
             res = sp.panel(
-                df, "y ~ x", entity="id", time="year", method="fe", robust="robust"
+                df,
+                "y ~ x",
+                entity="id",
+                time="year",
+                method="fe",
+                robust="robust",
+                ssc="linearmodels",
             )
         assert "n_clusters" not in res.model_info
         assert not [w for w in caught if isinstance(w.message, sp.AssumptionWarning)]

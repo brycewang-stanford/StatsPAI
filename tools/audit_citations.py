@@ -204,6 +204,9 @@ _DOI_NO_PAREN = r"[^\s()<>\"'`,;}\]\[]+"
 _DOI_PAREN = rf"\(?:{_DOI_NO_PAREN}\)?"  # placeholder, see verbose form
 DOI_RE = re.compile(
     r"""
+    # Full-width CJK punctuation (\uff0c comma, \uff1b semicolon, \uff08 \uff09
+    # parentheses, \u3002 \u3001 \uff1a) ends a DOI as its ASCII form does:
+    # "10.5281/zenodo.19866751\uff0c9.6 MB" in a Chinese note was read as one DOI.
     \b(?P<id>
         10\.\d{4,9}/                       # DOI prefix
         (?:
@@ -212,20 +215,20 @@ DOI_RE = re.compile(
             # Real SICI DOIs DO contain literal ``<`` ``>`` and a ``;2-C``
             # check suffix, so capture the ``<...>`` marker and the ``;2-C``
             # tail whole instead of truncating the body at the first ``<``.
-              (?: [^\s()<>"'`,;}\]\[] | \( [^\s()<>"'`,;}\]\[]* \) )+?
-              < [^\s<>"'`,}\]\[]+ >         # <location::AID-artid>
-              [^\s<>"'`,;}\]\[]*            # version segment (e.g. 3.3.co)
+              (?: [^\s()<>"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[] | \( [^\s()<>"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[]* \) )+?
+              < [^\s<>"'`,}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[]+ >         # <location::AID-artid>
+              [^\s<>"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[]*            # version segment (e.g. 3.3.co)
               ;2-[0-9A-Za-z]                # SICI check suffix ;2-C
             |
             # --- ordinary DOI body ---
               (?:
-                    [^\s()<>"'`,;}\]\[]         # non-paren body char
-                  | \( [^\s()<>"'`,;}\]\[]* \)  # balanced (...) one level
+                    [^\s()<>"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[]         # non-paren body char
+                  | \( [^\s()<>"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[]* \)  # balanced (...) one level
               )+?
         )
     )
     \.?                                    # optional trailing period
-    (?= [\s)<>\"'`,;}\]\[] | $ )
+    (?= [\s)<>\"'`,;}\uff0c\uff1b\uff08\uff09\u3002\u3001\uff1a\]\[] | $ )
     """,
     re.VERBOSE,
 )

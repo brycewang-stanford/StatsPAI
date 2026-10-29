@@ -235,13 +235,14 @@ COLUMNS = (
 def china_shock(download: bool = True) -> pd.DataFrame:
     """Autor-Dorn-Hanson (2013) China-shock panel — real data.
 
-    The commuting-zone workfile behind "The China Syndrome"
-    [@autor2013china]: changes in manufacturing employment, unemployment,
-    wages and transfers against the change in Chinese import exposure per
-    worker, for 722 commuting zones over 1990-2000 and 2000-2007. The file
-    is fetched on first use from the replication package of
-    [@agarwal2026replication], which uses it for the noisy-covariate
-    application of ``sp.noisy_covariates``, and cached; see
+    The commuting-zone workfile behind "The China Syndrome" by Autor, Dorn
+    and Hanson [@autor2013china]. It holds changes in manufacturing
+    employment, unemployment, wages and transfers against the change in
+    Chinese import exposure per worker, for 722 commuting zones over
+    1990-2000 and 2000-2007. The file is fetched on first use from the
+    replication package of Agarwal and Singh [@agarwal2026replication],
+    which uses it for the noisy-covariate application of
+    ``sp.noisy_covariates``, and cached; see
     :mod:`statspai.datasets._fetch`.
 
     Parameters
@@ -294,6 +295,7 @@ def china_shock(download: bool = True) -> pd.DataFrame:
     References
     ----------
     [@autor2013china]
+
     [@agarwal2026replication]
     """
     path = fetch(AGARWAL_SINGH_PACKAGE, download=download)

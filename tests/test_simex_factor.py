@@ -149,3 +149,21 @@ def test_factor_input_checks():
             misclassification={"xs": pd.DataFrame(P3, index=[0, 1, 3])},
             B=5,
         )
+
+
+def test_a_repeated_eigenvalue_split_into_a_conjugate_pair_is_accepted():
+    # P3's eigenvalue 0.7 is defective (a Jordan block), so rounding splits
+    # it by ~1e-9: into two reals on macOS Accelerate, into 0.7 +- ~1e-9 i on
+    # Linux OpenBLAS, which an exact "imag > 0" test refused. A perturbation
+    # at rounding size with zero column sums gives the complex case on every
+    # platform.
+    K = np.array([[1.0, -1.0, 0.0], [-1.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
+    P_pair = P3 + 1e-14 * K
+    ev = np.linalg.eig(P_pair)[0]
+    assert 1e-10 < np.max(np.abs(np.imag(ev))) < 1e-8  # the case being tested
+    P_checked, levels = mc.mc_matrix_levels("x", P_pair)
+    assert levels == [0, 1, 2]
+    for lam in (0.5, 1.0, 2.0):
+        np.testing.assert_allclose(
+            mc.mc_power(P_checked, lam), mc.mc_power(P3, lam), atol=1e-7
+        )

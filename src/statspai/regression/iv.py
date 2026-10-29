@@ -399,14 +399,14 @@ _GMM_WMATRIX = ("robust", "unadjusted", "cluster")
 def _resolve_gmm_wmatrix(
     wmatrix: Optional[str], robust: str, cluster: Any, overidentified: bool = False
 ) -> str:
-    """The GMM weight matrix: ``wmatrix=`` if given, else the pre-1.42 rule.
+    """The GMM weight matrix: ``wmatrix=`` if given, else the default rule.
 
     Without ``wmatrix=`` the weight matrix follows the variance options:
-    clustered with ``cluster=``, heteroskedasticity-robust with any robust
-    ``robust=``, homoskedastic (``'unadjusted'``) otherwise. The last makes
-    the default ``sp.iv(method='gmm')`` the 2SLS point estimate with a
-    sandwich variance; from 1.42 the default is ``'robust'``, Stata
-    ``ivregress gmm``'s, and until then that call warns.
+    clustered with ``cluster=``, heteroskedasticity-robust otherwise (Stata
+    ``ivregress gmm``'s default, and linearmodels IVGMM's). Until 1.42 an
+    over-identified call with neither a robust ``robust=`` nor ``cluster=``
+    used the homoskedastic weight matrix, i.e. the 2SLS estimate; pass
+    ``wmatrix='unadjusted'`` for that estimator.
     """
     if wmatrix is not None:
         if wmatrix == "cluster" and cluster is None:
@@ -422,23 +422,10 @@ def _resolve_gmm_wmatrix(
         return "robust"
     if not overidentified:
         # just-identified: every weight matrix gives the IV estimate and the
-        # same sandwich, so the 1.42 change does not touch this call
+        # same sandwich; keep the homoskedastic one so these fits are the
+        # same numbers as before 1.42
         return "unadjusted"
-    from ..did._crit import _external_stacklevel
-
-    warnings.warn(
-        "sp.iv(method='gmm'): without wmatrix= or a robust / cluster "
-        "variance the weight matrix is the homoskedastic one, so the "
-        "estimate equals 2SLS (with a sandwich variance). From 1.42 the "
-        "default is wmatrix='robust', the heteroskedasticity-robust two-step "
-        "GMM that Stata `ivregress gmm` and linearmodels IVGMM fit by "
-        "default; estimates change when the model is over-identified. Pass "
-        "wmatrix='robust' to adopt it now, or wmatrix='unadjusted' to keep "
-        "this estimator. See MIGRATION.md.",
-        FutureWarning,
-        stacklevel=_external_stacklevel(),
-    )
-    return "unadjusted"
+    return "robust"
 
 
 def _gmm_fit(
@@ -3265,10 +3252,11 @@ def iv(
         the variance on its own (``wmatrix='robust', cluster='g'`` is
         ``wmatrix(robust) vce(cluster g)``). Left out, the weight matrix
         follows the variance options: clustered with ``cluster=``, robust
-        with a robust ``robust=``, otherwise unadjusted, which makes the
-        estimate 2SLS. From 1.42 the default is ``'robust'``, Stata's and
-        linearmodels'; until then an over-identified call that relies on
-        the old default warns (``FutureWarning``).
+        otherwise. ``wmatrix='unadjusted'`` is the homoskedastic one, which
+        makes the
+        estimate 2SLS. Since 1.42 the default without a robust ``robust=``
+        or ``cluster=`` is ``'robust'``, Stata's and linearmodels' (before,
+        an over-identified call got ``'unadjusted'``, the 2SLS estimate).
 
     Returns
     -------

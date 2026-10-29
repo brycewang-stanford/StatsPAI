@@ -48,6 +48,7 @@ from __future__ import annotations
 import json
 import pathlib
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -271,19 +272,27 @@ class TestEffectsEqual:
         assert test["horizons"] == [0, 1, 2]
         assert test["df"] == 2
 
-    def test_constant_effect_is_not_rejected(self):
-        """A DGP with a genuinely flat effect should not trip the test."""
+    @staticmethod
+    def _flat(noise):
+        rng = np.random.default_rng(0)
         rows = []
         for i in range(200):
             g = [0, 4, 6][i % 3]
             for t in range(1, 11):
                 d = 1 if (g > 0 and t >= g) else 0
-                rows.append(
-                    {"i": i, "t": t, "d": d, "y": 0.5 * d + 0.03 * t + (i % 11) * 0.02}
-                )
-        flat = pd.DataFrame(rows)
+                y = 0.5 * d + 0.03 * t + (i % 11) * 0.02 + noise * rng.normal()
+                rows.append({"i": i, "t": t, "d": d, "y": y})
+        return pd.DataFrame(rows)
+
+    @pytest.mark.parametrize("se_method", ["analytic", "bootstrap"])
+    def test_constant_effect_is_not_rejected(self, se_method):
+        """A DGP with a genuinely flat effect should not trip the test.
+
+        Until 2026-10-29 the DGP had no noise, so every effect was estimated
+        exactly and the test was 0/0 (bootstrap p = 1 by the ridge, analytic
+        p = 0); see the next test."""
         res = sp.did_multiplegt_dyn(
-            flat,
+            self._flat(0.3),
             "y",
             group="i",
             time="t",
@@ -292,8 +301,24 @@ class TestEffectsEqual:
             n_boot=200,
             seed=2,
             effects_equal=True,
+            se_method=se_method,
         )
         assert res.diagnostics["effects_equal_test"]["pvalue"] > 0.05
+
+    def test_noiseless_effects_give_no_joint_test(self):
+        with pytest.warns(sp.AssumptionWarning, match="rounding size"):
+            res = sp.did_multiplegt_dyn(
+                self._flat(0.0),
+                "y",
+                group="i",
+                time="t",
+                treatment="d",
+                dynamic=3,
+                effects_equal=True,
+                se_method="analytic",
+            )
+        test = res.diagnostics["effects_equal_test"]
+        assert test["degenerate"] and np.isnan(test["pvalue"]) and test["df"] == 3
 
     def test_growing_effect_is_rejected(self):
         """Power check: a strongly ramping effect must be detected."""

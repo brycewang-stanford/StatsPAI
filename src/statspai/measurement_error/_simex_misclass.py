@@ -152,7 +152,11 @@ def mc_matrix_levels(name: str, value: Any) -> Tuple[np.ndarray, List[Any]]:
             diagnostics={"column_sums": P.sum(axis=0).tolist()},
         )
     evalue, evec = np.linalg.eig(P)
-    if np.any(np.abs(np.imag(evalue)) > 0) or np.any(np.real(evalue) <= 0):
+    # A repeated eigenvalue (e.g. 1, 0.7, 0.7) can come back from LAPACK as
+    # a conjugate pair with an imaginary part of ~1e-9 (Linux OpenBLAS) or as
+    # two reals (macOS Accelerate); an exact "> 0" test refused the first.
+    imag_tol = 1e-7 * max(1.0, float(np.max(np.abs(evalue))))
+    if np.any(np.abs(np.imag(evalue)) > imag_tol) or np.any(np.real(evalue) <= 0):
         raise MethodIncompatibility(
             f"sp.simex: the misclassification matrix of {name!r} has complex "
             "or non-positive eigenvalues, so it has no real matrix logarithm "
@@ -162,8 +166,10 @@ def mc_matrix_levels(name: str, value: Any) -> Tuple[np.ndarray, List[Any]]:
             "are the true values).",
             diagnostics={"eigenvalues": [complex(e) for e in evalue]},
         )
-    evec = np.real(evec)
-    log_p = _zapsmall(evec @ np.diag(np.log(np.real(evalue))) @ np.linalg.inv(evec))
+    # complex arithmetic, as in mc_power: the real part of a conjugate pair
+    # of eigenvectors is singular, the product is not
+    log_c = evec @ np.diag(np.log(evalue.astype(complex))) @ np.linalg.inv(evec)
+    log_p = _zapsmall(np.real(log_c))
     np.fill_diagonal(log_p, 1.0)
     if not np.all(log_p > -np.finfo(float).eps):
         raise MethodIncompatibility(

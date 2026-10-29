@@ -120,7 +120,17 @@ def fit_bjs(df: pd.DataFrame) -> Tuple[float, float, float]:
 
 
 def fit_twfe(df: pd.DataFrame) -> Tuple[float, float, float]:
-    fit = sp.panel(df, "y ~ d", entity="id", time="t", method="twoway", cluster="id")
+    # linearmodels' scaling, the sp.panel default when the stored results
+    # were computed (xtreg's convention is the default since 1.42)
+    fit = sp.panel(
+        df,
+        "y ~ d",
+        entity="id",
+        time="t",
+        method="twoway",
+        cluster="id",
+        ssc="linearmodels",
+    )
     return (
         float(fit.params["d"]),
         float(fit.conf_int_lower["d"]),

@@ -90,8 +90,9 @@ the analytic standard errors agree to better than 1e-6 relative.
       below the reference on the castle-doctrine panel and ~1 % below
       on the Track A fixture. It now reproduces ``DIDmultiplegtDYN`` /
       Stata ``did_multiplegt_dyn`` to 1e-6 relative on every horizon
-      and on the switcher-weighted aggregate. The default stays
-      ``'bootstrap'``; ``model_info['se_method']`` records the choice.
+      and on the switcher-weighted aggregate. It is the default since
+      1.42 (``'bootstrap'`` before); ``model_info['se_method']`` records
+      the choice.
 
 Options
 -------
@@ -323,10 +324,11 @@ def did_multiplegt_dyn(
         ``DIDmultiplegtDYN`` and Stata ``did_multiplegt_dyn`` to 1e-6
         relative on every horizon and on the switcher-weighted aggregate
         (module docstring, item 5), and it is what both report.
-        ``None`` (the default) is ``"bootstrap"`` in this release and
-        warns (``FutureWarning``): from 1.42 it is ``"analytic"``. Pass the
-        value to silence the warning; ``model_info["se_method"]`` records
-        the choice.
+        ``None`` (the default) is ``"analytic"``; ``model_info["se_method"]``
+        records the choice.
+
+        .. versionchanged:: 1.42.0
+           The default was ``"bootstrap"`` (500 cluster draws).
 
         With ``"analytic"`` the joint tests (``joint_placebo_test``,
         ``joint_effects_test``, ``joint_overall_test``,
@@ -354,10 +356,11 @@ def did_multiplegt_dyn(
         case in staggered designs: on a 267-city panel whose last horizon
         rests on 4 cities, ``"simple"`` gave 0.0168 and ``"switchers"``
         (Stata's ``Av_tot_eff``) 0.0119. ``None`` (the default) is
-        ``"simple"`` in this release and warns (``FutureWarning``): from
-        1.42 it is ``"switchers"``, the number Stata and R print. Pass the
-        value to silence the warning; ``model_info["aggregation"]``
-        records which was used.
+        ``"switchers"``, the number Stata and R print;
+        ``model_info["aggregation"]`` records which was used.
+
+        .. versionchanged:: 1.42.0
+           The default was ``"simple"``.
 
         .. versionchanged:: 1.39.0
            ⚠️ ``"switchers"`` did not divide by the treatment change, so
@@ -580,31 +583,11 @@ def did_multiplegt_dyn(
             "normalized_weights=True describes the normalized effects: pass "
             "normalized=True as well."
         )
-    _default_notes = []
+    # 1.42 defaults: the numbers Stata and R print (Av_tot_eff, analytic SEs)
     if aggregation is None:
-        aggregation = "simple"
-        _default_notes.append(
-            "the headline .estimate is the equal-weight mean of the dynamic "
-            "effects (aggregation='simple'), not the switcher-weighted "
-            "Av_tot_eff that Stata and R print (aggregation='switchers')"
-        )
+        aggregation = "switchers"
     if se_method is None:
-        se_method = "bootstrap"
-        _default_notes.append(
-            "the standard errors are a cluster bootstrap "
-            "(se_method='bootstrap'), not the analytic influence-function "
-            "variance Stata and R report (se_method='analytic')"
-        )
-    if _default_notes:
-        warnings.warn(
-            "did_multiplegt_dyn: " + "; ".join(_default_notes) + ". From 1.42 "
-            "the defaults are aggregation='switchers' and se_method="
-            "'analytic'. Pass aggregation= and se_method= explicitly: "
-            "'simple' / 'bootstrap' keeps this number, 'switchers' / "
-            "'analytic' adopts the reference's now. See MIGRATION.md.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        se_method = "analytic"
     if aggregation not in {"simple", "switchers"}:
         raise ValueError(
             f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
@@ -2677,6 +2660,36 @@ def _joint_test_from_vcov(
     if np.any(~np.isfinite(est)):
         return None
     cov = es_vcov.loc[hs, hs].to_numpy(dtype=float)
+    # A fit without noise (every effect estimated exactly) leaves a
+    # covariance of rounding size, ~1e-34. When the tested contrasts are
+    # rounding size too, the Wald statistic is 0/0 and its p-value whatever
+    # the rounding makes it (6e3, p = 0 on a flat noiseless DGP): report no
+    # test. Contrasts well away from zero over a zero variance are a sure
+    # rejection, and the statistic below says so.
+    scale = 1e-10 * max(1.0, float(np.max(np.abs(est))))
+    tested = np.diff(est) if equal else est
+    sd = np.sqrt(np.clip(np.diag(cov), 0.0, None))
+    if np.max(sd) <= scale and np.max(np.abs(tested)) <= scale:
+        from ..exceptions import AssumptionWarning
+
+        warnings.warn(
+            "did_multiplegt_dyn: the joint covariance of horizons "
+            f"{hs} is at rounding size (largest SE {np.max(sd):.1e}), so "
+            "the joint test is undefined and reported as NaN. The effects "
+            "are estimated without sampling noise.",
+            AssumptionWarning,
+            stacklevel=3,
+        )
+        k = len(hs)
+        empty: Dict[str, Any] = {
+            "statistic": float("nan"),
+            "df": int(k - 1 if equal else k),
+            "pvalue": float("nan"),
+            "degenerate": True,
+        }
+        if equal:
+            empty["horizons"] = hs
+        return empty
     if equal:
         k = len(hs)
         contrast = np.zeros((k - 1, k))

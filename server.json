@@ -8,13 +8,13 @@
     "source": "github"
   },
   "websiteUrl": "https://brycewang-stanford.github.io/StatsPAI/",
-  "version": "1.41.0",
+  "version": "1.42.0",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "statspai",
-      "version": "1.41.0",
+      "version": "1.42.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

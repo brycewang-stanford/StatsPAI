@@ -41,11 +41,23 @@ IV = "y ~ x1 + x2 + (xd ~ z1 + z2)"
 
 #: key in the reference file -> (callable on the data, Stata distribution)
 FITS = {
-    "gmm_unadj_sandwich_small": lambda d: sp.iv(IV, data=d, method="gmm"),
-    "gmm_unadj_sandwich": lambda d: sp.iv(IV, data=d, method="gmm", small=False),
-    "gmm_unadj_small": lambda d: sp.iv(IV, data=d, method="gmm", gmm_vcov="efficient"),
+    # wmatrix(unadjusted) is named since 1.42 made 'robust' the default
+    "gmm_unadj_sandwich_small": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="unadjusted"
+    ),
+    "gmm_unadj_sandwich": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="unadjusted", small=False
+    ),
+    "gmm_unadj_small": lambda d: sp.iv(
+        IV, data=d, method="gmm", wmatrix="unadjusted", gmm_vcov="efficient"
+    ),
     "gmm_unadj": lambda d: sp.iv(
-        IV, data=d, method="gmm", gmm_vcov="efficient", small=False
+        IV,
+        data=d,
+        method="gmm",
+        wmatrix="unadjusted",
+        gmm_vcov="efficient",
+        small=False,
     ),
     "gmm_robust_small": lambda d: sp.iv(IV, data=d, method="gmm", robust="hc1"),
     "gmm_robust": lambda d: sp.iv(IV, data=d, method="gmm", robust="hc1", small=False),
@@ -188,10 +200,17 @@ def test_collinear_column_identified_combination(ref, data):
     [
         # sp.iv defaults to ivregress ..., small
         (lambda d: sp.iv(IV, data=d), "t", 236, "small=True"),
-        # linearmodels scaling: t(N - K) where xtreg, fe vce(cluster) uses t(G-1)
+        # linearmodels scaling: t(N - K) where xtreg, fe vce(cluster) uses
+        # t(G-1); named since 1.42 made ssc='stata' the default
         (
             lambda d: sp.panel(
-                d, "yp ~ x1 + x2", entity="g", time="t", method="fe", cluster="g"
+                d,
+                "yp ~ x1 + x2",
+                entity="g",
+                time="t",
+                method="fe",
+                cluster="g",
+                ssc="linearmodels",
             ),
             "t",
             208,
@@ -199,7 +218,14 @@ def test_collinear_column_identified_combination(ref, data):
         ),
         # ... and t / F after RE, where xtreg, re reports z / chi2
         (
-            lambda d: sp.panel(d, "yp ~ x1 + x2", entity="g", time="t", method="re"),
+            lambda d: sp.panel(
+                d,
+                "yp ~ x1 + x2",
+                entity="g",
+                time="t",
+                method="re",
+                ssc="linearmodels",
+            ),
             "t",
             237,
             "z / chi2 after xtreg, re",
@@ -255,7 +281,7 @@ def test_panel_model_test_agrees_with_sp_test_under_the_default_convention(data)
 
 
 # --------------------------------------------------------------------- #
-# Defaults announced for 1.42 (owner decision 2026-10-24)
+# Defaults that took effect in 1.42 (owner decision 2026-10-24)
 # --------------------------------------------------------------------- #
 
 
@@ -266,31 +292,21 @@ def _future(fn):
     return res, [w for w in caught if issubclass(w.category, FutureWarning)]
 
 
-def test_gmm_default_weight_matrix_warns_and_wmatrix_robust_is_stata(ref, data):
-    """From 1.42 sp.iv(method='gmm') is Stata's ivregress gmm: wmatrix(robust)."""
+def test_gmm_default_weight_matrix_is_stata_robust(ref, data):
+    """Since 1.42 sp.iv(method='gmm') is Stata's ivregress gmm: wmatrix(robust)."""
     res, fw = _future(lambda: sp.iv(IV, data=data, method="gmm", small=False))
-    assert len(fw) == 1 and "wmatrix='robust'" in str(fw[0].message)
-    assert fw[0].filename == __file__
-    assert float(res.params["x1"]) == pytest.approx(
-        ref["gmm_unadj_sandwich"]["b_x1"], rel=RTOL
-    )
-    new, fw = _future(
-        lambda: sp.iv(IV, data=data, method="gmm", wmatrix="robust", small=False)
-    )
     assert fw == []
-    assert float(new.params["x1"]) == pytest.approx(ref["gmm_robust"]["b_x1"], rel=RTOL)
-    assert float(new.std_errors["x1"]) == pytest.approx(
+    assert float(res.params["x1"]) == pytest.approx(ref["gmm_robust"]["b_x1"], rel=RTOL)
+    assert float(res.std_errors["x1"]) == pytest.approx(
         ref["gmm_robust"]["se_x1"], rel=RTOL
     )
-    for kw in (
-        {"wmatrix": "unadjusted"},
-        {"robust": "hc1"},
-        {"cluster": "g"},
-    ):
-        assert _future(lambda: sp.iv(IV, data=data, method="gmm", **kw))[1] == []
-    # just-identified: the weight matrix changes nothing, so nothing warns
+    named = sp.iv(IV, data=data, method="gmm", wmatrix="robust", small=False)
+    assert np.array_equal(res.params.to_numpy(), named.params.to_numpy())
+    # just-identified: the weight matrix changes nothing
     just = "y ~ x1 + x2 + (xd ~ z1)"
-    assert _future(lambda: sp.iv(just, data=data, method="gmm"))[1] == []
+    a = sp.iv(just, data=data, method="gmm")
+    b = sp.iv(just, data=data, method="gmm", wmatrix="unadjusted")
+    np.testing.assert_allclose(a.params, b.params, rtol=1e-12)
 
 
 def test_wmatrix_is_validated(data):
@@ -303,7 +319,7 @@ def test_wmatrix_is_validated(data):
 
 
 @pytest.mark.parametrize(
-    "method,kw,warns",
+    "method,kw,is_stata",
     [
         ("fe", {"cluster": "g"}, True),
         ("fe", {"robust": "robust"}, True),
@@ -313,36 +329,26 @@ def test_wmatrix_is_validated(data):
         ("pooled", {"robust": "robust"}, False),
         ("be", {}, False),
         ("fe", {"robust": "kernel"}, False),
-        ("fe", {"cluster": "g", "ssc": "linearmodels"}, False),
-        ("fe", {"cluster": "g", "ssc": "stata"}, False),
     ],
 )
-def test_panel_ssc_default_change_warns_exactly_where_numbers_move(
-    data, method, kw, warns
+def test_panel_ssc_default_is_stata_exactly_where_it_moves_numbers(
+    data, method, kw, is_stata
 ):
+    """1.42: ssc=None is 'stata' where that convention is defined and changes
+    the inference; elsewhere linearmodels' scaling, which there is the same
+    number or has no Stata counterpart. No FutureWarning any more."""
+
     def fit(**extra):
         return sp.panel(
             data, "yp ~ x1 + x2", entity="g", time="t", method=method, **kw, **extra
         )
 
     res, fw = _future(fit)
-    assert (len(fw) == 1) is warns, [str(w.message) for w in fw]
-    if warns:
-        assert fw[0].filename == __file__
-        assert "ssc='stata'" in str(fw[0].message)
-    if "ssc" in kw:
-        return
-    # the warning is right about which fits move: compare with ssc='stata'
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        try:
-            stata = fit(ssc="stata")
-        except sp.exceptions.MethodIncompatibility:
-            # no Stata counterpart (kernel SEs): the default stays put
-            assert not warns
-            return
-    moved = not (
-        np.allclose(res.std_errors, stata.std_errors, rtol=1e-12)
-        and np.allclose(res.pvalues, stata.pvalues, rtol=1e-12)
-    )
-    assert moved is warns
+    assert fw == []
+    assert res.model_info["ssc"] == ("stata" if is_stata else "linearmodels")
+    other = fit(ssc="stata" if is_stata else "linearmodels")
+    np.testing.assert_allclose(res.std_errors, other.std_errors, rtol=1e-14)
+    np.testing.assert_allclose(res.pvalues, other.pvalues, rtol=1e-14)
+    if is_stata:
+        old = fit(ssc="linearmodels")
+        assert not np.allclose(old.pvalues, res.pvalues, rtol=1e-12)

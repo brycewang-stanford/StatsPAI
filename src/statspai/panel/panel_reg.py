@@ -45,13 +45,7 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 from ._cre import fit_cre, fit_re, within_rank_deficient
-from ._ssc import (
-    SSCInference,
-    default_change_applies,
-    panel_ssc_inference,
-    resolve_ssc,
-    warn_default_change,
-)
+from ._ssc import SSCInference, default_change_applies, panel_ssc_inference, resolve_ssc
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
@@ -898,11 +892,13 @@ def _dispatch_panel_impl(
     twostep : bool, default False
         Two-step GMM (for ``'ab'``/``'system'``).
     ssc : {'stata', 'fixest', 'linearmodels'}, optional
-        Small-sample convention for the standard errors. By default the
-        linearmodels scaling is kept, and a fit whose standard errors or
-        p-values would differ under ``'stata'`` warns (``FutureWarning``):
-        from 1.42 the default is ``'stata'`` wherever it is defined.
-        ``'linearmodels'`` keeps today's numbers without the warning.
+        Small-sample convention for the standard errors. The default
+        (``None``) is ``'stata'`` wherever it is defined and differs from
+        linearmodels' scaling (one-way clustering, ``robust='robust'`` after
+        ``fe`` / ``twoway`` / ``re``, the random-effects family), and
+        linearmodels' scaling elsewhere, where the two give the same number
+        or Stata has no counterpart. Before 1.42 the default was
+        linearmodels' throughout; ``'linearmodels'`` keeps those numbers.
         ``'stata'`` reproduces the command each method corresponds to --
         ``xtreg, fe`` / ``xtreg ... i.t, fe`` / ``regress`` /
         ``regress D.y D.x, nocons`` / ``xtreg, re`` / ``xtreg, be`` --
@@ -1140,10 +1136,10 @@ def _dispatch_panel_impl(
         and _vce_l not in _PANEL_BR_VCE
         and default_change_applies(canonical, robust, cluster)
     ):
-        from ..did._crit import _external_stacklevel
-
-        # +1: the warning is issued one frame down, in warn_default_change
-        warn_default_change(canonical, stacklevel=_external_stacklevel() + 1)
+        # 1.42: the default is Stata's convention wherever it is defined and
+        # differs from linearmodels'; elsewhere the two are the same number
+        # or Stata has no counterpart, and linearmodels' scaling is kept
+        ssc_key = "stata"
     _refuse_unusable_panel_keys(data, entity, time, canonical, cluster, ssc_key)
     if _vce_l in _PANEL_BR_VCE or _cluster_is_pair:
         return _panel_bias_reduced(
@@ -1892,9 +1888,10 @@ def _maybe_warn_few_clusters(
             recovery_hint=(
                 FEW_CLUSTERS_HINT
                 + (
-                    " The default small-sample convention applies no "
-                    "G/(G-1) factor and refers tests to N - K degrees of "
-                    "freedom; ssc='stata' uses xtreg's factor and t(G-1)."
+                    " linearmodels' small-sample convention, used here, "
+                    "applies no G/(G-1) factor and refers tests to N - K "
+                    "degrees of freedom; ssc='stata' uses xtreg's factor "
+                    "and t(G-1)."
                     if default_convention
                     else ""
                 )

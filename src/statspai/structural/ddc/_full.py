@@ -232,8 +232,11 @@ def full_mle(
         dec = float(g @ step)
         f0 = f(z)
         if abs(dec) <= 1e-10 * max(1.0, abs(f0)):
-            # predicted gain at rounding level: this is the maximum
-            if dec > 0 and f(z + step) >= f0:
+            # predicted gain at rounding level: this is the maximum. Take the
+            # last Newton step unless it lowers f beyond rounding; its gain is
+            # below the rounding of f (~1e-12 |f|), so an exact ">= f0" test
+            # kept or dropped it by platform (gradient 3e-5 left on Linux).
+            if dec > 0 and f(z + step) >= f0 - 1e-12 * max(1.0, abs(f0)):
                 z = z + step
             converged = True
             break

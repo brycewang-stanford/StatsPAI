@@ -4,6 +4,79 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.42.0] — 2026-10-29
+
+The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 take effect
+("Changed" below); the five `FutureWarning`s that announced them are gone.
+The rest is the October work landed on main since 1.41.0: option-scan
+rounds 6 and 7, the AER 116(10), QJE 141(4) and Econometrica 94(5) method
+rounds, a `sp.cox` convergence fix and a security fix in `sp.paper`. The ⚠️
+entries change numbers.
+
+### Changed (defaults announced for 1.42)
+
+Calls that named the argument are unaffected. See MIGRATION.md, "1.41 →
+1.42: announced defaults take effect".
+
+- ⚠️ **`sp.iv(method='gmm')` over-identified, without `wmatrix=`, a robust
+  `robust=` or `cluster=`: the weight matrix is heteroskedasticity-robust**
+  (Stata `ivregress gmm` and linearmodels `IVGMM`, owner decision
+  2026-10-24). Before, it was the homoskedastic one and the estimate was
+  2SLS. `wmatrix='unadjusted'` restores it. Just-identified fits do not
+  change.
+- ⚠️ **`sp.panel` defaults to `ssc='stata'` where it is defined and differs
+  from linearmodels' scaling** (owner decision 2026-10-24): one-way
+  clustering (G/(G-1)·(N-1)/(N-K), t(G-1)), `robust='robust'` after `fe` /
+  `twoway` / `re` (clustered on the panel variable, as `xtreg, vce(robust)`)
+  and the random-effects family (z / chi2). Coefficients do not change;
+  fits where the two conventions agree, and kernel, Driscoll-Kraay and
+  two-way clustered fits, keep linearmodels' numbers. `ssc='linearmodels'`
+  restores the old ones.
+- ⚠️ **`sp.did_multiplegt_dyn` defaults to `aggregation='switchers'` and
+  `se_method='analytic'`**, the `Av_tot_eff` headline and influence-function
+  SEs that Stata and R `did_multiplegt_dyn` print (announced in 1.40.1). On
+  the 267-city bankruptcy panel the headline moves from 0.0168 to 0.0119.
+  `aggregation='simple', se_method='bootstrap'` restores the old numbers.
+- ⚠️ **`sp.absorb_ols` with two or more cluster variables defaults to
+  `cluster_df='min'`** (reghdfe / fixest, as `sp.hdfe_ols` since 1.41).
+  One-way clustering is unchanged; `cluster_df='per_term'` restores the old
+  SEs.
+
+### CI repairs for 1.42 (nightly, Parity guards, docs, citation audit)
+
+- ⚠️ `sp.wooldridge_prod`: the Levenberg-Marquardt stage stopped ~1e-7
+  short of the first-order condition, so the estimates moved at that level
+  when log inputs were shifted. It now finishes on `J'r = 0`, as OP / LP /
+  ACF stage 2 already did. Estimates move by about 1e-7.
+- ⚠️ `sp.ddc(stage='full')`: the last Newton step was kept only when the
+  log-likelihood did not fall, a test below the rounding of a ~1e4
+  likelihood; on Linux it was dropped and a gradient of 3e-5 remained. The
+  step is now kept unless the likelihood falls beyond rounding.
+- `sp.simex` with a misclassified factor refused a matrix with a defective
+  repeated eigenvalue (e.g. 1, 0.7, 0.7) on Linux, where LAPACK returns it
+  as a conjugate pair with an imaginary part of ~1e-9. Imaginary parts
+  below 1e-7 of the spectral radius are now read as rounding, and the
+  matrix logarithm is formed in complex arithmetic.
+- `tools/audit_citations.py`: full-width CJK punctuation ends a DOI, as
+  its ASCII form does (`10.5281/zenodo.19866751，9.6 MB` was read as one
+  DOI and failed the DataCite lookup).
+- `sp.datasets.china_shock`: its two References keys sat on adjacent lines,
+  which the strict docs build reads as a reference link.
+- ⚠️ `sp.did_multiplegt_dyn` with `se_method='analytic'` (now the default):
+  a joint test whose covariance and tested contrasts are both at rounding
+  size (a fit without sampling noise) is reported as NaN with
+  `degenerate: True` and an `AssumptionWarning`; it was a 0/0 Wald
+  statistic (6e3, p = 0 on a flat noiseless panel). Contrasts away from
+  zero over a zero variance are still reported, as the sure rejection
+  they are.
+- `sp.panel` with `ssc='stata'` (now the default under one-way
+  clustering) and an unknown cluster column raises `ColumnNotFound`, as
+  the linearmodels path does, instead of a bare `KeyError`.
+- Tests that held only on one platform or pandas version: a positional
+  `[0]` on a labelled Series (pandas 3), two spatial ML tolerances tighter
+  than the documented Brent floor of the references, and a subprocess test
+  that printed a warning sign through a Windows cp1252 pipe.
+
 ### Security
 
 - `sp.paper(question=...)`: the question parser took time quadratic in

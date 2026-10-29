@@ -88,29 +88,28 @@ def test_detail_carries_twfe_axis_and_reported_se(panel):
     assert not np.allclose(detb["se"], detb["_se_analytic"])
 
 
-def test_unset_defaults_warn_and_keep_their_numbers(panel):
+def test_unset_defaults_are_the_references_and_do_not_warn(panel):
+    """1.42: aggregation='switchers' and se_method='analytic' (announced in
+    1.40.1 with a FutureWarning, which is gone)."""
     kw = dict(placebo=1, dynamic=2, n_boot=30, seed=7)
     args = (panel, "y")
     cols = dict(group="i", time="t", treatment="d")
-    with pytest.warns(
-        FutureWarning, match="aggregation='simple'.*se_method='bootstrap'"
-    ):
-        r_default = sp.did_multiplegt_dyn(*args, **cols, **kw)
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
-        r_explicit = sp.did_multiplegt_dyn(
-            *args, **cols, aggregation="simple", se_method="bootstrap", **kw
-        )
+        r_default = sp.did_multiplegt_dyn(*args, **cols, **kw)
+    r_explicit = sp.did_multiplegt_dyn(
+        *args, **cols, aggregation="switchers", se_method="analytic", **kw
+    )
     assert r_default.estimate == r_explicit.estimate
     assert r_default.se == r_explicit.se
-    assert r_default.model_info["aggregation"] == "simple"
-    assert r_default.model_info["se_method"] == "bootstrap"
-
-    # only the argument left unset is named
-    with pytest.warns(FutureWarning) as rec:
-        sp.did_multiplegt_dyn(*args, **cols, aggregation="switchers", **kw)
-    msg = " ".join(str(w.message) for w in rec if w.category is FutureWarning)
-    assert "se_method='bootstrap'" in msg and "aggregation='simple'" not in msg
+    assert r_default.model_info["aggregation"] == "switchers"
+    assert r_default.model_info["se_method"] == "analytic"
+    old = sp.did_multiplegt_dyn(
+        *args, **cols, aggregation="simple", se_method="bootstrap", **kw
+    )
+    assert old.model_info["aggregation"] == "simple"
+    # balanced cohorts: both aggregations give one number; the SE differs
+    assert old.se != pytest.approx(r_default.se, rel=1e-3)
 
 
 def test_switchers_is_the_weighted_mean_of_the_effects(panel):

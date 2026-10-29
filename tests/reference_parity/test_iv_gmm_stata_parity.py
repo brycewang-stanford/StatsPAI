@@ -50,8 +50,9 @@ CASES = {
     "robust_small": {"robust": "hc1"},
     "cluster": {"cluster": "cl", "small": False},
     "cluster_small": {"cluster": "cl"},
-    "unadjusted": {"gmm_vcov": "efficient", "small": False},
-    "unadjusted_small": {"gmm_vcov": "efficient"},
+    # wmatrix(unadjusted) is named since 1.42 made 'robust' the default
+    "unadjusted": {"wmatrix": "unadjusted", "gmm_vcov": "efficient", "small": False},
+    "unadjusted_small": {"wmatrix": "unadjusted", "gmm_vcov": "efficient"},
 }
 
 
@@ -104,22 +105,32 @@ def test_small_changes_the_variance_by_the_documented_factor(ref, card):
     # applies it there too (it did not until 1.40.1)
     gap = (ref["unadjusted_small"]["se"] / ref["unadjusted"]["se"]) ** 2
     assert gap == pytest.approx(n / (n - k), rel=1e-9)
-    small = sp.iv(FORMULA, data=card, method="gmm", gmm_vcov="efficient")
-    large = sp.iv(FORMULA, data=card, method="gmm", gmm_vcov="efficient", small=False)
+    small = sp.iv(FORMULA, data=card, method="gmm", **CASES["unadjusted_small"])
+    large = sp.iv(FORMULA, data=card, method="gmm", **CASES["unadjusted"])
     ratio = float(small.std_errors["educ"] / large.std_errors["educ"]) ** 2
     assert ratio == pytest.approx(n / (n - k), rel=1e-12)
 
 
-def test_default_is_the_sandwich_around_the_unadjusted_weight_matrix(card):
+def test_unadjusted_weight_matrix_takes_the_sandwich_variance(card):
     """``ivregress gmm, wmatrix(unadjusted) vce(robust)``: 0.04851397500143
-    without ``small``; ``small`` multiplies the variance by N / (N - K)."""
+    without ``small``; ``small`` multiplies the variance by N / (N - K).
+    (The default until 1.42.)"""
     n, k = 3010, 7
-    res = sp.iv(FORMULA, data=card, method="gmm", small=False)
+    res = sp.iv(FORMULA, data=card, method="gmm", wmatrix="unadjusted", small=False)
     assert float(res.std_errors["educ"]) == pytest.approx(0.04851397500143, rel=1e-9)
-    res = sp.iv(FORMULA, data=card, method="gmm")
+    res = sp.iv(FORMULA, data=card, method="gmm", wmatrix="unadjusted")
     assert float(res.std_errors["educ"]) == pytest.approx(
         0.04851397500143 * np.sqrt(n / (n - k)), rel=1e-9
     )
+
+
+def test_default_is_ivregress_gmm_wmatrix_robust(ref, card):
+    """1.42: no wmatrix= and no variance options is Stata's ivregress gmm
+    default, wmatrix(robust) vce(robust)."""
+    res = sp.iv(FORMULA, data=card, method="gmm", small=False)
+    want = ref["robust"]
+    assert float(res.params["educ"]) == pytest.approx(want["b"], rel=RTOL)
+    assert float(res.std_errors["educ"]) == pytest.approx(want["se"], rel=RTOL)
 
 
 # --------------------------------------------------------------------- #
