@@ -17,3 +17,12 @@ def test_every_module_note_is_indexed_and_every_index_entry_exists():
     indexed = set(re.findall(r"\(docs/dev/modules/([\w-]+\.md)\)", section))
     on_disk = {p.name for p in (REPO / "docs" / "dev" / "modules").glob("*.md")}
     assert indexed == on_disk
+
+
+def test_every_handbook_note_is_linked_from_claude_md():
+    # The long-form rules moved to docs/dev/handbook/ on 2026-10-30; the
+    # same reasoning applies: an unlinked file is a set of rules nobody reads.
+    claude = (REPO / "CLAUDE.md").read_text(encoding="utf-8")
+    linked = set(re.findall(r"\(docs/dev/handbook/([\w-]+\.md)\)", claude))
+    on_disk = {p.name for p in (REPO / "docs" / "dev" / "handbook").glob("*.md")}
+    assert linked == on_disk
