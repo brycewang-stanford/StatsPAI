@@ -5975,3 +5975,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-10-29 — trace ledgers re-recorded for the 1.42.0 release
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `ba68f6b4a`.
+- **Reason.** The 1.42 default flips changed `src/statspai/regression/iv.py`
+  (GMM weight matrix), `src/statspai/panel/panel_reg.py` and
+  `src/statspai/panel/_ssc.py` (`ssc='stata'` default),
+  `src/statspai/panel/hdfe.py` (`absorb_ols(cluster_df='min')`) and
+  `src/statspai/did/did_multiplegt_dyn.py` (switchers / analytic defaults),
+  which are on the traced paths of Track A modules 02, 35, 59, 68, 69, 75
+  and 78 and original-data module 01. Every one of them passes its options
+  explicitly: `verify_reproduce_py.py` reports 7 reproduce, 0 drift (worst
+  relative difference 5.2e-12), and `01_card_original.py` re-run differs
+  from its committed result only in the last digits (1.6e-11), restored.
+- **Effect on the paper.** None. No committed parity result changed. Calls
+  in the paper's code that rely on these defaults (none found in the
+  frozen artifacts) would change under 1.42; the papers stay anchored to
+  1.40.2.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
