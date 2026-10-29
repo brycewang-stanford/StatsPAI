@@ -3,9 +3,11 @@
 The odometer readings and engine replacement records of the 162 Madison
 Metro buses analysed by Rust (1987). John Rust distributes them with his
 NFXP software (``editorialexpress.com/jrust/nfxp.zip``) without a stated
-licence; the OpenSourceEconomics ``zurcher-data`` archive on Zenodo (MIT,
-DOI 10.5281/zenodo.3385050) holds the same nine ``.asc`` files, value for
-value. StatsPAI fetches that archive (319 kB) on first use, checks its
+licence. Zenodo record 3385050, "Rust 1987 NFXP data" by John Rust
+(DOI 10.5281/zenodo.3385050, licence field "other-open"), archives
+OpenSourceEconomics' ``zurcher-data`` v0.14, whose LICENSE file is MIT; it
+holds the same nine ``.asc`` files, value for value. StatsPAI fetches that
+archive (319 kB) on first use, checks its
 pinned SHA-256 and caches it (:mod:`statspai.datasets._fetch`); nothing is
 redistributed.
 

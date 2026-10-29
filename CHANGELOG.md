@@ -60,6 +60,12 @@ Calls that named the argument are unaffected. See MIGRATION.md, "1.41 →
 - `tools/audit_citations.py`: full-width CJK punctuation ends a DOI, as
   its ASCII form does (`10.5281/zenodo.19866751，9.6 MB` was read as one
   DOI and failed the DataCite lookup).
+- `sp.datasets.rust_bus`: the docstring now names Zenodo record 3385050 as
+  it is registered ("Rust 1987 NFXP data", creator John Rust, licence
+  field "other-open"), an archive of OpenSourceEconomics' `zurcher-data`
+  v0.14 whose LICENSE file is MIT (refs verified via DataCite and the
+  Zenodo API). It had called the record the OpenSourceEconomics archive
+  under MIT, which the citation audit flagged.
 - `sp.datasets.china_shock`: its two References keys sat on adjacent lines,
   which the strict docs build reads as a reference link.
 - ⚠️ `sp.did_multiplegt_dyn` with `se_method='analytic'` (now the default):

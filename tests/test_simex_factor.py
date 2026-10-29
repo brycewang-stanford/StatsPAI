@@ -153,14 +153,27 @@ def test_factor_input_checks():
 
 def test_a_repeated_eigenvalue_split_into_a_conjugate_pair_is_accepted():
     # P3's eigenvalue 0.7 is defective (a Jordan block), so rounding splits
-    # it by ~1e-9: into two reals on macOS Accelerate, into 0.7 +- ~1e-9 i on
-    # Linux OpenBLAS, which an exact "imag > 0" test refused. A perturbation
-    # at rounding size with zero column sums gives the complex case on every
-    # platform.
-    K = np.array([[1.0, -1.0, 0.0], [-1.0, 1.0, 0.0], [0.0, 0.0, 0.0]])
-    P_pair = P3 + 1e-14 * K
-    ev = np.linalg.eig(P_pair)[0]
-    assert 1e-10 < np.max(np.abs(np.imag(ev))) < 1e-8  # the case being tested
+    # it by ~1e-9: into two reals on some LAPACK builds, into 0.7 +- ~1e-9 i
+    # on others (Linux OpenBLAS), which an exact "imag > 0" test refused.
+    # Perturbations at rounding size with zero column sums give the complex
+    # case; which ones do depends on the LAPACK build, so search a few.
+    Ks = [
+        np.array([[1.0, -1.0, 0.0], [-1.0, 1.0, 0.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, 0.0, 1.0], [0.0, 0.0, -1.0], [0.0, 0.0, 0.0]]),
+        np.array([[0.0, 1.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 0.0]]),
+    ]
+    P_pair = None
+    for K in Ks:
+        for t in (1e-16, -1e-16, 1e-15, -1e-15, 1e-14, -1e-14):
+            cand = P3 + t * K
+            imag = np.max(np.abs(np.imag(np.linalg.eig(cand)[0])))
+            if 1e-11 < imag < 1e-7:
+                P_pair = cand
+                break
+        if P_pair is not None:
+            break
+    if P_pair is None:  # pragma: no cover - LAPACK keeps every case real
+        pytest.skip("this LAPACK returns real eigenvalues for every candidate")
     P_checked, levels = mc.mc_matrix_levels("x", P_pair)
     assert levels == [0, 1, 2]
     for lam in (0.5, 1.0, 2.0):
