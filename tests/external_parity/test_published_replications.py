@@ -549,21 +549,31 @@ def test_list_datasets_returns_dataframe():
     assert (registry["simulated"] == (registry["source"] == "simulated")).all()
 
 
+def _loadable_names():
+    """Datasets a catalog test may load: shipped or cached ones, and the
+    fetched ones too when ``STATSPAI_FETCH_DATASETS`` allows the download."""
+    from statspai.datasets._fetch import fetch_allowed_in_tests
+
+    registry = sp.datasets.list_datasets()
+    if fetch_allowed_in_tests():
+        return list(registry["name"])
+    return list(registry.loc[registry["available_offline"], "name"])
+
+
 def test_all_registered_datasets_loadable():
     """Every entry in list_datasets must be callable and return a DataFrame."""
     registry = sp.datasets.list_datasets()
     for name in registry["name"]:
-        loader = getattr(sp.datasets, name, None)
-        assert callable(loader), f"{name} not callable on sp.datasets"
-        df = loader()
+        assert callable(getattr(sp.datasets, name, None)), f"{name} not callable"
+    for name in _loadable_names():
+        df = getattr(sp.datasets, name)()
         assert isinstance(df, pd.DataFrame)
         assert len(df) > 0, f"{name}() returned empty DataFrame"
 
 
 def test_every_dataset_has_paper_attr():
     """Every dataset must carry a 'paper' attribute for citation."""
-    registry = sp.datasets.list_datasets()
-    for name in registry["name"]:
+    for name in _loadable_names():
         df = getattr(sp.datasets, name)()
         # Synth re-exports may not carry attrs set the same way; allow either.
         has_paper_attr = "paper" in df.attrs
