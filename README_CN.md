@@ -365,10 +365,10 @@ California 的 post/pre RMSPE 比值在 39 个州里排第 3，所以 p = 3/39 �
 import statspai as sp
 
 hiv = sp.datasets.thornton_hiv(complete_case=True)
-fit = sp.logit("got ~ any + distvct + male + age", data=hiv,
+fit = sp.logit("got ~ C(any) + distvct + male + age", data=hiv,
                vce="cluster villnum")
 print(fit.summary())
-print(sp.margins(fit, variables=["any"]).round(4))   # margins, dydx(any)
+print(sp.margins(fit, data=hiv, variables=["any"]).round(4))   # margins, dydx(any)
 ```
 
 结果：
@@ -378,36 +378,36 @@ Model: Logit
 Method: Maximum Likelihood (Newton-Raphson)
 Dependent Variable: got
 ...
-           Coefficient  Std. Error  z-statistic  P>|z|  [0.025  0.975]
-Intercept      -0.6370      0.2010      -3.1691 0.0015 -1.0310 -0.2431
-any             2.0178      0.0994      20.3029 0.0000  1.8230  2.2126
-distvct        -0.1696      0.0408      -4.1610 0.0000 -0.2496 -0.0897
-male           -0.0530      0.1051      -0.5046 0.6139 -0.2590  0.1529
-age             0.0100      0.0034       2.9046 0.0037  0.0032  0.0167
+               Coefficient  Std. Error  z-statistic  P>|z|  [0.025  0.975]
+Intercept          -0.6370      0.2010      -3.1691 0.0015 -1.0310 -0.2431
+C(any)[T.1.0]       2.0178      0.0994      20.3029 0.0000  1.8230  2.2126
+distvct            -0.1696      0.0408      -4.1610 0.0000 -0.2496 -0.0897
+male               -0.0530      0.1051      -0.5046 0.6139 -0.2590  0.1529
+age                 0.0100      0.0034       2.9046 0.0037  0.0032  0.0167
 ...
 ```
 
 ```text
-  variable   dy/dx      se        z  pvalue  ci_lower  ci_upper
-0      any  0.3558  0.0145  24.5453     0.0    0.3274    0.3843
+  variable  dy/dx      se        z  pvalue  ci_lower  ci_upper
+0    1.any   0.45  0.0217  20.7367     0.0    0.4075    0.4926
 ```
 
 和 Stata 一样，`age` 或村编号缺失的 9 行不进入估计样本（N = 2,825，119 个村）；其中因聚类变量缺失而剔除的 4 行会以 `StatsPAIWarning` 提示，并记录在 `fit.model_info["n_missing_cluster_dropped"]`。
 
-logit 系数在对数几率尺度上；`sp.margins` 报告的是 Stata `margins, dydx(any)` 报告的量——概率上的平均边际效应，配 delta 方法标准误。获得任意激励使领取结果的概率提高约 36 个百分点。系数、按村聚类的标准误和边际效应都与 Stata 18 的 `logit ..., vce(cluster villnum)` 加 `margins, dydx(any)` 一致（0.3558466，SE 0.0144976）。
+logit 系数在对数几率尺度上；`sp.margins` 报告的是概率上的效应，配 delta 方法标准误。`any` 是 0/1 处理变量，所以写成 `C(any)`（即 Stata 的 `i.any`），边际效应就是从 0 到 1 的离散变化。获得任意激励使领取结果的概率提高约 45 个百分点，与均值之差 45.1 个百分点接近。不写 `C()` 时该列按连续变量处理（与 Stata 不写 `i.` 相同），`margins` 给出的是平均斜率 0.3558，它不是激励的效应。系数、按村聚类的标准误和边际效应都与 Stata 18 的 `logit got i.any distvct male age, vce(cluster villnum)` 加 `margins, dydx(any)` 一致（0.4500223，SE 0.0217017）。
 
 检验和线性组合使用完整协方差矩阵以及该拟合自己的参考分布（这里是 χ² / z，OLS 之后是 F / t）：
 
 ```python
 fit.test("distvct = 0")    # chi2(1) = 17.31, p < 0.001  （Stata: test distvct）
-fit.lincom("any + male")   # 1.9648, SE 0.1412           （Stata: lincom any + male）
+fit.lincom("1.any + male") # 1.9648, SE 0.1412           （Stata: lincom 1.any + male）
 ```
 
 如果手上已经有 Stata 命令，可以原样运行：
 
 ```python
 ame = sp.stata("""
-logit got any distvct male age, vce(cluster villnum)
+logit got i.any distvct male age, vce(cluster villnum)
 margins, dydx(any)
 """, data=hiv)
 ```

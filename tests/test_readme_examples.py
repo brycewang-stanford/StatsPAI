@@ -117,9 +117,9 @@ def outputs(card):
     )
     hiv = sp.datasets.thornton_hiv(complete_case=True)
     logit = sp.logit(
-        "got ~ any + distvct + male + age", data=hiv, vce="cluster villnum"
+        "got ~ C(any) + distvct + male + age", data=hiv, vce="cluster villnum"
     )
-    ame = sp.margins(logit, variables=["any"])
+    ame = sp.margins(logit, data=hiv, variables=["any"])
     return {
         "hiv": hiv,
         "logit": logit,
@@ -214,28 +214,29 @@ def test_readme_margins_block_matches_live_output(readme, outputs):
 
 def test_readme_logit_example_matches_stata(outputs):
     # Stata 18 MP on the same 2,825 rows (119 villages):
-    #   logit got any distvct male age, vce(cluster villnum)
-    #   margins, dydx(any) / test distvct / lincom any + male
+    #   logit got i.any distvct male age, vce(cluster villnum)
+    #   margins, dydx(any) / test distvct / lincom 1.any + male
     fit, ame = outputs["logit"], outputs["ame"]
     # Stata drops the rows with a missing cluster id / age itself.
     assert int(fit.data_info["nobs"]) == 2825
     assert fit.model_info["n_clusters"] == 119
     assert fit.model_info["n_missing_cluster_dropped"] == 4
-    assert fit.params["any"] == pytest.approx(2.01780052, abs=5e-8)
-    assert fit.std_errors["any"] == pytest.approx(0.09938486, abs=5e-8)
+    assert fit.params["C(any)[T.1.0]"] == pytest.approx(2.01780052, abs=5e-8)
+    assert fit.std_errors["C(any)[T.1.0]"] == pytest.approx(0.09938486, abs=5e-8)
     assert fit.std_errors["distvct"] == pytest.approx(0.04077092, abs=5e-8)
     (row,) = ame.itertuples(index=False)
-    assert row[1] == pytest.approx(0.3558466, abs=5e-7)
-    assert row[2] == pytest.approx(0.0144976, abs=5e-7)
+    assert row[0] == "1.any"
+    assert row[1] == pytest.approx(0.45002227, abs=5e-7)
+    assert row[2] == pytest.approx(0.02170174, abs=5e-7)
     assert fit.test("distvct = 0")["statistic"] == pytest.approx(17.31381895, rel=1e-6)
-    lc = fit.lincom("any + male")
+    lc = fit.lincom("1.any + male")
     assert lc["estimate"] == pytest.approx(1.96477656, abs=5e-8)
     assert lc["se"] == pytest.approx(0.14120214, abs=5e-8)
 
 
 def test_readme_stata_runner_reproduces_margins(outputs):
     ame = sp.stata(
-        "logit got any distvct male age, vce(cluster villnum)\n" "margins, dydx(any)",
+        "logit got i.any distvct male age, vce(cluster villnum)\n" "margins, dydx(any)",
         data=outputs["hiv"],
     )
     pd.testing.assert_frame_equal(ame, outputs["ame"])
