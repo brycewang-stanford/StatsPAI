@@ -224,6 +224,25 @@ def test_check_detects_stale_subset_and_master_edits(tmp_path: Path, capsys):
     assert "entry text differs" in capsys.readouterr().out
 
 
+def test_check_ignores_the_banner_but_not_the_entries(tmp_path: Path, capsys):
+    # extract run from another worktree records a different master path
+    master, tex, out = _fixture(tmp_path)
+    args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
+    assert bib_subset.main(["extract", *args]) == 0
+    text = out.read_text("utf-8")
+    assert str(master) in text
+    out.write_text(text.replace(str(master), "/elsewhere/paper.bib"), encoding="utf-8")
+    assert bib_subset.main(["check", *args]) == 0
+    capsys.readouterr()
+    # a hand edit to an entry still fails
+    out.write_text(
+        out.read_text("utf-8").replace("author={Alpha, A.}", "author={Alpha, Z.}"),
+        encoding="utf-8",
+    )
+    assert bib_subset.main(["check", *args]) == 1
+    assert "entry text differs" in capsys.readouterr().out
+
+
 def test_cited_key_missing_from_master_fails_loudly(tmp_path: Path, capsys):
     master, tex, out = _fixture(tmp_path)
     tex.write_text("\\cite{not_in_master}", encoding="utf-8")

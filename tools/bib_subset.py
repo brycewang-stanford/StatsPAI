@@ -235,6 +235,16 @@ def _rel(path: Path) -> str:
         return str(path)
 
 
+def _subset_body(text: str) -> str:
+    """The entries of a rendered subset, without the banner.
+
+    The banner records where the master was read from, which depends on the
+    checkout that ran ``extract``; only the entries are derived content.
+    """
+    start = text.find("\n@")
+    return text[start + 1 :] if start >= 0 else text
+
+
 # ---------------------------------------------------------------------------
 # Sub-commands
 # ---------------------------------------------------------------------------
@@ -271,7 +281,7 @@ def cmd_extract(args: argparse.Namespace, *, check: bool) -> int:
             print(f"DRIFT: {_rel(out)} does not exist -- run `extract`.")
             return 1
         current = out.read_text(encoding="utf-8")
-        if current != text:
+        if _subset_body(current) != _subset_body(text):
             have = set(parse_bib(current))
             want = set(parse_bib(text))
             print(
