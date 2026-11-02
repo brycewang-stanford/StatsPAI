@@ -291,7 +291,7 @@ def render_tex() -> str:
         "call: relative difference of the coefficient or simple ATT (HDFE, "
         "CS), absolute difference of the average post-treatment gap between "
         "the two non-convex SCM solvers, and the DML difference in units of "
-        "its SE (the folds are drawn independently on each side).}\n"
+        "its SE (the folds coincide under the shared seed).}\n"
         "\\label{tab:track-c-perf}\n"
         "\\end{table}\n"
     )

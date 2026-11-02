@@ -15,6 +15,6 @@ DML & PLR, linear learners, 5 folds & \pkg{DoubleML} & 10{,}000 & 0.0079 (0.0001
 \bottomrule
 \end{tabular}
 \endgroup
-\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.40.2). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds are drawn independently on each side).}
+\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.40.2). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds coincide under the shared seed).}
 \label{tab:track-c-perf}
 \end{table}

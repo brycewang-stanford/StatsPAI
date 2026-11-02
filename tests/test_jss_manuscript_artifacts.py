@@ -62,7 +62,7 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
         "sections/appendix.tex",
     ]
     assert payload["active_sections"] == expected_sections
-    assert payload["artifact_count"] == 12
+    assert payload["artifact_count"] == 14
     assert payload["hash_mismatches"] == 0
     compact_coverage = payload["compact_section_coverage"]
     assert compact_coverage["ok"] is True
@@ -83,6 +83,8 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
         "Paper-JSS/manuscript/figures/track_c_loglog.pdf",
         "Paper-JSS/manuscript/tables/appendix_b_parity.tex",
         "Paper-JSS/manuscript/tables/forest_seed_mc.tex",
+        "Paper-JSS/manuscript/tables/related_software.tex",
+        "Paper-JSS/replication/tables/ex03_handoff.tex",
     } == set(artifacts)
     assert (
         artifacts["Paper-JSS/manuscript/tables/track_c_perf.tex"]["hash_equal"] is True
