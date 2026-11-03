@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.42.1] — 2026-11-03
+
+A patch release. No estimator, default or numerical output changes.
+
+### Fixed
+
+- **Bibliography metadata in the shipped `paper.bib`** (what `sp.bibtex()`
+  and `sp.citation()` read). Authors, years, titles and DOIs corrected on
+  about 21 entries after an audit, and 8 new entries. Two keys were renamed
+  to match their publication year and title, `patil2023gorilla` →
+  `patil2024gorilla` and `anthropic2024mcp` → `mcp2026specification`; a
+  call that names an old key now has to use the new one. JOSS-cited keys
+  are unchanged.
+- **README logit example (Thornton 2008).** It entered the 0/1 treatment
+  as a continuous column, so `sp.margins` returned the average slope
+  (0.3558) and the text read it as a 36-point effect. The example now uses
+  `C(any)`, whose margin is the discrete change, 0.4500 (SE 0.0217), as
+  Stata's `i.any`. `sp.margins` itself is unchanged.
+- `tools/bib_subset.py check` compares the entries of a derived
+  bibliography, not its banner, which records the master path of whichever
+  checkout ran `extract`.
+- The dataset catalog tests load only offline data unless fetching is
+  allowed.
+
 ## [1.42.0] — 2026-10-29
 
 The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 take effect
