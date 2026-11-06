@@ -27,7 +27,12 @@ from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Union
 
 import pandas as pd
 
-from .exceptions import ColumnNotFound, DataInsufficient, StatsPAIError
+from .exceptions import (
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+    StatsPAIError,
+)
 
 
 def require_columns(
@@ -313,6 +318,18 @@ def clean_frame(
 # --------------------------------------------------------------------- #
 #  Missing-data policy and the shared estimator input contract
 # --------------------------------------------------------------------- #
+
+
+class TooFewClusters(DataInsufficient, MethodIncompatibility):
+    """A cluster variable with fewer than two values.
+
+    Both a :class:`DataInsufficient` and a :class:`MethodIncompatibility`,
+    because the estimators whose own checks it replaced raised one or the
+    other; every existing ``except`` clause keeps catching it.
+    """
+
+    code = "data_insufficient"
+
 
 #: Values of the shared ``missing=`` option.
 MISSING_POLICIES = ("drop", "raise")
@@ -651,7 +668,7 @@ def check_estimator_input(
     # 1. zero rows
     if len(data) == 0:
         raise DataInsufficient(
-            f"{function}: the data have no rows, so there is nothing to " "estimate.",
+            f"{function}: `data` is empty (no rows); a fit needs at least one row.",
             recovery_hint="Check the filter or merge that produced the frame; "
             "it removed every row.",
             diagnostics={"n_rows": 0, "columns_used": _columns(())},
@@ -664,9 +681,11 @@ def check_estimator_input(
         if not isinstance(data[c], pd.DataFrame) and bool(data[c].isna().all())
     ]
     if empty:
+        roles = {c: name for name, cols in reversed(list(used.items())) for c in cols}
+        listing = ", ".join(f"{c!r} ({roles.get(c, 'used')}=)" for c in empty)
         raise DataInsufficient(
-            f"{function}: column(s) {empty} hold no non-missing value, so no "
-            "row can enter the estimation.",
+            f"{function}: column(s) {listing} hold no non-missing value (entirely "
+            "NaN), so no row can enter the estimation.",
             recovery_hint="An entirely missing column usually means a failed "
             "merge or a misspelt key upstream. Check how the column was "
             "built, or leave it out of the call.",
@@ -688,7 +707,7 @@ def check_estimator_input(
     for c in clusters:
         n_levels = int(data[c].nunique(dropna=True))
         if n_levels < 2:
-            raise DataInsufficient(
+            raise TooFewClusters(
                 f"{function}: the cluster variable {c!r} takes {n_levels} "
                 "value(s); cluster-robust standard errors need at least two "
                 "clusters.",

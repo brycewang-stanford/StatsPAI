@@ -352,7 +352,7 @@ def test_rcs_missing_covariate():
 def test_rcs_all_nan_raises():
     df = make_panel()
     df["y"] = np.nan
-    with pytest.raises(ValueError, match="No observations"):
+    with pytest.raises(ValueError, match="no non-missing value"):
         callaway_santanna(df, y="y", g="g", t="t", i="i", panel=False, estimator="reg")
 
 

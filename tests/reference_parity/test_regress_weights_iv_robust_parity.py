@@ -180,7 +180,7 @@ class TestRegressAnalyticWeights:
         [
             ("missing_col", "not a column"),
             ("neg", "positive"),
-            ("nan", "NaN or infinite"),
+            ("nan", "no non-missing value"),  # shared all-missing check
         ],
     )
     def test_bad_weights_fail_loudly(self, data, bad, exc_match):

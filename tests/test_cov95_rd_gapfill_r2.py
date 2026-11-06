@@ -96,7 +96,7 @@ def test_rdrobust_fuzzy_column_missing():
 def test_rdrobust_all_nan_outcome():
     df = _sharp(n=300)
     df["y"] = np.nan
-    with pytest.raises(DataInsufficient, match="No finite RD observations"):
+    with pytest.raises(DataInsufficient, match="no non-missing value"):
         sp.rdrobust(df, y="y", x="x")
 
 

@@ -154,7 +154,7 @@ class TestWeightedVarianceMenu:
         "bad, exc, match",
         [
             (np.nan, DataInsufficient, "NaN or infinite"),
-            (np.inf, DataInsufficient, "NaN or infinite"),
+            (np.inf, DataInsufficient, "infinite value"),
             (0.0, MethodIncompatibility, "strictly positive"),
             (-1.0, MethodIncompatibility, "strictly positive"),
         ],

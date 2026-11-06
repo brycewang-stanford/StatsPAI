@@ -7,9 +7,10 @@ Uses a known DGP with endogeneity so we can verify:
 3. Diagnostics (first-stage F, Sargan, Hausman) behave as expected
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
+
 from statspai import ivreg, regress
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 from statspai.regression.iv import IVRegression
@@ -307,7 +308,7 @@ class TestIVRegression:
     def test_formula_complete_rows_required(self, endogenous_data):
         data = endogenous_data.copy()
         data[["y", "x_endog", "x_exog", "z1", "z2"]] = np.nan
-        with pytest.raises(DataInsufficient, match="No rows remain"):
+        with pytest.raises(DataInsufficient, match="no non-missing value"):
             ivreg("y ~ (x_endog ~ z1 + z2) + x_exog", data=data)
 
     def test_no_intercept_minus_one_formula(self, endogenous_data):

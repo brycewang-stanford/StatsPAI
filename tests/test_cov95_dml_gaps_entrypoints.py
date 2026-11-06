@@ -161,7 +161,7 @@ def test_dml_base_class_guards_models_without_scores_or_fold_support():
 def test_dml_with_no_complete_rows_raises_data_insufficient():
     df = _plr_data()
     df["x1"] = np.nan
-    with pytest.raises(DataInsufficient, match="no complete rows"):
+    with pytest.raises(DataInsufficient, match="no non-missing value"):
         _dml(df)
 
 
