@@ -380,6 +380,55 @@ def server_json_drift(*, fix: bool = False) -> List[str]:
     return issues
 
 
+# ------------------------------------------------------------ parity tables
+
+PARITY_RESULTS = Path("tests") / "r_parity" / "results"
+
+
+def parity_table_drift(*, fix: bool = False) -> List[str]:
+    """Track A summary tables whose captions name the package version.
+
+    ``tests/r_parity/compare.py`` stamps ``_release_version()`` into
+    ``parity_table.tex`` (and the 3-way tables), so a version bump leaves
+    them stale until the comparator is rerun. 1.42.1 shipped that way and
+    every nightly failed ``test_generated_parity_tables_are_in_sync_with_
+    comparator``. Only the StatsPAI-side tables are written here; the
+    Paper-JSS snapshot that ``compare.py main()`` also refreshes belongs
+    to the paper repo and is left alone.
+    """
+    import importlib.util
+
+    script = REPO_ROOT / "tests" / "r_parity" / "compare.py"
+    spec = importlib.util.spec_from_file_location("_release_gate_compare", script)
+    if spec is None or spec.loader is None:
+        return [f"cannot load {script.relative_to(REPO_ROOT).as_posix()}"]
+    compare = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = compare
+    spec.loader.exec_module(compare)
+
+    results = REPO_ROOT / PARITY_RESULTS
+    modules = sorted(p.stem.replace("_py", "") for p in results.glob("*_py.json"))
+    renderers = {
+        "parity_table.md": compare.render_md,
+        "parity_table.tex": compare.render_tex,
+        "parity_table_3way.md": compare.render_md_3way,
+        "parity_table_3way.tex": compare.render_tex_3way,
+    }
+    issues: List[str] = []
+    for name, render in renderers.items():
+        path = results / name
+        if not path.exists():
+            continue
+        expected = render(modules)
+        if path.read_text(encoding="utf-8") != expected:
+            issues.append(
+                f"{(PARITY_RESULTS / name).as_posix()} differs from compare.py output"
+            )
+            if fix:
+                path.write_text(expected, encoding="utf-8")
+    return issues
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--check", action="store_true", help="run the gates")
@@ -405,6 +454,20 @@ def main(argv=None) -> int:
         print(
             f"[release_gate] server.json: {len(fixed)} issue(s) found, versions rewritten"
         )
+        tables = parity_table_drift(fix=True)
+        print(f"[release_gate] parity tables: rewrote {len(tables)} file(s)")
+        if tables:
+            # The Tier A fixture lock hashes these tables; a regenerated
+            # caption would otherwise fail test_tier_a_parity_fixture_lock.
+            subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO_ROOT / "scripts" / "tier_a_fixture_lock.py"),
+                    "--write",
+                ],
+                check=True,
+            )
+            print("[release_gate] tier A fixture lock: refreshed")
     if args.check:
         ascii_issues = non_ascii_patterns()
         wording_issues = forbidden_wording()
@@ -413,7 +476,8 @@ def main(argv=None) -> int:
         if args.release or in_release_window():
             failures += [f"census: {m}" for m in census_drift(census())]
             failures += [f"census: {m}" for m in server_json_drift()]
-            print("[release_gate] census: checked (incl. server.json)")
+            failures += [f"census: {m}" for m in parity_table_drift()]
+            print("[release_gate] census: checked (incl. server.json, parity tables)")
         else:
             print(
                 "[release_gate] census: skipped (the package version is already "
