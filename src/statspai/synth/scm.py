@@ -236,6 +236,9 @@ def synth(
     SCM backend having to opt in. The 20-method dispatcher itself
     lives in :func:`_dispatch_synth_impl`.
 
+    Only ``missing`` is described here; the other parameters are described
+    in the dispatcher's docstring.
+
     Parameters
     ----------
     missing : {'drop', 'raise'}, default 'drop'
@@ -243,7 +246,6 @@ def synth(
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
-    Other parameters are described in the dispatcher's docstring.
 
     References
     ----------
