@@ -21,13 +21,13 @@ never carry a numerical grade (`sp.parity_summary()['denominators']`).
 | Measure | Estimators | Share |
 | --- | ---: | ---: |
 | Registered estimators | 1,009 | 100% |
-| With numerical evidence of any kind | 996 | 98.7% |
-| Same data, matched to an R / Stata / author reference (T2) | 524 | 51.9% |
-| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 459 | 45.5% |
-| `aligned` (documented looser tolerance and mechanism) | 65 | 6.4% |
-| Known truth only (`analytical-only`) | 417 | 41.3% |
+| With numerical evidence of any kind | 1,009 | 100.0% |
+| Same data, matched to an R / Stata / author reference (T2) | 544 | 53.9% |
+| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 475 | 47.1% |
+| `aligned` (documented looser tolerance and mechanism) | 69 | 6.8% |
+| Known truth only (`analytical-only`) | 410 | 40.6% |
 | Published numbers reproduced (`external-replication`) | 55 | 5.5% |
-| No evidence (`unverified`, listed in section 4) | 13 | 1.3% |
+| No evidence (`unverified`, listed in section 4) | 0 | 0.0% |
 
 The Track A harness runs 91 modules on the same CSV bytes
 in Python and R; 87 of them also run in Stata. Over the
@@ -95,7 +95,7 @@ release. Full tables, including the agreement of the two answers:
 
 ## 4. Known gaps
 
-**Estimators with no numerical evidence (13):** `conley_sensitivity`, `gologit`, `heckprobit`, `ibragimov_mueller`, `intreg`, `iv_wild_bootstrap`, `mmqreg`, `standardize_coefs`, `xtintreg`, `xtivreg`, `xtpcse`, `xtregar`, `xttobit`.
+**Estimators with no numerical evidence (0):** none.
 
 **Families where the fewest estimators are matched to a reference.**
 Many of these are frontier methods (conformal, neural, LLM-assisted)

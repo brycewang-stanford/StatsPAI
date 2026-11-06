@@ -464,7 +464,7 @@
     }
   },
   {
-    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho.",
+    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Validation: certified parity evidence.",
     "name": "heckprobit",
     "parameters": {
       "properties": {
@@ -529,7 +529,7 @@
     }
   },
   {
-    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables.",
+    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables. Validation: certified parity evidence.",
     "name": "gologit",
     "parameters": {
       "properties": {
@@ -606,7 +606,7 @@
     }
   },
   {
-    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows).",
+    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Validation: certified parity evidence.",
     "name": "intreg",
     "parameters": {
       "properties": {
@@ -7025,7 +7025,7 @@
     }
   },
   {
-    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: certified parity evidence.",
     "name": "prais",
     "parameters": {
       "properties": {
@@ -7106,7 +7106,7 @@
     }
   },
   {
-    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
+    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: certified parity evidence. Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
     "name": "cnsreg",
     "parameters": {
       "properties": {
@@ -7174,7 +7174,7 @@
     }
   },
   {
-    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
+    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: certified parity evidence. Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
     "name": "nls",
     "parameters": {
       "properties": {
@@ -7329,7 +7329,7 @@
     }
   },
   {
-    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
+    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: certified parity evidence. Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
     "name": "mprobit",
     "parameters": {
       "properties": {
@@ -31160,7 +31160,7 @@
     }
   },
   {
-    "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged.",
+    "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged. Validation: certified parity evidence.",
     "name": "standardize_coefs",
     "parameters": {
       "properties": {
@@ -31198,7 +31198,7 @@
     }
   },
   {
-    "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
+    "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
     "name": "ibragimov_mueller",
     "parameters": {
       "properties": {
@@ -31254,7 +31254,7 @@
     }
   },
   {
-    "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
+    "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Validation: certified parity evidence. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
     "name": "conley_sensitivity",
     "parameters": {
       "properties": {
@@ -53010,7 +53010,7 @@
     }
   },
   {
-    "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient.",
+    "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient. Validation: certified parity evidence.",
     "name": "iv_wild_bootstrap",
     "parameters": {
       "properties": {

@@ -1036,18 +1036,30 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho.",
+    "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata heckprobit (oim, vce(robust), vce(cluster), [pw=], [pw=] with vce(cluster)); R sampleSelection::selection(method = 'ml') with a binary outcome, Newton-Raphson and BHHH",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "sampleSelection": "1.2.14"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/regcmd_R.json"
+      ],
+      "tolerance": "against Stata: coefficients and standard errors 1e-9 relative (observed 4e-11); against sampleSelection's Newton-Raphson fit 1e-8 (observed 2e-9); log likelihood 1e-12"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 3000\nage, income, phone = rng.normal(size=(3, n))\nu, v = rng.multivariate_normal([0, 0], [[1, 0.5], [0.5, 1]], n).T\nasked = (0.3 + phone + 0.3 * age + v > 0).astype(int)\ninsured = (0.2 + 0.5 * age + 0.5 * income + u > 0).astype(int)\ndf = pd.DataFrame({'age': age, 'income': income, 'phone': phone,\n 'asked': asked, 'insured': insured * asked})\nr = sp.heckprobit(df, y='insured', x=['age', 'income'],\n select='asked', z=['phone', 'age'])",
     "failure_modes": [
@@ -1101,7 +1113,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho.",
+      "description": "Probit with sample selection by maximum likelihood (Stata heckprobit): a binary outcome observed only for a selected subsample, errors bivariate normal with correlation rho. Validation: certified parity evidence.",
       "name": "heckprobit",
       "parameters": {
         "properties": {
@@ -1168,9 +1180,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata heckprobit (oim, vce(robust), vce(cluster), [pw=], [pw=] with vce(cluster)); R sampleSelection::selection(method = 'ml') with a binary outcome, Newton-Raphson and BHHH [R version 4.5.2 (2025-10-31), Stata 18, sampleSelection 1.2.14]; tolerance against Stata: coefficients and standard errors 1e-9 relative (observed 4e-11); against sampleSelection's Newton-Raphson fit 1e-8 (observed 2e-9); log likelihood 1e-12 -- tests/reference_parity/test_regcmd_stata_r_parity.py",
       "API/unit contract evidence: tests/test_ldv_margins_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -1187,18 +1200,31 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables.",
+    "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "gologit2 (all, no and partial parallel lines; logit and probit links; vce(robust), vce(cluster)); R VGAM::vglm(cumulative(reverse = TRUE)) coefficients",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "VGAM": "1.1.14",
+        "gologit2": "3.2.8"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/regcmd_R.json"
+      ],
+      "tolerance": "coefficients and standard errors 1e-6 relative (observed 4.4e-7 against gologit2, 1.7e-7 against VGAM); log likelihood 1e-12"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 2000\nage = rng.normal(size=n); income = rng.normal(size=n)\nlatent = 0.8 * age + 0.5 * income + rng.logistic(size=n)\ndf = pd.DataFrame({'age': age, 'income': income,\n 'health': np.digitize(latent, [-1.0, 0.5, 2.0])})\nr = sp.gologit(df, y='health', x=['age', 'income'], npl=['age'])",
     "failure_modes": [
@@ -1248,7 +1274,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables.",
+      "description": "Generalized ordered logit / probit with partial proportional odds (the model of Stata's gologit2): Pr(Y > c_j) = F(a_j + x'b_j), parallel lines for pl= variables. Validation: certified parity evidence.",
       "name": "gologit",
       "parameters": {
         "properties": {
@@ -1327,9 +1353,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs gologit2 (all, no and partial parallel lines; logit and probit links; vce(robust), vce(cluster)); R VGAM::vglm(cumulative(reverse = TRUE)) coefficients [R version 4.5.2 (2025-10-31), Stata 18, VGAM 1.1.14, gologit2 3.2.8]; tolerance coefficients and standard errors 1e-6 relative (observed 4.4e-7 against gologit2, 1.7e-7 against VGAM); log likelihood 1e-12 -- tests/reference_parity/test_regcmd_stata_r_parity.py",
       "API/unit contract evidence: tests/test_gologit_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -1346,18 +1373,30 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows).",
+    "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata intreg (oim, vce(robust), vce(cluster), [pw=], [pw=] with vce(cluster)); R survival::survreg(Surv(type = 'interval2'), dist = 'gaussian') with its observed-information covariance",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "survival": "3.8.3"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/regcmd_R.json"
+      ],
+      "tolerance": "coefficients and standard errors 1e-9 relative (observed 5e-11); log likelihood 1e-12"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1500\neduc, exper = rng.normal(size=(2, n))\nw = 2 + 0.5 * educ + 0.3 * exper + rng.normal(size=n)\nlo = np.floor(w); hi = lo + 1.0\ndf = pd.DataFrame({'educ': educ, 'exper': exper,\n 'wage_lo': lo, 'wage_hi': hi})\nr = sp.intreg(df, y_lower='wage_lo', y_upper='wage_hi',\n x=['educ', 'exper'])",
     "failure_modes": [
@@ -1410,7 +1449,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows).",
+      "description": "Interval regression by maximum likelihood (Stata intreg): a normal linear model for an outcome known only to lie between a lower and an upper bound (point, left-, right- or interval-censored rows). Validation: certified parity evidence.",
       "name": "intreg",
       "parameters": {
         "properties": {
@@ -1471,9 +1510,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata intreg (oim, vce(robust), vce(cluster), [pw=], [pw=] with vce(cluster)); R survival::survreg(Surv(type = 'interval2'), dist = 'gaussian') with its observed-information covariance [R version 4.5.2 (2025-10-31), Stata 18, survival 3.8.3]; tolerance coefficients and standard errors 1e-9 relative (observed 5e-11); log likelihood 1e-12 -- tests/reference_parity/test_regcmd_stata_r_parity.py",
       "API/unit contract evidence: tests/test_intreg_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -13526,22 +13566,26 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata prais: Prais-Winsten and Cochrane-Orcutt, rhotype regress / freg / tscorr / dw / theil / nagar, iterated and twostep, vce(robust) / vce(hc2) / vce(hc3)",
+      "reference_versions": {
+        "Stata": "18"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_textbook_methods_stata_parity.py"
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "coefficients, standard errors, rho, R-squared, F, root MSE and both Durbin-Watson statistics 1e-9 relative (observed 2.5e-15)"
     },
     "example": "sp.prais(\"consumption ~ income + price\", data=df, method=\"corc\")",
     "failure_modes": [
@@ -13597,7 +13641,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Linear regression with AR(1) errors by feasible GLS: Prais-Winsten (keeps the first observation) or Cochrane-Orcutt (drops it), iterated until rho converges or two-step. Six estimators of rho (regress, freg, tscorr, dw, theil, nagar) and robust covariances; reproduces Stata prais. Reports rho and the Durbin-Watson statistic before and after the transformation. A rho near one points to a unit root: test with sp.unitroot before reading the fit. Validation: certified parity evidence.",
       "name": "prais",
       "parameters": {
         "properties": {
@@ -13680,9 +13724,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata prais: Prais-Winsten and Cochrane-Orcutt, rhotype regress / freg / tscorr / dw / theil / nagar, iterated and twostep, vce(robust) / vce(hc2) / vce(hc3) [Stata 18]; tolerance coefficients, standard errors, rho, R-squared, F, root MSE and both Durbin-Watson statistics 1e-9 relative (observed 2.5e-15) -- tests/reference_parity/test_regcmd_stata_r_parity.py",
+      "tests/reference_parity/test_textbook_methods_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -13698,22 +13743,26 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
+    "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: certified parity evidence. Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata cnsreg with two linear constraints (default, vce(robust), vce(cluster))",
+      "reference_versions": {
+        "Stata": "18"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+        "tests/reference_parity/test_hansen_methods_stata_parity.py",
+        "tests/reference_parity/_fixtures/hansen_methods_Stata.csv"
       ],
-      "tolerance": ""
+      "tolerance": "coefficients, standard errors, root MSE and F 1e-9 relative"
     },
     "example": "sp.cnsreg(\"lnq ~ lnk + lnl\", data=df, constraints=\"lnk + lnl = 1\")",
     "failure_modes": [
@@ -13773,7 +13822,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
+      "description": "Linear regression under linear equality constraints on the coefficients (constant returns to scale, equal slopes, a coefficient fixed at a value). method='cls' is constrained least squares and reproduces Stata cnsreg, including its robust and cluster covariances; method='emd' is the efficient minimum distance estimator, which is more precise under heteroskedasticity. model_info['constraint_test'] is the Wald test of the constraints: if it rejects, the constrained estimates are not consistent for the unconstrained coefficients. Validation: certified parity evidence. Do NOT use when: The constraint is a hypothesis to be tested, not maintained -- fit sp.regress and use sp.test.",
       "name": "cnsreg",
       "parameters": {
         "properties": {
@@ -13843,9 +13892,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata cnsreg with two linear constraints (default, vce(robust), vce(cluster)) [Stata 18]; tolerance coefficients, standard errors, root MSE and F 1e-9 relative -- tests/reference_parity/test_hansen_methods_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -13861,22 +13910,30 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
+    "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: certified parity evidence. Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R stats::nls with the analytic gradient from deriv() and sandwich::sandwich / vcovCL (gnr, HC1, cluster); Stata nl (gnr, robust, cluster, hc2, hc3)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/regcmd_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "against R: estimates and standard errors 1e-8 relative at tol=1e-12 (observed 3e-9), 1e-6 at the default tol=1e-10 (estimates 2e-7); against Stata nl: estimates 1e-7, standard errors 1e-6 (observed 4.2e-7)"
     },
     "example": "sp.nls(\"y ~ {a} + {b} * x^{c}\", data=df, start={\"c\": 1}, vce=\"robust\")",
     "failure_modes": [
@@ -13925,7 +13982,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
+      "description": "Nonlinear least squares for y = m(x, theta) + e. The regression function is a formula with the parameters in braces, 'y ~ {a} + {b} * x^{c}' (Stata nl syntax, starting values as {c=0.5} or start=), or a Python function of the parameters and the data. Classical, robust (HC1-HC3) and cluster covariances from the Jacobian at the estimate; reproduces Stata nl. The result works with sp.test, sp.lincom and sp.nlcom. The sum of squares can have local minima: try several starting values. Validation: certified parity evidence. Do NOT use when: The model is linear in its coefficients after a transformation of the regressors -- use sp.regress; A parameter is a threshold at which the function jumps -- the estimate is usable but its normal-theory standard error is not; use sp.threshold.",
       "name": "nls",
       "parameters": {
         "properties": {
@@ -13993,9 +14050,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs R stats::nls with the analytic gradient from deriv() and sandwich::sandwich / vcovCL (gnr, HC1, cluster); Stata nl (gnr, robust, cluster, hc2, hc3) [R version 4.5.2 (2025-10-31), Stata 18, sandwich 3.1.1]; tolerance against R: estimates and standard errors 1e-8 relative at tol=1e-12 (observed 3e-9), 1e-6 at the default tol=1e-10 (estimates 2e-7); against Stata nl: estimates 1e-7, standard errors 1e-6 (observed 4.2e-7) -- tests/reference_parity/test_regcmd_stata_r_parity.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -14180,22 +14238,26 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
+    "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: certified parity evidence. Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata mprobit (independent errors of variance one, intpoints(120)): base outcome 1 and 3, noconstant",
+      "reference_versions": {
+        "Stata": "18"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_hansen_methods_stata_parity.py"
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "coefficients 1e-8 relative (observed 1.2e-9), standard errors 1e-6 (observed 2.8e-7), log likelihood 1e-10"
     },
     "example": "sp.mprobit(df, y=\"choice\", x=[\"cost\"], case_vars=[\"income\"], chid=\"case\", alt=\"mode\", correlation=\"independent\", stddev=\"homoskedastic\")",
     "failure_modes": [
@@ -14238,7 +14300,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
+      "description": "Multinomial probit choice model for long data (one row per case and alternative): regressors that vary over alternatives, case-specific regressors with one coefficient per alternative, and jointly normal errors with an independent or unstructured covariance. The choice probabilities are integrated by Gauss-Legendre quadrature when there are at most four alternatives, so the likelihood has no simulation noise and no seed. Parameterised and normalised as Stata cmmprobit, whose simulated estimates it reproduces to three or four digits. Validation: certified parity evidence. Do NOT use when: Independence of irrelevant alternatives is acceptable -- sp.clogit is far cheaper and its coefficients are odds ratios; More than four alternatives with an unstructured covariance -- the probabilities are then simulated and the covariance is rarely identified in practice.",
       "name": "mprobit",
       "parameters": {
         "properties": {
@@ -14342,9 +14404,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata mprobit (independent errors of variance one, intpoints(120)): base outcome 1 and 3, noconstant [Stata 18]; tolerance coefficients 1e-8 relative (observed 1.2e-9), standard errors 1e-6 (observed 2.8e-7), log likelihood 1e-10 -- tests/reference_parity/test_regcmd_stata_r_parity.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -69114,18 +69177,31 @@
     ],
     "category": "postestimation",
     "cost_profile": "",
-    "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged.",
+    "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata regress, beta (e(beta), with and without [aw=]) and regress / ivreg2 / reghdfe / ivreghdfe on z-scored or x-only z-scored variables",
+      "reference_versions": {
+        "Stata": "18",
+        "ivreg2": "4.1.12",
+        "ivreghdfe": "1.1.4",
+        "reghdfe": "6.13.1"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ivreport_stata_parity.py",
+        "tests/reference_parity/_fixtures/ivreport_Stata.json",
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json"
+      ],
+      "tolerance": "e(beta) 1e-10 relative; coefficients 1e-10 absolute and standard errors 1e-9 relative on the refits (observed 1e-13)"
     },
     "example": "sp.standardize_coefs(sp.regress('y ~ x + w', data=df))",
     "failure_modes": [
@@ -69170,7 +69246,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged.",
+      "description": "Standardised (beta) coefficients of an OLS, 2SLS or fixed-effects fit: each slope times sd(x)/sd(y) (Stata regress, beta), equal to re-running the estimator on z-scored variables. SEs and interval ends scale by the same factor; t statistics and p-values are unchanged. Validation: certified parity evidence.",
       "name": "standardize_coefs",
       "parameters": {
         "properties": {
@@ -69210,9 +69286,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/reference_parity/test_ivreport_stata_parity.py: equals Stata's e(beta) and regress / ivreg2 / reghdfe / ivreghdfe on z-scored variables (T2, same bytes); tests/test_ivreport_tools.py: weighted OLS on z-scores identity"
+      "tests/reference_parity/test_ivreport_stata_parity.py: equals Stata's e(beta) and regress / ivreg2 / reghdfe / ivreghdfe on z-scored variables (T2, same bytes); tests/test_ivreport_tools.py: weighted OLS on z-scores identity",
+      "Cross-language parity (bit-exact) vs Stata regress, beta (e(beta), with and without [aw=]) and regress / ivreg2 / reghdfe / ivreghdfe on z-scored or x-only z-scored variables [Stata 18, ivreg2 4.1.12, ivreghdfe 1.1.4, reghdfe 6.13.1]; tolerance e(beta) 1e-10 relative; coefficients 1e-10 absolute and standard errors 1e-9 relative on the refits (observed 1e-13) -- tests/reference_parity/test_ivreport_stata_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -69229,17 +69306,21 @@
     ],
     "category": "inference",
     "cost_profile": "",
-    "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
+    "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_ibragimov_mueller_closed_form.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.ibragimov_mueller(df, \"y ~ (x ~ z) + w\", cluster=\"region\", coef=\"x\", estimator=\"iv\")",
@@ -69287,7 +69368,7 @@
       }
     },
     "signature": {
-      "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
+      "description": "Ibragimov-Mueller t-statistic inference with few heterogeneous groups: estimate the coefficient separately in each of q groups (clusters, spatial blocks) and t-test the q estimates with q-1 degrees of freedom. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Many large clusters with homogeneous designs -- a cluster-robust SE (cluster=) is more powerful.",
       "name": "ibragimov_mueller",
       "parameters": {
         "properties": {
@@ -69345,9 +69426,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_ivreport_tools.py: matches a by-hand group-estimate t test, IV groups are sp.iv fits, and the size is controlled with few heterogeneous clusters"
+      "tests/test_ivreport_tools.py: matches a by-hand group-estimate t test, IV groups are sp.iv fits, and the size is controlled with few heterogeneous clusters",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ibragimov_mueller_closed_form.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -69363,18 +69445,27 @@
     ],
     "category": "inference",
     "cost_profile": "One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
-    "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
+    "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Validation: certified parity evidence. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata acreg spatial HAC at 25, 75, 150 and 300 km, OLS and 2SLS, uniform and Bartlett kernels",
+      "reference_versions": {
+        "Stata": "18",
+        "acreg": "1.1.0"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/reference_parity/test_ivreport_stata_parity.py",
+        "tests/reference_parity/_fixtures/ivreport_Stata.json"
+      ],
+      "tolerance": "standard errors 1e-9 relative (observed 6e-13)"
     },
     "example": "sp.conley_sensitivity(fit, df, \"lat\", \"lon\", [25, 50, 100, 200])",
     "failure_modes": [
@@ -69415,7 +69506,7 @@
       }
     },
     "signature": {
-      "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
+      "description": "Conley spatial HAC standard errors, intervals and p-values of an OLS or 2SLS fit across several distance cutoffs, as a table with a plot; each row is sp.conley at that cutoff. Validation: certified parity evidence. Cost: One sp.conley call per cutoff; the planar path builds an n x n distance matrix, so beyond ~20,000 rows prefer distance='haversine' (KD-tree).",
       "name": "conley_sensitivity",
       "parameters": {
         "properties": {
@@ -69509,9 +69600,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/reference_parity/test_ivreport_stata_parity.py: matches Stata acreg at each cutoff (T2, same bytes); tests/test_ivreport_tools.py: every row equals sp.conley and a tiny cutoff gives HC0"
+      "tests/reference_parity/test_ivreport_stata_parity.py: matches Stata acreg at each cutoff (T2, same bytes); tests/test_ivreport_tools.py: every row equals sp.conley and a tiny cutoff gives HC0",
+      "Cross-language parity (bit-exact) vs Stata acreg spatial HAC at 25, 75, 150 and 300 km, OLS and 2SLS, uniform and Bartlett kernels [Stata 18, acreg 1.1.0]; tolerance standard errors 1e-9 relative (observed 6e-13) -- tests/reference_parity/test_ivreport_stata_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -110490,18 +110582,27 @@
     ],
     "category": "inference",
     "cost_profile": "augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits.",
-    "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient.",
+    "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors",
+      "reference_versions": {
+        "Stata": "18",
+        "boottest": "4.5.3"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/reference_parity/test_regcmd_stata_r_parity.py",
+        "tests/reference_parity/_fixtures/regcmd_Stata.json"
+      ],
+      "tolerance": "p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two)"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nG, m = 30, 20\nfirm = np.repeat(np.arange(G), m)\nz = rng.normal(size=G * m); u = rng.normal(size=G * m)\nd = z + 0.5 * u + rng.normal(size=G * m)\ndf = pd.DataFrame({'firm': firm, 'z': z, 'd': d,\n 'y': 0.5 * d + u + rng.normal(size=G)[firm]})\nfit = sp.ivreg('y ~ (d ~ z)', data=df, cluster='firm')\nr = sp.iv_wild_bootstrap(fit, df, 'firm', 'd', n_boot=199, seed=1)",
     "failure_modes": [
@@ -110556,11 +110657,11 @@
     "reference": "roodman2019fast",
     "returns": {
       "class": "dict",
-      "description": "dict: beta_hat, se_cluster, t_stat, p_boot (symmetric, strict inequality as in boottest), ci_boot (the test-inversion confidence set), t_distribution, n_clusters, n_obs, n_boot (2**G when the Rademacher grid is enumerated), enumerated,",
+      "description": "dict: beta_hat, se_cluster, t_stat, p_boot (symmetric, strict inequality as in boottest), ci_boot (the test-inversion confidence interval: the connected part of {beta0 : p(beta0) > alpha} that contains the estimate;",
       "fields": {}
     },
     "signature": {
-      "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient.",
+      "description": "WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient. Validation: certified parity evidence.",
       "name": "iv_wild_bootstrap",
       "parameters": {
         "properties": {
@@ -110623,8 +110724,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (aligned) vs boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors [Stata 18, boottest 4.5.3]; tolerance p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two) -- tests/reference_parity/test_regcmd_stata_r_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
