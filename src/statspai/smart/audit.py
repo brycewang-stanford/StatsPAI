@@ -594,6 +594,82 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
 )
 
 
+#: Causal-forest checks (``sp.causal_forest``). The evidence is built from
+#: the fitted forest by :func:`statspai.smart._audit_forest.forest_evidence`.
+_FOREST_OVERLAP_MAX_SHARE = 0.05  # = CausalForest.NUISANCE_OVERLAP_MAX_SHARE
+_FOREST_CHECKS: Tuple[_Check, ...] = (
+    _Check(
+        name="overlap",
+        question="Do the forest's propensities stay inside [0.01, 0.99] "
+        "(at most 5% of units outside)?",
+        applies_to=("forest",),
+        evidence_paths=_p("nuisance_overlap", "share_outside"),
+        threshold=_FOREST_OVERLAP_MAX_SHARE,
+        compare="less_passes",
+        suggest_function="sp.forest_diagnostics",
+        importance="high",
+        rationale="The doubly robust ATE / ATT divide by W_hat and 1 - W_hat; "
+        "with propensities near 0 or 1 they rest on a few units.",
+        applicability="forest_overlap",
+    ),
+    _Check(
+        name="calibration_mean",
+        question="Is the mean forest prediction calibrated (the 95% CI of "
+        "the calibration test's mean coefficient covers 1)?",
+        applies_to=("forest",),
+        evidence_paths=_p("calibration", "mean_distance_from_one"),
+        threshold=1.0,
+        compare="less_passes",
+        suggest_function="sp.calibration_test",
+        importance="high",
+        rationale="grf::test_calibration: a mean coefficient of 1 says the "
+        "average of the CATE predictions is right; the value is "
+        "|beta - 1| in CI half-widths.",
+        applicability="forest_calibration_mean",
+    ),
+    _Check(
+        name="heterogeneity_detected",
+        question="Does the calibration test detect heterogeneity (one-sided "
+        "p < 0.05 on the differential coefficient)?",
+        applies_to=("forest",),
+        evidence_paths=_p("calibration", "p_differential"),
+        threshold=0.05,
+        compare="less_passes",
+        suggest_function="sp.rate",
+        importance="medium",
+        rationale="Without a significantly positive differential coefficient "
+        "the CATE ranking is not distinguishable from a constant effect; "
+        "do not report subgroup effects from it.",
+        applicability="forest_heterogeneity",
+    ),
+    _Check(
+        name="honest_splitting",
+        question="Were the trees honest (splits and leaf estimates on "
+        "different subsamples)?",
+        applies_to=("forest",),
+        evidence_paths=_p("honest_splitting", "honesty_fraction"),
+        threshold=0.0,
+        compare="greater_passes",
+        suggest_function="sp.causal_forest",
+        importance="high",
+        rationale="The forest's confidence intervals rely on honesty "
+        "(Wager-Athey 2018); without it they are not valid.",
+    ),
+    _Check(
+        name="oob_predictions",
+        question="Does every training row have an out-of-bag prediction?",
+        applies_to=("forest",),
+        evidence_paths=_p("oob_predictions", "n_rows_without_oob_prediction"),
+        threshold=0.5,
+        compare="less_passes",
+        suggest_function="sp.causal_forest",
+        importance="low",
+        rationale="Training-sample statistics (ATE, calibration, RATE) must "
+        "use OOB predictions; rows without one need more trees.",
+    ),
+)
+
+
 # ====================================================================== #
 #  Statistical applicability
 # ====================================================================== #
@@ -669,8 +745,20 @@ def _rule_overidentified(model_info: Dict[str, Any]) -> Optional[str]:
 #: the check cannot be asked of this fit, or ``None`` when it can (or when the
 #: stored metadata is insufficient to decide -- the check is then evaluated
 #: normally rather than silently dropped).
+def _forest_rule(name: str) -> Any:
+    def rule(model_info: Dict[str, Any]) -> Optional[str]:
+        from ._audit_forest import not_applicable
+
+        return not_applicable(name, model_info)
+
+    return rule
+
+
 _APPLICABILITY_RULES: Dict[str, Any] = {
     "overidentified": _rule_overidentified,
+    "forest_overlap": _forest_rule("overlap"),
+    "forest_calibration_mean": _forest_rule("calibration_mean"),
+    "forest_heterogeneity": _forest_rule("heterogeneity_detected"),
 }
 
 
@@ -996,7 +1084,10 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         - ``method`` (str) — the estimator's name
         - ``method_family`` (str) — one of ``"did"`` / ``"rd"`` / ``"iv"``
           / ``"synth"`` / ``"matching"`` / ``"dml"`` / ``"hte"`` /
-          ``"regression"`` / ``"generic"``
+          ``"regression"`` / ``"generic"``, or ``"forest"`` for a fitted
+          ``sp.causal_forest`` (overlap, calibration test, heterogeneity,
+          honest splitting, out-of-bag coverage; the calibration test is
+          computed from the forest's out-of-bag predictions)
         - ``checks`` (list[dict]) — every check the estimator family
           lists, each with ``name`` / ``question`` / ``status`` /
           ``severity`` / ``value`` / ``threshold`` / ``suggest_function``
@@ -1047,9 +1138,16 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         Action-oriented recommendations for what to do next.
     """
     from ..core.next_steps import _detect_family
+    from ._audit_forest import forest_evidence, is_causal_forest
 
     method = getattr(result, "method", None)
-    if method is None:
+    forest = is_causal_forest(result)
+    if forest:
+        # A fitted CausalForest has no method / model_info; it used to fall
+        # through to the regression pool (robust SEs, Oster bounds).
+        family = "forest"
+        method_label = "causal_forest"
+    elif method is None:
         # EconometricResults: family determined from model_type.
         mi = getattr(result, "model_info", None) or {}
         model_type = (mi.get("model_type", "") or "").lower()
@@ -1068,6 +1166,8 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     # EconometricResults stores diagnostics under .diagnostics, not
     # model_info. Merge both so cross-class checks find their evidence.
     diag = getattr(result, "diagnostics", None) or {}
+    if forest:
+        model_info, diag = forest_evidence(result), {}
     if diag:
         merged = dict(model_info)
         for k, v in diag.items():
@@ -1075,7 +1175,9 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         model_info = merged
 
     pool: Sequence[_Check] = (
-        _CAUSAL_CHECKS if family != "regression" else _REGRESSION_CHECKS
+        _FOREST_CHECKS
+        if forest
+        else _CAUSAL_CHECKS if family != "regression" else _REGRESSION_CHECKS
     )
 
     checks: List[Dict[str, Any]] = []
@@ -1154,7 +1256,7 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     # evaluator already receives, so it sees the same data the check would
     # otherwise try to read. We rebuild the merge here rather than plumbing
     # the merged dict through (it is small; a few keys).
-    diag_for_gate = getattr(result, "diagnostics", None) or {}
+    diag_for_gate = {} if forest else (getattr(result, "diagnostics", None) or {})
 
     for chk in pool:
         if family not in chk.applies_to:

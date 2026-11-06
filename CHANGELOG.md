@@ -113,6 +113,15 @@ All notable changes to StatsPAI will be documented in this file.
   carries `evidence_grade='T3'` and reads "Cross-language comparison
   (seed-replicated stochastic equivalence, T3)" instead of "Cross-language
   parity (aligned)" with a derived T2.
+- **`sp.audit` on `sp.causal_forest` asked regression questions.** A fitted
+  forest has no `method` / `model_info`, so it got the regression pool
+  (robust SEs, Oster and Cinelli-Hazlett bounds, few clusters), none of
+  which apply. It now gets its own family, `"forest"`: `overlap` (the
+  forest's propensities, the same record and threshold as its fit-time
+  warning; not applicable for `fe=` forests), `calibration_mean` and
+  `heterogeneity_detected` (the `grf::test_calibration` regression,
+  `sp.calibration_test`, computed from the out-of-bag predictions without
+  refitting), `honest_splitting` and `oob_predictions`.
 
 
 ### Tests

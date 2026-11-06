@@ -15,6 +15,7 @@ counterpart.
 from __future__ import annotations
 
 import json
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -822,3 +823,118 @@ class TestAuditReportRendering:
             }
         )
         assert "no checks apply" in str(empty)
+
+
+class TestCausalForestAudit:
+    """sp.audit on sp.causal_forest asks forest questions, not regression ones.
+
+    A fitted CausalForest has no method / model_info and used to get the
+    regression pool (robust SEs, Oster bounds). Each check's value is
+    pinned to the forest's own diagnostic it reads.
+    """
+
+    @staticmethod
+    def _data(n=800, seed=0, slope=0.0, tau_sd=1.0, continuous=False):
+        rng = np.random.default_rng(seed)
+        X = rng.normal(size=(n, 2))
+        if continuous:
+            w = X[:, 0] + rng.normal(size=n)
+        else:
+            w = rng.binomial(1, 1 / (1 + np.exp(-slope * X[:, 0])))
+        y = X[:, 0] + (1 + tau_sd * X[:, 1]) * w + rng.normal(size=n)
+        return pd.DataFrame({"y": y, "w": w, "x1": X[:, 0], "x2": X[:, 1]})
+
+    @staticmethod
+    def _fit(df, **kw):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return sp.causal_forest(
+                "y ~ w | x1 + x2", data=df, random_state=3, n_estimators=200, **kw
+            )
+
+    @staticmethod
+    def _checks(cf):
+        return {c["name"]: c for c in sp.audit(cf)["checks"]}
+
+    def test_forest_pool_replaces_regression_pool(self):
+        cf = self._fit(self._data())
+        report = sp.audit(cf)
+        names = {c["name"] for c in report["checks"]}
+        assert report["method_family"] == "forest"
+        assert names == {
+            "overlap",
+            "calibration_mean",
+            "heterogeneity_detected",
+            "honest_splitting",
+            "oob_predictions",
+        }
+        assert not names & {"robust_se", "ovb_oster", "ovb_cinelli_hazlett"}
+
+    def test_values_are_the_forests_own_diagnostics(self):
+        cf = self._fit(self._data())
+        checks = self._checks(cf)
+        table = sp.calibration_test(cf)
+        mean = table.loc["mean_forest_prediction"]
+        half = 0.5 * (mean["ci_high"] - mean["ci_low"])
+        assert checks["calibration_mean"]["value"] == pytest.approx(
+            abs(mean["coef"] - 1.0) / half, rel=1e-12
+        )
+        p_diff = table.loc["differential_forest_prediction", "p"]
+        assert checks["heterogeneity_detected"]["value"] == pytest.approx(
+            p_diff, rel=1e-12
+        )
+        assert checks["heterogeneity_detected"]["status"] == (
+            "passed" if p_diff < 0.05 else "failed"
+        )
+        share = cf.diagnostics["nuisance_overlap"]["share_outside"]
+        assert checks["overlap"]["value"] == share
+        assert checks["honest_splitting"]["value"] == cf.honesty_fraction
+
+    def test_overlap_threshold_is_the_forests_own(self):
+        from statspai.forest.causal_forest import CausalForest
+        from statspai.smart.audit import _FOREST_OVERLAP_MAX_SHARE
+
+        assert _FOREST_OVERLAP_MAX_SHARE == CausalForest.NUISANCE_OVERLAP_MAX_SHARE
+
+    def test_poor_overlap_fails(self):
+        cf = self._fit(self._data(slope=6.0, seed=1))
+        share = cf.diagnostics["nuisance_overlap"]["share_outside"]
+        assert share > 0.05
+        check = self._checks(cf)["overlap"]
+        assert check["status"] == "failed" and check["value"] == share
+
+    def test_dishonest_forest_fails_honest_splitting(self):
+        cf = self._fit(self._data(), honest=False)
+        check = self._checks(cf)["honest_splitting"]
+        assert check["status"] == "failed" and check["value"] == 0.0
+
+    def test_fe_forest_has_no_propensity_overlap_question(self):
+        rng = np.random.default_rng(4)
+        rows = []
+        for i in range(60):
+            g = 4 if i < 30 else 0
+            x = rng.normal()
+            for t in range(1, 7):
+                d = int(g > 0 and t >= g)
+                y = 0.5 * i + 0.3 * t + (1 + x) * d + rng.normal()
+                rows.append((i, t, d, x, y))
+        df = pd.DataFrame(rows, columns=["id", "t", "w", "x1", "y"])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cf = sp.causal_forest(
+                "y ~ w | x1",
+                data=df,
+                fe="twoway",
+                id="id",
+                time="t",
+                random_state=3,
+                n_estimators=200,
+            )
+        checks = self._checks(cf)
+        assert checks["overlap"]["status"] == "not_applicable"
+        assert "fe= forest" in checks["overlap"]["reason"]
+        # the calibration test runs on the imputation scores for fe= forests
+        p_diff = sp.calibration_test(cf).loc["differential_forest_prediction", "p"]
+        assert checks["heterogeneity_detected"]["value"] == pytest.approx(
+            p_diff, rel=1e-12
+        )
