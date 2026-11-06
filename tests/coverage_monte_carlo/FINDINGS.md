@@ -30,7 +30,10 @@ coverage test also allows 0.02 above the upper end, because over-coverage
 is conservative. Until 2026-11-05 this file quoted `[0.935, 0.967]`, which
 mixes the 95% Wilson lower end with the 99% score-test upper end; under the
 test's actual rule sharp RD (0.934) is inside the band and SDID (0.928) is
-just below it.
+just below it. The JSS manuscript's Table caption uses the exact binomial
+99% acceptance region `[0.931, 0.967]`; it agrees with the test on every row
+except the interactive DML row (0.968), which the test's upper slack
+accepts and the manuscript calls mildly conservative.
 
 | Estimator | DGP | Coverage | Bias | MC SD | Mean SE | SE/SD |
 | --- | --- | --- | --- | --- | --- | --- |

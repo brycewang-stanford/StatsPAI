@@ -158,10 +158,11 @@ The three estimators that left the denominator are not estimators
    objective; it is more principled but changes numbers.
 2. Continuous-treatment weights in `sp.ps_weights`. Keep the density ratio,
    or follow the WeightIt / propensity convention?
-3. The JSS manuscript quotes the coverage band `[0.935, 0.967]` in three
-   places (`05-parity.tex`, `05-parity-compact.tex`, `main-zh.md`). The
-   test's band is `[0.929, 0.965]`. Fix it at the next re-anchor; under the
-   test's rule sharp RD (0.934) is inside the band.
+3. Resolved 2026-11-06, no change needed. The compiled JSS section
+   (`05-parity-compact.tex`) uses the exact binomial 99% acceptance region
+   `[0.931, 0.967]`, which is correct. The wrong `[0.935, 0.967]` appears only
+   in the uncompiled long version `05-parity.tex` and the Chinese translation
+   `main-zh.md`; fix those whenever they are next regenerated.
 4. CausalAgentBench v2 cannot run until the OSF deposit is made. Until then
    the scorecard makes no agent-performance claim.
 
