@@ -29,6 +29,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from .conformal_ite import _split_conformal_quantile
 
 __all__ = [
     "conformal_continuous",
@@ -218,9 +219,7 @@ def conformal_continuous(
     estimator.fit(X_train, y_train)
     cal_pred = estimator.predict(X_cal)
     cal_scores = np.abs(y_cal - cal_pred)
-    q_level = np.ceil((n_cal + 1) * (1 - alpha)) / n_cal
-    q_level = min(q_level, 1.0)
-    q = float(np.quantile(cal_scores, q_level))
+    q = _split_conformal_quantile(cal_scores, alpha)
 
     # Point + bands for test rows
     X_test = test_data[[treatment] + list(covariates)].to_numpy(dtype=float)
@@ -406,9 +405,7 @@ def conformal_interference(
     cal_pred = estimator.predict(X_cal)
     cal_abs = np.abs(y_cal - cal_pred)
     cal_scores = pd.Series(cal_abs).groupby(cal_cluster_series).mean()
-    n = len(cal_scores)
-    q_level = min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)
-    q = float(np.quantile(cal_scores.to_numpy(), q_level))
+    q = _split_conformal_quantile(cal_scores.to_numpy(), alpha)
 
     test_rows = []
     for cid in test_clusters:

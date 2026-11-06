@@ -194,6 +194,12 @@ ccw = sp.clone_censor_weight(
 )
 ```
 
+The censoring model is a pooled logit fitted on every row at risk of
+deviating, the deviation row included. The weight at time `t` is the
+product of the inverse probabilities of staying uncensored up to `t`
+(Cole and Hernan 2008). It equals `ipw::ipwtm(type = "cens")` in R to
+1e-14. Add `"time"` to `censor_covariates` for a time-specific hazard.
+
 Pair this with `sp.ipcw` (see [Survival analysis](survival_ph.md)) when
 loss-to-follow-up is informative.
 

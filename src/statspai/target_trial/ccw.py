@@ -9,8 +9,10 @@ zero, one, or two strategies until they deviate. CCW solves this by:
 1. **Clone** each subject once per compatible strategy.
 2. **Censor** a clone at the moment they deviate from their assigned
    strategy.
-3. **Re-weight** uncensored clones via IPCW using a censoring model
-   that conditions on post-baseline covariates predicting deviation.
+3. **Re-weight** uncensored clones via IPCW: a pooled logistic model
+   for remaining uncensored at each time, given the covariates at that
+   time, and a weight equal to the cumulative product of the inverse
+   fitted probabilities up to that time.
 
 This removes the selection bias that artificial censoring would
 otherwise introduce, as long as the censoring model captures all
@@ -107,9 +109,31 @@ def clone_censor_weight(
         treatment is *consistent* with the strategy at that time).
     censor_covariates : list[str], optional
         Covariates used to estimate IP-of-censoring weights after
-        cloning. Defaults to all non-key columns.
+        cloning. Defaults to all non-key columns. An empty list fits no
+        censoring model and every weight is 1. Include ``time_col`` here
+        for a time-specific censoring hazard.
     stabilize : bool, default True
-        Use stabilized IPC weights.
+        Use stabilized IPC weights (each factor multiplied by the pooled
+        share of at-risk rows that remain uncensored).
+
+    Notes
+    -----
+    Per strategy, every clone row up to and including its first deviation
+    is at risk of artificial censoring (a clone that deviates at its
+    first row is censored at time zero). A pooled logistic model of
+    remaining uncensored on ``censor_covariates`` is fitted on those
+    rows, and the weight of an uncensored row at time ``t`` is
+    ``prod_{j <= t} 1 / P(C_j = 0 | L_j)`` over the clone's rows
+    (``cole2008constructing``, appendix 1; equal to
+    ``ipw::ipwtm(type = "cens", family = "binomial")``). The deviation rows
+    are then dropped, so ``cloned_data`` holds the uncensored follow-up.
+    ``_censored`` flags clones that are censored at some time.
+
+    Before 1.43 the model was fitted on the uncensored rows only, with a
+    clone-level "ever censored" outcome, and each row's weight was the
+    inverse of that single probability (no cumulative product, and the
+    clones censored at time zero did not enter the model); those weights
+    did not correct for artificial censoring.
 
     Returns
     -------

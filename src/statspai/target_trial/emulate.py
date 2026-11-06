@@ -3,13 +3,15 @@ Target trial emulation — end-to-end pipeline wiring a protocol to data.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, Literal, cast
+
 import numpy as np
 import pandas as pd
 
-from .protocol import TargetTrialProtocol
 from .._result_serialize import ResultProtocolMixin
+from .protocol import TargetTrialProtocol
 
 
 @dataclass
@@ -23,7 +25,9 @@ class TargetTrialResult(ResultProtocolMixin):
     estimate : float
         Point estimate of the causal contrast under the protocol.
     se : float
-        Analytic standard error (IPW sandwich or bootstrap).
+        Sandwich (HC0) standard error of the weighted mean difference,
+        weights treated as known (``lm(y ~ a, weights = w)`` with
+        ``sandwich::vcovHC(type = "HC0")``).
     ci : tuple[float, float]
         95% confidence interval.
     n_eligible : int
@@ -182,8 +186,12 @@ def emulate(
     m0 = float(np.sum(w * (1 - a) * y) / sum_w0)
     estimate = m1 - m0
 
-    v1 = float(np.sum(w * a * (y - m1) ** 2) / sum_w1**2)
-    v0 = float(np.sum(w * (1 - a) * (y - m0) ** 2) / sum_w0**2)
+    # Sandwich (HC0) variance of the two weighted means, weights treated as
+    # known: sum(w^2 (y - m)^2) / (sum w)^2 per arm. Before 1.43 the
+    # numerator carried w instead of w^2, so the SE changed when the
+    # weights were rescaled; with unit weights the two agree.
+    v1 = float(np.sum(w**2 * a * (y - m1) ** 2) / sum_w1**2)
+    v0 = float(np.sum(w**2 * (1 - a) * (y - m0) ** 2) / sum_w0**2)
     se = float(np.sqrt(v1 + v0))
     ci = (estimate - 1.96 * se, estimate + 1.96 * se)
 

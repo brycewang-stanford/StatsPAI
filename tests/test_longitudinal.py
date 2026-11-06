@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.longitudinal import regime, always_treat, never_treat
+from statspai.longitudinal import always_treat, never_treat, regime
 
 # ---------------------------------------------------------------------------
 # Regime DSL
@@ -234,3 +234,78 @@ def test_analyze_gformula_path_with_static_regime(panel_with_tv_confounders):
     )
     assert r.method == "g-formula"
     assert np.isfinite(r.estimate)
+
+
+# ---------------------------------------------------------------------------
+# Baseline-IPW path: inputs it cannot handle are refused (1.43)
+# ---------------------------------------------------------------------------
+
+
+def _two_period(treat_rows):
+    rows = []
+    for pid, (a0, a1) in enumerate(treat_rows):
+        rows += [
+            {"pid": pid, "visit": 0, "treat": a0, "y": 1.0 + pid, "age": 40.0 + pid},
+            {"pid": pid, "visit": 1, "treat": a1, "y": 2.0 + pid, "age": 40.0 + pid},
+        ]
+    return pd.DataFrame(rows)
+
+
+def test_ipw_path_refuses_treatment_that_varies_within_id():
+    """Before 1.43 the path read only the last-period treatment, so
+    'always treat' meant 'treated at the end'."""
+    from statspai.exceptions import MethodIncompatibility
+
+    df = _two_period([(0, 1), (1, 1), (0, 0), (1, 0), (1, 1), (0, 0)])
+    with pytest.raises(MethodIncompatibility, match="2 ids change treatment"):
+        sp.longitudinal_analyze(
+            df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
+            baseline=["age"],
+            regime=always_treat(),
+        )
+
+
+def test_ipw_path_refuses_dynamic_and_time_varying_regimes():
+    """Before 1.43 a dynamic regime returned the unweighted mean of y and a
+    static [1, 0] regime was read as 'always treat'."""
+    from statspai.exceptions import MethodIncompatibility
+
+    df = _two_period([(1, 1), (0, 0), (1, 1), (0, 0)])
+    with pytest.raises(MethodIncompatibility, match="dynamic regime"):
+        sp.longitudinal_analyze(
+            df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
+            regime=regime("if age > 41 then 1 else 0"),
+        )
+    with pytest.raises(MethodIncompatibility, match="changes over time"):
+        sp.longitudinal_analyze(
+            df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
+            regime=[1, 0],
+        )
+
+
+def test_ipw_path_refuses_a_regime_nobody_follows():
+    """Before 1.43 this returned estimate = NaN."""
+    from statspai.exceptions import DataInsufficient
+
+    df = _two_period([(0, 0), (0, 0), (0, 0)])
+    with pytest.raises(DataInsufficient, match="no id has treatment 1.0"):
+        sp.longitudinal_analyze(
+            df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
+            regime=always_treat(),
+        )

@@ -20,6 +20,26 @@ on your propensity scores.
 
 ---
 
+## 1.42 → next: ⚠️ target-trial weights and SEs, conformal quantiles
+
+- `sp.target_trial_emulate`: the SE changes only when you pass `weights=`.
+  It is larger whenever the weights average above 1 within an arm. There
+  is no switch back: the old number was not a valid SE.
+- `sp.clone_censor_weight`: the `_ipcw` column changes. Refit any weighted
+  per-protocol outcome model. The rows kept are the same. An empty
+  `censor_covariates` still gives weights of 1. Add the time column to
+  `censor_covariates` for a time-specific censoring hazard.
+- `sp.conformal_cate`, `sp.conformal_continuous`,
+  `sp.conformal_interference`: interval endpoints move inward or stay
+  put. Coverage stays at or above the nominal level; the old bands were
+  wider than the method gives.
+- `sp.longitudinal_analyze` without `time_varying=` now raises for a
+  treatment that changes within id, a dynamic regime, a static regime that
+  changes over time, and a regime no id follows. Pass the time-varying
+  confounders (g-formula or MSM path) or choose `method=` explicitly.
+
+---
+
 ## 1.42.1 → next: `sp.event_study_vcov` default announced for 1.44
 
 Nothing changes numerically. `sp.event_study_vcov(result)` on a fit with

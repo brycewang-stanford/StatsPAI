@@ -35,6 +35,25 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core.results import CausalResult
 
+
+def _split_conformal_quantile(scores: np.ndarray, alpha: float) -> float:
+    """The ``ceil((n + 1)(1 - alpha))``-th smallest score (split conformal).
+
+    When that rank exceeds ``n`` the largest score is returned (the finite
+    band of ``cfcausal``'s ``useInf = FALSE``), and with no scores ``inf``.
+    Before 1.43 this was ``np.quantile`` at level ``rank / n``, which
+    interpolates linearly between the rank-th and the next order statistic,
+    so the bands were wider than the conformal quantile whenever the rank
+    was below ``n``.
+    """
+    s = np.sort(np.asarray(scores, dtype=float))
+    n_s = len(s)
+    if n_s == 0:
+        return float(np.inf)
+    rank = int(np.ceil((1 - alpha) * (n_s + 1)))
+    return float(s[min(rank, n_s) - 1])
+
+
 # ======================================================================
 # Public API
 # ======================================================================
@@ -275,16 +294,8 @@ class ConformalCATE:
         # Quantile for prediction intervals
         # For ITE interval, we need to account for uncertainty in both arms
         # Use the max of the two arm quantiles (conservative)
-        def _conformal_quantile(scores: np.ndarray, alpha: float) -> float:
-            n_s = len(scores)
-            if n_s == 0:
-                return np.inf
-            level = np.ceil((1 - alpha) * (n_s + 1)) / n_s
-            level = min(level, 1.0)
-            return float(np.quantile(scores, level))
-
-        q1 = _conformal_quantile(scores_1, self.alpha / 2)
-        q0 = _conformal_quantile(scores_0, self.alpha / 2)
+        q1 = _split_conformal_quantile(scores_1, self.alpha / 2)
+        q0 = _split_conformal_quantile(scores_0, self.alpha / 2)
 
         # Predict on full dataset
         mu1_all = mu1.predict(X)

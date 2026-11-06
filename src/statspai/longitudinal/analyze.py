@@ -152,7 +152,9 @@ def analyze(
           - End-of-follow-up outcome + static regime  -> g-formula ICE
     alpha : float, default 0.05
     trim : float, default 0.01
-        Weight truncation quantile (MSM/IPW paths).
+        On the IPW path, propensity scores are clipped to
+        ``[trim, 1 - trim]``; on the MSM path it is passed to
+        :func:`sp.msm` as its ``trim``.
 
     Returns
     -------
@@ -499,7 +501,45 @@ def _run_ipw(
     n: int,
     n_periods: int,
 ) -> LongitudinalResult:
-    """Baseline-only IPW when no time-varying confounders are given."""
+    """Baseline-only IPW when no time-varying confounders are given.
+
+    Valid for a treatment that is constant within each id (a point
+    treatment recorded on every row) and a static regime that is constant
+    over time. Anything else is refused: this path reads one treatment per
+    id and compares it with the regime's first entry.
+    """
+    from ..exceptions import DataInsufficient, MethodIncompatibility
+
+    hint = (
+        "Pass the time-varying confounders as time_varying= so the call "
+        "routes to the g-formula (static regimes) or an MSM (dynamic "
+        "regimes), or use method='g-formula' / method='msm'."
+    )
+    n_levels = data.groupby(id_col)[treatment_col].nunique(dropna=False)
+    if (n_levels > 1).any():
+        raise MethodIncompatibility(
+            "longitudinal_analyze: the baseline-IPW path (no time_varying=) "
+            "needs a treatment that is constant within each id; "
+            f"{int((n_levels > 1).sum())} ids change treatment over time.",
+            recovery_hint=hint,
+            diagnostics={"ids_with_varying_treatment": int((n_levels > 1).sum())},
+        )
+    if regime.kind != "static":
+        raise MethodIncompatibility(
+            "longitudinal_analyze: the baseline-IPW path cannot evaluate a "
+            f"dynamic regime ({regime.name!r}).",
+            recovery_hint=hint,
+            diagnostics={"regime": regime.name},
+        )
+    assert not callable(regime.rule)
+    if len(set(float(v) for v in regime.rule)) > 1:
+        raise MethodIncompatibility(
+            "longitudinal_analyze: the baseline-IPW path compares a treatment "
+            "that is constant within id with a static regime that changes "
+            f"over time ({list(regime.rule)}).",
+            recovery_hint=hint,
+            diagnostics={"regime": list(regime.rule)},
+        )
     df = data.sort_values([id_col, time_col]).groupby(id_col).tail(1).copy()
     a = df[treatment_col].to_numpy(dtype=float)
     y = df[outcome_col].to_numpy(dtype=float)
@@ -513,23 +553,20 @@ def _run_ipw(
     ps = np.clip(ps, trim, 1 - trim)
     w = np.where(a == 1, 1 / ps, 1 / (1 - ps))
 
-    # Apply regime: if regime is static [1, ...] we estimate E[Y(1)]; if [0, ...]
-    # E[Y(0)].
-    # For dynamic or mixed regimes, fall back to the contrast of observed arms.
-    if regime.kind == "static":
-        assert not callable(regime.rule)
-        target = regime.rule[0]
-        mask = a == target
-        wm = w[mask]
-        if wm.sum() == 0:
-            estimate = float("nan")
-            se = float("nan")
-        else:
-            estimate = float(np.sum(wm * y[mask]) / wm.sum())
-            se = float(np.sqrt(np.sum(wm**2 * (y[mask] - estimate) ** 2)) / wm.sum())
-    else:
-        estimate = float(np.mean(y))
-        se = float(y.std(ddof=1) / np.sqrt(len(y)))
+    # Static regime constant over time: E[Y(target)] by the weighted mean of
+    # the ids treated at that level (Hajek), HC0 sandwich SE.
+    target = regime.rule[0]
+    mask = a == target
+    wm = w[mask]
+    if not mask.any():
+        raise DataInsufficient(
+            f"longitudinal_analyze: no id has treatment {target} under regime "
+            f"{regime.name!r}.",
+            recovery_hint="Check the treatment coding (0/1) and the regime.",
+            diagnostics={"regime": regime.name, "target": float(target)},
+        )
+    estimate = float(np.sum(wm * y[mask]) / wm.sum())
+    se = float(np.sqrt(np.sum(wm**2 * (y[mask] - estimate) ** 2)) / wm.sum())
 
     z = 1.96
     ci = (estimate - z * se, estimate + z * se)

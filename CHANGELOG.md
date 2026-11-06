@@ -73,6 +73,22 @@ All notable changes to StatsPAI will be documented in this file.
   defines estimands, the T1 to T4 and S evidence grades, the parity grades,
   the validation tiers and Tracks A, B and C. CONTRIBUTING gains a table of
   how to run the slow, parity and download-gated tests.
+- **Same-data R / Stata parity for 32 estimators in families that had
+  none.** `doe` (11 of 14: the Joseph fixture of 1.39 is now credited, and
+  `sp.mixture_design` is matched to `mixexp`), `target_trial` and
+  `longitudinal` (`ipw`, `ltmle`, `sandwich`), `proximal` and
+  `interference` (`ivreg`, `sandwich`, Stata `ivregress` / `regress`),
+  `conformal_causal` (`cfcausal`, `conformalInference`), plus
+  `sp.group_sequential` (Stata `gsbounds`, committed but never credited),
+  `sp.optimal_design` (Stata `power twomeans`), `sp.gp_regress`
+  (`rkriging`) and the GRF operators `sp.get_scores`,
+  `sp.variable_importance` and `sp.best_linear_projection` (grf, forest
+  outputs held fixed). Rows and tolerances are in
+  `tests/reference_parity/REFERENCES.md`. Stochastic searches (space-filling
+  designs, support points, forests) stay a screen, and the frontier
+  families (`bayes` samplers, `causal_rl`, `fairness`, `neural_causal`)
+  keep their known-truth grades.
+
 - **Parity evidence for eleven estimators that had none recorded.**
   `sp.cuped`, `sp.msprt`, `sp.msprt_lambda`, `sp.smm`,
   `sp.expected_instrument`, `sp.two_stage_interference`, `sp.tvp_var_sv`,
@@ -113,6 +129,44 @@ All notable changes to StatsPAI will be documented in this file.
   ratio `f(A) / f(A | X)` times the constant `sd_ML(A) / sigma_ML`.
   StatsPAI keeps the density ratio, the standard definition; the parity
   test rebuilds both R packages' weights from ours to 1e-9.
+- ⚠️ **correctness fix: `sp.target_trial_emulate(weights=)` standard
+  error.** Each arm's variance multiplied the squared residuals by `w`, not
+  `w^2`, so the SE changed when the weights were rescaled. It is now the
+  HC0 sandwich with the weights treated as known. It equals R
+  `lm(Y ~ A, weights = w)` with `sandwich::vcovHC(type = "HC0")` to 1e-15.
+  Unit weights (the default) give the same number as before. On the parity
+  fixture the old SE was 0.097 and the correct one is 0.190.
+- ⚠️ **correctness fix: `sp.clone_censor_weight` weights are inverse
+  probability of censoring weights.** The censoring model was fitted on the
+  uncensored rows only, with a clone-level "ever censored" outcome, and
+  each row got one inverse probability. Clones censored at time zero never
+  entered the model. Now each strategy fits a pooled logit on every row at
+  risk of deviating, the deviation row included. The weight at time `t` is
+  the product over the clone's rows up to `t` of `1 / P(uncensored)`;
+  stabilised weights multiply each factor by the pooled uncensored share.
+  This equals R `ipw::ipwtm(type = "cens")` to 1e-14. The rows returned,
+  `n_clones` and `_censored` are unchanged, and an empty
+  `censor_covariates` still gives weights of exactly 1.
+- ⚠️ **correctness fix: `sp.conformal_cate`, `sp.conformal_continuous` and
+  `sp.conformal_interference` use the split-conformal quantile.** They took
+  `np.quantile(scores, rank / n)`, which interpolates between the
+  `ceil((n + 1)(1 - alpha))`-th smallest score and the next one. The bands
+  were therefore wider than the method specifies whenever that rank was
+  below the calibration size (0.4% to 1.0% on the parity fixture). They now
+  use that order statistic, as the rest of the family already did. Bands
+  get narrower or stay the same. Point predictions and the AIPW
+  `estimate` / `se` of `conformal_cate` are unchanged. Found by matching R
+  `cfcausal` on the same splits.
+- **`sp.longitudinal_analyze` refuses inputs its baseline-IPW path cannot
+  handle.** Without `time_varying=` the call routes to a baseline IPW that
+  reads one treatment per id and compares it with the regime's first
+  entry. It used to read the last-period treatment when treatment varied
+  within id, return the unweighted mean of `y` for a dynamic regime, read a
+  static regime such as `[1, 0]` as "always treat", and return NaN when no
+  id followed the regime. These now raise `MethodIncompatibility` (the
+  first three) and `DataInsufficient`, pointing to `time_varying=` or
+  `method='g-formula'` / `'msm'`. Clean inputs give the same numbers.
+
 - ⚠️ **correctness fix: `sp.propensity_score(method='probit')` runs to the
   maximum.** The probit branch (also behind `sp.trimming(ps_method=
   'probit')`, `sp.ps_balance(method='probit')` and
