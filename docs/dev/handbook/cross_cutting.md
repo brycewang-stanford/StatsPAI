@@ -13,3 +13,10 @@
   - **`.loc[y_df.index]` 是 bug**：索引标签重复时（`pd.concat` 不带 `ignore_index`）按标签取行会把行数翻倍。按位置取行；这一轮在 gam / gee / threshold / series / xthtaylor / abnormal_returns / dlm / mcmc 各入口都修过一遍。
   - **`sp.ljungbox(lags ≤ model_df)` 的 p 值缺失是约定**（R `Box.test(fitdf=)`、statsmodels 相同），只告警、不拒绝。
   - **探测代理的简报里要写明**：zsh 下未加引号的 `$(grep -rl ...)` 会作为**一个**参数传给 pytest，跑 0 条测试而不报错；用 `files=("${(@f)$(...)}")`，并核对报告里的测试条数。
+
+- **输入卫生（2026-11-05，rOpenSci 统计软件标准审计的第一组缺口）**：
+  - **`inf` 一律拒绝，NaN 照各估计器的缺失规则**。共享入口是 `_input_validation.require_finite`（`DataInsufficient`，诊断里有 `infinite_by_column`，提示文本是 `INFINITE_VALUES_HINT`）。已接入的层：`core/utils.create_design_matrices`（所有走它的公式估计器，按设计矩阵列名报，`np.log(0)` 这类派生的 `inf` 也拦）、`did/_core.drop_unusable_rows`（DiD 家族；队列列不在检查范围内，`g = inf` 仍是从未处理）、`rdrobust` 的 `_parse_data`、DML 基类 `_validate`、`fixest/_input_checks.check_fixest_input`、`clean_frame`、合成控制的结果面板。**不要**把 `inf` 当缺失值悄悄删掉，也不要放进求解器。新估计器读列时调用 `require_finite`。
+  - **`sp.feols` / `fepois` / `feglm` 在分发到任何后端之前先查输入**（`fixest/_input_checks.py`）：零行、没有完整行、`inf`、无固定效应的裸列公式 `nobs <= k`，报文与 `sp.regress` 相同；pyfixest 的 `ZeroDivisionError` / `LinAlgError` / "All variables are collinear" 由 `translate_backend_failure` 转成带入口名的类型化异常。
+  - **存储类型**：公式读作数值的 object 列若全是数（`Decimal`、Python int）按 float64 读并告警，`C(col)` 保持因子（`core/_formula_dtypes.coerce_formula_value_columns`，`create_design_matrices` 与 fixest 包装共用）；int64 超过 2**53 的列告警并给出 float64 后剩几个不同值。
+  - **有序结果变量**：顺序未声明的文本标签（字符串 / object 列、无序 `Categorical` 的文本类别）一律拒绝，入口是 `regression/multinomial.require_ordered_outcome`（ologit / oprobit / gologit / meologit / `bayes_regress` 的有序模型共用）。`mlogit` 的基准类别按 `Categorical` 声明的顺序取首个水平。
+  - **导出文件名**：写文件的 `to_excel` / `to_word` / `to_docx` / `to_latex` 都套 `_export_path.checks_export_path`：无后缀补上，后缀是别的格式就拒绝，缓冲区和 `None` 原样通过。新的导出方法也要套上它。

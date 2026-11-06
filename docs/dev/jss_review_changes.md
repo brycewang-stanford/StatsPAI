@@ -31,6 +31,32 @@ Rules:
 
 ## Entries
 
+### 2026-11-05 — input hygiene (rOpenSci audit gaps 1, 2, 3, 5, 6, 8, 10)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** The commit that adds this entry re-records
+  `tests/r_parity/results/_implementation_trace.json` (all 91 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (all 12), after
+  `e9b5890f2`..`8eee6dbd0`.
+- **Reason.** Shared files on every traced path changed:
+  `core/utils.py` (inf refusal and number-holding object columns in
+  `create_design_matrices`), `core/results.py` / `_result_serialize.py`
+  (exporter suffix check), `output/_lineage.py` (`record_defaults=`),
+  `_input_validation.py`, `did/_core.py`, `rd/rdrobust.py`, `dml/_base.py`,
+  `synth/scm.py` / `sdid.py` / `gsynth.py`, `regression/multinomial.py`,
+  `fixest/wrapper.py`, `forest/_grf_family.py`. Every change is a check
+  that raises or warns on degenerate input; clean input takes the same
+  arithmetic.
+- **Effect on the paper.** None. All 103 modules give output byte for
+  byte equal to unmodified `origin/main` (`c7c92766e`) in the same
+  environment, and equal to the committed results within 1e-9 (several
+  committed files differ in the last digit from both, an environment
+  difference that predates these edits, so they were left as they are).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-11-05 — bacon identification guard, synth weight certificate, event_study_vcov default
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.

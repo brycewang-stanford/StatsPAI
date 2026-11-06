@@ -334,6 +334,17 @@ The order is by harm to a specialist user. The first items return a wrong number
 
 Items 1, 2, 5 and 8 change what the package returns on some inputs. Under CLAUDE.md §12 any change to returned numbers goes in CHANGELOG and MIGRATION with the correctness-fix flag. Items 1 and 2 should also be checked against the Track A modules that touch `synth` and `ologit` before any provenance trace is re-recorded.
 
+### Status (2026-11-05)
+
+- #1 closed in 4b5dbde89. Every `sp.synth` method refuses `inf` and a missing treated outcome; incomplete donors are dropped with a warning and listed in `model_info['dropped_donors']` (sdid / gsynth refuse, mc keeps); classic SCM reports `converged=False` on a non-finite loss.
+- #2 closed in 2f9a9695e. Ordered models (ologit, oprobit, gologit, meologit, Bayesian ordered) refuse text outcomes without a declared order; `mlogit` takes a Categorical's declared base.
+- #3 closed in e9b5890f2 (with #5). `inf` in a used column raises `DataInsufficient` with one hint, through `require_finite` in the design, DiD, RD, DML and synth layers; NaN keeps listwise deletion.
+- #5 closed in e9b5890f2. `feols` / `fepois` / `feglm` check input before any backend and translate pyfixest's degenerate-design errors.
+- #6 closed in ea03c6fab. The 16 `statspai.mcmc` samplers record seed, data hash and shape and announce dropped rows. The docstring note on missing values is still open.
+- #8 closed in 024d27ba1. Number-holding object columns are read as float64, int64 beyond 2**53 is flagged, constant GRF covariates are flagged (P9 was a constant-column effect, not a string one).
+- #10 closed in a2d4c3263. The 33 file-writing exporters append a missing suffix and refuse a mismatched one.
+- Follow-up test updates in 8eee6dbd0. Clean inputs are unchanged: all Track A and original-data modules reproduce their committed results within 1e-9.
+
 ## Limits of this audit
 
 - Each "met" for an input-handling standard rests on the sampled estimators and the shared mechanism, not on all 1,680 functions.
