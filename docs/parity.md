@@ -1135,7 +1135,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `two_stage_interference` | [`test_two_stage_interference_enumeration.py`](../tests/reference_parity/test_two_stage_interference_enumeration.py) |
 | `two_step_bootstrap` | [`test_two_step_bootstrap_known_answer.py`](../tests/reference_parity/test_two_step_bootstrap_known_answer.py) |
 | `uniform_bands` | [`test_event_study_vcov_R_parity.py`](../tests/reference_parity/test_event_study_vcov_R_parity.py) (+1) |
-| `validation_scope` | [`test_cs_options_R_parity.py`](../tests/reference_parity/test_cs_options_R_parity.py) (+8) |
+| `validation_scope` | [`test_cs_options_R_parity.py`](../tests/reference_parity/test_cs_options_R_parity.py) (+9) |
 | `variable_importance` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `vcnet` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `vcov` | [`test_fixest_postestimation_parity.py`](../tests/reference_parity/test_fixest_postestimation_parity.py) (+1) |

@@ -954,6 +954,7 @@ Dimensions: `v_method` in {equal, nested, regression}; `weights` in {unique, non
 | T4 | estimate | v_method=nested; weights=nonunique/unique; code_path=native | `tests/r_parity/07_scm.py` | `sp.synth(method='classic', special predictors)` |
 | T1 | estimate | v_method=nested/regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic', special_predictors=...)` |
 | T2 | se | v_method=equal; weights=unique; code_path=native | `tests/reference_parity/test_synth_unique_options_parity.py` | `sp.synth(method='classic')` |
+| T2 | estimate, se | v_method=equal; weights=unique; code_path=native | `tests/reference_parity/test_synth_basque_equal_v_parity.py` | `sp.synth(method='classic')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth_regression_v_stata.py` | `sp.synth(v_method='regression')` |
 | T4 | estimate | v_method=regression; weights=unique; code_path=native | `tests/reference_parity/test_synth2_stata_parity.py` | `sp.synth(method='classic', v_method='regression')` |
 

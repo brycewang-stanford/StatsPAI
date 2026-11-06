@@ -235,6 +235,76 @@ def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
     return found[0]
 
 
+def simplex_weights_unique(
+    y: np.ndarray,
+    X: np.ndarray,
+    w: np.ndarray,
+    penalization: float = 0.0,
+) -> Optional[bool]:
+    """Is ``w`` the only minimiser of ``||y - X w||^2 + pen ||w||^2`` on the simplex?
+
+    A certificate for a given solution, not a solver. ``True`` when ``w``
+    satisfies the optimality conditions and no other point of the simplex
+    attains the same value; ``False`` when it is optimal and another
+    optimum exists; ``None`` when the optimality conditions do not hold to
+    tolerance (nothing can be said about ``w``).
+
+    Optimality: the gradient is constant on the support and no smaller off
+    it. Uniqueness: with a ridge penalty or a donor matrix of full column
+    rank the objective is strictly convex. Otherwise the fitted path
+    ``X w`` is still unique, so another optimum differs from ``w`` by a
+    direction ``d`` with ``X d = 0`` and ``sum(d) = 0``, supported on the
+    donors whose reduced gradient is zero, and non-negative on the ones of
+    them with zero weight. Such a ``d`` exists iff the linear programme
+    ``max sum(d_Z)`` over the null space (``d_Z >= 0``, ``sum(d_Z) <= 1``)
+    is positive, or the null space has a direction with ``d_Z = 0``.
+    """
+    y = np.asarray(y, dtype=np.float64).ravel()
+    X = np.asarray(X, dtype=np.float64)
+    w = np.asarray(w, dtype=np.float64).ravel()
+    J = X.shape[1]
+    if J == 1:
+        return True
+    if not (np.isfinite(X).all() and np.isfinite(y).all() and np.isfinite(w).all()):
+        return None
+    if w.min() < -1e-10 or abs(w.sum() - 1.0) > 1e-8:
+        return None
+    grad = -2.0 * X.T @ (y - X @ w) + 2.0 * penalization * w
+    scale = max(1.0, float(np.abs(grad).max()) + 2.0 * float(np.abs(X.T @ y).max()))
+    support = w > 1e-9
+    lam = float(grad[support].mean())
+    if np.ptp(grad[support]) > 1e-8 * scale:
+        return None
+    reduced = grad - lam
+    if (reduced[~support] < -1e-8 * scale).any():
+        return None
+    if penalization > 0 or np.linalg.matrix_rank(X) == J:
+        return True
+    tight = np.flatnonzero(reduced <= 1e-7 * scale)
+    A = np.vstack([X[:, tight], np.ones((1, tight.size))])
+    _, s, vt = np.linalg.svd(A)
+    rank = int((s > 1e-10 * s[0]).sum()) if s.size else 0
+    null = vt[rank:].T  # columns span {d_T : A d_T = 0}
+    if null.shape[1] == 0:
+        return True
+    zero = ~support[tight]
+    if not zero.any():
+        return False  # every tight donor has positive weight: move along d
+    Nz = null[zero]
+    if np.linalg.matrix_rank(Nz, tol=1e-10) < null.shape[1]:
+        return False  # a direction that leaves the zero weights at zero
+    res = optimize.linprog(
+        -Nz.sum(axis=0),
+        A_ub=np.vstack([-Nz, Nz.sum(axis=0)[None, :]]),
+        b_ub=np.append(np.zeros(Nz.shape[0]), 1.0),
+        bounds=[(None, None)] * null.shape[1],
+        method="highs",
+    )
+    if res.status != 0:
+        return None
+    return bool(-res.fun <= 1e-9)
+
+
 def _least_norm_weights(
     A: np.ndarray, b: np.ndarray, w0: np.ndarray
 ) -> Optional[np.ndarray]:

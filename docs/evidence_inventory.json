@@ -17790,6 +17790,27 @@
           "compares": "placebo SD (result.se): every placebo's weights certified as the unique simplex least-squares optimum (KKT); placebo effects vs R Synth with equal unscaled V to 1e-12 (one vertex optimum to ipop's 1e-5), the SD to 9e-7"
         },
         {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_synth_basque_equal_v_parity.py",
+          "entry_point": "sp.synth(method='classic')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "v_method": [
+              "equal"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "default call on the Basque replica (module 07's bytes): every optimum certified unique (KKT), ATT vs R Synth with equal unscaled V to 2e-12, placebo SD (result.se) to 5e-7; placebos ipop solves only at loose settings agree to its precision, ours attaining the lower objective"
+        },
+        {
           "kind": "T4",
           "artifact": "tests/reference_parity/test_synth_regression_v_stata.py",
           "entry_point": "sp.synth(v_method='regression')",

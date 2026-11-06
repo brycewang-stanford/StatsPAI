@@ -2059,6 +2059,32 @@ class SyntheticControl:
             ):
                 weight_class_reps.append(candidate)
 
+        # Uniqueness of the donor weights. The nested search compares the
+        # weight classes its starts land on. With V fixed (equal or
+        # regression V) there is one start, so that comparison is vacuous:
+        # certify the solution of the convex W problem directly (KKT plus
+        # the optimal face). Through 1.42.1 a single start was reported as
+        # unique, and sp.validation_scope credited reference rows that hold
+        # only for unique weights to fits whose weights were not.
+        if run_nested:
+            weight_uniqueness = "multistart"
+            weights_nonunique: Optional[bool] = bool(
+                len(weight_class_reps) > 1 and near_best_weight_l1_max > 1e-3
+            )
+        else:
+            from ._core import simplex_weights_unique
+
+            sqrt_v = np.sqrt(np.maximum(np.asarray(V, dtype=float), 0.0))
+            scale_v = np.asarray(solver_out["scale"], dtype=float)
+            unique = simplex_weights_unique(
+                sqrt_v * (self.X_treated / scale_v),
+                sqrt_v[:, None] * (self.X_donors / scale_v[:, None]),
+                weights,
+                penalization=self.penalization,
+            )
+            weight_uniqueness = "kkt" if unique is not None else "uncertified"
+            weights_nonunique = None if unique is None else not unique
+
         if solver_out.get("in_predictor_hull") is True and (
             self.perfect_fit == "legacy"
         ):
@@ -2130,9 +2156,9 @@ class SyntheticControl:
             "solver_weight_class_l1_tol": weight_class_l1_tol,
             "solver_near_best_weight_l1_max": round(near_best_weight_l1_max, 6),
             "solver_near_best_weight_class_count": int(len(weight_class_reps)),
-            "weight_solution_nonunique": bool(
-                len(weight_class_reps) > 1 and near_best_weight_l1_max > 1e-3
-            ),
+            # True / False, or None when nothing certified it (see above)
+            "weight_solution_nonunique": weights_nonunique,
+            "weight_uniqueness_method": weight_uniqueness,
             "n_active_donors": int(len(w_active)),
             "weight_hhi": round(hhi, 4),
             "effective_n_donors": round(n_effective, 2),

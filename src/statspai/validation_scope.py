@@ -4573,6 +4573,22 @@ _add(
                 "sp.synth(method='classic')",
             ),
             _Row(
+                "T2",
+                _RP + "test_synth_basque_equal_v_parity.py",
+                {
+                    "v_method": _vals("equal"),
+                    "weights": _vals("unique"),
+                    "code_path": _vals("native"),
+                },
+                _EST + ("se",),
+                "default call on the Basque replica (module 07's bytes): every "
+                "optimum certified unique (KKT), ATT vs R Synth with equal "
+                "unscaled V to 2e-12, placebo SD (result.se) to 5e-7; placebos "
+                "ipop solves only at loose settings agree to its precision, "
+                "ours attaining the lower objective",
+                "sp.synth(method='classic')",
+            ),
+            _Row(
                 "T4",
                 _RP + "test_synth_regression_v_stata.py",
                 {
@@ -4607,7 +4623,9 @@ _add(
         "Placebo p-values are not part of any row. backend='synth' (code_path "
         "'synth') runs R Synth itself, so it has no row. Equal V with non-unique "
         "weights returns the minimum-norm optimum, a selection no reference "
-        "shares; it has no row. Regression V (Stata synth's default) is "
+        "shares; it has no row. With V fixed (equal or regression V) the "
+        "weights dimension comes from a KKT certificate of the fit's own "
+        "optimum; a fit it cannot certify leaves the dimension unchecked. Regression V (Stata synth's default) is "
         "certified only on the identified design, because Stata reports gaps "
         "from rounded weights. The identified design has a zero-loss solution, "
         "where V does not move W: its nested row checks the nested code path end "

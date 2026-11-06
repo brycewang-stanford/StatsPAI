@@ -66,6 +66,25 @@ All notable changes to StatsPAI will be documented in this file.
   treatment-status column. R `bacondecomp` 0.1.1 and Stata `bacondecomp` /
   `ddtiming` also stop on these panels. Identified panels are unchanged
   (Track A 20 reproduces byte for byte).
+- **`sp.synth` donor-weight uniqueness on the equal-V and regression-V
+  paths, and what `sp.validation_scope` credits from it.** With V fixed
+  the solver runs one start, so the multi-start comparison behind
+  `model_info['weight_solution_nonunique']` was vacuous: it reported
+  `False` (unique) for every such fit, and `sp.validation_scope` credited
+  the T2 rows that hold only for unique weights to fits whose optimum was
+  not unique (two donors with the same pre-period path read `covered`). The
+  flag now comes from a certificate of the fit's own optimum (KKT, plus the
+  optimal face of the simplex least-squares problem): `True` / `False`, or
+  `None` (the `weights` dimension then shows as unchecked) when the
+  optimality conditions cannot be verified.
+  `model_info['weight_uniqueness_method']` says which check ran
+  (`'kkt'` / `'multistart'` / `'uncertified'`). Weights and estimates are
+  unchanged. The default call on the Basque replica is certified unique,
+  and a new reference row backs its `covered` status on those bytes rather
+  than on module 52's constructed design alone: R `Synth` with equal
+  unscaled V gives the ATT to 2e-12 and the placebo SD (`se`) to 5e-7
+  (`tests/reference_parity/test_synth_basque_equal_v_parity.py`). Track A
+  07 (nested V, the T4 disclosure) is unaffected.
 
 
 ### Tests
