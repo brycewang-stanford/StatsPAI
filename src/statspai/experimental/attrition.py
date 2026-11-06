@@ -225,7 +225,6 @@ def attrition_bounds(
     treatment: str,
     observed: Optional[str] = None,
     method: str = "lee",
-    alpha: Optional[float] = None,
     trimming: str = "quantile",
 ) -> Dict[str, Any]:
     """
@@ -242,17 +241,17 @@ def attrition_bounds(
         Indicator for observed outcome. If None, uses non-missing y.
     method : str, default 'lee'
         Bounding method: 'lee' (Lee 2009), 'manski' (worst-case).
-    alpha : float, optional
-        Deprecated and has no effect: no confidence interval is computed.
-        Passing it warns (``DeprecationWarning``); it will be removed in
-        1.43. For an interval for the identified set use
-        :func:`sp.lee_bounds`.
     trimming : {'quantile', 'exact'}, default 'quantile'
         Lee trimming rule, as in :func:`sp.lee_bounds`: Lee's
         sample-quantile estimator, or fractional trimming of the
         observations tied at the quantile (what Stata ``leebounds`` is
         written to compute). The Lee bounds equal ``sp.lee_bounds``'
         exactly.
+
+        .. versionchanged:: 1.43
+            ``alpha=`` (deprecated in 1.42, never used: no interval is
+            computed) is removed, so ``trimming`` moves up one place. For
+            an interval for the identified set use :func:`sp.lee_bounds`.
 
     Returns
     -------
@@ -295,13 +294,6 @@ def attrition_bounds(
     """
     from ..core._validate import require_binary_treatment
 
-    if alpha is not None:
-        warnings.warn(
-            "attrition_bounds(alpha=) has no effect (no interval is computed) "
-            "and will be removed in 1.43. For an interval use sp.lee_bounds.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     df = data.copy()
     if observed is None:
         df["_observed"] = df[y].notna().astype(int)

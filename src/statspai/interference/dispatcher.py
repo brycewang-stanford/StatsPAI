@@ -51,8 +51,6 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "bramoulle": ("statspai.interference.peer_effects", "peer_effects"),
     "network_hte": ("statspai.interference.orthogonal", "network_hte"),
     "orthogonal": ("statspai.interference.orthogonal", "network_hte"),
-    # Deprecated in 1.42, removed in 1.43 (see _DEPRECATED_ALIASES).
-    "parmigiani": ("statspai.interference.orthogonal", "network_hte"),
     "inward_outward": ("statspai.interference.orthogonal", "inward_outward_spillover"),
     "inward_outward_spillover": (
         "statspai.interference.orthogonal",
@@ -102,11 +100,12 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
 # MIGRATION.md). A call that still passes sp.spillover's arguments is
 # refused with a pointer to 'spillover' rather than a bare TypeError.
 _RETARGETED_ALIASES = frozenset({"partial", "hudgens_halloran"})
-# Aliases kept for one minor release with a DeprecationWarning:
-# alias -> (canonical design, release that removes the alias).
-# 'parmigiani' named sp.network_hte after authors who did not write it; the
-# method is Wu & Yuan (2025) (see sp.network_hte).
-_DEPRECATED_ALIASES: Dict[str, Tuple[str, str]] = {
+# Aliases removed after their deprecation period:
+# alias -> (canonical design, release that removed the alias). A call with
+# one is refused with a pointer to the canonical name.
+# 'parmigiani' (deprecated in 1.42) named sp.network_hte after authors who
+# did not write it; the method is Wu & Yuan (2025) (see sp.network_hte).
+_REMOVED_ALIASES: Dict[str, Tuple[str, str]] = {
     "parmigiani": ("network_hte", "1.43"),
 }
 _SPILLOVER_ONLY_KWARGS = frozenset(
@@ -146,9 +145,10 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
         estimator, which needs a ``group`` and a ``saturation`` column),
         the same as ``"two_stage"``.
 
-        .. deprecated:: 1.42
-           ``"parmigiani"`` (an alias of ``"network_hte"``) warns and will
-           be removed in 1.43.
+        .. versionchanged:: 1.43
+           ``"parmigiani"`` (an alias of ``"network_hte"``, deprecated in
+           1.42) is removed and raises ``MethodIncompatibility``; pass
+           ``"network_hte"``, the same estimator.
 
         .. versionchanged:: 1.41
            Through 1.40 these two names routed to :func:`sp.spillover`,
@@ -185,22 +185,20 @@ def interference(design: str = "spillover", /, **kwargs: Any) -> Any:
     --------
     docs/guides/interference_family.md : the full family guide.
     """
+    if design in _REMOVED_ALIASES:
+        from ..exceptions import MethodIncompatibility
+
+        canonical, removal = _REMOVED_ALIASES[design]
+        raise MethodIncompatibility(
+            f"sp.interference({design!r}) was removed in {removal}.",
+            recovery_hint=f"Use sp.interference({canonical!r}), the same estimator.",
+            diagnostics={"design": design, "canonical": canonical},
+            alternative_functions=[f"sp.{canonical}"],
+        )
     if design not in _REGISTRY:
         raise ValueError(
             f"Unknown interference design {design!r}. Available: "
             + ", ".join(available_designs())
-        )
-
-    if design in _DEPRECATED_ALIASES:
-        import warnings
-
-        canonical, removal = _DEPRECATED_ALIASES[design]
-        warnings.warn(
-            f"sp.interference({design!r}) is deprecated and will be removed "
-            f"in {removal}; use sp.interference({canonical!r}), the same "
-            "estimator.",
-            DeprecationWarning,
-            stacklevel=2,
         )
 
     if design in _RETARGETED_ALIASES:

@@ -1,7 +1,8 @@
 """Reference parity: sp power calculations vs base-R z-approximation formulas.
 
 ``sp.power_rct`` (two-sample pooled-sigma), ``sp.power_two_proportions``
-(unpooled Wald) and ``sp.power_logrank`` (Schoenfeld) are deterministic
+(``test="wald"``, unpooled; its Pearson default since 1.43 is checked
+against Stata in ``tests/test_r6_open_items.py``) and ``sp.power_logrank`` (Schoenfeld) are deterministic
 closed-form large-sample power functions. The reference values are the
 canonical z-approximation formulas computed in base R (the same formulas
 standard texts and Stata ``power`` use). Match is machine-precision.
@@ -47,7 +48,11 @@ def test_power_rct_matches_z_approx(r_reference):
 def test_power_two_proportions_matches_z_approx(r_reference):
     for case in r_reference["two_prop"]:
         got = _power(
-            sp.power_two_proportions(n=case["n"], p1=case["p1"], p2=case["p2"])
+            # The fixture is the unpooled Wald formula; pass it explicitly
+            # since the default became test="chi2" in 1.43.
+            sp.power_two_proportions(
+                n=case["n"], p1=case["p1"], p2=case["p2"], test="wald"
+            )
         )
         assert got == pytest.approx(case["power"], abs=_TOL)
 

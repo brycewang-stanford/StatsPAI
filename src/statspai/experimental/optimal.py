@@ -98,7 +98,6 @@ def optimal_design(
     cost_per_cluster: Optional[float] = None,
     cost_per_unit: Optional[float] = None,
     r2: float = 0.0,
-    baseline_mean: Optional[float] = None,
     n: Optional[int] = None,
 ) -> OptimalDesignResult:
     """
@@ -135,14 +134,15 @@ def optimal_design(
         with ``cost_per_cluster``.
     r2 : float, default 0.0
         R-squared from baseline covariates (variance reduction).
-    baseline_mean : float, optional
-        Deprecated and has no effect: no formula here uses the outcome
-        mean. Passing it warns (``DeprecationWarning``); it will be removed
-        in 1.43. For a binary outcome pass ``sigma=sqrt(p (1 - p))``.
     n : int, optional
         Total number of individuals, used to solve for the MDE when ``mde`` is
         None (individual and stratified designs; cluster designs use
         ``n_clusters`` and ``cluster_size``).
+
+        .. versionchanged:: 1.43
+            ``baseline_mean=`` (deprecated in 1.42, never used by any
+            formula) is removed, so ``n`` moves up one place. For a binary
+            outcome pass ``sigma=sqrt(p (1 - p))``.
 
     Returns
     -------
@@ -183,13 +183,6 @@ def optimal_design(
         raise MethodIncompatibility(
             "prop_treat applies to two-arm designs; with n_arms > 2 every arm "
             "is sized for an equal-allocation comparison with control."
-        )
-    if baseline_mean is not None:
-        warnings.warn(
-            "optimal_design(baseline_mean=) has no effect and will be removed "
-            "in 1.43. For a binary outcome pass sigma=sqrt(p * (1 - p)).",
-            DeprecationWarning,
-            stacklevel=2,
         )
     _refuse_unused_arguments(
         design, mde, n, n_clusters, cost_per_cluster, cost_per_unit

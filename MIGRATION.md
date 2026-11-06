@@ -5,6 +5,48 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42 → 1.43: announced removals and the power_two_proportions default
+
+**`sp.power_two_proportions(test=)` defaults to `"chi2"`.** 1.42 announced
+this. The default is now the Pearson chi-squared test, whose null standard
+error uses the pooled proportion. It is the test of Stata
+`power twoproportions` and R `power.prop.test(strict = TRUE)`, and already
+the default of `sp.power_case_control`. Through 1.42 the default was the
+unpooled Wald z test. Default power goes down and default sample sizes go
+up:
+
+```python
+sp.power_two_proportions(n=400, p1=0.5, p2=0.65).power   # 0.8615 (was 0.8665)
+sp.power_two_proportions(p1=0.5, p2=0.65, power_target=0.8).n   # 339 (was 334)
+sp.power_two_proportions(n=400, p1=0.5, p2=0.65, test="wald")   # the 1.42 numbers
+```
+
+Calls that passed `test=` are unchanged.
+
+**Removed** (each was deprecated in 1.42 with 1.43 as its removal version):
+
+- `sp.optimal_design(baseline_mean=)`: delete it from the call. It never
+  had an effect. For a binary outcome pass `sigma=sqrt(p * (1 - p))`.
+  `n` moves up one place, so a call that passed `n` positionally after
+  `baseline_mean` must name it.
+- `sp.attrition_bounds(alpha=)`: delete it. No interval was ever
+  computed. For an interval for the identified set use `sp.lee_bounds`.
+  `trimming` moves up one place.
+- `sp.balance_check(alpha=)`: delete it. The table reports p-values and
+  the summary flags `|normalized difference| > 0.25`, as before.
+  `equal_var` moves up one place.
+- `sp.bayes_dml(mode='full')`: use `mode='conjugate'` (the default and
+  the only mode). Any other value raises `MethodIncompatibility` before
+  fitting. It no longer emits a `DeprecationWarning` first.
+- `sp.interference("parmigiani")`: use `sp.interference("network_hte")`
+  or `sp.network_hte`, the same estimator. The old name raises
+  `MethodIncompatibility`.
+
+Passing one of the removed arguments raises `TypeError`, as for any
+unknown keyword.
+
+---
+
 ## 1.42.1 → next: ⚠️ Crump trimming cutoff with several roots
 
 `sp.trimming(method='crump')` and `sp.propensity_score(trimming='crump')`
@@ -268,8 +310,10 @@ no counterpart (kernel, Driscoll-Kraay, two-way clustering);
 - `sp.optimal_design(baseline_mean=)`, `sp.attrition_bounds(alpha=)` and
   `sp.balance_check(alpha=)` warn (`DeprecationWarning`) and will be
   removed in 1.43. They never had an effect; delete them from calls.
+  Removed in 1.43.
 - `sp.bayes_dml(mode='full')` warns (`DeprecationWarning`) before raising;
-  the value will be removed in 1.43. Use `mode='conjugate'`.
+  the value will be removed in 1.43. Use `mode='conjugate'`. Removed in
+  1.43.
 - `sp.logit_gof` after a frequency / importance-weighted `sp.logit` or
   `sp.probit` returns the weighted Pearson statistic instead of raising.
   `groups=` after a weighted fit, sampling weights and survey designs
@@ -385,7 +429,7 @@ no counterpart (kernel, Driscoll-Kraay, two-way clustering);
   Pearson test of Stata `power twoproportions` and R `power.prop.test`
   and already the default of `sp.power_case_control`. Pass `test=`
   explicitly to keep either. Group sizes are not rounded, as Stata's
-  `nfractional` option.
+  `nfractional` option. Done in 1.43; see "1.42 → 1.43".
 - `sp.epi.relative_risk` / `sp.epi.prevalence_ratio` with a zero cell:
   the estimate is the plain ratio (0 or `inf` with a zero case count, and
   the raw-count Katz interval when only a non-case cell is zero). Pass
@@ -410,7 +454,7 @@ no counterpart (kernel, Driscoll-Kraay, two-way clustering);
   another order in `data`.
 - `sp.ipcw`: an event column with values other than 0/1 raises.
 - `sp.interference("parmigiani")` is deprecated; use `"network_hte"`. It
-  will be removed in 1.43.
+  will be removed in 1.43. Removed in 1.43.
 
 ## 1.41 → 1.42: experimental design fixes (option scan round 6)
 

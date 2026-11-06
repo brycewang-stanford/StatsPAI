@@ -54544,7 +54544,7 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. mode='full' is deprecated (removal in 1.43) and raises MethodIncompatibility. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -54573,7 +54573,7 @@
         "alternative": "sp.bayes_dml",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use mode='conjugate'; sp.dml does not return the orthogonal score arrays a full posterior would need.",
-        "symptom": "mode='full' raises MethodIncompatibility (deprecated value, removal in 1.43)"
+        "symptom": "mode other than 'conjugate' (including 'full', removed in 1.43) raises MethodIncompatibility"
       }
     ],
     "inherits_from": null,
@@ -54613,7 +54613,7 @@
       }
     },
     "signature": {
-      "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. mode='full' is deprecated (removal in 1.43) and raises MethodIncompatibility. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Bayesian Double Machine Learning (DiTraglia & Liu 2025): Normal-Normal conjugate update on a DML point estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_dml",
       "parameters": {
         "properties": {
@@ -54648,7 +54648,7 @@
           },
           "mode": {
             "default": "conjugate",
-            "description": "Posterior construction. Only 'conjugate' (Normal-Normal update of the DML point and SE). The value 'full' is deprecated, will be removed in 1.43, and raises MethodIncompatibility with a DeprecationWarning.",
+            "description": "Posterior construction. Only 'conjugate' (Normal-Normal update of the DML point and SE); mode='full' was removed in 1.43.",
             "enum": [
               "conjugate"
             ],
@@ -65162,7 +65162,6 @@
               "network_exposure",
               "network_hte",
               "orthogonal",
-              "parmigiani",
               "partial",
               "peer_effects",
               "saturation",
@@ -121568,7 +121567,7 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "base-R closed form (unpooled Wald two-proportion z-approx)",
+      "reference": "base-R closed form (unpooled Wald two-proportion z-approx, test='wald')",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)"
       },
@@ -121672,11 +121671,11 @@
             "type": "number"
           },
           "test": {
-            "default": "wald",
-            "description": "``\"wald\"``: the unpooled-variance z test, ``Phi(|p1 - p2| / se - z_alpha)`` with ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. ``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion; this is Stata ``power twoproportions`` (its default ``test(chi2)``) and R ``power.prop.test(strict = TRUE)``, and the default of :func:`power_case_control`. Two-sided power counts both tails under either test. Group sizes are ``n / (1 + ratio)`` and ``n ratio / (1 + ratio)`` without rounding, as Stata's ``nfractional`` option (Stata otherwise rounds each group to an integer). .. versionadded:: 1.42 1.42 keeps ``\"wald\"`` as the default; see MIGRATION.md for the planned change to ``\"chi2\"``.",
+            "default": "chi2",
+            "description": "``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion; this is Stata ``power twoproportions`` (its default ``test(chi2)``) and R ``power.prop.test(strict = TRUE)``, and the default of :func:`power_case_control`. ``\"wald\"``: the unpooled-variance z test, ``Phi(|p1 - p2| / se - z_alpha)`` with ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. Two-sided power counts both tails under either test. Group sizes are ``n / (1 + ratio)`` and ``n ratio / (1 + ratio)`` without rounding, as Stata's ``nfractional`` option (Stata otherwise rounds each group to an integer). .. versionadded:: 1.42 .. versionchanged:: 1.43 The default is ``\"chi2\"`` (it was ``\"wald\"`` in 1.42). Pass ``test=\"wald\"`` for the 1.42 numbers.",
             "enum": [
-              "wald",
-              "chi2"
+              "chi2",
+              "wald"
             ],
             "type": "string"
           }
@@ -121688,7 +121687,7 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs base-R closed form (unpooled Wald two-proportion z-approx) [R version 4.5.2 (2025-10-31)]; tolerance power 1e-12 abs (observed ~2e-16) -- tests/reference_parity/test_power_parity.py"
+      "Cross-language parity (bit-exact) vs base-R closed form (unpooled Wald two-proportion z-approx, test='wald') [R version 4.5.2 (2025-10-31)]; tolerance power 1e-12 abs (observed ~2e-16) -- tests/reference_parity/test_power_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -131431,10 +131430,6 @@
       "name": "balance_check",
       "parameters": {
         "properties": {
-          "alpha": {
-            "description": "Deprecated and has no effect: the table reports p-values, and the summary flags ``|normalized difference| > 0.25``. Passing it warns (``DeprecationWarning``); it will be removed in 1.43.",
-            "type": "number"
-          },
           "covariates": {
             "description": "Covariates to check balance on.",
             "items": {
@@ -131450,7 +131445,7 @@
           },
           "equal_var": {
             "default": false,
-            "description": "Per-covariate difference test. ``False`` is Welch's unequal-variance t-test. ``True`` is the pooled-variance t-test -- the OLS t-test of the covariate on the treatment dummy -- which is what Stata ``iebaltab`` reports (its pair test regresses the variable on the group dummy; its difference is control minus treatment, the opposite sign of ``diff`` here).",
+            "description": "Per-covariate difference test. ``False`` is Welch's unequal-variance t-test. ``True`` is the pooled-variance t-test -- the OLS t-test of the covariate on the treatment dummy -- which is what Stata ``iebaltab`` reports (its pair test regresses the variable on the group dummy; its difference is control minus treatment, the opposite sign of ``diff`` here). .. versionchanged:: 1.43 ``alpha=`` (deprecated in 1.42, never used) is removed, so ``equal_var`` moves up one place. The table reports p-values and the summary flags ``|normalized difference| > 0.25``.",
             "type": "boolean"
           },
           "treatment": {
@@ -131673,10 +131668,6 @@
       "name": "attrition_bounds",
       "parameters": {
         "properties": {
-          "alpha": {
-            "description": "Deprecated and has no effect: no confidence interval is computed. Passing it warns (``DeprecationWarning``); it will be removed in 1.43. For an interval for the identified set use :func:`sp.lee_bounds`.",
-            "type": "number"
-          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -131706,7 +131697,7 @@
           },
           "trimming": {
             "default": "quantile",
-            "description": "Lee trimming rule, as in :func:`sp.lee_bounds`: Lee's sample-quantile estimator, or fractional trimming of the observations tied at the quantile (what Stata ``leebounds`` is written to compute). The Lee bounds equal ``sp.lee_bounds``' exactly.",
+            "description": "Lee trimming rule, as in :func:`sp.lee_bounds`: Lee's sample-quantile estimator, or fractional trimming of the observations tied at the quantile (what Stata ``leebounds`` is written to compute). The Lee bounds equal ``sp.lee_bounds``' exactly. .. versionchanged:: 1.43 ``alpha=`` (deprecated in 1.42, never used: no interval is computed) is removed, so ``trimming`` moves up one place. For an interval for the identified set use :func:`sp.lee_bounds`.",
             "enum": [
               "quantile",
               "exact"
@@ -131825,10 +131816,6 @@
             "description": "Significance level.",
             "type": "number"
           },
-          "baseline_mean": {
-            "description": "Deprecated and has no effect: no formula here uses the outcome mean. Passing it warns (``DeprecationWarning``); it will be removed in 1.43. For a binary outcome pass ``sigma=sqrt(p (1 - p))``.",
-            "type": "number"
-          },
           "cluster_size": {
             "description": "Average cluster size.",
             "type": "integer"
@@ -131861,7 +131848,7 @@
             "type": "number"
           },
           "n": {
-            "description": "Total number of individuals, used to solve for the MDE when ``mde`` is None (individual and stratified designs; cluster designs use ``n_clusters`` and ``cluster_size``).",
+            "description": "Total number of individuals, used to solve for the MDE when ``mde`` is None (individual and stratified designs; cluster designs use ``n_clusters`` and ``cluster_size``). .. versionchanged:: 1.43 ``baseline_mean=`` (deprecated in 1.42, never used by any formula) is removed, so ``n`` moves up one place. For a binary outcome pass ``sigma=sqrt(p (1 - p))``.",
             "type": "integer"
           },
           "n_arms": {

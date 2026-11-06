@@ -28,7 +28,9 @@ def _mc_two_proportions(n, p1, p2, ratio=1.0, reps=4000, seed=0):
 
 def test_two_proportions_matches_monte_carlo():
     for p1, p2, n in [(0.3, 0.5, 200), (0.1, 0.2, 400)]:
-        analytic = sp.power_two_proportions(n=n, p1=p1, p2=p2).power
+        # The simulation rejects on the unpooled Wald z, so compare the
+        # Wald power (the default since 1.43 is the pooled chi2 test).
+        analytic = sp.power_two_proportions(n=n, p1=p1, p2=p2, test="wald").power
         mc = _mc_two_proportions(n, p1, p2)
         assert analytic == pytest.approx(mc, abs=0.04)
 

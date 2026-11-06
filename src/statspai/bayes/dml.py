@@ -6,22 +6,16 @@ interpretable credible intervals, posterior probabilities, and the
 option to shrink toward prior beliefs (useful for pre-registered
 hypotheses or informative priors from a meta-analysis).
 
-Two modes:
-
-- ``'conjugate'`` (default): Normal-Normal conjugate update on the DML
-  point estimate and its standard error. Extremely fast. Falls back to
-  weakly-informative Normal(0, 10²) prior by default.
-- ``'full'``: deprecated (removal in 1.43) and never available. It needs
-  the orthogonal score arrays of the DML fit, which :func:`sp.dml` does
-  not return; it warns (``DeprecationWarning``) and raises
-  ``MethodIncompatibility`` before any fitting.
+One mode, ``'conjugate'``: Normal-Normal conjugate update on the DML
+point estimate and its standard error. Extremely fast. Falls back to a
+weakly-informative Normal(0, 10²) prior by default. The value ``'full'``
+(deprecated in 1.42, never available) was removed in 1.43.
 """
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Literal, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -90,7 +84,7 @@ def bayes_dml(
     model: str = "plr",
     prior_mean: float = 0.0,
     prior_sd: float = 10.0,
-    mode: str = "conjugate",
+    mode: Literal["conjugate"] = "conjugate",
     alpha: float = 0.05,
     n_folds: int = 5,
     random_state: int = 42,
@@ -111,10 +105,13 @@ def bayes_dml(
         Parameters of the Normal prior on the treatment effect.
     mode : {'conjugate'}, default 'conjugate'
         Conjugate uses closed-form Normal-Normal updating on the DML
-        point/SE. The value ``'full'`` is deprecated and will be removed in
-        1.43: it was never available (it needs the orthogonal score arrays,
-        which :func:`sp.dml` does not return). It warns
-        (``DeprecationWarning``) and raises ``MethodIncompatibility``.
+        point/SE.
+
+        .. versionchanged:: 1.43
+            The value ``'full'`` (deprecated in 1.42) is removed. It was
+            never available: it needs the orthogonal score arrays, which
+            :func:`sp.dml` does not return. Any other value raises
+            ``MethodIncompatibility``.
     alpha : float, default 0.05
     n_folds : int, default 5
     random_state : int, default 42
@@ -161,29 +158,20 @@ def bayes_dml(
     >>> print(res.summary())                  # doctest: +SKIP
     >>> res.posterior_mean, res.ci            # doctest: +SKIP
     """
-    if mode not in ("conjugate", "full"):
-        raise ValueError(f"mode must be 'conjugate' or 'full'; got {mode!r}.")
-    if prior_sd <= 0:
-        raise ValueError(f"prior_sd must be > 0; got {prior_sd}.")
-    if mode == "full":
-        # Checked before the DML fit: the score arrays it would need are
-        # not part of the sp.dml result, so the fit could only be wasted.
-        warnings.warn(
-            "bayes_dml(mode='full') is deprecated and will be removed in 1.43; "
-            "it was never available. Use mode='conjugate'.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
+    if mode != "conjugate":
         raise MethodIncompatibility(
-            "bayes_dml(mode='full') needs the orthogonal score arrays of the "
-            "DML fit, which sp.dml does not return.",
+            f"bayes_dml: mode must be 'conjugate', the only mode; got {mode!r}.",
             recovery_hint=(
                 "Use mode='conjugate' (the Normal-Normal update of the DML "
-                "point estimate and standard error)."
+                "point estimate and standard error). mode='full' was removed "
+                "in 1.43: sp.dml does not return the orthogonal score arrays "
+                "a full posterior would need."
             ),
-            diagnostics={"mode": mode},
+            diagnostics={"mode": mode, "valid_modes": ["conjugate"]},
             alternative_functions=["sp.dml"],
         )
+    if prior_sd <= 0:
+        raise ValueError(f"prior_sd must be > 0; got {prior_sd}.")
 
     # Delegate to existing DML for the frequentist point/SE.
     from ..dml import dml as _dml

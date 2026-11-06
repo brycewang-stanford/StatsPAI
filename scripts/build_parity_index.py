@@ -2910,7 +2910,9 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "power_two_proportions": {
         "status": "bit-exact",
-        "reference": "base-R closed form (unpooled Wald two-proportion z-approx)",
+        "reference": (
+            "base-R closed form (unpooled Wald two-proportion z-approx, test='wald')"
+        ),
         "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
         "tolerance": "power 1e-12 abs (observed ~2e-16)",
         "sides": ["py", "R"],
@@ -2919,8 +2921,11 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/_fixtures/power_R.json",
         ],
         "note": (
-            "Frozen-R fixture: two-proportion power (unpooled Wald z-approx) "
-            "matches base R exactly. Regenerate via _generate_power_R.R."
+            "Frozen-R fixture: two-proportion power with test='wald' "
+            "(unpooled Wald z-approx) matches base R exactly. Regenerate via "
+            "_generate_power_R.R. The default since 1.43, test='chi2' "
+            "(Pearson), is checked against Stata power twoproportions in "
+            "tests/test_r6_open_items.py."
         ),
     },
     "power_logrank": {

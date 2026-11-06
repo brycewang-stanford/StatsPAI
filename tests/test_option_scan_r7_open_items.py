@@ -6,6 +6,7 @@ Each test states the decided behaviour. The references are R
 (NOTEARS) and invariances (row order, global RNG state).
 """
 
+import inspect
 import warnings
 
 import numpy as np
@@ -100,11 +101,11 @@ def test_optimal_design_refuses_arguments_that_cannot_matter(kw):
     assert exc.value.recovery_hint
 
 
-def test_optimal_design_baseline_mean_is_deprecated_and_inert():
-    ref = sp.optimal_design(mde=0.2)
-    with pytest.warns(DeprecationWarning, match="1.43"):
-        got = sp.optimal_design(mde=0.2, baseline_mean=5.0)
-    assert (got.n_total, got.n_per_arm) == (ref.n_total, ref.n_per_arm)
+def test_optimal_design_baseline_mean_is_removed():
+    # Deprecated in 1.42 (it never had an effect), removed in 1.43.
+    with pytest.raises(TypeError, match="baseline_mean"):
+        sp.optimal_design(mde=0.2, baseline_mean=5.0)
+    assert "baseline_mean" not in inspect.signature(sp.optimal_design).parameters
 
 
 def _attrition_frame():
@@ -123,20 +124,20 @@ def _attrition_frame():
     )
 
 
-def test_attrition_bounds_alpha_is_deprecated_and_inert():
+def test_attrition_bounds_alpha_is_removed():
+    # Deprecated in 1.42 (no interval is computed), removed in 1.43.
     df = _attrition_frame()
-    ref = sp.attrition_bounds(df, "y", "t", "o")
-    with pytest.warns(DeprecationWarning, match="1.43"):
-        got = sp.attrition_bounds(df, "y", "t", "o", alpha=0.1)
-    assert got == ref
+    with pytest.raises(TypeError, match="alpha"):
+        sp.attrition_bounds(df, "y", "t", "o", alpha=0.1)
+    assert "alpha" not in inspect.signature(sp.attrition_bounds).parameters
 
 
-def test_balance_check_alpha_is_deprecated_and_inert():
+def test_balance_check_alpha_is_removed():
+    # Deprecated in 1.42 (never used), removed in 1.43.
     df = _attrition_frame()
-    ref = sp.balance_check(df, "t", ["x"])
-    with pytest.warns(DeprecationWarning, match="1.43"):
-        got = sp.balance_check(df, "t", ["x"], alpha=0.1)
-    pd.testing.assert_frame_equal(got.table, ref.table)
+    with pytest.raises(TypeError, match="alpha"):
+        sp.balance_check(df, "t", ["x"], alpha=0.1)
+    assert "alpha" not in inspect.signature(sp.balance_check).parameters
 
 
 # ------------------------------------------------------- 3. ITS time order
@@ -308,11 +309,15 @@ def test_logit_gof_unit_weights_equal_unweighted():
 
 
 # ------------------------------------------- 7. bayes_dml(mode='full')
-def test_bayes_dml_full_mode_is_deprecated_and_refused():
+def test_bayes_dml_full_mode_is_removed():
+    # Deprecated in 1.42 (never available), removed in 1.43: refused like
+    # any other unknown mode, without a DeprecationWarning.
     df = pd.DataFrame({"y": [0.0, 1.0], "d": [0.0, 1.0], "x": [0.0, 1.0]})
-    with pytest.warns(DeprecationWarning, match="1.43"):
-        with pytest.raises(MethodIncompatibility):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        with pytest.raises(MethodIncompatibility, match="conjugate") as exc:
             sp.bayes_dml(df, y="y", treatment="d", covariates=["x"], mode="full")
+    assert "removed in 1.43" in exc.value.recovery_hint
 
 
 def test_bayes_dml_schema_no_longer_offers_full():

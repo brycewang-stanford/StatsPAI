@@ -549,7 +549,6 @@ def balance_check(
     data: pd.DataFrame,
     treatment: str,
     covariates: List[str],
-    alpha: Optional[float] = None,
     equal_var: bool = False,
 ) -> BalanceResult:
     """
@@ -566,10 +565,6 @@ def balance_check(
         Binary treatment variable (0/1).
     covariates : list of str
         Covariates to check balance on.
-    alpha : float, optional
-        Deprecated and has no effect: the table reports p-values, and the
-        summary flags ``|normalized difference| > 0.25``. Passing it warns
-        (``DeprecationWarning``); it will be removed in 1.43.
     equal_var : bool, default False
         Per-covariate difference test. ``False`` is Welch's unequal-variance
         t-test. ``True`` is the pooled-variance t-test -- the OLS t-test of
@@ -577,6 +572,11 @@ def balance_check(
         ``iebaltab`` reports (its pair test regresses the variable on the
         group dummy; its difference is control minus treatment, the
         opposite sign of ``diff`` here).
+
+        .. versionchanged:: 1.43
+            ``alpha=`` (deprecated in 1.42, never used) is removed, so
+            ``equal_var`` moves up one place. The table reports p-values
+            and the summary flags ``|normalized difference| > 0.25``.
 
     Returns
     -------
@@ -613,13 +613,6 @@ def balance_check(
     """
     from ..core._validate import require_binary_treatment
 
-    if alpha is not None:
-        warnings.warn(
-            "balance_check(alpha=) has no effect and will be removed in 1.43; "
-            "the table reports p-values.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
     require_binary_treatment(
         data[treatment], function="balance_check", argument="treatment"
     )

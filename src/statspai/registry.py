@@ -24448,9 +24448,7 @@ def _build_registry() -> None:
             category="bayes",
             description=(
                 "Bayesian Double Machine Learning (DiTraglia & Liu 2025): "
-                "Normal-Normal conjugate update on a DML point estimate. "
-                "mode='full' is deprecated (removal in 1.43) and raises "
-                "MethodIncompatibility."
+                "Normal-Normal conjugate update on a DML point estimate."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -24466,9 +24464,8 @@ def _build_registry() -> None:
                     False,
                     "conjugate",
                     "Posterior construction. Only 'conjugate' (Normal-Normal "
-                    "update of the DML point and SE). The value 'full' is "
-                    "deprecated, will be removed in 1.43, and raises "
-                    "MethodIncompatibility with a DeprecationWarning.",
+                    "update of the DML point and SE); mode='full' was "
+                    "removed in 1.43.",
                     enum=["conjugate"],
                 ),
                 ParamSpec(
@@ -24512,8 +24509,8 @@ def _build_registry() -> None:
                 ),
                 FailureMode(
                     symptom=(
-                        "mode='full' raises MethodIncompatibility "
-                        "(deprecated value, removal in 1.43)"
+                        "mode other than 'conjugate' (including 'full', "
+                        "removed in 1.43) raises MethodIncompatibility"
                     ),
                     exception="statspai.MethodIncompatibility",
                     remedy=(

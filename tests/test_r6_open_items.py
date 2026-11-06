@@ -117,7 +117,7 @@ _ZERO_EFFECT_CALLS = [
         n_clusters=40, cluster_size=10, effect_size=0.0, icc=0.05
     ),
     lambda: sp.power_ols(n=400, effect_size=0.0),
-    lambda: sp.power_two_proportions(n=400, p1=0.4, p2=0.4),
+    lambda: sp.power_two_proportions(n=400, p1=0.4, p2=0.4, test="wald"),
     lambda: sp.power_two_proportions(n=400, p1=0.4, p2=0.4, test="chi2"),
 ]
 
@@ -186,8 +186,18 @@ def test_power_two_proportions_chi2_sample_size_matches_stata(ratio, stata_n):
     assert res.n == stata_n
 
 
-def test_power_two_proportions_default_is_still_wald():
+def test_power_two_proportions_default_is_chi2():
+    # 1.43 moved the default from "wald" to "chi2" (announced in 1.42).
+    # Stata 18: power twoproportions 0.5 0.65, n(400) -> 0.861470522956074
     res = sp.power_two_proportions(n=400, p1=0.5, p2=0.65)
+    assert float(res.power) == pytest.approx(0.861470522956074, abs=1e-12)
+    assert res.params["test"] == "chi2"
+    # Stata 18: ... power(0.8) nfractional -> N = 338.62, ceiling 339
+    assert sp.power_two_proportions(p1=0.5, p2=0.65, power_target=0.8).n == 339
+
+
+def test_power_two_proportions_wald_is_the_unpooled_z_test():
+    res = sp.power_two_proportions(n=400, p1=0.5, p2=0.65, test="wald")
     se = np.sqrt(0.25 / 200 + 0.65 * 0.35 / 200)
     z = norm.ppf(0.975)
     want = norm.cdf(0.15 / se - z) + norm.cdf(-0.15 / se - z)
@@ -321,14 +331,17 @@ def test_dnc_gnn_did_without_embedding_reports_no_network_feature():
 
 
 # --------------------------------------------------------------------- #
-#  7. The 'parmigiani' interference alias is deprecated
+#  7. The 'parmigiani' interference alias (deprecated 1.42) is removed
 # --------------------------------------------------------------------- #
 
 
-def test_parmigiani_alias_warns():
-    with pytest.warns(DeprecationWarning, match="network_hte"):
-        with pytest.raises(TypeError):
-            sp.interference("parmigiani")  # no data: the warning comes first
+def test_parmigiani_alias_removed():
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="removed in 1.43") as exc:
+        sp.interference("parmigiani")  # refused before the data is read
+    assert "network_hte" in exc.value.recovery_hint
+    assert "parmigiani" not in sp.interference_available_designs()
 
 
 def test_network_hte_name_does_not_warn():

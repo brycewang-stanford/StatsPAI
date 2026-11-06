@@ -18167,9 +18167,9 @@
       ],
       "function": "power_two_proportions",
       "notes": [
-        "Frozen-R fixture: two-proportion power (unpooled Wald z-approx) matches base R exactly. Regenerate via _generate_power_R.R."
+        "Frozen-R fixture: two-proportion power with test='wald' (unpooled Wald z-approx) matches base R exactly. Regenerate via _generate_power_R.R. The default since 1.43, test='chi2' (Pearson), is checked against Stata power twoproportions in tests/test_r6_open_items.py."
       ],
-      "reference": "base-R closed form (unpooled Wald two-proportion z-approx)",
+      "reference": "base-R closed form (unpooled Wald two-proportion z-approx, test='wald')",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)"
       },

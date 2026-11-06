@@ -19,6 +19,35 @@ All notable changes to StatsPAI will be documented in this file.
   diagonal matrix is conservative, Sidak) and does not warn. Fits with a
   joint covariance are unaffected. No number changes.
 
+### Changed (default announced for 1.43)
+
+- **`sp.power_two_proportions` defaults to `test="chi2"`**, the Pearson
+  chi-squared test with the pooled proportion under the null: Stata
+  `power twoproportions` and R `power.prop.test(strict = TRUE)`, and the
+  default of `sp.power_case_control` (announced in 1.42). Default power is
+  lower and default sample sizes are larger than under the unpooled Wald
+  test. At `n=400, p1=0.5, p2=0.65` power is 0.8615 (Stata
+  0.861470522956074) instead of 0.8665, and `power_target=0.8` needs 339
+  instead of 334. `test="wald"` restores the 1.42 numbers. See
+  MIGRATION.md, "1.42 → 1.43".
+
+### Removed (announced for 1.43)
+
+Deprecated in 1.42 with 1.43 as the stated removal version.
+
+- `sp.optimal_design(baseline_mean=)`, `sp.attrition_bounds(alpha=)` and
+  `sp.balance_check(alpha=)`. None of them had an effect. Passing one now
+  raises `TypeError` (unexpected keyword argument). The arguments after
+  them (`n`, `trimming`, `equal_var`) move up one place.
+- `sp.bayes_dml(mode='full')`. It was never available. `mode` is now
+  `Literal["conjugate"]`, and any other value raises
+  `MethodIncompatibility` before fitting, without the `DeprecationWarning`.
+  An unknown mode used to raise a plain `ValueError`;
+  `MethodIncompatibility` is still a `ValueError`.
+- `sp.interference("parmigiani")`. It raises `MethodIncompatibility` whose
+  `recovery_hint` names `"network_hte"`, the same estimator. It is no
+  longer listed by `sp.interference_available_designs()`.
+
 ### Added
 
 - **`sp.xtivreg` gains Stata's `fd`, `small`, `first` and `regress`.**

@@ -130,7 +130,7 @@ def power_two_proportions(
     alpha: float = 0.05,
     alternative: str = "two-sided",
     power_target: Optional[float] = None,
-    test: str = "wald",
+    test: str = "chi2",
 ) -> PowerResult:
     """Power (or sample size) to detect a difference between two proportions.
 
@@ -151,22 +151,23 @@ def power_two_proportions(
     power_target : float, optional
         Desired power; when supplied with ``n=None`` the function returns the
         required total sample size.
-    test : {"wald", "chi2"}, default "wald"
-        ``"wald"``: the unpooled-variance z test,
-        ``Phi(|p1 - p2| / se - z_alpha)`` with
-        ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. ``"chi2"``: the Pearson
-        chi-squared test, whose null standard error uses the pooled
-        proportion; this is Stata ``power twoproportions`` (its default
-        ``test(chi2)``) and R ``power.prop.test(strict = TRUE)``, and the
-        default of :func:`power_case_control`. Two-sided power counts both
-        tails under either test. Group sizes are ``n / (1 + ratio)`` and
-        ``n ratio / (1 + ratio)`` without rounding, as Stata's
+    test : {"chi2", "wald"}, default "chi2"
+        ``"chi2"``: the Pearson chi-squared test, whose null standard error
+        uses the pooled proportion; this is Stata ``power twoproportions``
+        (its default ``test(chi2)``) and R ``power.prop.test(strict =
+        TRUE)``, and the default of :func:`power_case_control`. ``"wald"``:
+        the unpooled-variance z test, ``Phi(|p1 - p2| / se - z_alpha)`` with
+        ``se = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2)``. Two-sided power counts
+        both tails under either test. Group sizes are ``n / (1 + ratio)``
+        and ``n ratio / (1 + ratio)`` without rounding, as Stata's
         ``nfractional`` option (Stata otherwise rounds each group to an
         integer).
 
         .. versionadded:: 1.42
-           1.42 keeps ``"wald"`` as the default; see MIGRATION.md for the
-           planned change to ``"chi2"``.
+
+        .. versionchanged:: 1.43
+           The default is ``"chi2"`` (it was ``"wald"`` in 1.42). Pass
+           ``test="wald"`` for the 1.42 numbers.
 
     Returns
     -------
@@ -186,11 +187,15 @@ def power_two_proportions(
     True
     >>> res.design
     'two_proportions'
-    >>> round(float(res.power), 4)
-    0.8665
+    >>> round(float(res.power), 4)  # Stata power twoproportions: 0.8615
+    0.8615
     >>> # Solve for the total sample size achieving 80% power.
     >>> int(sp.power_two_proportions(p1=0.5, p2=0.65, power_target=0.8).n)
-    334
+    339
+    >>> # The unpooled Wald z test (the 1.42 default).
+    >>> round(float(sp.power_two_proportions(n=400, p1=0.5, p2=0.65,
+    ...                                      test="wald").power), 4)
+    0.8665
     """
     alternative = _alternative(alternative)
     if test not in ("wald", "chi2"):

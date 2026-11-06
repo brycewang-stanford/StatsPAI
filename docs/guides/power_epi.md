@@ -25,7 +25,7 @@ import statspai as sp
 
 # Power for a fixed sample size
 r = sp.power_two_proportions(n=200, p1=0.30, p2=0.50)
-print(r.power)            # ≈ 0.84
+print(r.power)            # ≈ 0.83 (Pearson chi-squared test)
 
 # Solve for the total sample size that gives 80% power
 r = sp.power_two_proportions(p1=0.30, p2=0.50, power_target=0.80)
@@ -40,6 +40,11 @@ print(curve.power)
 
 `p1` is the reference (control) outcome probability, `p2` the comparison
 arm; `ratio = n2/n1`.
+
+The default `test="chi2"` is the Pearson chi-squared test with the pooled
+proportion under the null, as Stata `power twoproportions` and R
+`power.prop.test(strict = TRUE)`. `test="wald"` is the unpooled z test
+(≈ 0.84 in the first example), which was the default through 1.42.
 
 ---
 
