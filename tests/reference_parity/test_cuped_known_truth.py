@@ -2,8 +2,8 @@
 
 There is no canonical reference implementation of CUPED; the estimator is
 defined by a formula (Deng et al. 2013), so the tests check that formula
-exactly and the two properties that justify it on a known DGP: unbiasedness
-and a variance reduction of rho^2.
+exactly and the properties that justify it on a known DGP: unbiasedness, a
+variance reduction of rho^2 and nominal coverage of the 95% interval.
 """
 
 from __future__ import annotations
@@ -63,20 +63,34 @@ def test_lin_method_is_lm_lin():
     assert a.estimate == b.estimate and a.se == b.se
 
 
+def _wilson(k: int, n: int, z: float = 2.5758293035489004):
+    """Wilson score interval for a binomial proportion (default 99%)."""
+    p = k / n
+    centre = (p + z**2 / (2 * n)) / (1 + z**2 / n)
+    half = z * np.sqrt(p * (1 - p) / n + z**2 / (4 * n**2)) / (1 + z**2 / n)
+    return centre - half, centre + half
+
+
 def test_unbiased_with_variance_reduction_rho_squared():
     # Known truth: effect 0.3, corr(x, y | d) = 0.8, so the variance of the
     # estimate falls by rho^2 = 0.64. 400 replications: the MC SE of the mean
     # estimate is about 0.0024 and of the variance ratio about 0.02.
-    est, ratio = [], []
+    est, ratio, cover = [], [], 0
     for s in range(400):
         r = sp.cuped(_data(n=600, seed=100 + s), "y", "d", ["x"])
         est.append(r.estimate)
         ratio.append(1 - r.model_info["variance_reduction"])
+        cover += r.ci[0] <= 0.3 <= r.ci[1]
     est = np.array(est)
     assert abs(est.mean() - 0.3) < 4 * est.std(ddof=1) / np.sqrt(len(est))
     assert np.mean(ratio) == pytest.approx(1 - 0.64, abs=0.02)
     # The reported SE matches the sampling SD of the estimate.
     assert est.std(ddof=1) == pytest.approx(np.sqrt(0.36 * 4 / 600), rel=0.1)
+    # theta is estimated but treated as known; the error is O(1/n), so the
+    # 95% interval covers at the nominal rate: 0.95 inside the 99% Wilson
+    # interval of the observed rate (observed 2026-11-05: 377 of 400, 0.943).
+    lo, hi = _wilson(int(cover), len(est))
+    assert lo <= 0.95 <= hi, cover / len(est)
 
 
 def test_cupac_captures_nonlinear_signal():

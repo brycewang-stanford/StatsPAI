@@ -22,7 +22,7 @@ Files: `src/statspai/did/fuzzy_did.py`, `src/statspai/did/_fuzzy_did_core.py`,
 `src/statspai/agent/_translation/_stata_fuzzydid.py`; wiring in
 `did/__init__.py`, `statspai/__init__.py`, `registry.py`,
 `agent/_translation/_stata_did.py` (two lines); tests
-`tests/test_fuzzy_did.py`, `tests/test_placebo_dates.py`,
+`tests/test_fuzzy_did.py`, `tests/reference_parity/test_placebo_dates_known_truth.py`,
 `tests/test_stata_translation_fuzzydid.py`,
 `tests/reference_parity/test_fuzzy_did_stata_parity.py`, one round-trip
 row in `tests/test_translation.py`; fixtures

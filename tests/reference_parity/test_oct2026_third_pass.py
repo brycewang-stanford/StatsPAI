@@ -303,9 +303,9 @@ def test_text_treatment_effect_removes_text_borne_confounding():
     est, se, raw = [], [], []
     for seed in range(4):
         df = _text_confounder_design(seed)
-        # Experimental API: getattr keeps this anchor from promoting it in
-        # the parity index.
-        res = getattr(sp, "text_treatment_effect")(
+        # Experimental API with known-truth evidence: listed in
+        # tests/test_parity_index.py::_EXPERIMENTAL_WITH_PARITY_EVIDENCE.
+        res = sp.text_treatment_effect(
             df,
             text_col="text",
             outcome="y",
@@ -329,7 +329,7 @@ def test_text_treatment_effect_bucket_collisions_leave_confounding():
     est = []
     for seed in range(12):
         df = _text_confounder_design(seed)
-        res = getattr(sp, "text_treatment_effect")(
+        res = sp.text_treatment_effect(
             df, text_col="text", outcome="y", treatment="t", n_components=20, seed=seed
         )
         est.append(float(res.estimate))

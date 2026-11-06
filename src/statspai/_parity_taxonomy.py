@@ -327,6 +327,7 @@ NON_ESTIMATOR_LEAVES: FrozenSet[str] = frozenset(
         "dgp_rd_multi",
         "dgp_rdit",
         "dgp_synth",
+        "dgp_ddc",
         "dag_simulate",
         # Dataset loaders / calibrated replicas
         "list_datasets",
@@ -457,6 +458,9 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
     # dataset
     "basque_terrorism": "dataset",
     "dag_simulate": "dataset",
+    # simulates a Rust-style bus panel; sp.ddc recovering its parameters is
+    # evidence for sp.ddc (tests/test_ddc.py), not a grade for the simulator
+    "dgp_ddc": "dataset",
     "california_prop99": "dataset",
     "california_tobacco": "dataset",
     "german_reunification": "dataset",
@@ -493,6 +497,9 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
     "echo_client": "llm",
     "openai_client": "llm",
     "causal_mas": "llm",
+    # the codes are LLM replies; the agreement statistics on them are
+    # checked against direct computation in tests/test_llm_code_responses.py
+    "llm_code_responses": "llm",
     # catalog
     "did_design_contract": "catalog",
     "event_study_convention": "catalog",

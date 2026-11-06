@@ -29563,6 +29563,7 @@
     "typical_n_min": 20,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_cuped_known_truth.py",
       "tests/reference_parity/test_difference_in_means_estimatr.py",
       "tests/reference_parity/test_lm_lin_estimatr_parity.py"
     ],
@@ -29725,6 +29726,7 @@
     "typical_n_min": 30,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_first_course.py",
+      "tests/reference_parity/test_cuped_known_truth.py",
       "tests/reference_parity/test_ding_first_course_parity.py",
       "tests/reference_parity/test_lm_lin_estimatr_parity.py",
       "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
@@ -30357,7 +30359,7 @@
       "The specification count is held in this Python process only (an MCP server included); it is not written to disk and starts empty in a new process",
       "Only the specification-search counts behind violations(test='specification_search') are forgotten; fitted results, data and settings are untouched"
     ],
-    "category": "robustness",
+    "category": "utils",
     "cost_profile": "",
     "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten.",
     "evidence": {
@@ -49951,17 +49953,21 @@
     ],
     "category": "timeseries",
     "cost_profile": "About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
-    "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
+    "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_tvp_var_sv_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.tvp_var_sv(df, variables=[\"dp\", \"u\", \"r\"], lags=2, seed=1)",
@@ -50017,7 +50023,7 @@
       }
     },
     "signature": {
-      "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
+      "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
       "name": "tvp_var_sv",
       "parameters": {
         "properties": {
@@ -50131,10 +50137,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_tvp_var_sv_parity.py",
       "API/unit contract evidence: tests/test_tvp_var_sv.py",
       "API/unit contract evidence: tests/reference_parity/test_tvp_var_sv_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -59132,17 +59139,21 @@
     ],
     "category": "causal",
     "cost_profile": "n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
-    "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
+    "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_expected_instrument_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "ei = sp.expected_instrument(df, instrument_fn=share_fn, shock_sampler={'kind': 'bernoulli', 'p': 0.5, 'size': m}, n_draws=1000, seed=0); sp.recentered_iv(df, 'y', 'd', 'z', counterfactual=ei.draws)",
@@ -59203,7 +59214,7 @@
       }
     },
     "signature": {
-      "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
+      "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
       "name": "expected_instrument",
       "parameters": {
         "properties": {
@@ -59256,9 +59267,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_expected_instrument.py: simulated mu converges to the closed form at the Monte Carlo rate, permutation draws give the stratum mean, and the draws fed to sp.recentered_iv recover a known beta"
+      "tests/test_expected_instrument.py: simulated mu converges to the closed form at the Monte Carlo rate, permutation draws give the stratum mean, and the draws fed to sp.recentered_iv recover a known beta",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_expected_instrument_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -62890,15 +62902,19 @@
     "cost_profile": "",
     "description": "[experimental] Veitch-Wang-Blei (2020) text-as-treatment ATE estimation. Embeds a text column into n_components features (default hash embedder, deterministic) and uses them as confounder adjustment in OLS with HC1 SEs. Validation status: experimental. Known limitations: embedder='sbert' requires the optional sentence-transformers extra; the bundled 'hash' embedder is a deterministic fallback, not a published parity reference; Veitch et al. (2020) full BERT/topic-model recipe is not yet implemented -- see module docstring.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_third_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.text_treatment_effect(df, text_col='review', outcome='revenue', treatment='positive_label', n_components=20)",
@@ -65638,17 +65654,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_two_stage_interference_enumeration.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.two_stage_interference(df, \"y\", \"d\", \"village\", \"sat\")",
@@ -65710,7 +65730,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+      "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "two_stage_interference",
       "parameters": {
         "properties": {
@@ -65770,9 +65790,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_two_stage_interference.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_two_stage_interference_enumeration.py",
+      "API/unit contract evidence: tests/reference_parity/test_two_stage_interference_enumeration.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -67933,17 +67954,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_msprt_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nd = rng.integers(0, 2, n)\ndf = pd.DataFrame({'d': d, 'y': 0.3 * d + rng.normal(size=n)})\nr = sp.msprt(df, 'y', 'd', tau=0.2, sigma=1.0)",
@@ -68005,7 +68030,7 @@
       }
     },
     "signature": {
-      "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+      "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "msprt",
       "parameters": {
         "properties": {
@@ -68064,9 +68089,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_msprt.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_msprt_known_truth.py",
+      "API/unit contract evidence: tests/reference_parity/test_msprt_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -68081,17 +68107,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_msprt_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "r = sp.msprt_lambda(0.3, 0.01, tau=0.2)",
@@ -68118,7 +68148,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+      "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "msprt_lambda",
       "parameters": {
         "properties": {
@@ -68151,9 +68181,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_msprt.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_msprt_known_truth.py",
+      "API/unit contract evidence: tests/reference_parity/test_msprt_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -68168,17 +68199,21 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_cuped_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 2000\ny_pre = rng.normal(size=n)\nd = rng.integers(0, 2, n)\ndf = pd.DataFrame({'d': d, 'y_pre': y_pre,\n 'y': 0.2 * d + 0.8 * y_pre + rng.normal(size=n)})\nr = sp.cuped(df, 'y', 'd', ['y_pre'])",
@@ -68240,7 +68275,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+      "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "cuped",
       "parameters": {
         "properties": {
@@ -68320,9 +68355,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_cuped.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cuped_known_truth.py",
+      "API/unit contract evidence: tests/reference_parity/test_cuped_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -74208,17 +74244,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order.",
+    "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_placebo_dates_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.assign_placebo_dates(df, 'id', 'move_year', time='year', strata='cohort', seed=1)",
@@ -74267,7 +74307,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order.",
+      "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "assign_placebo_dates",
       "parameters": {
         "properties": {
@@ -74335,9 +74375,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_placebo_dates.py: proportional allocation reproduces the treated date frequencies exactly, independent draws pass a binomial screen, results are row-order invariant, and an event study with placebo dates on a no-effect design with strong calendar effects is centred on zero"
+      "tests/reference_parity/test_placebo_dates_known_truth.py: proportional allocation reproduces the treated date frequencies exactly, independent draws pass a binomial screen, results are row-order invariant, and an event study with placebo dates on a no-effect design with strong calendar effects is centred on zero",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_placebo_dates_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -78430,17 +78471,21 @@
     ],
     "category": "structural",
     "cost_profile": "Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
-    "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
+    "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_smm_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.smm(simulate, contrib, theta0=[0.0, 1.0], n_sim=10, seed=0, bounds=[(None, None), (1e-6, None)])",
@@ -78507,7 +78552,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
+      "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
       "name": "smm",
       "parameters": {
         "properties": {
@@ -78635,9 +78680,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_smm.py: estimate and SEs equal sp.gmm's x sqrt(1 + 1/S) under standardised draws (1e-6); AR(1) SMM vs MLE; J-size Monte Carlo screen (S)"
+      "tests/test_smm.py: estimate and SEs equal sp.gmm's x sqrt(1 + 1/S) under standardised draws (1e-6); AR(1) SMM vs MLE; J-size Monte Carlo screen (S)",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_smm_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -85700,17 +85746,22 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup.",
+    "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_pooled_price_ratio_closed_forms.py",
+        "tests/reference_parity/test_risk_class_selection_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.pooled_price_ratio(\"risk\", data=df, markup=0.2)",
@@ -85774,7 +85825,7 @@
       }
     },
     "signature": {
-      "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup.",
+      "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "pooled_price_ratio",
       "parameters": {
         "properties": {
@@ -85826,9 +85877,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_adverse_selection.py: exact on discrete distributions, closed forms for uniform and beta(t = 80) types, and weights equal duplicated rows"
+      "tests/test_adverse_selection.py: exact on discrete distributions, closed forms for uniform and beta(t = 80) types, and weights equal duplicated rows",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_pooled_price_ratio_closed_forms.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -85845,17 +85897,21 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline.",
+    "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_risk_class_selection_known_truth.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.risk_class_selection(df, \"cancer65\", [\"age\", \"bmi\", \"famhist\"], pgi=\"pgi\", r2_future={\"3L\": 0.18, \"3U\": 0.57}, at={\"age\": 65})",
@@ -85919,7 +85975,7 @@
       }
     },
     "signature": {
-      "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline.",
+      "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "risk_class_selection",
       "parameters": {
         "properties": {
@@ -86000,9 +86056,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_risk_class_selection.py: DGP satisfying Assumptions 1-5 (closed-form risks): parameters and t80 of all scenarios recovered at n=1e5; Scenario 1 = pooled_price_ratio on the class exactly; Scenario 2 = sp.probit predictions; r2_future = R2c reproduces Scenario 2 to 1e-12; bootstrap coverage 0.94 (200 x 199, slow)"
+      "tests/reference_parity/test_risk_class_selection_known_truth.py: DGP satisfying Assumptions 1-5 (closed-form risks): parameters and t80 of all scenarios recovered at n=1e5; Scenario 1 = pooled_price_ratio on the class exactly; Scenario 2 = sp.probit predictions; r2_future = R2c reproduces Scenario 2 to 1e-12; bootstrap coverage 0.94 (200 x 199, slow)",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_risk_class_selection_known_truth.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -140042,7 +140099,8 @@
     "typical_n_min": 30,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata 18 gmm (linear and exponential-mean IV; twostep, igmm, onestep); R gmm::gmm [R version 4.5.2 (2025-10-31), Stata 18 MP, gmm 1.9.1]; tolerance vs Stata estimates rtol 1e-10 (observed 1.2e-12), SEs 1e-9 linear / 1e-6 nonlinear (Stata's numerical Jacobian; observed 2.5e-7), J rtol 1e-10; vs R rtol 1e-6 (observed 1.8e-7) -- tests/reference_parity/test_panel_gmm_stata_parity.py",
-      "tests/reference_parity/test_gmm_dynamic_panel_parity.py"
+      "tests/reference_parity/test_gmm_dynamic_panel_parity.py",
+      "tests/reference_parity/test_smm_known_truth.py"
     ],
     "validation_status": "certified"
   },

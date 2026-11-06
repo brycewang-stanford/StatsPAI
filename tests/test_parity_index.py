@@ -174,6 +174,11 @@ _EXPERIMENTAL_WITH_PARITY_EVIDENCE = {
     # annotation noise (tests/reference_parity/test_oct2026_second_pass.py).
     # The API stays experimental; the evidence is about the point estimate.
     "llm_annotator_correct",
+    # 2026-11: known-truth recovery of a planted effect of 1.0 when the words
+    # carry the confounder (raw contrast 1.8), and the documented bias left by
+    # hash-bucket collisions (tests/reference_parity/test_oct2026_third_pass.py).
+    # The API stays experimental; the evidence is about the point estimate.
+    "text_treatment_effect",
 }
 
 

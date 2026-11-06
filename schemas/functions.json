@@ -22834,7 +22834,7 @@
     }
   },
   {
-    "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
+    "description": "Time-varying-parameter VAR with stochastic volatility (Primiceri): coefficients, the contemporaneous relations and the log volatilities of the shocks all follow random walks. Gibbs sampler with the corrected ordering of the mixture indicators. Posterior medians and bands of the coefficient, volatility and covariance paths, impulse responses at chosen dates, share of explosive draws, convergence diagnostics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Short samples: the training sample is removed and the prior then matters a great deal. Cost: About 5 ms per sweep at K=3, p=2, T=160; numba kernels compile on first use",
     "name": "tvp_var_sv",
     "parameters": {
       "properties": {
@@ -26701,7 +26701,7 @@
     }
   },
   {
-    "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
+    "description": "Expected value mu_i = E[z_i | exposure] of a formula instrument built from as-good-as-random shocks and non-random exposure (share of opposite-sex neighbours, market access, shift-share), simulated by redrawing the shocks from their known assignment process. Returns mu with its Monte Carlo SE and, memory permitting, the (n, n_draws) draws matrix, which sp.recentered_iv takes as counterfactual= (Borusyak-Hull recentring and randomization inference). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_draws calls of instrument_fn; the kept draws matrix is 8 * n * n_draws bytes (80 MB at n=10,000, 1,000 draws).",
     "name": "expected_instrument",
     "parameters": {
       "properties": {
@@ -29731,7 +29731,7 @@
     }
   },
   {
-    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects).",
+    "description": "Hudgens-Halloran two-stage randomized (saturation) design under partial interference: direct, indirect (spillover), total and overall effects from the groups' randomized saturations, with the conservative group-level variance (exact for constant group-level effects). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "two_stage_interference",
     "parameters": {
       "properties": {
@@ -30683,7 +30683,7 @@
     }
   },
   {
-    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha.",
+    "description": "Always-valid p-values and confidence sequences for a two-arm A/B test monitored continuously (mixture SPRT with a normal mixing distribution); stopping whenever p <= alpha keeps the type I error at alpha. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "msprt",
     "parameters": {
       "properties": {
@@ -30740,7 +30740,7 @@
     }
   },
   {
-    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value.",
+    "description": "Mixture likelihood ratio of the normal-mixture SPRT for an estimate with known variance; 1 / running max is the always-valid p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "msprt_lambda",
     "parameters": {
       "properties": {
@@ -30771,7 +30771,7 @@
     }
   },
   {
-    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin).",
+    "description": "Average treatment effect of an A/B test with CUPED variance reduction: difference in means of the outcome minus its pooled linear projection on pre-experiment covariates; 'cupac' uses an out-of-fold ML prediction as the covariate, 'lin' is the interacted regression (sp.lm_lin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cuped",
     "parameters": {
       "properties": {
@@ -33866,7 +33866,7 @@
     }
   },
   {
-    "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order.",
+    "description": "Placebo event dates for never-treated units: each unit without an event date gets one drawn from the treated units' event-date distribution (within strata; optionally only among dates at which the unit is observed), so an event study can line up treated and never-treated units in event time and compare them symmetrically. Reproducible for a seed whatever the row order. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "assign_placebo_dates",
     "parameters": {
       "properties": {
@@ -35871,7 +35871,7 @@
     }
   },
   {
-    "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
+    "description": "Simulated method of moments: matches data moments to the average of the same moments over S data sets simulated from the model, with common random numbers held fixed across theta (seeded). Efficient weighting, sandwich SEs with the simulation correction c = 1 + N/(S N_s) (1 + 1/S for equal sizes), finite-difference Jacobian, Hansen J test with the same correction, convergence diagnostics in the result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The moments have a closed form in theta -- use sp.gmm, which has no simulation noise; The simulator is a frequency (0/1) count -- smooth it first, or the derivative and the standard errors are degenerate. Cost: Each objective evaluation runs simulate S times; the finite-difference Jacobian adds 2k evaluations per Gauss-Newton step.",
     "name": "smm",
     "parameters": {
       "properties": {
@@ -39117,7 +39117,7 @@
     }
   },
   {
-    "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup.",
+    "description": "Hendren pooled price ratio T(r) and implicit tax t(r) = T(r) - 1 from the distribution of private loss probabilities in a market segment; the minimum implicit tax up to a quantile (t80 by default, as Azevedo et al. 2026) and Hendren's no-trade condition at a given markup. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pooled_price_ratio",
     "parameters": {
       "properties": {
@@ -39167,7 +39167,7 @@
     }
   },
   {
-    "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline.",
+    "description": "Azevedo-Beauchamp-Karlsson Linner (2026) pipeline: probit risk model, the insurer's standard risk class (0.75-1.25 x mean covariate-only risk), private-risk distributions when consumers know the covariates only, a current predictor (e.g. a polygenic index) or a future predictor of known liability R2, and the minimum implicit tax t80 per scenario with a bootstrap over the whole pipeline. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "risk_class_selection",
     "parameters": {
       "properties": {

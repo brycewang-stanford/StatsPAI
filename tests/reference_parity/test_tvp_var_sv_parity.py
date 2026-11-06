@@ -29,7 +29,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.timeseries.tvp_var_sv import TVPVARSVResult, tvp_var_sv
+from statspai.timeseries.tvp_var_sv import TVPVARSVResult
 
 FIX = Path(__file__).parent / "_fixtures"
 TAU = 40
@@ -49,7 +49,7 @@ def reference() -> dict:
 def _fit(data: pd.DataFrame, **kw: float) -> TVPVARSVResult:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", sp.ConvergenceWarning)
-        return tvp_var_sv(
+        return sp.tvp_var_sv(
             data,
             variables=["x", "z"],
             lags=1,

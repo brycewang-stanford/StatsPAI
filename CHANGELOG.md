@@ -4,6 +4,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Parity evidence for eleven estimators that had none recorded.**
+  `sp.cuped`, `sp.msprt`, `sp.msprt_lambda`, `sp.smm`,
+  `sp.expected_instrument`, `sp.two_stage_interference`, `sp.tvp_var_sv`,
+  `sp.pooled_price_ratio`, `sp.risk_class_selection`,
+  `sp.text_treatment_effect` and `sp.assign_placebo_dates` now carry an
+  `analytical-only` grade. Their known-truth tests (closed forms, exact
+  enumeration, planted-parameter recovery) were in `tests/` where the
+  index does not look, or called the function without the `sp.` prefix;
+  they now live in `tests/reference_parity/`. New: Monte Carlo coverage of
+  the `sp.smm` intervals at S = 1 and of the `sp.cuped` interval, each
+  against a 99% Wilson band. None of these functions has an R or Stata
+  reference; the `bvarsv` comparison of `sp.tvp_var_sv` stays a stochastic
+  screen. No numerical output changes.
+- `sp.dgp_ddc` (a simulator) and `sp.llm_code_responses` (LLM coding) are
+  listed as non-numeric callables, and `sp.reset_spec_counter` moves from
+  the `robustness` category to `utils` (it clears session state). The three
+  leave the estimator denominator of `docs/parity.md`.
+
 ## [1.42.1] — 2026-11-03
 
 A patch release. No estimator, default or numerical output changes.

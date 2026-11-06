@@ -16153,7 +16153,9 @@ def _build_registry() -> None:
     register(
         FunctionSpec(
             name="reset_spec_counter",
-            category="robustness",
+            # Session housekeeping, not an estimator: it clears the
+            # specification-search count and returns how much it cleared.
+            category="utils",
             description=(
                 "Forget the session's specification-search count (the "
                 "'specification_search' violation that sp.regress / feols / "
@@ -33442,7 +33444,8 @@ def _build_registry() -> None:
             ],
             alternatives=["event_study", "stacked_did", "callaway_santanna"],
             validation_notes=[
-                "tests/test_placebo_dates.py: proportional allocation reproduces "
+                "tests/reference_parity/test_placebo_dates_known_truth.py: "
+                "proportional allocation reproduces "
                 "the treated date frequencies exactly, independent draws pass a "
                 "binomial screen, results are row-order invariant, and an event "
                 "study with placebo dates on a no-effect design with strong "
@@ -39447,7 +39450,8 @@ def _build_registry() -> None:
                 "efc_welfare",
             ],
             validation_notes=[
-                "tests/test_risk_class_selection.py: DGP satisfying Assumptions "
+                "tests/reference_parity/test_risk_class_selection_known_truth.py: "
+                "DGP satisfying Assumptions "
                 "1-5 (closed-form risks): parameters and t80 of all scenarios "
                 "recovered at n=1e5; Scenario 1 = pooled_price_ratio on the "
                 "class exactly; Scenario 2 = sp.probit predictions; r2_future = "
@@ -40996,10 +41000,12 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "diff": ["tests/test_data_layer.py"],
     "reshape": ["tests/test_data_layer.py"],
     "collapse": ["tests/test_data_layer.py"],
-    "cuped": ["tests/test_cuped.py"],
-    "two_stage_interference": ["tests/test_two_stage_interference.py"],
-    "msprt": ["tests/test_msprt.py"],
-    "msprt_lambda": ["tests/test_msprt.py"],
+    "cuped": ["tests/reference_parity/test_cuped_known_truth.py"],
+    "two_stage_interference": [
+        "tests/reference_parity/test_two_stage_interference_enumeration.py"
+    ],
+    "msprt": ["tests/reference_parity/test_msprt_known_truth.py"],
+    "msprt_lambda": ["tests/reference_parity/test_msprt_known_truth.py"],
 }
 
 _API_STABLE_TEST_EVIDENCE: Dict[str, List[str]] = {

@@ -20,7 +20,8 @@ expectation exceeds the randomization variance by exactly ``S^2 / N``, the
 between-group variance of the group-level effect over all ``N`` groups, so
 they are unbiased when that effect is the same in every group (Basse and
 Feller 2018, Theorem 5.1 with household weights, which they note recovers
-Hudgens and Halloran's results). ``tests/test_two_stage_interference.py``
+Hudgens and Halloran's results).
+``tests/reference_parity/test_two_stage_interference_enumeration.py``
 checks both statements by enumerating every assignment of small designs.
 
 Individual weighting rescales each outcome by ``n_i / nbar`` (group size
