@@ -19334,6 +19334,10 @@
           "description": "Independent chains",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier fit of the same formula, data, model and prior by draws= more draws per chain, from each chain's last state and generator, no new burn-in. Equal to one longer run for the Gibbs samplers; reproducible but not equal for the Metropolis ones",
+          "type": "string"
+        },
         "cut_prior_var": {
           "default": 1.0,
           "description": "oprobit: prior variance of the log cutpoint increments",
@@ -19372,6 +19376,18 @@
             "vb"
           ],
           "type": "string"
+        },
+        "inits": {
+          "description": "Starting values on the scale of result.params: a dict {parameter: value} for every chain, a list of dicts (one per chain) or an array (n_par,) / (chains, n_par). result.inits records each chain's starting state",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; plot(kind='trace') then marks them",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -19496,6 +19512,11 @@
         "upper": {
           "description": "tobit: right-censoring point",
           "type": "number"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -19521,7 +19542,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome, a regressor or the group column are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -19786,7 +19807,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Missing or infinite values in the series are refused (``MethodIncompatibility``); a gap in a time series is not a row that can be skipped, so remove or fill them first.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -19873,7 +19894,7 @@
           "type": "boolean"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Missing or infinite values in the series are refused (``MethodIncompatibility``); a gap in a time series is not a row that can be skipped, so remove or fill them first.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -19967,7 +19988,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in any equation are dropped from all equations before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -20058,7 +20079,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -20164,7 +20185,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -20238,7 +20259,7 @@
           "type": "boolean"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -21372,7 +21393,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -21603,7 +21624,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "Rows with a missing value in any equation are dropped from all.",
+          "description": "Rows with a missing value in any equation are dropped from all equations before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -21689,7 +21710,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -23116,7 +23137,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome, a regressor or an instrument are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -23222,7 +23243,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or in any candidate regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -24303,7 +24324,7 @@
           "type": "number"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "With a formula, rows with a missing value in one of its variables are dropped (listwise deletion), with an ``AssumptionWarning`` that counts them. With ``statistic=`` the rows are passed as given, and missing values are the statistic's to handle.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
@@ -39799,7 +39820,7 @@
           "type": "integer"
         },
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },

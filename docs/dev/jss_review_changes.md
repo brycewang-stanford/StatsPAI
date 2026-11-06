@@ -6093,3 +6093,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None. No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — all traces re-recorded after the result-protocol and MCMC chain changes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `90d504117` (fitted values and residuals on sample labels,
+  formula and convergence keys) and `d039dbd20` (MCMC starting values and
+  continuation; the listwise-deletion note reads lists of formulas).
+- **Reason.** `src/statspai/core/results.py` and
+  `src/statspai/output/_lineage.py` are on the traced path of almost
+  every module, and several regression sources changed (ols, iv,
+  logit_probit, count, quantile, tobit, multinomial, panel_reg,
+  fixest/_native). The changes add accessors and metadata keys only.
+  Every Track A module (91) and original-data module (12) was re-run
+  into a scratch directory and diffed against its committed
+  `*_py.json`: every number agrees within 1e-9 (no committed result was
+  touched).
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
