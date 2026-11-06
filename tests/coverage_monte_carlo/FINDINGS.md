@@ -25,7 +25,12 @@ suite's HDFE member `sp.fast.feols` itself), and since the 2026-09 JSS review
 each row records every draw's estimate, SE and interval, so the table
 reports why a rate is what it is: bias, Monte Carlo SD, mean reported SE
 and their ratio (SE calibration). The 99% Wilson band around nominal 0.95
-is approximately `[0.935, 0.967]`.
+for B = 1000 is `[0.929, 0.965]` (`test_coverage.py::_wilson_bounds`); the
+coverage test also allows 0.02 above the upper end, because over-coverage
+is conservative. Until 2026-11-05 this file quoted `[0.935, 0.967]`, which
+mixes the 95% Wilson lower end with the 99% score-test upper end; under the
+test's actual rule sharp RD (0.934) is inside the band and SDID (0.928) is
+just below it.
 
 | Estimator | DGP | Coverage | Bias | MC SD | Mean SE | SE/SD |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -123,7 +128,7 @@ Root causes fixed:
    implementation only carried the treated-side residual term.
 
 Current result: the B=1000 deep audit reports `947/1000 = 0.947`, inside
-the 99% Wilson band `[0.935, 0.967]`. The `04_csdid` R/Stata parity row
+the 99% Wilson band `[0.929, 0.965]`. The `04_csdid` R/Stata parity row
 reports simple-ATT point-estimate parity at machine precision and
 analytic-SE parity within the registered 1% tolerance.
 
