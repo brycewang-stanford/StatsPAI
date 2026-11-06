@@ -24,6 +24,19 @@ All notable changes to StatsPAI will be documented in this file.
   the `robustness` category to `utils` (it clears session state). The three
   leave the estimator denominator of `docs/parity.md`.
 
+### Fixed
+
+- ⚠️ **correctness fix: `sp.propensity_score(method='probit')` runs to the
+  maximum.** The probit branch (also behind `sp.trimming(ps_method=
+  'probit')`, `sp.ps_balance(method='probit')` and
+  `sp.balance_diagnostics(method='probit')`) minimised the likelihood with
+  BFGS at scipy's default gradient tolerance and stopped short: its scores
+  were 6e-8 (relative) from R `glm` on the parity fixture. It now uses the
+  shared Newton fit of `matching/_binary_fit.py`, as the logit branch and
+  the matching estimators do (score below 1e-10; a redundant covariate is
+  dropped instead of fitting an unidentified model). Scores move by about
+  1e-8, and a Crump cutoff computed from them by as much.
+
 ## [1.42.1] — 2026-11-03
 
 A patch release. No estimator, default or numerical output changes.

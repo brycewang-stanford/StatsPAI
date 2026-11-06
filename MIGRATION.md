@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42 → next: ⚠️ probit propensity scores run to the maximum
+
+- `sp.propensity_score(method='probit')`, and the `method='probit'` /
+  `ps_method='probit'` paths of `sp.trimming`, `sp.ps_balance` and
+  `sp.balance_diagnostics`, now fit the probit by Newton's method to the
+  maximum instead of stopping BFGS at a gradient of 1e-5. Scores move by
+  about 1e-8 relative (6e-8 on the parity fixture), and a Crump cutoff
+  computed from them by as much; a row that sat exactly at the cutoff can
+  change sides. Logit scores are unchanged. There is no switch back: the
+  old numbers were an unconverged fit.
+
+---
+
 ## 1.41 → 1.42: announced defaults take effect
 
 The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 with a

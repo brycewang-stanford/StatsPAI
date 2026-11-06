@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import stats
 from scipy.special import expit
 
 from .._aliases import accepts_aliases
@@ -66,8 +66,9 @@ def propensity_score(
     covariates : list of str
         Covariate column names.
     method : {'logit', 'probit', 'gbm'}
-        Estimation method.  ``'logit'`` uses IRLS (no sklearn needed).
-        ``'probit'`` uses scipy.optimize.  ``'gbm'`` tries sklearn
+        Estimation method.  ``'logit'`` and ``'probit'`` are maximum
+        likelihood fits by Newton's method, the fit the matching
+        estimators use.  ``'gbm'`` tries sklearn
         GradientBoostingClassifier, falling back to logit with interactions.
     trimming : {None, 'crump'}
         If ``'crump'``, apply Crump et al. (2009) trimming after estimation.
@@ -162,32 +163,18 @@ def _logit_fit(X: np.ndarray, D: np.ndarray) -> np.ndarray:
 
 
 def _probit_mle(X: np.ndarray, D: np.ndarray) -> np.ndarray:
-    """Probit regression via maximum likelihood (scipy.optimize)."""
-    n, k = X.shape
-    Xa = np.column_stack([np.ones(n), X])
+    """Probit scores from the shared fit of :mod:`._binary_fit`.
 
-    def neg_loglik(beta: np.ndarray) -> float:
-        eta = Xa @ beta
-        eta = np.clip(eta, -30, 30)
-        Phi = stats.norm.cdf(eta)
-        Phi = np.clip(Phi, 1e-12, 1 - 1e-12)
-        return float(-np.sum(D * np.log(Phi) + (1 - D) * np.log(1 - Phi)))
-
-    def grad(beta: np.ndarray) -> np.ndarray:
-        eta = Xa @ beta
-        eta = np.clip(eta, -30, 30)
-        Phi = stats.norm.cdf(eta)
-        Phi = np.clip(Phi, 1e-12, 1 - 1e-12)
-        phi = stats.norm.pdf(eta)
-        lam = D * phi / Phi - (1 - D) * phi / (1 - Phi)
-        return np.asarray(-Xa.T @ lam, dtype=float)
-
-    beta0 = np.zeros(Xa.shape[1])
-    result = optimize.minimize(
-        neg_loglik, beta0, jac=grad, method="BFGS", options={"maxiter": 200}
-    )
-    eta = Xa @ result.x
-    eta = np.clip(eta, -30, 30)
+    Through 1.42.1 this ran BFGS on the likelihood with scipy's default
+    gradient tolerance (1e-5), which stopped short of the maximum: on the
+    parity fixture the scores were 6e-8 (relative) from R
+    ``glm(family = binomial("probit"))``, and the Crump cutoff computed
+    from them moved with them. The shared Newton fit is the one the logit
+    branch and the matching estimators use, and it drops a redundant
+    covariate instead of returning scores of an unidentified model.
+    """
+    beta = fit_binary_index(X, D, "probit")["beta"]
+    eta = np.column_stack([np.ones(len(D)), X]) @ beta
     return np.asarray(stats.norm.cdf(eta), dtype=float)
 
 
