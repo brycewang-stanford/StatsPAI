@@ -89,6 +89,23 @@ CENSUS_SENTENCES: Tuple[Tuple[str, str], ...] = (
         r"archive includes (?P<evidence_files>\d+) registry-evidence source files",
     ),
     (DOSSIER, r"tracks (?P<evidence_files>\d+) registry-evidence source files"),
+    # README tier tables. They said "counts on the current main" and were
+    # never checked, so by 1.42.1 they still showed 414 / 128 / 641 / 3 and
+    # "roughly a third" verified against a live 507 / 495 / 674 / 4.
+    *(
+        (readme, rf"\| `{key}` \|[^|\n]+\| (?P<{key}>\d+) \|")
+        for readme in ("README.md", "README_CN.md")
+        for key in ("certified", "validated", "api_stable", "experimental")
+    ),
+    (
+        "README.md",
+        r"In other words, (?P<certified_validated>[\d,]+) of the "
+        r"(?P<functions>[\d,]+) registered functions carry numerical",
+    ),
+    (
+        "README_CN.md",
+        r"(?P<functions>[\d,]+) 个注册函数中有 (?P<certified_validated>[\d,]+) 个带有数值证据",
+    ),
 )
 
 

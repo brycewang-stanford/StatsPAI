@@ -91,7 +91,7 @@ def test_remediation_still_recognises_the_not_equal_sign():
 
 
 def test_census_fix_rewrites_every_quoted_figure(tmp_path, monkeypatch):
-    for rel in (gate.STABILITY, gate.DOSSIER):
+    for rel in sorted({rel for rel, _ in gate.CENSUS_SENTENCES}):
         target = tmp_path / rel
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(
@@ -117,6 +117,11 @@ def test_census_fix_rewrites_every_quoted_figure(tmp_path, monkeypatch):
         "11 `certified`, 22 `validated`, 33 `api_stable`, and 4 `experimental`"
         in dossier
     )
+    readme = (tmp_path / "README.md").read_text(encoding="utf-8")
+    assert "on identical inputs, within a pre-registered tolerance | 11 |" in readme
+    assert "In other words, 33 of the 4,321 registered functions" in readme
+    readme_cn = (tmp_path / "README_CN.md").read_text(encoding="utf-8")
+    assert "4,321 个注册函数中有 33 个带有数值证据" in readme_cn
 
 
 def test_census_is_current_inside_the_release_window():

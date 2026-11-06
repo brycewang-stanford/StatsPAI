@@ -771,18 +771,18 @@ print(sp.describe_function("ivreg")["validation_status"])   # 'certified'
 print(sp.list_functions(validation_status="certified")[:5])
 ```
 
-Every registered function carries one of these tiers (counts on the current
-`main`; `sp.list_functions(validation_status=...)` gives the live numbers):
+Every registered function carries one of these tiers (counts at the last
+release; `sp.list_functions(validation_status=...)` gives the live numbers):
 
 | `validation_status` | Meaning | Functions |
 | --- | --- | ---: |
-| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 414 |
-| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 128 |
-| `api_stable` | stable public interface; unit tests exist, but **no numerical-validation claim** | 641 |
-| `experimental` | method or API may still change | 3 |
+| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 507 |
+| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 495 |
+| `api_stable` | stable public interface; unit tests exist, but **no numerical-validation claim** | 674 |
+| `experimental` | method or API may still change | 4 |
 
-In other words, roughly a third of the registered surface carries numerical
-evidence today. Breadth is not the same as validation; check the tier of the
+In other words, 1,002 of the 1,680 registered functions carry numerical
+evidence. Breadth is not the same as validation; check the tier of the
 functions you depend on.
 
 ### Cross-language parity, made queryable

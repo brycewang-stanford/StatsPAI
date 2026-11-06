@@ -593,16 +593,16 @@ print(sp.describe_function("ivreg")["validation_status"])   # 'certified'
 print(sp.list_functions(validation_status="certified")[:5])
 ```
 
-每个注册函数都属于以下一档（数量对应当前 `main`；`sp.list_functions(validation_status=...)` 给出实时数字）：
+每个注册函数都属于以下一档（数量对应最近一次发版；`sp.list_functions(validation_status=...)` 给出实时数字）：
 
 | `validation_status` | 含义 | 函数数 |
 | --- | --- | ---: |
-| `certified` | 在相同输入上与指定的外部参考实现（R、Stata，或方法作者维护的 Python 包）对照，落在预注册容差之内 | 414 |
-| `validated` | 有已知真值模拟、已发表数字、覆盖率或有文档的约定差异等证据，但不在 R/Stata 主对齐 harness 中 | 128 |
-| `api_stable` | 公开接口稳定；有单元测试，但**不声明数值验证** | 641 |
-| `experimental` | 方法或 API 仍可能变化 | 3 |
+| `certified` | 在相同输入上与指定的外部参考实现（R、Stata，或方法作者维护的 Python 包）对照，落在预注册容差之内 | 507 |
+| `validated` | 有已知真值模拟、已发表数字、覆盖率或有文档的约定差异等证据，但不在 R/Stata 主对齐 harness 中 | 495 |
+| `api_stable` | 公开接口稳定；有单元测试，但**不声明数值验证** | 674 |
+| `experimental` | 方法或 API 仍可能变化 | 4 |
 
-也就是说，目前大约三分之一的注册函数带有数值证据。覆盖面不等于验证，请检查你依赖的那些函数属于哪一档。
+也就是说，1,680 个注册函数中有 1,002 个带有数值证据。覆盖面不等于验证，请检查你依赖的那些函数属于哪一档。
 
 ### 跨语言对齐，可查询
 
