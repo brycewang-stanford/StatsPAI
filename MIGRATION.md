@@ -5,6 +5,19 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42.1 → next: ⚠️ `sp.bacon_decomposition` refuses an absorbed treatment
+
+A treatment column that the unit and period effects absorb (constant
+within every unit, such as an ever-treated indicator, or a single adoption
+date with no always- or never-treated units) used to give
+`beta_twfe = 0.0` and an empty decomposition. That zero was not an
+estimate: the TWFE coefficient is not identified there. The call now
+raises `sp.IdentificationFailure`. Pass a 0/1 column that switches on at
+each unit's adoption date (`(df.year >= df.first_treat).astype(int)`).
+There is no option to restore the zero.
+
+---
+
 ## 1.42 → next: ⚠️ probit propensity scores run to the maximum
 
 - `sp.propensity_score(method='probit')`, and the `method='probit'` /

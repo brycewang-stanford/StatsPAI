@@ -54,6 +54,20 @@ All notable changes to StatsPAI will be documented in this file.
   likelihood, with the weights as given (-1417.80 instead of -1156.37 on
   the test fixture). Estimates and standard errors do not change.
 
+- **⚠️ correctness fix: `sp.bacon_decomposition` returned a silent zero
+  when the treatment is absorbed by the two-way effects.** With a
+  treatment that is constant within every unit (an ever-treated indicator
+  passed as `treat`, or only always- and never-treated units), or one
+  adoption date with no comparison group, the TWFE coefficient is not
+  identified. Every path returned `beta_twfe = 0.0` and
+  `weighted_sum = 0.0` with no comparisons (`weights=` too;
+  `balance='observed_rows'` crashed with a `KeyError`). It now raises
+  `IdentificationFailure`, naming the cause and pointing to a
+  treatment-status column. R `bacondecomp` 0.1.1 and Stata `bacondecomp` /
+  `ddtiming` also stop on these panels. Identified panels are unchanged
+  (Track A 20 reproduces byte for byte).
+
+
 ### Tests
 
 - Cross-language parity for the matching / weighting / balance family.

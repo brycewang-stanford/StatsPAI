@@ -833,15 +833,13 @@ def test_bacon_always_treated_comparisons():
     assert out["decomposition"]["weight"].sum() == pytest.approx(1.0)
 
 
-def test_bacon_all_always_treated_empty_decomposition():
+def test_bacon_all_always_treated_is_not_identified():
+    # Treatment constant within unit: the unit effects absorb it, so the TWFE
+    # coefficient is not identified (R bacondecomp and Stata bacondecomp
+    # stop). This used to return beta_twfe = 0.0 with no comparisons.
     df = _bacon_panel({1: 1, 2: 1, 3: 1, 4: 1})
-    out = sp.bacon_decomposition(df, y="y", treat="treated", time="year", id="unit")
-    assert out["n_comparisons"] == 0
-    assert out["decomposition"].empty
-    # no treatment variation → TWFE beta degenerates to 0
-    assert out["beta_twfe"] == 0.0
-    assert out["weighted_sum"] == 0.0
-    assert out["negative_weight_share"] == 0.0
+    with pytest.raises(sp.IdentificationFailure, match="constant within every unit"):
+        sp.bacon_decomposition(df, y="y", treat="treated", time="year", id="unit")
 
 
 # ======================================================================

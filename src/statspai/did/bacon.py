@@ -30,7 +30,7 @@ from .._aliases import accepts_aliases
 from .._dict_result import DictResult
 from .._input_validation import check_columns
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, IdentificationFailure, MethodIncompatibility
 from ._core import calendar_time_aware as _calendar_time_aware
 
 
@@ -330,6 +330,7 @@ def bacon_decomposition(
     )
 
     _validate_monotone_treatment(df, treat, time, id, unit_treat)
+    _require_twfe_variation(df, treat, time, id)
     df = df.merge(unit_treat.rename("_treat_time"), left_on=id, right_index=True)
 
     # Identify groups by treatment timing
@@ -470,6 +471,7 @@ def _observed_rows_result(
         )
     groups = timing_groups(df, treat, time, id_col).replace(-np.inf, df[time].min())
     _validate_monotone_treatment(df, treat, time, id_col, groups)
+    _require_twfe_variation(df, treat, time, id_col)
     decomp, beta_twfe = decompose_observed_rows(df, y, treat, time, id_col)
     if len(decomp):
         total = float(decomp["weight"].sum())
@@ -619,7 +621,9 @@ def _twfe_estimate(
     valid = np.isfinite(y_flat) & np.isfinite(d_flat)
 
     if valid.sum() < 2 or np.var(d_flat[valid]) < 1e-12:
-        return 0.0
+        # no treatment variation left after the fixed effects: the
+        # coefficient is not identified (a silent 0.0 through 1.42.1)
+        return float("nan")
 
     beta = float(np.sum(d_flat[valid] * y_flat[valid]) / np.sum(d_flat[valid] ** 2))
     return beta
@@ -655,7 +659,7 @@ def _weighted_twfe_estimate(
     d_dm = demean(D)
     den = float(np.sum(w[:, None] * d_dm**2))
     if den < 1e-12 * sw * D.shape[1]:
-        return 0.0
+        return float("nan")
     return float(np.sum(w[:, None] * d_dm * y_dm) / den)
 
 
@@ -728,6 +732,57 @@ def _label_comparisons(decomp: pd.DataFrame) -> pd.DataFrame:
     decomp["comparison_class"] = decomp.apply(_comparison_class, axis=1)
     decomp["is_forbidden"] = decomp["comparison_class"].eq("forbidden")
     return decomp
+
+
+def _require_twfe_variation(
+    df: pd.DataFrame, treat: str, time: str, id_col: str
+) -> None:
+    """Refuse a treatment the unit and period effects absorb.
+
+    The TWFE coefficient being decomposed is not identified when the
+    treatment column is a sum of a unit and a period effect. For an
+    absorbing 0/1 treatment that happens when no unit changes status in
+    the sample (the column is constant within unit: an ever-treated
+    indicator, or only always- and never-treated units) or when every unit
+    changes status in the same period (constant within period). R
+    ``bacondecomp`` and Stata ``bacondecomp`` / ``ddtiming`` stop with an
+    error there; this used to return ``beta_twfe = 0.0`` with no
+    comparisons.
+    """
+    from ._bacon_unbalanced import twfe_coefficient
+
+    d = df[treat].to_numpy(dtype=float)
+    beta = twfe_coefficient(d, d, df[id_col].to_numpy(), df[time].to_numpy())
+    if np.isfinite(beta):
+        return
+    switchers = int(
+        (df.groupby(id_col)[treat].nunique() > 1).sum()  # type: ignore[operator]
+    )
+    if switchers == 0:
+        reason = (
+            f"'{treat}' is constant within every unit (no unit changes "
+            "treatment status in the sample), so the unit effects absorb it"
+        )
+    else:
+        reason = (
+            f"the unit and period effects absorb '{treat}' (as when every "
+            "unit that changes treatment status does so in the same period "
+            "and no unit is treated throughout or never treated)"
+        )
+    raise IdentificationFailure(
+        f"bacon_decomposition: the TWFE coefficient is not identified: {reason}.",
+        recovery_hint=(
+            "Pass a 0/1 treatment-status column that switches on at each "
+            "unit's adoption date (not an ever-treated indicator); a single "
+            "adoption date with no comparison group has no 2x2 to decompose."
+        ),
+        diagnostics={
+            "treatment_column": treat,
+            "n_units": int(df[id_col].nunique()),
+            "n_switching_units": switchers,
+        },
+        alternative_functions=["sp.did", "sp.callaway_santanna"],
+    )
 
 
 def _validate_monotone_treatment(

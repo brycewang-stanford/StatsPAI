@@ -102,6 +102,12 @@ def test_forbidden_share_equals_bacon_decomposition(seed):
         for t in range(1, T + 1):
             rows.append((i, t, int(g > 0 and t >= g), rng.normal()))
     df = pd.DataFrame(rows, columns=["id", "t", "d", "y"])
+    if len(dates) == 1:
+        # one adoption date and no never- or always-treated units: the
+        # period effects absorb the treatment, nothing to decompose
+        with pytest.raises(sp.IdentificationFailure, match="not identified"):
+            sp.bacon_decomposition(df, y="y", treat="d", time="t", id="id")
+        return
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ref = sp.bacon_decomposition(df, y="y", treat="d", time="t", id="id")
