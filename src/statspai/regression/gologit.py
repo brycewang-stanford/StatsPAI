@@ -173,7 +173,7 @@ def gologit(
         )
     df = data.loc[data[cols].notna().all(axis=1)]
     yv = df[y].to_numpy()
-    cats = outcome_categories(df[y])
+    cats = outcome_categories(df[y], ordinal=True, function="gologit")
     M = len(cats)
     if M < 3:
         raise DataInsufficient(

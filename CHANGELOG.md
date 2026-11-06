@@ -223,6 +223,24 @@ All notable changes to StatsPAI will be documented in this file.
   `'bsts'` / `'discos'` keep their own missing-value handling. Classic SCM
   also reports `converged=False` when the solver loss is not finite.
   Complete panels give the same numbers as before.
+- ⚠️ **Ordered models refuse text outcomes whose order is not declared.**
+  `sp.ologit` / `sp.oprobit` on a string outcome low / mid / high sorted
+  the levels alphabetically (high < low < mid), which reversed the slope
+  (−0.39 against +1.02 with the same data as an ordered Categorical) with
+  no warning. A string or object outcome, or an unordered `Categorical` of
+  text, now raises `MethodIncompatibility` asking for
+  `pd.Categorical(..., ordered=True)` or integer codes; numbers, booleans,
+  ordered Categoricals and numeric Categoricals work as before. The same
+  rule covers `sp.gologit`, `sp.meologit` (which took any unordered
+  Categorical in its alphabetical order) and
+  `sp.bayes_regress(model='oprobit' / 'ologit')`. Stata's `ologit` refuses
+  a string outcome.
+- ⚠️ **`sp.mlogit` honours a Categorical's declared category order.** The
+  base category of a `Categorical` outcome was the alphabetically first
+  label, whatever order was declared; it is now the first declared level,
+  as R's `nnet::multinom` reads a factor. The fit and the likelihood are
+  unchanged; the coefficients are those of the new base. Integer and
+  string outcomes are unchanged.
 
 ## [1.42.1] — 2026-11-03
 

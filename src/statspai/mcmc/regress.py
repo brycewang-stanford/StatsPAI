@@ -1063,7 +1063,18 @@ def _gelfand_dey(mdl: Any, draws: np.ndarray, alpha: float) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 
 
-def _ordered_codes(col: pd.Series) -> Tuple[np.ndarray, List[Any]]:
+def _ordered_codes(
+    col: pd.Series, *, ordinal: bool = False, function: str = "bayes_regress"
+) -> Tuple[np.ndarray, List[Any]]:
+    """Integer codes of an outcome and its levels, in outcome order.
+
+    With ``ordinal=True`` (ordered probit / logit) text labels whose order is
+    not declared are refused rather than sorted alphabetically.
+    """
+    if ordinal:
+        from ..regression.multinomial import require_ordered_outcome
+
+        require_ordered_outcome(col, function=function)
     if isinstance(col.dtype, pd.CategoricalDtype):
         cat = col.cat.remove_unused_categories()
         return cat.cat.codes.to_numpy().astype(float), list(cat.cat.categories)
@@ -1395,7 +1406,11 @@ def bayes_regress(
             f"column of data; {lhs!r} is not.",
         )
         work = data.loc[data[lhs].notna()].copy()
-        codes, levels = _ordered_codes(work[lhs])
+        codes, levels = _ordered_codes(
+            work[lhs],
+            ordinal=model_key in M.ORDERED,
+            function=f"bayes_regress(model={model_key!r})",
+        )
         work[lhs] = codes
         no_const = drops_intercept(formula.split("~", 1)[1])
         if model_key in M.ORDERED and no_const:

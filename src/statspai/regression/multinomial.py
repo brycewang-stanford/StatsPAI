@@ -356,14 +356,73 @@ def _compute_vcov(
     return _as_float_array(ml_vcov(H_inv, score_i, kind=kind, clusters=cluster_vals))
 
 
-def outcome_categories(col: pd.Series) -> np.ndarray:
+def _is_real_number(value: Any) -> bool:
+    import numbers
+
+    return isinstance(value, numbers.Real) and not isinstance(value, (bool, np.bool_))
+
+
+def _has_numeric_order(col: pd.Series) -> bool:
+    """Whether sorting ``col``'s values gives their order as numbers."""
+    if isinstance(col.dtype, pd.CategoricalDtype):
+        if col.cat.ordered:
+            return True
+        return bool(pd.api.types.is_numeric_dtype(col.cat.categories.dtype))
+    if pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col):
+        return True
+    values = col.dropna()
+    return bool(len(values)) and all(_is_real_number(v) for v in values.to_numpy())
+
+
+def require_ordered_outcome(col: pd.Series, *, function: str, name: Any = None) -> None:
+    """Refuse an ordinal outcome whose category order is not known.
+
+    Numbers, booleans and an ordered ``pd.Categorical`` carry their order. Text
+    labels -- a string / object column, or an unordered ``Categorical``, whose
+    categories pandas sorts alphabetically -- do not: ``"high" < "low" <
+    "mid"`` silently reversed the sign of every slope (``sp.ologit`` slope
+    -0.39 against +1.02 on the same data as an ordered Categorical; the
+    2026-11-05 rOpenSci audit). Stata's ``ologit`` refuses a string outcome;
+    R's ``MASS::polr`` uses the factor's level order.
+    """
+    if _has_numeric_order(col):
+        return
+    labels = col.dropna()
+    if isinstance(col.dtype, pd.CategoricalDtype):
+        levels = [c for c in col.cat.categories if c in set(labels.unique())]
+    else:
+        levels = sorted(map(str, pd.unique(labels)))
+    label = col.name if name is None else name
+    raise MethodIncompatibility(
+        f"{function}: the outcome {label!r} holds unordered labels "
+        f"{[str(v) for v in levels[:8]]}{' ...' if len(levels) > 8 else ''}, "
+        "so the order of its categories is not known; sorting them "
+        "alphabetically, as before, gives a meaningless ordinal model.",
+        recovery_hint=(
+            "Pass pd.Categorical(values, categories=[lowest, ..., highest], "
+            "ordered=True), or integer codes in outcome order."
+        ),
+        diagnostics={
+            "dtype": str(col.dtype),
+            "levels_alphabetical": [str(v) for v in sorted(map(str, levels))][:20],
+        },
+    )
+
+
+def outcome_categories(
+    col: pd.Series, *, ordinal: bool = False, function: str = "ordered model"
+) -> np.ndarray:
     """Outcome categories in their order: a pandas Categorical's declared
     order (categories present in the data), otherwise sorted values.
 
     An ordered ``pd.Categorical(["lo", "mid", "hi", "top"], ordered=True)``
     used to be sorted alphabetically (hi < lo < mid < top), which silently
-    scrambles an ordinal outcome (2026-10-20 probe).
+    scrambles an ordinal outcome (2026-10-20 probe). With ``ordinal=True``
+    text labels whose order is not declared are refused
+    (:func:`require_ordered_outcome`).
     """
+    if ordinal:
+        require_ordered_outcome(col, function=function)
     if isinstance(col.dtype, pd.CategoricalDtype):
         present = set(col.dropna().unique())
         return np.array([c for c in col.cat.categories if c in present], dtype=object)
@@ -483,7 +542,11 @@ def mlogit(
     )
     n, k = X.shape
 
-    categories = np.sort(np.unique(Y_raw))
+    # a Categorical's declared order sets the base (R multinom's first
+    # level); other outcomes are sorted, as before
+    categories = outcome_categories(
+        df[y_name] if y_name in df.columns else pd.Series(Y_raw)
+    )
     J = len(categories)
     if J < 3:
         raise ValueError(f"mlogit requires J >= 3 categories, got {J}.")
@@ -783,7 +846,9 @@ def _ordered_model(
     var_names = list(x_names)
 
     categories = outcome_categories(
-        df[y_name] if y_name in df.columns else pd.Series(Y_raw)
+        df[y_name] if y_name in df.columns else pd.Series(Y_raw, name=y_name),
+        ordinal=True,
+        function=f"o{link}",
     )
     J = len(categories)
     if J < 3:

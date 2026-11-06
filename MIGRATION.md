@@ -92,6 +92,16 @@ warn. Clean data give the same numbers as before.
   gap was post-treatment, giving a NaN estimate). `sp.sdid` and
   `sp.gsynth` refuse a donor with missing cells; drop it yourself or use
   `method='mc'`.
+- ⚠️ **Ordered models refuse text outcomes without a declared order**
+  (`ologit`, `oprobit`, `gologit`, `meologit`, `bayes_regress` ordered
+  models). Pass
+  `pd.Categorical(y, categories=[lowest, ..., highest], ordered=True)` or
+  integer codes. What such calls returned before used the alphabetical
+  order of the labels, which is wrong for an ordinal outcome.
+- ⚠️ **`sp.mlogit` on a `Categorical` outcome uses its first declared level
+  as the base**, and `base=` indexes the declared order. To keep the old
+  base, reorder the categories alphabetically or pass the `base=` index of
+  that category.
 
 ---
 

@@ -545,6 +545,11 @@ def meologit(
     # Encode y as 1..K integer codes preserving sort order.
     y_raw = df[y]
     if isinstance(y_raw.dtype, pd.CategoricalDtype):
+        # an unordered Categorical of text labels has alphabetical
+        # categories unless they were declared; refuse it as sp.ologit does
+        from ..regression.multinomial import require_ordered_outcome
+
+        require_ordered_outcome(y_raw, function="meologit()")
         # The categories' order is the outcome order; a category with no
         # observation has no threshold to estimate (R clmm uses the
         # observed levels).
