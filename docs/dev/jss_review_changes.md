@@ -6098,8 +6098,8 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commits.** `90d504117` (fitted values and residuals on sample labels,
-  formula and convergence keys) and `d039dbd20` (MCMC starting values and
+- **Commits.** `07ea5da49` (fitted values and residuals on sample labels,
+  formula and convergence keys) and `31308f6b7` (MCMC starting values and
   continuation; the listwise-deletion note reads lists of formulas).
 - **Reason.** `src/statspai/core/results.py` and
   `src/statspai/output/_lineage.py` are on the traced path of almost
