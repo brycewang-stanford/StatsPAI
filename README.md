@@ -862,6 +862,24 @@ shortfall is regularisation bias of the default gradient-boosting nuisances
 
 ---
 
+## Life Cycle
+
+StatsPAI is in active development (PyPI status "Beta") and uses semantic
+versioning. Releases add functions and optional parameters, but a stable
+function is never broken without notice.
+The old behaviour first warns (`DeprecationWarning`, or `FutureWarning` for
+a changing default) for at least one minor release, and every such change
+is listed in [MIGRATION.md](MIGRATION.md). A fix that changes returned
+numbers is flagged as a correctness fix there and in the changelog. The 32
+core entry points (`sp.list_functions(core=True)`) have snapshot-tested
+signatures. A function marked `experimental` may change in any minor
+release and makes no numerical-validation claim; the tiers above say how
+far each function's numbers have been checked. The
+[glossary](https://brycewang-stanford.github.io/StatsPAI/guides/glossary/)
+defines these terms.
+
+---
+
 ## Changelog
 
 Release notes live outside the README:

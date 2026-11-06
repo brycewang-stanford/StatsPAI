@@ -21,6 +21,31 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **Method references on 231 more certified / validated functions.**
+  `sp.describe_function(name)["reference"]` was empty for 404 functions
+  the package calls certified or validated. It now names `paper.bib` keys
+  for 231 of them (for example `sp.var`, `sp.cox`, `sp.kaplan_meier`,
+  `sp.rlasso`, `sp.synthdid_estimate`). Every key was already in the
+  bibliography; each mapping rests on the function's docstring, its source,
+  its module docstring or the entry's title (`src/statspai/_reference_seeds.py`).
+  173 remain without a fitting entry. `python scripts/help_coverage.py
+  --check` keeps that count from growing. No number changes.
+- **Error messages name the function that failed.** About 160 raise sites
+  whose text was repeated word for word in other modules ("alpha must be in
+  (0, 1)", "data must be a pandas DataFrame.", "Need at least 2
+  pre-treatment periods") now start with the public name and, where it is a
+  value, say what was passed: `sp.qte: quantiles must lie strictly inside
+  (0, 1); got [0.5, 1.5].` Messages repeated across files fell from 135 to
+  72; `python scripts/error_taxonomy_audit.py --messages` lists the rest and
+  `--check` keeps the count from rising. Exception types are unchanged, and
+  the old text (less a final full stop) is still a substring, so
+  `pytest.raises(match=...)` patterns keep matching. No number changes.
+- **Life cycle, glossary and test conditions documented.** README,
+  README_CN and CONTRIBUTING state the versioning and deprecation rules and
+  what `experimental` means. A glossary page (`docs/guides/glossary.md`)
+  defines estimands, the T1 to T4 and S evidence grades, the parity grades,
+  the validation tiers and Tracks A, B and C. CONTRIBUTING gains a table of
+  how to run the slow, parity and download-gated tests.
 - **Parity evidence for eleven estimators that had none recorded.**
   `sp.cuped`, `sp.msprt`, `sp.msprt_lambda`, `sp.smm`,
   `sp.expected_instrument`, `sp.two_stage_interference`, `sp.tvp_var_sv`,

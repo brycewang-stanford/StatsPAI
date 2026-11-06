@@ -104,6 +104,7 @@ nav:
   - "Capability table (generated)": capabilities.md
   - Guides:
       - "Research tasks: where to start": guides/research_tasks.md
+      - "Glossary: estimands, evidence grades, validation tiers, tracks": guides/glossary.md
       - "Standard errors: one vce= grammar, and sp.vcov after the fit": guides/standard_errors.md
       - "Predictions, comparisons and slopes (marginaleffects style)": guides/marginaleffects.md
       - "polars, Arrow and other DataFrame libraries": guides/dataframe_input.md

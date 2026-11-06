@@ -648,6 +648,12 @@ VERDICT: ✓ AGREE   (4/4 engines ran)
 
 ---
 
+## 生命周期
+
+StatsPAI 仍在积极开发中（PyPI 状态为 "Beta"），版本号遵循语义化版本。新版本可以新增函数和带默认值的参数，但稳定函数不会不打招呼就改：旧行为先发出警告（`DeprecationWarning`，默认值变化用 `FutureWarning`），至少保留一个小版本，每一项都登记在 [MIGRATION.md](MIGRATION.md)。会改变返回数值的修复，在 MIGRATION 和 CHANGELOG 里标为正确性修复。32 个核心入口（`sp.list_functions(core=True)`）的签名有快照测试守着。标为 `experimental` 的函数在任何小版本都可能变化，也不作数值验证承诺；每个函数的数值核验到什么程度，看上面的验证等级。这些术语的定义见[术语表](https://brycewang-stanford.github.io/StatsPAI/guides/glossary/)。
+
+---
+
 ## Changelog
 
 版本历史已经独立到 README 之外：
