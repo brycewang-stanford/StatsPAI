@@ -6148,3 +6148,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None. No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — traces 07 / 52 and orig 03 re-recorded (synth docstring)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `089fcc025`.
+- **Reason.** A docstring sentence in `src/statspai/synth/scm.py` moved
+  out of the Parameters section (strict MkDocs build). The file is on the
+  traced path of Track A 07 and 52 and original-data 03. Re-running them
+  moved module 52 by at most 2e-15 (restored); 07 and orig 03 were
+  byte-identical.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
