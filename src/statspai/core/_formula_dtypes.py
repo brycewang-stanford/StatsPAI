@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 __all__ = [
+    "coerce_formula_value_columns",
     "float_generated_term_columns",
     "float_generated_code_columns",
     "warn_wrapped_integer_columns",
@@ -207,3 +208,145 @@ def warn_wrapped_integer_columns(data: pd.DataFrame, formula: Any) -> None:
             StatsPAIWarning,
             stacklevel=3,
         )
+
+
+# --------------------------------------------------------------------- #
+#  Columns whose storage type changes what the model reads
+# --------------------------------------------------------------------- #
+
+#: Largest magnitude below which float64 represents every integer exactly.
+_FLOAT64_EXACT_INT = 2**53
+
+
+def _value_column_names(codes: Iterable[str]) -> Set[str]:
+    """Names read as values (not as ``C(...)`` factors) by the factor codes."""
+    names: Set[str] = set()
+    categorical: Set[str] = set()
+    for code in codes:
+        if _CATEGORICAL.match(code):
+            categorical |= _names_in(code)
+        else:
+            names |= _names_in(code)
+    return names - categorical
+
+
+def _is_number_object(values: np.ndarray) -> bool:
+    import decimal
+    import numbers
+
+    seen = False
+    for v in values:
+        if v is None or (isinstance(v, float) and v != v):
+            continue
+        if isinstance(v, (bool, np.bool_)) or not isinstance(
+            v, (numbers.Real, decimal.Decimal)
+        ):
+            return False
+        seen = True
+    return seen
+
+
+def coerce_formula_value_columns(
+    data: pd.DataFrame, codes: Iterable[str], *, stacklevel: int = 3
+) -> pd.DataFrame:
+    """Read number-holding object columns as numbers; flag inexact integers.
+
+    Two storage types used to change what a model read without a word
+    (2026-11-05 rOpenSci audit):
+
+    * an ``object`` column of numbers -- ``decimal.Decimal`` from a SQL
+      ``NUMERIC`` column, Python ``int`` from JSON -- was expanded by patsy
+      into one dummy per distinct value (a 200-level factor). Such a column
+      is now read as ``float64``, with a warning, as R and Stata read
+      numbers; a column that also holds text is left to the factor coding.
+      Columns written as ``C(col)`` keep their factor coding.
+    * an ``int64`` column with values beyond ``2**53`` loses precision when
+      the design is formed in float64 (IDs near ``2**62`` collapse to a few
+      values, and the column was then reported "constant"). It is now
+      flagged with a warning that says how many distinct values survive.
+
+    ``codes`` are the formula's factor codes (:func:`formula_factor_codes`);
+    only the columns they read as values are looked at. The frame is copied
+    only when a column is converted.
+    """
+    if not isinstance(data, pd.DataFrame) or not data.columns.is_unique:
+        return data
+    dtypes = data.dtypes
+    if not any(t == object or (_is_int(t) and t.itemsize == 8) for t in dtypes):
+        return data
+    names = [c for c in sorted(_value_column_names(codes)) if c in data.columns]
+    if not names:
+        return data
+    from ..exceptions import StatsPAIWarning
+
+    converted: dict = {}
+    for col in names:
+        dtype = data[col].dtype
+        if dtype == object:
+            values = data[col].to_numpy()
+            if _is_number_object(values):
+                converted[col] = pd.to_numeric(
+                    pd.Series(
+                        [np.nan if v is None else float(v) for v in values],
+                        index=data.index,
+                    )
+                )
+        elif _is_int(dtype) and dtype.itemsize == 8:
+            values = data[col].to_numpy()
+            if not values.size:
+                continue
+            big = (
+                values.max() > _FLOAT64_EXACT_INT
+                if dtype.kind == "u"
+                else (
+                    values.max() > _FLOAT64_EXACT_INT
+                    or values.min() < -_FLOAT64_EXACT_INT
+                )
+            )
+            if big:
+                n_int = int(np.unique(values).size)
+                n_float = int(np.unique(values.astype(np.float64)).size)
+                warnings.warn(
+                    StatsPAIWarning(
+                        f"Column {col!r} ({dtype}) holds integers up to "
+                        f"{float(np.abs(values.astype(np.float64)).max()):.3g}, "
+                        f"beyond 2**53 ({float(_FLOAT64_EXACT_INT):.3g}), the "
+                        "range in which float64 represents every integer. The "
+                        "model reads it in float64, which keeps "
+                        f"{n_float} of its {n_int} distinct values"
+                        + (
+                            "; a collinearity or 'constant' note on this "
+                            "column comes from that rounding."
+                            if n_float < n_int
+                            else "."
+                        ),
+                        recovery_hint=(
+                            "An identifier does not belong in the regressors "
+                            "(use it as a fixed effect or C(col)); a quantity "
+                            "this large should be rescaled or centred first."
+                        ),
+                        diagnostics={
+                            "column": col,
+                            "n_distinct_int": n_int,
+                            "n_distinct_float64": n_float,
+                        },
+                    ),
+                    stacklevel=stacklevel,
+                )
+    if converted:
+        warnings.warn(
+            StatsPAIWarning(
+                f"Column(s) {sorted(converted)} hold numbers stored as Python "
+                "objects (e.g. decimal.Decimal from a SQL NUMERIC column); "
+                "they are read as float64 numbers, not as one category per "
+                "distinct value.",
+                recovery_hint=(
+                    "Convert them yourself (df[col].astype(float)) to silence "
+                    "this note, or write C(col) to fit them as a factor."
+                ),
+                diagnostics={"columns": sorted(converted)},
+            ),
+            stacklevel=stacklevel,
+        )
+        data = data.assign(**converted)
+    return data

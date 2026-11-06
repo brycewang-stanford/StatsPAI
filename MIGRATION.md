@@ -102,6 +102,8 @@ warn. Clean data give the same numbers as before.
   as the base**, and `base=` indexes the declared order. To keep the old
   base, reorder the categories alphabetically or pass the `base=` index of
   that category.
+- ⚠️ **A `Decimal` or Python-int object column in a formula is a number,
+  not a factor.** Write `C(col)` to keep the factor coding.
 
 ---
 

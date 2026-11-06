@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 from patsy import dmatrices
 
-from ._formula_dtypes import float_generated_term_columns, warn_wrapped_integer_columns
+from ._formula_dtypes import (
+    coerce_formula_value_columns,
+    float_generated_term_columns,
+    formula_factor_codes,
+    warn_wrapped_integer_columns,
+)
 
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
 
@@ -814,6 +819,16 @@ def create_design_matrices(
     formula = expand_dot(formula, data)
     formula = r_formula_idioms(formula)
     warn_wrapped_integer_columns(data, formula)
+    # Decimal / Python-int object columns are numbers, not 200-level
+    # factors; int64 beyond 2**53 is flagged before float64 rounds it
+    if any(
+        t == object or (t.kind in "iu" and t.itemsize == 8)
+        for t in data.dtypes
+        if isinstance(t, np.dtype)
+    ):
+        data = coerce_formula_value_columns(
+            data, formula_factor_codes(formula), stacklevel=4
+        )
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
         _refuse_infinite_design(fast[0], fast[1], formula)

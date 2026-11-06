@@ -79,9 +79,20 @@ def _float_generated_fixest(data: Any, fml: Any) -> Any:
     if not isinstance(fml, str) or not isinstance(data, pd.DataFrame):
         return data
     from ..core._formula_dtypes import (
+        coerce_formula_value_columns,
         float_generated_code_columns,
-        formula_factor_codes,
     )
+
+    codes = _fixest_codes(fml)
+    # Decimal / Python-int object columns are numbers (pyfixest made them
+    # factors), and int64 beyond 2**53 is flagged before float64 rounds it
+    data = coerce_formula_value_columns(data, codes, stacklevel=5)
+    return float_generated_code_columns(data, codes)
+
+
+def _fixest_codes(fml: str) -> List[str]:
+    """Factor codes of the ``~`` parts of a fixest formula (patsy grammar)."""
+    from ..core._formula_dtypes import formula_factor_codes
 
     codes: List[str] = []
     for part in _split_top_level(fml, "|"):
@@ -93,7 +104,7 @@ def _float_generated_fixest(data: Any, fml: Any) -> Any:
                 codes.extend(a.strip() for a in _split_top_level(inner.group(1), ","))
             else:
                 codes.append(code)
-    return float_generated_code_columns(data, codes)
+    return codes
 
 
 def _require_frame_columns(

@@ -180,8 +180,49 @@ def one_hot_covariates(
             out[name] = (series == level).astype(float).where(~missing)
             names.append(name)
     if not expanded:
-        return data[cols], list(cols)
-    return pd.DataFrame(out, index=data.index), names
+        block, names = data[cols], list(cols)
+    else:
+        block = pd.DataFrame(out, index=data.index)
+    _warn_constant_covariates(block, names, context)
+    return block, names
+
+
+def _warn_constant_covariates(
+    block: pd.DataFrame, names: List[str], context: str
+) -> None:
+    """Warn about covariates that take a single value.
+
+    A constant column (a numeric column with one value, or a text column with
+    one level, which becomes one constant indicator) cannot be split on, yet
+    it still competes for the ``mtry`` draw of split candidates, so adding it
+    changes the forest and its estimates: ``causal_forest`` with a constant
+    string modifier moved the ATE by about 1% (2026-11-05 rOpenSci audit;
+    a constant numeric column moves it identically). It carries no
+    information about effect heterogeneity.
+    """
+    constant = []
+    for name in names:
+        col = block[name]
+        if isinstance(col, pd.DataFrame):
+            continue
+        if col.nunique(dropna=True) <= 1:
+            constant.append(name)
+    if not constant:
+        return
+    import warnings
+
+    from ..exceptions import StatsPAIWarning
+
+    warnings.warn(
+        StatsPAIWarning(
+            f"{context}: covariate(s) {constant} take a single value. They "
+            "carry no information, but still compete for the split candidates "
+            "drawn at each node (mtry), so they change the fit.",
+            recovery_hint="Drop the constant columns from the covariates.",
+            diagnostics={"constant_covariates": constant},
+        ),
+        stacklevel=4,
+    )
 
 
 def one_hot_newdata(newdata: pd.DataFrame, feature_names: List[str]) -> pd.DataFrame:

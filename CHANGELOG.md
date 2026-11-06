@@ -252,6 +252,24 @@ All notable changes to StatsPAI will be documented in this file.
   (function, arguments, seed, data hash and shape) and emit the shared
   listwise-deletion `AssumptionWarning`. A call without `seed=` is
   recorded as `seed: None, reproducible: False`. Draws are unchanged.
+- ⚠️ **Number-holding object columns in formulas are read as numbers.** A
+  `decimal.Decimal` column (what SQL drivers return for `NUMERIC`) or an
+  object column of Python ints was expanded into one dummy per distinct
+  value, a 200-level factor. Formula estimators built on
+  `create_design_matrices` and the fixest wrappers now read such a column
+  as float64, with a `StatsPAIWarning`; `C(col)` keeps the factor coding,
+  and a column that also holds text is unchanged.
+- **Integer columns beyond 2\*\*53 are flagged.** An int64 column near
+  2\*\*62 collapses to a few values in float64 and was then reported
+  "constant" or collinear with no mention of precision. A
+  `StatsPAIWarning` now says how many distinct values survive the
+  conversion. Numbers are unchanged.
+- **Constant covariates in the GRF forests are flagged.**
+  `sp.causal_forest` with a covariate that takes one value (a string with
+  one level, or a constant number) moved the ATE by about 1% with no
+  note: the column carries no information but still competes for the
+  split candidates drawn at each node. The forest family now warns.
+  Numbers are unchanged.
 
 ## [1.42.1] — 2026-11-03
 
