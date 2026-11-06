@@ -1415,27 +1415,87 @@ class EconometricResults:
             total = total + fe_offset(self, data, unseen="nan")
         return total
 
-    def residuals(self) -> Optional[np.ndarray]:
+    @property
+    def sample_index(self) -> Optional[pd.Index]:
+        """Labels of the data rows the fit used (``e(sample)``).
+
+        In the order of :meth:`fitted_values` and :meth:`residuals`; rows
+        dropped for missing values (or as singletons) are absent. ``None``
+        when the fit did not record its sample (array input).
         """
-        Return model residuals if available
+        idx = (getattr(self, "data_info", None) or {}).get("sample_index")
+        return None if idx is None else pd.Index(idx)
+
+    def residuals(self, as_series: bool = False) -> Any:
+        """
+        Residuals on the estimation sample.
+
+        Response residuals ``y - fitted_values()`` (for a model with a link,
+        on the scale of the outcome); ``sp.glm`` also stores Pearson and
+        deviance residuals in ``data_info``. After ``sp.feols`` with
+        absorbed effects they are net of the estimated effects (the fitted
+        values include them). After ``sp.panel(method='fe' | 'twoway' |
+        'fd')`` they are the residuals of the transformed (within or
+        first-differenced) model, so ``y`` is not ``fitted + residual``
+        there; a first difference sits on the row of the later period.
+
+        Parameters
+        ----------
+        as_series : bool, default False
+            ``False`` returns the stored array, as before. ``True`` returns
+            a ``pd.Series`` indexed by :attr:`sample_index`, the labels of
+            the rows the fit used, so the residuals line up with the data
+            after listwise deletion (dates for a date-indexed frame).
 
         Returns
         -------
-        np.ndarray or None
-            Residuals
-        """
-        return self.data_info.get("residuals")
+        np.ndarray, pd.Series or None
+            ``None`` if the fit stores no residuals and ``as_series`` is
+            False.
 
-    def fitted_values(self) -> Optional[np.ndarray]:
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd, statspai as sp
+        >>> df = pd.DataFrame({"x": [1.0, 2.0, np.nan, 4.0, 5.0],
+        ...                    "y": [1.1, 1.9, 3.2, 4.1, 4.8]})
+        >>> r = sp.regress("y ~ x", data=df).residuals(as_series=True)
+        >>> list(r.index)
+        [0, 1, 3, 4]
         """
-        Return fitted values if available
+        values = self.data_info.get("residuals")
+        if not as_series:
+            return values
+        from ._fitted_series import sample_series
+
+        return sample_series(values, self.sample_index, "residuals", "residuals()")
+
+    def fitted_values(self, as_series: bool = False) -> Any:
+        """
+        Fitted values on the estimation sample.
+
+        The predicted mean of the outcome (for a model with a link, on the
+        scale of the outcome); the same numbers as ``predict()``.
+
+        Parameters
+        ----------
+        as_series : bool, default False
+            ``False`` returns the stored array, as before. ``True`` returns
+            a ``pd.Series`` indexed by :attr:`sample_index`.
 
         Returns
         -------
-        np.ndarray or None
-            Fitted values
+        np.ndarray, pd.Series or None
+            ``None`` if the fit stores no fitted values and ``as_series``
+            is False.
         """
-        return self.data_info.get("fitted_values")
+        values = self.data_info.get("fitted_values")
+        if not as_series:
+            return values
+        from ._fitted_series import sample_series
+
+        return sample_series(
+            values, self.sample_index, "fitted_values", "fitted_values()"
+        )
 
     def next_steps(self, print_result: bool = False) -> List[Dict[str, str]]:
         """
@@ -1770,18 +1830,43 @@ class EconometricResults:
         return path
 
     def plot(self, type: str = "auto", **kwargs: Any) -> Any:
-        """Coefficient plot of this fit (``sp.coefplot``).
+        """Coefficient plot of this fit, or its fitted values.
 
-        ``type`` is ``'auto'`` or ``'coefplot'``; ``**kwargs`` go to
-        :func:`statspai.coefplot` (``variables=``, ``drop=["Intercept"]``,
-        ``alpha=``, ``ax=`` ...). Returns ``(fig, ax)``.
+        ``type='auto'`` or ``'coefplot'`` (the default) draws the
+        coefficients with their intervals (``sp.coefplot``); ``**kwargs``
+        go to :func:`statspai.coefplot` (``variables=``,
+        ``drop=["Intercept"]``, ``alpha=``, ``ax=`` ...). The coefficient
+        plot stays the default because the coefficients are what a
+        regression in this package reports first.
+
+        ``type='fitted'`` draws the observed values of the estimation
+        sample with the fitted values and a pointwise interval for them
+        (``interval='confidence'`` for the mean, ``'prediction'`` for a
+        new observation of a linear model, or ``'none'``; ``alpha=``;
+        ``data=`` after a fit with absorbed fixed effects; ``ax=``). The
+        observations are ordered by fitted value, or by date on a
+        date-indexed sample. Returns ``(fig, ax)``.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd, statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"x": rng.normal(size=60)})
+        >>> df["y"] = 1 + df["x"] + rng.normal(size=60)
+        >>> fig, ax = sp.regress("y ~ x", data=df).plot(type="fitted")
+        >>> ax.get_xlabel()
+        'observation, ordered by fitted value'
         """
-        if type not in ("auto", "coefplot"):
+        if type not in ("auto", "coefplot", "fitted"):
             raise MethodIncompatibility(
                 f"plot(type={type!r}) is not a plot this result can draw.",
-                recovery_hint="Use type='auto' or 'coefplot'.",
+                recovery_hint="Use type='auto', 'coefplot' or 'fitted'.",
                 diagnostics={"type": type},
             )
+        if type == "fitted":
+            from ._fitted_plot import fitted_plot
+
+            return fitted_plot(self, **kwargs)
         from ..output.modelsummary import coefplot
 
         return coefplot(self, **kwargs)

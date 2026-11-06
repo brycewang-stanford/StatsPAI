@@ -1647,6 +1647,7 @@ def poisson(
         "coef_label": coef_label,
         "converged": converged,
         "iterations": n_iter,
+        "n_iter": n_iter,
         "ll": ll,
         "ll_null": ll_null,
         "lr_chi2": lr_chi2,
@@ -1702,6 +1703,9 @@ def poisson(
         "exposure": exposure,
         "weights": weights,
     }
+    if len(data) == n:
+        # labels of the rows the fit used (e(sample)), in fit order
+        data_info["sample_index"] = data.index
     if seen_levels:
         # for predict(): which values of each factor the fit saw
         data_info["factor_levels"] = seen_levels
@@ -2037,6 +2041,7 @@ def nbreg(
         "coef_label": coef_label,
         "converged": converged,
         "iterations": n_iter,
+        "n_iter": n_iter,
         "dispersion": disp_param,
         "dispersion_label": disp_label,
         "ll": ll,
@@ -2091,6 +2096,9 @@ def nbreg(
         # Coefficients plus the dispersion, which is not in ``params``.
         "n_params": k + 1,
     }
+    if len(data) == n:
+        # labels of the rows the fit used (e(sample)), in fit order
+        data_info["sample_index"] = data.index
     if seen_levels:
         # for predict(): which values of each factor the fit saw
         data_info["factor_levels"] = seen_levels
@@ -2590,6 +2598,7 @@ def _xtnbreg_hhg(
         "n_groups_dropped": fit.n_dropped_groups,
         "converged": fit.converged,
         "iterations": fit.iterations,
+        "n_iter": fit.iterations,
         "gradient_norm": fit.gradient_norm,
         "irr": irr,
         "coef_label": coef_label,
@@ -3599,6 +3608,7 @@ def ppmlhdfe(
         "cluster": cluster,
         "converged": converged,
         "iterations": n_iter,
+        "n_iter": n_iter,
         "ll": ll,
         "ll_null": ll_null,
         "lr_chi2": lr_chi2,

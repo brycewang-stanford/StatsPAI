@@ -1906,6 +1906,26 @@ def _maybe_warn_few_clusters(
     )
 
 
+def _rows_in_fit_order(
+    raw_data: pd.DataFrame, fit_index: Any, entity: str, time: str
+) -> Optional[pd.Index]:
+    """Row labels of ``raw_data`` for each (entity, time) of a linearmodels
+    result, in the result's order; ``None`` when the result is not indexed
+    by (entity, time) pairs (the between estimator) or a pair is not found
+    exactly once."""
+    if not isinstance(fit_index, pd.MultiIndex) or fit_index.nlevels != 2:
+        return None
+    if entity not in raw_data.columns or time not in raw_data.columns:
+        return None
+    keys = pd.MultiIndex.from_arrays([raw_data[entity], raw_data[time]])
+    if not keys.is_unique:
+        return None
+    pos = keys.get_indexer(fit_index)
+    if (pos < 0).any():
+        return None
+    return raw_data.index[pos]
+
+
 def _convert_lm_result(
     lm_result: Any,
     method: str,
@@ -1943,6 +1963,8 @@ def _convert_lm_result(
         # re / be to Stata's xtreg definitions (_use_xtreg_rsquared)
         "r2_convention": "linearmodels",
     }
+    if isinstance(formula, str):
+        model_info["formula"] = formula
 
     # Record the binding number of clusters so few-cluster inference risk is
     # machine-readable (``result.violations()``), and warn loudly at fit time
@@ -2001,6 +2023,10 @@ def _convert_lm_result(
         "residuals": lm_result.resids.values.ravel(),
         "vcov": vcov,
     }
+    _rows = _rows_in_fit_order(raw_data, lm_result.resids.index, entity, time)
+    if _rows is not None and len(_rows) == len(data_info["residuals"]):
+        # labels of the data rows behind each residual (e(sample))
+        data_info["sample_index"] = _rows
     # Rows and groups beside the N the degrees of freedom use: the between
     # estimator's N is the number of groups, where xtreg, be reports rows.
     try:

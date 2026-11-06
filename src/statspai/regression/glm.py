@@ -1789,6 +1789,9 @@ class GLMRegression(BaseModel):
             "family_obj": self.family,
             "link_obj": self.link,
         }
+        if design_index is not None and len(design_index) == len(self.y):
+            # labels of the rows the fit used (e(sample)), in fit order
+            data_info["sample_index"] = design_index
         if self._design_info is not None and self.data is not None:
             from ..postestimation._design import fitted_factor_levels
 

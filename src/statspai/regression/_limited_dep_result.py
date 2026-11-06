@@ -27,16 +27,21 @@ from typing import Any, Dict, Optional
 import numpy as np
 import pandas as pd
 
+from ..core._fitted_series import StoredFitMixin
 from ..core.results import CausalResult
 
 
-class LimitedDepResult(CausalResult):
+class LimitedDepResult(StoredFitMixin, CausalResult):
     """``CausalResult`` whose params accessors expose the full coef table.
 
     The full coefficient vector is derived from ``self.detail`` (the table
     the estimator already builds). When ``detail`` is absent or does not
     look like a coefficient table the accessors fall back to the base
     single-estimand behaviour, so the subclass is always safe to use.
+
+    ``fitted_values()`` / ``residuals()`` / ``sample_index`` hold what the
+    estimator stored (``sp.tobit``: the linear prediction ``x'b`` and
+    ``y - x'b``); ``None`` for estimators that store none.
     """
 
     _COEF_COL = "coefficient"

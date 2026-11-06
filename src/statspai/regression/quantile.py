@@ -30,6 +30,7 @@ from scipy.optimize import linprog
 from .._aliases import accepts_formula_first
 from .._input_validation import check_columns, missing_named_columns
 from ..core._call_record import records_call
+from ..core._fitted_series import StoredFitMixin
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
@@ -38,9 +39,14 @@ def _as_float_array(value: object) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
-class QuantileRegressionResult(CausalResult):
+class QuantileRegressionResult(StoredFitMixin, CausalResult):
     """``sp.qreg`` result: a ``CausalResult`` whose coefficient accessors
     cover every regressor.
+
+    ``fitted_values()`` is the fitted conditional quantile ``x'b`` and
+    ``residuals()`` is ``y - x'b`` on the estimation sample;
+    ``as_series=True`` labels them by the data rows used
+    (:attr:`sample_index`).
 
     ``estimate`` / ``se`` / ``ci`` stay the first regressor's (the headline
     of the causal-result interface), but ``params``, ``std_errors``,
@@ -284,6 +290,8 @@ def qreg(
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
     )
+    # the unweighted design, for the stored fitted values / residuals
+    Y_raw, X_raw = Y, X
     if weights is not None:
         w_obs = df["__qreg_w__"].to_numpy(dtype=float)
         if not np.all(np.isfinite(w_obs)) or np.any(w_obs <= 0):
@@ -376,8 +384,10 @@ def qreg(
         )
         if kind == "cluster":
             model_info.update({"cluster": cluster, "n_clusters": n_clusters})
+    if isinstance(formula, str):
+        model_info["formula"] = formula
 
-    return QuantileRegressionResult(
+    out = QuantileRegressionResult(
         method=f"Quantile Regression (tau={quantile})",
         estimand=f"Q({quantile}) {x_names[0]}",
         estimate=main_coef,
@@ -390,6 +400,10 @@ def qreg(
         model_info=model_info,
         _citation_key="qreg",
     )
+    # fitted conditional quantile x'b and y - x'b, on the rows used
+    fitted = X_raw @ beta
+    out._store_fit(fitted, Y_raw - fitted, df.index, "qreg")
+    return out
 
 
 def sqreg(

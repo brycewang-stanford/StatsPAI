@@ -504,11 +504,14 @@ def _attach_fe(
     beta: Any,
 ) -> None:
     """Keep what ``fixef()`` / ``predict(newdata)`` / margins need."""
+    keep = np.asarray(keep, dtype=bool)
+    if len(keep) == len(p.data):
+        # labels of the rows the fit used (e(sample)), in fit order
+        out.data_info.setdefault("sample_index", p.data.index[keep])
     if not p.fe:
         return
     from ._fixef import attach
 
-    keep = np.asarray(keep, dtype=bool)
     X = (
         p.data.loc[keep, cols].to_numpy(dtype=float)
         if cols
@@ -769,6 +772,9 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
         "var_cov": V,
         "residuals": u,
     }
+    if "y" in a:
+        # y - u, as the OLS path: the structural fit plus the effects
+        data_info["fitted_values"] = np.asarray(a["y"], dtype=float) - u
     if G:
         data_info["df_inference"] = G - 1
     if not lean:
@@ -876,6 +882,7 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
         model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     model_info["converged"] = bool(res.converged)
     model_info["iterations"] = int(res.iterations)
+    model_info["n_iter"] = int(res.iterations)
     if res.n_dropped_separation:
         model_info["n_dropped_separation"] = int(res.n_dropped_separation)
         import warnings
@@ -971,6 +978,7 @@ def fit_feglm(
     model_info["family"] = family
     model_info["converged"] = bool(res.converged)
     model_info["iterations"] = int(res.iterations)
+    model_info["n_iter"] = int(res.iterations)
     if res.n_dropped_separation:
         model_info["n_dropped_separation"] = int(res.n_dropped_separation)
         import warnings

@@ -17,6 +17,7 @@ Beck, N. & Katz, J.N. (1995).
 *APSR*, 89(3), 634-647. [@beck1995what]
 """
 
+import warnings
 from typing import List
 
 import numpy as np
@@ -165,6 +166,8 @@ def panel_fgls(
     # 2.8% on the slope. `igls=True` restores the old behaviour under its
     # own name.
     n_passes = maxiter if igls else 1
+    # two-step FGLS is not iterative; igls converges when beta settles
+    fgls_converged = not igls
     for iteration in range(n_passes):
         beta_old = beta_gls.copy()
 
@@ -228,7 +231,21 @@ def panel_fgls(
             rho_i = {u: rho_common for u in units}
 
         if np.max(np.abs(beta_gls - beta_old)) < tol:
+            fgls_converged = True
             break
+    if not fgls_converged:
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn(
+            ConvergenceWarning(
+                f"panel_fgls: igls did not converge in {maxiter} iterations "
+                f"(tol={tol}).",
+                recovery_hint="Raise maxiter, or use the two-step default "
+                "igls=False.",
+                diagnostics={"maxiter": maxiter, "tol": tol},
+            ),
+            stacklevel=2,
+        )
 
     # SE
     try:
@@ -255,6 +272,8 @@ def panel_fgls(
             "panels": panels,
             "corr": corr,
             "n_iterations": iteration + 1,
+            "n_iter": iteration + 1,
+            "converged": bool(fgls_converged),
         },
         data_info={
             "n_obs": n_total,

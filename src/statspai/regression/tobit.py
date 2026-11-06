@@ -198,7 +198,10 @@ def tobit(
             f"tobit: method={method!r} is not available; use 'mle' or 'scls'."
         )
     if method_key == "scls":
-        return _tobit_scls(df, Y, X, y, list(x), ll, ul, cluster, weights, alpha)
+        scls = _tobit_scls(df, Y, X, y, list(x), ll, ul, cluster, weights, alpha)
+        if isinstance(formula, str):
+            scls.model_info["formula"] = formula
+        return scls
     # The fit uses weights rescaled to sum to n (the estimates and the
     # sandwich do not depend on the scale); the reported pseudo log
     # likelihood is Stata's sum of w_i * ll_i with the weights as given.
@@ -358,12 +361,16 @@ def tobit(
         "upper_limit": ul if np.isfinite(ul) else None,
         "log_likelihood": ll_scale * float(-result.fun),
         "converged": converged,
+        # quasi-Newton iterations before the Newton polish
+        "n_iter": int(getattr(result, "nit", 0) or 0),
         "gradient_norm": grad_norm,
         "vce": se_kind,
         "cluster": cluster if se_kind == "cluster" else None,
         "n_clusters": (int(df[cluster].nunique()) if se_kind == "cluster" else None),
         "weights": weights,
     }
+    if isinstance(formula, str):
+        model_info["formula"] = formula
 
     fit = LimitedDepResult(
         method="Tobit (Censored Regression)",
@@ -378,6 +385,10 @@ def tobit(
         model_info=model_info,
         _citation_key="tobit",
     )
+    # linear prediction x'b (Stata's default predict after tobit) and the
+    # response residual y - x'b on the rows used
+    xb_hat = X @ beta
+    fit._store_fit(xb_hat, Y - xb_hat, df.index, "tobit")
     # What sp.margins needs: the estimation-scale parameters (b, ln sigma),
     # their full covariance and the censoring limits.
     fit._ml_state = {
@@ -524,6 +535,8 @@ def _tobit_scls(
         },
         _citation_key="tobit_scls",
     )
+    xb_hat = X @ beta
+    fit._store_fit(xb_hat, Y - xb_hat, df.index, "tobit")
     return fit
 
 

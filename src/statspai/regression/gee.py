@@ -501,6 +501,9 @@ def gee(
         "vcov": pd.DataFrame(cov, index=names, columns=names),
         "n_clusters": int(G),
         "iterations": int(iterations),
+        # a fit that does not converge raises ConvergenceFailure
+        "converged": True,
+        "n_iter": int(iterations),
         "dof_correction": bool(dof_correction),
         "formula": formula,
         "alpha": alpha,

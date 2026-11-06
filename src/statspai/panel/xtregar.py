@@ -132,7 +132,11 @@ def _estimate_rho(
     the OLS residuals."""
     beta = np.linalg.lstsq(Xd, yd, rcond=None)[0]
     if kind == "onestep":
-        return {"rho": _rho_from(yd - Xd @ beta, lay, kind, k), "iterations": 0}
+        return {
+            "rho": _rho_from(yd - Xd @ beta, lay, kind, k),
+            "iterations": 0,
+            "converged": True,
+        }
     rho, path = 0.0, []
     converged = False
     for _ in range(1 if twostep else maxiter):
@@ -159,7 +163,13 @@ def _estimate_rho(
             ConvergenceWarning,
             stacklevel=4,
         )
-    return {"rho": rho, "iterations": len(path), "rho_path": path}
+    return {
+        "rho": rho,
+        "iterations": len(path),
+        "rho_path": path,
+        # two-step is not iterated, so it has nothing to converge
+        "converged": bool(converged or twostep),
+    }
 
 
 def _lbi(e: np.ndarray, lay: _Layout) -> Dict[str, float]:
@@ -584,7 +594,11 @@ def xtregar(
             "differ by one.",
         )
     if rhof is not None:
-        rho_info: Dict[str, Any] = {"rho": float(rhof), "iterations": 0}
+        rho_info: Dict[str, Any] = {
+            "rho": float(rhof),
+            "iterations": 0,
+            "converged": True,
+        }
     else:
         rho_info = _estimate_rho(yd, Xd, lay, kind, k, twostep)
     rho = float(rho_info["rho"])
@@ -602,6 +616,8 @@ def xtregar(
         "twostep": bool(twostep),
         "rho_ar": rho,
         "rho_iterations": rho_info["iterations"],
+        "n_iter": rho_info["iterations"],
+        "converged": bool(rho_info["converged"]),
         "sigma_u": fit["sigma_u"],
         "sigma_e": fit["sigma_e"],
         "rho_fov": fit["rho_fov"],

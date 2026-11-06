@@ -1985,6 +1985,16 @@ class IVRegression(BaseModel):
             # restriction involving more than one coefficient.
             "var_cov": results.get("var_cov"),
         }
+        if isinstance(self.formula, str):
+            model_info["formula"] = self.formula
+        _rows = getattr(self, "_clean_data", None)
+        if (
+            self.formula is not None
+            and _rows is not None
+            and len(_rows) == len(np.asarray(results["residuals"]).ravel())
+        ):
+            # labels of the rows the fit used (e(sample)), in fit order
+            data_info["sample_index"] = _rows.index
         _n_cl = model_info.get("n_clusters")
         if _n_cl is not None:
             # ``ivregress ..., small vce(cluster)``: t / F with G - 1 degrees of

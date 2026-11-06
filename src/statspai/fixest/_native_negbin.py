@@ -66,6 +66,7 @@ def fit_fenegbin(p: Plan, fml: str) -> EconometricResults:
     model_info["theta_se"] = theta_se
     model_info["converged"] = bool(res.converged)
     model_info["iterations"] = int(res.iterations)
+    model_info["n_iter"] = int(res.iterations)
     if res.n_dropped_separation:
         model_info["n_dropped_separation"] = int(res.n_dropped_separation)
         warnings.warn(

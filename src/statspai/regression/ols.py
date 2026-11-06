@@ -1407,6 +1407,9 @@ class OLSRegression(BaseModel):
             "robust": robust,
             "cluster": cluster,
         }
+        if isinstance(self.formula, str):
+            # the specification as written (RE4.4); predict / margins read it
+            model_info["formula"] = self.formula
         if kwargs.get("weights", None) is not None:
             model_info["weighted"] = True
             from ..core._agent_summary import warn_if_weights_extreme

@@ -290,6 +290,7 @@ def _newton_raphson(
     weights: Optional[np.ndarray] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
+    info: Optional[Dict[str, Any]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, float, int]:
     """
     Newton-Raphson MLE for binary choice models.
@@ -300,6 +301,9 @@ def _newton_raphson(
     H : Hessian at convergence
     ll : log-likelihood at convergence
     n_iter : iterations used
+
+    ``info``, when given, receives ``converged`` (the log-likelihood
+    change fell below ``tol`` within ``maxiter`` iterations).
     """
     cdf_func, pdf_func, pdf_deriv_func = _LINKS[link]
     n, k = X.shape
@@ -339,6 +343,8 @@ def _newton_raphson(
             step_size *= 0.5
         beta = beta_new
 
+    if info is not None:
+        info["converged"] = converged
     if not converged:
         warnings.warn(
             f"Newton-Raphson did not converge after {maxiter} iterations. "
@@ -880,7 +886,10 @@ def _fit_binary(
     cdf_func, pdf_func, pdf_deriv_func = _LINKS[link]
 
     # ── Estimation ──────────────────────────────────────────────────────
-    beta, H, ll, n_iter = _newton_raphson(y_vec, X_mat, link, w, maxiter, tol)
+    _nr_info: Dict[str, Any] = {}
+    beta, H, ll, n_iter = _newton_raphson(
+        y_vec, X_mat, link, w, maxiter, tol, info=_nr_info
+    )
 
     # ── Variance-covariance ─────────────────────────────────────────────
     # Stata conventions (core._vcov.ml_vcov): vce(robust) carries N/(N-1),
@@ -984,6 +993,7 @@ def _fit_binary(
         "cluster": cluster,
         "se_type": se_type,
         "n_iter": n_iter,
+        "converged": bool(_nr_info.get("converged", False)),
         "odds_ratio": or_series,
         "marginal_effects": me_df,
         "classification": cls_table,
@@ -1074,7 +1084,8 @@ def _fit_binary(
         # Stata svy: t with the design degrees of freedom
         data_info.pop("inference", None)
         data_info["df_inference"] = svy_df
-        data_info["sample_index"] = row_index
+    # labels of the rows the fit used (e(sample)), in fit order
+    data_info["sample_index"] = row_index
     result = EconometricResults(
         params=params,
         std_errors=se_series,
