@@ -484,6 +484,15 @@
           ],
           "type": "string"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "n_folds": {
           "default": 5,
           "description": "Cross-fitting folds (>= 2)",
@@ -3676,6 +3685,15 @@
         "min_n": {
           "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test. ``0`` keeps every horizon, as Stata's ``minn(0)`` does, and is the same as ``None``; unlike Stata, whose default is ``minn(30)``, nothing is dropped unless ``min_n`` is given. Stata counts the *effective* number of treated observations (the inverse Herfindahl index of the coefficient's weights), which equals the count used here for an unweighted horizon and is smaller with ``weights=``. .. versionchanged:: 1.40.1 ``min_n=0`` used to raise.",
           "type": "integer"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count. A missing ``first_treat`` means never treated and is not counted.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
         },
         "n_boot": {
           "default": 199,
@@ -14380,6 +14398,15 @@
           "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
           "type": "string"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "parity": {
           "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: follow crit_dist. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
           "enum": [
@@ -15059,6 +15086,15 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "seed": {
           "description": "RNG seed for sampled (non-enumerated) ``vce=\"wild\"`` draws.",
           "type": "integer"
@@ -15179,6 +15215,15 @@
           "default": 1e-08,
           "description": "IWLS convergence tolerance.",
           "type": "number"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
         },
         "seed": {
           "description": "RNG seed for sampled (non-enumerated) ``vce=\"wild\"`` draws.",
@@ -17630,6 +17675,15 @@
           "description": "Maximum number of IRLS iterations.",
           "type": "integer"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "offset": {
           "description": "Variable name for offset.",
           "type": "string",
@@ -18753,6 +18807,15 @@
             "twostep",
             "ml",
             "mle"
+          ],
+          "type": "string"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
           ],
           "type": "string"
         },
@@ -20330,6 +20393,15 @@
             "ATE",
             "ATT",
             "ATC"
+          ],
+          "type": "string"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
           ],
           "type": "string"
         },
@@ -23444,6 +23516,15 @@
           "default": 100,
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
         },
         "odds_ratio": {
           "default": false,
@@ -28699,6 +28780,15 @@
           ],
           "type": "string"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "Standard errors: nonrobust, robust, kernel, driscoll-kraay",
@@ -30095,6 +30185,15 @@
           "description": "Maximum IRLS iterations.",
           "type": "integer"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "offset": {
           "description": "Offset variable (log of exposure already computed).",
           "type": "string",
@@ -31225,6 +31324,15 @@
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
         },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
+          "enum": [
+            "drop",
+            "raise"
+          ],
+          "type": "string"
+        },
         "perfect_prediction": {
           "default": "drop",
           "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
@@ -32210,6 +32318,15 @@
           "enum": [
             "mad",
             "silverman"
+          ],
+          "type": "string"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
           ],
           "type": "string"
         },
@@ -45124,6 +45241,15 @@
           "enum": [
             "mle",
             "scls"
+          ],
+          "type": "string"
+        },
+        "missing": {
+          "default": "drop",
+          "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
+          "enum": [
+            "drop",
+            "raise"
           ],
           "type": "string"
         },

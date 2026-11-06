@@ -6110,6 +6110,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   into a scratch directory and diffed against its committed
   `*_py.json`: every number agrees within 1e-9 (no committed result was
   touched).
+
+### 2026-11-06 — traces re-recorded after the shared input checks and `missing=`
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** The `feat(core): missing= option and shared input checks`
+  commit of this date (rOpenSci audit gaps 4 and 16).
+- **Reason.** `_input_validation.checks_input` now runs before 25 core
+  estimators, and `regression/` (ols, logit_probit, count, glm, iv, quantile,
+  tobit, heckman), `did/`, `rd/`, `synth/scm.py`, `fixest/`, `inference/`,
+  `matching/`, `panel/` and the DML alias gained it. These files are on the
+  traced paths of Track A modules 01-02, 04-09, 11-12, 14, 16-20, 25-27, 30,
+  34-38, 40-43, 47-48, 51-59, 63-64, 67, 69-75 and 77-91 and of all 12
+  original-data modules. The checks only refuse degenerate input, and every
+  module passes clean data. 63 of the 65 Track A modules and all 12
+  original-data modules reproduce their committed results within 1e-9.
+  Modules 26 and 27 (GLMM)
+  move by 2e-9 to 4e-9 relative in the standard errors, and unmodified
+  origin/main gives the same bytes in this environment, so that is the
+  machine, not the change. Nothing was rewritten.
 - **Effect on the paper.** None. No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`

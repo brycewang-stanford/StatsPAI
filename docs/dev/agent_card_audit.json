@@ -4,7 +4,7 @@
   "n_functions": 70,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 583,
+    "ok": 633,
     "precondition": 63,
     "rejected": 0
   },
@@ -74,6 +74,14 @@
           "raise": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -132,6 +140,14 @@
               "weights": "ypos"
             }
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -167,7 +183,7 @@
       "provenance": {
         "family": 2,
         "curated+family": 4,
-        "curated": 3
+        "curated": 4
       }
     },
     {
@@ -337,6 +353,14 @@
           "efficient": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -397,6 +421,14 @@
               "weights": "ypos"
             }
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -415,7 +447,8 @@
       ],
       "provenance": {
         "family": 6,
-        "docstring": 2
+        "docstring": 2,
+        "curated": 1
       }
     },
     {
@@ -453,6 +486,14 @@
             "with": {
               "weights": "ypos"
             }
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
           }
         }
       },
@@ -503,6 +544,14 @@
               "weights": "ypos"
             }
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -521,7 +570,8 @@
       ],
       "provenance": {
         "family": 6,
-        "docstring": 2
+        "docstring": 2,
+        "curated": 1
       }
     },
     {
@@ -574,6 +624,14 @@
           "silverman": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -587,7 +645,7 @@
         }
       ],
       "provenance": {
-        "curated": 7
+        "curated": 8
       }
     },
     {
@@ -642,6 +700,14 @@
             "with": {
               "weights": "wt"
             }
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
           }
         }
       },
@@ -743,6 +809,14 @@
             "status": "ok"
           },
           "linearmodels": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         }
@@ -883,6 +957,14 @@
             "error": "MethodIncompatibility: sp.did: crit_dist='normal' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callawa"
           },
           "legacy": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         },
@@ -1058,6 +1140,14 @@
           "stata": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1162,6 +1252,14 @@
           "lastcohort": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1249,6 +1347,14 @@
             "status": "ok"
           },
           "symmetric": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         }
@@ -1626,6 +1732,14 @@
           "normal": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1787,6 +1901,14 @@
             "status": "ok"
           },
           "off": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         },
@@ -2048,6 +2170,14 @@
           "kernel_ridge": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -2222,6 +2352,14 @@
             "with": {
               "model": "irm"
             }
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
           }
         }
       },
@@ -2422,7 +2560,8 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 1
+        "docstring": 1,
+        "curated": 1
       }
     },
     {
@@ -2578,6 +2717,14 @@
           "probit": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -2657,6 +2804,14 @@
           "probit": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -2731,6 +2886,14 @@
           "poisson": {
             "status": "precondition",
             "error": "MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome."
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
           }
         }
       },
@@ -3032,6 +3195,14 @@
               "weights": "ypos"
             }
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -3181,10 +3352,10 @@
           }
         },
         "cluster_df": {
-          "per_term": {
+          "min": {
             "status": "ok"
           },
-          "min": {
+          "per_term": {
             "status": "ok"
           }
         }
@@ -3204,7 +3375,7 @@
         }
       ],
       "provenance": {
-        "curated": 7,
+        "curated": 8,
         "docstring": 2
       }
     },
@@ -3300,6 +3471,14 @@
             "status": "ok"
           },
           "scls": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         }
@@ -3414,6 +3593,14 @@
           "native": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -3466,6 +3653,14 @@
           "native": {
             "status": "ok"
           }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -3484,7 +3679,8 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 2
+        "docstring": 2,
+        "curated": 1
       }
     },
     {
@@ -3521,6 +3717,14 @@
             "status": "ok"
           },
           "mle": {
+            "status": "ok"
+          }
+        },
+        "missing": {
+          "drop": {
+            "status": "ok"
+          },
+          "raise": {
             "status": "ok"
           }
         }
@@ -3758,7 +3962,8 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 2
+        "docstring": 2,
+        "curated": 1
       }
     },
     {
@@ -3877,7 +4082,8 @@
       ],
       "provenance": {
         "family": 5,
-        "docstring": 2
+        "docstring": 2,
+        "curated": 1
       }
     },
     {
@@ -5339,7 +5545,7 @@
       ],
       "provenance": {
         "family": 5,
-        "curated": 2,
+        "curated": 3,
         "docstring": 2
       }
     },
@@ -5542,7 +5748,7 @@
         }
       ],
       "provenance": {
-        "curated": 7
+        "curated": 8
       }
     },
     {

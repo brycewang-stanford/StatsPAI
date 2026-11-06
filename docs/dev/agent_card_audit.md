@@ -6,58 +6,58 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **70**
 - functions with a card defect: **0**
-- enum values tried: **646** (583 accepted, 63 need a precondition, 0 refused by the function)
+- enum values tried: **696** (633 accepted, 63 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
 | Function | Result class | Enum values ok / precondition / rejected | Card fields curated / inherited / other | Defects |
 | --- | --- | ---: | ---: | --- |
-| `regress` | EconometricResults | 11 / 0 / 0 | 8 / 0 / 0 | none |
-| `ivreg` | EconometricResults | 2 / 0 / 0 | 3 / 0 / 6 | none |
-| `iv` | EconometricResults | 21 / 17 / 0 | 10 / 0 / 0 | none |
-| `logit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `probit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `poisson` | EconometricResults | 2 / 0 / 0 | 0 / 0 / 8 | none |
-| `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 7 / 0 / 0 | none |
-| `feols` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 2 | none |
-| `panel` | PanelResults | 15 / 0 / 0 | 8 / 0 / 0 | none |
-| `did` | CausalResult | 25 / 6 / 0 | 10 / 0 / 0 | none |
-| `callaway_santanna` | CausalResult | 26 / 0 / 0 | 5 / 0 / 5 | none |
-| `sun_abraham` | CausalResult | 13 / 0 / 0 | 5 / 0 / 5 | none |
-| `did_imputation` | CausalResult | 8 / 0 / 0 | 5 / 0 / 5 | none |
+| `regress` | EconometricResults | 13 / 0 / 0 | 8 / 0 / 0 | none |
+| `ivreg` | EconometricResults | 4 / 0 / 0 | 4 / 0 / 6 | none |
+| `iv` | EconometricResults | 23 / 17 / 0 | 10 / 0 / 0 | none |
+| `logit` | EconometricResults | 6 / 0 / 0 | 1 / 0 / 8 | none |
+| `probit` | EconometricResults | 6 / 0 / 0 | 0 / 0 / 8 | none |
+| `poisson` | EconometricResults | 4 / 0 / 0 | 1 / 0 / 8 | none |
+| `qreg` | QuantileRegressionResult | 10 / 1 / 0 | 8 / 0 / 0 | none |
+| `feols` | EconometricResults | 9 / 0 / 0 | 8 / 0 / 2 | none |
+| `panel` | PanelResults | 17 / 0 / 0 | 8 / 0 / 0 | none |
+| `did` | CausalResult | 27 / 6 / 0 | 10 / 0 / 0 | none |
+| `callaway_santanna` | CausalResult | 28 / 0 / 0 | 5 / 0 / 5 | none |
+| `sun_abraham` | CausalResult | 15 / 0 / 0 | 5 / 0 / 5 | none |
+| `did_imputation` | CausalResult | 10 / 0 / 0 | 5 / 0 / 5 | none |
 | `gardner_did` | CausalResult | 4 / 0 / 0 | 6 / 0 / 4 | none |
 | `etwfe` | CausalResult | 18 / 4 / 0 | 5 / 0 / 5 | none |
 | `stacked_did` | CausalResult | 11 / 0 / 0 | 10 / 0 / 0 | none |
-| `event_study` | CausalResult | 4 / 0 / 0 | 10 / 0 / 0 | none |
+| `event_study` | CausalResult | 6 / 0 / 0 | 10 / 0 / 0 | none |
 | `bacon_decomposition` | BaconDecompositionResult | 3 / 0 / 0 | 10 / 0 / 0 | none |
-| `rdrobust` | CausalResult | 25 / 1 / 0 | 9 / 0 / 1 | none |
+| `rdrobust` | CausalResult | 27 / 1 / 0 | 9 / 0 / 1 | none |
 | `rddensity` | CausalResult | 2 / 0 / 0 | 6 / 0 / 3 | none |
-| `synth` | CausalResult | 33 / 7 / 0 | 10 / 0 / 0 | none |
+| `synth` | CausalResult | 35 / 7 / 0 | 10 / 0 / 0 | none |
 | `sdid` | CausalResult | 10 / 2 / 0 | 3 / 0 / 7 | none |
-| `dml` | CausalResult | 6 / 2 / 0 | 10 / 0 / 0 | none |
+| `dml` | CausalResult | 8 / 2 / 0 | 10 / 0 / 0 | none |
 | `metalearner` | CausalResult | 5 / 0 / 0 | 8 / 0 / 0 | none |
 | `causal_forest` | CausalForest | 2 / 3 / 0 | 8 / 0 / 0 | none |
-| `psm` | CausalResult | 0 / 0 / 0 | 0 / 0 / 6 | none |
-| `match` | CausalResult | 37 / 1 / 0 | 9 / 0 / 0 | none |
-| `ipw` | CausalResult | 7 / 0 / 0 | 3 / 0 / 5 | none |
-| `aipw` | CausalResult | 4 / 4 / 0 | 8 / 0 / 0 | none |
+| `psm` | CausalResult | 0 / 0 / 0 | 1 / 0 / 6 | none |
+| `match` | CausalResult | 39 / 1 / 0 | 9 / 0 / 0 | none |
+| `ipw` | CausalResult | 9 / 0 / 0 | 3 / 0 / 5 | none |
+| `aipw` | CausalResult | 6 / 4 / 0 | 8 / 0 / 0 | none |
 | `tmle` | CausalResult | 9 / 2 / 0 | 8 / 0 / 0 | none |
 | `nbreg` | EconometricResults | 8 / 0 / 0 | 8 / 0 / 0 | none |
-| `glm` | EconometricResults | 22 / 0 / 0 | 0 / 0 / 8 | none |
+| `glm` | EconometricResults | 24 / 0 / 0 | 0 / 0 / 8 | none |
 | `ppmlhdfe` | EconometricResults | 5 / 0 / 0 | 1 / 0 / 9 | none |
-| `hdfe_ols` | FEOLSResult | 15 / 0 / 0 | 7 / 0 / 2 | none |
+| `hdfe_ols` | FEOLSResult | 15 / 0 / 0 | 8 / 0 / 2 | none |
 | `ologit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `mlogit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
-| `tobit` | LimitedDepResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
+| `tobit` | LimitedDepResult | 4 / 0 / 0 | 8 / 0 / 0 | none |
 | `cloglog` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `fepois` | EconometricResults | 5 / 0 / 0 | 6 / 0 / 2 | none |
-| `feglm` | EconometricResults | 3 / 0 / 0 | 0 / 0 / 7 | none |
-| `heckman` | LimitedDepResult | 3 / 0 / 0 | 3 / 0 / 4 | none |
+| `fepois` | EconometricResults | 7 / 0 / 0 | 6 / 0 / 2 | none |
+| `feglm` | EconometricResults | 5 / 0 / 0 | 1 / 0 / 7 | none |
+| `heckman` | LimitedDepResult | 5 / 0 / 0 | 3 / 0 / 4 | none |
 | `mediate` | CausalResult | 7 / 5 / 0 | 8 / 0 / 0 | none |
 | `oaxaca` | OaxacaResult | 3 / 0 / 0 | 5 / 0 / 3 | none |
-| `ebalance` | CausalResult | 5 / 0 / 0 | 0 / 0 / 7 | none |
+| `ebalance` | CausalResult | 5 / 0 / 0 | 1 / 0 / 7 | none |
 | `cbps` | CausalResult | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `lee_bounds` | CausalResult | 5 / 0 / 0 | 0 / 0 / 7 | none |
+| `lee_bounds` | CausalResult | 5 / 0 / 0 | 1 / 0 / 7 | none |
 | `rdrandinf` | CausalResult | 5 / 0 / 0 | 6 / 0 / 4 | none |
 | `rd_honest` | CausalResult | 8 / 0 / 0 | 4 / 0 / 6 | none |
 | `wooldridge_did` | CausalResult | 0 / 0 / 0 | 10 / 0 / 0 | none |
@@ -76,9 +76,9 @@ Each card is checked against a real call on small data: the required arguments, 
 | `honest_did` | DataFrame | 14 / 0 / 0 | 7 / 0 / 3 | none |
 | `drdid` | CausalResult | 9 / 0 / 0 | 10 / 0 / 0 | none |
 | `did_multiplegt` | CausalResult | 4 / 0 / 0 | 5 / 0 / 5 | none |
-| `gsynth` | CausalResult | 7 / 0 / 0 | 2 / 0 / 7 | none |
+| `gsynth` | CausalResult | 7 / 0 / 0 | 3 / 0 / 7 | none |
 | `psmatch2` | PSMatch2Result | 20 / 0 / 0 | 8 / 0 / 0 | none |
-| `xtnbreg` | EconometricResults | 7 / 0 / 0 | 7 / 0 / 0 | none |
+| `xtnbreg` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 0 | none |
 | `spec_curve` | SpecCurveResult | 0 / 0 / 0 | 8 / 0 / 0 | none |
 | `iv_diag` | IVDiagResult | 3 / 0 / 0 | 5 / 0 / 5 | none |
 | `g_computation` | CausalResult | 5 / 0 / 0 | 3 / 0 / 5 | none |
