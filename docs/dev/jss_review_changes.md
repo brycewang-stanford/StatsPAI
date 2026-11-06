@@ -6134,3 +6134,17 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — traces 33 / 34 / 39 / 83 / 85 re-recorded after the platform fixes
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `26d546a60`.
+- **Reason.** `src/statspai/did/event_study.py` (rank by column scan) is on
+  the traced path of modules 83 and 85; `src/statspai/timeseries/
+  _forecast_common.py` (day spacing at any index resolution) on 33, 34 and
+  39. Re-running the five modules moved results by at most 2.9e-14
+  (last-digit jitter, restored).
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
