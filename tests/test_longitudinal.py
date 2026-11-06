@@ -206,18 +206,19 @@ def panel_with_tv_confounders():
 
 def test_analyze_msm_path(panel_with_tv_confounders):
     df = panel_with_tv_confounders
-    r = sp.longitudinal_analyze(
-        data=df,
-        id="pid",
-        time="visit",
-        treatment="treat",
-        outcome="y",
-        time_varying=["bp_lag"],
-        regime="if bp_lag > 120 then 1 else 0",
-    )
+    with pytest.warns(sp.AssumptionWarning, match="current exposure"):
+        r = sp.longitudinal_analyze(
+            data=df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
+            time_varying=["bp_lag"],
+            regime="if bp_lag > 120 then 1 else 0",
+        )
     assert r.method == "msm"
-    assert np.isfinite(r.estimate)
-    assert "weight_mean" in r.diagnostics or len(r.diagnostics) == 0
+    assert r.estimate == r.underlying_result.estimate
+    assert r.diagnostics["estimand"].startswith("MSM coefficient on current")
 
 
 def test_analyze_gformula_path_with_static_regime(panel_with_tv_confounders):
@@ -308,4 +309,77 @@ def test_ipw_path_refuses_a_regime_nobody_follows():
             treatment="treat",
             outcome="y",
             regime=always_treat(),
+        )
+
+
+# --- regime contrasts: paired g-formula bootstrap, MSM refusal (2026-11-06) ---
+
+
+def _tv_panel(n=300, seed=0):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n):
+        L, a_prev = rng.normal(), 0
+        for t in range(3):
+            L = 0.5 * L + 0.4 * a_prev + rng.normal()
+            a = int(rng.random() < 1 / (1 + np.exp(-0.6 * L)))
+            rows.append(
+                dict(id=i, time=t, A=a, L=L, Y=1.0 * a + 0.5 * L + rng.normal())
+            )
+            a_prev = a
+    return pd.DataFrame(rows)
+
+
+_KW = dict(id="id", time="time", treatment="A", outcome="Y", time_varying=["L"])
+
+
+def test_gformula_contrast_se_is_the_paired_bootstrap_of_the_difference():
+    df = _tv_panel()
+    res = sp.longitudinal_contrast(
+        df, regime_a="always_treat", regime_b="never_treat", seed=7, **_KW
+    )
+    a, b = res["a_result"], res["b_result"]
+    assert a.method == b.method == "g-formula"
+    assert a.diagnostics["seed"] == b.diagnostics["seed"] == res["seed"] == 7
+    # Same seed and data: both regimes were refitted on the same resamples.
+    da = a.underlying_result.bootstrap_draws
+    db = b.underlying_result.bootstrap_draws
+    assert len(da) == len(db) == 200
+    np.testing.assert_allclose(res["se"], np.std(da - db, ddof=1), rtol=1e-12)
+    # The marginal SEs are the replicate SDs, so the identity
+    # var(a - b) = var(a) + var(b) - 2 cov(a, b) holds draw for draw.
+    cov = np.cov(da, db, ddof=1)[0, 1]
+    np.testing.assert_allclose(res["se"] ** 2, a.se**2 + b.se**2 - 2 * cov, rtol=1e-10)
+    # Reproducible: the same seed gives the same contrast and SE.
+    again = sp.longitudinal_contrast(
+        df, regime_a="always_treat", regime_b="never_treat", seed=7, **_KW
+    )
+    assert again["se"] == res["se"] and again["contrast"] == res["contrast"]
+
+
+def test_gformula_contrast_without_seed_reports_the_seed_it_drew():
+    df = _tv_panel(n=120)
+    res = sp.longitudinal_contrast(
+        df, regime_a="always_treat", regime_b="never_treat", **_KW
+    )
+    rerun = sp.longitudinal_contrast(
+        df, regime_a="always_treat", regime_b="never_treat", seed=res["seed"], **_KW
+    )
+    assert rerun["se"] == res["se"]
+
+
+def test_msm_path_says_its_estimate_ignores_the_regime_and_contrast_refuses():
+    df = _tv_panel(n=150)
+    with pytest.warns(sp.AssumptionWarning, match="does not depend on the regime"):
+        a = sp.longitudinal_analyze(df, regime="always_treat", method="msm", **_KW)
+    with pytest.warns(sp.AssumptionWarning):
+        b = sp.longitudinal_analyze(df, regime="never_treat", method="msm", **_KW)
+    assert a.estimate == b.estimate  # the reason the contrast is refused
+    assert "regime-independent" in a.diagnostics["estimand"]
+    with (
+        pytest.warns(sp.AssumptionWarning),
+        pytest.raises(sp.MethodIncompatibility, match="0 by construction"),
+    ):
+        sp.longitudinal_contrast(
+            df, regime_a="always_treat", regime_b="never_treat", method="msm", **_KW
         )

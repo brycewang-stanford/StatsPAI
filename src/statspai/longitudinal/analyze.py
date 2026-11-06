@@ -129,6 +129,7 @@ def analyze(
     method: str = "auto",
     alpha: float = 0.05,
     trim: float = 0.01,
+    seed: Optional[int] = None,
 ) -> LongitudinalResult:
     """Unified longitudinal causal-effect estimator.
 
@@ -155,6 +156,10 @@ def analyze(
         On the IPW path, propensity scores are clipped to
         ``[trim, 1 - trim]``; on the MSM path it is passed to
         :func:`sp.msm` as its ``trim``.
+    seed : int, optional
+        Seed of the g-formula path's 200 bootstrap replicates (recorded in
+        ``diagnostics['seed']``). Without it the bootstrap SE is not
+        reproducible. Ignored by the IPW and MSM paths.
 
     Returns
     -------
@@ -245,6 +250,7 @@ def analyze(
             alpha,
             n,
             n_periods,
+            seed,
         )
     return _run_ipw(
         data,
@@ -301,7 +307,22 @@ def _run_msm(
     if ci is None or any(x is None for x in ci):
         z = 1.96
         ci = (est - z * se, est + z * se)
-    diag: dict = {}
+    import warnings
+
+    from ..exceptions import AssumptionWarning
+
+    exposure = "cumulative" if regime.kind == "static" else "current"
+    warnings.warn(
+        "longitudinal_analyze: the MSM path reports the MSM coefficient on "
+        f"{exposure} exposure, not E[Y] under regime {regime.name!r}; the "
+        "number does not depend on the regime. For the mean under a static "
+        "regime use method='g-formula'.",
+        AssumptionWarning,
+        stacklevel=3,
+    )
+    diag: dict = {
+        "estimand": f"MSM coefficient on {exposure} exposure (regime-independent)"
+    }
     info = getattr(res, "model_info", None)
     if isinstance(info, dict):
         for key in (
@@ -344,6 +365,7 @@ def _run_gformula(
     alpha: float,
     n: int,
     n_periods: int,
+    seed: Optional[int] = None,
 ) -> LongitudinalResult:
     from ..gformula import ice as _ice_fn
 
@@ -388,6 +410,7 @@ def _run_gformula(
         outcome_col=outcome_col,
         treatment_strategy=strategy,
         bootstrap=200,
+        seed=seed,
     )
 
     return LongitudinalResult(
@@ -398,7 +421,11 @@ def _run_gformula(
         ci=(float(res.ci[0]), float(res.ci[1])),
         n=n,
         n_periods=n_periods,
-        diagnostics={"bootstrap_reps": 200},
+        diagnostics={
+            "bootstrap_reps": 200,
+            "seed": seed,
+            "reproducible": seed is not None,
+        },
         underlying_result=res,
     )
 
@@ -639,8 +666,13 @@ def contrast(
     dict
         With keys ``regime_a``, ``regime_b``, ``contrast``, ``a_result``,
         ``b_result``.  The ``contrast`` value is the plug-in difference
-        ``a.estimate - b.estimate``; its SE uses the delta-method
-        approximation ``sqrt(se_a^2 + se_b^2)``.
+        ``a.estimate - b.estimate``. Its SE depends on the path. On the
+        g-formula path both regimes are bootstrapped on the same resamples
+        (one ``seed``, drawn and reported under ``seed`` when not given) and
+        the SE is that of the replicate-wise difference. On the IPW path the
+        two Hajek means use disjoint ids, so ``sqrt(se_a^2 + se_b^2)`` is
+        exact under its variance formula. The MSM path is refused: its
+        estimate is a coefficient that does not depend on the regime.
 
     Examples
     --------
@@ -665,6 +697,10 @@ def contrast(
     >>> isinstance(res["contrast"], float)
     True
     """
+    if kwargs.get("seed") is None:
+        # One seed for both regimes, so a g-formula contrast is a paired
+        # bootstrap; drawn here and reported when the caller gave none.
+        kwargs["seed"] = int(np.random.SeedSequence().generate_state(1)[0])
     a = analyze(
         data,
         id=id,
@@ -684,13 +720,42 @@ def contrast(
         **kwargs,
     )
     delta = a.estimate - b.estimate
-    se = float(np.sqrt(a.se**2 + b.se**2))
+    if "msm" in (a.method, b.method):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "longitudinal_contrast: the MSM path reports a regime-independent "
+            "coefficient, so the difference of two MSM results is 0 by "
+            "construction, not a regime contrast.",
+            recovery_hint=(
+                "For static regimes pass method='g-formula'; the MSM "
+                "coefficient itself is a_result.estimate from "
+                "sp.longitudinal_analyze(method='msm')."
+            ),
+            diagnostics={"methods": [a.method, b.method]},
+            alternative_functions=["sp.longitudinal_analyze", "sp.msm"],
+        )
+    if a.method == b.method == "g-formula":
+        # Both regimes are fitted on the same people, so their estimates
+        # are correlated: bootstrap the difference over common resamples.
+        da = getattr(a.underlying_result, "bootstrap_draws", None)
+        db = getattr(b.underlying_result, "bootstrap_draws", None)
+        if da is None or db is None or len(da) != len(db):
+            raise RuntimeError(  # pragma: no cover - both paths bootstrap
+                "longitudinal_contrast: g-formula bootstrap draws missing"
+            )
+        se = float(np.std(np.asarray(da) - np.asarray(db), ddof=1))
+    else:
+        # IPW: the two Hajek means use disjoint sets of ids, so their
+        # influence terms never overlap and the covariance is zero.
+        se = float(np.sqrt(a.se**2 + b.se**2))
     return {
         "regime_a": a.regime_name,
         "regime_b": b.regime_name,
         "contrast": float(delta),
         "se": se,
         "ci": (delta - 1.96 * se, delta + 1.96 * se),
+        "seed": kwargs["seed"],
         "a_result": a,
         "b_result": b,
     }

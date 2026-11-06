@@ -37,6 +37,13 @@ on your propensity scores.
   treatment that changes within id, a dynamic regime, a static regime that
   changes over time, and a regime no id follows. Pass the time-varying
   confounders (g-formula or MSM path) or choose `method=` explicitly.
+- `sp.longitudinal_contrast` with the MSM path (`method='msm'`, or a
+  dynamic regime under `method='auto'`) now raises; its old result was 0
+  by construction. Use `method='g-formula'` for static regimes. On the
+  g-formula path the contrast SE changes (paired bootstrap); pass
+  `seed=` to make it reproducible.
+- `sp.cluster_cross_interference` raises instead of returning NaN or a
+  first-row value on designs that do not identify the two effects.
 
 ---
 

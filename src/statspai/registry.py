@@ -18869,6 +18869,7 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("trim", "float", False, 0.01),
+                ParamSpec("seed", "int", False, None),
             ],
             returns="LongitudinalResult",
             example=(

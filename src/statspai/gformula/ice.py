@@ -19,7 +19,7 @@ Hernan & Robins. *Causal Inference: What If*, ch. 21.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 import numpy as np
@@ -69,6 +69,10 @@ class ICEResult(ResultProtocolMixin):
     ci: tuple[float, float]
     method: str = "parametric-g-formula-ICE"
     per_timepoint_means: list[float] | None = None
+    #: The bootstrap replicates of ``value`` (``None`` without a bootstrap).
+    #: Two fits with the same ``seed`` and data draw the same resamples, so
+    #: their replicate-wise difference is a paired bootstrap of a contrast.
+    bootstrap_draws: np.ndarray | None = field(default=None, repr=False)
 
     def summary(self) -> str:
         return (
@@ -205,6 +209,7 @@ def ice(
         value=float(val),
         se=se,
         ci=(float(ci[0]), float(ci[1])),
+        bootstrap_draws=vals_arr if bootstrap > 0 else None,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

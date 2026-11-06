@@ -166,6 +166,32 @@ All notable changes to StatsPAI will be documented in this file.
   id followed the regime. These now raise `MethodIncompatibility` (the
   first three) and `DataInsufficient`, pointing to `time_varying=` or
   `method='g-formula'` / `'msm'`. Clean inputs give the same numbers.
+- ⚠️ **correctness fix: `sp.longitudinal_contrast` on the MSM path
+  returned 0.** The MSM path of `sp.longitudinal_analyze` reports the MSM
+  coefficient on cumulative (static regime) or current (dynamic regime)
+  exposure, which does not depend on the regime. The contrast of two
+  regimes was therefore exactly 0 with a positive SE (always-treat vs
+  never-treat on a test panel: 0.0, SE 0.076; the g-formula contrast is
+  1.52). It now raises `MethodIncompatibility`, and the MSM path warns
+  that its number is a regime-independent coefficient
+  (`diagnostics['estimand']`).
+- ⚠️ **correctness fix: the g-formula regime contrast uses a paired
+  bootstrap.** `sp.longitudinal_contrast` added the two regimes' bootstrap
+  variances as if independent, although both are fitted on the same
+  people, and each bootstrap drew its own unseeded resamples. Both regimes
+  are now bootstrapped on the same resamples (one seed, drawn and returned
+  under `seed` when not given) and the SE is that of the replicate-wise
+  difference. The point estimate is unchanged. `sp.longitudinal_analyze`
+  gains `seed=` (recorded in `diagnostics`), and `sp.ICEResult` keeps its
+  replicates in `bootstrap_draws`.
+- **`sp.cluster_cross_interference` fails loudly.** A treatment or
+  neighbour share that varies within a cluster was read from the cluster's
+  first row; it now raises `MethodIncompatibility`. A cluster-level design
+  with rank below 3 (every cluster treated, constant or collinear
+  neighbour share) returned NaN and now raises `IdentificationFailure`;
+  three or fewer clusters, which left no residual degrees of freedom and
+  were divided by 1 instead, raise `DataInsufficient`. Valid designs give
+  the same numbers.
 
 - ⚠️ **correctness fix: `sp.propensity_score(method='probit')` runs to the
   maximum.** The probit branch (also behind `sp.trimming(ps_method=

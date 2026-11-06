@@ -208,3 +208,36 @@ def test_matched_pair_too_few_pairs():
         sp.cluster_matched_pair(
             df, y="y", cluster="cluster", treat="treat", pair="pair"
         )
+
+
+_CCI = dict(y="y", cluster="cluster", treat="treat", neighbour_treat_share="nshare")
+
+
+def test_cluster_cross_interference_refuses_treatment_varying_within_cluster(
+    cross_cluster_data,
+):
+    df = cross_cluster_data.copy()
+    first = df.index[df["cluster"] == df["cluster"].iloc[0]]
+    df.loc[first[0], "treat"] = 1 - df.loc[first[0], "treat"]
+    with pytest.raises(sp.MethodIncompatibility, match="varies within 1 cluster") as e:
+        sp.cluster_cross_interference(df, **_CCI)
+    assert e.value.recovery_hint
+    assert e.value.diagnostics["column"] == "treat"
+
+
+def test_cluster_cross_interference_refuses_unidentified_design(cross_cluster_data):
+    # Every cluster treated: the direct effect is the intercept's twin.
+    df = cross_cluster_data.assign(treat=1)
+    with pytest.raises(sp.IdentificationFailure, match="rank 2 < 3"):
+        sp.cluster_cross_interference(df, **_CCI)
+    # Neighbour share equal to the treatment indicator: collinear columns.
+    df = cross_cluster_data.assign(nshare=cross_cluster_data["treat"].astype(float))
+    with pytest.raises(sp.IdentificationFailure):
+        sp.cluster_cross_interference(df, **_CCI)
+
+
+def test_cluster_cross_interference_refuses_zero_residual_df(cross_cluster_data):
+    keep = cross_cluster_data["cluster"].drop_duplicates().iloc[:3]
+    df = cross_cluster_data[cross_cluster_data["cluster"].isin(keep)]
+    with pytest.raises(sp.DataInsufficient, match="no residual degrees of freedom"):
+        sp.cluster_cross_interference(df, **_CCI)

@@ -36455,6 +36455,7 @@
       "class": "ICEResult",
       "description": "ICEResult",
       "fields": {
+        "bootstrap_draws": "np.ndarray | None",
         "ci": "tuple[float, float]",
         "method": "str",
         "per_timepoint_means": "list[float] | None",
@@ -38978,6 +38979,10 @@
             ],
             "default": "always_treat",
             "description": "Treatment regime to evaluate. See :class:`Regime` for forms."
+          },
+          "seed": {
+            "description": "Seed of the g-formula path's 200 bootstrap replicates (recorded in ``diagnostics['seed']``). Without it the bootstrap SE is not reproducible. Ignored by the IPW and MSM paths.",
+            "type": "integer"
           },
           "time": {
             "description": "Required column names.",
