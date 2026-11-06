@@ -83,7 +83,10 @@ out$continuous <- list(
   mu = unname(fitted(om)), sigma = sig,
   w = num(wt_ate(unname(fitted(om)), d$dose, .sigma = rep(sig, n), exposure_type = "continuous")),
   w_stab = num(wt_ate(unname(fitted(om)), d$dose, .sigma = rep(sig, n), exposure_type = "continuous",
-                      stabilize = TRUE)))
+                      stabilize = TRUE)),
+  # WeightIt's generalized propensity score weights for the same normal
+  # exposure model (its continuous weights are always stabilized)
+  weightit_glm = unname(weightit(dose ~ x1 + x2 + b, data = d, method = "glm")$weights))
 
 ## effective sample size (WeightIt::ESS and halfmoon::ess) ----------------------
 out$ess <- lapply(W, function(w) c(weightit = ESS(num(w)), halfmoon = ess(num(w))))

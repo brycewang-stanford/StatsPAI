@@ -221,17 +221,25 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
 def _crump_alpha(ps: np.ndarray) -> float:
     """Optimal trimming threshold of Crump, Hotz, Imbens and Mitnik (2009).
 
-    With ``g = 1 / (e (1 - e))``, the rule keeps ``g <= gamma`` where
-    ``gamma`` solves ``gamma = 2 E[g | g <= gamma]``, and the propensity
-    score cutoff is ``alpha = 1/2 - sqrt(1/4 - 1/gamma)``, i.e.
+    With ``g = 1 / (e (1 - e))``, the rule keeps ``g <= gamma`` with
+    ``gamma`` chosen to minimise the variance bound of the ATE on the kept
+    subpopulation, which under homoskedasticity is proportional to
+
+        V(gamma) = E[g 1{g <= gamma}] / P(g <= gamma)^2.
+
+    The first-order condition is ``gamma = 2 E[g | g <= gamma]``, and the
+    propensity score cutoff is ``alpha = 1/2 - sqrt(1/4 - 1/gamma)``, i.e.
     ``alpha (1 - alpha) = 1 / gamma``. No trimming (``alpha = 0``) when
-    ``max g <= 2 E[g]``.
+    ``max g <= 2 E[g]`` [@crump2009dealing].
 
     The sample version of ``2 E[g | g <= gamma] - gamma`` is piecewise
     linear in ``gamma`` and jumps up at each observed ``g``. Between two
-    consecutive order statistics the conditional mean is constant, so the
-    crossing is found exactly: it is ``2 * mean(g[:k])`` for the first
-    ``k`` at which that value does not reach the next order statistic.
+    consecutive order statistics the conditional mean is constant, so each
+    root is found exactly: ``2 * mean(g[:k])`` is a root when it lies in
+    ``[g[k-1], g[k])``. The equation can have several roots. Each root
+    keeps the ``k`` smallest ``g`` and the sample objective there is
+    ``sum(g[:k]) / k^2`` (times ``n``); the root with the smallest sample
+    objective is returned, and the smallest such root on a tie.
     """
     ps_clean = ps[np.isfinite(ps)]
     ps_clean = ps_clean[(ps_clean > 0) & (ps_clean < 1)]
@@ -240,11 +248,18 @@ def _crump_alpha(ps: np.ndarray) -> float:
     g = np.sort(1.0 / (ps_clean * (1.0 - ps_clean)))
     if g[-1] <= 2.0 * g.mean():
         return 0.0
-    running = 2.0 * np.cumsum(g) / np.arange(1, g.size + 1)
-    # first k (1-based) with 2*mean(g[:k]) < g[k]: the root lies in
-    # [g[k-1], g[k]) and equals 2*mean(g[:k]).
-    crossing = np.nonzero(running[:-1] < g[1:])[0]
-    gamma = float(running[crossing[0]]) if crossing.size else float(running[-1])
+    k_all = np.arange(1, g.size + 1)
+    csum = np.cumsum(g)
+    running = 2.0 * csum / k_all
+    # Root in [g[k-1], g[k]) for k = 1..n-1 (1-based). The last segment
+    # [g[n-1], inf) has none because 2 mean(g) < max g here. At least one
+    # root exists: the function starts at g[0] > 0, ends below zero and
+    # only jumps upwards, so it crosses zero inside some segment.
+    idx = np.nonzero((g[:-1] <= running[:-1]) & (running[:-1] < g[1:]))[0]
+    objective = csum[idx] / k_all[idx] ** 2
+    # the smallest root whose objective is the minimum up to rounding
+    pick = idx[np.nonzero(objective <= objective.min() * (1.0 + 1e-12))[0][0]]
+    gamma = float(running[pick])
     gamma = max(gamma, 4.0)
     return float(0.5 - np.sqrt(0.25 - 1.0 / gamma))
 

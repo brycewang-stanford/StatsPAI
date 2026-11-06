@@ -5,6 +5,21 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42.1 → next: ⚠️ Crump trimming cutoff with several roots
+
+`sp.trimming(method='crump')` and `sp.propensity_score(trimming='crump')`
+solve `gamma = 2 mean(g | g <= gamma)` for the cutoff. When that equation
+has several roots, the cutoff is now the root with the smallest sample
+variance objective `sum(g[:k]) / k^2` (each root keeps the `k` smallest
+`g`), and the smallest root on a tie. Through 1.42.1 it was always the
+smallest root. Single-root samples are unchanged. Where the cutoff moves,
+it moves up and keeps more rows. There is no switch back: the old cutoff
+did not minimise the quantity the rule is defined by. To see which
+samples are affected, compare `sp.trimming` before and after the upgrade
+on your propensity scores.
+
+---
+
 ## 1.42.1 → next: `sp.event_study_vcov` default announced for 1.44
 
 Nothing changes numerically. `sp.event_study_vcov(result)` on a fit with

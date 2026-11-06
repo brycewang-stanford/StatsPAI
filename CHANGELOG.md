@@ -66,6 +66,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- ⚠️ **correctness fix: the Crump trimming cutoff picks the root with the
+  smallest variance objective.** `sp.trimming(method='crump')` and
+  `sp.propensity_score(trimming='crump')` solve the sample equation
+  `gamma = 2 mean(g | g <= gamma)` with `g = 1 / (e (1 - e))`. The
+  equation can have several roots, and the smallest was returned. The
+  rule is defined to minimise `E[g 1{g <= gamma}] / P(g <= gamma)^2`, so
+  the root with the smallest sample version of that objective is now
+  returned (the smallest root on a tie). Samples with one root, and
+  samples whose smallest root already minimises the objective (the R
+  parity fixture), are unchanged. Otherwise the cutoff rises and more
+  rows are kept. R `propensity` and `PSweight` pick among several roots
+  by no recoverable rule; their pick is the objective minimiser in 27 of
+  43 multi-root draws.
+- `sp.ps_weights(exposure='continuous')`: new evidence, no change. R
+  `WeightIt` (`method = "glm"`) and `propensity::wt_ate` give identical
+  continuous weights. Both divide standard normal densities of
+  standardized values at maximum-likelihood scales, which is the density
+  ratio `f(A) / f(A | X)` times the constant `sd_ML(A) / sigma_ML`.
+  StatsPAI keeps the density ratio, the standard definition; the parity
+  test rebuilds both R packages' weights from ours to 1e-9.
 - ⚠️ **correctness fix: `sp.propensity_score(method='probit')` runs to the
   maximum.** The probit branch (also behind `sp.trimming(ps_method=
   'probit')`, `sp.ps_balance(method='probit')` and

@@ -25,19 +25,28 @@ The items that are not "same number", with their mechanism:
 * Crump trimming: the sample equation ``gamma = 2 mean(g | g <= gamma)``
   can have several roots. With one root (the probit fit here) the cutoff
   and the kept rows are R's. With several (the logit fit) both packages
-  return a root and StatsPAI returns the smallest; ``propensity`` and
-  ``PSweight`` agree with each other and pick the smallest, the largest or
-  one in between depending on the data (60 multi-root draws, 2026-11-05),
-  so there is no rule to follow. Asserted: each cutoff solves the
-  equation, ours is the smallest root, and the kept sets differ by the
-  rows between the two.
-* Continuous-exposure weights: ``propensity::wt_ate`` divides standard
-  normal densities of residuals scaled by their maximum-likelihood
-  standard deviation (it ignores ``.sigma=`` for a vector of means) and
-  stabilises with the ML standard deviation of the exposure;
-  ``sp.ps_weights`` is the ratio of the normal densities themselves with
-  the ``sigma`` it is given and ``ddof = 1`` (documented). Asserted: R's
-  weights rebuilt from ours under R's scale choice.
+  return a root. StatsPAI returns the root with the smallest sample
+  variance objective ``sum(g[:k]) / k^2`` (smallest root on a tie; before
+  1.43 it always took the smallest root). ``propensity`` and ``PSweight``
+  agree with each other and pick the smallest, the largest or one in
+  between depending on the data (60 multi-root draws, 2026-11-05); their
+  pick is the objective minimiser in 27 of 43 multi-root draws
+  (2026-11-06), so there is no rule to follow. Asserted: each cutoff
+  solves the equation, ours minimises the objective over all roots, and
+  the kept sets differ by the rows between the two.
+* Continuous-exposure weights: ``propensity::wt_ate`` and
+  ``WeightIt::weightit(method = "glm")`` give the same weights (7e-15).
+  Both divide standard normal densities of standardized values: the
+  residual scaled by its maximum-likelihood standard deviation
+  (``propensity`` ignores ``.sigma=`` for a vector of means) and, when
+  stabilised, the exposure scaled by its ML standard deviation. That is
+  the ratio of the normal densities times the constant
+  ``sd_ML(A) / sigma_ML``. ``sp.ps_weights`` is the ratio of the normal
+  densities themselves, ``f(A) / f(A | X)`` as in Robins, Hernan and
+  Brumback (2000), with the ``sigma`` it is given and ``ddof = 1`` in
+  the numerator (owner decision 2026-11-06: kept, a documented
+  difference). Asserted: R's weights rebuilt from ours under R's scale
+  choice.
 * A 0/1 covariate in ``sp.balance_diagnostics`` / ``sp.ps_balance`` has the
   sample variance; cobalt's ``binary = "std"`` uses ``p (1 - p)``
   (owner decision 10, 2026-10-20). cobalt's own ``col_w_*`` with
@@ -122,6 +131,52 @@ def _roots(p):
     return [run[k - 1] for k in range(1, g.size) if g[k - 1] <= run[k - 1] < g[k]]
 
 
+def _crump_objective(g, gamma):
+    """Sample variance objective of Crump et al. (2009) for the cutoff
+    ``gamma``: ``mean(g 1{g <= gamma}) / mean(1{g <= gamma})^2``."""
+    keep = g <= gamma
+    return float(np.mean(g * keep) / np.mean(keep) ** 2)
+
+
+def _grid_roots(g):
+    """Roots of ``2 mean(g | g <= gamma) - gamma`` found on a grid.
+
+    Between order statistics the function is linear with slope -1, so a
+    sign change from + to - between two grid points brackets a root,
+    which is then solved on that segment."""
+    gs = np.sort(g)
+    csum = np.cumsum(gs)
+    grid = np.linspace(gs[0], gs[-1], 200_001)
+    k = np.searchsorted(gs, grid, side="right")
+    f = 2.0 * csum[k - 1] / k - grid
+    cross = np.nonzero((f[:-1] >= 0) & (f[1:] < 0))[0]
+    return [float(2.0 * csum[k[i] - 1] / k[i]) for i in cross]
+
+
+def test_crump_cutoff_minimises_the_objective_over_several_roots():
+    """⚠️ Through 1.42.1 the smallest root was returned. Here the equation
+    has two roots, 12.5 and 53/3. They keep the 4 and the 6 smallest g,
+    so the objective ``n sum(g[:k]) / k^2`` is 8 * 25 / 16 = 12.5 at the
+    first and 8 * 53 / 36 at the second, which is the cutoff."""
+    g = np.array([4.0, 5.0, 6.0, 10.0, 13.0, 15.0, 22.0, 26.0])
+    p = 0.5 - np.sqrt(0.25 - 1.0 / g)
+    p[::2] = 1.0 - p[::2]  # both tails, same g
+    g = 1.0 / (p * (1.0 - p))
+    roots = _grid_roots(g)
+    assert roots == pytest.approx([12.5, 53.0 / 3.0], rel=1e-12)
+    obj = [_crump_objective(g, r) for r in roots]
+    assert obj == pytest.approx([8 * 25.0 / 16.0, 8 * 53.0 / 36.0], rel=1e-12)
+    alpha = _crump_alpha(p)
+    gamma = 1.0 / (alpha * (1.0 - alpha))
+    assert gamma == pytest.approx(53.0 / 3.0, rel=1e-12)
+    assert _crump_objective(g, gamma * (1 + 1e-12)) == pytest.approx(
+        min(obj), rel=1e-12
+    )
+    df = pd.DataFrame({"t": [1, 0] * 4, "x": np.arange(8.0)})
+    kept = sp.trimming(df, "t", ["x"], ps=pd.Series(p, index=df.index))
+    assert sorted(kept.index) == sorted(np.nonzero(g <= 53.0 / 3.0 + 1e-9)[0])
+
+
 def test_crump_trimming_with_one_root_matches_propensity(df, ref):
     p = np.asarray(ref["ps"]["probit"])
     assert len(_roots(p)) == 1
@@ -134,7 +189,8 @@ def test_crump_trimming_with_one_root_matches_propensity(df, ref):
 
 
 def test_crump_trimming_with_several_roots(df, ref, ps):
-    """Both cutoffs solve the sample equation; ours is the smallest root."""
+    """Both cutoffs solve the sample equation; ours has the smallest
+    sample objective of all roots (here also the smallest root)."""
     roots = _roots(ps)
     assert len(roots) > 1
     theirs = ref["trim"]["crump_logit"]["cutoff"]
@@ -145,7 +201,12 @@ def test_crump_trimming_with_several_roots(df, ref, ps):
         assert gamma == pytest.approx(
             2.0 * g[g <= gamma * (1 + 1e-12)].mean(), rel=1e-10
         )
-    assert 1.0 / (ours * (1.0 - ours)) == pytest.approx(roots[0], rel=1e-12)
+    gamma_ours = 1.0 / (ours * (1.0 - ours))
+    obj = [_crump_objective(g, r * (1 + 1e-12)) for r in roots]
+    assert _crump_objective(g, gamma_ours * (1 + 1e-12)) == pytest.approx(
+        min(obj), rel=1e-12
+    )
+    assert gamma_ours == pytest.approx(roots[int(np.argmin(obj))], rel=1e-12)
     assert any(abs(1.0 / (theirs * (1.0 - theirs)) - r) <= 1e-12 * r for r in roots)
     kept = set(sp.trimming(df, "t", X).index + 1)
     r_kept = set(ref["trim"]["crump_logit"]["kept"])
@@ -202,6 +263,25 @@ def test_continuous_weights_rebuild_propensity(df, ref):
     _close(unstab, c["w"])
     z_a = (x - x.mean()) / x.std(ddof=0)
     _close(unstab * stats.norm.pdf(z_a), c["w_stab"])
+
+
+def test_continuous_weights_rebuild_weightit(df, ref):
+    """WeightIt's glm weights are our stabilised density ratio, taken at
+    the ML scales, times sd_ML(A) / sigma_ML."""
+    c = ref["continuous"]
+    mu, x = np.asarray(c["mu"]), df["dose"].to_numpy()
+    s_ml = np.sqrt(np.mean((x - mu) ** 2))
+    a_ml, a_1 = x.std(ddof=0), x.std(ddof=1)
+    ours = sp.ps_weights(mu, x, exposure="continuous", sigma=s_ml, stabilize=True)
+    _close(
+        ours,
+        stats.norm.pdf(x, x.mean(), a_1) / stats.norm.pdf(x, mu, s_ml),
+        rel=1e-12,
+    )
+    # numerator at the ML scale, then the dropped Jacobian sd_ML(A) / sigma
+    at_ml = ours * stats.norm.pdf(x, x.mean(), a_ml) / stats.norm.pdf(x, x.mean(), a_1)
+    _close(at_ml * a_ml / s_ml, c["weightit_glm"])
+    _close(c["weightit_glm"], c["w_stab"], rel=1e-13)
 
 
 # --- energy distance ------------------------------------------------------------

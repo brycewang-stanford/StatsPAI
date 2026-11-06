@@ -156,7 +156,13 @@ def ps_weights(
     For a continuous exposure the weight is ``1 / f(x | X)`` with ``f``
     the normal density at mean ``ps`` and standard deviation ``sigma``;
     stabilised, the numerator is the normal density at the sample mean
-    and standard deviation of the exposure.
+    and standard deviation of the exposure. This is the density ratio
+    ``f(A) / f(A | X)`` of [@robins2000marginal]. R ``WeightIt``
+    (``method = "glm"``) and ``propensity::wt_ate`` divide standard normal
+    densities of the standardized values instead, at maximum-likelihood
+    scales; their weights are this ratio (numerator at the ML standard
+    deviation) times the constant ``sd_ML(A) / sigma_ML``.
+    :func:`sp.weightit` follows that convention.
 
     Trimming, as opposed to truncation, removes rows and so changes the
     sample; use :func:`sp.trimming` for that and refit the propensity
