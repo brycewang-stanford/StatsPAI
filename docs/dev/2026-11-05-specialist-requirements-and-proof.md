@@ -194,6 +194,14 @@ The three estimators that left the denominator are not estimators
   Several have R references worth trying first: `doe` (`AlgDesign`, `DoE.base`),
   `target_trial` (`TrialEmulation`), `interference` (`inferference`).
   These are leads to verify, not claims.
+  - 2026-11-06 (`parity-families` line): 32 estimators gained same-data
+    R / Stata rows (`doe` 11 of 14, `proximal` 4 of 9, `interference` 4 of
+    12, `conformal_causal` 3 of 12, `target_trial` 2 of 6, `longitudinal`
+    2 of 5, `forest` 9 of 27, `experimental` 5 of 15). `TrialEmulation`
+    fits sequential trials, not clone-censor-weight, and `inferference`
+    estimates allocation-strategy effects no StatsPAI function computes;
+    neither was used. `bayes` samplers, `causal_rl`, `fairness` and
+    `neural_causal` stay at known truth.
 - Track C was timed on 1.40.2; re-time on an idle machine at the next
   re-anchor. `benchmarks/RESULTS.md` is from 1.18.0 and should be rerun, or
   dropped in favour of Track C.

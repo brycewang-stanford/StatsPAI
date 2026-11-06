@@ -9038,6 +9038,381 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# ---- families with no cross-language evidence before (2026-11-06) ----
+# doe: the Joseph (2025) fixture was committed in 1.39 but never promoted.
+# Only its deterministic comparisons are credited here; the stochastic
+# searches (space_filling, support_points, the SPlit mode of split_data)
+# stay a screen. All R packages are GPL / LGPL and were run as black boxes.
+_DOE_T = "tests/reference_parity/test_joseph_doe_parity.py"
+_DOE_FIX = "tests/reference_parity/_fixtures/joseph_doe_R.json"
+_R452_DOE = "R version 4.5.2 (2025-10-31)"
+_FROZEN_PROMOTIONS.update(
+    {
+        "design_criteria": {
+            "status": "bit-exact",
+            "reference": "SFDesign 0.1.5 maxpro.crit, maximin.crit (plain and surrogate, r = 4), uniform.crit on a given design",
+            "reference_versions": {"R": _R452_DOE, "SFDesign": "0.1.5"},
+            "tolerance": "1e-12 relative",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Eight runs in three factors, with and without delta and r. SFDesign's uniform.crit returns the square root of the wraparound discrepancy and scipy the square; the comparison is on the same scale.",
+        },
+        "design_augment": {
+            "status": "bit-exact",
+            "reference": "MaxPro 4.1-2 MaxProAugment (greedy MaxPro augmentation from given candidates)",
+            "reference_versions": {"R": _R452_DOE, "MaxPro": "4.1.2"},
+            "tolerance": "1e-14 absolute on the chosen runs (the same six candidates in the same order)",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Six runs added to an eight-run design from 200 given candidates.",
+        },
+        "factorial_design": {
+            "status": "aligned",
+            "reference": "FrF2 2.3-5 minimum aberration catalogue (resolution and word length pattern) and DoE.base 1.2-5 GWLP of the catalogued L9 / L18 arrays",
+            "reference_versions": {
+                "R": _R452_DOE,
+                "FrF2": "2.3.5",
+                "DoE.base": "1.2.5",
+            },
+            "tolerance": "resolution and word length pattern equal as integers; designs compared up to isomorphism, not run by run",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Minimum aberration fractions are unique only up to relabelling and sign changes of the factors, so the invariant (the word length pattern) is compared, not the rows. The two-level search is exhaustive on both sides within its limit; L18 and three-level fractions are compared by generalized word length pattern.",
+        },
+        "design_aberration": {
+            "status": "bit-exact",
+            "reference": "DoE.base 1.2-5 GWLP (generalized word length pattern) of given designs: replicated L9, columns of L18, an unbalanced mixed-level design",
+            "reference_versions": {"R": _R452_DOE, "DoE.base": "1.2.5"},
+            "tolerance": "1e-10 absolute",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Deterministic given the design.",
+        },
+        "factorial_effects": {
+            "status": "bit-exact",
+            "reference": "unrepx 1.0-2 (effects and Lenth's pseudo standard error) and stats::lm on a half fraction (aliased coefficients)",
+            "reference_versions": {"R": _R452_DOE, "unrepx": "1.0.2"},
+            "tolerance": "effects and coefficients 1e-10 absolute; pseudo standard error 1e-12 relative",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "The default margins of error use a simulated null distribution on both sides (the unrepx rule); they agree within Monte Carlo error (3% and 8%) and are a screen, not parity. reference='t' (Lenth 1989) is checked by its closed form.",
+        },
+        "mixture_design": {
+            "status": "bit-exact",
+            "reference": "mixexp 1.2.7 SLD (simplex lattice, 3 to 5 components, degree 1 to 4) and SCD (simplex centroid, 3 to 6 components)",
+            "reference_versions": {"R": _R452_DOE, "mixexp": "1.2.7"},
+            "tolerance": "1e-12 absolute on every share, the set of runs compared after sorting",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_mixture_design_r_parity.py",
+                "tests/reference_parity/_fixtures/mixture_design_R.json",
+            ],
+            "note": "mixexp is archived on CRAN and needs a Fortran compiler; it was built into a private library. Not covered: kind='space_filling' (a stochastic search) and lower= (mixexp's Xvert returns rows of zeros for some edge centroids of a lower-bounded region, so it cannot serve).",
+        },
+        "doe_optimal": {
+            "status": "aligned",
+            "reference": "AlgDesign 1.2.1.2 optFederov (D, A, I) on the same candidate sets",
+            "reference_versions": {"R": _R452_DOE, "AlgDesign": "1.2.1.2"},
+            "tolerance": "saturated degree-9 polynomial: the same ten runs (1e-12) and D value (1e-9); 14-run quadratic in three factors: D and A values 1e-9 relative, I value no worse than optFederov's design",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Two exchange optimizers of the same objective: compared by criterion value, as both find the optimum on these problems. Exact designs are not guaranteed globally optimal on either side.",
+        },
+        "sobol_indices": {
+            "status": "aligned",
+            "reference": "sensitivity 1.31.0 soboljansen on the same two input matrices (estimator='jansen')",
+            "reference_versions": {"R": _R452_DOE, "sensitivity": "1.31.0"},
+            "tolerance": "1e-12 absolute after the divisor rescaling",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Convention: soboljansen divides the sums of squares by 2n - 1, the Jansen (1999) estimator by 2n; the test undoes the factor and the indices agree to rounding. The default estimator (centred Saltelli) has no R counterpart in this comparison.",
+        },
+        "morris_screening": {
+            "status": "bit-exact",
+            "reference": "sensitivity 1.31.0 morris statistics (mu, mu*, sigma) from the same trajectories and responses",
+            "reference_versions": {"R": _R452_DOE, "sensitivity": "1.31.0"},
+            "tolerance": "1e-10 absolute on effects of order 100",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Borehole function, eight inputs; the trajectories are R's, passed as design=.",
+        },
+        "factor_importance": {
+            "status": "bit-exact",
+            "reference": "first 2.1 first (FIRST factor importance: forward selection with early dropping, backward elimination)",
+            "reference_versions": {"R": _R452_DOE, "first": "2.1"},
+            "tolerance": "1e-10 absolute on every importance",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Default, n_forward, n_neighbors, a factor subset, unstandardised, a noisy Ishigami function and a binary outcome. Documented departure: in a set of only categorical factors every observation of a level is a tied nearest neighbour; first takes whichever its tree returns, we take the within-level variance (asserted closer to the population value).",
+        },
+        "split_data": {
+            "status": "bit-exact",
+            "reference": "twinning 1.1 twin (method='twinning': the test rows from a given start, numeric and factor columns, rows not divisible by r) and SPlit 1.3 subsample (nearest-row rule)",
+            "reference_versions": {"R": _R452_DOE, "twinning": "1.1", "SPlit": "1.3"},
+            "tolerance": "identical row indices",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "Only the deterministic twinning mode is matched. The SPlit mode (method='support') is a stochastic search, screened by energy distance against five R runs; that is not parity.",
+        },
+        "gp_regress": {
+            "status": "aligned",
+            "reference": "rkriging 1.0.2 ordinary kriging, Gaussian kernel: predictions and sd at given hyperparameters, and the fitted interpolator (restricted likelihood)",
+            "reference_versions": {"R": _R452_DOE, "rkriging": "1.0.2"},
+            "tolerance": "at given hyperparameters 1e-10 absolute on mean, predictions and sd; fitted: hyperparameters 1e-4 relative, predictions and expected improvement 2e-4 absolute",
+            "sides": ["py", "R"],
+            "test": [_DOE_T, _DOE_FIX],
+            "note": "With the hyperparameters fixed (and rkriging's 1e-6 interpolation nugget) the two agree to rounding. The fitted model compares two optimizers of the same restricted likelihood, and the nuggets differ (1e-8 against 1e-6). A noisy replicated design checks the same optimum (1e-3).",
+        },
+        "group_sequential": {
+            "status": "bit-exact",
+            "reference": "Stata 18 gsbounds (intpointsscale(60) infotol(1e-12)): 117 designs over every boundary family, one- and two-sided, efficacy, futility, binding and nonbinding",
+            "reference_versions": {"Stata": "Stata 18 MP"},
+            "tolerance": "3e-7 relative on every bound and on the maximum information ratio (test bound 1e-6)",
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_group_sequential_stata_parity.py",
+                "tests/reference_parity/_fixtures/gsbounds_Stata.json",
+                "tests/reference_parity/_fixtures/gsdesign_ess_Stata.json",
+            ],
+            "note": "At Stata's default tolerances futility bounds move by up to 3e-5, hence the tightened options. One far-tail first bound (6.99) is compared on the probability scale, where the two differ by 2e-16; ours is the closed form. Expected sample size with nonbinding futility is a documented different quantity (Stata counts some paths twice; its figure is rebuilt from our crossing probabilities to 1e-7).",
+        },
+        "optimal_design": {
+            "status": "aligned",
+            "reference": "Stata 18 power twomeans, knownsds (and cluster m1() m2() rho()): sample sizes, cluster counts and the minimum detectable difference",
+            "reference_versions": {"Stata": "Stata 18 MP (07 Jun 2023)"},
+            "tolerance": "sample sizes and cluster counts equal (integers); unrounded n and detectable difference 2.5e-6 relative, rebuilt to 1e-9",
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_optimal_design_stata_parity.py",
+                "tests/reference_parity/_fixtures/optimal_design_Stata.csv",
+            ],
+            "note": "Convention: our closed form (z_{1-alpha/2} + z_power)^2 ignores rejection in the wrong direction; Stata's two-sided power includes it. Adding that tail to our variance formula reproduces Stata's unrounded figures to 1e-9. Equal and unequal allocation, a covariate R-squared (Stata sd scaled by sqrt(1 - R2)), two cluster designs.",
+        },
+        "get_scores": {
+            "status": "bit-exact",
+            "reference": "grf 2.6.1 get_scores (causal, instrumental, multi-arm and causal survival forests), forest outputs held fixed",
+            "reference_versions": {"R": _R452_DOE, "grf": "2.6.1"},
+            "tolerance": "1e-11 absolute elementwise (observed <= 2.3e-14)",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_grf_family_operator_parity.py",
+                "tests/reference_parity/_fixtures/grf_family_R.json",
+                "tests/reference_parity/test_grf_aipw_operator_parity.py",
+                "tests/reference_parity/_fixtures/grf_scores_R.json",
+            ],
+            "note": "Factored evidence: fed grf's own out-of-bag predictions and nuisances, the score operators reproduce grf's scores; sp.get_scores on a fitted StatsPAI forest is asserted to be exactly that operator on the forest's own inputs. The forests themselves are not pinnable across implementations (stochastic screen only).",
+        },
+        "variable_importance": {
+            "status": "bit-exact",
+            "reference": "grf 2.6.1 variable_importance (decay 2, depth 4) from grf's split frequencies, for nine forest kinds",
+            "reference_versions": {"R": _R452_DOE, "grf": "2.6.1"},
+            "tolerance": "1e-12 absolute",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_grf_family_operator_parity.py",
+                "tests/reference_parity/_fixtures/grf_family_R.json",
+            ],
+            "note": "Factored evidence: the map from split frequencies to importance is pinned on grf's own counts; sp.variable_importance on a fitted forest is asserted to be that map on the forest's counts. The split frequencies of two independently grown forests differ.",
+        },
+        "best_linear_projection": {
+            "status": "bit-exact",
+            "reference": "grf 2.6.1 best_linear_projection (HC0 to HC3, clusters and equalized cluster weights; instrumental and causal survival scores), forest outputs held fixed",
+            "reference_versions": {"R": _R452_DOE, "grf": "2.6.1", "sandwich": "3.1.1"},
+            "tolerance": "coefficients and SEs 1e-9 relative (observed <= 8.5e-15) with clusters; 1e-12 absolute on the family operators",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_grf_cluster_operator_parity.py",
+                "tests/reference_parity/_fixtures/grf_cluster_operator_R.json",
+                "tests/reference_parity/test_grf_family_operator_parity.py",
+                "tests/reference_parity/_fixtures/grf_family_R.json",
+            ],
+            "note": "Factored evidence, as for average_treatment_effect: the projection runs on grf's scores. The published-number replication of Athey and Wager remains in external_parity.",
+        },
+    }
+)
+
+# target trial / longitudinal: same data, ipw / ltmle / sandwich in R.
+_TTE_T = "tests/reference_parity/test_tte_longitudinal_r_parity.py"
+_TTE_FIX = "tests/reference_parity/_fixtures/tte_longitudinal_R.json"
+_TTE_V = {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "ipw": "1.3.0",
+    "ltmle": "1.3.0",
+    "sandwich": "3.1.1",
+    "SuperLearner": "2.0.40",
+}
+_FROZEN_PROMOTIONS.update(
+    {
+        "target_trial_emulate": {
+            "status": "bit-exact",
+            "reference": "stats::lm(Y ~ A, weights = w) + sandwich::vcovHC(type = 'HC0') on the eligible subset; weights from ipw::ipwpoint (unweighted, unstabilised, stabilised)",
+            "reference_versions": _TTE_V,
+            "tolerance": "1e-9 relative on estimate and SE (observed 1.2e-15)",
+            "sides": ["py", "R"],
+            "test": [_TTE_T, _TTE_FIX],
+            "note": "Eligibility 'age >= 45 and ldl > 110' on 600 rows; the weights are read from the fixture, so the comparison is of the weighted mean difference and its sandwich SE given the weights, which are treated as known. The comparison found the weighted SE wrong before 1.43 (w in place of w^2). All R packages are GPL and were run as black boxes.",
+        },
+        "clone_censor_weight": {
+            "status": "bit-exact",
+            "reference": "ipw::ipwtm(type = 'cens', family = 'binomial', link = 'logit') on the at-risk rows of each strategy, stabilised (numerator ~1) and unstabilised",
+            "reference_versions": _TTE_V,
+            "tolerance": "1e-9 relative on every weight (observed 6.6e-15); uncensored (id, time) rows identical",
+            "sides": ["py", "R"],
+            "test": [_TTE_T, _TTE_FIX],
+            "note": "400 people x 5 periods, always- and never-treat strategies, clones deviating at every time including time zero. The cloning and artificial-censoring bookkeeping is written in the R generator; the weights come from ipwtm. The comparison found the weights were not cumulative IPCW before 1.43.",
+        },
+        "longitudinal_analyze": {
+            "status": "bit-exact",
+            "reference": "IPW path: ipw::ipwpoint weights + lm(Y ~ 1, weights) + sandwich HC0; g-formula path: ltmle::ltmle(gcomp = TRUE) with SL.lm (iterated conditional expectations with linear regressions on the full history)",
+            "reference_versions": _TTE_V,
+            "tolerance": "IPW path 1e-9 relative on estimate and SE (observed 2.6e-15); g-formula path 1e-9 on the estimate (observed 1.9e-11)",
+            "sides": ["py", "R"],
+            "test": [_TTE_T, _TTE_FIX],
+            "note": "The g-formula path reports a bootstrap SE (200 replicates), which is not compared; ltmle documents its gcomp SE as not accurate. The R script checks that ltmle's gcomp equals the same sequential lm regressions to 1e-10. Treatment is constant within person in the IPW fixture (the IPW path reads the last-period treatment).",
+        },
+        "longitudinal_contrast": {
+            "status": "bit-exact",
+            "reference": "IPW path: lm(Y ~ A, weights = ipwpoint weights) + sandwich HC0; g-formula path: ATE of ltmle::ltmle(gcomp = TRUE, SL.lm)",
+            "reference_versions": _TTE_V,
+            "tolerance": "IPW path 1e-9 relative on contrast and SE (observed 2e-15); g-formula path 1e-9 on the contrast (observed 8.4e-12)",
+            "sides": ["py", "R"],
+            "test": [_TTE_T, _TTE_FIX],
+            "note": "On the IPW path the arms are disjoint, so sqrt(se_a^2 + se_b^2) is the HC0 SE of the lm coefficient. On the g-formula path only the point contrast is compared.",
+        },
+    }
+)
+
+# proximal / interference: same data, ivreg + sandwich in R and Stata 18.
+_PI_PROX = "tests/reference_parity/test_proximal_r_parity.py"
+_PI_INT = "tests/reference_parity/test_interference_r_parity.py"
+_PI_R = "tests/reference_parity/_fixtures/proximal_interference_R.json"
+_PI_S = "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
+_PI_VERSIONS = {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "ivreg": "0.6.7",
+    "sandwich": "3.1.1",
+    "Stata": "Stata 18 MP (07 Jun 2023)",
+}
+_FROZEN_PROMOTIONS.update(
+    {
+        "proximal": {
+            "status": "bit-exact",
+            "reference": "ivreg::ivreg default covariance and Stata ivregress 2sls, small (outcome-bridge 2SLS: y on 1, d, X, W with instruments 1, d, X, Z)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimate and SE (observed 2.3e-14 R, 2.8e-15 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_PROX, _PI_R, _PI_S],
+            "note": "Just identified, over identified, two outcome proxies and no covariates, heteroskedastic data. Closed-form SE only; n_boot > 0 is a bootstrap and is not compared. The R package pci2s is not on CRAN; the estimator is linear 2SLS by construction.",
+        },
+        "negative_control_outcome": {
+            "status": "bit-exact",
+            "reference": "stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimate and SE (observed 1.2e-15 R, 2.2e-15 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_PROX, _PI_R, _PI_S],
+            "note": "With and without covariates; heteroskedastic errors so HC1 differs from the classical SE.",
+        },
+        "negative_control_exposure": {
+            "status": "bit-exact",
+            "reference": "stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimate and SE (observed 2.1e-16 R, 6.7e-16 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_PROX, _PI_R, _PI_S],
+            "note": "With and without covariates.",
+        },
+        "double_negative_control": {
+            "status": "bit-exact",
+            "reference": "ivreg::ivreg + sandwich::vcovHC(type = 'HC1') and Stata ivregress 2sls, vce(robust) small (y on d, nco, X with d, nce, X)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimate and SE (observed 4.9e-15 R, 6.0e-15 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_PROX, _PI_R, _PI_S],
+            "note": "With and without covariates.",
+        },
+        "inward_outward_spillover": {
+            "status": "bit-exact",
+            "reference": "stats::lm classical covariance and Stata regress (inward and outward exposure coefficients)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimates and SEs (observed 6.7e-15 R, 9.7e-15 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_INT, _PI_R, _PI_S],
+            "note": "500 units, with and without a covariate; also through sp.interference('inward_outward').",
+        },
+        "cluster_cross_interference": {
+            "status": "bit-exact",
+            "reference": "stats::lm on cluster means and Stata collapse + regress (direct and spillover coefficients, classical SE)",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimates and SEs (observed 6.0e-14 R, 6.9e-14 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_INT, _PI_R, _PI_S],
+            "note": "70 clusters of 3 to 14 members; also through sp.interference('cluster_cross').",
+        },
+        "cluster_matched_pair": {
+            "status": "bit-exact",
+            "reference": "stats::t.test(paired = TRUE) estimate and stderr, Stata ttest on the collapsed cluster means",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on estimate and SE (observed 6.5e-16 R, 5.8e-16 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_INT, _PI_R, _PI_S],
+            "note": "35 matched pairs of unequal-size clusters; also through sp.interference('matched_pair'). The size-weighted estimator of arXiv 2211.14903 is not implemented and not claimed.",
+        },
+        "peer_effects": {
+            "status": "bit-exact",
+            "reference": "ivreg::ivreg + sandwich::vcovHC(type = 'HC0') and Stata ivregress 2sls, vce(robust): y on 1, Wy, X[, WX] with instruments 1, X, WX, W^2X, W^3X",
+            "reference_versions": _PI_VERSIONS,
+            "tolerance": "1e-9 relative on every coefficient and SE (observed 3.8e-14 R, 2.7e-14 Stata)",
+            "sides": ["py", "R", "Stata"],
+            "test": [_PI_INT, _PI_R, _PI_S],
+            "note": "160-node sparse graph with two isolates (zero rows of the row-normalised W); network products formed independently in R and in Stata Mata from the edge list; with and without contextual effects; also through sp.interference('peer_effects').",
+        },
+    }
+)
+
+# conformal_causal: cfcausal (MIT, read) and conformalInference (GPL-2,
+# run as a black box) on supplied splits with least squares on both sides.
+_CFC_TEST = [
+    "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+    "tests/reference_parity/_fixtures/conformal_cfcausal_R.json",
+]
+_CFC_VERSIONS = {
+    "R": "R version 4.5.2 (2025-10-31)",
+    "cfcausal": "0.2.1 (GitHub lihualei71/cfcausal e4ca670)",
+    "conformalInference": "1.1 (GitHub ryantibs/conformal 15c51c6)",
+}
+_FROZEN_PROMOTIONS.update(
+    {
+        "weighted_conformal_prediction": {
+            "status": "bit-exact",
+            "reference": "cfcausal::conformal + predict.conformalSplit (type='mean', side='two'), unweighted and with density-ratio weights including the test point's own weight; conformalInference::conformal.pred.split(w=) agrees",
+            "reference_versions": _CFC_VERSIONS,
+            "tolerance": "1e-12 relative on lower, upper and centre (observed <= 1e-15); infinite bands at the same test points",
+            "sides": ["py", "R"],
+            "test": _CFC_TEST,
+            "note": "Same train / calibration rows, least squares on both sides (LinearRegression / lm), closed-form weights exp(0.8 x1). R predicts with wthigh=Inf, wtlow=0 (its defaults truncate normalised weights to [0.05, 20], StatsPAI does not) and useInf=TRUE.",
+        },
+        "conformal_counterfactual": {
+            "status": "bit-exact",
+            "reference": "cfcausal conformalCf_split steps with estimand='unconditional' (cfcausal::conformal per arm, weights 1/e(x) and 1/(1-e(x))), split supplied",
+            "reference_versions": _CFC_VERSIONS,
+            "tolerance": "1e-12 relative on both arms' lower, upper and centre (observed <= 2.1e-15); infinite band where overlap fails",
+            "sides": ["py", "R"],
+            "test": _CFC_TEST,
+            "note": "Known propensity e(x) = plogis(-0.3 + 0.8 x1) on both sides (StatsPAI fits its default propensity on the full sample, cfcausal on the training fold; a known e(x) removes that difference), lm outcome model, the per-arm calibration rows StatsPAI draws for the seed passed to R as trainid. Two seeds and calibration fractions.",
+        },
+        "conformal_ite_interval": {
+            "status": "aligned",
+            "reference": "cfcausal naive ITE rule (conformalIteNaive: [L1 - U0, U1 - L0] from counterfactual bands at alpha/2) on the unconditional counterfactual bands",
+            "reference_versions": _CFC_VERSIONS,
+            "tolerance": "1e-12 relative (observed <= 2.6e-15) with the reference run under StatsPAI's target population",
+            "sides": ["py", "R"],
+            "test": _CFC_TEST,
+            "note": "Convention: cfcausal's naive method weights for the population whose outcome is missing ((1-e)/e); StatsPAI targets the whole population (1/e). The reference is run with the unconditional weights, under which the endpoints agree to rounding. Known propensity and lm on both sides, splits supplied.",
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

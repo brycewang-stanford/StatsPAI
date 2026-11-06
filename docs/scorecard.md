@@ -24,11 +24,11 @@ never carry a numerical grade (`sp.parity_summary()['denominators']`).
 | --- | ---: | ---: |
 | Registered estimators | 1,009 | 100% |
 | With numerical evidence of any kind | 1,009 | 100.0% |
-| Same data, matched to an R / Stata / author reference (T2) | 544 | 53.9% |
-| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 475 | 47.1% |
-| `aligned` (documented looser tolerance and mechanism) | 69 | 6.8% |
-| Known truth only (`analytical-only`) | 410 | 40.6% |
-| Published numbers reproduced (`external-replication`) | 55 | 5.5% |
+| Same data, matched to an R / Stata / author reference (T2) | 576 | 57.1% |
+| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 501 | 49.7% |
+| `aligned` (documented looser tolerance and mechanism) | 75 | 7.4% |
+| Known truth only (`analytical-only`) | 379 | 37.6% |
+| Published numbers reproduced (`external-replication`) | 54 | 5.4% |
 | No evidence (`unverified`, listed in section 4) | 0 | 0.0% |
 
 The Track A harness runs 91 modules on the same CSV bytes
@@ -107,17 +107,17 @@ recovery and Monte Carlo coverage are the honest ceiling.
 | Family | Estimators | Matched to a reference | Share |
 | --- | ---: | ---: | ---: |
 | `bayes` | 14 | 0 | 0.0% |
-| `doe` | 14 | 0 | 0.0% |
-| `conformal_causal` | 12 | 0 | 0.0% |
-| `interference` | 12 | 0 | 0.0% |
-| `proximal` | 9 | 0 | 0.0% |
 | `causal_rl` | 6 | 0 | 0.0% |
 | `fairness` | 6 | 0 | 0.0% |
-| `target_trial` | 6 | 0 | 0.0% |
-| `longitudinal` | 5 | 0 | 0.0% |
 | `neural_causal` | 5 | 0 | 0.0% |
-| `experimental` | 15 | 3 | 20.0% |
-| `forest` | 27 | 6 | 22.2% |
+| `dag` | 9 | 2 | 22.2% |
+| `causal_discovery` | 16 | 4 | 25.0% |
+| `conformal_causal` | 12 | 3 | 25.0% |
+| `iv` | 8 | 2 | 25.0% |
+| `tmle` | 8 | 2 | 25.0% |
+| `nonparametric` | 10 | 3 | 30.0% |
+| `metalearners` | 13 | 4 | 30.8% |
+| `forest` | 27 | 9 | 33.3% |
 
 **Agent benchmark.** CausalAgentBench v2 (50 tasks, StatsPAI vs the
 Python stack vs R, two model providers) is pre-registered in
