@@ -11413,9 +11413,9 @@
       ],
       "function": "iv_wild_bootstrap",
       "notes": [
-        "Aligned, not bit-exact, because of the confidence set: our bounds are the exact edges of {beta0 : p(beta0) > alpha}, boottest's are not (they lie where p is still above alpha, also at levels where alpha * 4096 is an integer), while the two p-value functions agree exactly at boottest's bounds. With two endogenous regressors boottest's set for d1 has a second piece that this function does not search for. The other endogenous regressors are re-estimated by LIML under the null, as in boottest (corrected in this change; with 2SLS the enumerated p-values differed)."
+        "Aligned, not bit-exact, because of the confidence set: our bounds are the exact edges of {beta0 : p(beta0) > alpha}, boottest's are not (they lie where p is still above alpha, also at levels where alpha * 4096 is an integer), while the two p-value functions agree exactly at boottest's bounds. With two endogenous regressors the set for d1 has two pieces; ci_set finds both (a grid scan over +-10 SE refined by bisection), and boottest's own p-value crosses alpha within 1e-6 of each of our four edges. boottest's default grid cuts the second piece at 1.664, where its p is still 0.063; with a wide grid it reports [1.598, 2.05], ours [1.598, 2.050]. The other endogenous regressors are re-estimated by LIML under the null, as in boottest (corrected in this change; with 2SLS the enumerated p-values differed)."
       ],
-      "reference": "boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors",
+      "reference": "boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors; the disjoint weak-IV confidence set with boottest's default and a wide grid",
       "reference_versions": {
         "Stata": "18",
         "boottest": "4.5.3"
@@ -11428,7 +11428,8 @@
       "status": "aligned",
       "test": [
         "tests/reference_parity/test_regcmd_stata_r_parity.py",
-        "tests/reference_parity/_fixtures/regcmd_Stata.json"
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/wre_disjoint_Stata.json"
       ],
       "tolerance": "p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two)"
     },
@@ -26551,9 +26552,9 @@
     {
       "function": "xtivreg",
       "notes": [
-        "Two documented differences, both in the K of xtivreg, re's s2_nu = SSR_within / (N - n - K + 1), each pinned by running StatsPAI under Stata's count. (1) On an unbalanced panel with two or more endogenous regressors Stata counts them as one (found on 12 specifications), while its sigma_u uses the full K, as its manual's K = g2 + k1 says for both; StatsPAI keeps the manual's K. (2) With vce(robust) on a balanced panel Stata's K counts a continuous time-invariant regressor (rounding noise in its within transform). plm's vcovHC type='sss' leaves the constant out of K, a factor (N-K)/(N-K-1) the test reproduces. Not implemented: fd, small, regress, first; plm's random-effects IV uses other variance components and is not a reference here."
+        "Two documented differences, both in the K of xtivreg, re's s2_nu = SSR_within / (N - n - K + 1), each pinned by running StatsPAI under Stata's count. (1) On an unbalanced panel with two or more endogenous regressors Stata counts them as one (found on 12 specifications), while its sigma_u uses the full K, as its manual's K = g2 + k1 says for both; StatsPAI keeps the manual's K. (2) With vce(robust) on a balanced panel Stata's K counts a continuous time-invariant regressor (rounding noise in its within transform). plm's vcovHC type='sss' leaves the constant out of K, a factor (N-K)/(N-K-1) the test reproduces. plm's random-effects IV uses other variance components and is not a reference here. Stata option conventions not followed, each asserted: with a cluster-robust variance fd's sigma_e divides rss by G - 1; on a gapped panel fd's sigma_u / rho / corr / within R-squared use a sample not recovered; fd's between R-squared is not the manual's formula; fe's chi2 without small includes the constant; re's first stage under vce(robust) is HC1 while the main fit clusters."
       ],
-      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV.",
+      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be, fd; vce conventional / robust / cluster; small, first, regress; one and two endogenous regressors; unbalanced, balanced and gapped panels, time-invariant regressors and instruments. R plm within and between IV.",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "Stata": "18 MP (born 07 Jun 2023)",
@@ -26571,9 +26572,10 @@
         "tests/fixtures/xtivreg/stata_xtivreg.json",
         "tests/fixtures/xtivreg/stata_xtivreg_tinv.json",
         "tests/fixtures/xtivreg/stata_xtivreg_more.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_opts.json",
         "tests/fixtures/xtivreg/r_plm_xtivreg.json"
       ],
-      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4."
+      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4. Options (stata_xtivreg_opts.json, 20 fits and 8 first stages): coefficients and standard errors 1e-12 (observed <= 1.6e-13), model chi2 / F, small-sample df and the reported scalars 1e-11 except the Stata conventions listed in the note."
     },
     {
       "also_verified_by": [

@@ -6066,7 +6066,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commit.** `8e0a05816`.
+- **Commit.** `2a405b85c`.
 - **Reason.** `src/statspai/regression/iv.py` (`vce='wild'` now stores the
   WRE confidence set and warns when it is disjoint) is on the traced paths
   of Track A modules 02, 35 and 59 and original-data module 01. None of

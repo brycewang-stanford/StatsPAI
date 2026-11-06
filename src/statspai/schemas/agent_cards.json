@@ -14600,12 +14600,12 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Validation: certified parity evidence.",
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS, first-differenced 2SLS; unbalanced panels; small-sample t / F, first-stage results, regress. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV.",
+      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be, fd; vce conventional / robust / cluster; small, first, regress; one and two endogenous regressors; unbalanced, balanced and gapped panels, time-invariant regressors and instruments. R plm within and between IV.",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "Stata": "18 MP (born 07 Jun 2023)",
@@ -14623,9 +14623,10 @@
         "tests/fixtures/xtivreg/stata_xtivreg.json",
         "tests/fixtures/xtivreg/stata_xtivreg_tinv.json",
         "tests/fixtures/xtivreg/stata_xtivreg_more.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_opts.json",
         "tests/fixtures/xtivreg/r_plm_xtivreg.json"
       ],
-      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4."
+      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4. Options (stata_xtivreg_opts.json, 20 fits and 8 first stages): coefficients and standard errors 1e-12 (observed <= 1.6e-13), model chi2 / F, small-sample df and the reported scalars 1e-11 except the Stata conventions listed in the note."
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 300, 4\nids = np.repeat(np.arange(n_id), T)\nz, e = rng.normal(size=(2, n_id * T))\nexper = rng.normal(size=n_id * T)\neduc = z + 0.5 * e + rng.normal(size=n_id * T)\nlwage = (0.1 * educ + 0.05 * exper + rng.normal(size=n_id)[ids] + e)\ndf = pd.DataFrame({'id': ids, 'lwage': lwage, 'educ': educ,\n 'exper': exper, 'meduc': z})\nr = sp.xtivreg(df, y='lwage', x=['exper'], endog='educ',\n instruments=['meduc'], id='id')",
     "failure_modes": [
@@ -14654,7 +14655,8 @@
     "not_recommended_when": [],
     "pre_conditions": [
       "id= names the panel identifier; at least two panels",
-      "ec2sls= / nosa= only with method='re'"
+      "ec2sls= / nosa= only with method='re'",
+      "method='fd' needs time= and one row per panel and period"
     ],
     "provenance": {
       "alternatives": "curated",
@@ -14681,7 +14683,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Validation: certified parity evidence.",
+      "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS, first-differenced 2SLS; unbalanced panels; small-sample t / F, first-stage results, regress. Validation: certified parity evidence.",
       "name": "xtivreg",
       "parameters": {
         "properties": {
@@ -14713,6 +14715,11 @@
             "type": "array",
             "x-statspai-role": "columns"
           },
+          "first": {
+            "default": false,
+            "description": "Stata's first: store each endogenous regressor's first-stage regression in model_info['first_stage']",
+            "type": "boolean"
+          },
           "id": {
             "description": "Panel identifier",
             "type": "string",
@@ -14731,11 +14738,12 @@
           },
           "method": {
             "default": "re",
-            "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS) or 'be' (between 2SLS)",
+            "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS), 'be' (between 2SLS) or 'fd' (2SLS in first differences; needs time=)",
             "enum": [
               "re",
               "fe",
-              "be"
+              "be",
+              "fd"
             ],
             "type": "string"
           },
@@ -14743,6 +14751,21 @@
             "default": false,
             "description": "method='re': Baltagi-Chang variance components instead of Swamy-Arora",
             "type": "boolean"
+          },
+          "regress": {
+            "default": false,
+            "description": "Stata's regress: treat the endogenous regressors as exogenous and ignore the instruments",
+            "type": "boolean"
+          },
+          "small": {
+            "default": false,
+            "description": "Stata's small: t statistics with Stata's residual df and an F model test instead of z and chi2",
+            "type": "boolean"
+          },
+          "time": {
+            "description": "Time variable; required with method='fd' (differences between consecutive periods of a panel)",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "vce": {
             "description": "None (conventional), 'robust' (= cluster on id, as Stata) or 'cluster'",
@@ -14780,7 +14803,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (aligned) vs Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV. [R version 4.5.2 (2025-10-31), Stata 18 MP (born 07 Jun 2023), plm 2.6.7]; tolerance 1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4. -- tests/test_xtivreg_stata.py",
+      "Cross-language parity (aligned) vs Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be, fd; vce conventional / robust / cluster; small, first, regress; one and two endogenous regressors; unbalanced, balanced and gapped panels, time-invariant regressors and instruments. R plm within and between IV. [R version 4.5.2 (2025-10-31), Stata 18 MP (born 07 Jun 2023), plm 2.6.7]; tolerance 1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4. Options (stata_xtivreg_opts.json, 20 fits and 8 first stages): coefficients and standard errors 1e-12 (observed <= 1.6e-13), model chi2 / F, small-sample df and the reported scalars 1e-11 except the Stata conventions listed in the note. -- tests/test_xtivreg_stata.py",
       "API/unit contract evidence: tests/test_xtivreg_stata.py"
     ],
     "validation_status": "certified"
@@ -110603,7 +110626,7 @@
       "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors",
+      "reference": "boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors; the disjoint weak-IV confidence set with boottest's default and a wide grid",
       "reference_versions": {
         "Stata": "18",
         "boottest": "4.5.3"
@@ -110616,7 +110639,8 @@
       "status": "aligned",
       "tests": [
         "tests/reference_parity/test_regcmd_stata_r_parity.py",
-        "tests/reference_parity/_fixtures/regcmd_Stata.json"
+        "tests/reference_parity/_fixtures/regcmd_Stata.json",
+        "tests/reference_parity/_fixtures/wre_disjoint_Stata.json"
       ],
       "tolerance": "p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two)"
     },
@@ -110673,7 +110697,7 @@
     "reference": "roodman2019fast",
     "returns": {
       "class": "dict",
-      "description": "dict: beta_hat, se_cluster, t_stat, p_boot (symmetric, strict inequality as in boottest), ci_boot (the test-inversion confidence interval: the connected part of {beta0 : p(beta0) > alpha} that contains the estimate;",
+      "description": "dict: beta_hat, se_cluster, t_stat, p_boot (symmetric, strict inequality as in boottest), ci_boot (the test-inversion confidence interval: the connected part of {beta0 : p(beta0) > alpha} that contains the estimate),",
       "fields": {}
     },
     "signature": {
@@ -110689,6 +110713,16 @@
           "beta0": {
             "default": 0.0,
             "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+            "type": "number"
+          },
+          "ci_range": {
+            "default": 10.0,
+            "description": "Half-width, in cluster-robust standard errors around the estimate, of the scan for further pieces of the confidence set. ``0`` skips the scan (only the piece that contains the estimate is found).",
+            "type": "number"
+          },
+          "ci_step": {
+            "default": 0.25,
+            "description": "Grid step of that scan, in standard errors. A piece narrower than the step, or a gap between pieces narrower than it, can be missed.",
             "type": "number"
           },
           "cluster": {
@@ -110741,7 +110775,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (aligned) vs boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors [Stata 18, boottest 4.5.3]; tolerance p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two) -- tests/reference_parity/test_regcmd_stata_r_parity.py"
+      "Cross-language parity (aligned) vs boottest after ivregress 2sls, small (WRE, Rademacher weights enumerated over 2^12 sign vectors): over- and just-identified, with and without an exogenous control, beta0 = 0 and 0.5, levels 95 / 93.75 / 90, two endogenous regressors; the disjoint weak-IV confidence set with boottest's default and a wide grid [Stata 18, boottest 4.5.3]; tolerance p-values exact (counts over 4,096 enumerated sign vectors), t-statistics 1e-9 relative (observed 2e-15); confidence bounds within 0.02 standard errors (observed 0.006 with one endogenous regressor, 0.018 with two) -- tests/reference_parity/test_regcmd_stata_r_parity.py"
     ],
     "validation_status": "certified"
   },

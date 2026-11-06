@@ -7516,7 +7516,7 @@
     }
   },
   {
-    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Validation: certified parity evidence.",
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS, first-differenced 2SLS; unbalanced panels; small-sample t / F, first-stage results, regress. Validation: certified parity evidence.",
     "name": "xtivreg",
     "parameters": {
       "properties": {
@@ -7548,6 +7548,11 @@
           "type": "array",
           "x-statspai-role": "columns"
         },
+        "first": {
+          "default": false,
+          "description": "Stata's first: store each endogenous regressor's first-stage regression in model_info['first_stage']",
+          "type": "boolean"
+        },
         "id": {
           "description": "Panel identifier",
           "type": "string",
@@ -7566,11 +7571,12 @@
         },
         "method": {
           "default": "re",
-          "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS) or 'be' (between 2SLS)",
+          "description": "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within 2SLS), 'be' (between 2SLS) or 'fd' (2SLS in first differences; needs time=)",
           "enum": [
             "re",
             "fe",
-            "be"
+            "be",
+            "fd"
           ],
           "type": "string"
         },
@@ -7578,6 +7584,21 @@
           "default": false,
           "description": "method='re': Baltagi-Chang variance components instead of Swamy-Arora",
           "type": "boolean"
+        },
+        "regress": {
+          "default": false,
+          "description": "Stata's regress: treat the endogenous regressors as exogenous and ignore the instruments",
+          "type": "boolean"
+        },
+        "small": {
+          "default": false,
+          "description": "Stata's small: t statistics with Stata's residual df and an F model test instead of z and chi2",
+          "type": "boolean"
+        },
+        "time": {
+          "description": "Time variable; required with method='fd' (differences between consecutive periods of a panel)",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "vce": {
           "description": "None (conventional), 'robust' (= cluster on id, as Stata) or 'cluster'",
@@ -53021,6 +53042,16 @@
         "beta0": {
           "default": 0.0,
           "description": "Bootstrap controls (see ``wild_cluster_boot``).",
+          "type": "number"
+        },
+        "ci_range": {
+          "default": 10.0,
+          "description": "Half-width, in cluster-robust standard errors around the estimate, of the scan for further pieces of the confidence set. ``0`` skips the scan (only the piece that contains the estimate is found).",
+          "type": "number"
+        },
+        "ci_step": {
+          "default": 0.25,
+          "description": "Grid step of that scan, in standard errors. A piece narrower than the step, or a gap between pieces narrower than it, can be missed.",
           "type": "number"
         },
         "cluster": {
