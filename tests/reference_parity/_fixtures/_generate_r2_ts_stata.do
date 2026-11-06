@@ -11,7 +11,8 @@
 *
 * xtbreak's Python helpers need a Python that Stata 18 can embed; Python 3.13
 * fails to load them (IndentationError in the python: block), so the script
-* points python_exec at the repository venv (Python 3.10) for this session.
+* points python_exec at the repository venv (Python 3.10) for this session,
+* or at $STATSPAI_PYTHON when run from a worktree.
 *
 * Run _generate_r2_ts_data.py first, then from this directory:
 *   stata-mp -b do _generate_r2_ts_stata.do
@@ -30,9 +31,19 @@ capture which xtbreak
 if _rc ssc install xtbreak
 capture mata: mata which mm_quantile()
 if _rc ssc install moremata
+* The repository venv, or (from a git worktree, which has no .venv of its
+* own) the interpreter named by the STATSPAI_PYTHON environment variable.
 local VENVPY "`c(pwd)'/../../../.venv/bin/python"
 capture confirm file "`VENVPY'"
-if _rc local VENVPY "/Users/brycewang/Documents/GitHub/StatsPAI/.venv/bin/python"
+if _rc {
+    local VENVPY : env STATSPAI_PYTHON
+    capture confirm file "`VENVPY'"
+    if _rc {
+        display as error "No Python for xtbreak: run from the main checkout" ///
+            " (with .venv) or set STATSPAI_PYTHON to a Python 3.10-3.12 path."
+        exit 601
+    }
+}
 set python_exec "`VENVPY'"
 
 tempname fh
