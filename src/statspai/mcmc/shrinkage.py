@@ -24,6 +24,7 @@ from scipy import stats
 
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import check_mcmc_args, rinvgamma, rmvnorm_prec, spawn_rngs
 from .diagnostics import mcmc_summary
 from .regress import BayesRegressResult
@@ -141,6 +142,7 @@ def _regularized_hs_step(
     return loc2, glob2, slab2, np.array([rate_l, rate_t, rate_c, rate_j])
 
 
+@records_provenance("sp.bayes_shrink", record_defaults=("seed",))
 def bayes_shrink(
     formula: str,
     data: pd.DataFrame,

@@ -29,6 +29,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -84,6 +85,7 @@ def _split_formula(formula: str) -> Tuple[str, str, str, str]:
     return lhs.strip(), endog.strip(), inst.strip(), exog or "1"
 
 
+@records_provenance("sp.bayes_ivreg", record_defaults=("seed",))
 def bayes_ivreg(
     formula: str,
     data: pd.DataFrame,

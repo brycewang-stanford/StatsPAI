@@ -21,6 +21,7 @@ from scipy import linalg
 
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -42,6 +43,7 @@ class _SURShim:
         self.xnames = names
 
 
+@records_provenance("sp.bayes_sur", record_defaults=("seed",))
 def bayes_sur(
     formulas: Sequence[str],
     data: pd.DataFrame,

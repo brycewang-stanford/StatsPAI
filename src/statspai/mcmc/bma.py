@@ -37,6 +37,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
+from ..output._lineage import records_provenance
 from ._core import prediction_design
 
 _FAMILIES = {
@@ -562,6 +563,7 @@ def _term_groups(
     return names, [np.array([j]) for j in range(len(names))]
 
 
+@records_provenance("sp.bma", record_defaults=("seed",))
 def bma(
     formula: str,
     data: pd.DataFrame,

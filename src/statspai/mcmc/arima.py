@@ -22,6 +22,7 @@ from scipy import special
 
 from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -240,6 +241,7 @@ def _integrate(w_path: np.ndarray, tails: List[float]) -> np.ndarray:
     return out
 
 
+@records_provenance("sp.bayes_arima", record_defaults=("seed",))
 def bayes_arima(
     y: Union[str, np.ndarray, pd.Series],
     data: Optional[pd.DataFrame] = None,

@@ -241,6 +241,17 @@ All notable changes to StatsPAI will be documented in this file.
   as R's `nnet::multinom` reads a factor. The fit and the likelihood are
   unchanged; the coefficients are those of the new base. Integer and
   string outcomes are unchanged.
+- **`statspai.mcmc` samplers record seed and data, and announce dropped
+  rows.** `sp.bayes_regress` dropped rows with missing values without a
+  word and its result carried no provenance, so a posterior could not be
+  tied to its sample. The 16 samplers (`bayes_regress`, `bayes_mixed`,
+  `bayes_ivreg`, `bma`, `bayes_bootstrap`, `bayes_sur`, `bayes_shrink`,
+  `stochvol`, `bayes_arima`, `bayes_mvprobit`, `bayes_mnprobit`,
+  `bayes_mixture`, `gp_regress`, `bart`, `bart_causal`,
+  `semiparametric_bayes`) now attach the provenance record `sp.dml` has
+  (function, arguments, seed, data hash and shape) and emit the shared
+  listwise-deletion `AssumptionWarning`. A call without `seed=` is
+  recorded as `seed: None, reproducible: False`. Draws are unchanged.
 
 ## [1.42.1] — 2026-11-03
 

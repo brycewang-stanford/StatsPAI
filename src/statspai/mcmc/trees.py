@@ -27,6 +27,7 @@ from scipy import special, stats
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import prediction_design, rtruncnorm
 
 _KERNEL: Dict[str, Any] = {}
@@ -587,6 +588,7 @@ class BARTResult(ResultProtocolMixin):
         }
 
 
+@records_provenance("sp.bart", record_defaults=("seed",))
 def bart(
     formula: str,
     data: pd.DataFrame,

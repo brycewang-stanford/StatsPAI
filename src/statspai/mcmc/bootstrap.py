@@ -11,6 +11,7 @@ import pandas as pd
 
 from ..core.utils import create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import check_mcmc_args
 from .regress import BayesRegressResult
 
@@ -34,6 +35,7 @@ class _BootModel:
         return eta
 
 
+@records_provenance("sp.bayes_bootstrap", record_defaults=("seed",))
 def bayes_bootstrap(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

@@ -21,6 +21,7 @@ import pandas as pd
 
 from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import check_mcmc_args, rtruncnorm, spawn_rngs
 from ._results import posterior_table
 from .regress import BayesRegressResult
@@ -171,6 +172,7 @@ def _sv_sweep(
     return h, np.array([mu, phi, sig2]), s
 
 
+@records_provenance("sp.stochvol", record_defaults=("seed",))
 def stochvol(
     y: Union[str, np.ndarray, pd.Series],
     data: Optional[pd.DataFrame] = None,

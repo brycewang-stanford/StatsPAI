@@ -27,6 +27,7 @@ from ..exceptions import (
     MethodIncompatibility,
     StatsPAIWarning,
 )
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -418,6 +419,7 @@ def _sample_glmm(
     return out, running, acc_beta_kept / max(n_iter - burnin, 1)
 
 
+@records_provenance("sp.bayes_mixed", record_defaults=("seed",))
 def bayes_mixed(
     formula: str,
     data: pd.DataFrame,

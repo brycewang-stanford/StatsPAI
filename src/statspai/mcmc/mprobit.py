@@ -26,6 +26,7 @@ from scipy import linalg
 
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -245,6 +246,7 @@ def _run(
     return res
 
 
+@records_provenance("sp.bayes_mvprobit", record_defaults=("seed",))
 def bayes_mvprobit(
     formulas: Sequence[str],
     data: pd.DataFrame,
@@ -372,6 +374,7 @@ def bayes_mvprobit(
     )
 
 
+@records_provenance("sp.bayes_mnprobit", record_defaults=("seed",))
 def bayes_mnprobit(
     formula: str,
     data: pd.DataFrame,

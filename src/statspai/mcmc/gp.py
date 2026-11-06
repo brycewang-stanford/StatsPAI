@@ -22,6 +22,7 @@ from scipy import linalg, optimize, stats
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._core import drops_intercept, prediction_design
 
 _KERNELS = ("rbf", "matern32", "matern52")
@@ -254,6 +255,7 @@ class GPResult(ResultProtocolMixin):
         }
 
 
+@records_provenance("sp.gp_regress", record_defaults=("seed",))
 def gp_regress(
     formula: str,
     data: pd.DataFrame,

@@ -50,7 +50,7 @@ import sys
 import uuid
 import warnings
 from dataclasses import asdict, dataclass, field
-from typing import Any, Callable, Dict, List, Mapping, Optional, TypeVar, cast
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, TypeVar, cast
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -584,15 +584,24 @@ class _HashAhead:
         return self._value
 
 
-def records_provenance(function: str, *, data_arg: str = "data") -> Callable[[_F], _F]:
+def records_provenance(
+    function: str,
+    *,
+    data_arg: str = "data",
+    record_defaults: Sequence[str] = (),
+) -> Callable[[_F], _F]:
     """Decorator: attach a :class:`Provenance` record to the returned result.
 
     The call is bound to the wrapped signature, so ``params`` are the
     arguments as the function received them; ``data_arg`` is fingerprinted
-    rather than stored. Place it *outside* decorators that rewrite the data
-    (e.g. ``markout_clusters``) so the fingerprint and ``data_shape`` describe
-    the caller's input. Like :func:`attach_provenance` it never raises and
-    never overwrites a record an inner call already set.
+    rather than stored. Parameters named in ``record_defaults`` are recorded
+    with their default value when the call did not pass them -- a sampler's
+    ``seed=None`` default belongs in the record, so the result card can say
+    the draws are not reproducible instead of "seed not recorded". Place it
+    *outside* decorators that rewrite the data (e.g. ``markout_clusters``) so
+    the fingerprint and ``data_shape`` describe the caller's input. Like
+    :func:`attach_provenance` it never raises and never overwrites a record
+    an inner call already set.
     """
     import functools
     import inspect
@@ -625,6 +634,11 @@ def records_provenance(function: str, *, data_arg: str = "data") -> Callable[[_F
                     params.update(value)
                 elif kind is not inspect.Parameter.VAR_POSITIONAL:
                     params[name] = value
+            for name in record_defaults:
+                spec = sig.parameters.get(name)
+                if spec is not None and name not in params:
+                    if spec.default is not inspect.Parameter.empty:
+                        params[name] = spec.default
             return _attach(
                 result,
                 function=function,

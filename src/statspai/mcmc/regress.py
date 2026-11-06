@@ -30,6 +30,7 @@ from ..exceptions import (
     MethodIncompatibility,
     StatsPAIWarning,
 )
+from ..output._lineage import records_provenance
 from . import _models as M
 from . import _workflow as W
 from ._core import (
@@ -1083,6 +1084,7 @@ def _ordered_codes(
     return col.map(mapping).to_numpy(dtype=float), levels
 
 
+@records_provenance("sp.bayes_regress", record_defaults=("seed",))
 def bayes_regress(
     formula: str,
     data: pd.DataFrame,

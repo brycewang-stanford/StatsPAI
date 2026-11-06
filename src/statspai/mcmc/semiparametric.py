@@ -48,6 +48,7 @@ from ..exceptions import (
     DataInsufficient,
     MethodIncompatibility,
 )
+from ..output._lineage import records_provenance
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -360,6 +361,7 @@ def _efficient_estimate(
 # --------------------------------------------------------------------------
 
 
+@records_provenance("sp.semiparametric_bayes", record_defaults=("seed",))
 def semiparametric_bayes(
     formula: str,
     data: pd.DataFrame,

@@ -45,6 +45,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..core._validate import treatment_as_float
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..exceptions import warn as _sp_warn
+from ..output._lineage import records_provenance
 from .trees import _cutpoints, _Forest
 
 _Q_HALF_NORMAL_MEDIAN = 0.6744897501960817  # median of |N(0, 1)|
@@ -236,6 +237,7 @@ def _rhat_ess(chains: np.ndarray) -> Tuple[float, float]:
     return rhat, ess
 
 
+@records_provenance("sp.bart_causal", record_defaults=("seed",))
 def bart_causal(
     data: pd.DataFrame,
     y: str,
