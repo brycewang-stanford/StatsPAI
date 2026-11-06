@@ -621,21 +621,34 @@ def test_predicted_probabilities_of_categorical_models(df):
             df["ly"], [-np.inf, 0.6, 1.3, np.inf], labels=["lo", "mid", "hi"]
         ).astype(str)
     )
-    for fit_fn in (sp.mlogit, sp.ologit, sp.oprobit):
-        fit = fit_fn("grade ~ x1 + I(x2^2) + C(site)", data)
+    # an ordinal outcome needs its order declared (text labels are refused)
+    ordered = data.assign(
+        grade=pd.Categorical(
+            data["grade"], categories=["lo", "mid", "hi"], ordered=True
+        )
+    )
+    for fit_fn in (sp.ologit, sp.oprobit):
+        with pytest.raises(sp.MethodIncompatibility, match="ordered=True"):
+            fit_fn("grade ~ x1", data)
+    for fit_fn, frame, levels in (
+        (sp.mlogit, data, ["hi", "lo", "mid"]),
+        (sp.ologit, ordered, ["lo", "mid", "hi"]),
+        (sp.oprobit, ordered, ["lo", "mid", "hi"]),
+    ):
+        fit = fit_fn("grade ~ x1 + I(x2^2) + C(site)", frame)
         inside = fit.predict()
-        again = fit.predict(data)
-        assert list(inside.columns) == ["hi", "lo", "mid"]
+        again = fit.predict(frame)
+        assert list(inside.columns) == levels
         close(again.to_numpy(), inside.to_numpy(), 1e-10)
-        close(again.sum(axis=1), np.ones(len(data)), 1e-12)
-        plain = fit_fn("grade ~ x1 + x3", data)
+        close(again.sum(axis=1), np.ones(len(frame)), 1e-12)
+        plain = fit_fn("grade ~ x1 + x3", frame)
         close(
-            plain.predict(data.head(7)).to_numpy(),
+            plain.predict(frame.head(7)).to_numpy(),
             plain.predict().head(7).to_numpy(),
             1e-10,
         )
     with pytest.raises(sp.MethodIncompatibility, match="do not reproduce"):
-        fit.predict(data[data["site"] == 2].head())
+        fit.predict(frame[frame["site"] == 2].head())
 
 
 def test_string_outcome_with_a_built_formula_keeps_every_category(df):

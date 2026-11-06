@@ -222,7 +222,9 @@ def bcf(
             **kwargs,
         },
         data=data,
-        overwrite=False,
+        # the user called sp.bcf: its record replaces the inner
+        # sp.bart_causal one
+        overwrite=True,
     )
     return result
 

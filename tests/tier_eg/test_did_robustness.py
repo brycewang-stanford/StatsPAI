@@ -88,16 +88,17 @@ def test_did_nan_rows_finite(base_df):
 
 
 @pytest.mark.filterwarnings("ignore")
-def test_did_inf_rows_dropped_finite(base_df):
-    """``did_2x2`` treats non-finite outcomes like missing values: the row is
-    dropped and the ATT stays finite & close to the clean fit (not a silent
-    wrong number, and not a NaN-poisoned estimate)."""
-    clean = _fit(base_df)
+def test_did_inf_rows_refused_nan_rows_dropped(base_df):
+    """``did_2x2`` refuses an infinite outcome (the package-wide rule since
+    2026-11: inf is not a missing value), and recoding it as NaN gives the
+    fit without that row."""
     dirty = base_df.copy()
     dirty.loc[0, "y"] = np.inf
-    got = _fit(dirty)
-    assert np.isfinite(coef(got)), "inf row poisoned the ATT to non-finite"
-    np.testing.assert_allclose(coef(got), coef(clean), rtol=0.1)
+    with pytest.raises(sp.DataInsufficient, match="infinite"):
+        _fit(dirty)
+    got = _fit(dirty.replace([np.inf, -np.inf], np.nan))
+    ref = _fit(base_df.drop(index=0))
+    np.testing.assert_allclose(coef(got), coef(ref), rtol=1e-10)
 
 
 # --------------------------------------------------------------------------- #

@@ -85,13 +85,16 @@ def test_rd_nan_rows_finite(base_df):
 
 
 @pytest.mark.filterwarnings("ignore")
-def test_rd_inf_running_var_finite(base_df):
-    clean = sp.rdrobust(base_df, y="y", x="x")
+def test_rd_inf_running_var_refused(base_df):
+    """An infinite running value is refused (it used to be dropped without a
+    note); recoded as NaN it is dropped like any missing row."""
     dirty = base_df.copy()
     dirty.loc[0, "x"] = np.inf
-    got = sp.rdrobust(dirty, y="y", x="x")
-    assert np.isfinite(coef(got)), "inf running value poisoned tau"
-    np.testing.assert_allclose(coef(got), coef(clean), rtol=0.1)
+    with pytest.raises(sp.DataInsufficient, match="'x' \\(1\\)"):
+        sp.rdrobust(dirty, y="y", x="x")
+    got = sp.rdrobust(dirty.replace(np.inf, np.nan), y="y", x="x")
+    ref = sp.rdrobust(base_df.drop(index=0), y="y", x="x")
+    np.testing.assert_allclose(coef(got), coef(ref), rtol=1e-10)
 
 
 # --------------------------------------------------------------------------- #

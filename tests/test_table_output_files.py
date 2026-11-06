@@ -84,6 +84,8 @@ def test_outreg2_unknown_extension_raises(model, tmp_path):
 
 def test_outreg2_bare_name_still_writes_excel(model, tmp_path):
     pytest.importorskip("openpyxl")
+    # a bare name gets the .xlsx suffix, as Stata's outreg2 adds .xls
     path = tmp_path / "results"
     _quiet(sp.outreg2, model, filename=str(path))
-    assert path.read_bytes().startswith(b"PK")
+    assert not path.exists()
+    assert (tmp_path / "results.xlsx").read_bytes().startswith(b"PK")

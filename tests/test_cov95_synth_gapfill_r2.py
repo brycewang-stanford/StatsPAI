@@ -104,10 +104,10 @@ def test_synth_argument_validation(kwargs, match):
 
 
 def test_synth_treated_unit_all_nan_outcome():
-    # pivot_table drops all-NaN columns -> treated unit vanishes after pivot.
+    # an all-NaN treated unit is refused before the pivot drops it
     df = _panel(n_units=6, n_periods=12)
     df.loc[df["unit"] == "u0", "outcome"] = np.nan
-    with pytest.raises(DataInsufficient, match="missing after pivot"):
+    with pytest.raises(DataInsufficient, match="treated unit 'u0' has no observed"):
         sp.synth(df, **COMMON, method="classic", placebo=False)
 
 

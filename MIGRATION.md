@@ -81,7 +81,9 @@ warn. Clean data give the same numbers as before.
   `wooldridge_did`) and `dml`. To keep the old drop-the-row behaviour of
   `feols` and `rdrobust`, recode first:
   `df = df.replace([np.inf, -np.inf], np.nan)`. A cohort column with
-  `inf` for never treated is unaffected.
+  `inf` for never treated is unaffected. The error is `DataInsufficient`
+  (a `ValueError`) everywhere; `sun_abraham`, `rdrobust(weights=)` and
+  `bayes_regress` raised `MethodIncompatibility` for `inf` before.
 - `sp.feols` / `fepois` / `feglm` raise `DataInsufficient` (not
   pyfixest's `ValueError` / `ZeroDivisionError`) on zero rows, no
   complete row, or no residual degrees of freedom. Code that caught

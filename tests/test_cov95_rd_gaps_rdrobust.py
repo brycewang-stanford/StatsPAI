@@ -46,7 +46,8 @@ def test_weights_column_must_exist_and_be_finite():
         sp.rdrobust(df, y="y", x="x", weights="nope")
     bad = df.copy()
     bad.loc[3, "w"] = np.inf
-    with pytest.raises(MethodIncompatibility, match="must be finite"):
+    # inf is refused by the package-wide rule (DataInsufficient, a ValueError)
+    with pytest.raises(DataInsufficient, match="'w' \\(1\\)"):
         sp.rdrobust(bad, y="y", x="x", weights="w")
 
 

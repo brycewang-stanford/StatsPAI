@@ -42,7 +42,7 @@ def test_sa_contracts(panel):
         sp.sun_abraham(panel, event_window=(3, -3), **SK)
     infinite = panel.copy()
     infinite.loc[4, "y"] = np.inf
-    with pytest.raises(MethodIncompatibility, match="must be non-missing"):
+    with pytest.raises(DataInsufficient, match="infinite"):
         sp.sun_abraham(infinite, **SK)
     holed = panel.assign(cl=panel["unit"].astype(float))
     holed.loc[holed["unit"] == 2, "cl"] = np.nan

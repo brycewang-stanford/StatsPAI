@@ -417,7 +417,7 @@ def test_bayes_regress_validation(df):
         B("yo ~ x - 1", model="ologit")
     with pytest.raises(MethodIncompatibility, match="model='ologit'"):
         B("b1 ~ x", model="ologit")
-    with pytest.raises(MethodIncompatibility, match="infinite"):
+    with pytest.raises(DataInsufficient, match="infinite"):
         B("y ~ x", df.assign(y=df["y"].where(df.index != 3, np.inf)))
     # a continuous outcome has one category per row
     for model in ("oprobit", "ologit", "mlogit"):

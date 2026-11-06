@@ -85,11 +85,23 @@ def test_synth_missing_outcome_raises(base_df):
 # G1 — NaN outcomes: finite ATT                                               #
 # --------------------------------------------------------------------------- #
 @pytest.mark.filterwarnings("ignore")
-def test_synth_nan_outcome_finite(base_df):
-    dirty = base_df.copy()
-    dirty.loc[dirty.index[:5], "y"] = np.nan
-    got = sp.synth(dirty, treated_unit=0, treatment_time=15, **_BASE)
-    assert np.isfinite(coef(got)), "NaN outcomes poisoned the ATT"
+def test_synth_nan_outcome_treated_refused_donor_dropped(base_df):
+    """A NaN in the treated unit's outcome is refused (it used to give a
+    finite but wrong ATT); a NaN donor is dropped with a warning, which is
+    the fit without that donor."""
+    treated = base_df.copy()
+    treated.loc[(treated["unit"] == 0) & (treated["time"] < 5), "y"] = np.nan
+    with pytest.raises(sp.DataInsufficient, match="treated unit 0"):
+        sp.synth(treated, treated_unit=0, treatment_time=15, **_BASE)
+    donor = base_df.copy()
+    donor.loc[(donor["unit"] == 3) & (donor["time"] < 5), "y"] = np.nan
+    got = sp.synth(donor, treated_unit=0, treatment_time=15, **_BASE)
+    ref = sp.synth(
+        base_df[base_df["unit"] != 3], treated_unit=0, treatment_time=15, **_BASE
+    )
+    assert np.isfinite(coef(got))
+    np.testing.assert_allclose(coef(got), coef(ref), rtol=1e-10)
+    assert got.model_info["dropped_donors"] == [3]
 
 
 # --------------------------------------------------------------------------- #

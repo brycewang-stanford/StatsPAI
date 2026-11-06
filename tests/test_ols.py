@@ -115,7 +115,7 @@ class TestOLSRegression:
         df = sample_data.copy()
         df.loc[df.index[3], "x1"] = np.inf
 
-        with pytest.raises(ValueError, match="X contains non-finite values"):
+        with pytest.raises(ValueError, match="infinite value"):
             regress("y ~ x1 + x2", data=df)
 
     def test_regress_omits_or_rejects_perfectly_collinear_regressors(self, sample_data):

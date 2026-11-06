@@ -556,14 +556,18 @@ def test_external_rejects_nonfinite_analysis_values_before_alignment(
     frame, predictions = _external_fixture()
     changed = frame.copy()
     changed.loc[0, field] = bad
-    estimator = _direct_external_estimator(changed)
 
     def forbidden_alignment(*_args, **_kwargs):
         raise AssertionError("finite-value gate reached alignment")
 
     monkeypatch.setattr(OOFPredictions, "validate_alignment", forbidden_alignment)
-    expected = "complete" if np.isnan(bad) else "finite"
-    with pytest.raises(ValueError, match=expected):
+    if not np.isnan(bad):
+        # inf is refused when the estimator is built (the package-wide rule)
+        with pytest.raises(ValueError, match="infinite"):
+            _direct_external_estimator(changed)
+        return
+    estimator = _direct_external_estimator(changed)
+    with pytest.raises(ValueError, match="complete"):
         estimator.fit(external_predictions=predictions)
 
 
