@@ -6076,3 +6076,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — traces 33, 34 and 39 re-recorded after the time-series input checks
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `39e0e8cfa`.
+- **Reason.** `src/statspai/timeseries/_forecast_common.py` (gap and order
+  checks of a date index), `var.py`, `local_projections.py` and `arima.py`
+  (near-unit-root flag, plot axis) are on the traced paths of Track A
+  modules 33 (`sp.var`), 34 (`sp.local_projections`) and 39 (`sp.arima`).
+  The modules pass positional data, so the checks do nothing there.
+  Re-running them moved `33_var_py.json` and `34_lp_py.json` by at most
+  2.5e-14 relative (last-digit jitter, restored); `39_arima_py.json` was
+  reproduced exactly.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`

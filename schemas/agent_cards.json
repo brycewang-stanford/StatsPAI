@@ -152776,7 +152776,7 @@
             "type": "boolean"
           },
           "data": {
-            "description": "Time-ordered panel (single series for now -- panel extension TBD).",
+            "description": "One time series in row order, or a long panel with ``id=`` and ``time=``. For one series, a date or period index out of order, with repeated dates, or skipping a period of a monthly, quarterly, annual or weekly series is refused.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
