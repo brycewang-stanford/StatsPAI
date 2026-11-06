@@ -47,6 +47,8 @@ CERTIFIED_GRADE_MARKERS = (
     "R parity module",
     "Stata parity module",
     "Cross-language parity (",
+    # a cross-language comparison graded T3 / T4 (registry._index_evidence_note)
+    "Cross-language comparison (",
 )
 VALIDATED_GRADE_MARKERS = (
     "Known-truth recovery (",

@@ -4017,6 +4017,7 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "evidence_grade": "T3",
       "function": "community_detection",
       "notes": [
         "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."

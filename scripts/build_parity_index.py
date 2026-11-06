@@ -1784,6 +1784,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "community_detection": {
         "status": "aligned",
+        "evidence_grade": "T3",
         "reference": "R igraph::cluster_louvain (T3: randomised on both sides)",
         "reference_versions": {
             "igraph": "2.3.3",
@@ -9498,6 +9499,11 @@ def build_frozen_promotion_records() -> List[Dict[str, Any]]:
                 "notes": [meta["note"]],
             }
         )
+        if meta.get("evidence_grade"):
+            # A promotion whose comparison is not strict parity (T3 / T4)
+            # says so here; without it the registry derives T2 from the
+            # status and prints "Cross-language parity" for it.
+            records[-1]["evidence_grade"] = meta["evidence_grade"]
     return records
 
 

@@ -100,6 +100,19 @@ All notable changes to StatsPAI will be documented in this file.
   unscaled V gives the ATT to 2e-12 and the placebo SD (`se`) to 5e-7
   (`tests/reference_parity/test_synth_basque_equal_v_parity.py`). Track A
   07 (nested V, the T4 disclosure) is unaffected.
+- **Registry evidence notes attached to the wrong functions.** The eight
+  network specs (`sp.network_graph`, `sp.centrality`,
+  `sp.community_detection`, ...) were built from one shared
+  `validation_notes` list, so the evidence pass gave each of them every
+  other's parity-index notes: `sp.network_graph`, whose own evidence is a
+  known-truth check, read "Cross-language parity (bit-exact) vs R
+  dyadRobust / ergm / sna::netlm". `FunctionSpec` now owns copies of its
+  list fields, and every generated note on a function comes from that
+  function's own index record (a test checks all 1,680). The frozen
+  `sp.community_detection` promotion, a 200-seed Louvain comparison, now
+  carries `evidence_grade='T3'` and reads "Cross-language comparison
+  (seed-replicated stochastic equivalence, T3)" instead of "Cross-language
+  parity (aligned)" with a derived T2.
 
 
 ### Tests

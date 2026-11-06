@@ -21,7 +21,7 @@ from __future__ import annotations
 import inspect
 import re
 import sys
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Dict, List, Optional, Tuple
 
 # Family-template agent-native seed data lives in a dedicated module so its
@@ -245,6 +245,16 @@ class FunctionSpec:
     manifests can skip aliases (see :func:`is_alias`)."""
 
     def __post_init__(self) -> None:
+        # Own every list field. Specs built from one shared list (the
+        # network family passed a single ``_network_api_evidence``) used to
+        # share it, so the evidence pass, which appends to
+        # ``validation_notes``, gave each of them the others' parity notes:
+        # sp.network_graph (known-truth evidence) read "Cross-language
+        # parity (bit-exact) vs R dyadRobust", which is sp.dyadic_regression's.
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if isinstance(value, list):
+                setattr(self, f.name, list(value))
         # Validate stability tier early so a typo fails at import / first
         # ``register()`` call, not at the moment an agent filters on it.
         if self.stability not in STABILITY_TIERS:
