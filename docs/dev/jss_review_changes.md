@@ -6022,3 +6022,16 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — trace 41 re-recorded after the weighted tobit log-likelihood fix
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `e77db7c22`.
+- **Reason.** `src/statspai/regression/tobit.py` (pseudo log likelihood
+  under `weights=`) is on the traced path of Track A module 41. Module 41
+  is unweighted: re-running it moved two SEs in `41_tobit_py.json` by at
+  most 1.3e-12 (last-digit jitter, restored).
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
