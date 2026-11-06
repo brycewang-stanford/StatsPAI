@@ -65,8 +65,8 @@ class LongitudinalResult(ResultProtocolMixin):
     >>> rows = []
     >>> for i in range(80):
     ...     base = rng.normal()
+    ...     a = int(rng.random() < 0.5)  # point treatment, constant per id
     ...     for t in range(3):
-    ...         a = int(rng.random() < 0.5)
     ...         y = 0.5 * a + 0.3 * base + rng.normal(0, 0.5)
     ...         rows.append({"id": i, "time": t, "A": a, "Y": y})
     >>> df = pd.DataFrame(rows)
@@ -173,8 +173,8 @@ def analyze(
     >>> rows = []
     >>> for i in range(80):
     ...     base = rng.normal()
+    ...     a = int(rng.random() < 0.5)  # point treatment, constant per id
     ...     for t in range(3):
-    ...         a = int(rng.random() < 0.5)
     ...         y = 0.5 * a + 0.3 * base + rng.normal(0, 0.5)
     ...         rows.append({"id": i, "time": t, "A": a, "Y": y})
     >>> df = pd.DataFrame(rows)
@@ -682,8 +682,8 @@ def contrast(
     >>> rows = []
     >>> for i in range(80):
     ...     base = rng.normal()
+    ...     a = int(rng.random() < 0.5)  # point treatment, constant per id
     ...     for t in range(3):
-    ...         a = int(rng.random() < 0.5)
     ...         y = 0.5 * a + 0.3 * base + rng.normal(0, 0.5)
     ...         rows.append({"id": i, "time": t, "A": a, "Y": y})
     >>> df = pd.DataFrame(rows)
@@ -693,7 +693,7 @@ def contrast(
     >>> res["regime_a"], res["regime_b"]
     ('always_treat', 'never_treat')
     >>> sorted(res.keys())
-    ['a_result', 'b_result', 'ci', 'contrast', 'regime_a', 'regime_b', 'se']
+    ['a_result', 'b_result', 'ci', 'contrast', 'regime_a', 'regime_b', 'se', 'seed']
     >>> isinstance(res["contrast"], float)
     True
     """
