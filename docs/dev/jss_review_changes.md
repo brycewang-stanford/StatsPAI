@@ -6061,3 +6061,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Effect on the paper.** None. No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-06 — traces 02, 35, 59 and orig 01 re-recorded after the WRE ci_set change
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `8e0a05816`.
+- **Reason.** `src/statspai/regression/iv.py` (`vce='wild'` now stores the
+  WRE confidence set and warns when it is disjoint) is on the traced paths
+  of Track A modules 02, 35 and 59 and original-data module 01. None of
+  them uses `vce='wild'`. Re-running them moved committed numbers by at
+  most 1.7e-11 (02) and 1.6e-11 (orig 01), last-digit jitter, restored.
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
