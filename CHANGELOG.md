@@ -37,6 +37,22 @@ All notable changes to StatsPAI will be documented in this file.
   dropped instead of fitting an unidentified model). Scores move by about
   1e-8, and a Crump cutoff computed from them by as much.
 
+### Tests
+
+- Cross-language parity for the matching / weighting / balance family.
+  New frozen fixtures `matching_balance_R.json` (R `glm`, `propensity`,
+  `halfmoon`, `WeightIt`, `cobalt`, `lmw`, `cem`) and `pscore_Stata.json`
+  (Stata `pscore`), and promotions in the parity index for `weightit`,
+  `bal_tab`, `ps_weights`, `ess`, `energy_distance`, `implied_weights`,
+  `propensity_score`, `balance_diagnostics`, `ps_balance`, `l1_imbalance`
+  (bit-exact) and `trimming`, `pscore`, `residual_balance`,
+  `two_criteria_match`, `tighten_blocks`, `balance_vs_randomization`
+  (aligned). Documented departures, each asserted in the tests: Crump
+  trimming when the sample equation has several roots (StatsPAI takes the
+  smallest), continuous-exposure weights (R `propensity` uses standard
+  normal densities on maximum-likelihood scales), and the sample variance
+  of a 0/1 covariate in `balance_diagnostics` / `ps_balance`.
+
 ## [1.42.1] — 2026-11-03
 
 A patch release. No estimator, default or numerical output changes.

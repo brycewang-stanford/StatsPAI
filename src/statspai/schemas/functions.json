@@ -4830,7 +4830,7 @@
     }
   },
   {
-    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: certified parity evidence.",
     "name": "pscore",
     "parameters": {
       "properties": {
@@ -10170,7 +10170,7 @@
     }
   },
   {
-    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
+    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: certified parity evidence. Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
     "name": "two_criteria_match",
     "parameters": {
       "properties": {
@@ -10234,7 +10234,7 @@
     }
   },
   {
-    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: certified parity evidence.",
     "name": "tighten_blocks",
     "parameters": {
       "properties": {
@@ -10291,7 +10291,7 @@
     }
   },
   {
-    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
+    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: certified parity evidence. Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
     "name": "balance_vs_randomization",
     "parameters": {
       "properties": {
@@ -11912,7 +11912,7 @@
     }
   },
   {
-    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
+    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: certified parity evidence. Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
     "name": "ps_weights",
     "parameters": {
       "properties": {
@@ -11980,7 +11980,7 @@
     }
   },
   {
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: certified parity evidence. Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
     "name": "weightit",
     "parameters": {
       "properties": {
@@ -12086,7 +12086,7 @@
     }
   },
   {
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence.",
     "name": "bal_tab",
     "parameters": {
       "properties": {
@@ -12185,7 +12185,7 @@
     }
   },
   {
-    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
+    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: certified parity evidence. Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
     "name": "ess",
     "parameters": {
       "properties": {
@@ -12205,7 +12205,7 @@
     }
   },
   {
-    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
+    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: certified parity evidence. Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
     "name": "energy_distance",
     "parameters": {
       "properties": {
@@ -12242,7 +12242,7 @@
     }
   },
   {
-    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
+    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: certified parity evidence. Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
     "name": "implied_weights",
     "parameters": {
       "properties": {
@@ -31063,7 +31063,7 @@
     }
   },
   {
-    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: certified parity evidence.",
     "name": "residual_balance",
     "parameters": {
       "properties": {
@@ -46161,7 +46161,7 @@
     }
   },
   {
-    "description": "Estimate propensity scores P(D=1|X). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate propensity scores P(D=1|X). Validation: certified parity evidence.",
     "name": "propensity_score",
     "parameters": {
       "properties": {
@@ -46180,7 +46180,7 @@
         },
         "method": {
           "default": "logit",
-          "description": "Estimation method. ``'logit'`` uses IRLS (no sklearn needed). ``'probit'`` uses scipy.optimize. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
+          "description": "Estimation method. ``'logit'`` and ``'probit'`` are maximum likelihood fits by Newton's method, the fit the matching estimators use. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
           "enum": [
             "logit",
             "probit",
@@ -46281,7 +46281,7 @@
     }
   },
   {
-    "description": "Trim sample to optimal overlap region. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Trim sample to optimal overlap region. Validation: certified parity evidence.",
     "name": "trimming",
     "parameters": {
       "properties": {
@@ -46403,7 +46403,7 @@
     }
   },
   {
-    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+    "description": "Compute comprehensive propensity score balance table. Validation: certified parity evidence. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
     "name": "ps_balance",
     "parameters": {
       "properties": {
@@ -46462,7 +46462,7 @@
     }
   },
   {
-    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: certified parity evidence.",
     "name": "balance_diagnostics",
     "parameters": {
       "properties": {
@@ -47724,7 +47724,7 @@
     }
   },
   {
-    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: certified parity evidence.",
     "name": "l1_imbalance",
     "parameters": {
       "properties": {

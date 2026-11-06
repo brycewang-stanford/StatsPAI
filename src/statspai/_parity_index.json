@@ -1090,21 +1090,32 @@
       "tolerance": "mean and maximum of the members to assert_allclose defaults; first member equal to the single ETS forecast to 1e-9 rel"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "bal_tab",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Eleven cases on the WeightIt fixture (ATE / ATT / ATC, binary = 'std', non-pairwise, continuous treatment) and five more on the matching-balance fixture (s.d.denom = 'all' / 'treated' / 'control', continuous = 'raw'). cobalt does not fix the orientation of non-focal pairs, so those are matched with the sign read off their first statistic."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cobalt::bal.tab (mean differences, variance ratios, KS, correlations, effective sample sizes; pairwise and focal multi-category summaries)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "WeightIt": "1.7.0",
+        "cobalt": "4.6.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_weightit_cobalt_parity.py"
+        "tests/reference_parity/test_weightit_cobalt_parity.py",
+        "tests/reference_parity/_fixtures/weightit_cobalt_R.json",
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "every statistic 1e-9 relative (observed about 1e-15)"
     },
     {
       "also_verified_by": [
@@ -1132,27 +1143,36 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "balance_diagnostics",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "ATE, ATT and ATO weights, sd_denom 'unweighted' (cobalt's pooled unweighted SD) and 'weighted' (pooled weighted group SDs from col_w_sd). A 0/1 covariate keeps the sample variance, so it equals cobalt with bin.vars = FALSE; bal.tab's own binary row (p (1 - p)) is rebuilt from our means (owner decision 10 of 2026-10-20)."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "cobalt::bal.tab and cobalt::col_w_smd / col_w_vr / col_w_ks / col_w_mean / col_w_sd; halfmoon::bal_energy and bal_vr",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cobalt": "4.6.2",
+        "halfmoon": "0.2.0",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative, 1e-12 absolute where a statistic is zero"
     },
     {
       "evidence_grade": "T2",
@@ -1224,21 +1244,28 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "balance_vs_randomization",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "The simulated shares use different generators on the two sides and are a stochastic screen, not part of the grade. Package version from the committed generator's header."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "iTOS::evalBal",
+      "reference_versions": {
+        "iTOS": "1.0.3"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "test": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "the p-values of the matched sample, their minimum, truncated product and count below alpha 1e-8 relative under five settings; the shares of better-balanced simulated experiments within Monte Carlo error only"
     },
     {
       "function": "balke_pearl",
@@ -7044,21 +7071,30 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "energy_distance",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Unweighted, ATE, ATT and ATO weights, continuous, count and 0/1 covariates, and a covariate subset."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "halfmoon::bal_energy (unweighted and weighted)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "halfmoon": "0.2.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 1e-14)"
     },
     {
       "additional_tests": [
@@ -7164,26 +7200,34 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "ess",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Five sets of propensity weights on each of two fixtures."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "WeightIt::ESS and halfmoon::ess, overall and by group",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "WeightIt": "1.7.0",
+        "halfmoon": "0.2.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 2e-14)"
     },
     {
       "additional_tests": [
@@ -10527,26 +10571,33 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "implied_weights",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Two covariate sets on the matching-balance fixture."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "lmw::lmw (URI; MRI for ATE, ATT and ATC)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lmw": "0.0.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 7e-13)"
     },
     {
       "also_verified_by": [
@@ -11997,21 +12048,32 @@
       "tolerance": "chi-squared with and without ties 1e-5 rel"
     },
     {
-      "function": "l1_imbalance",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_cem_k2k_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "l1_imbalance",
+      "notes": [
+        "cem is given the coarsening of sp.l1_imbalance (equal-width cutpoints for covariates with more than n_bins values, the others as factors) at Sturges and 3, 5, 12 bins; cem's default coarsening (Scott's rule) is a different statistic. cem 1.1.31 was installed with tcltk removed from its manifest (the GUI dependency does not load without X11); its R code is unchanged."
+      ],
+      "reference": "cem::imbalance(breaks =) global L1, unweighted and weighted",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cem": "1.1.31"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
+      ],
+      "tolerance": "1e-12 relative"
     },
     {
       "function": "lasso_iv",
@@ -18141,28 +18203,34 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/reference_parity/test_closed_form_identities.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "propensity_score",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Promoting the probit branch required replacing its BFGS fit, which stopped at a gradient of 1e-5 and was 6e-8 from glm, by the shared Newton fit of matching/_binary_fit.py. method='gbm' is not graded."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "stats::glm(binomial('logit' / 'probit'), epsilon = 1e-14)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "logit 1e-12 relative; probit 1e-8 (glm stops with a score of order 1e-7; ours is the maximum, score below 1e-10, asserted)"
     },
     {
       "function": "proximal",
@@ -18233,61 +18301,91 @@
       "tolerance": ""
     },
     {
-      "function": "ps_balance",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
-      ],
-      "tolerance": ""
-    },
-    {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "also_verified_by": [
         "reference_parity"
       ],
-      "function": "ps_weights",
+      "function": "ps_balance",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Given ATE / ATT / ATO weights and the default (ATE weights from its own logit score), both sd_denom settings; the 0/1 covariate convention is that of sp.balance_diagnostics."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "cobalt::col_w_smd / col_w_vr / col_w_ks with propensity::wt_* weights",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cobalt": "4.6.2",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative, 1e-12 absolute where a statistic is zero"
     },
     {
-      "function": "pscore",
+      "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "ps_weights",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Binary exposure on two fixtures. The continuous exposure is not part of the grade: propensity divides standard normal densities on maximum-likelihood scales (and ignores .sigma for a vector of means) where sp.ps_weights takes the ratio of the densities with the sigma it is given; R's weights are rebuilt from ours under its scale choice to 1e-9."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "propensity::wt_ate / wt_att / wt_atu / wt_atm / wt_ato, with stabilize = TRUE and after ps_trunc (fixed and percentile)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      ],
+      "tolerance": "1e-9 relative (observed 2e-14)"
+    },
+    {
+      "additional_tests": [
         "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "pscore",
+      "notes": [
+        "Five specifications on MatchIt::lalonde (logit and probit, with and without comsup, numblo 3 / 5 / 8, level 0.01 / 0.05 / 0.1). The standard-error gap (up to 2.4e-5 with coefficients at 4e-9) is the stopping point of the logit / probit pscore runs: R glm converged to 1e-14 gives our logit standard errors to 1e-10."
+      ],
+      "reference": "Stata 18 pscore (Becker and Ichino, st0026_2)",
+      "reference_versions": {
+        "Stata": "18",
+        "pscore": "st0026_2"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_pscore_stata_parity.py",
+        "tests/reference_parity/_fixtures/pscore_Stata.json"
+      ],
+      "tolerance": "blocks, common-support flags and the list of unbalanced (covariate, block) pairs exact; scores and coefficients 1e-8 relative; t-test p-values 1e-10; log likelihood 1e-9; standard errors 5e-5"
     },
     {
       "function": "psis",
@@ -20337,21 +20435,28 @@
       "tolerance": "F-statistic & p-value 1e-10 rel (observed ~1e-13)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "residual_balance",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Three values of zeta, ATT target, negative weights allowed, ATE / ATT / ATC with and without scaling. The augmented estimate uses a cross-validated elastic net on random folds in both packages and is not compared."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "balanceHD::approx.balance and residualBalance.ate (optimizer = 'quadprog', fit.method = 'none')",
+      "reference_versions": {
+        "balanceHD": "1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "test": [
-        "tests/reference_parity/test_residual_balance_balancehd.py"
+        "tests/reference_parity/test_residual_balance_balancehd.py",
+        "tests/reference_parity/_fixtures/residual_balance_balancehd.json"
       ],
-      "tolerance": ""
+      "tolerance": "weights and pure-weighting estimates 2e-5: balanceHD's quadprog path stops short of the optimum of the strictly convex programme (its objective is 1e-10 to 1e-8 above ours in every setting, asserted)"
     },
     {
       "function": "result_card",
@@ -24599,21 +24704,28 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "tighten_blocks",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Same cost truncation as two_criteria_match. Package version from the committed generator's header."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "tightenBlock::tighten",
+      "reference_versions": {
+        "tightenBlock": "0.1.7"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "test": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "objective exactly equal on truncated costs, the same block penalty and the same number of dropped blocks at three subset prices"
     },
     {
       "additional_tests": [
@@ -24816,27 +24928,34 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
         "tests/reference_parity/test_closed_form_identities.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "trimming",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "With several roots sp.trimming takes the smallest. propensity (and PSweight::PStrim(optimal = TRUE), which agrees with it on 150 of 150 draws) returns the smallest, the largest or one in between depending on the data, so there is no rule to follow; the test asserts that both cutoffs solve the equation."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "propensity::ps_trim (method = 'adaptive', the Crump et al. rule, and method = 'ps' with bounds 0.1 / 0.9)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "fixed bounds: the kept rows are R's. Crump: cutoff 1e-10 relative and the same kept rows when the sample equation gamma = 2 mean(g | g <= gamma) has one root; with several roots each side returns a root and the kept sets differ by the rows between them"
     },
     {
       "function": "truncated_product",
@@ -25078,21 +25197,28 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "two_criteria_match",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "makematch hands its costs to rcbalance::callrelax, which truncates them to integers. The objective, not the matched sets, is compared: optimal matches need not be unique. Package version from the committed generator's header."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "iTOS::makematch with addcaliper / addinteger / addMahal / addNearExact / addquantile",
+      "reference_versions": {
+        "iTOS": "1.0.3"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "test": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "cost matrices 1e-10; optimal objective exactly equal on integer costs and on costs truncated to integers as makematch does; on the costs as given ours is lower and equals an independent LP solution to 1e-10"
     },
     {
       "function": "two_stage_interference",
@@ -25676,22 +25802,31 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "weightit",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Glm, CBPS and entropy balancing for ATE / ATT / ATC / ATO / ATM, moments, interactions and d.moments; energy balancing for ATE improved / standard and ATT. One energy setting (indicator covariates, Euclidean distance) has a flat objective: there the objective values are compared (ours is lower by 1e-11), not the weights. WeightIt's continuous CBPS is not implemented."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "WeightIt::weightit (glm, cbps, ebal, energy; binary, multi-category and continuous treatments)",
+      "reference_versions": {
+        "WeightIt": "1.7.0",
+        "cobalt": "4.6.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_weightit_cobalt_parity.py",
-        "tests/reference_parity/test_weightit_energy_parity.py"
+        "tests/reference_parity/test_weightit_energy_parity.py",
+        "tests/reference_parity/_fixtures/weightit_cobalt_R.json",
+        "tests/reference_parity/_fixtures/weightit_energy_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "weights 1e-9 relative, except multinomial glm 2e-7 (WeightIt's optimiser stops at a score of order 1e-6; ours is at 1e-11, asserted) and CBPS ATT 1e-8 (WeightIt's own CBPS ATT is 2.7e-9 from its entropy-balancing ATT, which it equals exactly); energy weights 1e-9 on 14 settings"
     },
     {
       "function": "westfall_young",

@@ -53,6 +53,9 @@ DATA_SUFFIXES = {".json", ".csv", ".dta", ".rds", ".txt", ".parquet"}
 #: Not evidence: scratch output, the locks themselves, package manifests.
 SKIP_PARTS = {"__pycache__", "_repro_check", "_ado_fect", "renv"}
 SKIP_NAMES = {"TIER_A_FIXTURE_LOCK.json", "renv.lock"}
+#: Private reference installs (git-ignored ``_ado_*/`` and ``_rlib_*/``
+#: trees that generators install Stata / R packages into).
+SKIP_PREFIXES = ("_ado_", "_rlib_")
 CODE_SUFFIXES = {".py", ".R", ".r", ".do"}
 
 
@@ -62,6 +65,8 @@ def _data_files(track: str) -> List[pathlib.Path]:
         if not path.is_file() or path.suffix not in DATA_SUFFIXES:
             continue
         if SKIP_PARTS & set(path.parts) or path.name in SKIP_NAMES:
+            continue
+        if any(part.startswith(SKIP_PREFIXES) for part in path.parts):
             continue
         out.append(path)
     return out

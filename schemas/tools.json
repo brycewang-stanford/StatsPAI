@@ -2086,7 +2086,7 @@
     "name": "bagged_forecast"
   },
   {
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Balance on the reported moments is necessary, not sufficient, for removing confounding by these covariates. Alternatives: sp.balance_diagnostics, sp.weightit, sp.energy_distance, sp.ess.",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence. Assumptions: Balance on the reported moments is necessary, not sufficient, for removing confounding by these covariates. Alternatives: sp.balance_diagnostics, sp.weightit, sp.energy_distance, sp.ess.",
     "input_schema": {
       "properties": {
         "binary": {
@@ -2179,7 +2179,7 @@
     "name": "bal_tab"
   },
   {
-    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified balance diagnostics for matching and weighting estimators. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -2269,7 +2269,7 @@
     "name": "balance_panel"
   },
   {
-    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized. Failure modes: balance_vs_randomization: need at least two treated and two control individuals -> Check the treat column. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
+    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: certified parity evidence. Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized. Failure modes: balance_vs_randomization: need at least two treated and two control individuals -> Check the treat column. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13327,7 +13327,7 @@
     "name": "eivreg"
   },
   {
-    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2). Assumptions: Covariates are numeric and complete; Used comparatively: the same covariates before and after weighting, or across sets of weights. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
+    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: certified parity evidence. Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2). Assumptions: Covariates are numeric and complete; Used comparatively: the same covariates before and after weighting, or across sets of weights. Alternatives: sp.balance_diagnostics, sp.ps_balance, sp.love_plot.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -13526,7 +13526,7 @@
     "name": "esize"
   },
   {
-    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced. Assumptions: Approximates the variance inflation from weighting when outcomes are homoskedastic and uncorrelated with the weights. Alternatives: sp.balance_diagnostics, sp.ps_weights.",
+    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: certified parity evidence. Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced. Assumptions: Approximates the variance inflation from weighting when outcomes are homoskedastic and uncorrelated with the weights. Alternatives: sp.balance_diagnostics, sp.ps_weights.",
     "input_schema": {
       "properties": {
         "by": {
@@ -19507,7 +19507,7 @@
     "name": "impactplot"
   },
   {
-    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only. Assumptions: Binary treatment and a linear outcome model fitted by OLS; No missing values in the treatment or covariates. Failure modes: Some weights are negative -> The regression extrapolates for those rows; check overlap, restrict the sample or use bounded weights (sp.ps_weights with estimand='ATO'). Alternatives: sp.ps_weights, sp.balance_diagnostics, sp.lm_lin.",
+    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: certified parity evidence. Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only. Assumptions: Binary treatment and a linear outcome model fitted by OLS; No missing values in the treatment or covariates. Failure modes: Some weights are negative -> The regression extrapolates for those rows; check overlap, restrict the sample or use bounded weights (sp.ps_weights with estimand='ATO'). Alternatives: sp.ps_weights, sp.balance_diagnostics, sp.lm_lin.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -22322,7 +22322,7 @@
     "name": "kwallis"
   },
   {
-    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Imbalance is measured on a coarsening: numeric covariates with more than n_bins values are cut into equal-width bins; The value depends on the coarsening, so two L1 numbers are comparable only under the same n_bins. Pre-conditions: A 0/1 treatment column and the covariates to compare. Failure modes: Comparing L1 with R cem's imbalance() -> R uses a different histogram-based coarsening; compare only under the same bins. Alternatives: sp.balance_diagnostics, sp.bal_tab, sp.match. Typical minimum N: 50.",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: certified parity evidence. Assumptions: Imbalance is measured on a coarsening: numeric covariates with more than n_bins values are cut into equal-width bins; The value depends on the coarsening, so two L1 numbers are comparable only under the same n_bins. Pre-conditions: A 0/1 treatment column and the covariates to compare. Failure modes: Comparing L1 with R cem's imbalance() -> R uses a different histogram-based coarsening; compare only under the same bins. Alternatives: sp.balance_diagnostics, sp.bal_tab, sp.match. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -31272,7 +31272,7 @@
     "name": "probit"
   },
   {
-    "description": "Estimate propensity scores P(D=1|X). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Estimate propensity scores P(D=1|X). Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -31285,7 +31285,7 @@
         },
         "method": {
           "default": "logit",
-          "description": "Estimation method. ``'logit'`` uses IRLS (no sklearn needed). ``'probit'`` uses scipy.optimize. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
+          "description": "Estimation method. ``'logit'`` and ``'probit'`` are maximum likelihood fits by Newton's method, the fit the matching estimators use. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
           "enum": [
             "logit",
             "probit",
@@ -31485,7 +31485,7 @@
     "name": "prtest"
   },
   {
-    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance. Assumptions: Balance after weighting is only evidence on the covariates checked; it says nothing about unmeasured confounders. Pre-conditions: Binary treatment column and the covariates to check. Alternatives: sp.sp.balance_table, sp.sp.love_plot, sp.sp.ipw.",
+    "description": "Compute comprehensive propensity score balance table. Validation: certified parity evidence. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance. Assumptions: Balance after weighting is only evidence on the covariates checked; it says nothing about unmeasured confounders. Pre-conditions: Binary treatment column and the covariates to check. Alternatives: sp.sp.balance_table, sp.sp.love_plot, sp.sp.ipw.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -31538,7 +31538,7 @@
     "name": "ps_balance"
   },
   {
-    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score. Assumptions: The propensity scores come from a correctly specified model of the exposure given all confounders; Positivity: scores strictly between 0 and 1. Failure modes: A few very large ATE weights; low sp.ess -> Target the overlap population (estimand='ATO'), truncate the score, or trim with sp.trimming and refit. Alternatives: sp.ipw, sp.overlap_weights, sp.ebalance, sp.cbps.",
+    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: certified parity evidence. Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score. Assumptions: The propensity scores come from a correctly specified model of the exposure given all confounders; Positivity: scores strictly between 0 and 1. Failure modes: A few very large ATE weights; low sp.ess -> Target the overlap population (estimand='ATO'), truncate the score, or trim with sp.trimming and refit. Alternatives: sp.ipw, sp.overlap_weights, sp.ebalance, sp.cbps.",
     "input_schema": {
       "properties": {
         "estimand": {
@@ -31606,7 +31606,7 @@
     "name": "ps_weights"
   },
   {
-    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Failure modes: pscore: data must be a pandas DataFrame -> Pass the DataFrame holding the treatment and covariates; pscore: at least one covariate is needed -> Pass the covariates of the treatment model; pscore: ps_model must be 'logit' or 'probit', got <ps_model> -> Use ps_model='logit' or ps_model='probit'. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: certified parity evidence. Assumptions: Unconfoundedness given the covariates; Overlap of the score between treated and controls. Pre-conditions: binary treatment 0/1; covariates are pre-treatment. Failure modes: pscore: data must be a pandas DataFrame -> Pass the DataFrame holding the treatment and covariates; pscore: at least one covariate is needed -> Pass the covariates of the treatment model; pscore: ps_model must be 'logit' or 'probit', got <ps_model> -> Use ps_model='logit' or ps_model='probit'. Alternatives: sp.psmatch2, sp.match, sp.ps_balance, sp.balance_table.",
     "input_schema": {
       "properties": {
         "common_support": {
@@ -37397,7 +37397,7 @@
     "name": "reset_test"
   },
   {
-    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates and overlap; The outcome is linear and sparse in the covariates; The standard error conditions on the covariates, so the interval is for the average effect in the sample at hand. Alternatives: sp.sbw, sp.ebalance, sp.cbps, sp.dml.",
+    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: certified parity evidence. Assumptions: Unconfoundedness given the covariates and overlap; The outcome is linear and sparse in the covariates; The standard error conditions on the covariates, so the interval is for the average effect in the sample at hand. Alternatives: sp.sbw, sp.ebalance, sp.cbps, sp.dml.",
     "input_schema": {
       "properties": {
         "allow_negative_weights": {
@@ -44873,7 +44873,7 @@
     "name": "threshold"
   },
   {
-    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: Every block holds exactly one treated individual and at least ratio controls. Failure modes: <caller>: subset_cost needs ratio=1 -> Use ratio=1, or drop subset_cost; <caller>: every block must hold exactly one treated individual and at least one control -> Build the blocks first, for example with sp.two_criteria_match; <caller>: some blocks have fewer than <ratio> controls -> Lower ratio. Alternatives: sp.two_criteria_match.",
+    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: certified parity evidence. Pre-conditions: Every block holds exactly one treated individual and at least ratio controls. Failure modes: <caller>: subset_cost needs ratio=1 -> Use ratio=1, or drop subset_cost; <caller>: every block must hold exactly one treated individual and at least one control -> Build the blocks first, for example with sp.two_criteria_match; <caller>: some blocks have fewer than <ratio> controls -> Lower ratio. Alternatives: sp.two_criteria_match.",
     "input_schema": {
       "properties": {
         "block": {
@@ -45259,7 +45259,7 @@
     "name": "treatment_rollout_plot"
   },
   {
-    "description": "Trim sample to optimal overlap region. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Trim sample to optimal overlap region. Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -45887,7 +45887,7 @@
     "name": "twfe_decomposition"
   },
   {
-    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second. Assumptions: Matching removes bias from the covariates it balances and from nothing else; unmeasured bias is the business of a sensitivity analysis. Pre-conditions: At least ratio controls per treated unit, unless subset_cost is given; Columns used by the terms have no missing values. Failure modes: cannot give each treated unit ratio distinct controls -> Lower ratio or pass subset_cost; too many pairs...",
+    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: certified parity evidence. Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second. Assumptions: Matching removes bias from the covariates it balances and from nothing else; unmeasured bias is the business of a sensitivity analysis. Pre-conditions: At least ratio controls per treated unit, unless subset_cost is given; Columns used by the terms have no missing values. Failure modes: cannot give each treated unit ratio distinct controls -> Lower ratio or pass subset_cost; too many pairs for dense cost matrices -> Match within exact strata of a coarse...",
     "input_schema": {
       "properties": {
         "balance": {
@@ -47185,7 +47185,7 @@
     "name": "weighted_rank_power"
   },
   {
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw. Assumptions: No unmeasured confounding given the covariates; Positivity: every treatment level (or dose) is possible at every covariate value. Failure modes: Very large weights; low effective sample size in a group -> Target the overlap population (estimand='ATO'), use metho...",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: certified parity evidence. Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw. Assumptions: No unmeasured confounding given the covariates; Positivity: every treatment level (or dose) is possible at every covariate value. Failure modes: Very large weights; low effective sample size in a group -> Target the overlap population (estimand='ATO'), use method='ebal', or restrict to the region of overlap. Alternatives: sp....",
     "input_schema": {
       "properties": {
         "covariates": {

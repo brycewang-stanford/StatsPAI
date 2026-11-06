@@ -9547,22 +9547,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 pscore (Becker and Ichino, st0026_2)",
+      "reference_versions": {
+        "Stata": "18",
+        "pscore": "st0026_2"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+        "tests/reference_parity/test_pscore_stata_parity.py",
+        "tests/reference_parity/_fixtures/pscore_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "blocks, common-support flags and the list of unbalanced (covariate, block) pairs exact; scores and coefficients 1e-8 relative; t-test p-values 1e-10; log likelihood 1e-9; standard errors 5e-5"
     },
     "example": "sp.pscore(df, 'treat', ['age', 'educ', 'married', 're74'], common_support=True)",
     "failure_modes": [
@@ -9633,7 +9638,7 @@
       }
     },
     "signature": {
-      "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Propensity score with blocks and a balancing test (Becker and Ichino; Stata pscore): fits the logit or probit treatment model, optionally keeps the region of common support, cuts the score into blocks in which treated and controls have the same mean score, and tests every covariate in every block. Returns the score, the block of each row and whether the balancing property holds. Validation: certified parity evidence.",
       "name": "pscore",
       "parameters": {
         "properties": {
@@ -9691,9 +9696,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_qiu_jiaping_methods_stata.py"
+      "Cross-language parity (aligned) vs Stata 18 pscore (Becker and Ichino, st0026_2) [Stata 18, pscore st0026_2]; tolerance blocks, common-support flags and the list of unbalanced (covariate, block) pairs exact; scores and coefficients 1e-8 relative; t-test p-values 1e-10; log likelihood 1e-9; standard errors 5e-5 -- tests/reference_parity/test_pscore_stata_parity.py",
+      "tests/reference_parity/test_qiu_jiaping_methods_stata.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21074,22 +21080,26 @@
     ],
     "category": "causal",
     "cost_profile": "Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
-    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
+    "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: certified parity evidence. Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "iTOS::makematch with addcaliper / addinteger / addMahal / addNearExact / addquantile",
+      "reference_versions": {
+        "iTOS": "1.0.3"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "cost matrices 1e-10; optimal objective exactly equal on integer costs and on costs truncated to integers as makematch does; on the costs as given ours is lower and equals an independent LP solution to 1e-10"
     },
     "example": "sp.two_criteria_match(df, \"z\", ps=[\"age\", \"female\"], pair=[{\"type\": \"mahalanobis\", \"on\": [\"age\", \"female\"]}], balance=[{\"type\": \"near_exact\", \"on\": \"female\"}])",
     "failure_modes": [
@@ -21148,7 +21158,7 @@
       }
     },
     "signature": {
-      "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
+      "description": "Optimal matching by minimum-cost flow with two distances: one decides who is paired with whom, the other only which controls are selected, so that covariates can be matched closely within sets or balanced between groups. Fine and near-fine balance, near-exact matching, calipers, directional penalties, 1:k matching and optimal subset matching (R iTOS::makematch). Outcomes are not used. Validation: certified parity evidence. Do NOT use when: An effect estimate is wanted in the same call -- this builds the design; analyse .matched afterwards, e.g. with sp.weighted_rank. Cost: Memory O(n_treated * n_control) for two dense cost matrices (refused above 6e7 cells); 206 treated by 3,919 controls solves in about half a second.",
       "name": "two_criteria_match",
       "parameters": {
         "properties": {
@@ -21214,9 +21224,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rosenbaum_itos_parity.py"
+      "Cross-language parity (aligned) vs iTOS::makematch with addcaliper / addinteger / addMahal / addNearExact / addquantile [iTOS 1.0.3]; tolerance cost matrices 1e-10; optimal objective exactly equal on integer costs and on costs truncated to integers as makematch does; on the costs as given ours is lower and equals an independent LP solution to 1e-10 -- tests/reference_parity/test_rosenbaum_itos_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21227,22 +21237,26 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "tightenBlock::tighten",
+      "reference_versions": {
+        "tightenBlock": "0.1.7"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "objective exactly equal on truncated costs, the same block penalty and the same number of dropped blocks at three subset prices"
     },
     "example": "sp.tighten_blocks(df, \"z\", \"block\", covariates=[\"age\"], fine_balance=[\"bmi_cat\"], ratio=2)",
     "failure_modes": [
@@ -21301,7 +21315,7 @@
       }
     },
     "signature": {
-      "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Tighten an existing block design (one treated individual and several controls per block) into smaller or fewer blocks that are also balanced on further covariates, keeping controls within their own block (R tightenBlock::tighten). Validation: certified parity evidence.",
       "name": "tighten_blocks",
       "parameters": {
         "properties": {
@@ -21360,9 +21374,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rosenbaum_itos_parity.py"
+      "Cross-language parity (aligned) vs tightenBlock::tighten [tightenBlock 0.1.7]; tolerance objective exactly equal on truncated costs, the same block penalty and the same number of dropped blocks at three subset prices -- tests/reference_parity/test_rosenbaum_itos_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -21375,22 +21389,26 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
+    "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: certified parity evidence. Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "iTOS::evalBal",
+      "reference_versions": {
+        "iTOS": "1.0.3"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_rosenbaum_itos_parity.py"
+        "tests/reference_parity/test_rosenbaum_itos_parity.py",
+        "tests/reference_parity/_fixtures/rosenbaum_itos_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "the p-values of the matched sample, their minimum, truncated product and count below alpha 1e-8 relative under five settings; the shares of better-balanced simulated experiments within Monte Carlo error only"
     },
     "example": "sp.balance_vs_randomization(matched, \"z\", [\"age\", \"female\"])",
     "failure_modes": [
@@ -21433,7 +21451,7 @@
       }
     },
     "signature": {
-      "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
+      "description": "Judge the covariate balance of a matched sample against the balance complete randomization would produce: two-sample tests per covariate, their minimum and truncated product, and the share of simulated randomized experiments that are better balanced (R iTOS::evalBal). Validation: certified parity evidence. Do NOT use when: Reading the p-values as tests -- they are a yardstick; a matched sample was not randomized.",
       "name": "balance_vs_randomization",
       "parameters": {
         "properties": {
@@ -21505,9 +21523,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rosenbaum_itos_parity.py"
+      "Cross-language parity (aligned) vs iTOS::evalBal [iTOS 1.0.3]; tolerance the p-values of the matched sample, their minimum, truncated product and count below alpha 1e-8 relative under five settings; the shares of better-balanced simulated experiments within Monte Carlo error only -- tests/reference_parity/test_rosenbaum_itos_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -25428,22 +25446,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
+    "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: certified parity evidence. Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "propensity::wt_ate / wt_att / wt_atu / wt_atm / wt_ato, with stabilize = TRUE and after ps_trunc (fixed and percentile)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 2e-14)"
     },
     "example": "sp.ps_weights(ps, df[\"treat\"], \"ATO\")",
     "failure_modes": [
@@ -25476,7 +25500,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
+      "description": "Propensity-score weights for a named target population: ATE, ATT, ATC (also ATU), the overlap population (ATO) or the evenly matchable (ATM, matching weights). Optional stabilisation and truncation of the score; a continuous exposure through the ratio of normal densities. Returns one weight per row, to pass to sp.balance_diagnostics, sp.ess or a weighted outcome model. Equals R propensity wt_ate / wt_att / wt_atu / wt_atm / wt_ato. Validation: certified parity evidence. Do NOT use when: You want the effect estimate and its standard error in one call -- use sp.ipw, whose sandwich variance accounts for the estimated score.",
       "name": "ps_weights",
       "parameters": {
         "properties": {
@@ -25546,10 +25570,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "Cross-language parity (bit-exact) vs propensity::wt_ate / wt_att / wt_atu / wt_atm / wt_ato, with stabilize = TRUE and after ps_trunc (fixed and percentile) [R version 4.5.2 (2025-10-31), propensity 0.1.0]; tolerance 1e-9 relative (observed 2e-14) -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -25568,23 +25592,29 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+    "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: certified parity evidence. Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "WeightIt::weightit (glm, cbps, ebal, energy; binary, multi-category and continuous treatments)",
+      "reference_versions": {
+        "WeightIt": "1.7.0",
+        "cobalt": "4.6.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
         "tests/reference_parity/test_weightit_cobalt_parity.py",
-        "tests/reference_parity/test_weightit_energy_parity.py"
+        "tests/reference_parity/test_weightit_energy_parity.py",
+        "tests/reference_parity/_fixtures/weightit_cobalt_R.json",
+        "tests/reference_parity/_fixtures/weightit_energy_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "weights 1e-9 relative, except multinomial glm 2e-7 (WeightIt's optimiser stops at a score of order 1e-6; ours is at 1e-11, asserted) and CBPS ATT 1e-8 (WeightIt's own CBPS ATT is 2.7e-9 from its entropy-balancing ATT, which it equals exactly); energy weights 1e-9 on 14 settings"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx1, x2 = rng.normal(size=(2, n))\ndf = pd.DataFrame({'x1': x1, 'x2': x2,\n 'dose': 0.5 * x1 - 0.3 * x2 + rng.normal(size=n)})\nr = sp.weightit(df, 'dose', ['x1', 'x2'], method='ebal')",
     "failure_modes": [
@@ -25630,7 +25660,7 @@
       }
     },
     "signature": {
-      "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
+      "description": "Balancing weights for a binary, multi-category or continuous treatment in one call (R WeightIt): inverse generalized propensity scores from a (multinomial) logit or, for a continuous treatment, the normal density ratio (method='glm'); just-identified covariate balancing propensity score for categorical treatments ('cbps'); entropy balancing, which for a continuous treatment zeroes the weighted treatment-covariate covariances ('ebal'); energy balancing of whole covariate distributions for categorical treatments ('energy'). Returns weights aligned to the data and .balance() (sp.bal_tab). Weights equal WeightIt 1.7.0 to 1e-9 (multinomial glm 2e-7, WeightIt's optimizer tolerance). Validation: certified parity evidence. Do NOT use when: You need the effect and its standard error for a binary treatment in one call -- use sp.ipw / sp.ebalance / sp.aipw.",
       "name": "weightit",
       "parameters": {
         "properties": {
@@ -25738,9 +25768,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_weightit_cobalt_parity.py"
+      "Cross-language parity (bit-exact) vs WeightIt::weightit (glm, cbps, ebal, energy; binary, multi-category and continuous treatments) [WeightIt 1.7.0, cobalt 4.6.2]; tolerance weights 1e-9 relative, except multinomial glm 2e-7 (WeightIt's optimiser stops at a score of order 1e-6; ours is at 1e-11, asserted) and CBPS ATT 1e-8 (WeightIt's own CBPS ATT is 2.7e-9 from its entropy-balancing ATT, which it equals exactly); energy weights 1e-9 on 14 settings -- tests/reference_parity/test_weightit_cobalt_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -25756,22 +25786,30 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cobalt::bal.tab (mean differences, variance ratios, KS, correlations, effective sample sizes; pairwise and focal multi-category summaries)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "WeightIt": "1.7.0",
+        "cobalt": "4.6.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_weightit_cobalt_parity.py"
+        "tests/reference_parity/test_weightit_cobalt_parity.py",
+        "tests/reference_parity/_fixtures/weightit_cobalt_R.json",
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "every statistic 1e-9 relative (observed about 1e-15)"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx1, x2 = rng.normal(size=(2, n))\ntreat = rng.choice(['a', 'b', 'c'], n)\ndf = pd.DataFrame({'x1': x1 + (treat == 'b'), 'x2': x2, 'treat': treat})\nW = sp.weightit(df, 'treat', ['x1', 'x2'], method='glm')\nr = sp.bal_tab(df, 'treat', ['x1', 'x2'], weights=W)",
     "failure_modes": [],
@@ -25799,7 +25837,7 @@
       }
     },
     "signature": {
-      "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence.",
       "name": "bal_tab",
       "parameters": {
         "properties": {
@@ -25900,9 +25938,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_weightit_cobalt_parity.py"
+      "Cross-language parity (bit-exact) vs cobalt::bal.tab (mean differences, variance ratios, KS, correlations, effective sample sizes; pairwise and focal multi-category summaries) [R version 4.5.2 (2025-10-31), WeightIt 1.7.0, cobalt 4.6.2]; tolerance every statistic 1e-9 relative (observed about 1e-15) -- tests/reference_parity/test_weightit_cobalt_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -25916,22 +25954,29 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
+    "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: certified parity evidence. Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "WeightIt::ESS and halfmoon::ess, overall and by group",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "WeightIt": "1.7.0",
+        "halfmoon": "0.2.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 2e-14)"
     },
     "example": "sp.ess(w, by=df[\"treat\"])",
     "failure_modes": [],
@@ -25956,7 +26001,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
+      "description": "Effective sample size of a set of weights, (sum w)^2 / sum(w^2): the number of equally weighted observations with the same precision for a weighted mean. With by= it is returned for each group, which is what governs a contrast of group means. Equals R halfmoon ess. Validation: certified parity evidence. Do NOT use when: As the only balance diagnostic: a large ESS says the weights are stable, not that covariates are balanced.",
       "name": "ess",
       "parameters": {
         "properties": {
@@ -25978,10 +26023,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "Cross-language parity (bit-exact) vs WeightIt::ESS and halfmoon::ess, overall and by group [R version 4.5.2 (2025-10-31), WeightIt 1.7.0, halfmoon 0.2.0]; tolerance 1e-9 relative (observed 2e-14) -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -25997,22 +26042,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
+    "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: certified parity evidence. Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "halfmoon::bal_energy (unweighted and weighted)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "halfmoon": "0.2.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 1e-14)"
     },
     "example": "sp.energy_distance(df, \"treat\", [\"age\", \"edu\"], weights=w)",
     "failure_modes": [],
@@ -26037,7 +26088,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
+      "description": "Energy distance between the (weighted) covariate distributions of two exposure groups, on standardised covariates. Zero only when the joint distributions coincide, so it reacts to imbalance in interactions and higher moments that per-covariate standardized differences miss. Equals R halfmoon bal_energy. Validation: certified parity evidence. Do NOT use when: Very large samples: the pairwise distance matrix is O(n^2).",
       "name": "energy_distance",
       "parameters": {
         "properties": {
@@ -26076,9 +26127,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "Cross-language parity (bit-exact) vs halfmoon::bal_energy (unweighted and weighted) [R version 4.5.2 (2025-10-31), halfmoon 0.2.0]; tolerance 1e-9 relative (observed 1e-14) -- tests/reference_parity/test_matching_balance_r_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -26094,22 +26145,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
+    "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: certified parity evidence. Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "lmw::lmw (URI; MRI for ATE, ATT and ATC)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lmw": "0.0.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed 7e-13)"
     },
     "example": "sp.implied_weights(df, \"treat\", [\"age\", \"edu\"])",
     "failure_modes": [
@@ -26142,7 +26199,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
+      "description": "Weights that a linear regression adjustment implicitly puts on each row: the coefficient on a binary treatment in y ~ treat + covariates is a difference of two weighted outcome means with these weights. Computed without the outcome; shows the population the regression represents, its effective sample size and which rows are extrapolated (negative weight). interactions=True is the fully interacted regression with a choice of estimand. Equals R lmw. Validation: certified parity evidence. Do NOT use when: Non-linear outcome models (logit, Poisson): the weights describe OLS only.",
       "name": "implied_weights",
       "parameters": {
         "properties": {
@@ -26191,10 +26248,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
+      "Cross-language parity (bit-exact) vs lmw::lmw (URI; MRI for ATE, ATT and ATC) [R version 4.5.2 (2025-10-31), lmw 0.0.2]; tolerance 1e-9 relative (observed 7e-13) -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -68798,22 +68855,26 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "balanceHD::approx.balance and residualBalance.ate (optimizer = 'quadprog', fit.method = 'none')",
+      "reference_versions": {
+        "balanceHD": "1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_residual_balance_balancehd.py"
+        "tests/reference_parity/test_residual_balance_balancehd.py",
+        "tests/reference_parity/_fixtures/residual_balance_balancehd.json"
       ],
-      "tolerance": ""
+      "tolerance": "weights and pure-weighting estimates 2e-5: balanceHD's quadprog path stops short of the optimum of the strictly convex programme (its objective is 1e-10 to 1e-8 above ours in every setting, asserted)"
     },
     "example": "sp.residual_balance(df, \"y\", \"w\", covariates)",
     "failure_modes": [],
@@ -68848,7 +68909,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Approximate residual balancing: average treatment effects with many covariates, combining a regularised linear outcome model with weights that minimise the worst covariate imbalance. Needs no propensity model. Validation: certified parity evidence.",
       "name": "residual_balance",
       "parameters": {
         "properties": {
@@ -68947,9 +69008,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_residual_balance_balancehd.py"
+      "Cross-language parity (aligned) vs balanceHD::approx.balance and residualBalance.ate (optimizer = 'quadprog', fit.method = 'none') [balanceHD 1.0]; tolerance weights and pure-weighting estimates 2e-5: balanceHD's quadprog path stops short of the optimum of the strictly convex programme (its objective is 1e-10 to 1e-8 above ours in every setting, asserted) -- tests/reference_parity/test_residual_balance_balancehd.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -97976,22 +98037,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Estimate propensity scores P(D=1|X). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate propensity scores P(D=1|X). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "stats::glm(binomial('logit' / 'probit'), epsilon = 1e-14)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "logit 1e-12 relative; probit 1e-8 (glm stops with a score of order 1e-7; ours is the maximum, score below 1e-10, asserted)"
     },
     "example": "ps = sp.propensity_score(df, treatment='union',\n covariates=['education', 'experience',\n 'tenure'])",
     "failure_modes": [
@@ -98033,7 +98099,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Estimate propensity scores P(D=1|X). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Estimate propensity scores P(D=1|X). Validation: certified parity evidence.",
       "name": "propensity_score",
       "parameters": {
         "properties": {
@@ -98052,7 +98118,7 @@
           },
           "method": {
             "default": "logit",
-            "description": "Estimation method. ``'logit'`` uses IRLS (no sklearn needed). ``'probit'`` uses scipy.optimize. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
+            "description": "Estimation method. ``'logit'`` and ``'probit'`` are maximum likelihood fits by Newton's method, the fit the matching estimators use. ``'gbm'`` tries sklearn GradientBoostingClassifier, falling back to logit with interactions.",
             "enum": [
               "logit",
               "probit",
@@ -98085,12 +98151,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "Cross-language parity (bit-exact) vs stats::glm(binomial('logit' / 'probit'), epsilon = 1e-14) [R version 4.5.2 (2025-10-31)]; tolerance logit 1e-12 relative; probit 1e-8 (glm stops with a score of order 1e-7; ours is the maximum, score below 1e-10, asserted) -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_closed_form_identities.py",
       "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -98108,22 +98174,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Trim sample to optimal overlap region. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Trim sample to optimal overlap region. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "propensity::ps_trim (method = 'adaptive', the Crump et al. rule, and method = 'ps' with bounds 0.1 / 0.9)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json",
+        "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "fixed bounds: the kept rows are R's. Crump: cutoff 1e-10 relative and the same kept rows when the sample equation gamma = 2 mean(g | g <= gamma) has one root; with several roots each side returns a root and the kept sets differ by the rows between them"
     },
     "example": "trimmed = sp.trimming(df, treatment='d',\n covariates=['x1', 'x2'])",
     "failure_modes": [
@@ -98165,7 +98237,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Trim sample to optimal overlap region. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Trim sample to optimal overlap region. Validation: certified parity evidence.",
       "name": "trimming",
       "parameters": {
         "properties": {
@@ -98221,11 +98293,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
-      "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "Cross-language parity (aligned) vs propensity::ps_trim (method = 'adaptive', the Crump et al. rule, and method = 'ps' with bounds 0.1 / 0.9) [R version 4.5.2 (2025-10-31), propensity 0.1.0]; tolerance fixed bounds: the kept rows are R's. Crump: cutoff 1e-10 relative and the same kept rows when the sample equation gamma = 2 mean(g | g <= gamma) has one root; with several roots each side returns a root and the kept sets differ by the rows between them -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
       "tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -98240,22 +98312,28 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+    "description": "Compute comprehensive propensity score balance table. Validation: certified parity evidence. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cobalt::col_w_smd / col_w_vr / col_w_ks with propensity::wt_* weights",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cobalt": "4.6.2",
+        "propensity": "0.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative, 1e-12 absolute where a statistic is zero"
     },
     "example": "bal = sp.ps_balance(df, treatment='d', covariates=['x1', 'x2'])",
     "failure_modes": [],
@@ -98286,7 +98364,7 @@
       }
     },
     "signature": {
-      "description": "Compute comprehensive propensity score balance table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
+      "description": "Compute comprehensive propensity score balance table. Validation: certified parity evidence. Do NOT use when: the estimate being checked used matching weights -- pass them via weights=; the default inverse-PS weights describe a different estimator's balance.",
       "name": "ps_balance",
       "parameters": {
         "properties": {
@@ -98347,9 +98425,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+      "Cross-language parity (bit-exact) vs cobalt::col_w_smd / col_w_vr / col_w_ks with propensity::wt_* weights [R version 4.5.2 (2025-10-31), cobalt 4.6.2, propensity 0.1.0]; tolerance 1e-9 relative, 1e-12 absolute where a statistic is zero -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -102416,22 +102495,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cem::imbalance(breaks =) global L1, unweighted and weighted",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cem": "1.1.31"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_cem_k2k_parity.py"
+        "tests/reference_parity/test_matching_balance_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_balance_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 relative"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx = rng.normal(size=n)\ndf = pd.DataFrame({'x': x, 'd': (x + rng.normal(size=n) > 0).astype(int)})\nr = sp.l1_imbalance(df, 'd', ['x'])",
     "failure_modes": [
@@ -102466,7 +102550,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Multivariate L1 imbalance of Iacus, King and Porro (2011). Validation: certified parity evidence.",
       "name": "l1_imbalance",
       "parameters": {
         "properties": {
@@ -102508,9 +102592,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cem_k2k_parity.py"
+      "Cross-language parity (bit-exact) vs cem::imbalance(breaks =) global L1, unweighted and weighted [R version 4.5.2 (2025-10-31), cem 1.1.31]; tolerance 1e-12 relative -- tests/reference_parity/test_matching_balance_r_parity.py",
+      "tests/reference_parity/test_cem_k2k_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
