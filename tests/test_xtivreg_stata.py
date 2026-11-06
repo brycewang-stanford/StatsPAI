@@ -29,6 +29,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 
 import statspai as sp
@@ -441,3 +442,214 @@ def test_within_and_between_match_r_plm(more_panels, tag):
         np.testing.assert_allclose(r.params[name], b, rtol=1e-12)
         np.testing.assert_allclose(r.std_errors[name] ** 2 * factor, se**2, rtol=1e-12)
     assert R_PLM["about"]["plm"] == "2.6.7"
+
+
+# --------------------------------------------------------------------------
+# fd / small / first / regress (stata_xtivreg_opts.do, 2026-11-06)
+# --------------------------------------------------------------------------
+STATA_OPTS = json.loads((_FIX / "stata_xtivreg_opts.json").read_text(encoding="utf-8"))
+_FD = dict(method="fd", time="t")
+_CL = dict(vce="cluster", cluster="c")
+OPT_CASES = {
+    "fd": ("one", dict(x=["x1", "w"], **_FD, **_ONE)),
+    "fd_robust": ("one", dict(x=["x1", "w"], vce="robust", **_FD, **_ONE)),
+    "fd_cluster": ("one", dict(x=["x1", "w"], **_CL, **_FD, **_ONE)),
+    "fd_small": ("one", dict(x=["x1", "w"], small=True, **_FD, **_ONE)),
+    "fd_cluster_small": ("one", dict(x=["x1", "w"], small=True, **_CL, **_FD, **_ONE)),
+    "fe_small": ("one", dict(x=["x1"], method="fe", small=True, **_ONE)),
+    "fe_cluster_small": ("one", dict(x=["x1"], method="fe", small=True, **_CL, **_ONE)),
+    "re_small": ("one", dict(x=["x1", "w"], small=True, **_ONE)),
+    "re_cluster_small": ("one", dict(x=["x1", "w"], small=True, **_CL, **_ONE)),
+    "re_ec2sls_small": ("one", dict(x=["x1", "w"], small=True, ec2sls=True, **_ONE)),
+    "be_small": ("one", dict(x=["x1", "w"], method="be", small=True, **_ONE)),
+    "fe_regress": ("one", dict(x=["x1", "w"], method="fe", regress=True, **_ONE)),
+    "re_regress": ("one", dict(x=["x1", "w"], regress=True, **_ONE)),
+    "re_nosa_regress": ("one", dict(x=["x1", "w"], regress=True, nosa=True, **_ONE)),
+    "be_regress": ("one", dict(x=["x1", "w"], method="be", regress=True, **_ONE)),
+    "fd_regress": ("one", dict(x=["x1", "w"], regress=True, **_FD, **_ONE)),
+    "two_fd": ("two", dict(x=["x1", "w"], **_FD, **_TWO)),
+    "two_fd_cluster_small": (
+        "two",
+        dict(x=["x1", "w"], small=True, **_CL, **_FD, **_TWO),
+    ),
+    "gaps_fd": ("gaps", dict(x=["x1", "w"], **_FD, **_ONE)),
+    "gaps_fd_cluster": ("gaps", dict(x=["x1", "w"], **_CL, **_FD, **_ONE)),
+}
+
+
+@pytest.fixture(scope="module")
+def opt_panels():
+    return {
+        "one": _mod.make_panel(),
+        "two": _mod.make_two_endog_panel(),
+        "gaps": _mod.make_gap_panel(),
+    }
+
+
+def _ref_coef(ref, name, fd):
+    return ref["D." + name if fd and name != "_cons" else name]
+
+
+@pytest.mark.parametrize("tag", list(OPT_CASES))
+def test_options_match_stata(opt_panels, tag):
+    """Coefficients and SEs (observed <= 1.1e-14), the model test, the
+    small-sample df and the reported scalars. Stata conventions not
+    followed are asserted as such: under a cluster-robust variance its fd
+    sigma_e divides by e(df_r) = G - 1; on a gapped panel its fd sigma_u,
+    rho, corr and within R-squared use a sample we could not recover (its
+    e(N_g) counts 88 panels, 86 have a difference); its fd between
+    R-squared is not the manual's corr(Zbar_i b, ybar_i)^2; and its fe
+    chi2 without small takes in the constant (below)."""
+    kind, kw = OPT_CASES[tag]
+    r = sp.xtivreg(opt_panels[kind], y="y", id="id", **kw)
+    ref = STATA_OPTS[tag]
+    fd = kw.get("method") == "fd"
+    for name in r.params.index:
+        b, se = _ref_coef(ref, name, fd)
+        np.testing.assert_allclose(r.params[name], b, rtol=1e-12)
+        np.testing.assert_allclose(r.std_errors[name], se, rtol=1e-12)
+    mi = r.model_info
+    assert r.data_info["nobs"] == ref["e(N)"][0]
+    if fd:
+        assert mi["omitted"] == ["w"]  # time-invariant: D.w = 0
+    clustered = kw.get("vce") is not None
+    be = kw.get("method") == "be"
+    scalars = [("r2_overall", "e(r2_o)"), ("r2_within", "e(r2_w)")]
+    if not be and not (fd and clustered):
+        scalars += [("sigma_e", "e(sigma_e)")]
+    if not be and not (fd and kind == "gaps"):
+        scalars += [("sigma_u", "e(sigma_u)")]
+        if not (fd and clustered):
+            scalars += [("rho", "e(rho)")]
+        if fd:
+            scalars += [("corr", "e(corr)")]
+    if fd and kind == "gaps":
+        scalars.remove(("r2_within", "e(r2_w)"))
+    if not fd:
+        scalars += [("r2_between", "e(r2_b)")]
+    if kw.get("small"):
+        scalars += [("F", "e(F)"), ("df_r", "e(df_r)")]
+        assert r.data_info["inference"] == "t"
+        assert r.data_info["df_resid"] == ref["e(df_r)"][0]
+    elif not (kw.get("method") == "fe"):
+        scalars += [("chi2", "e(chi2)")]
+    for ours, theirs in scalars:
+        np.testing.assert_allclose(mi[ours], ref[theirs][0], rtol=1e-11)
+    if fd and clustered:
+        # Stata: sqrt(rss / (G - 1)); ours: sqrt(rss / (N_D - K)) as without
+        # clustering
+        rss = ref["e(rss)"][0]
+        G = mi["n_clusters"]
+        np.testing.assert_allclose(ref["e(sigma_e)"][0] ** 2 * (G - 1), rss, rtol=1e-12)
+        dof = mi["n_differences"] - len(r.params)
+        np.testing.assert_allclose(mi["sigma_e"] ** 2 * dof, rss, rtol=1e-12)
+
+
+def test_small_t_inference_uses_stata_df(opt_panels):
+    r = sp.xtivreg(opt_panels["one"], y="y", id="id", **OPT_CASES["be_small"][1])
+    df_r = STATA_OPTS["be_small"]["e(df_r)"][0]
+    t = r.params / r.std_errors
+    from scipy import stats
+
+    np.testing.assert_allclose(r.pvalues, 2 * stats.t.sf(np.abs(t), df_r), rtol=1e-12)
+    ci = r.conf_int()
+    q = stats.t.ppf(0.975, df_r)
+    np.testing.assert_allclose(ci.iloc[:, 1], r.params + q * r.std_errors, rtol=1e-12)
+
+
+def test_fe_chi2_of_stata_takes_in_the_constant(opt_panels):
+    """Stata's xtivreg, fe reports chi2(K - 1) but its value is the Wald
+    statistic of all K coefficients, the constant included; ours (and its
+    own F under small, matched above) tests the K - 1 slopes."""
+    r = sp.xtivreg(opt_panels["one"], y="y", id="id", **OPT_CASES["fe_regress"][1])
+    d = r.params.to_numpy()
+    V = r.data_info["var_cov"]
+    w_all = float(d @ np.linalg.solve(V, d))
+    np.testing.assert_allclose(
+        w_all, STATA_OPTS["fe_regress"]["e(chi2)"][0], rtol=1e-11
+    )
+    w_slopes = float(d[:-1] @ np.linalg.solve(V[:-1, :-1], d[:-1]))
+    np.testing.assert_allclose(r.model_info["chi2"], w_slopes, rtol=1e-14)
+
+
+def test_fe_regress_is_xtreg_fe(opt_panels):
+    r = sp.xtivreg(opt_panels["one"], y="y", id="id", **OPT_CASES["fe_regress"][1])
+    ref = STATA_OPTS["xtreg_fe"]
+    for name in r.params.index:
+        np.testing.assert_allclose(r.params[name], ref[name][0], rtol=1e-12)
+        np.testing.assert_allclose(r.std_errors[name], ref[name][1], rtol=1e-12)
+    assert r.model_info["endog"] == [] and r.model_info["regress"]
+
+
+_FS_CASES = {
+    "fs_fe": dict(method="fe"),
+    "fs_fe_cluster": dict(method="fe", **_CL),
+    "fs_be": dict(method="be"),
+    "fs_fd": dict(**_FD),
+    "fs_fd_cluster": dict(**_FD, **_CL),
+    "fs_re": dict(),
+    "fs_re_cluster": dict(**_CL),
+}
+
+
+@pytest.mark.parametrize("tag", list(_FS_CASES))
+def test_first_stage_matches_stata(opt_panels, tag):
+    """The first stage xtivreg displays with first equals xtreg, fe /
+    xtreg, be / regress on D. / regress on the quasi-demeaned variables
+    (checked on the log of stata_xtivreg_opts.do to display precision);
+    those commands' stored results are the reference (observed <= 1.6e-13)."""
+    kw = dict(x=["x1", "w"], first=True, **_ONE, **_FS_CASES[tag])
+    r = sp.xtivreg(opt_panels["one"], y="y", id="id", **kw)
+    fs = r.model_info["first_stage"]["d"]
+    ref = STATA_OPTS[tag]
+    expected = {"fs_fe": 4, "fs_fe_cluster": 4, "fs_fd": 4, "fs_fd_cluster": 4}
+    assert len(fs["params"]) == expected.get(tag, 5)  # w drops from fe / fd
+    for name, b in fs["params"].items():
+        key = next(k for k in (name, "D." + name, "s_" + name.lstrip("_")) if k in ref)
+        np.testing.assert_allclose(b, ref[key][0], rtol=1e-11)
+        np.testing.assert_allclose(fs["std_errors"][name], ref[key][1], rtol=1e-11)
+    # the main fit is unchanged by first=True
+    kw.pop("first")
+    base = sp.xtivreg(opt_panels["one"], y="y", id="id", **kw)
+    np.testing.assert_array_equal(r.params.to_numpy(), base.params.to_numpy())
+
+
+def test_first_stage_two_endogenous_fd(opt_panels):
+    r = sp.xtivreg(
+        opt_panels["two"], y="y", id="id", x=["x1", "w"], first=True, **_FD, **_TWO
+    )
+    for v in _E2:
+        ref = STATA_OPTS["two_fs_fd_" + v]
+        for name, b in r.model_info["first_stage"][v]["params"].items():
+            key = name if name == "_cons" else "D." + name
+            np.testing.assert_allclose(b, ref[key][0], rtol=1e-11)
+            np.testing.assert_allclose(
+                r.model_info["first_stage"][v]["std_errors"][name],
+                ref[key][1],
+                rtol=1e-11,
+            )
+
+
+def test_fd_gap_and_order_conventions(opt_panels):
+    """A difference needs consecutive periods: the gapped panel's 289
+    differences are Stata's e(N); the row order of the input does not
+    matter; a period coded 10 t gives the same fit."""
+    g = opt_panels["gaps"]
+    kw = dict(y="y", id="id", x=["x1", "w"], **_ONE)
+    a = sp.xtivreg(g, time="t", method="fd", **kw)
+    assert a.model_info["n_differences"] == STATA_OPTS["gaps_fd"]["e(N)"][0] == 289
+    b = sp.xtivreg(g.sample(frac=1.0, random_state=1), time="t", method="fd", **kw)
+    np.testing.assert_allclose(b.params, a.params, rtol=1e-12)
+    c = sp.xtivreg(g.assign(t10=10 * g["t"]), time="t10", method="fd", **kw)
+    np.testing.assert_allclose(c.params, a.params, rtol=1e-12)
+
+
+def test_option_errors(opt_panels):
+    df = opt_panels["one"]
+    kw = dict(y="y", id="id", x="x1", **_ONE)
+    with pytest.raises(MethodIncompatibility, match="time="):
+        sp.xtivreg(df, method="fd", **kw)
+    with pytest.raises(MethodIncompatibility, match="first=True"):
+        sp.xtivreg(df, first=True, regress=True, **kw)
+    with pytest.raises(MethodIncompatibility, match="repeats within a panel"):
+        sp.xtivreg(pd.concat([df, df.head(3)]), method="fd", time="t", **kw)

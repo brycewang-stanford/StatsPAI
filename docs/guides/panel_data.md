@@ -645,6 +645,7 @@ from here.
 | Bias-corrected FE logit       | —                                    | `alpaca::biasCorr(feglm(...))`              | `sp.feglm(..., family="logit", bias_correction=True)`                     |
 | Dynamic panel GMM             | `xtabond y x`                        | `pgmm(...)`                                 | `sp.xtabond(df, y="y", x=["x"], id="id", time="t")`                       |
 | Panel IV (RE / FE / BE)       | `xtivreg y x (d = z), re [ec2sls]`   | `plm(y ~ x + d \| x + z, model="random")`   | `sp.xtivreg(df, y="y", x="x", endog="d", instruments="z", id="id")`       |
+| Panel IV in first differences | `xtivreg y x (d = z), fd small first` | `plm(..., model="fd")` (no IV)              | `sp.xtivreg(df, ..., method="fd", time="t", small=True, first=True)`      |
 | Panel-corrected SEs           | `xtpcse y x, correlation(ar1)`       | `pcse::pcse(lm(...))`                       | `sp.xtpcse(df, y="y", x="x", id="id", time="t", correlation="ar1")`       |
 | Panel unit root               | `xtunitroot ips y`                   | `purtest(y, test="ips")`                    | `sp.panel_unitroot(df, variable="y", id="id", time="t", test="ips")`      |
 

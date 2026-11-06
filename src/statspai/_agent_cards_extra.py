@@ -4607,6 +4607,7 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         "pre_conditions": [
             "id= names the panel identifier; at least two panels",
             "ec2sls= / nosa= only with method='re'",
+            "method='fd' needs time= and one row per panel and period",
         ],
         "failure_modes": [
             {

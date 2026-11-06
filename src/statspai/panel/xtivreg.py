@@ -26,7 +26,7 @@ evidence is ``tests/test_xtivreg_stata.py``.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -37,6 +37,10 @@ from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._xtivreg_extras import fd_pairs as _fd_pairs
+from ._xtivreg_extras import first_stage as _first_stage
+from ._xtivreg_extras import model_test as _model_test
+from ._xtivreg_extras import ols_fit as _ols_fit
 
 __all__ = ["xtivreg"]
 
@@ -57,6 +61,11 @@ def _gmean(values: np.ndarray, codes: np.ndarray, n: int) -> np.ndarray:
 
 def _span(A: np.ndarray, tol: float = 1e-10) -> np.ndarray:
     """Columns of ``A`` with the linearly dependent ones removed."""
+    return A[:, _span_index(A, tol)]
+
+
+def _span_index(A: np.ndarray, tol: float = 1e-10) -> List[int]:
+    """Indices of the columns :func:`_span` keeps."""
     scale = np.sqrt((A * A).sum(axis=0))
     keep: List[int] = []
     basis = np.zeros((A.shape[0], 0))
@@ -70,7 +79,7 @@ def _span(A: np.ndarray, tol: float = 1e-10) -> np.ndarray:
         if nv > tol:
             keep.append(j)
             basis = np.column_stack([basis, v / nv])
-    return A[:, keep]
+    return keep
 
 
 def _tsls(y: np.ndarray, Z: np.ndarray, X: np.ndarray) -> Dict[str, np.ndarray]:
@@ -201,14 +210,19 @@ def xtivreg(
     vce: Optional[str] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    time: Optional[str] = None,
+    small: bool = False,
+    first: bool = False,
+    regress: bool = False,
 ) -> EconometricResults:
     """
     Instrumental-variables regression for panel data.
 
     Equivalent to Stata's ``xtivreg y x (endog = instruments), re | fe |
-    be`` with ``ec2sls`` / ``nosa``. The random-effects estimator is
-    feasible-GLS 2SLS: G2SLS (Balestra and Varadharajan-Krishnakumar) by
-    default, Baltagi's EC2SLS with ``ec2sls=True``.
+    be | fd`` with ``ec2sls`` / ``nosa`` / ``small`` / ``first`` /
+    ``regress``. The random-effects estimator is feasible-GLS 2SLS: G2SLS
+    (Balestra and Varadharajan-Krishnakumar) by default, Baltagi's EC2SLS
+    with ``ec2sls=True``.
 
     Parameters
     ----------
@@ -224,9 +238,13 @@ def xtivreg(
         Excluded instruments, at least as many as ``endog``.
     id : str
         Panel identifier.
-    method : {'re', 'fe', 'be'}, default 're'
+    method : {'re', 'fe', 'be', 'fd'}, default 're'
         Random effects (feasible-GLS 2SLS, Stata's default), fixed effects
-        (within 2SLS) or between effects (2SLS on the panel means).
+        (within 2SLS), between effects (2SLS on the panel means) or first
+        differences (2SLS of ``D.y`` on ``D.endog``, ``D.x`` and a
+        constant with instruments ``D.x``, ``D.instruments`` and the
+        constant; Anderson-Hsiao). Regressors constant within panels drop
+        out of ``'fe'`` and ``'fd'``.
     ec2sls : bool, default False
         ``method='re'`` only: Baltagi's EC2SLS instruments (within and
         between parts of the instruments) instead of G2SLS.
@@ -239,21 +257,52 @@ def xtivreg(
     cluster : str, optional
         Cluster column (default: ``id``).
     alpha : float, default 0.05
+    time : str, optional
+        Time variable; required with ``method='fd'``. A difference is taken
+        between consecutive periods of a panel, the periods being the
+        distinct values of ``time`` in the sample (Stata's ``D.`` on an
+        ``xtset`` panel); observations on either side of a gap form no
+        difference.
+    small : bool, default False
+        Stata's ``small``: t statistics with the residual degrees of
+        freedom instead of z, and the model test as F instead of chi2. The
+        degrees of freedom are Stata's ``e(df_r)``: ``N - n - K + 1``
+        (``'fe'``, also when clustering), ``n - K`` (``'be'``),
+        ``N - K + 1`` (``'re'``; ``G`` with ``G`` clusters) and ``N_D - K``
+        (``'fd'``, on the ``N_D`` differences; ``G - 1`` with ``G``
+        clusters), with ``K`` regressors including the constant.
+        Coefficients and standard errors do not change.
+    first : bool, default False
+        Stata's ``first``: also fit the first-stage regression of each
+        endogenous regressor on all instruments in the estimator's own
+        transformation (within for ``'fe'``, panel means for ``'be'``,
+        quasi-demeaned for ``'re'``, first differences for ``'fd'``) and
+        store it in ``model_info['first_stage']``.
+    regress : bool, default False
+        Stata's ``regress``: treat the endogenous regressors as exogenous
+        and ignore ``instruments``, i.e. fit the same panel estimator of
+        ``y`` on ``endog`` and ``x`` without instrumenting. ``'fe'`` then
+        equals Stata's ``xtreg, fe``; ``'re'`` keeps the variance
+        components of ``xtivreg``, which are not those of ``xtreg, re``.
 
     Returns
     -------
     EconometricResults
-        Coefficients with z inference (Stata's default). ``model_info``
-        holds ``sigma_u``, ``sigma_e``, ``rho``, ``theta`` (per-panel
-        values summarised as min / median / max when the panel is
-        unbalanced), the within / between / overall R-squared and the
-        number of panels.
+        Coefficients with z inference (Stata's default; t with
+        ``small=True``). ``model_info`` holds ``sigma_u``, ``sigma_e``,
+        ``rho``, ``theta`` (per-panel values summarised as min / median /
+        max when the panel is unbalanced), the within / between / overall
+        R-squared, the number of panels, and the Wald test that all
+        coefficients but the constant are zero (``chi2`` / ``chi2_p``, or
+        ``F`` / ``F_p`` with ``small``, and ``df_m``). With ``first=True``,
+        ``model_info['first_stage']`` maps each endogenous regressor to the
+        coefficients and standard errors of its first stage.
 
     Notes
     -----
-    Agrees with Stata 18 ``xtivreg`` to rounding on ``fe``, ``be``, ``re``
-    with ``nosa`` and ``re`` with one endogenous regressor. With two or
-    more endogenous regressors on an unbalanced panel, Stata's ``re``
+    Agrees with Stata 18 ``xtivreg`` to rounding on ``fe``, ``be``, ``fd``,
+    ``re`` with ``nosa`` and ``re`` with one endogenous regressor. With two
+    or more endogenous regressors on an unbalanced panel, Stata's ``re``
     divides the within sum of squares behind ``sigma_e`` by
     ``N - n - K + 1`` with the endogenous regressors counted as one (its
     ``sigma_u`` uses the full ``K``, as its manual does for both); the full
@@ -264,6 +313,18 @@ def xtivreg(
     count). On a balanced panel with ``vce='robust'`` Stata's count also
     includes a continuous time-invariant regressor, through rounding noise
     in its within transform; that is not followed either.
+
+    Reporting conventions of Stata's options that are not followed (each
+    pinned in ``tests/test_xtivreg_stata.py``): with ``small`` and a
+    cluster-robust variance Stata's ``fd`` divides the residual sum of
+    squares behind ``sigma_e`` by ``G - 1`` instead of ``N_D - K``; its
+    ``fe`` with ``small`` reports an F test with ``n - 1 + K`` numerator
+    degrees of freedom that takes in the panel effects, where this is the
+    Wald test of the coefficients; its ``re`` first stage under
+    ``vce(robust)`` uses heteroskedasticity-robust (HC1) standard errors
+    while the main fit clusters on the panel, where this clusters both;
+    and its ``fd`` between R-squared is not the manual's
+    ``corr(Zbar_i b, ybar_i)^2``, which is what is reported here.
 
     Examples
     --------
@@ -291,9 +352,9 @@ def xtivreg(
     from ..core._vcov_spec import parse_se_request
 
     m = str(method).lower()
-    if m not in ("re", "fe", "be"):
+    if m not in ("re", "fe", "be", "fd"):
         raise MethodIncompatibility(
-            f"xtivreg: method must be 're', 'fe' or 'be'; got {method!r}.",
+            f"xtivreg: method must be 're', 'fe', 'be' or 'fd'; got {method!r}.",
         )
     if m != "re" and (ec2sls or nosa):
         raise MethodIncompatibility(
@@ -304,7 +365,26 @@ def xtivreg(
             "xtivreg: id= names the panel identifier.",
             recovery_hint="Pass id='<panel column>'.",
         )
+    if m == "fd" and time is None:
+        raise MethodIncompatibility(
+            "xtivreg: method='fd' needs time=, the time variable that orders "
+            "the periods of each panel.",
+            recovery_hint="Pass time='<time column>'.",
+        )
     xs, en, iv = _as_list(x), _as_list(endog), _as_list(instruments)
+    if regress:
+        if first:
+            raise MethodIncompatibility(
+                "xtivreg: first=True reports the first stages of the "
+                "endogenous regressors, and regress=True treats them as "
+                "exogenous, so there is none.",
+                recovery_hint="Drop one of first= and regress=.",
+            )
+        iv = list(en)  # every regressor instruments itself
+    if first and not en:
+        raise MethodIncompatibility(
+            "xtivreg: first=True needs at least one endogenous regressor.",
+        )
     req = parse_se_request(
         vce, cluster, function="xtivreg", supported=("nonrobust", "robust", "cluster")
     )
@@ -320,10 +400,21 @@ def xtivreg(
         )
     check_columns(
         data,
-        {"y": y, "x": xs, "endog": en, "instruments": iv, "id": id, "cluster": cluster},
+        {
+            "y": y,
+            "x": xs,
+            "endog": en,
+            "instruments": iv,
+            "id": id,
+            "cluster": cluster,
+            "time": time if m == "fd" else None,
+        },
         function="xtivreg",
     )
-    cols = list(dict.fromkeys([y, id] + xs + en + iv + ([cluster] if cluster else [])))
+    extra = [cluster] if cluster else []
+    if m == "fd":
+        extra.append(time)
+    cols = list(dict.fromkeys([y, id] + xs + en + iv + extra))
     df = data.loc[data[cols].notna().all(axis=1)]
     codes, uniq = pd.factorize(df[id], sort=True)
     n = len(uniq)
@@ -334,6 +425,7 @@ def xtivreg(
     Z = np.column_stack([df[v].to_numpy(dtype=float) for v in Zn] + [np.ones(N)])
     X = np.column_stack([df[v].to_numpy(dtype=float) for v in xs + iv] + [np.ones(N)])
     names = Zn + ["_cons"]
+    x_names = xs + iv + ["_cons"]
     if n < 2:
         raise DataInsufficient("xtivreg: needs at least two panels.")
     ybar, Zbar, Xbar = (_gmean(a, codes, n) for a in (yv, Z, X))
@@ -341,7 +433,18 @@ def xtivreg(
     def within(a: np.ndarray, abar: np.ndarray) -> np.ndarray:
         return np.asarray(a - abar[codes] + a.mean(axis=0))
 
+    def cluster_codes(rows: Optional[np.ndarray] = None) -> Tuple[np.ndarray, int]:
+        cc, _ = pd.factorize(df[cluster], sort=True)
+        if rows is not None:
+            cc, _ = pd.factorize(cc[rows], sort=True)
+        return cc, int(cc.max()) + 1
+
     info: Dict[str, Any] = {"method": m, "n_groups": n, "id": id}
+    df_r: Optional[float] = None  # residual df under small=True
+    stage1: Dict[str, Tuple[Dict[str, np.ndarray], List[str]]] = {}
+    s1_df: Callable[[int], float] = lambda k: float(N - k)  # noqa: E731
+    s1_rows: Optional[np.ndarray] = None
+    s1_n = N
     if m in ("fe", "re"):
         yw, Zw, Xw = within(yv, ybar), within(Z, Zbar), within(X, Xbar)
         keep = [
@@ -393,9 +496,9 @@ def xtivreg(
     if m == "fe":
         fit = fw
         V = s2_nu * fit["bread"]
+        df_r = float(N - n - K + 1)
         if se_kind == "cluster":
-            ccodes, _ = pd.factorize(df[cluster], sort=True)
-            G = int(ccodes.max()) + 1
+            ccodes, G = cluster_codes()
             V = _cluster_vcov(fit, ccodes, G, N, K)
             info["n_clusters"] = G
         e_u = ybar - Zbar @ fit["d"]  # mu_i up to the constant
@@ -406,6 +509,13 @@ def xtivreg(
             sigma_u=sigma_u,
             rho=float(sigma_u**2 / (sigma_u**2 + s2_nu)),
         )
+        if first:
+            stage1 = {
+                v: _ols_fit(_tsls, _span_index, Zw[:, names.index(v)], Xw, x_names)
+                for v in en
+                if v in names
+            }
+            s1_df = lambda k: float(N - n - k + 1)  # noqa: E731
     elif m == "be":
         # one row per panel: Stata's xtivreg, be does not weight the means
         # by T_i (its manual says each mean enters T_i times; the numbers
@@ -413,10 +523,77 @@ def xtivreg(
         fit = _tsls(ybar, Zbar, Xbar)
         s2 = float(fit["e"] @ fit["e"]) / (n - K)
         V = s2 * fit["bread"]
+        df_r = float(n - K)
         if se_kind == "cluster":
             raise MethodIncompatibility(
                 "xtivreg: method='be' has the conventional variance only.",
             )
+        if first:
+            stage1 = {
+                v: _ols_fit(_tsls, _span_index, Zbar[:, j], Xbar, x_names)
+                for j, v in enumerate(en)
+            }
+            s1_df = lambda k: float(n - k)  # noqa: E731
+            s1_n = n
+    elif m == "fd":
+        cur, prv = _fd_pairs(codes, df[time], str(time))
+        if cur.size == 0:
+            raise DataInsufficient(
+                "xtivreg: method='fd' found no two consecutive periods of a "
+                "panel in the sample.",
+                recovery_hint="Check time=; each panel needs observations at "
+                "two adjacent periods.",
+            )
+        dy = yv[cur] - yv[prv]
+        dZ = Z[cur] - Z[prv]
+        dX = X[cur] - X[prv]
+        dZ[:, -1] = 1.0
+        dX[:, -1] = 1.0
+        keep = [j for j in range(K) if j == K - 1 or np.ptp(dZ[:, j]) > 1e-12]
+        dropped = [names[j] for j in range(K) if j not in keep]
+        Z, dZ = Z[:, keep], dZ[:, keep]
+        names = [names[j] for j in keep]
+        K = len(keep)
+        Nd = int(cur.size)
+        fit = _tsls(dy, dZ, dX)
+        s2_d = float(fit["e"] @ fit["e"]) / (Nd - K)
+        V = s2_d * fit["bread"]
+        df_r = float(Nd - K)
+        if se_kind == "cluster":
+            ccodes, G = cluster_codes(cur)
+            V = _cluster_vcov(fit, ccodes, G, Nd, K)
+            info["n_clusters"] = G
+            df_r = float(G - 1)
+        # the levels of the differenced rows (Stata's e(sample))
+        pc, _ = pd.factorize(codes[cur], sort=True)
+        n_fd = int(pc.max()) + 1
+        xb_s = Z[cur][:, :-1] @ fit["d"][:-1]
+        y_s = yv[cur]
+        u_i = _gmean(y_s - xb_s, pc, n_fd)
+        sigma_u = float(np.std(u_i, ddof=1))
+        xb_bar, y_bar = _gmean(xb_s, pc, n_fd), _gmean(y_s, pc, n_fd)
+        info.update(
+            omitted=dropped,
+            n_groups=n_fd,
+            n_differences=Nd,
+            sigma_e=float(np.sqrt(s2_d)),
+            sigma_u=sigma_u,
+            rho=float(sigma_u**2 / (sigma_u**2 + s2_d)),
+            corr=float(np.corrcoef(u_i[pc], xb_s)[0, 1]),
+        )
+        fd_r2 = (
+            _r2(xb_s - xb_bar[pc], y_s - y_bar[pc]),
+            _r2(xb_bar, y_bar),
+            _r2(xb_s, y_s),
+        )
+        if first:
+            stage1 = {
+                v: _ols_fit(_tsls, _span_index, dZ[:, names.index(v)], dX, x_names)
+                for v in en
+                if v in names
+            }
+            s1_df = lambda k: float(Nd - k)  # noqa: E731
+            s1_rows, s1_n = cur, Nd
     else:
         # between 2SLS for sigma_mu, unweighted as method='be'. On a
         # balanced panel Stata leaves out the excluded instruments that do
@@ -457,16 +634,28 @@ def xtivreg(
             # xtivreg, ec2sls to 1e-14 (found by testing instrument sets
             # against its output; without it they differ by ~2e-3).
             Xg = np.column_stack([(X - Xbar[codes])[:, :-1], Xbar[codes], 1.0 - th])
+            g_names = (
+                [v + "_d" for v in xs + iv]
+                + [v + "_m" for v in xs + iv]
+                + ["_cons_m", "_cons"]
+            )
         else:
             Xg = Xs
+            g_names = x_names
         fit = _tsls(ys, Zs, Xg)
         s2 = float(fit["e"] @ fit["e"]) / (N - K)
         V = s2 * fit["bread"]
+        df_r = float(N - K + 1)  # Stata's e(df_r) after xtivreg, re small
         if se_kind == "cluster":
-            ccodes, _ = pd.factorize(df[cluster], sort=True)
-            G = int(ccodes.max()) + 1
+            ccodes, G = cluster_codes()
             V = _cluster_vcov(fit, ccodes, G, N, K)
             info["n_clusters"] = G
+            df_r = float(G)
+        if first:
+            stage1 = {
+                v: _ols_fit(_tsls, _span_index, Zs[:, j], Xg, g_names)
+                for j, v in enumerate(en)
+            }
         info.update(
             sigma_u=float(np.sqrt(s2_mu)),
             sigma_e=float(np.sqrt(s2_nu)),
@@ -485,46 +674,73 @@ def xtivreg(
         )
     d = fit["d"]
     se = np.sqrt(np.clip(np.diag(V), 0.0, None))
-    xb = Z @ d
-    yd = yv - ybar[codes]
-    r2_w = _r2((Z - Zbar[codes]) @ d, yd)
-    r2_b = _r2(Zbar @ d, ybar)
-    if m == "fe":  # the R-squared of the mean-deviated regression
-        e = yd - (Z - Zbar[codes]) @ d
-        r2_w = float(1.0 - (e @ e) / (yd @ yd))
-    if m == "be":  # the R-squared of the between regression
-        e = ybar - Zbar @ d
-        r2_b = float(1.0 - (e @ e) / np.sum((ybar - ybar.mean()) ** 2))
+    if m == "fd":
+        r2_w, r2_b, r2_o = fd_r2
+    else:
+        xb = Z @ d
+        yd = yv - ybar[codes]
+        r2_w = _r2((Z - Zbar[codes]) @ d, yd)
+        r2_b = _r2(Zbar @ d, ybar)
+        r2_o = _r2(xb, yv)
+        if m == "fe":  # the R-squared of the mean-deviated regression
+            e = yd - (Z - Zbar[codes]) @ d
+            r2_w = float(1.0 - (e @ e) / (yd @ yd))
+        if m == "be":  # the R-squared of the between regression
+            e = ybar - Zbar @ d
+            r2_b = float(1.0 - (e @ e) / np.sum((ybar - ybar.mean()) ** 2))
+    if first:
+        cv = None
+        if se_kind == "cluster":
+            c1, G1 = cluster_codes(s1_rows)
+            cv = lambda f, k: _cluster_vcov(f, c1, G1, s1_n, k)  # noqa: E731
+        info["first_stage"] = _first_stage(
+            stage1, s1_df, cv, s1_n, "t" if m in ("fe", "be", "fd") else "z"
+        )
     info.update(
+        _model_test(d, V, small, df_r),
         r2_within=r2_w,
         r2_between=r2_b,
-        r2_overall=_r2(xb, yv),
+        r2_overall=r2_o,
         vce=se_kind,
         cluster=cluster if se_kind == "cluster" else None,
-        endog=en,
-        instruments=iv,
+        endog=[] if regress else en,
+        instruments=[] if regress else iv,
         alpha=alpha,
+        small=bool(small),
         model_type="Panel IV",
     )
+    if regress:
+        info["regress"] = True
+    if m == "fd":
+        info["time"] = time
+    n_used = info.get("n_differences", N)
+    if small:
+        inference: Dict[str, Any] = {"inference": "t", "df_resid": df_r}
+        info["df_r"] = df_r
+    else:
+        inference = {"df_resid": n_used - K, "inference": "z"}
     with np.errstate(divide="ignore", invalid="ignore"):
         zstat = d / se
+    if small:
+        pvals = 2 * stats.t.sf(np.abs(zstat), df_r)
+    else:
+        pvals = 2 * stats.norm.sf(np.abs(zstat))
     params = pd.Series(d, index=names)
     res = EconometricResults(
         params=params,
         std_errors=pd.Series(se, index=names),
         model_info=info,
         data_info={
-            "nobs": N,
-            "n_obs": N,
+            "nobs": n_used,
+            "n_obs": n_used,
             "dependent_var": y,
             "var_cov": V,
             "var_names": names,
-            "df_resid": N - K,
-            "inference": "z",
+            **inference,
         },
         diagnostics={
-            "z": dict(zip(names, zstat)),
-            "p": dict(zip(names, 2 * stats.norm.sf(np.abs(zstat)))),
+            ("t" if small else "z"): dict(zip(names, zstat)),
+            "p": dict(zip(names, pvals)),
         },
     )
     return res

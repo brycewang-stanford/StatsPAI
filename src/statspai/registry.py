@@ -9194,7 +9194,8 @@ def _build_registry() -> None:
             description=(
                 "Instrumental variables for panel data (Stata xtivreg): "
                 "random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, "
-                "between 2SLS; unbalanced panels."
+                "between 2SLS, first-differenced 2SLS; unbalanced panels; "
+                "small-sample t / F, first-stage results, regress."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -9220,8 +9221,9 @@ def _build_registry() -> None:
                     False,
                     "re",
                     "'re' (feasible-GLS 2SLS, Stata's default), 'fe' (within "
-                    "2SLS) or 'be' (between 2SLS)",
-                    ["re", "fe", "be"],
+                    "2SLS), 'be' (between 2SLS) or 'fd' (2SLS in first "
+                    "differences; needs time=)",
+                    ["re", "fe", "be", "fd"],
                 ),
                 ParamSpec(
                     "ec2sls",
@@ -9253,6 +9255,38 @@ def _build_registry() -> None:
                     False,
                     0.05,
                     "Significance level for confidence intervals",
+                ),
+                ParamSpec(
+                    "time",
+                    "str",
+                    False,
+                    None,
+                    "Time variable; required with method='fd' (differences "
+                    "between consecutive periods of a panel)",
+                ),
+                ParamSpec(
+                    "small",
+                    "bool",
+                    False,
+                    False,
+                    "Stata's small: t statistics with Stata's residual df and "
+                    "an F model test instead of z and chi2",
+                ),
+                ParamSpec(
+                    "first",
+                    "bool",
+                    False,
+                    False,
+                    "Stata's first: store each endogenous regressor's "
+                    "first-stage regression in model_info['first_stage']",
+                ),
+                ParamSpec(
+                    "regress",
+                    "bool",
+                    False,
+                    False,
+                    "Stata's regress: treat the endogenous regressors as "
+                    "exogenous and ignore the instruments",
                 ),
             ],
             returns="EconometricResults",

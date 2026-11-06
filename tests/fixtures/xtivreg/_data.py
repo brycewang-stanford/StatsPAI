@@ -2,9 +2,9 @@
 
 ``python tests/fixtures/xtivreg/_data.py <dir>`` writes ``panel.csv`` for
 ``stata_xtivreg.do`` (Stata 18 MP, batch mode, run from that directory),
-plus ``balanced.csv``, ``two_endog.csv`` and ``two_endog_bal.csv`` for
-``stata_xtivreg_tinv.do``, ``stata_xtivreg_more.do`` and
-``r_plm_xtivreg.R``.
+plus ``balanced.csv``, ``two_endog.csv``, ``two_endog_bal.csv`` and
+``gaps.csv`` for ``stata_xtivreg_tinv.do``, ``stata_xtivreg_more.do``,
+``stata_xtivreg_opts.do`` and ``r_plm_xtivreg.R``.
 """
 
 import sys
@@ -77,6 +77,16 @@ def make_two_endog_balanced() -> pd.DataFrame:
     return df[(size >= 5) & (df["t"] <= 5)].reset_index(drop=True)
 
 
+def make_gap_panel() -> pd.DataFrame:
+    """The unbalanced panel of ``make_panel`` with interior periods removed
+    (every row with ``(id + 2 t) % 7 == 0`` that is not a panel's first
+    period), so some panels have gaps in ``t``; for ``method='fd'``
+    (added 2026-11-06)."""
+    df = make_panel()
+    first = df.groupby("id")["t"].transform("min") == df["t"]
+    return df[first | ((df["id"] + 2 * df["t"]) % 7 != 0)].reset_index(drop=True)
+
+
 def add_panel_mean(df: pd.DataFrame) -> pd.DataFrame:
     """``zb``: the panel mean of ``z1`` (a time-invariant instrument)."""
     return df.assign(zb=df.groupby("id")["z1"].transform("mean"))
@@ -88,3 +98,4 @@ if __name__ == "__main__":
     make_balanced_panel().to_csv(f"{out}/balanced.csv", index=False)
     make_two_endog_panel().to_csv(f"{out}/two_endog.csv", index=False)
     make_two_endog_balanced().to_csv(f"{out}/two_endog_bal.csv", index=False)
+    make_gap_panel().to_csv(f"{out}/gaps.csv", index=False)
