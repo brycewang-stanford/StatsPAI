@@ -785,6 +785,12 @@ In other words, 1,002 of the 1,680 registered functions carry numerical
 evidence. Breadth is not the same as validation; check the tier of the
 functions you depend on.
 
+The [evidence scorecard](https://brycewang-stanford.github.io/StatsPAI/scorecard/)
+puts the four checks a specialist makes on one page, each regenerated from
+committed artifacts: agreement with R / Stata on the same data, confidence
+interval coverage in Monte Carlo, speed against the reference on the same
+task, and the estimators that still have no evidence.
+
 ### Cross-language parity, made queryable
 
 The tiers above are derived from an auditable **parity index**: every verified

@@ -485,6 +485,10 @@ def main(argv=None) -> int:
                 check=True,
             )
             print("[release_gate] tier A fixture lock: refreshed")
+        subprocess.run(
+            [sys.executable, str(REPO_ROOT / "scripts" / "build_scorecard.py")],
+            check=True,
+        )
     if args.check:
         ascii_issues = non_ascii_patterns()
         wording_issues = forbidden_wording()
@@ -494,6 +498,17 @@ def main(argv=None) -> int:
             failures += [f"census: {m}" for m in census_drift(census())]
             failures += [f"census: {m}" for m in server_json_drift()]
             failures += [f"census: {m}" for m in parity_table_drift()]
+            scorecard = subprocess.run(
+                [
+                    sys.executable,
+                    str(REPO_ROOT / "scripts" / "build_scorecard.py"),
+                    "--check",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if scorecard.returncode:
+                failures.append(f"census: {scorecard.stdout.strip()}")
             print("[release_gate] census: checked (incl. server.json, parity tables)")
         else:
             print(
