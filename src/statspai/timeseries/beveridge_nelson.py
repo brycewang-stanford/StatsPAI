@@ -23,6 +23,7 @@ from ..exceptions import (
     MethodIncompatibility,
     StatsPAIError,
 )
+from ._forecast_common import require_time_order
 
 __all__ = ["beveridge_nelson", "BeveridgeNelsonResult"]
 
@@ -168,6 +169,7 @@ def _level(
     else:
         series = pd.Series(np.asarray(y, dtype=float).ravel())
         name = "y"
+    require_time_order(series.index, fn="beveridge_nelson")
     values = series.to_numpy(dtype=float, na_value=np.nan)
     if values.size and not np.isfinite(values).all():
         raise MethodIncompatibility(

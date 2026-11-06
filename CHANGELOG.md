@@ -350,6 +350,42 @@ All notable changes to StatsPAI will be documented in this file.
   without a file suffix and refuses a path whose suffix names another
   format with `MethodIncompatibility`. Buffers and `to_latex()` without a
   path are unchanged.
+- ⚠️ **Time series with a skipped period are refused.** A monthly series
+  with no row for two months was fitted as if the months on either side
+  were adjacent, with no signal, by `sp.arima`, `sp.ets`, `sp.garch` and
+  every other function that reads a series in row order. The shared check
+  (`timeseries/_forecast_common.require_time_order`) now finds the
+  frequency of a date or period index (stated, inferred, or for dates with
+  gaps read off their usual spacing) and refuses an annual, quarterly,
+  monthly or weekly series that skips a period, with the missing periods
+  in `diagnostics`. Daily and finer series are not checked (trading-day
+  calendars leave dates out on purpose), nor are integer indexes. The
+  same check, with the existing refusal of unsorted or repeated dates,
+  now also guards `sp.var` (and `granger_causality`, `irf`, `svar`
+  through it), `sp.varsoc`, `sp.vec`, `sp.johansen`, `sp.johansen_lrtest`,
+  `sp.engle_granger`, `sp.ardl`, `sp.local_projections` (one series),
+  `sp.bvar`, `sp.tvp_var`, `sp.tvp_var_sv`, `sp.dlm`, `sp.mswitch`,
+  `sp.tsfilter`, `sp.periodogram`, `sp.corrgram` and
+  `sp.beveridge_nelson`, and a `time=` column wherever one is sorted on.
+  `sp.var` on a shuffled date index used to fit a VAR on scrambled time.
+  Regular, sorted input gives the same numbers as before.
+- **`sp.arima` flags a fixed order near a unit root.** An AR(1) fitted to
+  a random walk returned a coefficient of 0.987 with no comment. A fixed
+  order whose AR or MA polynomial has a root of modulus below 1.05 now
+  gives an `AssumptionWarning` pointing to `sp.ndiffs`, sets
+  `model_info['near_unit_root']` and is listed by `result.violations()`.
+  `model_info['root_moduli']` records the smallest root of each lag
+  polynomial, the seasonal ones in units of the season. The automatic
+  search is unchanged. Numbers are unchanged.
+- **Time-series plots use the dates.** `ARIMAResult.plot()` drew the
+  series against positions 0 to n with the axis labelled `t`, even for a
+  dated series. It now plots against the stored index (a period index at
+  each period's start, an integer index as its values) and labels the axis
+  with the frequency, e.g. `date (monthly)`; `sp.ets(...).plot()` and
+  `sp.stl(...).plot()` share the same axis code and label.
+- **Docs: stopping forecasts at an error margin.** The forecasting guide
+  shows how to trim a forecast table where the interval width passes a
+  threshold, and why there is no `max_width=` option.
 
 ## [1.42.1] — 2026-11-03
 

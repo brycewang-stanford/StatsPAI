@@ -125,6 +125,21 @@ warn. Clean data give the same numbers as before.
   (`to_excel("table")` writes `table.xlsx`) and refuse a path whose suffix
   names another format. Code that wrote suffix-less files must expect the
   new name; the method returns it.
+- ⚠️ **Time series that skip a period, or whose dates are out of order,
+  are refused** by every time-series entry that reads rows in order
+  (`arima`, `ets`, `garch`, `unitroot`, `var`, `vec`, `johansen`, `ardl`,
+  `local_projections`, `bvar` and the rest listed in the CHANGELOG). A
+  monthly, quarterly, annual or weekly date index with a missing period
+  now raises `MethodIncompatibility` instead of being fitted as if the
+  rows were adjacent; `sp.var` and the other multivariate functions also
+  refuse a shuffled date index. To keep fitting such data, either fill
+  the gap (`s.asfreq("MS").interpolate()`, or pass the reindexed series
+  with its missing values to `sp.ets`), sort it (`df.sort_index()`), or
+  pass the values without their dates (`s.to_numpy()`,
+  `df.reset_index(drop=True)`) to declare them consecutive.
+- `sp.arima` with a fixed order near a unit root (a root of modulus below
+  1.05) now warns with `AssumptionWarning`. Code that turns warnings into
+  errors must filter it or check `sp.ndiffs` first.
 
 ---
 

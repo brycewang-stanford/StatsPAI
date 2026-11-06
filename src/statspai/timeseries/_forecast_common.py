@@ -101,8 +101,19 @@ def require_time_order(index: Optional[pd.Index], *, fn: str) -> None:
     ``DatetimeIndex`` or ``PeriodIndex`` the dates say what that order
     should be, so rows out of order (a shuffled or reverse-sorted frame)
     or two rows with the same date are refused rather than fitted as
-    given. Other indexes (positions, integers) carry no such claim and
-    are left alone.
+    given. Unsorted input is refused, not sorted: in a frame the caller
+    may have sorted one column and not another, and silently reordering
+    rows hides that. Other indexes (positions, integers) carry no such
+    claim and are left alone.
+
+    A regular series that skips a period is refused too: a monthly index
+    with no row for one month (an implicit missing value) would otherwise
+    be fitted as if the months on either side were adjacent. The
+    frequency is the one the index states or ``pd.infer_freq`` finds,
+    and for dates with gaps the one their typical spacing implies
+    (``missing_periods``). Annual, quarterly, monthly and weekly series
+    are checked; daily and finer ones are not, since trading-day and
+    weekday series leave out dates on purpose.
     """
     if not isinstance(index, (pd.DatetimeIndex, pd.PeriodIndex)):
         return
@@ -125,6 +136,220 @@ def require_time_order(index: Optional[pd.Index], *, fn: str) -> None:
             "read in row order, so it would be fitted out of time order.",
             recovery_hint="Sort it first: series.sort_index().",
         )
+    alias, missing = missing_periods(index)
+    if alias is not None and len(missing):
+        label = _FREQ_WORDS.get(_freq_root(alias), alias)
+        raise MethodIncompatibility(
+            f"{fn}: the {label} date index skips {len(missing)} period(s) "
+            f"between its first and last date (first missing: {missing[0]}). "
+            "The series is read in row order, so the observations on either "
+            "side of a gap would be treated as adjacent.",
+            recovery_hint=(
+                "Reindex to every period between the first and last date and "
+                "fill the gaps (e.g. Series.interpolate(); sp.ets accepts the "
+                "missing values as they are), fit the longest stretch without "
+                "gaps, or pass the values without their dates (.to_numpy()) "
+                "if they are consecutive after all."
+            ),
+            diagnostics={
+                "frequency": alias,
+                "n_missing_periods": int(len(missing)),
+                "missing_periods": [str(p) for p in missing[:20]],
+            },
+        )
+
+
+#: Words for the frequency roots, used in messages and axis labels.
+_FREQ_WORDS = {
+    "Y": "annual",
+    "A": "annual",
+    "Q": "quarterly",
+    "M": "monthly",
+    "W": "weekly",
+    "SM": "semi-monthly",
+    "D": "daily",
+    "B": "business-day",
+    "C": "business-day",
+    "h": "hourly",
+    "H": "hourly",
+    "min": "minute",
+    "T": "minute",
+    "s": "second",
+    "S": "second",
+    "ms": "millisecond",
+    "L": "millisecond",
+    "us": "microsecond",
+    "U": "microsecond",
+    "ns": "nanosecond",
+    "N": "nanosecond",
+}
+
+#: Frequencies on which a missing date is a missing observation. Daily and
+#: finer series are not checked: a trading-day series leaves out holidays,
+#: and calendar-day data with weekends dropped is common and deliberate.
+_GAP_CHECKED = ("Y", "A", "Q", "M", "W")
+
+
+def _freq_root(alias: str) -> str:
+    """``'MS'`` -> ``'M'``, ``'QE-DEC'`` -> ``'Q'``, ``'2h'`` -> ``'h'``,
+    ``'W-SUN'`` -> ``'W'``, ``'BME'`` -> ``'M'`` (business month end),
+    ``'B'`` -> ``'B'`` (business day), ``'SMS'`` -> ``'SM'``."""
+    base = str(alias).split("-")[0].lstrip("0123456789")
+    if base.startswith("SM"):
+        return "SM"
+    for root in ("min", "ms", "us", "ns"):
+        if base.startswith(root):
+            return root
+    if len(base) > 1 and base[0] in "BC":
+        # business / custom-business variants of a coarser frequency
+        base = base.lstrip("C").lstrip("B") or base
+    return base[:1] if base else ""
+
+
+def date_frequency(index: Optional[pd.Index]) -> Optional[str]:
+    """The pandas frequency alias of a date or period index, or ``None``.
+
+    A ``PeriodIndex`` states its frequency; a ``DatetimeIndex`` has it set
+    or ``pd.infer_freq`` finds it. When neither does (dates with gaps), a
+    coarse frequency is read off the typical spacing: about a year, a
+    quarter, a month or exactly a week. Other indexes, and dates spaced
+    irregularly at any other interval, give ``None``.
+    """
+    if isinstance(index, pd.PeriodIndex):
+        return index.freqstr
+    if not isinstance(index, pd.DatetimeIndex):
+        return None
+    return _regular_alias(index) or _coarse_alias(index)
+
+
+def _regular_alias(index: pd.DatetimeIndex) -> Optional[str]:
+    """The frequency a date index has set, or that ``pd.infer_freq``
+    finds (which it does only for dates without gaps)."""
+    if index.freq is not None:
+        return index.freqstr
+    if len(index) < 3:
+        return None
+    try:
+        return pd.infer_freq(index)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coarse_alias(index: pd.DatetimeIndex) -> Optional[str]:
+    """Period alias for dates whose typical spacing is a year, a quarter,
+    a month or a week, when each date falls in its own period."""
+    if len(index) < 3 or index.hasnans:
+        return None
+    step = np.diff(index.asi8) / 86_400e9  # days
+    med = float(np.median(step))
+    if 360.0 <= med <= 370.0:
+        alias = "Y"
+    elif 88.0 <= med <= 93.0:
+        alias = "Q"
+    elif 28.0 <= med <= 31.0:
+        alias = "M"
+    elif abs(med - 7.0) < 1e-9:
+        alias = "W-" + index[0].strftime("%a").upper()
+    else:
+        return None
+    periods = _as_periods(index, alias)
+    if periods is None or not periods.is_unique:
+        return None  # two dates in one period: not a regular series
+    return alias
+
+
+def _as_periods(index: pd.DatetimeIndex, alias: str) -> Optional[pd.PeriodIndex]:
+    import warnings as _w
+
+    with _w.catch_warnings():
+        # a time zone is dropped on the way to periods; the calendar
+        # period of each date is what is compared
+        _w.simplefilter("ignore", UserWarning)
+        try:
+            return index.to_period(alias)
+        except (ValueError, TypeError):
+            return None
+
+
+def missing_periods(index: Optional[pd.Index]) -> Tuple[Optional[str], pd.Index]:
+    """``(alias, missing)``: the frequency of a date or period index and
+    the periods between its first and last entry that it skips.
+
+    Only annual, quarterly, monthly and weekly series are checked (see
+    ``_GAP_CHECKED``); for anything else ``missing`` is empty. The index
+    is assumed sorted and unique (``require_time_order`` checks that
+    first).
+    """
+    empty = pd.Index([])
+    if isinstance(index, pd.PeriodIndex):
+        alias = index.freqstr
+        if _freq_root(alias) not in _GAP_CHECKED or len(index) < 2:
+            return alias, empty
+        periods: Optional[pd.PeriodIndex] = index
+    elif isinstance(index, pd.DatetimeIndex):
+        regular = _regular_alias(index)
+        if regular is not None:
+            return regular, empty  # regular by construction or inference
+        coarse = _coarse_alias(index)  # only ever a checked frequency
+        if coarse is None:
+            return None, empty
+        alias, periods = coarse, _as_periods(index, coarse)
+    else:
+        return None, empty
+    if periods is None:  # pragma: no cover - _coarse_alias built it
+        return alias, empty
+    full = pd.period_range(periods[0], periods[-1], freq=periods.freq)
+    if len(full) == len(periods):
+        return alias, empty
+    return alias, full.difference(periods)
+
+
+def frequency_label(index: Optional[pd.Index]) -> Optional[str]:
+    """``'monthly'``, ``'quarterly'``, ... for a date or period index;
+    ``None`` when it has no frequency."""
+    alias = date_frequency(index)
+    if alias is None:
+        return None
+    return _FREQ_WORDS.get(_freq_root(alias), alias)
+
+
+def time_axis(
+    index: Optional[pd.Index], n: int, future: Optional[pd.Index] = None
+) -> Tuple[Any, Any, str]:
+    """``(x, x_future, label)`` for plotting a series of length ``n`` and
+    its forecasts against time.
+
+    Dates are used as they are, periods at their start, an integer index
+    as its values. Without an index the positions ``0 .. n-1`` are used.
+    When the forecast periods cannot be placed on the same axis as the
+    data (dates without a frequency), both fall back to positions. The
+    label names the frequency, e.g. ``'date (monthly)'``.
+    """
+    h = 0 if future is None else len(future)
+    pos = np.arange(n)
+    pos_f = np.arange(n, n + h)
+    if index is None or len(index) != n:
+        return pos, pos_f, "t"
+    if isinstance(index, (pd.PeriodIndex, pd.DatetimeIndex)):
+        x: Any = index.to_timestamp() if isinstance(index, pd.PeriodIndex) else index
+        xf: Any = future
+        if isinstance(future, pd.PeriodIndex):
+            xf = future.to_timestamp()
+        if future is not None and not isinstance(xf, pd.DatetimeIndex):
+            # forecast periods without dates (no frequency to continue)
+            return pos, pos_f, "t"
+        word = frequency_label(index)
+        return x, xf, ("date" if word is None else f"date ({word})")
+    if pd.api.types.is_numeric_dtype(index) and not pd.api.types.is_bool_dtype(index):
+        x = np.asarray(index)
+        if future is None:
+            return x, None, (str(index.name) if index.name is not None else "t")
+        xf = np.asarray(future)
+        if pd.api.types.is_numeric_dtype(xf) and (
+            not isinstance(future, pd.RangeIndex) or np.array_equal(x, pos)
+        ):
+            return x, xf, (str(index.name) if index.name is not None else "t")
+    return pos, pos_f, "t"
 
 
 def normalise_levels(level: Levels) -> Tuple[float, ...]:

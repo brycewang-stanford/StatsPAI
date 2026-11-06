@@ -29,6 +29,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 
 # --------------------------------------------------------------------- #
 #  Newey-West HAC for a single regression
@@ -304,7 +305,10 @@ def local_projections(
     Parameters
     ----------
     data : pd.DataFrame
-        Time-ordered panel (single series for now — panel extension TBD).
+        One time series in row order, or a long panel with ``id=`` and
+        ``time=``. For one series, a date or period index out of order,
+        with repeated dates, or skipping a period of a monthly, quarterly,
+        annual or weekly series is refused.
     outcome : str
         Column name of the outcome variable y.
     shock : str
@@ -464,6 +468,9 @@ def local_projections(
         {"outcome": outcome, "shock": shock, "controls": controls},
         function="sp.local_projections",
     )
+    if id is None and time is None:
+        # one series read in row order (a panel orders itself by time=)
+        require_time_order(data.index, fn="local_projections")
     from ._lpx_route import route
 
     _result = route(

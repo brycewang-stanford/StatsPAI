@@ -482,9 +482,9 @@ class TestScreening:
 class TestOmittedRegressorRecord:
     def test_model_info_is_there_when_nothing_was_omitted(self, series):
         fit = _fit(series["y"], order=(1, 0, 0), exog=series["x"])
-        assert fit.model_info == {"omitted": []}
-        assert fit.to_dict()["model_info"] == {"omitted": []}
-        assert _fit(series["u"], order=(1, 0, 0)).model_info == {"omitted": []}
+        assert fit.model_info["omitted"] == []
+        assert fit.to_dict()["model_info"]["omitted"] == []
+        assert _fit(series["u"], order=(1, 0, 0)).model_info["omitted"] == []
 
     def test_linear_regressor_under_two_differences_is_omitted(self, series):
         """A linear trend differences twice to rounding noise, not to exact

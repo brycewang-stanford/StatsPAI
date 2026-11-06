@@ -18,6 +18,7 @@ from scipy import linalg, special
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 
 __all__ = ["tsfilter", "hp_smoothing", "FilterResult"]
 
@@ -79,9 +80,11 @@ def _read(data: ArrayLike, y: Optional[str]) -> Tuple[np.ndarray, pd.Index, str]
                 "sp.tsfilter(df, 'gdp').",
             )
         check_columns(data, {"y": y}, function="sp.tsfilter")
+        require_time_order(data.index, fn="tsfilter")
         return data[y].to_numpy(dtype=float, na_value=np.nan), data.index, str(y)
     if isinstance(data, pd.Series):
         name = "y" if data.name is None else str(data.name)
+        require_time_order(data.index, fn="tsfilter")
         return data.to_numpy(dtype=float, na_value=np.nan), data.index, name
     x = np.asarray(data, dtype=float).ravel()
     return x, pd.RangeIndex(x.size), "y"

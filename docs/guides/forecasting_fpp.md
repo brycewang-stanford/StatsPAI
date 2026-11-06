@@ -51,6 +51,21 @@ Every fitted model has `.forecast(horizon, level=(80, 95))`. It returns a table
 with `forecast` and, for each level, `lower_<level>` and `upper_<level>`,
 indexed by the forecast periods.
 
+A series is read in row order. When it carries a date or period index, the
+dates are checked first. Rows out of order or two rows with one date are
+refused rather than sorted. A monthly, quarterly, annual or weekly series that
+skips a period is refused too: the missing month is an implicit missing value,
+and fitting the rows as they stand would treat the months on either side as
+adjacent. The frequency is the one the index states or `pd.infer_freq` finds,
+and for dates with gaps the one their usual spacing implies. Reindex to every
+period and fill the gap (`sp.ets` accepts the resulting missing values), or
+fit the longest complete stretch. Daily and finer series are not checked,
+because trading-day and weekday calendars leave dates out on purpose. An
+index of plain integers or positions makes no claim about time and is used as
+it is. The multivariate functions (`sp.var`, `sp.vec`, `sp.johansen`,
+`sp.ardl`, `sp.local_projections`, `sp.bvar`) apply the same checks to the
+index of the frame.
+
 ## Transformations and decomposition (chapter 3)
 
 ```python
@@ -287,6 +302,42 @@ boot = sp.bootstrap_series(train, 20, period=4)       # 20 series, the first is 
 bag = sp.bagged_forecast(train, "ets", horizon=8, n_boot=20, period=4)
 bag.forecast.head()
 ```
+
+## Stopping forecasts at an error margin
+
+A forecast whose interval is wider than the decision can use carries no
+information, so it is often better to stop the forecast there. The forecast
+tables hold the bounds, so the trim is one line of pandas.
+
+```python
+fit = sp.ets(train, period=4)
+fc = fit.forecast(16, level=(80, 95))
+width = fc["upper_95"] - fc["lower_95"]
+
+within = fc[width <= 24]                  # every horizon inside the margin
+until = fc[(width <= 24).cummin()]        # stop at the first one past it
+share = fc[(width / fc["forecast"].abs() <= 0.15).cummin()]  # margin relative to the level
+```
+
+The two rules differ when the width is not monotone in the horizon. Here the
+model is multiplicative (ETS(M,A,M)), so the interval is widest on the
+seasonal peak: the third quarter of the first year is already wider than 24
+while the next two quarters are not. `within` keeps those later quarters and
+`until` stops at the peak, which is what "forecast until the error is too
+large" usually means.
+
+Three points to keep in mind:
+
+- The width is on the scale of the data, after any Box-Cox back-transform. On
+  a log scale an absolute margin is a relative one.
+- The intervals of `sp.arima` and `sp.ets` treat the estimated coefficients as
+  known, so the real uncertainty is larger and the trim is optimistic.
+  `sp.tscv` measures the realised error at each horizon by rolling-origin
+  cross-validation, which is a check on the margin.
+- The rule is the same for every forecaster, since all of them return the
+  `lower_<level>` / `upper_<level>` layout. There is no `max_width=` option,
+  on purpose: the choice between the two rules, and between an absolute and a
+  relative margin, belongs to the user.
 
 ## What is not here
 

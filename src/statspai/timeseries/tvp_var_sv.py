@@ -307,6 +307,10 @@ def tvp_var_sv(
         check_columns(data, {"time": time}, function="sp.tvp_var_sv")
         _refuse_repeated_dates(data[time], time, "tvp_var_sv")
         work = data.sort_values(time, kind="stable")
+    else:
+        from ._forecast_common import require_time_order
+
+        require_time_order(data.index, fn="tvp_var_sv")
     if variables is None:
         names = [
             str(c) for c in work.select_dtypes(include=[np.number]).columns if c != time

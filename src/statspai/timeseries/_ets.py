@@ -34,6 +34,7 @@ from ._forecast_common import (
     path_quantiles,
     read_series,
     resolve_boxcox,
+    time_axis,
 )
 
 _CODE = {"N": 0, "A": 1, "M": 2}
@@ -345,11 +346,7 @@ class ETSResult(ResultProtocolMixin):
             _, ax = plt.subplots(figsize=(10, 4))
         levels = normalise_levels(level)
         fc = self.forecast(horizon, levels)
-        x = np.arange(self._y.shape[0]) if self._index is None else self._index
-        xf = fc.index
-        if self._index is not None and isinstance(self._index, pd.PeriodIndex):
-            x = self._index.to_timestamp()
-            xf = fc.index.to_timestamp()
+        x, xf, xlabel = time_axis(self._index, self._y.shape[0], fc.index)
         ax.plot(x, self._y, color="black", linewidth=1.0, label="observed")
         ax.plot(x, self.fitted_values, color="C0", linewidth=0.8, label="fitted")
         ax.plot(xf, fc["forecast"], color="C3", label="forecast")
@@ -359,6 +356,7 @@ class ETSResult(ResultProtocolMixin):
                 xf, fc[f"lower_{lab}"], fc[f"upper_{lab}"], color="C3", alpha=0.15
             )
         ax.set_title(self.model)
+        ax.set_xlabel(xlabel)
         ax.legend()
         return ax
 

@@ -36,6 +36,7 @@ from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 from .structural_break import _EXACT_FIT
 
 __all__ = ["ardl", "ARDLResult"]
@@ -670,6 +671,9 @@ def ardl(
     ----------
     data : pandas.DataFrame
         One row per period, in time order (or pass ``time=``), with no gaps.
+        A date or period index (or ``time=`` column) out of order, with
+        repeated dates, or skipping a period of a monthly, quarterly,
+        annual or weekly series is refused.
     y : str
         The series to forecast.
     x : str or list of str, optional
@@ -787,6 +791,7 @@ def ardl(
             recovery_hint="Pass one row per period; for a panel, fit each "
             "unit separately.",
         )
+    require_time_order(frame.index, fn="ardl")
     complete = np.flatnonzero(frame.notna().all(axis=1).to_numpy())
     if complete.size == 0:
         raise DataInsufficient(

@@ -90,8 +90,10 @@ class ARIMAResult(ResultProtocolMixin):
     #: forecasts are bias-adjusted on the way back
     boxcox: Optional[float] = None
     biasadj: bool = False
-    #: ``{'omitted': [{variable, reason}, ...]}``: the regressors left out of
-    #: the fit as collinear (an empty list when none was)
+    #: ``'omitted'``: the regressors left out of the fit as collinear
+    #: (``[{variable, reason}, ...]``, empty when none was);
+    #: ``'root_moduli'``: smallest root modulus per lag polynomial;
+    #: ``'near_unit_root'`` (fixed orders): whether one is below 1.05
     model_info: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -338,13 +340,27 @@ class ARIMAResult(ResultProtocolMixin):
         alpha: float = 0.05,
         ax: Optional[Any] = None,
     ) -> Any:
+        """Observed series, fitted values and forecasts with an interval.
+
+        The horizontal axis is the series' own time index: its dates (a
+        period index at the start of each period) labelled with the
+        frequency, e.g. ``date (monthly)``, or its integer values. A
+        series given without an index is plotted against positions
+        ``0 .. n-1`` (axis ``t``).
+        """
         import matplotlib.pyplot as plt
+
+        from ._forecast_common import future_index, time_axis
 
         if ax is None:
             _, ax = plt.subplots(figsize=(10, 4))
-        T = np.arange(self.n)
+        fc = None
+        if not self.exog_names:
+            fc = self.forecast(horizon, alpha)
+        future = None if fc is None else future_index(self._index, self.n, horizon)
+        x, x_fc, xlabel = time_axis(self._index, self.n, future)
         ax.plot(
-            T,
+            x,
             self.fitted_values,
             color="C0",
             linewidth=0.8,
@@ -362,7 +378,7 @@ class ARIMAResult(ResultProtocolMixin):
                 np.asarray(self._model.model.endog, dtype=float).ravel(), self.boxcox
             )
         ax.plot(
-            T,
+            x,
             observed,
             ".",
             color="grey",
@@ -370,16 +386,22 @@ class ARIMAResult(ResultProtocolMixin):
             alpha=0.5,
             label="observed",
         )
-        if self.exog_names:
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel("y")
+        if fc is None:
             ax.legend()
             return ax
-        fc = self.forecast(horizon, alpha).reset_index(drop=True)
-        T_fc = np.arange(self.n, self.n + horizon)
-        ax.plot(T_fc, fc["forecast"], "-", color="C3", label="forecast")
-        ax.fill_between(T_fc, fc["lower"], fc["upper"], color="C3", alpha=0.2)
+        lo = fc["lower"].to_numpy(dtype=float)
+        hi = fc["upper"].to_numpy(dtype=float)
+        ax.plot(
+            x_fc,
+            fc["forecast"].to_numpy(dtype=float),
+            "-",
+            color="C3",
+            label="forecast",
+        )
+        ax.fill_between(x_fc, lo, hi, color="C3", alpha=0.2)
         ax.legend()
-        ax.set_xlabel("t")
-        ax.set_ylabel("y")
         return ax
 
     def summary(self) -> str:
@@ -556,6 +578,94 @@ def _near_unit_root(res: Any, tol: float = 1.01) -> bool:
     return False
 
 
+#: Root modulus below which a fixed-order fit is flagged as near a unit
+#: root (an AR polynomial) or as nearly non-invertible (an MA one). The
+#: same bound decides above when a fit is searched again from other
+#: starting values; for an AR(1) it is a coefficient of 0.952.
+_NEAR_UNIT_ROOT_WARN = 1.05
+
+
+def _lag_root_moduli(params: pd.Series, period: int) -> Dict[str, float]:
+    """Smallest root modulus of each estimated lag polynomial.
+
+    Each polynomial is taken in its own lag unit: the seasonal ones in
+    ``B^s``, so a seasonal AR coefficient of 0.6 has a root of modulus
+    1.67 and not the ``0.6^(-1/s)`` of the product polynomial that
+    ``_near_unit_root`` measures (1.04 for monthly data). Keys are
+    ``'ar'``, ``'ma'``, ``'seasonal_ar'`` and ``'seasonal_ma'``, for the
+    polynomials the model has.
+    """
+    out: Dict[str, float] = {}
+    for kind, sign in (("ar", -1.0), ("ma", 1.0)):
+        for seasonal in (False, True):
+            prefix = f"{kind}.S.L" if seasonal else f"{kind}.L"
+            step = max(int(period), 1) if seasonal else 1
+            coefs: Dict[int, float] = {}
+            for name, value in params.items():
+                tail = str(name)[len(prefix) :]
+                if str(name).startswith(prefix) and tail.isdigit():
+                    coefs[int(tail) // step] = float(value)
+            if not coefs:
+                continue
+            poly = np.zeros(max(coefs) + 1)
+            poly[0] = 1.0
+            for lag, c in coefs.items():
+                poly[lag] += sign * c
+            roots = np.roots(poly[::-1])  # highest power first
+            key = f"seasonal_{kind}" if seasonal else kind
+            out[key] = float(np.min(np.abs(roots))) if roots.size else np.inf
+    return out
+
+
+def _unit_root_violation(
+    moduli: Dict[str, float], order: Tuple[int, int, int]
+) -> Optional[Dict[str, Any]]:
+    """The violation record (and warning text) for a fixed-order fit with
+    a lag polynomial root inside ``_NEAR_UNIT_ROOT_WARN``, or None."""
+    close = {k: v for k, v in moduli.items() if v < _NEAR_UNIT_ROOT_WARN}
+    if not close:
+        return None
+    worst = min(close, key=lambda k: close[k])
+    words = {
+        "ar": "autoregressive",
+        "ma": "moving-average",
+        "seasonal_ar": "seasonal autoregressive",
+        "seasonal_ma": "seasonal moving-average",
+    }
+    parts = ", ".join(f"{words[k]} {v:.4f}" for k, v in close.items())
+    if worst.endswith("ar"):
+        meaning = (
+            "The series may need another difference: near a unit root the "
+            "coefficient and its standard error do not have their usual "
+            "normal distribution, and forecast intervals are too narrow if "
+            "the root is in fact one."
+        )
+    else:
+        meaning = (
+            "A moving-average root on the unit circle is the mark of a "
+            "series differenced once too often."
+        )
+    return {
+        "kind": "assumption",
+        "severity": "warning",
+        "test": "near_unit_root",
+        "value": round(float(close[worst]), 6),
+        "threshold": _NEAR_UNIT_ROOT_WARN,
+        "message": (
+            f"ARIMA{tuple(int(v) for v in order)}: the smallest root modulus "
+            f"of the lag polynomial(s) is close to 1 ({parts}; bound "
+            f"{_NEAR_UNIT_ROOT_WARN}). {meaning}"
+        ),
+        "recovery_hint": (
+            "sp.ndiffs(y) (and sp.nsdiffs(y, period) for a seasonal series) "
+            "tests how many differences the series needs; sp.unitroot(y) "
+            "gives the ADF / KPSS tests; sp.arima(y, auto=True) chooses the "
+            "order and leaves out near-unit-root models."
+        ),
+        "alternatives": ["sp.ndiffs", "sp.nsdiffs", "sp.unitroot"],
+    }
+
+
 def arima(
     y: Any,
     order: Tuple[int, int, int] = (1, 0, 0),
@@ -683,9 +793,24 @@ def arima(
         ``conf_int(alpha)`` for inference, alongside ``aic`` / ``bic`` /
         ``aicc`` / ``log_likelihood`` and ``forecast`` / ``plot``.
         ``candidates`` lists the models an automatic search compared.
+        ``model_info['root_moduli']`` holds the smallest root modulus of
+        each lag polynomial (seasonal ones in units of the season).
 
     Notes
     -----
+    A fixed order whose autoregressive or moving-average polynomial has
+    a root of modulus below 1.05 (an AR(1) coefficient above 0.952)
+    is fitted as asked, with an ``AssumptionWarning`` that points to
+    ``sp.ndiffs``; ``model_info['near_unit_root']`` records the flag and
+    ``result.violations()`` lists it. A random walk fitted as an AR(1)
+    is the typical case: the coefficient comes out just below one and
+    its standard error is not a guide to the distance from one.
+
+    The series is read in row order. A date or period index out of
+    order, with repeated dates, or skipping a period of a monthly,
+    quarterly, annual or weekly series is refused (an implicit missing
+    value would otherwise be fitted as if the dates were adjacent).
+
     ``aicc`` uses the number of observations left after differencing,
     ``n - d - D s``, as R's ``forecast::Arima`` does. Releases through
     1.38.0 subtracted ``d`` only, which made the AICc of a seasonally
@@ -1598,6 +1723,32 @@ def arima(
     else:  # pragma: no cover - defensive; SARIMAX always populates bse
         _se = pd.Series(np.full(len(_params), np.nan), index=_param_index)
 
+    # Lag polynomials near the unit circle. The automatic search never
+    # returns such a model; a fixed order is fitted as asked and flagged.
+    _season = int(seas_final[3]) if seas_final else 1
+    _moduli = _lag_root_moduli(_params, _season)
+    _model_info: Dict[str, Any] = {
+        "omitted": list(omitted_exog),
+        "root_moduli": {k: round(v, 10) for k, v in _moduli.items()},
+    }
+    _flag = None if auto else _unit_root_violation(_moduli, tuple(order))
+    if _flag is not None:
+        from ..exceptions import AssumptionWarning
+
+        _model_info["near_unit_root"] = True
+        _model_info["design_violations"] = [_flag]
+        _warnings.warn(
+            AssumptionWarning(
+                "arima: " + _flag["message"],
+                recovery_hint=_flag["recovery_hint"],
+                diagnostics={"root_moduli": _model_info["root_moduli"]},
+                alternative_functions=list(_flag["alternatives"]),
+            ),
+            stacklevel=2,
+        )
+    elif not auto:
+        _model_info["near_unit_root"] = False
+
     _result = ARIMAResult(
         order=(int(order[0]), int(order[1]), int(order[2])),
         seasonal_order=(
@@ -1630,7 +1781,7 @@ def arima(
         _det=fit_.det,
         boxcox=_lam,
         biasadj=bool(biasadj),
-        model_info={"omitted": list(omitted_exog)},
+        model_info=_model_info,
     )
     if omitted_exog:
         # the layout exog= came in, for forecasts on new regressor values

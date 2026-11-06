@@ -21,6 +21,7 @@ from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from . import _mswitch_core as core
+from ._forecast_common import require_time_order
 
 __all__ = ["mswitch", "MarkovSwitchingResult"]
 
@@ -407,6 +408,7 @@ def _setup(
         ys = data[y]
     else:
         ys = y if isinstance(y, pd.Series) else pd.Series(np.asarray(y, dtype=float))
+    require_time_order(ys.index, fn="mswitch")
     yv = ys.to_numpy(dtype=float).ravel()
     n_all = len(yv)
     xv, xn = _columns(x, data, n_all, "x")

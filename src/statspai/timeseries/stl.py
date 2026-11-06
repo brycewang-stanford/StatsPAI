@@ -222,14 +222,16 @@ class DecompositionResult(ResultProtocolMixin):
         """Stacked panels: the series and each component."""
         import matplotlib.pyplot as plt
 
+        from ._forecast_common import time_axis
+
         frame = self.to_frame().drop(columns="seasonally_adjusted")
-        x = frame.index
-        if isinstance(x, pd.PeriodIndex):
-            x = x.to_timestamp()
+        x, _, xlabel = time_axis(frame.index, frame.shape[0])
         fig, axes = plt.subplots(frame.shape[1], 1, figsize=figsize, sharex=True)
-        for ax, col in zip(np.atleast_1d(axes), frame.columns):
+        panels = np.atleast_1d(axes)
+        for ax, col in zip(panels, frame.columns):
             ax.plot(x, frame[col].to_numpy(), color="black", linewidth=0.9)
             ax.set_ylabel(col)
+        panels[-1].set_xlabel(xlabel)
         return fig
 
 

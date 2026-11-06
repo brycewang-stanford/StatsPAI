@@ -22,6 +22,7 @@ from scipy import special, stats
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 
 __all__ = [
     "periodogram",
@@ -41,8 +42,11 @@ def _series(data: ArrayLike, y: Optional[str], who: str) -> np.ndarray:
                 recovery_hint=f"Pass the name of the series, e.g. sp.{who}(df, 'x').",
             )
         check_columns(data, {"y": y}, function=f"sp.{who}")
+        require_time_order(data.index, fn=who)
         x = data[y].to_numpy(dtype=float, na_value=np.nan)
     else:
+        if isinstance(data, pd.Series):
+            require_time_order(data.index, fn=who)
         x = np.asarray(data, dtype=float).ravel()
     observed = np.flatnonzero(~np.isnan(x))
     if observed.size == 0:

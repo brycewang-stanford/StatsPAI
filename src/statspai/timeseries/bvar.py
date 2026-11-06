@@ -31,6 +31,7 @@ import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
+from ._forecast_common import require_time_order
 
 
 @dataclass
@@ -239,6 +240,7 @@ def bvar(
     ----------
     [@litterman1986forecasting]
     """
+    require_time_order(data.index, fn="bvar")
     Y_raw = data.to_numpy(dtype=float)
     var_names = list(data.columns)
     T, K = Y_raw.shape

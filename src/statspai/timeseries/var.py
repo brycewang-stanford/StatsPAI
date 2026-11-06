@@ -27,6 +27,7 @@ from scipy import stats
 from .._result_serialize import ResultProtocolMixin
 from ..core._collinear import independent_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._forecast_common import require_time_order
 
 
 class VARResult(ResultProtocolMixin):
@@ -359,7 +360,12 @@ def _consecutive_rows(frame: pd.DataFrame, who: str) -> pd.DataFrame:
     strictly inside the sample is refused: lags and differences are taken
     between adjacent rows, so dropping it would pair the observations on
     either side of the gap as if they were consecutive.
+
+    A date or period index is checked first (``require_time_order``): out
+    of order, repeated dates and a skipped period of a regular series are
+    refused, for the same reason.
     """
+    require_time_order(frame.index, fn=who)
     ok = frame.notna().all(axis=1).to_numpy()
     if not ok.any():
         raise DataInsufficient(
@@ -392,7 +398,9 @@ def _consecutive_rows(frame: pd.DataFrame, who: str) -> pd.DataFrame:
 def _refuse_repeated_dates(col: pd.Series, time: str, who: str) -> None:
     """Refuse a ``time=`` column in which a value occurs more than once:
     one series has one observation per date, and a sort cannot order the
-    rows that share one."""
+    rows that share one. Dates (or periods) that skip a period of a
+    monthly, quarterly, annual or weekly series are refused as well
+    (``require_time_order``)."""
     repeated = col.duplicated(keep=False)
     if repeated.any():
         first = col[repeated].iloc[0]
@@ -404,6 +412,9 @@ def _refuse_repeated_dates(col: pd.Series, time: str, who: str) -> None:
             "unit separately.",
             diagnostics={"n_repeated_rows": int(repeated.sum())},
         )
+    # the rows are about to be sorted on this column: its dates must not
+    # skip a period of a regular series either
+    require_time_order(pd.Index(col.dropna()).sort_values(), fn=who)
 
 
 def _require_independent_series(

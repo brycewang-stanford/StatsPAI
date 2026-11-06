@@ -569,6 +569,10 @@ def dlm(
 
         _refuse_repeated_dates(data[time], time, "dlm")
         work = data.sort_values(time, kind="stable")
+    else:
+        from ._forecast_common import require_time_order
+
+        require_time_order(data.index, fn="dlm")
     y_df, X_df = create_design_matrices(formula, work)
     if len(X_df) < len(work):
         raise MethodIncompatibility(
