@@ -86,6 +86,12 @@ warn. Clean data give the same numbers as before.
   pyfixest's `ValueError` / `ZeroDivisionError`) on zero rows, no
   complete row, or no residual degrees of freedom. Code that caught
   `ValueError` still catches it.
+- ⚠️ **`sp.synth` with a missing treated outcome raises** (any method).
+  Fill or drop the periods first. A donor with a missing outcome in any
+  period is dropped with a warning (classic SCM used to keep donors whose
+  gap was post-treatment, giving a NaN estimate). `sp.sdid` and
+  `sp.gsynth` refuse a donor with missing cells; drop it yourself or use
+  `method='mc'`.
 
 ---
 

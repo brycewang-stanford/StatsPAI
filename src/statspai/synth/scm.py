@@ -267,8 +267,21 @@ def synth(
         raise TypeError("synth() missing required argument: 'outcome' (alias 'y')")
     if unit is None or time is None:
         raise TypeError("synth() missing required arguments: 'unit' and 'time'")
+    from ._panel_checks import screen_synth_panel
+
+    # inf / a missing treated outcome is refused; donors with missing
+    # outcomes are dropped with a warning (or refused / kept, by method)
+    fit_data, panel_record = screen_synth_panel(
+        data,
+        outcome=outcome,
+        unit=unit,
+        time=time,
+        treated_unit=treated_unit,
+        method=method,
+        inference=inference,
+    )
     _result = _dispatch_synth_impl(
-        data=data,
+        data=fit_data,
         outcome=outcome,
         unit=unit,
         time=time,
@@ -283,6 +296,8 @@ def synth(
         treatment=treatment,
         **kwargs,
     )
+    if panel_record and isinstance(getattr(_result, "model_info", None), dict):
+        _result.model_info.update(panel_record)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -1547,6 +1562,18 @@ class SyntheticControl:
 
     def _prepare_matrices(self) -> None:
         """Pivot data into (T x J) outcome matrix and build predictor tables."""
+        from ._panel_checks import outcome_panel_gaps, warn_dropped_donors
+
+        # inf in the outcome, or a treated outcome missing in any period, is
+        # refused; donors with missing periods are reported for the drop below
+        donor_gaps = outcome_panel_gaps(
+            self.data,
+            outcome=self.outcome,
+            unit=self.unit,
+            time=self.time,
+            treated_units=[self.treated_unit],
+            function="sp.synth",
+        )
         pivot = self.data.pivot_table(
             index=self.time,
             columns=self.unit,
@@ -1590,14 +1617,29 @@ class SyntheticControl:
         self.donor_units = donor_cols
         self.Y_donors = pivot[donor_cols].values  # (T, J)
 
-        # Drop donors with any NaN in pre-period
-        pre_donors = self.Y_donors[self.pre_mask]
-        valid = ~np.any(np.isnan(pre_donors), axis=0)
+        # Drop donors with a missing outcome in any period, and say so. Only
+        # pre-period gaps used to count (silently); a post-period gap left a
+        # NaN synthetic path and a NaN estimate.
+        valid = ~np.any(np.isnan(self.Y_donors), axis=0)
         if valid.sum() == 0:
             raise DataInsufficient(
-                "No valid donor units (all have NaN in pre-period)",
-                recovery_hint="Add donor units with observed pre-treatment outcomes.",
+                "No valid donor units (every donor has a missing outcome in "
+                "some period)",
+                recovery_hint="Add donor units with fully observed outcomes.",
                 diagnostics={"n_donors": len(self.donor_units)},
+            )
+        self._dropped_donors: Dict[str, Any] = {}
+        if not valid.all():
+            dropped = {
+                u: int(donor_gaps.get(u, int(np.isnan(self.Y_donors[:, j]).sum())))
+                for j, u in enumerate(self.donor_units)
+                if not valid[j]
+            }
+            self._dropped_donors = warn_dropped_donors(
+                dropped,
+                function="sp.synth",
+                n_donors=len(self.donor_units),
+                stacklevel=5,
             )
         self.Y_donors = self.Y_donors[:, valid]
         self.donor_units = [
@@ -2140,7 +2182,11 @@ class SyntheticControl:
                 else "nested" if run_nested else "equal"
             ),
             "n_starts": solver_out["n_starts"],
-            "converged": solver_out["converged"],
+            # a non-finite loss is not a converged fit, whatever the
+            # optimiser's own flag says
+            "converged": (
+                solver_out["converged"] if np.isfinite(solver_out["loss"]) else False
+            ),
             "perfect_fit": self.perfect_fit,
             # None on the equal-V path (no predictor hull) or if the LP
             # check did not finish.
@@ -2163,6 +2209,7 @@ class SyntheticControl:
             "weight_hhi": round(hhi, 4),
             "effective_n_donors": round(n_effective, 2),
         }
+        model_info.update(getattr(self, "_dropped_donors", {}))
 
         if len(placebo_atts) > 0:
             model_info["placebo_atts"] = placebo_atts

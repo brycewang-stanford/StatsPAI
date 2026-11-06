@@ -54,6 +54,17 @@ of the 20 variants with the same API and return type.
 | `kernel` | RKHS / MMD matching | Nonlinear donor relationships. |
 | `kernel_ridge` | Kernel ridge regression | Nonlinear, unconstrained, regularised. |
 
+### Missing and non-finite outcomes
+
+Every method checks the outcome panel before it fits. An `inf` in the
+outcome, or a treated unit whose outcome is missing in any period, raises
+`DataInsufficient`: the weights are fitted to the treated unit's own
+pre-period path, so a gap there cannot be filled by the method. A donor
+with a missing period is dropped with an `AssumptionWarning` and listed in
+`result.model_info['dropped_donors']`. `method='sdid'` and `'gsynth'` need
+a balanced panel and refuse such a donor instead; `method='mc'` keeps it,
+since matrix completion is built for missing cells.
+
 ## Inference strategies
 
 | Strategy | Call | When |

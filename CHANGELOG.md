@@ -205,6 +205,24 @@ All notable changes to StatsPAI will be documented in this file.
   parameters. These now raise `DataInsufficient` with the message
   `sp.regress` gives, and a pyfixest `ZeroDivisionError` / `LinAlgError` /
   "collinear" failure is re-raised as a typed error naming the entry point.
+- ⚠️ **`sp.synth` on an incomplete or non-finite outcome panel.** One NaN in
+  the treated unit's pre-period outcome made the classic solver's loss NaN,
+  left the donor weights at equal 1/J with `converged=True` and moved the
+  estimate (3.72 to 13.38 on a 12-unit factor panel). A NaN in a donor
+  dropped the donor without a word, crashed `method='augmented'`,
+  `'gsynth'`, `'cluster'` and `'discos'`, or gave a NaN or wrong estimate
+  (`'sdid'`, `'penscm'`, `'kernel'`, `'kernel_ridge'`). For every method
+  behind `sp.synth`, a treated unit with a missing outcome in any period,
+  or `inf` in the outcome, now raises `DataInsufficient`. A donor with a
+  missing period is dropped with an `AssumptionWarning` and listed in
+  `model_info['dropped_donors']`; classic SCM used to drop only donors with
+  pre-period gaps, so a post-period gap gave a NaN estimate.
+  `sp.sdid` and `sp.gsynth` (also `method='sdid'` / `'gsynth'`) need a
+  balanced panel and refuse an incomplete donor, as R `synthdid` does;
+  `method='mc'` keeps it (matrix completion fills missing cells), and
+  `'bsts'` / `'discos'` keep their own missing-value handling. Classic SCM
+  also reports `converged=False` when the solver loss is not finite.
+  Complete panels give the same numbers as before.
 
 ## [1.42.1] — 2026-11-03
 

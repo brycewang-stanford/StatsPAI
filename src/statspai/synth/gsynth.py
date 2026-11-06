@@ -277,6 +277,28 @@ def gsynth(
 
     rng = np.random.default_rng(seed)
 
+    # --- Panel completeness: a missing cell used to crash the SVD
+    # ("did not converge") or return NaN; inf likewise ---
+    if (
+        outcome in data.columns
+        and unit in data.columns
+        and time in data.columns
+        and treated_unit in set(data[unit])
+    ):
+        from ._panel_checks import outcome_panel_gaps, refuse_donor_gaps
+
+        refuse_donor_gaps(
+            outcome_panel_gaps(
+                data,
+                outcome=outcome,
+                unit=unit,
+                time=time,
+                treated_units=[treated_unit],
+                function="sp.gsynth",
+            ),
+            function="sp.gsynth",
+        )
+
     # --- Build panel ---
     pivot = data.pivot_table(index=unit, columns=time, values=outcome)
     if treated_unit not in pivot.index:

@@ -308,6 +308,23 @@ def sdid(
     if not isinstance(treat_unit, (list, tuple, np.ndarray)):
         treat_unit = [treat_unit]
 
+    # --- Panel completeness: inf, or a missing outcome cell for any unit,
+    # used to give a NaN estimate with no warning (synthdid needs a
+    # balanced panel and refuses NA) ------------------------------------
+    from ._panel_checks import outcome_panel_gaps, refuse_donor_gaps
+
+    refuse_donor_gaps(
+        outcome_panel_gaps(
+            data,
+            outcome=y,
+            unit=unit,
+            time=time,
+            treated_units=treat_unit,
+            function="sp.sdid",
+        ),
+        function="sp.sdid",
+    )
+
     # --- Build panel matrix -------------------------------------------
     panel = data.pivot_table(
         index=unit,
