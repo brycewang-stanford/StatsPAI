@@ -344,6 +344,9 @@ Items 1, 2, 5 and 8 change what the package returns on some inputs. Under CLAUDE
 - #8 closed in 024d27ba1. Number-holding object columns are read as float64, int64 beyond 2**53 is flagged, constant GRF covariates are flagged (P9 was a constant-column effect, not a string one).
 - #10 closed in a2d4c3263. The 33 file-writing exporters append a missing suffix and refuse a mismatched one.
 - Follow-up test updates in 8eee6dbd0. Clean inputs are unchanged: all Track A and original-data modules reproduce their committed results within 1e-9.
+- #14 partly closed in 56ddc57dc. `src/statspai/_reference_seeds.py` maps existing `paper.bib` keys to 231 of the 404 certified / validated functions with an empty `reference`, each from repository evidence (docstring, source comment, module docstring or the entry's title). No bib entry was added. 173 remain because no entry in `paper.bib` fits; `scripts/help_coverage.py` holds that count as a ceiling (`CEILINGS["validated_without_reference"]`).
+- #15 closed in c1fb4f682. Life-cycle paragraph in README, README_CN and CONTRIBUTING; `docs/guides/glossary.md` (in the mkdocs nav, strict build passes); a CONTRIBUTING table for the slow, parity and download-gated tests.
+- #18 partly closed in 253266670. `scripts/error_taxonomy_audit.py --messages` lists messages raised word for word from two or more files: 135 messages at 396 sites before, 72 at 210 after about 160 sites were made to name their function and, where cheap, the value passed. `--check` holds 72 as a ceiling. The rest sit mostly in files on a Track A trace path, in Stata-translation code that mirrors Stata's wording, or in "matplotlib required" messages. G5.2b (a test per message) stays open.
 
 ## Limits of this audit
 
