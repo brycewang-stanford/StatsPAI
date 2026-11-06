@@ -57,6 +57,19 @@ def test_coverage_metric_not_below_frozen_floor(coverage, metric):
     )
 
 
+def test_validated_functions_without_reference_not_above_ceiling(coverage):
+    """Ratchet gate: certified / validated functions lacking a method
+    reference may only become fewer (rOpenSci G1.0)."""
+    got = coverage["validated_without_reference"]
+    ceiling = hc.CEILINGS["validated_without_reference"]
+    assert got["count"] == len(got["names"])
+    assert got["count"] <= ceiling, (
+        f"{got['count']} certified/validated functions have no reference "
+        f"(ceiling {ceiling}). Map a paper.bib key in "
+        f"src/statspai/_reference_seeds.py or the spec."
+    )
+
+
 def test_check_floors_passes_overall(coverage):
     """The aggregate --check gate (used by CI) reports no violations."""
     violations = hc.check_floors(coverage)

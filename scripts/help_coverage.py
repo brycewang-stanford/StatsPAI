@@ -19,6 +19,7 @@ Usage
     python scripts/help_coverage.py --json      # machine-readable
     python scripts/help_coverage.py --by-category   # per-category breakdown
     python scripts/help_coverage.py --check     # exit non-zero if below floors
+                                                # or above a ceiling
 """
 
 from __future__ import annotations
@@ -61,6 +62,18 @@ FLOORS: Dict[str, float] = {
     "agent_native_any": 26.0,
 }
 
+# Frozen ceilings (counts). The opposite ratchet: these may only go down.
+# ``validated_without_reference`` counts registered functions whose
+# ``validation_status`` is ``certified`` or ``validated`` but whose registry
+# ``reference`` is empty, so a reviewer cannot see the method source of a
+# function the package calls validated (rOpenSci G1.0). 404 on 2026-11-05;
+# 173 after ``statspai/_reference_seeds.py`` mapped existing paper.bib keys
+# (2026-11-06). Lower it when you add references; never raise it without a
+# recorded reason.
+CEILINGS: Dict[str, int] = {
+    "validated_without_reference": 173,
+}
+
 
 def _import_statspai() -> Any:
     import statspai as sp  # local import keeps --help fast and import errors scoped
@@ -76,7 +89,8 @@ def compute_coverage() -> Dict[str, Any]:
     dict
         ``{"total", "docstring", "parameters", "returns", "examples",
         "references", "agent_native_any", <agent fields...>, "missing_docstring",
-        "by_category"}``. The metric keys map to ``{"count", "pct"}`` dicts.
+        "validated_without_reference", "by_category"}``. The metric keys
+        map to ``{"count", "pct"}`` dicts.
     """
     sp = _import_statspai()
     names = sp.list_functions()
@@ -143,6 +157,7 @@ def compute_coverage() -> Dict[str, Any]:
         out[f] = {"count": agent_counts[f], "pct": pct(agent_counts[f])}
     out["agent_native_any"] = {"count": agent_any, "pct": pct(agent_any)}
     out["missing_docstring"] = sorted(missing_doc)
+    out["validated_without_reference"] = _validated_without_reference()
 
     by_category = {}
     for cat, n in sorted(by_cat_total.items(), key=lambda kv: -kv[1]):
@@ -154,6 +169,20 @@ def compute_coverage() -> Dict[str, Any]:
         }
     out["by_category"] = by_category
     return out
+
+
+def _validated_without_reference() -> Dict[str, Any]:
+    """Certified / validated registered functions with an empty ``reference``."""
+    from statspai import registry as _reg
+
+    _reg._ensure_full_registry()
+    names = sorted(
+        name
+        for name, spec in _reg._REGISTRY.items()
+        if spec.validation_status in ("certified", "validated")
+        and not (spec.reference or "").strip()
+    )
+    return {"count": len(names), "names": names}
 
 
 def _print_human(cov: Dict[str, Any]) -> None:
@@ -175,6 +204,10 @@ def _print_human(cov: Dict[str, Any]) -> None:
         if floor is not None:
             flag = "  OK" if c["pct"] >= floor else f"  BELOW FLOOR {floor}%"
         print(f"  {label:<32} {c['count']:>5} / {total}  ({c['pct']:>5.1f}%){flag}")
+    vwr = cov["validated_without_reference"]["count"]
+    ceiling = CEILINGS["validated_without_reference"]
+    flag = "  OK" if vwr <= ceiling else f"  ABOVE CEILING {ceiling}"
+    print(f"  {'certified/validated, no reference':<32} {vwr:>5}{flag}")
     print("-" * 64)
     print("  Agent-native fields:")
     for f in _AGENT_FIELDS:
@@ -206,6 +239,14 @@ def check_floors(cov: Dict[str, Any]) -> List[str]:
             violations.append(
                 f"{key}: {pct:.1f}% is below floor {floor:.1f}% "
                 f"({cov[key]['count']}/{cov['total']})"
+            )
+    for key, ceiling in CEILINGS.items():
+        count = cov[key]["count"]
+        if count > ceiling:
+            violations.append(
+                f"{key}: {count} is above ceiling {ceiling} "
+                "(give each new one a paper.bib key, see "
+                "src/statspai/_reference_seeds.py)"
             )
     if cov["missing_docstring"]:
         violations.append("missing docstrings: " + ", ".join(cov["missing_docstring"]))

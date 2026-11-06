@@ -44365,6 +44365,24 @@ def _apply_agent_card_seeds() -> None:
     _AGENT_CARD_SEEDS_APPLIED = True
 
 
+def _apply_reference_seeds() -> None:
+    """Fill an empty ``reference`` from :mod:`statspai._reference_seeds`.
+
+    The seeds are ``paper.bib`` keys mapped to functions from evidence in
+    the repository (see that module's docstring); a reference already set
+    by a hand-written spec, a card seed or a baseline card is kept.
+    """
+    from ._reference_seeds import REFERENCE_SEEDS
+
+    for _name, _keys in REFERENCE_SEEDS.items():
+        _spec = _REGISTRY.get(_name)
+        if _spec is None or _spec.reference:
+            continue
+        _snapshot_hand_written(_spec)
+        _record_scalar_source(_spec, ["reference"], "curated")
+        _spec.reference = _keys
+
+
 def _apply_baseline_cards() -> None:
     """Fill empty Tier-B fields from the auto-generated baseline cards.
 
@@ -44384,6 +44402,7 @@ def _apply_baseline_cards() -> None:
         from . import _baseline_cards as _bc
     except ImportError:
         # Module hasn't been generated yet — that's fine, just skip.
+        _apply_reference_seeds()
         _BASELINE_CARDS_APPLIED = True
         return
     for _name, _enrich in getattr(_bc, "BASELINE_CARDS", {}).items():
@@ -44401,6 +44420,7 @@ def _apply_baseline_cards() -> None:
             "baseline",
         )
     _bc.apply(_REGISTRY)
+    _apply_reference_seeds()
     _BASELINE_CARDS_APPLIED = True
 
 
