@@ -2,7 +2,25 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.43.0] — 2026-11-06
+
+A correctness and evidence release. It does four things:
+
+- Every registered estimator now carries numerical evidence. 576 of the
+  1,009 estimators (57.1%) match an R / Stata / author implementation on
+  the same data; at 1.42.1 the figures were 985 and 508.
+- An audit against the rOpenSci statistical software standards
+  (`docs/dev/2026-11-05-ropensci-standards-audit.md`) drove a shared input
+  layer: one `missing=` option, refusal of `inf`, unordered ordinal
+  outcomes, missing treated outcomes in synthetic control and single
+  clusters, and an edge-case contract over the core estimators.
+- The removals and the `power_two_proportions` default announced for 1.43
+  take effect.
+- `docs/scorecard.md` reports correctness, calibration, speed and the
+  remaining gaps from committed artifacts.
+
+The ⚠️ entries change numbers. See MIGRATION.md, the "1.42 → 1.43"
+sections.
 
 ### Deprecated (default announced for 1.44)
 

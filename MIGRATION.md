@@ -47,7 +47,7 @@ unknown keyword.
 
 ---
 
-## 1.42.1 → next: ⚠️ Crump trimming cutoff with several roots
+## 1.42 → 1.43: ⚠️ Crump trimming cutoff with several roots
 
 `sp.trimming(method='crump')` and `sp.propensity_score(trimming='crump')`
 solve `gamma = 2 mean(g | g <= gamma)` for the cutoff. When that equation
@@ -62,7 +62,7 @@ on your propensity scores.
 
 ---
 
-## 1.42 → next: ⚠️ `sp.event_study` with collinear covariates
+## 1.42 → 1.43: ⚠️ `sp.event_study` with collinear covariates
 
 - A covariate that is a linear combination of the others (or of the unit
   and period effects) is now omitted with a note before the fit. On Linux
@@ -73,7 +73,7 @@ on your propensity scores.
 
 ---
 
-## 1.42 → next: ⚠️ target-trial weights and SEs, conformal quantiles
+## 1.42 → 1.43: ⚠️ target-trial weights and SEs, conformal quantiles
 
 - `sp.target_trial_emulate`: the SE changes only when you pass `weights=`.
   It is larger whenever the weights average above 1 within an arm. There
@@ -100,7 +100,7 @@ on your propensity scores.
 
 ---
 
-## 1.42.1 → next: `sp.event_study_vcov` default announced for 1.44
+## 1.42 → 1.43: `sp.event_study_vcov` default announced for 1.44
 
 Nothing changes numerically. `sp.event_study_vcov(result)` on a fit with
 per-horizon SEs but no joint covariance still returns `diag(se**2)`
@@ -117,7 +117,7 @@ per-horizon SEs but no joint covariance still returns `diag(se**2)`
 
 ---
 
-## 1.42.1 → next: ⚠️ `sp.bacon_decomposition` refuses an absorbed treatment
+## 1.42 → 1.43: ⚠️ `sp.bacon_decomposition` refuses an absorbed treatment
 
 A treatment column that the unit and period effects absorb (constant
 within every unit, such as an ever-treated indicator, or a single adoption
@@ -130,7 +130,7 @@ There is no option to restore the zero.
 
 ---
 
-## 1.42 → next: ⚠️ probit propensity scores run to the maximum
+## 1.42 → 1.43: ⚠️ probit propensity scores run to the maximum
 
 - `sp.propensity_score(method='probit')`, and the `method='probit'` /
   `ps_method='probit'` paths of `sp.trimming`, `sp.ps_balance` and
@@ -143,7 +143,7 @@ There is no option to restore the zero.
 
 ---
 
-## 1.42 → next: ⚠️ two corrections in regression commands
+## 1.42 → 1.43: ⚠️ two corrections in regression commands
 
 **⚠️ correctness fix: `sp.iv_wild_bootstrap` with two or more endogenous
 regressors.** The WRE bootstrap re-estimates the restricted model under the
@@ -164,7 +164,7 @@ the weights rescaled to sum to n. Multiply an old value by
 
 ---
 
-## 1.42 → next: ⚠️ shared input checks and `missing=` on the core estimators
+## 1.42 → 1.43: ⚠️ shared input checks and `missing=` on the core estimators
 
 The 25 core estimators (`regress` ... `aipw`, list in
 `docs/guides/missing_values.md`) gain `missing="drop" | "raise"`. The
@@ -198,7 +198,7 @@ Inputs that used to give a wrong number now raise or warn.
 
 ---
 
-## 1.42 → next: ⚠️ input hygiene (rOpenSci standards audit)
+## 1.42 → 1.43: ⚠️ input hygiene (rOpenSci standards audit)
 
 Inputs that used to give a wrong number without a signal now raise or
 warn. Clean data give the same numbers as before.

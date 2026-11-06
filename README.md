@@ -776,12 +776,12 @@ release; `sp.list_functions(validation_status=...)` gives the live numbers):
 
 | `validation_status` | Meaning | Functions |
 | --- | --- | ---: |
-| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 507 |
-| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 495 |
-| `api_stable` | stable public interface; unit tests exist, but **no numerical-validation claim** | 674 |
+| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 575 |
+| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 450 |
+| `api_stable` | stable public interface; unit tests exist, but **no numerical-validation claim** | 651 |
 | `experimental` | method or API may still change | 4 |
 
-In other words, 1,002 of the 1,680 registered functions carry numerical
+In other words, 1,025 of the 1,680 registered functions carry numerical
 evidence. Breadth is not the same as validation; check the tier of the
 functions you depend on.
 
