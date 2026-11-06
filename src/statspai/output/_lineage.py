@@ -687,16 +687,22 @@ def _referenced_columns(params: Optional[Mapping[str, Any]], columns: Any) -> Li
         if isinstance(name, str) and name in cols and name not in found:
             found.append(name)
 
+    def add_text(value: str) -> None:
+        if value in cols:
+            add(value)
+        elif "~" in value:
+            for token in re.findall(r"[A-Za-z_][A-Za-z0-9_.]*", value):
+                add(token)
+
     for value in (params or {}).values():
         if isinstance(value, str):
-            if value in cols:
-                add(value)
-            elif "~" in value:
-                for token in re.findall(r"[A-Za-z_][A-Za-z0-9_.]*", value):
-                    add(token)
+            add_text(value)
         elif isinstance(value, (list, tuple)):
+            # column lists, and the equation lists of system estimators
+            # (``formulas=["y1 ~ x", "y2 ~ z"]``)
             for item in value:
-                add(item)
+                if isinstance(item, str):
+                    add_text(item)
     return found
 
 

@@ -153,20 +153,33 @@ class NormalExpSigmaModel(M.NormalModel):
         )
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         out = np.empty((n_iter, self.k + 1))
-        beta = self._ols()
-        s2 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
-        if jitter:
-            cov = s2 * np.linalg.pinv(self.XtX)
-            beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        if start is not None:
+            beta = np.array(start[: self.k], dtype=float)
+            s2 = float(start[-1])
+        else:
+            beta = self._ols()
+            s2 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
+            if jitter:
+                cov = s2 * np.linalg.pinv(self.XtX)
+                beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        # From the default start the first proposal is taken as it is (the
+        # OLS variance is only a guess); a given start is a state of the
+        # chain, so every step, the first included, is a Metropolis step.
+        forced_first = start is None
+        first = np.append(beta, np.nan if forced_first else s2)
         shape = (self.n - 1.0) / 2.0
         accepted = 0
         for it in range(n_iter):
             proposal = rinvgamma(rng, shape, self._ssr(beta) / 2.0)
             log_ratio = -self.rate * (np.sqrt(proposal) - np.sqrt(s2))
-            if it == 0 or np.log(rng.uniform()) < log_ratio:
+            if (forced_first and it == 0) or np.log(rng.uniform()) < log_ratio:
                 s2 = proposal
                 accepted += 1
             beta, _ = rmvnorm_prec(
@@ -178,6 +191,8 @@ class NormalExpSigmaModel(M.NormalModel):
             "draws": out,
             "accept": None,
             "extras": {"sigma_accept": accepted / n_iter},
+            "start": first,
+            "state": out[-1].copy(),
         }
 
 

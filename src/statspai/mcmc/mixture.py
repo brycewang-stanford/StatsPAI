@@ -240,6 +240,9 @@ def bayes_mixture(
     formula : str
         ``"y ~ 1"`` or ``"y ~ x1 + x2"``.
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     components : int or 'dp', default 2
         Number of components, or ``'dp'`` for a Dirichlet process mixture
         in which the number of occupied components is inferred.

@@ -269,6 +269,9 @@ def bayes_arima(
     y : array, Series or str
         The series, or a column name of ``data``.
     data : DataFrame, optional
+        Missing or infinite values in the series are refused
+        (``MethodIncompatibility``); a gap in a time series is not a row that
+        can be skipped, so remove or fill them first.
     order : (p, d, q), default (1, 0, 0)
     constant : bool, optional
         Include a constant: the mean of the series when ``d = 0``, the

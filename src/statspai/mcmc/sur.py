@@ -71,7 +71,10 @@ def bayes_sur(
         The same regressors in every equation give the multivariate
         regression model.
     data : DataFrame
-        Rows with a missing value in any equation are dropped from all.
+        Rows with a missing value in any equation are dropped from all
+        equations before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     prior_mean, prior_var
         Normal prior of the stacked coefficients (equation by equation,
         in the order of ``formulas``): scalars, a vector or a matrix.

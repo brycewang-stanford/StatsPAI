@@ -120,6 +120,43 @@ interval and the posterior probability that the parameter is positive.
 `burnin + draws * thin` iterations. `chains=4` starts four chains from
 dispersed values and adds the Gelman-Rubin factor to `fit.diagnostics()`.
 
+Rows with a missing value in the outcome or a formula variable are dropped
+before fitting, with an `AssumptionWarning` that counts them. The
+time-series samplers `sp.bayes_arima` and `sp.stochvol` refuse missing
+values instead.
+
+## Starting, continuing and watching a chain
+
+```python
+fit = sp.bayes_regress("y ~ x", df, chains=2, draws=5000, seed=1,
+                       inits=[{"Intercept": 0, "x": 0, "sigma2": 1},
+                              {"Intercept": 5, "x": -5, "sigma2": 10}],
+                       keep_burnin=True, verbose=True)
+fit.inits                    # the starting state of each chain
+fit.plot(kind="trace")       # burn-in shaded, kept draws after the line
+more = sp.bayes_regress("y ~ x", df, draws=5000, continue_from=fit)
+```
+
+`inits=` takes one dict for every chain, one dict per chain or an array,
+on the scale of `fit.params`. The Gibbs normal model draws `sigma2` first,
+so its starting `sigma2` is not used, and `fit.inits` shows it as NaN.
+
+`continue_from=` resumes each chain from its last state with its own
+random-number generator, with no new burn-in, and returns the earlier
+draws followed by the new ones. For the Gibbs samplers (normal, t, probit,
+tobit, quantile, oprobit) the result is draw for draw the run one would
+have got by asking for all the draws at once with the same seed. The
+Metropolis samplers (logit, poisson, negbin, ologit, mlogit) draw all of
+a run's proposals in one block, so a continued chain is the same Markov
+chain from the same state, and reproducible, but its draws are not those
+of the single longer run. `fit.model_info["continued"]["exact"]` says
+which case applies.
+
+`verbose=True` prints a line as each chain starts and ends. It is off by
+default: the result already reports the same numbers, and agents and
+notebooks read standard output. Convergence warnings are raised either
+way.
+
 ## Priors
 
 Coefficients have a normal prior, `prior_mean` and `prior_var`. The

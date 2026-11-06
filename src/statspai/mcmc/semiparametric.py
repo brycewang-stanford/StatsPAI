@@ -403,6 +403,9 @@ def semiparametric_bayes(
         ``"y ~ x1 + x2"``. The outcome and the linear index (or, for
         ``model='custom'``, the design ``X`` handed to your callables).
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     model : {'student_t', 'weibull', 'custom'}
         ``'student_t'``: ``y = x'b + sigma t_nu``, embedded in the linear
         model with ``E[e | x] = 0`` and homoskedastic errors (efficient

@@ -620,6 +620,9 @@ def bart(
         column of the design matrix at a time; do not add polynomial or
         interaction terms.
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     family : {'gaussian', 'binary'}, default 'gaussian'
         ``'binary'`` is a probit link for a 0/1 outcome.
     n_trees : int, default 200

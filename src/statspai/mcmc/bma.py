@@ -595,6 +595,10 @@ def bma(
         is always included. The columns of a categorical term enter or
         leave together.
     data : DataFrame
+        Rows with a missing value in the outcome or in any candidate regressor
+        are dropped before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     family : {'gaussian', 'binomial', 'poisson', 'gamma'}
     method : {'bic', 'gprior'}
         ``'bic'``: posterior model probabilities proportional to

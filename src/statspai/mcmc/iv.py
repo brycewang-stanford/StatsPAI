@@ -120,6 +120,10 @@ def bayes_ivreg(
         one endogenous regressor ``d`` and its excluded instruments in
         parentheses.
     data : DataFrame
+        Rows with a missing value in the outcome, a regressor or an instrument
+        are dropped before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     prior_mean, prior_var
         Normal prior of the structural coefficients, in the order
         exogenous terms then the endogenous regressor (scalar, vector or

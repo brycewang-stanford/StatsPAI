@@ -61,6 +61,10 @@ def bayes_bootstrap(
         ``'y ~ x1 + x2'``: weighted least squares coefficients are the
         statistic.
     data : DataFrame
+        With a formula, rows with a missing value in one of its variables are
+        dropped (listwise deletion), with an ``AssumptionWarning`` that counts
+        them. With ``statistic=`` the rows are passed as given, and missing
+        values are the statistic's to handle.
     statistic : callable, optional
         Instead of a formula, ``statistic(data, weights)`` returning a
         number, a sequence or a ``dict`` / ``Series`` of named values.

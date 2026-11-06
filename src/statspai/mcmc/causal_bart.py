@@ -266,6 +266,10 @@ def bart_causal(
     Parameters
     ----------
     data : pd.DataFrame
+        Rows with a missing value in the outcome, the treatment or a covariate
+        are dropped before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     y : str
         Continuous outcome.
     treat : str

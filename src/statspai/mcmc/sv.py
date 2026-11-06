@@ -199,6 +199,9 @@ def stochvol(
     y : array, Series or str
         Returns (not prices), or a column name of ``data``.
     data : DataFrame, optional
+        Missing or infinite values in the series are refused
+        (``MethodIncompatibility``); a gap in a time series is not a row that
+        can be skipped, so remove or fill them first.
     demean : bool, default True
         Subtract the sample mean first.
     mu_prior : (mean, variance), default (0, 100)

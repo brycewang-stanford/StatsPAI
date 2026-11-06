@@ -46,6 +46,63 @@ All notable changes to StatsPAI will be documented in this file.
   within 1e-6 of each of our four edges. Its default grid cuts the second
   piece at 1.664, where its p-value is still 0.063.
 
+### Added (results and MCMC, rOpenSci standards audit)
+
+- **Fitted values and residuals on the rows they belong to** (audit gap
+  9). `residuals(as_series=True)` and `fitted_values(as_series=True)`
+  return a `pd.Series` indexed by the labels of the rows the fit used
+  (dates for a date-indexed frame), so they line up with the data after
+  listwise deletion. The new `result.sample_index` holds those labels.
+  This covers `sp.regress`, `sp.ivreg`, `sp.logit`, `sp.probit`,
+  `sp.poisson`, `sp.nbreg`, `sp.glm`, `sp.feols` / `sp.fepois` /
+  `sp.feglm` (native engine), `sp.qreg`, `sp.tobit` and `sp.panel`
+  (fe, re, pooled, twoway, fd). Without the flag both still return the
+  stored array, since package code and user code index it by position.
+  `sp.qreg` and `sp.tobit` now store fitted values (`x'b`) and residuals
+  at all; native `sp.feols` IV fits now store fitted values.
+- **Formula and convergence on every regression result** (audit gap 9).
+  `model_info['formula']` now holds the formula as written for
+  `sp.regress`, `sp.ivreg`, `sp.qreg`, `sp.tobit` and `sp.panel`.
+  `model_info['converged']` and `model_info['n_iter']` are set by
+  `sp.logit` / `sp.probit` (which had only `n_iter`), `sp.gee`,
+  `sp.panel_fgls` and `sp.xtregar`; `n_iter` joins the older
+  `iterations` key of `sp.poisson`, `sp.nbreg`, `sp.ologit`,
+  `sp.oprobit`, `sp.mlogit` and the native `sp.fepois` / `sp.feglm`, and
+  `sp.tobit` gains it. `sp.panel_fgls(igls=True)` that stops at `maxiter`
+  now raises a `ConvergenceWarning` (it said nothing before).
+- **`regress(...).plot(type="fitted")`** (audit gap 17) draws the
+  observed values with the fitted values and a pointwise confidence
+  (`interval='confidence'`) or prediction (`'prediction'`) band from
+  `predict`. Observations are ordered by fitted value, or by date. The
+  coefficient plot stays the default.
+- **`sp.bayes_regress(inits=, continue_from=, verbose=, keep_burnin=)`**
+  (audit gap 11). `inits` sets each chain's starting values and
+  `result.inits` records the starting state. `continue_from=<result>`
+  extends the chains from their last state and generator with no new
+  burn-in. For the Gibbs samplers (normal, t, probit, tobit, quantile,
+  oprobit) 500 draws continued by 500 equal one run of 1,000 with the
+  same seed, draw for draw. The Metropolis samplers (logit, poisson,
+  negbin, ologit, mlogit) draw a run's proposals in one block, so their
+  continuation is reproducible and keeps the earlier draws but is not
+  the longer run's draws. `verbose=True` prints a line per chain;
+  warnings are unaffected. `keep_burnin=True` keeps the burn-in in
+  `result.burnin_draws`, and the trace plot shades it. Fits without
+  these arguments give the same draws as before.
+- **A scaling test for `sp.bayes_regress`** (audit gap 19, BS7.3): the CPU
+  time of a fit grows no faster than `n ** 1.3` from n = 2,000 to
+  32,000 (`tests/test_bayes_regress_scaling.py`, marked slow).
+
+### Fixed (results and MCMC)
+
+- `sp.bayes_sur` and `sp.bayes_mvprobit` dropped rows with a missing
+  value in one of their equations without the listwise-deletion
+  `AssumptionWarning` the other samplers give. The note did not read the
+  variables of a list of formulas. It does now, for every estimator that
+  takes one. Numbers are unchanged.
+- Every `statspai.mcmc` sampler docstring states its missing-value rule
+  (audit gap 6): listwise deletion with a warning, or a refusal for the
+  time-series samplers `sp.bayes_arima` and `sp.stochvol`.
+
 ### Changed
 
 - **Method references on 231 more certified / validated functions.**

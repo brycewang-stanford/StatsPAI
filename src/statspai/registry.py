@@ -20037,6 +20037,43 @@ def _build_registry() -> None:
                     "'vb': mean-field variational Bayes (model='normal')",
                     ["mcmc", "vb"],
                 ),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values on the scale of result.params: a dict "
+                    "{parameter: value} for every chain, a list of dicts (one "
+                    "per chain) or an array (n_par,) / (chains, n_par). "
+                    "result.inits records each chain's starting state",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier fit of the same formula, data, model "
+                    "and prior by draws= more draws per chain, from each "
+                    "chain's last state and generator, no new burn-in. Equal "
+                    "to one longer run for the Gibbs samplers; reproducible "
+                    "but not equal for the Metropolis ones",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; "
+                    "warnings are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; "
+                    "plot(kind='trace') then marks them",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_regress("y ~ x1 + x2", df, model="probit", seed=1)',

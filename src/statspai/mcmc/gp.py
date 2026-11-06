@@ -284,6 +284,9 @@ def gp_regress(
         ``"y ~ x1 + x2"``. The regressors enter the kernel; the intercept
         of the formula is the constant mean of the process.
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     kernel : {'rbf', 'matern52', 'matern32'}, default 'rbf'
         ``'rbf'`` (squared exponential) gives infinitely smooth functions,
         the Matern kernels rougher ones.

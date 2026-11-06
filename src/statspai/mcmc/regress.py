@@ -13,6 +13,7 @@ causal designs (DiD, RD, IV, ...) with PyMC see :mod:`statspai.bayes`.
 from __future__ import annotations
 
 import re
+import time
 import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -33,6 +34,13 @@ from ..exceptions import (
 from ..output._lineage import records_provenance
 from . import _models as M
 from . import _workflow as W
+from ._chains import (
+    Progress,
+    check_continuation,
+    model_fingerprint,
+    resolve_inits,
+    restore_generator,
+)
 from ._core import (
     check_mcmc_args,
     drops_intercept,
@@ -531,6 +539,16 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
     n_obs : int
     level : float
         Mass of the credible interval in ``table``.
+    inits : pd.DataFrame or None
+        The starting state of each chain (one row per chain), as passed in
+        ``inits=`` or chosen by the sampler. NaN marks a parameter the
+        first step draws from its full conditional before using it (the
+        variance of the Gibbs normal model). ``None`` for the closed-form
+        and variational fits.
+    burnin_draws : pd.DataFrame or None
+        The burn-in iterations, chains stacked, when the fit was called
+        with ``keep_burnin=True``; ``burnin_chain`` labels their rows.
+        ``plot(kind='trace')`` then shows them before the kept draws.
 
     Examples
     --------
@@ -574,6 +592,14 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
     _call: Dict[str, Any] = field(default_factory=dict, repr=False)
     _offset: Any = field(default=None, repr=False)
     _trials: Any = field(default=None, repr=False)
+    inits: Optional[pd.DataFrame] = field(default=None, repr=False)
+    burnin_draws: Optional[pd.DataFrame] = field(default=None, repr=False)
+    burnin_chain: Optional[np.ndarray] = field(default=None, repr=False)
+    #: per chain, the generator state and sampler state after the last
+    #: iteration (``continue_from=``)
+    _chain_state: Optional[List[Dict[str, Any]]] = field(default=None, repr=False)
+    _chain_key: Optional[str] = field(default=None, repr=False)
+    _seed: Any = field(default=None, repr=False)
 
     #: every paper a model of this family rests on; an instance carries
     #: only the ones of its fitted model (``__post_init__``)
@@ -971,6 +997,9 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
         params : list of str, optional
             Parameters to show; all by default (at most 12).
         kind : {'trace', 'density', 'acf'}
+            ``'trace'`` draws each chain against its iteration number. A
+            fit with ``keep_burnin=True`` shows the burn-in in a shaded
+            band before a dashed line, the kept draws after it.
         """
         import matplotlib.pyplot as plt
 
@@ -987,12 +1016,30 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
         fig, axes = plt.subplots(
             len(cols), ncol, figsize=(5.0 * ncol, 2.2 * len(cols)), squeeze=False
         )
+        burn = self.burnin_draws
         for i, c in enumerate(cols):
             if kind == "trace":
                 for ch in range(self.chains):
                     x = self.draws.loc[self.chain == ch, c].to_numpy()
-                    axes[i, 0].plot(x, lw=0.6)
+                    if burn is not None and self.burnin_chain is not None:
+                        # iteration numbers: burn-in first, then the kept
+                        # draws every ``thin`` iterations
+                        xb = burn.loc[self.burnin_chain == ch, c].to_numpy()
+                        it_kept = xb.size + self.thin * np.arange(x.size)
+                        line = axes[i, 0].plot(it_kept, x, lw=0.6)[0]
+                        axes[i, 0].plot(
+                            np.arange(xb.size),
+                            xb,
+                            lw=0.6,
+                            color=line.get_color(),
+                            alpha=0.35,
+                        )
+                    else:
+                        axes[i, 0].plot(x, lw=0.6)
                     axes[i, 1].hist(x, bins=40, density=True, alpha=0.6)
+                if burn is not None and self.burnin:
+                    axes[i, 0].axvline(self.burnin - 0.5, color="0.4", ls="--", lw=0.8)
+                    axes[i, 0].axvspan(-0.5, self.burnin - 0.5, color="0.9", zorder=0)
                 axes[i, 0].set_title(f"{c}: trace")
                 axes[i, 1].set_title(f"{c}: posterior")
             elif kind == "density":
@@ -1112,6 +1159,10 @@ def bayes_regress(
     offset: Any = None,
     exposure: Optional[str] = None,
     trials: Optional[str] = None,
+    inits: Any = None,
+    continue_from: Optional["BayesRegressResult"] = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian regression by MCMC.
 
@@ -1124,6 +1175,10 @@ def bayes_regress(
     formula : str
         ``'y ~ x1 + x2'``.
     data : DataFrame
+        Rows with a missing value in the outcome or in any variable of the
+        formula are dropped before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     model : str, default 'normal'
         ``'normal'``    Gaussian linear model, independent priors
         ``beta ~ N(b0, B0)``, ``sigma2 ~ IG(alpha0/2, delta0/2)``; Gibbs.
@@ -1244,6 +1299,39 @@ def bayes_regress(
         trials of each row, the outcome being the number of successes.
         ``posterior_epred`` is then the success probability and
         ``posterior_predict`` a number of successes.
+    inits : dict, list of dicts or array, optional
+        Starting values, on the scale of ``result.params`` (cutpoints of
+        the ordered models included). A dict ``{parameter: value}`` starts
+        every chain there; a list of dicts gives one per chain; an array
+        has shape ``(n_par,)`` or ``(chains, n_par)``. Every parameter
+        needs a value inside the support. Without it the chain starts at
+        the least-squares fit or the posterior mode, dispersed around it
+        when ``chains > 1``. The Gibbs normal model draws ``sigma2`` first,
+        so its starting ``sigma2`` is not used. ``result.inits`` records
+        the starting state of each chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier fit of the same formula, data,
+        model and prior by ``draws`` more draws each. Each chain resumes
+        from its last state and its own random-number generator, with no
+        new burn-in; ``chains`` and ``thin`` are those of that fit, and
+        the result holds the earlier draws followed by the new ones. For
+        the Gibbs and data-augmentation samplers (normal, t, probit,
+        tobit, quantile, oprobit) a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw. The Metropolis samplers (logit, poisson, negbin, ologit,
+        mlogit) draw a whole run's proposals at once, so their continued
+        draws are a valid continuation of the same chain, reproducible
+        from the earlier result, but not the draws of one longer run.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and ends
+        (iterations, time, acceptance rate). Warnings are not affected:
+        a ``ConvergenceWarning`` is raised whatever the setting. Off by
+        default, since the result already reports what the lines say and
+        agent and notebook callers read stdout.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` so that
+        ``plot(kind='trace')`` can show them. They are never used in the
+        summaries.
 
     Returns
     -------
@@ -1251,6 +1339,11 @@ def bayes_regress(
 
     Notes
     -----
+    Missing values: rows with a missing value in the outcome or in any
+    variable of the formula are dropped before fitting (listwise
+    deletion), and an ``AssumptionWarning`` says how many. ``result.n_obs``
+    is the number of rows used.
+
     Convergence is checked on every fit: a ``ConvergenceWarning`` is
     raised when the smallest effective sample size is below 100 or the
     split potential scale reduction factor exceeds 1.05.
@@ -1297,6 +1390,11 @@ def bayes_regress(
             f"Unknown model {model!r}. Available: {', '.join(M.MODELS)}."
         )
     check_mcmc_args(draws, burnin, thin, chains)
+    progress = Progress(verbose, "bayes_regress")
+    if not isinstance(keep_burnin, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"keep_burnin must be True or False; got {keep_burnin!r}."
+        )
     call = {
         "model": model,
         "prior_mean": prior_mean,
@@ -1517,6 +1615,18 @@ def bayes_regress(
         prior_info["kind"] = "weakly_informative"
     info: Dict[str, Any] = {}
 
+    if model_key == "conjugate" or inference == "vb":
+        if inits is not None or continue_from is not None or keep_burnin:
+            raise MethodIncompatibility(
+                "inits=, continue_from= and keep_burnin= are for Markov "
+                "chains; "
+                + (
+                    "model='conjugate' draws independently from the exact " "posterior."
+                    if model_key == "conjugate"
+                    else "inference='vb' draws from a fitted approximation."
+                ),
+                recovery_hint="Drop them, or raise draws= for more draws.",
+            )
     if model_key == "conjugate":
         conj = _ConjugateNormal(y, X, xnames, prior_mean, prior_var, a0, d0)
         if conj.an <= 4:
@@ -1664,15 +1774,62 @@ def bayes_regress(
         mdl.offset = offset_spec.values
         info["offset"] = offset_spec.label
 
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+    chain_key = model_fingerprint(mdl)
+    prev: Optional[BayesRegressResult] = None
+    if continue_from is not None:
+        stored = check_continuation(
+            continue_from,
+            mdl,
+            model_key,
+            chains=chains,
+            thin=thin,
+            burnin=burnin,
+            seed=seed,
+            inits=inits,
+        )
+        prev = continue_from
+        chains, thin, seed = prev.chains, prev.thin, prev._seed
+        rngs = [restore_generator(st["rng"]) for st in stored]
+        starts: List[Optional[np.ndarray]] = [
+            np.asarray(st["state"], dtype=float) for st in stored
+        ]
+        run_burnin = 0
+    else:
+        rngs = spawn_rngs(seed, chains)
+        starts = [None] * chains
+        if inits is not None:
+            starts = [
+                mdl.state_from(row)
+                for row in resolve_inits(inits, mdl.names, chains, mdl)
+            ]
+        run_burnin = burnin
+    n_iter = run_burnin + draws * thin
     pieces: List[np.ndarray] = []
+    burn_pieces: List[np.ndarray] = []
     accepts: List[float] = []
     extras: Dict[str, Any] = {}
+    rate_parts: Dict[str, List[float]] = {}
+    first_states: List[np.ndarray] = []
+    end_states: List[Dict[str, Any]] = []
     for c in range(chains):
-        out = mdl.sample(rngs[c], n_iter, jitter=chains > 1)
-        keep = slice(burnin, n_iter, thin)
+        progress.say(
+            f"chain {c + 1}/{chains}: {n_iter} iterations"
+            + (f" ({run_burnin} burn-in)" if run_burnin else "")
+            + (f", continuing from draw {prev.n_draws // chains}" if prev else "")
+        )
+        t0 = time.perf_counter()
+        out = mdl.sample(rngs[c], n_iter, jitter=chains > 1, start=starts[c])
+        keep = slice(run_burnin, n_iter, thin)
         pieces.append(out["draws"][keep])
+        if keep_burnin and run_burnin:
+            burn_pieces.append(out["draws"][:run_burnin])
+        first_states.append(np.asarray(out["start"], dtype=float))
+        end_states.append(
+            {
+                "rng": rngs[c].bit_generator.state,
+                "state": np.asarray(out["state"], dtype=float).copy(),
+            }
+        )
         if out["accept"] is not None:
             accepts.append(out["accept"])
         for key, val in out["extras"].items():
@@ -1680,10 +1837,35 @@ def bayes_regress(
                 extras.setdefault(key, []).append(val[keep])
             else:
                 extras[key] = val
-    arr = np.vstack(pieces)
+                if key.endswith("_accept"):
+                    rate_parts.setdefault(key, []).append(float(val))
+        progress.say(
+            f"chain {c + 1}/{chains} done in {time.perf_counter() - t0:.2f} s"
+            + (f", acceptance {out['accept']:.2f}" if out["accept"] is not None else "")
+        )
     for key, val in list(extras.items()):
         if isinstance(val, list):
+            if prev is not None and isinstance(prev._extras.get(key), np.ndarray):
+                old = prev._extras[key]
+                val = [np.vstack([old[prev.chain == c], val[c]]) for c in range(chains)]
             extras[key] = np.vstack(val)
+    if prev is not None:
+        # earlier draws first, chain by chain
+        pieces = [
+            np.vstack([prev.draws.to_numpy()[prev.chain == c], pieces[c]])
+            for c in range(chains)
+        ]
+        # rates over all iterations of both runs (n_prev before, n_iter now)
+        n_prev = prev.burnin + (prev.n_draws // chains) * thin
+        w_old, w_new = n_prev / (n_prev + n_iter), n_iter / (n_prev + n_iter)
+        if accepts and prev.acceptance_rate is not None:
+            accepts = [w_old * prev.acceptance_rate + w_new * float(np.mean(accepts))]
+        for key, rates in rate_parts.items():
+            old_rate = prev._extras.get(key)
+            if isinstance(old_rate, (float, np.floating)):
+                extras[key] = w_old * float(old_rate) + w_new * float(np.mean(rates))
+    draws_per_chain = pieces[0].shape[0]
+    arr = np.vstack(pieces)
     if not np.isfinite(arr).all():
         raise MethodIncompatibility(
             "The sampler produced non-finite draws. This usually means the "
@@ -1692,7 +1874,7 @@ def bayes_regress(
         )
     names = mdl.names
     d_df = pd.DataFrame(arr, columns=names)
-    chain_idx = np.repeat(np.arange(chains), draws)
+    chain_idx = np.repeat(np.arange(chains), draws_per_chain)
 
     summ = mcmc_summary(d_df, quantiles=())
     if chains > 1:
@@ -1736,8 +1918,8 @@ def bayes_regress(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
-        burnin=burnin,
+        n_draws=draws_per_chain * chains,
+        burnin=burnin if prev is None else prev.burnin,
         thin=thin,
         chains=chains,
         sampler=mdl.sampler,
@@ -1753,6 +1935,35 @@ def bayes_regress(
         _call=call,
         _offset=offset_spec,
         _trials=trials_spec,
+        inits=(
+            prev.inits
+            if prev is not None
+            else pd.DataFrame(np.vstack(first_states), columns=names)
+        ),
+        burnin_draws=(
+            pd.DataFrame(np.vstack(burn_pieces), columns=names)
+            if burn_pieces
+            else (prev.burnin_draws if prev is not None else None)
+        ),
+        burnin_chain=(
+            np.repeat(np.arange(chains), run_burnin)
+            if burn_pieces
+            else (prev.burnin_chain if prev is not None else None)
+        ),
+        _chain_state=end_states,
+        _chain_key=chain_key,
+        _seed=seed,
+    )
+    if prev is not None:
+        info["continued"] = {
+            "draws_before": prev.n_draws // chains,
+            "draws_added": draws,
+            "exact": bool(mdl.exact_continuation),
+        }
+    progress.say(
+        f"{chains} chain(s) x {draws_per_chain} draws; min ESS "
+        f"{diag_info['min_ess']:.0f}, max split R-hat "
+        f"{diag_info['max_split_rhat']:.3f}"
     )
 
     msgs = []

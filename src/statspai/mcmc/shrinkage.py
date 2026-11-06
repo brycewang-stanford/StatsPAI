@@ -176,6 +176,9 @@ def bayes_shrink(
     formula : str
         ``'y ~ x1 + x2 + ...'``; the intercept is kept and not shrunk.
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     prior : {'lasso', 'ssvs', 'horseshoe'}
         ``'lasso'``: ``beta_j | sigma ~ Laplace(0, sigma / lam)``.
         ``'ssvs'``: ``beta_j ~ (1 - g_j) N(0, spike^2) + g_j N(0, slab^2)``

@@ -272,6 +272,10 @@ def bayes_mvprobit(
         One formula per binary outcome, ``["y1 ~ x", "y2 ~ x + z"]``.
         Outcomes must be coded 0 and 1.
     data : DataFrame
+        Rows with a missing value in any equation are dropped from all
+        equations before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     prior_mean, prior_var : float or array, default 0 and 100
         Normal prior of the stacked coefficients on the unrestricted
         latent scale.
@@ -404,6 +408,9 @@ def bayes_mnprobit(
         ``"choice ~ x1 + x2"``. The regressors describe the decision
         maker; every non-base category gets its own coefficients.
     data : DataFrame
+        Rows with a missing value in the outcome or a regressor are dropped
+        before fitting (listwise deletion), with an ``AssumptionWarning`` that
+        counts them; ``n_obs`` on the result is the number of rows used.
     prior_mean, prior_var : float or array, default 0 and 100
         Normal prior of the stacked coefficients on the unrestricted
         latent scale.

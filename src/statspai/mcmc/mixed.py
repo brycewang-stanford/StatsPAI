@@ -451,6 +451,10 @@ def bayes_mixed(
     formula : str
         Fixed part, ``'y ~ x1 + x2'``.
     data : DataFrame
+        Rows with a missing value in the outcome, a regressor or the group
+        column are dropped before fitting (listwise deletion), with an
+        ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the
+        number of rows used.
     group : str
         Column identifying the groups (units of the panel).
     random : list of str, optional

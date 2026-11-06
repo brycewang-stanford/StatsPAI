@@ -5,7 +5,12 @@ Each model is a small class with the same four pieces:
 
 * ``names``            -- the reported parameters, in order;
 * ``sample``           -- its sampler (Gibbs, data augmentation or
-  random-walk Metropolis), returning draws of the reported parameters;
+  random-walk Metropolis), returning draws of the reported parameters.
+  ``start`` (on the model's ``state_scale``) replaces the default start;
+  the result's ``state`` is the state after the last iteration, from
+  which a run continues (``bayes_regress(continue_from=...)``), and
+  ``start`` the starting values on the reported scale (NaN for a
+  parameter the first step draws before using it);
 * ``to_u`` / ``log_kernel`` -- the reported parameters mapped to an
   unconstrained vector ``u`` and the log of likelihood x prior x Jacobian
   there. Mode finding, the Laplace and Gelfand-Dey marginal likelihoods
@@ -58,6 +63,13 @@ class _Model:
     sampler = ""
     #: marginal-likelihood methods the model supports beyond the generic ones
     has_chib = False
+    #: scale of the sampler's state (``'natural'``: the reported
+    #: parameters; ``'u'``: the unconstrained vector of ``to_u``)
+    state_scale = "natural"
+    #: True when each iteration draws its random numbers as it goes, so a
+    #: run continued from its last state and generator equals one longer
+    #: run; False for samplers that draw a whole run's proposals at once
+    exact_continuation = True
 
     def __init__(
         self,
@@ -126,9 +138,18 @@ class _Model:
         return self._mode, self._mode_cov
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         raise MethodIncompatibility(f"model='{self.name}' does not define this step.")
+
+    def state_from(self, theta: np.ndarray) -> np.ndarray:
+        """Sampler state for starting values on the reported scale."""
+        theta = np.asarray(theta, dtype=float)
+        return self.to_u(theta) if self.state_scale == "u" else theta.copy()
 
     def linear_predictor(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
         return np.asarray(draws[:, : self.k] @ X.T)
@@ -213,14 +234,23 @@ class NormalModel(_Model):
         return linalg.cho_solve((chol, True), rhs, check_finite=False), prec
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         out = np.empty((n_iter, self.k + 1))
-        beta = self._ols()
-        if jitter:
-            s2_0 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
-            cov = s2_0 * np.linalg.pinv(self.XtX)
-            beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        if start is not None:
+            beta = np.array(start[: self.k], dtype=float)
+        else:
+            beta = self._ols()
+            if jitter:
+                s2_0 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
+                cov = s2_0 * np.linalg.pinv(self.XtX)
+                beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        # sigma2 is drawn first, so its starting value is not used
+        first = np.append(beta, np.nan)
         an = self.a0 + self.n
         for it in range(n_iter):
             s2 = rinvgamma(rng, an / 2.0, (self.d0 + self._ssr(beta)) / 2.0)
@@ -229,7 +259,13 @@ class NormalModel(_Model):
             )
             out[it, : self.k] = beta
             out[it, -1] = s2
-        return {"draws": out, "accept": None, "extras": {}}
+        return {
+            "draws": out,
+            "accept": None,
+            "extras": {},
+            "start": first,
+            "state": out[-1].copy(),
+        }
 
     def chib(self, draws: np.ndarray) -> Tuple[float, Dict[str, float]]:
         """Chib (1995) log marginal likelihood from the Gibbs output."""
@@ -292,14 +328,23 @@ class StudentTModel(NormalModel):
         return float(self.n * const - 0.5 * (v + 1.0) * np.log1p(e2 / (v * s2)).sum())
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         out = np.empty((n_iter, self.k + 1))
-        beta = self._ols()
-        s2 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
-        if jitter:
-            cov = s2 * np.linalg.pinv(self.XtX)
-            beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        if start is not None:
+            beta = np.array(start[: self.k], dtype=float)
+            s2 = float(start[-1])
+        else:
+            beta = self._ols()
+            s2 = max(self._ssr(beta) / max(self.n - self.k, 1), 1e-12)
+            if jitter:
+                cov = s2 * np.linalg.pinv(self.XtX)
+                beta = rng.multivariate_normal(beta, 4.0 * cov, method="svd")
+        first = np.append(beta, s2)
         v = self.df
         an = self.a0 + self.n
         X, y = self.X, self.y
@@ -314,7 +359,13 @@ class StudentTModel(NormalModel):
             s2 = rinvgamma(rng, an / 2.0, (self.d0 + float(lam @ (e * e))) / 2.0)
             out[it, : self.k] = beta
             out[it, -1] = s2
-        return {"draws": out, "accept": None, "extras": {}}
+        return {
+            "draws": out,
+            "accept": None,
+            "extras": {},
+            "start": first,
+            "state": out[-1].copy(),
+        }
 
 
 # ==========================================================================
@@ -366,14 +417,21 @@ class ProbitModel(_Model):
         return np.asarray(special.ndtr(eta))
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         k = self.k
         out = np.empty((n_iter, k))
         cond_means = np.empty((n_iter, k))
         beta: np.ndarray = np.zeros(k)
-        if jitter:
+        if start is not None:
+            beta = np.array(start[:k], dtype=float)
+        elif jitter:
             beta = rng.standard_normal(k) * 0.1
+        first = beta.copy()
         lower = np.where(self.y == 1.0, 0.0, -np.inf)
         upper = np.where(self.y == 1.0, np.inf, 0.0)
         X = self.X
@@ -387,7 +445,13 @@ class ProbitModel(_Model):
             )
             out[it] = beta
             cond_means[it] = mean
-        return {"draws": out, "accept": None, "extras": {"cond_mean": cond_means}}
+        return {
+            "draws": out,
+            "accept": None,
+            "extras": {"cond_mean": cond_means},
+            "start": first,
+            "state": out[-1].copy(),
+        }
 
     def chib(
         self, draws: np.ndarray, cond_mean: np.ndarray
@@ -411,6 +475,9 @@ class ProbitModel(_Model):
 
 class _RWModel(_Model):
     sampler = "Metropolis (random walk and independence proposals)"
+    state_scale = "u"
+    # metropolis_mixture draws all of a run's proposals at once
+    exact_continuation = False
 
     def __init__(
         self,
@@ -435,12 +502,17 @@ class _RWModel(_Model):
         return np.zeros(self.n_par)
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         mode, cov = self.mode()
-        start = mode
-        if jitter:
-            start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
+        if start is None:
+            start = mode
+            if jitter:
+                start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
         tune = self._tune()
         u, acc, acc_ind = metropolis_mixture(
             rng, self.log_kernel, start, mode, cov, tune, n_iter
@@ -449,6 +521,8 @@ class _RWModel(_Model):
             "draws": self.from_u(u),
             "accept": acc,
             "extras": {"tune": tune, "independence_accept": acc_ind},
+            "start": self.from_u(start),
+            "state": u[-1].copy(),
         }
 
 
@@ -694,15 +768,23 @@ class TobitModel(NormalModel):
         return np.append(b, np.log(max(e @ e / max(yu.size - self.k, 1), 1e-12)))
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         out = np.empty((n_iter, self.k + 1))
-        start = self.start_u()
-        beta, s2 = start[: self.k], float(np.exp(start[-1]))
-        if jitter:
-            beta = beta + rng.standard_normal(self.k) * 2.0 * np.sqrt(
-                np.diag(s2 * np.linalg.pinv(self.XtX))
-            )
+        if start is not None:
+            beta, s2 = np.array(start[: self.k], dtype=float), float(start[-1])
+        else:
+            u0 = self.start_u()
+            beta, s2 = u0[: self.k], float(np.exp(u0[-1]))
+            if jitter:
+                beta = beta + rng.standard_normal(self.k) * 2.0 * np.sqrt(
+                    np.diag(s2 * np.linalg.pinv(self.XtX))
+                )
+        first = np.append(beta, s2)
         an = self.a0 + self.n
         X = self.X
         z = self.y.copy()
@@ -722,7 +804,13 @@ class TobitModel(NormalModel):
             s2 = rinvgamma(rng, an / 2.0, (self.d0 + float(e @ e)) / 2.0)
             out[it, : self.k] = beta
             out[it, -1] = s2
-        return {"draws": out, "accept": None, "extras": {}}
+        return {
+            "draws": out,
+            "accept": None,
+            "extras": {},
+            "start": first,
+            "state": out[-1].copy(),
+        }
 
     def expected_value(self, eta: np.ndarray) -> np.ndarray:
         # the latent mean; the censored mean needs sigma and is left to
@@ -818,21 +906,30 @@ class QuantileModel(_Model):
         )
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         k = self.k
         est_scale = self.fixed_scale is None
         out = np.empty((n_iter, k + (1 if est_scale else 0)))
         X, y = self.X, self.y
-        beta = self._ols()
-        e0 = y - X @ beta
-        sig: float = max(float(np.abs(e0).mean()) / 2.0, 1e-8)
+        if start is not None:
+            beta = np.array(start[:k], dtype=float)
+            sig: float = float(start[-1]) if est_scale else 0.0
+        else:
+            beta = self._ols()
+            e0 = y - X @ beta
+            sig = max(float(np.abs(e0).mean()) / 2.0, 1e-8)
+            if jitter:
+                beta = beta + rng.standard_normal(k) * 2.0 * np.sqrt(
+                    np.diag(np.var(e0) * np.linalg.pinv(X.T @ X))
+                )
         if self.fixed_scale is not None:
             sig = self.fixed_scale
-        if jitter:
-            beta = beta + rng.standard_normal(k) * 2.0 * np.sqrt(
-                np.diag(np.var(e0) * np.linalg.pinv(X.T @ X))
-            )
+        first = np.append(beta, sig) if est_scale else beta.copy()
         th, tau2 = self.theta, self.tau2
         for it in range(n_iter):
             e = y - X @ beta
@@ -852,7 +949,13 @@ class QuantileModel(_Model):
                 rate = self.s0 / 2.0 + v.sum() + float((r * r / v).sum()) / (2.0 * tau2)
                 sig = rinvgamma(rng, self.n0 / 2.0 + 1.5 * self.n, rate)
                 out[it, -1] = sig
-        return {"draws": out, "accept": None, "extras": {}}
+        return {
+            "draws": out,
+            "accept": None,
+            "extras": {},
+            "start": first,
+            "state": out[-1].copy(),
+        }
 
 
 # ==========================================================================
@@ -879,6 +982,8 @@ class OrderedProbitModel(_Model):
     cutpoints of the model without intercept (``cut_j = c_j - intercept``),
     the parameterisation of ``sp.oprobit`` and Stata.
     """
+
+    state_scale = "u"
 
     name = "oprobit"
     sampler = "Gibbs with a Metropolis step for the cutpoints"
@@ -990,15 +1095,23 @@ class OrderedProbitModel(_Model):
         return np.asarray(draws[:, : self.k - 1] @ X[:, 1:].T)
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         mode, cov = self.mode()
         k, nd = self.k, self.nd
-        b = mode[:k].copy()
-        d = mode[k:].copy()
-        if jitter:
-            start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
-            b, d = start[:k].copy(), start[k:].copy()
+        if start is not None:
+            b, d = np.array(start[:k], dtype=float), np.array(start[k:], dtype=float)
+        else:
+            b = mode[:k].copy()
+            d = mode[k:].copy()
+            if jitter:
+                u0 = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
+                b, d = u0[:k].copy(), u0[k:].copy()
+        first = self.from_u(np.concatenate([b, d]))
         tune = self.tune if self.tune is not None else 2.38 / np.sqrt(nd)
         if not tune > 0:
             raise MethodIncompatibility(f"tune must be positive; got {tune}.")
@@ -1042,6 +1155,8 @@ class OrderedProbitModel(_Model):
             "draws": self.from_u(out_u),
             "accept": accepted / n_iter,
             "extras": {"tune": tune},
+            "start": first,
+            "state": out_u[-1].copy(),
         }
 
     def category_probabilities(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
@@ -1064,6 +1179,8 @@ class OrderedLogitModel(OrderedProbitModel):
 
     name = "ologit"
     sampler = "Metropolis (random walk and independence proposals)"
+    # metropolis_mixture draws all of a run's proposals at once
+    exact_continuation = False
 
     def _loglik_internal(self, b: np.ndarray, d: np.ndarray) -> float:
         cuts = self._cuts(d)
@@ -1073,12 +1190,17 @@ class OrderedLogitModel(OrderedProbitModel):
         )
 
     def sample(
-        self, rng: np.random.Generator, n_iter: int, jitter: bool
+        self,
+        rng: np.random.Generator,
+        n_iter: int,
+        jitter: bool,
+        start: Optional[np.ndarray] = None,
     ) -> Dict[str, Any]:
         mode, cov = self.mode()
-        start = mode
-        if jitter:
-            start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
+        if start is None:
+            start = mode
+            if jitter:
+                start = rng.multivariate_normal(mode, 4.0 * cov, method="svd")
         tune = self.tune if self.tune is not None else 2.38 / np.sqrt(self.n_par)
         if not tune > 0:
             raise MethodIncompatibility(f"tune must be positive; got {tune}.")
@@ -1089,6 +1211,8 @@ class OrderedLogitModel(OrderedProbitModel):
             "draws": self.from_u(u),
             "accept": acc,
             "extras": {"tune": tune, "independence_accept": acc_ind},
+            "start": self.from_u(start),
+            "state": u[-1].copy(),
         }
 
     def category_probabilities(self, draws: np.ndarray, X: np.ndarray) -> np.ndarray:
