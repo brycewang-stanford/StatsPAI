@@ -182,6 +182,30 @@ All notable changes to StatsPAI will be documented in this file.
   `iv_wild_bootstrap` aligned); `sp.ibragimov_mueller`, which no package
   implements, is pinned to its closed form (analytical-only).
 
+### Fixed (input hygiene, rOpenSci standards audit)
+
+- ⚠️ **One rule for `inf` in the data.** The same data used to give five
+  behaviours. `sp.regress` raised, `sp.feols` dropped the row through
+  pyfixest, `sp.rdrobust` dropped it silently, `sp.logit` and `sp.glm`
+  returned NaN coefficients, `sp.callaway_santanna` returned a changed
+  estimate with numpy warnings, and `sp.dml` raised sklearn's own error. An
+  infinite value in a column the model uses now raises `DataInsufficient`
+  that names each column and its count, with one recovery hint (fix the
+  step that produced it, or recode it as NaN to have the row dropped).
+  Missing values keep each estimator's listwise-deletion rule. The check
+  sits in the shared layers: `create_design_matrices` (every formula
+  estimator built on it), `did._core.drop_unusable_rows` (the DiD family;
+  `g = inf` still means never treated), `rdrobust`'s parser, the DML base
+  class and `_input_validation.clean_frame`. Calls that returned a number
+  on data with `inf` now raise.
+- **`sp.feols` / `sp.fepois` / `sp.feglm` check their input before any
+  backend.** pyfixest's own errors used to reach the user on degenerate
+  input: "All variables are collinear" on zero rows or an all-NaN
+  regressor, and `ZeroDivisionError` when there were no more rows than
+  parameters. These now raise `DataInsufficient` with the message
+  `sp.regress` gives, and a pyfixest `ZeroDivisionError` / `LinAlgError` /
+  "collinear" failure is re-raised as a typed error naming the entry point.
+
 ## [1.42.1] — 2026-11-03
 
 A patch release. No estimator, default or numerical output changes.

@@ -32,6 +32,7 @@ from ..core.utils import (
 )
 from ..exceptions import ColumnNotFound, MethodIncompatibility, NumericalInstability
 from ..output._lineage import records_provenance
+from ._input_checks import check_fixest_input, translate_backend_failure
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
 
 #: vcov sentinels (case-insensitive) that select the wild cluster bootstrap.
@@ -2003,6 +2004,14 @@ def feols(
         raise MethodIncompatibility(
             f"feols: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
         )
+    check_fixest_input(
+        fml,
+        data,
+        entry="sp.feols",
+        weights=weights,
+        cluster=cluster,
+        extra=[conley_lat, conley_lon],
+    )
     if backend != "pyfixest" and not _has_varying_slopes(fml):
         native = _native_feols(
             fml,
@@ -2133,8 +2142,12 @@ def feols(
             fit = pf.feols(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feols") from exc
+    except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
+        translate_backend_failure(exc, "sp.feols")
+        raise
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feols")
+        translate_backend_failure(exc, "sp.feols")
         raise
 
     # Multiple estimation returns FixestMulti
@@ -2445,6 +2458,7 @@ def fepois(
         raise MethodIncompatibility(
             f"fepois: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
         )
+    check_fixest_input(fml, data, entry="sp.fepois", weights=weights, cluster=cluster)
     if backend != "pyfixest":
         native = _native_fepois(
             fml,
@@ -2568,8 +2582,12 @@ def fepois(
             fit = pf.fepois(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.fepois") from exc
+    except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
+        translate_backend_failure(exc, "sp.fepois")
+        raise
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.fepois")
+        translate_backend_failure(exc, "sp.fepois")
         if not isinstance(exc, ValueError) or "Demeaning failed" not in str(exc):
             raise
         # pyfixest's alternating projections give up on some crossed
@@ -2723,6 +2741,7 @@ def feglm(
         raise MethodIncompatibility(
             f"feglm: backend must be 'auto', 'pyfixest' or 'native', got {backend!r}."
         )
+    check_fixest_input(fml, data, entry="sp.feglm", cluster=cluster)
     if bias_correction and backend == "pyfixest":
         raise MethodIncompatibility(
             "feglm(bias_correction=True) runs on StatsPAI's engine.",
@@ -2812,8 +2831,12 @@ def feglm(
             fit = pf.feglm(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feglm") from exc
+    except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
+        translate_backend_failure(exc, "sp.feglm")
+        raise
     except _name_lookup_errors() as exc:
         _raise_if_names_missing(pf_kwargs, exc, "sp.feglm")
+        translate_backend_failure(exc, "sp.feglm")
         raise
 
     if hasattr(fit, "all_fitted_models"):

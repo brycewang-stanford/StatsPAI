@@ -816,6 +816,7 @@ def create_design_matrices(
     warn_wrapped_integer_columns(data, formula)
     fast = _try_simple_numeric_design_matrices(formula, data, return_type)
     if fast is not None:
+        _refuse_infinite_design(fast[0], fast[1], formula)
         return fast
 
     data = _coerce_string_extension_dtypes(data, formula)
@@ -833,7 +834,6 @@ def create_design_matrices(
             for frame in (y, X):
                 frame.columns = [_unalias(str(c), aliases) for c in frame.columns]
         y = _logical_outcome_as_indicator(y, return_type)
-        return y, X
     except Exception as patsy_error:
         # A misspelled column is the common failure: name it, with a
         # did-you-mean, before the manual-parse fallback below.
@@ -905,7 +905,43 @@ def create_design_matrices(
         if return_type == "dataframe":
             X = pd.DataFrame(X, columns=X_cols, index=data.index)
 
+        _refuse_infinite_design(y, X, formula)
         return y, X
+    _refuse_infinite_design(y, X, formula)
+    return y, X
+
+
+def _refuse_infinite_design(y: Any, X: Any, formula: str) -> None:
+    """Refuse a design whose outcome or regressor columns hold ``inf``.
+
+    Missing values are dropped before this point (patsy's listwise deletion);
+    an infinite value is not missing, and passed on it gives a NaN or
+    meaningless fit (``sp.logit`` returned NaN coefficients, ``sp.glm`` an
+    unconverged NaN fit). Shared by every estimator that builds its design
+    here, so the same data are refused the same way; see
+    :func:`statspai._input_validation.require_finite` for the policy.
+    """
+    from .._input_validation import raise_infinite
+
+    counts: Dict[str, int] = {}
+    for label, block in (("y", y), ("X", X)):
+        try:
+            arr = np.asarray(block, dtype=float)
+        except (TypeError, ValueError):
+            continue  # object columns: the estimator's own checks apply
+        if arr.size == 0 or not np.isinf(arr).any():
+            continue
+        arr2 = arr.reshape(arr.shape[0], -1) if arr.ndim > 1 else arr[:, None]
+        names = (
+            [str(c) for c in block.columns]
+            if isinstance(block, pd.DataFrame)
+            else [f"{label}[{j}]" for j in range(arr2.shape[1])]
+        )
+        per_col = np.isinf(arr2).sum(axis=0)
+        for name, n_inf in zip(names, per_col):
+            if n_inf:
+                counts[name] = int(n_inf)
+    raise_infinite(counts, function=f"formula {formula!r}")
 
 
 def prepare_data(

@@ -743,9 +743,15 @@ def drop_unusable_rows(
     Raises
     ------
     DataInsufficient
-        If no row has complete data across ``columns``.
+        If no row has complete data across ``columns``, or a column in
+        ``columns`` holds ``inf`` (refused, not dropped as missing:
+        :func:`statspai._input_validation.require_finite`). The cohort column
+        is not in ``columns``, so ``g = inf`` still means never treated.
     """
+    from .._input_validation import require_finite
+
     required = list(dict.fromkeys(columns))
+    require_finite(data, required, function=function)
     clean = data.dropna(subset=required)
     n_dropped = len(data) - len(clean)
 

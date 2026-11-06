@@ -141,6 +141,139 @@ def check_columns(
         )
 
 
+#: The one message every estimator gives for ``inf`` in the data, so the
+#: same input is refused the same way whichever estimator reads it.
+INFINITE_VALUES_HINT = (
+    "Infinite values are not missing values, so they are neither dropped "
+    "nor passed to the estimator. Fix the step that produced them (a log "
+    "of zero, a division by zero), or recode them as missing with "
+    "data.replace([np.inf, -np.inf], np.nan) to have those rows dropped "
+    "like any other missing value."
+)
+
+
+def _infinite_count(values: Any) -> int:
+    """Number of ``+inf`` / ``-inf`` entries in a column (NaN not counted)."""
+    import numpy as np
+
+    if isinstance(values, pd.Series):
+        dtype = values.dtype
+        if isinstance(dtype, np.dtype):
+            if dtype.kind not in "fc":
+                if dtype.kind != "O":
+                    return 0  # integers, bools, datetimes hold no inf
+                return int(
+                    sum(
+                        1
+                        for v in values.to_numpy()
+                        if isinstance(v, float) and np.isinf(v)
+                    )
+                )
+            arr = values.to_numpy()
+        else:
+            if not pd.api.types.is_float_dtype(dtype):
+                return 0
+            arr = values.to_numpy(dtype=float, na_value=np.nan)
+    else:
+        arr = np.asarray(values)
+        if arr.dtype.kind not in "fc":
+            return 0
+    if arr.size == 0 or np.isfinite(arr).all():
+        return 0
+    return int(np.isinf(arr).sum())
+
+
+def infinite_values_by_column(
+    data: pd.DataFrame, columns: Iterable[Any]
+) -> Dict[str, int]:
+    """``{column: number of ±inf values}`` for the named columns that hold any.
+
+    Names that are ``None`` or not columns of ``data`` are skipped (the
+    caller's column check reports those). Missing values are not counted:
+    they are the caller's listwise-deletion business, ``inf`` is not.
+    """
+    out: Dict[str, int] = {}
+    if not isinstance(data, pd.DataFrame):
+        return out
+    seen = set()
+    for col in columns:
+        try:
+            if col is None or col in seen or col not in data.columns:
+                continue
+        except TypeError:  # an unhashable array passed in place of a name
+            continue
+        seen.add(col)
+        series = data[col]
+        if isinstance(series, pd.DataFrame):  # duplicated column name
+            continue
+        n_inf = _infinite_count(series)
+        if n_inf:
+            out[str(col)] = n_inf
+    return out
+
+
+def raise_infinite(
+    counts: Mapping[str, int], *, function: str, n_rows: Optional[int] = None
+) -> None:
+    """Raise the shared refusal for ``counts`` (``{column: n_inf}``) if any."""
+    if not counts:
+        return
+    from .exceptions import DataInsufficient
+
+    total = int(sum(counts.values()))
+    cols = ", ".join(f"{c!r} ({n})" for c, n in counts.items())
+    diagnostics: Dict[str, Any] = {
+        "infinite_by_column": dict(counts),
+        "n_infinite": total,
+    }
+    if n_rows is not None:
+        diagnostics["n_rows_infinite"] = int(n_rows)
+    raise DataInsufficient(
+        f"{function}: {total} infinite value(s) in the data -- by column: " f"{cols}.",
+        recovery_hint=INFINITE_VALUES_HINT,
+        diagnostics=diagnostics,
+    )
+
+
+def require_finite(
+    data: pd.DataFrame, columns: Iterable[Any], *, function: str
+) -> None:
+    """Refuse ``+inf`` / ``-inf`` in the columns an estimator uses.
+
+    The package-wide policy for non-finite values: a missing value (NaN) is
+    handled by the estimator's own missing-data rule (usually listwise
+    deletion with an ``AssumptionWarning``), while an infinite value raises
+    :class:`~statspai.exceptions.DataInsufficient` naming each column and its
+    count. ``inf`` almost always comes from a transformation that failed
+    (``log(0)``, ``x / 0``), so dropping it silently would hide the error and
+    propagating it returns a meaningless number.
+
+    Examples
+    --------
+    >>> import numpy as np, pandas as pd
+    >>> from statspai._input_validation import require_finite
+    >>> from statspai.exceptions import DataInsufficient
+    >>> df = pd.DataFrame({"y": [1.0, np.inf, 2.0], "x": [0.0, 1.0, np.nan]})
+    >>> try:
+    ...     require_finite(df, ["y", "x"], function="demo")
+    ... except DataInsufficient as e:
+    ...     print(e.diagnostics["infinite_by_column"])
+    {'y': 1}
+    """
+    counts = infinite_values_by_column(data, columns)
+    if not counts:
+        return
+    import numpy as np
+
+    hit = np.zeros(len(data), dtype=bool)
+    for col in counts:
+        values = pd.to_numeric(data[col], errors="coerce").to_numpy(
+            dtype=float, na_value=np.nan
+        )
+        hit |= np.isinf(values)
+    raise_infinite(counts, function=function, n_rows=int(hit.sum()))
+
+
 def clean_frame(
     data: pd.DataFrame,
     columns: Sequence[str],
@@ -153,9 +286,12 @@ def clean_frame(
     Returns the complete-case sub-frame (index reset).  Raises
     :class:`~statspai.exceptions.DataInsufficient` when ``n_params`` or fewer
     complete rows remain — the point below which the downstream linear algebra
-    is under-determined and would otherwise emit a silent NaN estimate.
+    is under-determined and would otherwise emit a silent NaN estimate — and
+    when a used column holds ``inf`` (:func:`require_finite`; infinite values
+    are refused, not dropped as missing).
     """
     require_columns(data, columns, function=function)
+    require_finite(data, columns, function=function)
     df = data[list(columns)].dropna().reset_index(drop=True)
     if len(df) <= n_params:
         raise DataInsufficient(

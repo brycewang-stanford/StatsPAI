@@ -25,7 +25,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, missing_named_columns
+from .._input_validation import check_columns, missing_named_columns, require_finite
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
@@ -2261,6 +2261,11 @@ def _parse_data(
                 "pd.get_dummies(df[col], drop_first=True, dtype=float).",
                 diagnostics={"column": col, "dtype": str(data[col].dtype)},
             )
+    # inf is refused, not dropped as missing (it used to be dropped silently
+    # by the isfinite mask below, with no listwise-deletion note)
+    require_finite(
+        data, [y, x, fuzzy, *(covs or []), *(extra or [])], function="sp.rdrobust"
+    )
     Y = data[y].values.astype(float)
     X_c = data[x].values.astype(float) - c
     D = data[fuzzy].values.astype(float) if fuzzy else None

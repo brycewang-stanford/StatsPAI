@@ -69,6 +69,26 @@ the weights rescaled to sum to n. Multiply an old value by
 
 ---
 
+## 1.42 → next: ⚠️ input hygiene (rOpenSci standards audit)
+
+Inputs that used to give a wrong number without a signal now raise or
+warn. Clean data give the same numbers as before.
+
+- ⚠️ **`inf` in a used column raises `DataInsufficient`** in every formula
+  estimator built on `create_design_matrices` (`regress`, `logit`, `glm`,
+  ...), the fixest wrappers, `rdrobust`, the DiD family
+  (`callaway_santanna`, `sun_abraham`, `did_2x2`, `did_imputation`,
+  `wooldridge_did`) and `dml`. To keep the old drop-the-row behaviour of
+  `feols` and `rdrobust`, recode first:
+  `df = df.replace([np.inf, -np.inf], np.nan)`. A cohort column with
+  `inf` for never treated is unaffected.
+- `sp.feols` / `fepois` / `feglm` raise `DataInsufficient` (not
+  pyfixest's `ValueError` / `ZeroDivisionError`) on zero rows, no
+  complete row, or no residual degrees of freedom. Code that caught
+  `ValueError` still catches it.
+
+---
+
 ## 1.41 → 1.42: announced defaults take effect
 
 The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 with a

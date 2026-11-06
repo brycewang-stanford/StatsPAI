@@ -447,6 +447,11 @@ class _DoubleMLBase:
                 ),
                 diagnostics={"missing_columns": missing},
             )
+        # inf is refused, not dropped as missing: sklearn's raw
+        # "Input X contains infinity" used to be the only signal
+        from .._input_validation import require_finite
+
+        require_finite(self.data, required, function="sp.dml")
         if self._REQUIRES_INSTRUMENT and not self.instrument:
             raise MethodIncompatibility(
                 f"{context}: model='{self._MODEL_TAG.lower()}' requires an "
