@@ -1149,7 +1149,9 @@ implementation matches boottest's WRE rather than a simpler approximation.
 * **Two endogenous regressors** (700 obs / 22 clusters): `ivreg2 y w (d1 d2 =
   z1 z2 z3), cluster(firm)` gives `_b[d1]=.09126668`, `_b[d2]=-.16573432`;
   `boottest d1/d2` gives `r(p)=.21079211` / `.01408014`. StatsPAI WRE (99999
-  reps): coefs match to ~1e-8, p = 0.2101 / 0.0151 (Monte-Carlo agreement).
+  reps, seed 42): coefs match to ~1e-8, p = 0.2103 / 0.0149 (Monte-Carlo
+  agreement; 0.2101 / 0.0151 before the restricted model was fitted by LIML,
+  see `test_regcmd_stata_r_parity.py` for the exact enumerated comparison).
 * **Two-way IV cluster** (800 obs / 25×18 clusters): `ivreg2 y w (d = z1 z2),
   cluster(firm year) small` gives `_b[d]=.31606801`, `_se[d]=.0519819`.
   `sp.ivreg(..., cluster=["firm","year"])` matches both exactly (the

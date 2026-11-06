@@ -192,7 +192,10 @@ What the matrix makes explicit today:
   **Validated against Stata `boottest` after `ivreg2`** across strong-IV (p
   0.2016 vs 0.20155) and weak-IV (p 0.3415 vs 0.3412) regimes — the weak-IV
   case rules out the naive reduced form (which gives 0.426). Also validated for
-  **two endogenous regressors** (p 0.2101/0.0151 vs boottest 0.2108/0.0141).
+  **two endogenous regressors** (p 0.2103/0.0149 vs boottest 0.2108/0.0141 at
+  99,999 draws; with the other endogenous regressor re-estimated by LIML under
+  the null, as boottest does, the enumerated p-values on 12 clusters are
+  identical — `tests/reference_parity/test_regcmd_stata_r_parity.py`).
   See `tests/reference_parity/test_iv_wild_boottest_parity.py`.
 - **`ivreg` has native two-way clustering** via `cluster=["a", "b"]` — the
   CGM (2011) inclusion-exclusion sandwich on the projected regressors, matching

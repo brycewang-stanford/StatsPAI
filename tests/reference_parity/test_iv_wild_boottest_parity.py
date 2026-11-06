@@ -170,7 +170,7 @@ def test_multiendogenous_wild_matches_boottest() -> None:
     assert np.isclose(float(base.params["d2"]), STATA_2E_COEF_D2, atol=1e-5)
     # Fewer reps here keep the test CI-fast; the wider tolerance still rejects a
     # wrong implementation (the naive reduced form is off by >0.05). The pinned
-    # 99999-rep agreement (0.2101 vs 0.21079; 0.0151 vs 0.01408) is in
+    # 99999-rep agreement (0.2103 vs 0.21079; 0.0149 vs 0.01408) is in
     # REFERENCES.md.
     o1 = iv_wild_bootstrap(base, df, "firm", "d1", n_boot=9999, seed=42)
     o2 = iv_wild_bootstrap(base, df, "firm", "d2", n_boot=9999, seed=42)
