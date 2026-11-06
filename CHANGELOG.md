@@ -52,6 +52,25 @@ All notable changes to StatsPAI will be documented in this file.
   smallest), continuous-exposure weights (R `propensity` uses standard
   normal densities on maximum-likelihood scales), and the sample variance
   of a 0/1 covariate in `balance_diagnostics` / `ps_balance`.
+- **Panel `xt` commands graded against Stata 18 MP.** `sp.xtivreg`,
+  `sp.xttobit`, `sp.xtintreg`, `sp.xtpcse`, `sp.xtregar` and `sp.mmqreg`
+  had Stata fixtures since October but no parity grade; `sp.xthtaylor`,
+  `sp.xtserial`, `sp.xtoverid` and `sp.xtsum` had one Stata call each.
+  The fixtures were re-run (they reproduce bit for bit), widened (two
+  endogenous regressors in `xtivreg`; `ul()` only and right-censored
+  intervals; 46 `xtpcse` and 35 `xtregar` option combinations; `mmqreg`
+  q(10) / q(75); a new panel for the other four) and joined by R `plm`
+  and `pcse` rows where those compute the same quantity. Grades:
+  `bit-exact` for `xttobit`, `xtpcse`, `xtregar`, `xthtaylor`, `xtserial`,
+  `xtoverid`, `xtsum`; `aligned` for `xtivreg`, `xtintreg`, `mmqreg`, each
+  with its documented gap in `sp.parity_status()`. No numerical output
+  changes.
+- Found on the way, and not followed (documented, pinned in the tests):
+  Stata's `xtivreg, re` counts two or more endogenous regressors as one in
+  the degrees of freedom of `sigma_e` on an unbalanced panel (not in
+  `sigma_u`); its `xtintreg` default fit on right-censored data stops
+  short of the maximum; at an integer `n tau` `mmqreg` returns either end
+  of the tied sample quantile.
 
 ## [1.42.1] — 2026-11-03
 

@@ -1,11 +1,14 @@
 * Stata 18 MP reference for tests/test_xtregar_stata.py.
 * From this directory: python _data.py . && stata-mp -b do stata_xtregar.do
-* (the tab-separated output is stored as stata_xtregar.json)
+* then python ../_stata_tsv.py stata_xtregar.tsv stata_xtregar.json
 set more off
 set type double
 import delimited using "ar1panel.csv", clear asdouble
 xtset id t
 file open fh using "stata_xtregar.tsv", write replace
+file write fh "about" _tab "_meta" _tab "stata_version" _tab "`c(stata_version)'" _n
+file write fh "about" _tab "_meta" _tab "born_date" _tab "`c(born_date)'" _n
+file write fh "about" _tab "_meta" _tab "edition" _tab "`c(edition_real)'" _n
 capture program drop dumpe
 program dumpe
     args tag
@@ -49,4 +52,12 @@ xtregar y x1 x2 if bal == 1, fe
 dumpe fe_bal
 xtregar y x1 x2 if bal == 1, re lbi
 dumpe re_bal
+* added 2026-11-05: twostep random effects for the other rhotypes, and the
+* LBI statistic after random effects on the panel with gaps
+foreach r in regress freg tscorr theil nagar {
+    xtregar y x1 x2, re rhotype(`r') twostep
+    dumpe re_`r'_2s
+}
+xtregar y x1 x2, re lbi
+dumpe re_lbi
 file close fh

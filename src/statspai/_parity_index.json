@@ -14576,6 +14576,28 @@
       "tolerance": "exact: the skeleton is a set of edges"
     },
     {
+      "function": "mmqreg",
+      "notes": [
+        "When n tau is an integer every value between two order statistics of the standardized residuals minimizes the check function (asserted). StatsPAI takes the upper end; Stata's qreg step returns either end by no rule found (on a 300-row probe the lower end at 10 of 19 percentiles, on both sides of the median). SSC xtqreg 1.3 agrees on coefficients to 1e-10 but uses another quantile covariance, documented in docs/dev/modules/panel_multilevel.md."
+      ],
+      "reference": "Stata 18 MP with SSC mmqreg 2.6 (run as a black box): one and two absorbed sets and none, q(10 / 25 / 50 / 75 / 90), vce default (GLS) / robust / cluster",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "mmqreg": "2.6"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/test_mmqreg.py",
+        "tests/fixtures/mmqreg/stata_mmqreg.json"
+      ],
+      "tolerance": "Location, scale and quantile coefficients and the 12 x 12 covariance of the three equations 1e-10 (observed <= 4e-12) on 18 fits; density e(fden) and e(qval) 1e-10. On 6 fits where n tau is an integer Stata returns the other end of a tied sample quantile (see note): there the quantile coefficients differ by up to 1.7% and agree to 1e-10 once tau is moved 1e-11 to select that end."
+    },
+    {
       "function": "model_average",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -26257,21 +26279,77 @@
       "tolerance": "rel_est<=5e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "xthtaylor",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "One documented departure: with period dummies among the exogenous time-varying regressors of an unbalanced panel, Stata's estimates move with the period it omits; StatsPAI's do not (asserted in test_hansen_methods_stata_parity.py)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 MP xthtaylor: Hausman-Taylor conventional / vce(robust) / vce(cluster) with one and two endogenous time-varying regressors, Amemiya-MaCurdy (amacurdy) conventional / robust / cluster on balanced panels",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_hansen_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the Wald statistic (observed <= 9.6e-15 on 7 fits of a panel with gaps, plus 4 fits of the Hansen textbook panel)"
+    },
+    {
+      "function": "xtintreg",
+      "notes": [
+        "Reference-side issues, with independent evidence. Stata's xtintreg uses an analytic Hessian that, under adaptive quadrature, is not the curvature of its own likelihood: central differences of Stata's e(ll) at from() iterate(0) give StatsPAI's standard errors, and with non-adaptive quadrature Stata's reported ones agree. On the right-censored intervals Stata's default fit stops after four Newton steps 4.8e-8 below the maximum (its x1 4e-6 away); tightened (nrtolerance(1e-12)) it agrees to 4e-10."
+      ],
+      "reference": "Stata 18 MP xtintreg: default (mvaghermite) fits at 12 and 40 nodes, non-adaptive intmethod(ghermite) intpoints(100), left- and right-censored intervals, a collinear regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/test_xttobit_stata.py",
+        "tests/fixtures/xttobit/stata_xttobit.json"
+      ],
+      "tolerance": "Estimates and log-likelihood 1e-6 against every Stata fit that reached its maximum (observed <= 2e-7); standard errors 1e-6 against the non-adaptive 100-node fits (observed <= 6.8e-8). Against Stata's default adaptive fits the standard errors differ by up to 0.47% (interval data) and 2.3% (right-censored) on se(sigma_e), compared at 5e-2."
+    },
+    {
+      "function": "xtivreg",
+      "notes": [
+        "Two documented differences, both in the K of xtivreg, re's s2_nu = SSR_within / (N - n - K + 1), each pinned by running StatsPAI under Stata's count. (1) On an unbalanced panel with two or more endogenous regressors Stata counts them as one (found on 12 specifications), while its sigma_u uses the full K, as its manual's K = g2 + k1 says for both; StatsPAI keeps the manual's K. (2) With vce(robust) on a balanced panel Stata's K counts a continuous time-invariant regressor (rounding noise in its within transform). plm's vcovHC type='sss' leaves the constant out of K, a factor (N-K)/(N-K-1) the test reproduces. Not implemented: fd, small, regress, first; plm's random-effects IV uses other variance components and is not a reference here."
+      ],
+      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV.",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "plm": "2.6.7"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/test_xtivreg_stata.py",
+        "tests/fixtures/xtivreg/stata_xtivreg.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_tinv.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_more.json",
+        "tests/fixtures/xtivreg/r_plm_xtivreg.json"
+      ],
+      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4."
     },
     {
       "also_verified_by": [
@@ -26324,55 +26402,149 @@
       "tolerance": "coefficients / SEs rtol 1e-7 (observed <= 2.7e-8: Stata fe's score at its own estimate is 3e-7, pglm's gradtol), log-likelihood rtol 1e-12"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "xtoverid",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Covers the cluster-robust test after random effects, the only form sp.xtoverid computes; xtoverid's non-robust form and its use after xtivreg / xthtaylor are not implemented."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "SSC xtoverid 2.1.8 (run as a black box) after xtreg, re vce(robust) and vce(cluster), with and without a time-invariant regressor, full and balanced panel",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "ivreg2": "4.1.12",
+        "xtoverid": "2.1.8"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on the statistic and p-value (observed <= 2.5e-13); degrees of freedom exact"
     },
     {
+      "function": "xtpcse",
+      "notes": [
+        "The unbalanced panel pinned how Stata forms the common AR(1) coefficient: panels are weighted by their number of consecutive pairs (one more with np1), which is T_i - 1 only without gaps. Weights are not implemented."
+      ],
+      "reference": "Stata 18 MP xtpcse, 46 option combinations on a balanced and an unbalanced panel with gaps: correlation(independent / ar1 / psar1) x rhotype(regress / freg / tscorr / dw), hetonly, independent, nmk, np1, casewise / pairwise, noconstant. R pcse for the OLS panel-corrected standard errors.",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "pcse": "1.9.1.1"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/test_xtpcse_stata.py",
+        "tests/fixtures/xtpcse/stata_xtpcse.json",
+        "tests/fixtures/xtpcse/r_pcse.json"
+      ],
+      "tolerance": "1e-12 relative on coefficients, standard errors and the AR(1) coefficients (observed <= 2.5e-14; Stata stores the panel-specific ones as a 16-decimal macro); R pcse casewise and pairwise 1e-12 (observed 1.1e-15)"
+    },
+    {
+      "function": "xtregar",
+      "notes": [
+        "One deliberate departure: the fixed-effects _cons. Stata divides the within intercept by 1 - rho but not its standard error; StatsPAI divides both (the test reproduces Stata's as ours times 1 - rho, and a simulation shows ours is the sampling standard deviation). The random-effects Wald test has p degrees of freedom (Stata labels p + 1). Weights are not implemented."
+      ],
+      "reference": "Stata 18 MP xtregar, 35 fits on a panel with gaps: fe and re with every rhotype, iterated and twostep, onestep, rhof(), lbi, the gap-free panels alone, a time-invariant regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/test_xtregar_stata.py",
+        "tests/fixtures/xtregar/stata_xtregar.json"
+      ],
+      "tolerance": "1e-10 relative on coefficients, standard errors and every stored scalar (rho_ar, sigma_u, sigma_e, rho_fov, the R-squared, theta percentiles, F tests, the modified Durbin-Watson and LBI statistics); observed <= 5.1e-15"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "xtserial",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "R plm::pwfdtest(h0='fe') is a different statistic on these data (F 10.24 on (1, 407) against xtserial's 11.31 on (1, 102)) and is not used as a reference."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata xtserial 1.1.0 (Stata Journal st0039; run as a black box) on a panel with gaps, its balanced half and with a time-invariant regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "xtserial": "1.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on F, p-value and the residual autocorrelation (observed <= 4.6e-14); degrees of freedom exact"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "xtsum",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "The within sd of a time-invariant variable is rounding noise on both sides (about 6e-17) and is compared absolutely."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 MP xtsum, every stored result (N, n, Tbar, mean, overall / between / within sd, min, max) for an outcome, a regressor, a time-invariant variable and one with missing values, on a panel with gaps",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed <= 1.8e-14); counts exact"
+    },
+    {
+      "function": "xttobit",
+      "notes": [
+        "Both sides integrate the random effect by adaptive Gauss-Hermite quadrature centred differently (StatsPAI at the mode and curvature, Stata at the posterior mean and SD); both converge to the same integral, Stata's 12- and 40-node fits 3e-10 apart, so the comparison is graded at 1e-6."
+      ],
+      "reference": "Stata 18 MP xttobit (random effects): ll() and ul(), ll() only, ul() only, the 12-node default and 40 nodes, a collinear regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/test_xttobit_stata.py",
+        "tests/fixtures/xttobit/stata_xttobit.json"
+      ],
+      "tolerance": "1e-6 relative on coefficients, standard errors (sigma_u and sigma_e included), rho, the log-likelihood and the LR test against the pooled tobit (observed <= 4.2e-8 on 5 fits)"
     },
     {
       "function": "yatchew_linearity_test",

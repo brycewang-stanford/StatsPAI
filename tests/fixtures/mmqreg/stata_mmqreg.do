@@ -3,12 +3,23 @@
 * with mmqreg 2.6 (Rios-Avila, SSC; needs ftools and hdfe) and xtqreg 1.3
 * (Machado and Santos Silva, SSC) on the adopath -- installed in a private
 * PLUS directory, not the user's. The tab-separated stata_mmqreg.tsv is
-* stored as stata_mmqreg.json ({tag: {matrix: {rows, cols, data}}}).
+* stored as stata_mmqreg.json ({tag: {matrix: {rows, cols, data}}}) by
+* python ../_stata_tsv.py stata_mmqreg.tsv stata_mmqreg.json
 set more off
 set type double
 import delimited using "mmqr_panel.csv", clear asdouble
 xtset id t
 file open fh using "stata_mmqreg.tsv", write replace
+file write fh "about" _tab "_meta" _tab "stata_version" _tab "`c(stata_version)'" _n
+file write fh "about" _tab "_meta" _tab "born_date" _tab "`c(born_date)'" _n
+file write fh "about" _tab "_meta" _tab "edition" _tab "`c(edition_real)'" _n
+* the version banner that -which mmqreg- prints (its first line)
+findfile mmqreg.ado
+tempname vh
+file open `vh' using "`r(fn)'", read text
+file read `vh' vline
+file close `vh'
+file write fh "about" _tab "_meta" _tab "mmqreg" _tab `"`vline'"' _n
 capture program drop dumpm
 program dumpm
     args tag mname
@@ -60,6 +71,25 @@ foreach v in gls robust cluster {
     dumpm nofe_`v'_50 e(b)
     dumpm nofe_`v'_50 e(V)
     dumps nofe_`v'_50
+}
+* added 2026-11-05: the tails, q(10) with one absorbed set and q(75)
+* with two and without any
+foreach v in gls robust cluster {
+    local opt = cond("`v'" == "gls", "", cond("`v'" == "robust", "robust", "cluster(id)"))
+    mmqreg y x1 x2 ax1, absorb(id) q(10) `opt'
+    dumpm fe1_`v'_10 e(b)
+    dumpm fe1_`v'_10 e(V)
+    dumpm fe1_`v'_10 e(fden)
+    dumpm fe1_`v'_10 e(qval)
+    dumps fe1_`v'_10
+    mmqreg y x1 x2 ax1, absorb(id t) q(75) `opt'
+    dumpm fe2_`v'_75 e(b)
+    dumpm fe2_`v'_75 e(V)
+    dumps fe2_`v'_75
+    mmqreg y x1 x2 ax1, q(75) `opt'
+    dumpm nofe_`v'_75 e(b)
+    dumpm nofe_`v'_75 e(V)
+    dumps nofe_`v'_75
 }
 foreach q in 0.25 0.5 0.9 {
     local tg = round(`q'*100)

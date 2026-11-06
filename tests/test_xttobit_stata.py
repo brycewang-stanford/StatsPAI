@@ -159,3 +159,52 @@ def test_split_interval_term_is_bitwise_the_shared_one():
     za = a + 1e-30j * rng.normal(size=5000)
     zb = b + 1e-30j * rng.normal(size=5000)
     assert np.array_equal(_log_prob_between_split(za, zb), _log_prob_between(za, zb))
+
+
+# --------------------------------------------------------------------------
+# an upper limit only, and right-censored intervals (2026-11-05)
+# --------------------------------------------------------------------------
+def test_xttobit_upper_limit_only_matches_stata(df):
+    fit = sp.xttobit(df, y="y", x=["x1", "x2"], id="id", ul=4)
+    # observed <= 7e-11, standard errors of sigma_u / sigma_e included
+    _check(fit, "tobit_ul_q40", "y", rtol_b=1e-6, rtol_se=1e-6)
+    r = STATA["tobit_ul_q40"]
+    for ours, theirs in [("sigma_u", "/sigma_u"), ("sigma_e", "/sigma_e")]:
+        np.testing.assert_allclose(fit.std_errors[ours], r[theirs][1], rtol=1e-6)
+    np.testing.assert_allclose(
+        fit.model_info["lr_sigma_u0"], r["e(chi2_c)"][0], rtol=1e-7
+    )
+
+
+def test_xtintreg_right_censored_matches_stata(df):
+    fit = sp.xtintreg(df, y_lower="lo", y_upper="hi2", x=["x1", "x2"], id="id")
+    # Stata's non-adaptive 100-node fit, whose standard errors are the
+    # curvature of its likelihood (see test_xtintreg_matches_stata):
+    # estimates and standard errors observed <= 7e-8
+    _check(fit, "intreg_rc_gh100", "lo", rtol_b=1e-6, rtol_se=1e-6)
+    r = STATA["intreg_rc_gh100"]
+    for ours, theirs in [("sigma_u", "/sigma_u"), ("sigma_e", "/sigma_e")]:
+        np.testing.assert_allclose(fit.std_errors[ours], r[theirs][1], rtol=1e-6)
+    # Stata's default adaptive fit, converged tightly: estimates and
+    # likelihood to 1e-6 (observed 4e-10); its reported standard errors
+    # carry the adaptive-Hessian gap (observed 2.3% on se(sigma_e))
+    _check(fit, "intreg_rc_q40_tight", "lo", rtol_b=1e-6, rtol_se=5e-2)
+
+
+def test_stata_default_xtintreg_stops_short_of_the_maximum(df):
+    """Stata's default fit of the right-censored intervals stops after four
+    Newton steps, 4.8e-8 below the maximum its own tightened fit (and ours)
+    reaches; its x1 is 4e-6 away. That is the reference's stopping rule,
+    so this fit is compared at the looser tolerance it allows."""
+    fit = sp.xtintreg(df, y_lower="lo", y_upper="hi2", x=["x1", "x2"], id="id")
+    default, tight = STATA["intreg_rc_q40"], STATA["intreg_rc_q40_tight"]
+    assert default["e(ll)"][0] < tight["e(ll)"][0] - 4e-8
+    assert fit.model_info["log_likelihood"] == pytest.approx(
+        tight["e(ll)"][0], rel=1e-12
+    )
+    _check(fit, "intreg_rc_q40", "lo", rtol_b=5e-5, rtol_se=5e-2)
+
+
+def test_fixture_records_the_stata_build():
+    meta = STATA["about"]["_meta"]
+    assert meta["stata_version"] == "18" and meta["edition"] == "MP"

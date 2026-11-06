@@ -60,6 +60,8 @@ _CASES = [
 ]
 _CASES += [("fe2", ["id", "t"], 50, v) for v in ("gls", "robust", "cluster")]
 _CASES += [("nofe", None, 50, v) for v in ("gls", "robust", "cluster")]
+# added 2026-11-05: a lower tail (n tau = 39.6, the quantile is unique)
+_CASES += [("fe1", ["id"], 10, v) for v in ("gls", "robust", "cluster")]
 
 
 @pytest.mark.parametrize("design,absorb,q,vce", _CASES)
@@ -78,11 +80,86 @@ def test_matches_stata_mmqreg(df, design, absorb, q, vce):
     ]
     np.testing.assert_allclose(coef, b.ravel(), rtol=1e-10, atol=1e-13)
     assert r.nobs == STATA[gls]["e(N)"]["data"][0][0] == 396
-    if design == "fe1" and vce == "gls":
-        fden = STATA[gls]["e(fden)"]["data"][0][0]
-        qval = STATA[gls]["e(qval)"]["data"][0][0]
+    if design == "fe1" and (vce == "gls" or q == 10):
+        fden = STATA[f"{design}_{vce}_{q}"]["e(fden)"]["data"][0][0]
+        qval = STATA[f"{design}_{vce}_{q}"]["e(qval)"]["data"][0][0]
         assert r.model_info["density"] == pytest.approx(fden, rel=1e-10)
         assert r.model_info["q"] == pytest.approx(qval, rel=1e-12)
+
+
+# q(75) on 396 observations: n tau = 297 is an integer, so every value
+# between the 297th and 298th order statistic of the standardized residuals
+# minimizes the check function. We take the upper end (the 298th, as Stata
+# does at q(25) and q(50) here); Stata's qreg returns either end, by no rule
+# we could find (on a 300-row subsample it took the lower end at 10 of 19
+# percentiles, the upper at 9, on both sides of the median). These fits are
+# compared with tau nudged below 0.75, which selects the lower end.
+_TIED = [
+    (d, a, v)
+    for d, a in (("fe2", ["id", "t"]), ("nofe", None))
+    for v in ("gls", "robust", "cluster")
+]
+
+
+@pytest.mark.parametrize("design,absorb,vce", _TIED)
+def test_tied_quantile_matches_stata_at_its_end(df, design, absorb, vce):
+    tag = f"{design}_{vce}_75"
+    V, rows, cols = _mat(tag, "e(V)")
+    b = _mat(tag, "e(b)")[0].ravel()
+    # tau = 0.75 - 1e-11 selects the 297th order statistic and moves
+    # nothing else by more than about 1e-11
+    lower = _fit(df, absorb, 75 - 1e-9, vce)
+    ours = lower.model_info["vcov_all"].loc[rows, cols].to_numpy()
+    # the 1e-11 shift of tau enters the influence functions directly: the
+    # near-zero covariances get an absolute 1e-11 of the largest
+    np.testing.assert_allclose(ours, V, rtol=1e-10, atol=1e-11 * np.abs(V).max())
+    np.testing.assert_allclose(lower.params.to_numpy(), b[8:], rtol=1e-10)
+    # the default takes the other end; location and scale do not depend on it
+    upper = _fit(df, absorb, 75, vce)
+    assert upper.model_info["q"] > lower.model_info["q"]
+    loc = np.r_[upper.model_info["location"]["coef"], upper.model_info["scale"]["coef"]]
+    np.testing.assert_allclose(loc, b[:8], rtol=1e-10, atol=1e-13)
+    assert upper.nobs == STATA[tag]["e(N)"]["data"][0][0] == 396
+
+
+@pytest.mark.parametrize("design,absorb", [("fe2", ["id", "t"]), ("nofe", None)])
+def test_both_ends_of_a_tied_quantile_minimize_the_check_function(df, design, absorb):
+    """Independent evidence that the two answers are equally valid: the
+    check loss sum rho_tau(eps - q) is the same at both ends."""
+    import importlib
+
+    mod = importlib.import_module("statspai.panel.mmqreg")
+    seen = {}
+    orig = mod._lp_quantile
+
+    def spy(s, tau):
+        seen.setdefault("eps", s.copy())
+        return orig(s, tau)
+
+    mod._lp_quantile = spy
+    try:
+        fit = _fit(df, absorb, 75, "gls")
+    finally:
+        mod._lp_quantile = orig
+    eps = seen["eps"]
+    tau, n = 0.75, len(eps)
+    assert n * tau == 297
+
+    def loss(q):
+        u = eps - q
+        return float(np.sum(u * (tau - (u < 0))))
+
+    lo, hi = eps[296], eps[297]
+    assert fit.model_info["q"] == hi and lo < hi
+    assert loss(lo) == pytest.approx(loss(hi), rel=1e-13)
+    assert loss(0.5 * (lo + hi)) == pytest.approx(loss(hi), rel=1e-13)
+    assert loss(hi + 1e-3) > loss(hi) and loss(lo - 1e-3) > loss(lo)
+
+
+def test_fixture_records_the_stata_build():
+    meta = STATA["about"]["_meta"]
+    assert meta["stata_version"] == "18" and meta["edition"] == "MP"
+    assert meta["mmqreg"].startswith("*! v2.6")
 
 
 @pytest.mark.parametrize("q", [25, 50, 90])

@@ -140,6 +140,28 @@ def _re_within_unidentified(
     return [en[j] for j in keep if j < n_endog]
 
 
+def _re_sigma_e_k(
+    n_cols: int,
+    n_keep: int,
+    n_within_omitted: int,
+    balanced: bool,
+    se_kind: str,
+    n_endog: int,
+) -> int:
+    """The ``K`` of ``s2_nu = SSR_within / (N - n - K + 1)`` in ``re``.
+
+    Every column of the model (the manual's ``K = g2 + k1`` plus the
+    constant); on a balanced panel only those the within regression uses.
+    ``n_endog`` is unused: Stata 18 counts two or more endogenous
+    regressors as one here (and only here; its ``sigma_u`` uses the full
+    ``K``), which is not followed. ``tests/test_xtivreg_stata.py`` pins
+    Stata's numbers by running with that count.
+    """
+    if balanced:
+        return n_keep - (n_within_omitted if se_kind != "cluster" else 0)
+    return n_cols
+
+
 def _cluster_vcov(
     fit: Dict[str, np.ndarray], codes: np.ndarray, n_groups: int, N: int, K: int
 ) -> np.ndarray:
@@ -226,6 +248,22 @@ def xtivreg(
         values summarised as min / median / max when the panel is
         unbalanced), the within / between / overall R-squared and the
         number of panels.
+
+    Notes
+    -----
+    Agrees with Stata 18 ``xtivreg`` to rounding on ``fe``, ``be``, ``re``
+    with ``nosa`` and ``re`` with one endogenous regressor. With two or
+    more endogenous regressors on an unbalanced panel, Stata's ``re``
+    divides the within sum of squares behind ``sigma_e`` by
+    ``N - n - K + 1`` with the endogenous regressors counted as one (its
+    ``sigma_u`` uses the full ``K``, as its manual does for both); the full
+    ``K`` is used here, so ``sigma_e`` is Stata's times
+    ``sqrt((N - n - K + g2) / (N - n - K + 1))`` for ``g2`` endogenous
+    regressors, and the estimates move by less than that
+    (``tests/test_xtivreg_stata.py`` reproduces Stata's numbers under its
+    count). On a balanced panel with ``vce='robust'`` Stata's count also
+    includes a continuous time-invariant regressor, through rounding noise
+    in its within transform; that is not followed either.
 
     Examples
     --------
@@ -330,9 +368,13 @@ def xtivreg(
         # regression uses, and an endogenous regressor left out of it for
         # lack of a time-varying instrument counts only with the
         # cluster-robust variance (Stata 18, tests/test_xtivreg_stata.py).
-        Kw = len(keep) if m == "fe" else Z.shape[1]
-        if m == "re" and balanced:
-            Kw = len(keep) - (len(within_omitted) if se_kind != "cluster" else 0)
+        Kw = (
+            len(keep)
+            if m == "fe"
+            else _re_sigma_e_k(
+                Z.shape[1], len(keep), len(within_omitted), balanced, se_kind, len(en)
+            )
+        )
         s2_nu = float(fw["e"] @ fw["e"]) / (N - n - Kw + 1)
         if within_omitted:
             warnings.warn(

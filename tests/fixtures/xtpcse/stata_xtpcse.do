@@ -1,9 +1,12 @@
 * Stata 18 MP reference for tests/test_xtpcse_stata.py.
 * From this directory: python _data.py . && stata-mp -b do stata_xtpcse.do
-* (the tab-separated output is stored as stata_xtpcse.json)
+* then python ../_stata_tsv.py stata_xtpcse.tsv stata_xtpcse.json
 set more off
 set type double
 file open fh using "stata_xtpcse.tsv", write replace
+file write fh "about" _tab "_meta" _tab "stata_version" _tab "`c(stata_version)'" _n
+file write fh "about" _tab "_meta" _tab "born_date" _tab "`c(born_date)'" _n
+file write fh "about" _tab "_meta" _tab "edition" _tab "`c(edition_real)'" _n
 capture program drop dumpe
 program dumpe
     args tag
@@ -59,4 +62,34 @@ xtpcse y x1 x2, correlation(ar1) np1
 dumpe tscs_unbal_ar1_np1
 xtpcse y x1 x2, correlation(ar1) pairwise
 dumpe tscs_unbal_ar1_pairwise
+* added 2026-11-05: no constant, panel-specific AR(1) with every rhotype
+* and with the other covariance options, and ar1 with independent / nmk
+foreach f in tscs tscs_unbal {
+    import delimited using "`f'.csv", clear asdouble
+    xtset id t
+    xtpcse y x1 x2, noconstant
+    dumpe `f'_nocons
+    xtpcse y x1 x2, correlation(ar1) noconstant
+    dumpe `f'_ar1_nocons
+    foreach r in dw tscorr freg {
+        xtpcse y x1 x2, correlation(psar1) rhotype(`r')
+        dumpe `f'_psar1_`r'
+    }
+    xtpcse y x1 x2, correlation(psar1) hetonly
+    dumpe `f'_psar1_hetonly
+    xtpcse y x1 x2, correlation(psar1) independent
+    dumpe `f'_psar1_independent
+    xtpcse y x1 x2, correlation(psar1) nmk
+    dumpe `f'_psar1_nmk
+    xtpcse y x1 x2, correlation(ar1) independent
+    dumpe `f'_ar1_independent
+    xtpcse y x1 x2, correlation(ar1) nmk
+    dumpe `f'_ar1_nmk
+}
+xtpcse y x1 x2, correlation(psar1) pairwise
+dumpe tscs_unbal_psar1_pairwise
+xtpcse y x1 x2, correlation(psar1) np1
+dumpe tscs_unbal_psar1_np1
+xtpcse y x1 x2, correlation(ar1) rhotype(tscorr) np1
+dumpe tscs_unbal_ar1_tscorr_np1
 file close fh

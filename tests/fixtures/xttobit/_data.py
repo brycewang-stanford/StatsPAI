@@ -3,7 +3,8 @@
 ``python tests/fixtures/xttobit/_data.py <dir>`` writes ``retobit.csv`` for
 ``stata_xttobit.do``: 120 panels of 2 to 7 periods, a normal panel effect,
 the outcome censored at 0 from below and at 4 from above, plus an
-interval-coded version (bands of width 1, a fifth exact).
+interval-coded version (bands of width 1, a fifth exact) and a copy of it
+that is also right-censored (``hi2``).
 """
 
 import sys
@@ -31,6 +32,9 @@ def make_panel(seed: int = 20261019) -> pd.DataFrame:
     lo = np.where(df["ys"] < -1, np.nan, lo)
     hi = np.where(df["ys"] < -1, -1.0, hi)
     df["lo"], df["hi"] = lo, hi
+    # right-censored intervals as well: from 2 upward only the lower bound
+    # is known (hi2 missing); added 2026-11-05, after every random draw
+    df["hi2"] = np.where(lo >= 2, np.nan, hi)
     return df.drop(columns="ys")
 
 

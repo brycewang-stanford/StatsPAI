@@ -431,6 +431,54 @@ breaching balance, so it was not a size/feasibility trade-off, just wrong.
 Now solved exactly with `scipy.optimize.milp` (HiGHS): 16 of 16 feasible,
 and the count equals the independent optimum in every cell.
 
+**Panel commands mirroring Stata's `xt` suite — frozen Stata 18 MP
+fixtures (2026-11-05).** Stata 18 MP (born 07 Jun 2023). The six older
+fixtures under `tests/fixtures/` were re-run on that date and reproduce the
+committed numbers bit for bit before being extended; every fixture now
+records the Stata build (and the community-command versions) in its own
+rows. Tab-separated output becomes JSON through
+`tests/fixtures/_stata_tsv.py`. Community commands were run as black boxes
+from a private ado directory. Observed gaps are measured on the committed
+artifacts.
+
+| sp entry point | fixture / generator | reference and cases | observed | grade |
+| --- | --- | --- | ---: | --- |
+| `sp.xtivreg` | `tests/fixtures/xtivreg/stata_xtivreg{,_tinv,_more}.do`, `r_plm_xtivreg.R` | `xtivreg` re (G2SLS / ec2sls / nosa), fe, be × conventional / robust / cluster, one and two endogenous regressors, unbalanced and balanced, time-invariant regressors and instruments (41 fits); R plm 2.6.7 within and between IV (6 fits) | 2.3e-14 on 33 Stata fits, 3e-14 on plm; the other 8 are reproduced under Stata's K count (by default sigma_e and rho <= 2.5e-3, coefficients <= 1.2e-4) | aligned |
+| `sp.xttobit` | `tests/fixtures/xttobit/stata_xttobit.do` | `xttobit` ll / ul / both, 12 and 40 nodes, collinear regressor (5 fits) | 4.2e-8 (coefficients, SEs, LR test) | bit-exact |
+| `sp.xtintreg` | same | `xtintreg` default at 40 nodes, `intmethod(ghermite) intpoints(100)`, right-censored (default, tightened, non-adaptive), collinear (6 fits) | estimates 2e-7; SEs 6.8e-8 against the non-adaptive fits; default-fit SEs 0.47% / 2.3% (Stata's adaptive Hessian) | aligned |
+| `sp.xtpcse` | `tests/fixtures/xtpcse/stata_xtpcse.do`, `r_pcse.R` | `xtpcse`, 46 option combinations on a balanced and a gapped panel; R pcse 1.9.1.1 (3 OLS-PCSE fits) | 2.5e-14; R 1.1e-15 | bit-exact |
+| `sp.xtregar` | `tests/fixtures/xtregar/stata_xtregar.do` | `xtregar` fe / re, every rhotype iterated and twostep, rhof, lbi, gaps, balanced subset (35 fits) | 5.1e-15 on every stored scalar | bit-exact |
+| `sp.mmqreg` | `tests/fixtures/mmqreg/stata_mmqreg.do` | SSC `mmqreg` 2.6, q 10 / 25 / 50 / 75 / 90, none / one / two absorbed sets, GLS / robust / cluster (24 fits); `xtqreg` 1.3 coefficients | 4e-12 on 18 fits; the 6 tied-quantile fits (n tau integer) agree to 1e-10 at Stata's end | aligned |
+| `sp.xthtaylor` | `_fixtures/_generate_panel_xt_tools_stata.do` | `xthtaylor` conventional / robust / cluster, two endogenous time-varying regressors, `amacurdy` × 3 (7 fits) | 9.6e-15 | bit-exact |
+| `sp.xtserial` | same | `xtserial` 1.1.0 (st0039): gapped panel, balanced half, a time-invariant regressor (4 specs) | 4.6e-14 | bit-exact |
+| `sp.xtoverid` | same | SSC `xtoverid` 2.1.8 after `xtreg, re` vce(robust) / vce(cluster) (4 specs) | 2.5e-13 | bit-exact |
+| `sp.xtsum` | same | `xtsum`, all 13 stored results for 4 variables (missing values, time-invariant) | 1.8e-14 | bit-exact |
+
+Documented gaps (each pinned in its test):
+
+* `xtivreg, re` on an unbalanced panel counts two or more endogenous
+  regressors as one in the `K` of `s2_nu = SSR_within / (N - n - K + 1)`,
+  but not in `sigma_u`; StatsPAI keeps the manual's `K = g2 + k1` in both.
+  On a balanced panel with `vce(robust)` Stata's `K` counts a continuous
+  time-invariant regressor through rounding noise. Both pinned by running
+  StatsPAI with Stata's count (`monkeypatch` of `_re_sigma_e_k`).
+* `xtintreg`: the analytic Hessian under adaptive quadrature is not the
+  curvature of Stata's own likelihood; and on right-censored intervals the
+  default fit stops 4.8e-8 below the maximum, which `nrtolerance(1e-12)`
+  closes (4e-10).
+* `mmqreg`: when `n tau` is an integer the sample quantile is an interval
+  (both ends give the same check loss, asserted); StatsPAI takes the upper
+  end, Stata either, by no rule found.
+* `xtregar`: Stata does not divide the FE `_cons` standard error by
+  `1 - rho`; StatsPAI does (simulation in the test).
+* R `plm::pwfdtest` is a different statistic from `xtserial`; plm's
+  random-effects IV uses other variance components than `xtivreg, re`.
+  Neither is used as a reference.
+* The Python side reads `panel_xt_tools.csv` with
+  `float_precision='round_trip'`: pandas' default parser is not correctly
+  rounded, and differs from Stata's `import delimited` in the last bit on
+  about a fifth of the values.
+
 ## What the tests verify
 
 ### Recovery tests

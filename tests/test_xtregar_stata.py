@@ -86,7 +86,7 @@ def _call(tag, df):
     return fit, xs
 
 
-@pytest.mark.parametrize("tag", sorted(STATA))
+@pytest.mark.parametrize("tag", sorted(t for t in STATA if t != "about"))
 def test_xtregar_matches_stata(df, tag):
     fit, xs = _call(tag, df)
     ref = STATA[tag]
@@ -202,3 +202,8 @@ def test_rho_outside_unit_interval_is_refused():
     )
     with pytest.raises(MethodIncompatibility, match="rho"):
         sp.xtregar(frame, y="y", x="x", id="id", time="t", rhotype="regress")
+
+
+def test_fixture_records_the_stata_build():
+    meta = STATA["about"]["_meta"]
+    assert meta["stata_version"] == "18" and meta["edition"] == "MP"
