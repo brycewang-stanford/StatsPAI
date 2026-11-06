@@ -563,10 +563,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "curated+family",
       "pre_conditions": "curated+family",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "angrist1996identification",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -741,10 +742,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "koenker1978regression, parente2016quantile",
     "returns": {
       "class": "CausalResult",
       "description": "EconometricResults",
@@ -3037,10 +3039,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "cameron2013regression",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults or MEGLMResult",
@@ -20989,7 +20992,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass the data as a DataFrame with one row per unit.",
-        "symptom": "data must be a pandas DataFrame."
+        "symptom": "sp.summary_index: data must be a pandas DataFrame; got <type(data).__name__>."
       },
       {
         "alternative": "",
@@ -21830,9 +21833,10 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "spearman1904proof",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -22244,9 +22248,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "tsamardinos2006maxmin, aliferis2010local",
     "returns": {
       "class": "dict",
       "description": "dict",
@@ -22364,9 +22369,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "tsamardinos2006maxmin",
     "returns": {
       "class": "dict",
       "description": "dict (DAGDict)",
@@ -22583,9 +22589,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "athey2019generalized, nie2021quasi",
     "returns": {
       "class": "dict",
       "description": "dict",
@@ -23789,9 +23796,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "cook1977detection",
     "returns": {
       "class": "DataFrame",
       "description": "DataFrame",
@@ -23958,9 +23966,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "hosmer2000applied",
     "returns": {
       "class": "dict",
       "description": "dict",
@@ -25642,9 +25651,10 @@
       "example": "curated",
       "failure_modes": "curated",
       "not_recommended_when": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "li2018balancing, li2013weighting, robins2000marginal",
     "returns": {
       "class": "ndarray",
       "description": "ndarray | Series",
@@ -26230,9 +26240,10 @@
       "assumptions": "curated",
       "example": "curated",
       "not_recommended_when": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "szekely2013energy, huling2024energy",
     "returns": {
       "class": "float",
       "description": "float",
@@ -26341,9 +26352,10 @@
       "example": "curated",
       "failure_modes": "curated",
       "not_recommended_when": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "chattopadhyay2023implied",
     "returns": {
       "class": "Series",
       "description": "Series",
@@ -29505,9 +29517,10 @@
       "example": "curated",
       "failure_modes": "source",
       "not_recommended_when": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "hoerl1970ridge, tibshirani1996regression",
     "returns": {
       "class": "ShrinkageResult",
       "description": "ShrinkageResult",
@@ -29694,10 +29707,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "imbens2015causal, bell2002bias, pustejovsky2018small",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult",
@@ -41493,10 +41507,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "dersimonian1986meta, higgins2002quantifying",
     "returns": {
       "class": "HeterogeneityResult",
       "description": "HeterogeneityResult",
@@ -57687,10 +57702,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "hardt2016equality, kusner2017counterfactual",
     "returns": {
       "class": "FairnessAudit",
       "description": "FairnessAudit",
@@ -59370,7 +59386,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass the unit-level data as a DataFrame.",
-        "symptom": "data must be a pandas DataFrame."
+        "symptom": "sp.expected_instrument: data must be a pandas DataFrame; got <type(data).__name__>."
       },
       {
         "alternative": "",
@@ -72579,10 +72595,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "wooldridge2010econometric, goodmanbacon2021difference",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult",
@@ -85150,7 +85167,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Use e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)."
+        "symptom": "sp.spatial_treatment: alpha must be in (0, 1)."
       },
       {
         "alternative": "",
@@ -85412,7 +85429,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)."
+        "symptom": "sp.noisy_covariates: alpha must be in (0, 1)."
       },
       {
         "alternative": "",
@@ -85613,7 +85630,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)"
+        "symptom": "sp.positive_correlation_test: alpha must be in (0, 1); got <alpha>."
       },
       {
         "alternative": "",
@@ -85784,7 +85801,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)"
+        "symptom": "sp.efc_welfare: alpha must be in (0, 1); got <alpha>."
       },
       {
         "alternative": "",
@@ -85954,13 +85971,13 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. upto_quantile=0.8.",
-        "symptom": "upto_quantile must be in (0, 1]"
+        "symptom": "sp.pooled_price_ratio: upto_quantile must be in (0, 1]"
       },
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)"
+        "symptom": "sp.pooled_price_ratio: alpha must be in (0, 1); got <alpha>."
       },
       {
         "alternative": "",
@@ -86110,13 +86127,13 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. upto_quantile=0.8.",
-        "symptom": "upto_quantile must be in (0, 1]"
+        "symptom": "sp.risk_class_selection: upto_quantile must be in (0, 1]"
       },
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass e.g. alpha=0.05.",
-        "symptom": "alpha must be in (0, 1)"
+        "symptom": "sp.risk_class_selection: alpha must be in (0, 1); got <alpha>."
       },
       {
         "alternative": "",
@@ -86773,7 +86790,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "pass a discount factor below one",
-        "symptom": "beta must be in [0, 1)"
+        "symptom": "sp.dgp_ddc: beta must be in [0, 1)"
       },
       {
         "alternative": "",
@@ -87290,7 +87307,7 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Drop the redundant regressors.",
-        "symptom": "The regressors are collinear."
+        "symptom": "sp.semiparametric_bayes: The regressors are collinear."
       }
     ],
     "inherits_from": null,
@@ -88471,10 +88488,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "rambachan2023more",
     "returns": {
       "class": "float",
       "description": "float: Breakdown value M*. The effect is significant for all M < M*. inf when the set excludes zero however large M is (a sign restriction can bound the violation on the side that matters).",
@@ -90254,10 +90272,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "wooldridge2021two",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate is the overall ATT (for type='simple') or the mean of the sub-aggregation (for the other types). detail contains one row per group/event-time/calendar-time with (estimate, se, pvalue, ci_low, ci_high).",
@@ -91147,10 +91166,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "goodmanbacon2021difference, dechaisemartin2020two",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate is the TWFE coefficient and se its standard error clustered by unit (the small-sample factor of Stata xtreg, fe vce(cluster)). detail has columns type, treated_cohort, control_cohort, estimate, weight, weighted_est.",
@@ -91319,10 +91339,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "calonico2015optimal",
     "returns": {
       "class": "tuple",
       "description": "(fig, ax): fig.rdplot_data carries the numbers.",
@@ -91979,9 +92000,10 @@
       "cost_profile": "curated",
       "example": "docstring",
       "failure_modes": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cattaneo2019practical",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: bandwidth, estimate, se, ci_lower, ci_upper, pvalue.",
@@ -92161,9 +92183,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cattaneo2019practical",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: covariate, estimate, se, z, pvalue, significant.",
@@ -92312,9 +92335,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cattaneo2019practical",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: cutoff, estimate, se, ci_lower, ci_upper, pvalue, is_true_cutoff.",
@@ -92704,10 +92728,11 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "card2015inference",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: Result object with estimate, standard error, confidence interval, summary(), and plot() methods.",
@@ -92877,10 +92902,11 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hausman2018regression",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: Result object with estimate (treatment effect at the cutoff), standard error (HAC), confidence interval, p-value, and a detail DataFrame with fitted values.",
@@ -93546,10 +93572,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2016inference",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: window, estimate, se, pvalue, ci_lower, ci_upper, significant.",
@@ -93736,10 +93763,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2016inference, rosenbaum2002observational",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: gamma, pvalue_upper, pvalue_lower.",
@@ -94441,10 +94469,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2019generalized",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate = average effect at the cutoff (see above); detail = DataFrame with per-obs CATE and its across-tree SE; model_info includes mean_cate, running_slopes and variable importance.",
@@ -94788,10 +94817,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "belloni2014inference",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate = RD treatment effect with LASSO-selected covariates; model_info includes selected_covariates and LASSO paths.",
@@ -95470,10 +95500,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "angrist2015wanna, cattaneo2021extrapolating",
     "returns": {
       "class": "dict",
       "description": "dict: Keys: - 'local_estimate': local RD effect at the cutoff (CausalResult). - 'ci_test': conditional independence test results (dict or None). - 'overlap': covariate overlap statistics (dict or None).",
@@ -95997,10 +96028,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2021penalized, doudchenko2016balancing",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult",
@@ -96203,10 +96235,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "xu2017generalized, bai2009panel",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: With treat (or several treated units, or covariates): estimate is the average effect over all treated unit-periods; detail lists the effect by period relative to adoption (0 = first treated period);",
@@ -97262,9 +97295,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "arkhangelsky2021synthetic",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -97407,9 +97441,10 @@
       "assumptions": "family",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "arkhangelsky2021synthetic",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -97543,9 +97578,10 @@
       "assumptions": "family",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "arkhangelsky2021synthetic",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -97665,9 +97701,10 @@
       "cost_profile": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "arkhangelsky2021synthetic",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns unit, estimate, se, pvalue. One row per control unit for kind='unit'. One row for kind='time', with unit set to 'in-time placebo', no standard error, and the placebo treatment date in attrs['placebo_treat_time'].",
@@ -97822,10 +97859,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2021matrix",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: With .estimate equal to the average post-treatment effect (ATT), period-level effects in detail, and full diagnostics in model_info.",
@@ -98019,10 +98057,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hainmueller2012entropy",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: ATT estimate with entropy-balanced weights and balance table.",
@@ -98212,10 +98251,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "rosenbaum1983central, crump2009dealing",
     "returns": {
       "class": "Series",
       "description": "pd.Series: Propensity scores indexed like *data*. A row with a missing treatment or covariate value is left out of the fit and has a NaN score (with a warning that says how many).",
@@ -98350,10 +98390,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "crump2009dealing",
     "returns": {
       "class": "DataFrame",
       "description": "DataFrame: Trimmed data (rows with PS in the overlap region).",
@@ -98475,9 +98516,10 @@
       "example": "docstring",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "austin2015moving",
     "returns": {
       "class": "PSBalanceResult",
       "description": "PSBalanceResult: Object with .table, .ps, .summary(), .love_plot().",
@@ -99670,10 +99712,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "ahrens2025model",
     "returns": {
       "class": "DMLAveragingResult",
       "description": "DMLAveragingResult: With the weighted :math:`\\hat\\theta`, SE, CI, and per-candidate diagnostics under result.model_info.",
@@ -99840,10 +99883,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2022long",
     "returns": {
       "class": "DMLSensitivityResult",
       "description": "DMLSensitivityResult",
@@ -99976,10 +100020,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2018double",
     "returns": {
       "class": "DMLDiagnostics",
       "description": "DMLDiagnostics",
@@ -100314,10 +100359,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hartford2017deep",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult",
@@ -101492,10 +101538,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2019generalized",
     "returns": {
       "class": "dict",
       "description": "dict with ``ate``, ``se``, ``ci_low``, ``ci_high`` (95 %).",
@@ -101596,9 +101643,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2019generalized",
     "returns": {
       "class": "dict",
       "description": "",
@@ -101732,9 +101780,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2019generalized",
     "returns": {
       "class": "dict",
       "description": "",
@@ -101864,9 +101913,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "correia2017linear",
     "returns": {
       "class": "tuple",
       "description": "",
@@ -102016,10 +102066,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "correia2017linear",
     "returns": {
       "class": "dict",
       "description": "dict with keys:: coef (p,), se (p,), vcov (p,p), resid (n_kept,), n (n_kept), df_resid, dof_fe, r2_within, rss / tss_within (weighted when weights is given), n_singletons_dropped, converged, iters, absorber (if requested)",
@@ -102206,10 +102257,11 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "correia2017linear",
     "returns": {
       "class": "FEOLSResult",
       "description": "FEOLSResult",
@@ -102503,10 +102555,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "li2018balancing",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: .estimate targets the named estimand; .model_info stores the weight summary, effective sample size, and pscore diagnostics.",
@@ -102961,10 +103014,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zubizarreta2015stable",
     "returns": {
       "class": "SBWResult",
       "description": "SBWResult",
@@ -103154,10 +103208,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "diamond2013genetic",
     "returns": {
       "class": "GenMatchResult",
       "description": "GenMatchResult",
@@ -103323,9 +103378,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "mackinnon2018wild",
     "returns": {
       "class": "dict",
       "description": "dict with ``p_boot`` (symmetric, ``#{|t*| > |t|} / B`` as in",
@@ -103484,9 +103540,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "mackinnon2018wild, roodman2019fast",
     "returns": {
       "class": "dict",
       "description": "dict with ``ci``, ``p_grid`` (grid_size,), ``h0_grid``, ``beta_hat``,",
@@ -103642,9 +103699,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cameron2011robust, mackinnon2023cluster",
     "returns": {
       "class": "ndarray",
       "description": "ndarray, shape (k, k): Multiway-cluster-robust variance-covariance matrix.",
@@ -103774,9 +103832,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "not_recommended_when": "family",
-      "pre_conditions": "family"
+      "pre_conditions": "family",
+      "reference": "curated"
     },
-    "reference": "",
+    "reference": "cameron2011robust, mackinnon2023cluster",
     "returns": {
       "class": "ndarray",
       "description": "",
@@ -103893,9 +103952,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cameron2011robust, mackinnon2023cluster",
     "returns": {
       "class": "ndarray",
       "description": "ndarray, shape (k, k)",
@@ -104664,9 +104724,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimand='ATT' -- the average post-period lift of the treated markets. model_info adds treated_geos, agg, and a relative_lift_pct (lift as a share of the synthetic counterfactual).",
@@ -105678,10 +105739,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "koenker1978regression",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame or EconometricResults: Without reps: rows are variables, columns the coefficient and SE at each quantile. With reps: an EconometricResults whose coefficients are named q<100 tau>:<variable> (q25:x),",
@@ -105821,10 +105883,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hosmer2000applied",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Fitted model with .summary(), .predict(), diagnostics, etc. model_info['auc'] is the area under the ROC curve of the fitted probabilities,",
@@ -106628,10 +106691,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cameron2013regression",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Fitted model with params, standard errors, diagnostics.",
@@ -107795,9 +107859,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "ado2019shift, borusyak2022quasi",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Coefficients of the location-level regression; the SE of *x* is AKM, the controls carry HC1 SEs. p-values / CIs are normal-based (as in the reference).",
@@ -107963,9 +108028,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "ado2019shift",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Same point estimates; the last SE is the AKM SE and the diagnostics carry the Homoscedastic / EHW / AKM / AKM0 rows. p-values and CIs are normal-based, as in the reference.",
@@ -108608,9 +108674,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "hausman1978specification",
     "returns": {
       "class": "dict",
       "description": "dict: 'statistic': Hausman chi2 statistic 'df': degrees of freedom 'pvalue': p-value (nan when the statistic is negative) 'recommendation': 'FE', 'RE',",
@@ -108772,10 +108839,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "anderson1949estimation",
     "returns": {
       "class": "dict",
       "description": "dict: 'ar_stat' : AR F statistic at h0. 'ar_df' : Degrees of freedom (k_z, n - k_w - k_z). 'ar_pvalue' : P-value of AR test at h0. 'ar_ci' : (low, high) AR confidence set (grid-inverted).",
@@ -109026,10 +109094,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "olea2013robust",
     "returns": {
       "class": "dict",
       "description": "dict: 'F_eff' : Olea-Pflueger effective F. 'first_stage_F' : Classical first-stage F (for comparison). 'n_instruments' : Number of excluded instruments (k_z). 'n_obs' : Sample size. 'strength' : Interpretation string.",
@@ -109653,10 +109722,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "vanderweele2017sensitivity, ding2016sensitivity",
     "returns": {
       "class": "EValueResult",
       "description": "EValueResult: A dict (the keys below, unchanged) that also has summary() / glance() / to_latex() / to_word(). evalue_estimate (point E-value), evalue_ci (E-value for the confidence limit closest to true;",
@@ -109796,9 +109866,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "vanderweele2017sensitivity, ding2016sensitivity",
     "returns": {
       "class": "dict",
       "description": "dict: Same structure as :func:`evalue`.",
@@ -110035,9 +110106,10 @@
       "assumptions": "family",
       "example": "docstring",
       "failure_modes": "family",
-      "pre_conditions": "family"
+      "pre_conditions": "family",
+      "reference": "curated"
     },
-    "reference": "",
+    "reference": "ding2016sensitivity",
     "returns": {
       "class": "float",
       "description": "",
@@ -110399,9 +110471,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "young2019channeling",
     "returns": {
       "class": "RITestResult",
       "description": "RITestResult: A dict subclass with .summary() / .plot() and attribute access (result.p_value); its keys are 'observed': observed test statistic 'p_value': two-sided randomization p-value 'p_one_sided': one-sided (greater) p-value 'n_perms':...",
@@ -110743,9 +110816,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cameron2011robust",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: New results object with the same point estimates but two-way clustered standard errors, t-statistics, p-values, and confidence intervals.",
@@ -111054,10 +111128,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "stuart2011propensity, dahabreh2019generalizing",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: With estimate = PATE, se from the bootstrap, and ci at the requested level. model_info['converged'] says whether the participation logit ('ipw' / 'aipw') or the entropy-balancing solve ('calibration',",
@@ -111218,9 +111293,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "young2019channeling",
     "returns": {
       "class": "FisherResult",
       "description": "FisherResult: Object with statistic, p_value, ci, perm_dist, and methods for summary() and plot().",
@@ -111525,9 +111601,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "bell2002bias, pustejovsky2018small",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: New results object with CR2-corrected standard errors.",
@@ -111658,9 +111735,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "cameron2008bootstrap, mammen1993bootstrap, webb2014reworking",
     "returns": {
       "class": "dict",
       "description": "dict: Keys (least squares; the other bootstraps return the subset they define and a method key naming the bootstrap): - method: which bootstrap ran - beta_hat: point estimate - se_cluster: conventional cluster-robust SE - t_stat: observed t...",
@@ -111840,9 +111918,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "dersimonian1986meta, higgins2002quantifying, egger1997bias",
     "returns": {
       "class": "MetaAnalysisResult",
       "description": "MetaAnalysisResult: With .estimate, .ci, heterogeneity statistics, .summary(), .egger_test(), .forest_plot(), .funnel_plot().",
@@ -112271,10 +112350,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "robins2000marginal, cole2008constructing",
     "returns": {
       "class": "ndarray",
       "description": "np.ndarray: Stabilized weight for each row.",
@@ -113814,10 +113894,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2025generic",
     "returns": {
       "class": "dict",
       "description": "dict: gate_table (group, n, gate, se, ci_lower, ci_upper for GATES; group, n, mean_cate, se, ci_lower, ci_upper for the descriptive path), omnibus_stat / omnibus_pvalue (omnibus_F on the descriptive path),",
@@ -114141,10 +114222,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "nie2021quasi, chernozhukov2018double",
     "returns": {
       "class": "AutoCATEResult",
       "description": "AutoCATEResult",
@@ -115259,9 +115341,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "heckman2005structural",
     "returns": {
       "class": "callable",
       "description": "",
@@ -115365,9 +115448,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "heckman2005structural",
     "returns": {
       "class": "callable",
       "description": "",
@@ -115454,9 +115538,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "not_recommended_when": "curated",
-      "pre_conditions": "curated"
+      "pre_conditions": "curated",
+      "reference": "curated"
     },
-    "reference": "",
+    "reference": "heckman2005structural",
     "returns": {
       "class": "callable",
       "description": "",
@@ -115567,9 +115652,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "heckman2005structural, carneiro2011estimating",
     "returns": {
       "class": "callable",
       "description": "",
@@ -115784,10 +115870,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zheng2018dags",
     "returns": {
       "class": "dict",
       "description": "dict: 'adjacency' : pd.DataFrame Weighted adjacency matrix W (W_ij means i -> j). 'edges' : list of (str, str, float) List of (parent, child, weight) tuples. 'dag' : pd.DataFrame Binary adjacency matrix (thresholded).",
@@ -116048,10 +116135,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "spirtes2000causation, colombo2014order",
     "returns": {
       "class": "dict",
       "description": "dict: 'skeleton' : pd.DataFrame Undirected adjacency matrix (0/1). 'cpdag' : pd.DataFrame CPDAG adjacency matrix. cpdag[i,j] = 1 means i -> j. If both cpdag[i,j] = 1 and cpdag[j,i] = 1, the edge is undirected (i -- j).",
@@ -116535,10 +116623,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "vanderlaan2007super",
     "returns": {
       "class": "SuperLearner",
       "description": "SuperLearner: Fitted ensemble.",
@@ -116960,10 +117049,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2021policy",
     "returns": {
       "class": "float",
       "description": "float: Estimated value gain of the policy over treating no one.",
@@ -117186,10 +117276,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lei2021conformal",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate / se are the average treatment effect and its standard error from the cross-fitted AIPW score (model for the outcome in each arm, a gradient-boosting propensity, 5 folds), as in :func:`sp.metalearner`.",
@@ -117477,9 +117568,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hahn2020bayesian",
     "returns": {
       "class": "BayesianCausalForest",
       "description": "",
@@ -117625,10 +117717,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kleven2013using, chetty2011adjustment",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: 'estimate' is the excess mass (bunching) estimate B. model_info contains 'elasticity' if dt is provided, 'counterfactual' histogram, and 'observed' histogram.",
@@ -117795,10 +117888,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kleven2013using",
     "returns": {
       "class": "NotchResult",
       "description": "NotchResult: Result object with excess_bunching, missing_mass, marginal_buncher, elasticity (if notch_size given), bootstrap SEs, and methods for .summary(), .plot(), and Jupyter HTML display.",
@@ -117957,10 +118051,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "athey2021matrix",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: model_info['completed_matrix'] is the imputed untreated outcome matrix (fixed effects + low-rank part); model_info['low_rank_matrix'] is the low-rank part alone.",
@@ -118302,10 +118397,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lee2009training",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate = midpoint of bounds. ci = Imbens-Manski confidence interval for the identified set. model_info contains 'lower_bound' and 'upper_bound'.",
@@ -118477,10 +118573,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "manski1990nonparametric",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult",
@@ -118633,10 +118730,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "horowitz2000nonparametric",
     "returns": {
       "class": "BoundsResult",
       "description": "BoundsResult",
@@ -118963,10 +119061,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "oster2019unobservable",
     "returns": {
       "class": "BoundsResult",
       "description": "BoundsResult: lower/upper give the identified set for beta at delta=1 (equal selection) and the given r_max. model_info['beta_star_delta1'] and model_info['delta_star'] are Oster's *exact* solutions (the quadratic / cubic of her Proposition...",
@@ -119125,10 +119224,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lee2009training",
     "returns": {
       "class": "BoundsResult",
       "description": "BoundsResult",
@@ -119409,10 +119509,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "robins2004optimal",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: detail has stage-level blip function estimates. model_info contains optimal treatment rules.",
@@ -121401,9 +121502,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "schoenfeld1983sample",
     "returns": {
       "class": "PowerResult",
       "description": "PowerResult",
@@ -122022,10 +122124,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hastie2009elements",
     "returns": {
       "class": "SelectionResult",
       "description": "SelectionResult",
@@ -122200,10 +122303,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "tibshirani1996regression",
     "returns": {
       "class": "SelectionResult",
       "description": "SelectionResult",
@@ -122581,9 +122685,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "romano2005exact, romano2016efficient, clarke2020romano",
     "returns": {
       "class": "RomanoWolfResult",
       "description": "RomanoWolfResult: Result object with .summary(), .plot(), and ._repr_html_() methods.",
@@ -123084,9 +123189,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "holm1979simple",
     "returns": {
       "class": "ndarray",
       "description": "np.ndarray: Holm-adjusted p-values (in original order).",
@@ -123174,9 +123280,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "benjamini1995controlling",
     "returns": {
       "class": "ndarray",
       "description": "np.ndarray: BH-adjusted p-values (in original order).",
@@ -124026,10 +124133,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "train2009discrete",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: .params contains (in order): 1. fixed-coef estimates, 2. random-coef means (mean_<name>), 3. random-coef scales (sd_<name> or full Cholesky entries).",
@@ -124251,10 +124359,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2005model, chernozhukov2008instrumental",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: For a scalar tau. For a list of tau values (one row per quantile).",
@@ -124463,10 +124572,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lambert1992zero",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Coefficients for both equations, Vuong test, diagnostics. diagnostics['vuong_stat'] compares the fit with a Poisson regression fitted on its own.",
@@ -124626,10 +124736,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cameron2013regression",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Coefficients for count, inflate, and dispersion parameter.",
@@ -124793,10 +124904,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "mullahy1986specification",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -125364,10 +125476,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "curated+family",
       "pre_conditions": "curated+family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "belloni2012sparse",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -125524,9 +125637,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "chernozhukov2016hdm, belloni2016inference",
     "returns": {
       "class": "RLassoFit",
       "description": "RLassoFit",
@@ -125679,9 +125793,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "belloni2014inference, chernozhukov2016hdm",
     "returns": {
       "class": "RLassoEffectResult",
       "description": "RLassoEffectResult",
@@ -125853,9 +125968,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "belloni2014inference, chernozhukov2016hdm",
     "returns": {
       "class": "RLassoEffectsResult",
       "description": "RLassoEffectsResult: A dict mapping column name -> RLassoEffectResult, with .vcov() (joint covariance of the estimates) and .conf_int(joint=True) (simultaneous sup-t band, hdm's confint(..., joint = TRUE)).",
@@ -126048,10 +126164,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "curated+family",
       "pre_conditions": "curated+family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "belloni2012sparse, chernozhukov2016hdm",
     "returns": {
       "class": "RLassoIVResult",
       "description": "RLassoIVResult",
@@ -126224,9 +126341,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "belloni2016post, chernozhukov2016hdm",
     "returns": {
       "class": "RLassoLogitFit",
       "description": "RLassoLogitFit",
@@ -126362,9 +126480,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "belloni2016post, chernozhukov2016hdm",
     "returns": {
       "class": "RLassoLogitEffectResult",
       "description": "RLassoLogitEffectResult",
@@ -126489,9 +126608,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "belloni2016post, chernozhukov2016hdm",
     "returns": {
       "class": "dict",
       "description": "dict: Mapping column name -> RLassoLogitEffectResult.",
@@ -127028,9 +127148,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "berge2018efficient, fernandezval2016individual",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults or list of EconometricResults",
@@ -127209,10 +127330,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cox1972regression",
     "returns": {
       "class": "CoxResult",
       "description": "CoxResult: Result object extending EconometricResults with .concordance, .baseline_hazard(), .ph_test(), .plot().",
@@ -127426,10 +127548,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kaplan1958nonparametric",
     "returns": {
       "class": "KMResult",
       "description": "KMResult: Object with .survival_table, .median_survival, .plot(), .summary().",
@@ -127590,10 +127713,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kalbfleisch2002statistical",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: Fitted parametric survival model. Parameters include covariates and log(sigma) (scale). diagnostics['Log-likelihood'] is the likelihood of the durations, as R survival::survreg reports it;",
@@ -127866,10 +127990,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "gray1988class",
     "returns": {
       "class": "CumIncResult",
       "description": "CumIncResult: With .cif_table, .gray_test, .summary(), .plot().",
@@ -128578,10 +128703,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "fan1996local",
     "returns": {
       "class": "LPolyResult",
       "description": "LPolyResult: Results with fitted values, SE, CI, and plot method.",
@@ -128931,10 +129057,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "silverman1986density",
     "returns": {
       "class": "KDensityResult",
       "description": "KDensityResult: Results with density values, grid, and plot method.",
@@ -130072,10 +130199,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "lutkepohl2005new",
     "returns": {
       "class": "VARResult",
       "description": "VARResult: VAR estimation results with .irf(), .granger_test(), .plot_irf().",
@@ -130819,9 +130947,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "bruhn2009pursuit",
     "returns": {
       "class": "RandomizationResult",
       "description": "RandomizationResult",
@@ -131413,9 +131542,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "duflo2007chapter",
     "returns": {
       "class": "OptimalDesignResult",
       "description": "OptimalDesignResult: n_total is the total sample (individuals); n_per_arm the size of the largest arm (all arms are equal under prop_treat=0.5).",
@@ -131737,9 +131867,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "buuren2011mice, rubin1987multiple",
     "returns": {
       "class": "MICEResult",
       "description": "MICEResult: Result with .complete(m), .summary(), and .combine() methods.",
@@ -131868,9 +131999,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "rubin1987multiple",
     "returns": {
       "class": "MIEstimateResult",
       "description": "MIEstimateResult: A dict of the combined estimates (Rubin's rules), keyed as in :meth:`MICEResult.combine`, plus var_names and n_obs; it also has summary() / tidy() and labelled params / std_errors ... so sp.regtable(result) takes it.",
@@ -132073,9 +132205,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "burgess2013mendelian, bowden2015mendelian, bowden2016consistent",
     "returns": {
       "class": "MRResult",
       "description": "MRResult: Results with .summary(), .plot(), estimates table.",
@@ -132695,10 +132828,11 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2016interpreting",
     "returns": {
       "class": "RDMultiResult",
       "description": "RDMultiResult",
@@ -133092,10 +133226,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "keele2015geographic",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult or RDMultiResult: A :class:`RDMultiResult` when cutoff1 / cutoff2 are sequences or xnorm is given: cutoff_results holds, per boundary point, the conventional estimate with the robust standard error, interval and p-value;",
@@ -133292,9 +133427,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cattaneo2016interpreting",
     "returns": {
       "class": "RDMultiResult",
       "description": "",
@@ -134367,10 +134503,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "dechaisemartin2024nounit",
     "returns": {
       "class": "dict",
       "description": "dict with ``statistic``, ``pvalue``, ``d_min``, ``d_second``.",
@@ -134789,10 +134926,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "levin2002unit, im2003testing",
     "returns": {
       "class": "PanelUnitRootResult",
       "description": "PanelUnitRootResult: details carries the intermediate quantities (LLC: delta, its se, t_delta, sbar, the adjustment terms; IPS: tbar, E[t], Var[t]; Fisher: P, Z, L*, Pm and their p-values).",
@@ -135094,9 +135232,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "johansen1991estimation",
     "returns": {
       "class": "CointegrationResult",
       "description": "CointegrationResult: test_stats[r] tests H0: rank <= r (r = 0..k-1); eigenvalues are the k largest squared canonical correlations;",
@@ -135235,9 +135374,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "papke1996econometric",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -135386,9 +135526,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "ferrari2004beta",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -135557,10 +135698,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "maddala1983limited",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -135712,9 +135854,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "heckman1978dummy, maddala1983limited",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: params carries the outcome equation, then the selection equation as <treatment>:<name>, then athrho and lnsigma (ML) or hazard:lambda (two-step). diagnostics carries ate, ate_se, rho, sigma, lambda and, for ML, loglik.",
@@ -135878,10 +136021,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2013inference",
     "returns": {
       "class": "DTEResult",
       "description": "DTEResult",
@@ -136612,9 +136756,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "hausman1977social",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -136793,10 +136938,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zellner1962efficient",
     "returns": {
       "class": "SURResult",
       "description": "SURResult",
@@ -136958,10 +137104,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zellner1962three",
     "returns": {
       "class": "SURResult",
       "description": "SURResult",
@@ -137098,10 +137245,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chamberlain1980analysis",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -137283,10 +137431,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chamberlain1980analysis",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -137467,10 +137616,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "parks1967efficient, beck1995what",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults",
@@ -138609,9 +138759,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "mccullagh1980regression, hedeker1996mixor",
     "returns": {
       "class": "MEGLMResult",
       "description": "",
@@ -139016,10 +139167,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "aigner1977formulation, meeusen1977efficiency",
     "returns": {
       "class": "FrontierResult",
       "description": ":class:`FrontierResult`",
@@ -139238,10 +139390,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "pitt1981measurement, battese1992frontier, battese1995model, greene2005reconsidering",
     "returns": {
       "class": "FrontierResult",
       "description": ":class:`~statspai.frontier.FrontierResult`",
@@ -139424,9 +139577,10 @@
       "assumptions": "family",
       "example": "docstring",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "battese2004metafrontier, odonnell2008metafrontier",
     "returns": {
       "class": "MetafrontierResult",
       "description": ":class:`MetafrontierResult`",
@@ -139572,9 +139726,10 @@
       "assumptions": "family",
       "example": "docstring",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "fuentes2001parametric",
     "returns": {
       "class": "MalmquistResult",
       "description": ":class:`MalmquistResult`",
@@ -139818,9 +139973,10 @@
       "assumptions": "family",
       "example": "docstring",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "kumbhakar2013zero",
     "returns": {
       "class": "FrontierResult",
       "description": ":class:`~statspai.frontier.FrontierResult`",
@@ -139984,10 +140140,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "orea2004efficiency, greene2005reconsidering",
     "returns": {
       "class": "FrontierResult",
       "description": "FrontierResult with extended ``params`` block and per-obs posterior",
@@ -140179,10 +140336,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hansen1982large",
     "returns": {
       "class": "EconometricResults",
       "description": "EconometricResults: diagnostics carries J_stat / J_df / J_p, converged, and n_iter (0 when the closed form was used). J_stat / J_p are None after method='onestep' (with J_note): J is chi2 only at the efficient weight,",
@@ -140556,10 +140714,11 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "sun2023multiple",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: Unified result object with: - estimate : unweighted mean of the per-outcome ATTs, each in its own raw units (only meaningful when the outcomes share a scale;",
@@ -141173,13 +141332,13 @@
         "alternative": "",
         "exception": "statspai.DataInsufficient",
         "remedy": "Use a later treatment_time or a longer panel.",
-        "symptom": "Need at least 2 pre-treatment periods."
+        "symptom": "sp.scdata: Need at least 2 pre-treatment periods; got <T0>."
       },
       {
         "alternative": "",
         "exception": "statspai.DataInsufficient",
         "remedy": "treatment_time must not be after the last period.",
-        "symptom": "Need at least 1 post-treatment period."
+        "symptom": "sp.scdata: Need at least 1 post-treatment period; got <T1>."
       },
       {
         "alternative": "",
@@ -141542,10 +141701,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "gunsilius2023distributional",
     "returns": {
       "class": "dict",
       "description": "dict: Keys: 'test', 'statistic', 'pvalue', 'reject', 'alpha', and test-specific fields.",
@@ -141802,9 +141962,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "gunsilius2023distributional",
     "returns": {
       "class": "dict",
       "description": "dict: Keys: 'order', 'dominates' (bool), 'min_gap', 'max_gap', 'fraction_positive', 'statistic', 'pvalue'.",
@@ -141941,10 +142102,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic, abadie2015comparative",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: dropped_unit, att (mean post-period gap), se, pvalue, pre_rmse (pre-period RMSPE). se is the naive i.i.d.",
@@ -142140,10 +142302,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic, abadie2015comparative",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: placebo_time, att (mean placebo post-period gap up to the real treatment time), se, pvalue. se / pvalue are the naive i.i.d.-gap quantities described in :func:`synth_loo` (NaN for the last placebo time,",
@@ -142343,10 +142506,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic, abadie2015comparative",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: iteration, donors_used, att, pre_rmse.",
@@ -142551,10 +142715,11 @@
       "failure_modes": "curated+family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic",
     "returns": {
       "class": "DataFrame",
       "description": "pd.DataFrame: Columns: threshold, n_placebos, pvalue, treated_pre_rmspe. The p-value is (1 + #{kept placebos with ratio >= treated ratio}) / (n_kept + 1) (treated unit ranked with its placebos, as SCtools::mspe.test;",
@@ -142756,10 +142921,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "abadie2010synthetic, abadie2015comparative",
     "returns": {
       "class": "dict",
       "description": "dict: Keys: * 'loo' -- leave-one-out DataFrame * 'time_placebo' -- time placebo DataFrame * 'donor_sensitivity' -- donor bootstrap DataFrame * 'rmspe_filter' -- RMSPE-filtered p-values DataFrame * 'original_att' -- the full-donor-pool estimate t...",
@@ -144558,9 +144724,10 @@
       "assumptions": "family",
       "example": "docstring",
       "failure_modes": "family",
-      "pre_conditions": "family"
+      "pre_conditions": "family",
+      "reference": "curated"
     },
-    "reference": "",
+    "reference": "moran1950notes, anselin1988spatial",
     "returns": {
       "class": "tuple",
       "description": "",
@@ -145123,9 +145290,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "anselin1988spatial",
     "returns": {
       "class": "dict",
       "description": "dict: {name: (statistic, p_value)} for the five tests.",
@@ -145243,10 +145411,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lesage2009introduction",
     "returns": {
       "class": "DataFrame",
       "description": "DataFrame with one row per non-constant regressor and columns",
@@ -145959,9 +146128,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "brunsdon1996geographically",
     "returns": {
       "class": "GWRResult",
       "description": "",
@@ -147398,9 +147568,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kelejian1998generalized",
     "returns": {
       "class": "EconometricResults",
       "description": "",
@@ -147555,10 +147726,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "elhorst2014spatial, lee2010estimation",
     "returns": {
       "class": "SpatialPanelResult",
       "description": "SpatialPanelResult: params / std_errors indexed [x..., rho] ([x..., W_x..., rho] for SDM, [x..., lambda] for SEM), sigma2 = e'e / NT and the full log-likelihood.",
@@ -148383,13 +148555,13 @@
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass a DataFrame containing y, x1, x2, and treatment.",
-        "symptom": "`data` must be a pandas DataFrame."
+        "symptom": "sp.rd2d_plot: `data` must be a pandas DataFrame; got <type(data).__name__>."
       },
       {
         "alternative": "",
         "exception": "statspai.MethodIncompatibility",
         "remedy": "Pass boundary=lambda x1: f(x1), or leave boundary=None.",
-        "symptom": "boundary must be callable or None"
+        "symptom": "sp.rd2d_plot: boundary must be callable or None"
       },
       {
         "alternative": "",
@@ -149654,9 +149826,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "firpo2009unconditional",
     "returns": {
       "class": "RIFResult",
       "description": "",
@@ -149792,9 +149965,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "firpo2009unconditional, firpo2018decomposing",
     "returns": {
       "class": "RIFDecompositionResult",
       "description": "",
@@ -150150,10 +150324,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "fairlie2005extension",
     "returns": {
       "class": "NonlinearDecompResult",
       "description": "NonlinearDecompResult: detailed carries each variable's contribution and its delta-method standard error (fairlie's e(V): the variance of the mean-probability change given the model's coefficient covariance, averaged over subsamples).",
@@ -150326,9 +150501,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "yun2004decomposing",
     "returns": {
       "class": "NonlinearDecompResult",
       "description": "",
@@ -150495,10 +150671,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chernozhukov2013inference",
     "returns": {
       "class": "CFMResult",
       "description": "CFMResult",
@@ -150677,9 +150854,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "yun2004decomposing",
     "returns": {
       "class": "NonlinearDecompResult",
       "description": "",
@@ -151711,9 +151889,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "vanderweele2014effect",
     "returns": {
       "class": "MediationDecompResult",
       "description": "MediationDecompResult with NDE, NIE, CDE, proportion mediated.",
@@ -152318,9 +152497,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "borusyak2024revisiting",
     "returns": {
       "class": "dict",
       "description": "dict: {'statistic', 'df', 'pvalue', 'method', 'n_boot', 'pre_cov'} where pre_cov is the bootstrap covariance matrix used for the Wald quadratic form.",
@@ -152502,10 +152682,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "jorda2005estimation",
     "returns": {
       "class": "LocalProjectionsResult",
       "description": "LocalProjectionsResult or StateDependentLPResult: One response path with standard errors and bands (to_frame()); method names the design and diagnostics holds the settings and, for IV, the first-stage F by horizon.",
@@ -152932,9 +153113,10 @@
       "failure_modes": "family",
       "not_recommended_when": "curated",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "rosenbaum1989optimal",
     "returns": {
       "class": "OptimalMatchResult",
       "description": "",
@@ -153533,10 +153715,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kalbfleisch2002statistical",
     "returns": {
       "class": "AFTResult",
       "description": "AFTResult: Coefficients and standard errors are those of :func:`sp.survreg` (the same model and maximum-likelihood fit). log_likelihood (and the AIC / BIC built on it) is the likelihood of the log durations, as Stata streg prints it;",
@@ -153814,10 +153997,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "shimizu2006linear",
     "returns": {
       "class": "LiNGAMResult",
       "description": "LiNGAMResult: Holds the recovered causal order, the adjacency matrix of direct effects, and the final residuals.",
@@ -154756,9 +154940,10 @@
       "failure_modes": "family",
       "not_recommended_when": "curated+family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "calonico2014robust",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -155032,9 +155217,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "kunzel2019metalearners",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -155181,9 +155367,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "lei2021conformal",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -155318,9 +155505,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "rosenbaum1983central",
     "returns": {
       "class": "CausalResult",
       "description": "",
@@ -155457,9 +155645,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "manski1990nonparametric, lee2009training, horowitz2000nonparametric",
     "returns": {
       "class": null,
       "description": "",
@@ -155634,9 +155823,10 @@
       "failure_modes": "family",
       "not_recommended_when": "curated+family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "anderson1949estimation",
     "returns": {
       "class": "WeakIVConfidenceSet",
       "description": "",
@@ -157550,9 +157740,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "robins1986new",
     "returns": {
       "class": "MCGFormulaResult",
       "description": "MCGFormulaResult",
@@ -157948,9 +158139,10 @@
       "assumptions": "family",
       "example": "docstring",
       "failure_modes": "family",
-      "pre_conditions": "family"
+      "pre_conditions": "family",
+      "reference": "curated"
     },
-    "reference": "",
+    "reference": "altman1994statistics",
     "returns": {
       "class": "DiagnosticTestResult",
       "description": "",
@@ -158110,9 +158302,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "hanley1982meaning",
     "returns": {
       "class": "float",
       "description": "",
@@ -159689,10 +159882,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "runge2019detecting",
     "returns": {
       "class": "PCMCIResult",
       "description": "PCMCIResult",
@@ -161615,10 +161809,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "chemingui2025online",
     "returns": {
       "class": "OfflineSafeResult",
       "description": "OfflineSafeResult",
@@ -162468,10 +162663,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "yadlowsky2025evaluating",
     "returns": {
       "class": "CATEEvalResult",
       "description": "CATEEvalResult",
@@ -162782,10 +162978,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "saez2010taxpayers",
     "returns": {
       "class": "GeneralBunchingResult",
       "description": "GeneralBunchingResult: Naive (Saez first-order) and high-order bias-corrected elasticities with a bootstrap SE and confidence interval.",
@@ -163149,9 +163346,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "watts1998collective",
     "returns": {
       "class": "float",
       "description": "float",
@@ -163237,9 +163435,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "watts1998collective",
     "returns": {
       "class": "Series",
       "description": "pandas.Series: Indexed by node label.",
@@ -163610,9 +163809,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "freeman1978centrality",
     "returns": {
       "class": "Series",
       "description": "pandas.Series",
@@ -163715,9 +163915,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "freeman1978centrality",
     "returns": {
       "class": "Series",
       "description": "pandas.Series",
@@ -164857,10 +165058,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "tibshirani2019conformal",
     "returns": {
       "class": "tuple",
       "description": "tuple of arrays, each length ``len(X_test)``",
@@ -165309,10 +165511,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "murphy2003optimal, schulte2014mathbf",
     "returns": {
       "class": "ALearningResult",
       "description": "ALearningResult",
@@ -165452,10 +165655,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "balke1997bounds",
     "returns": {
       "class": "BalkePearlResult",
       "description": "BalkePearlResult",
@@ -165755,10 +165959,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "chakraborty2013statistical, murphy2005generalization",
     "returns": {
       "class": "QLearningResult",
       "description": "QLearningResult",
@@ -165888,9 +166093,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "robins1994correcting, vansteelandt2014structural",
     "returns": {
       "class": "SNMMResult",
       "description": "",
@@ -167536,9 +167742,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "miao2018identifying, shi2020selective",
     "returns": {
       "class": "NegativeControlResult",
       "description": "",
@@ -167666,9 +167873,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "lipsitch2010negative, shi2020selective",
     "returns": {
       "class": "NegativeControlResult",
       "description": "",
@@ -167785,10 +167993,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "lipsitch2010negative, shi2020selective",
     "returns": {
       "class": "NegativeControlResult",
       "description": "NegativeControlResult",
@@ -167907,10 +168116,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "tchetgentchetgen2024introduction",
     "returns": {
       "class": "ProximalRegResult",
       "description": "ProximalRegResult",
@@ -168173,9 +168383,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "dudik2011doubly",
     "returns": {
       "class": "OPEResult",
       "description": "",
@@ -168756,10 +168967,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "vanderweele2014effect",
     "returns": {
       "class": "FourWayResult",
       "description": "FourWayResult: se holds delta-method standard errors for total_effect, cde, int_ref, int_med, pie and the proportions (prop_cde ... prop_pie, prop_mediated, prop_interaction, prop_eliminated -- med4way's p_*, op_m, op_ati, op_e).",
@@ -168939,9 +169151,10 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "wagner2002segmented, lopezbernal2016interrupted",
     "returns": {
       "class": "ITSResult",
       "description": "ITSResult",
@@ -169085,10 +169298,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "vanderlaan2012targeted, lendle2017ltmle",
     "returns": {
       "class": "LTMLEResult",
       "description": "LTMLEResult",
@@ -169270,9 +169484,10 @@
     "provenance": {
       "example": "docstring",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "vanderlaan2012targeted, lendle2017ltmle",
     "returns": {
       "class": "LTMLEMSMResult",
       "description": "LTMLEMSMResult: coefficients (TMLE estimates with influence-curve standard errors and the IPTW estimates), the influence curve and the targeted regime means.",
@@ -170074,9 +170289,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "rosenbaum2002observational",
     "returns": {
       "class": "RosenbaumResult",
       "description": "RosenbaumResult: gamma_critical is the smallest Gamma in the grid at which the upper-bound p-value exceeds alpha. It is inf if the study is insensitive across the grid, and 1.0 if already sensitive.",
@@ -170253,9 +170469,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "rosenbaum2002observational",
     "returns": {
       "class": "RosenbaumResult",
       "description": "RosenbaumResult: gamma_critical is the smallest Gamma in the grid at which the upper-bound p-value exceeds alpha. It is inf if the study is insensitive across the grid, and 1.0 if already sensitive.",

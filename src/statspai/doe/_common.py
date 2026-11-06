@@ -48,7 +48,9 @@ def resolve_factors(factors: Any) -> Tuple[List[str], np.ndarray, np.ndarray]:
             "factors is a number, a list of names or a {name: (lower, upper)} dict."
         ) from exc
     if not names or len(set(names)) != len(names):
-        raise MethodIncompatibility("Factor names must be non-empty and distinct.")
+        raise MethodIncompatibility(
+            "resolve_factors: Factor names must be non-empty and distinct."
+        )
     return names, np.zeros(len(names)), np.ones(len(names))
 
 

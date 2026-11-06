@@ -179,7 +179,9 @@ def did2s_general(
     treated = d == 1.0
     untreated = ~treated
     if untreated.sum() < 10:
-        raise ValueError("Not enough untreated observations for Stage 1 (<10).")
+        raise ValueError(
+            "did2s_general: Not enough untreated observations for Stage 1 (<10)."
+        )
     if not treated.any():
         raise DataInsufficient(
             "gardner_did: no treated observations, the effect is undefined."

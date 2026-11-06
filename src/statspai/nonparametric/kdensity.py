@@ -326,22 +326,22 @@ def kdensity(
     >>> ax = result.plot(hist=True)  # doctest: +SKIP
     """
     if data is None:
-        raise ValueError("data is required")
+        raise ValueError("sp.kdensity: data is required")
     if x is None:
         raise MethodIncompatibility(
             "x is required",
             recovery_hint="Pass the column name to estimate with x='column'.",
         )
     if n_grid <= 0:
-        raise ValueError("n_grid must be positive")
+        raise ValueError("sp.kdensity: n_grid must be positive")
     if bandwidth is not None and (bandwidth <= 0 or not np.isfinite(bandwidth)):
-        raise ValueError("bandwidth must be a positive finite number")
+        raise ValueError("sp.kdensity: bandwidth must be a positive finite number")
 
     x_data = data[x].dropna().values.astype(float)
     n = len(x_data)
     if n == 0:
         raise ValueError(
-            "data has no finite observations after dropping missing values"
+            "sp.kdensity: data has no finite observations after dropping missing values"
         )
 
     if weights is not None:
@@ -384,7 +384,9 @@ def kdensity(
     else:
         grid = np.asarray(grid, dtype=float)
         if grid.ndim != 1 or len(grid) == 0 or not np.all(np.isfinite(grid)):
-            raise ValueError("grid must be a non-empty one-dimensional finite array")
+            raise ValueError(
+                "sp.kdensity: grid must be a non-empty one-dimensional finite array"
+            )
 
     # Compute density in grid blocks. This keeps the public result identical to
     # the direct kernel sum while avoiding one Python loop per grid point.

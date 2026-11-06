@@ -99,3 +99,49 @@ def test_error_taxonomy_check_mode_passes() -> None:
     res = _run(["--check"])
     assert res.returncode == 0, res.stdout + res.stderr
     assert "[error_taxonomy_audit] OK" in res.stdout
+
+
+def _audit_module():
+    sys.path.insert(0, str(SCRIPT.parent))
+    import error_taxonomy_audit
+
+    return error_taxonomy_audit
+
+
+def test_duplicate_messages_counts_cross_file_literals_only() -> None:
+    # Same literal text in two files is a duplicate; the same text twice in
+    # one file (a shared helper) is not; a message carrying a placeholder
+    # (the offending value) is never one.
+    audit = _audit_module()
+    rows = [
+        {"path": "a.py", "line": 1, "message": "alpha must be in (0, 1)"},
+        {"path": "b.py", "line": 9, "message": "alpha must be in (0, 1)"},
+        {"path": "c.py", "line": 3, "message": "data is required"},
+        {"path": "c.py", "line": 7, "message": "data is required"},
+        {"path": "d.py", "line": 2, "message": "level must be in (0, 1); got {}."},
+        {"path": "e.py", "line": 2, "message": "level must be in (0, 1); got {}."},
+        {"path": "f.py", "line": 4, "message": None},
+    ]
+    assert audit.duplicate_messages(rows) == {
+        "alpha must be in (0, 1)": ["a.py:1", "b.py:9"]
+    }
+
+
+def test_message_text_is_read_from_fstrings_and_concatenation() -> None:
+    import ast
+
+    audit = _audit_module()
+    node = ast.parse('raise ValueError("sp.qte: " f"quantiles bad; got {taus}.")').body[
+        0
+    ]
+    assert audit._raise_message(node.exc) == "sp.qte: quantiles bad; got {}."
+    node = ast.parse('raise ValueError(msg="data is required")').body[0]
+    assert audit._raise_message(node.exc) == "data is required"
+
+
+def test_messages_listing_names_every_site() -> None:
+    res = _run(["--messages"])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(_run(["--json"]).stdout)
+    listed = [ln for ln in res.stdout.splitlines() if ln.startswith("        ")]
+    assert len(listed) == payload["totals"]["duplicate_message_sites"]

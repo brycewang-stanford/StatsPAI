@@ -232,14 +232,14 @@ def gnn_causal(
         )
     if len(propensity_bounds) != 2:
         raise _gnn_error(
-            "propensity_bounds must contain exactly two values.",
+            "sp.gnn_causal: propensity_bounds must contain exactly two values.",
             diagnostics={"propensity_bounds": list(propensity_bounds)},
             recovery_hint="Use propensity_bounds=(0.02, 0.98).",
         )
     p_lo, p_hi = float(propensity_bounds[0]), float(propensity_bounds[1])
     if not (0 < p_lo < p_hi < 1):
         raise _gnn_error(
-            "propensity_bounds must satisfy 0 < lower < upper < 1.",
+            "sp.gnn_causal: propensity_bounds must satisfy 0 < lower < upper < 1.",
             diagnostics={"propensity_bounds": [p_lo, p_hi]},
             recovery_hint="Use bounds such as (0.02, 0.98).",
         )
@@ -269,7 +269,7 @@ def gnn_causal(
         )
     if not set(np.unique(D)).issubset({0, 1}):
         raise _gnn_error(
-            "treat must be binary 0/1.",
+            "sp.gnn_causal: treat must be binary 0/1.",
             diagnostics={"treat_values": np.unique(D).tolist()},
             recovery_hint="Encode treatment as binary 0/1 before fitting.",
         )

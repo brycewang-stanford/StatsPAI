@@ -465,7 +465,8 @@ def noisy_covariates(
         )
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1).", recovery_hint="Pass e.g. alpha=0.05."
+            "sp.noisy_covariates: alpha must be in (0, 1).",
+            recovery_hint="Pass e.g. alpha=0.05.",
         )
     if int(n_folds) != n_folds or n_folds < 2:
         raise MethodIncompatibility(
@@ -599,6 +600,7 @@ def noisy_covariates(
         ell = df[weights].to_numpy(dtype=float)
         if np.any(ell < 0) or not np.all(np.isfinite(ell)) or ell.sum() <= 0:
             raise MethodIncompatibility(
+                "sp.noisy_covariates: "
                 "weights must be finite, non-negative and not all zero.",
                 recovery_hint="Check the weight column.",
             )

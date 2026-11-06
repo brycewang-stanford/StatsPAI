@@ -668,7 +668,7 @@ def rlasso_iv(
         if isinstance(cluster, str):
             if data is None:
                 raise MethodIncompatibility(
-                    "cluster given as a column name needs `data`."
+                    "sp.rlasso_iv: cluster given as a column name needs `data`."
                 )
             cluster = data[cluster].values
         codes, _ = _cluster_codes(cluster, len(Y))

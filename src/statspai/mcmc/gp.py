@@ -386,7 +386,9 @@ def gp_regress(
     all_names = [str(c) for c in X_df.columns]
     keep = [j for j in range(Xall.shape[1]) if np.ptp(Xall[:, j]) > 0]
     if not keep:
-        raise MethodIncompatibility("The formula has no regressor that varies.")
+        raise MethodIncompatibility(
+            "sp.gp_regress: The formula has no regressor that varies."
+        )
     X = Xall[:, keep]
     names = [all_names[j] for j in keep]
     n, k = X.shape
@@ -394,7 +396,7 @@ def gp_regress(
         raise DataInsufficient(f"{n} observations are too few.")
     vy = float(y.var())
     if vy <= 0:
-        raise MethodIncompatibility("The outcome does not vary.")
+        raise MethodIncompatibility("sp.gp_regress: The outcome does not vary.")
     notes: List[str] = []
     if n > 3000:
         notes.append(

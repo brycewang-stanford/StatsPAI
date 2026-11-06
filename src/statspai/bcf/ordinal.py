@@ -236,7 +236,7 @@ def bcf_ordinal(
     # --- Validation --------------------------------------------------------
     if not isinstance(data, pd.DataFrame):
         raise _bcf_ordinal_error(
-            "data must be a pandas DataFrame.",
+            "sp.bcf_ordinal: data must be a pandas DataFrame.",
             diagnostics={"type": type(data).__name__},
             recovery_hint=(
                 "Pass a pandas DataFrame with outcome, treatment, and " "covariates."

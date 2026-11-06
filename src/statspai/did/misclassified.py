@@ -105,7 +105,7 @@ def did_misclassified(
         from statspai.exceptions import DataInsufficient
 
         raise DataInsufficient(
-            "No treated cohorts found.",
+            "sp.did_misclassified: No treated cohorts found.",
             recovery_hint=(
                 "Check that the treat column encodes the first-treated "
                 "period (integer > 0 for treated units). Use sp.did for 2x2."

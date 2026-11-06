@@ -497,7 +497,9 @@ def handle_prompts_get(
     """
     name = params.get("name")
     if not isinstance(name, str):
-        raise InvalidParamsError("`name` is required and must be a string")
+        raise InvalidParamsError(
+            "handle_prompts_get: `name` is required and must be a string"
+        )
     spec = next((p for p in PROMPTS if p["name"] == name), None)
     if spec is None:
         raise ResourceNotFoundError(

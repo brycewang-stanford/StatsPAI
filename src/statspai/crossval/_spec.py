@@ -128,7 +128,9 @@ class EstimandSpec:
         **extra: Any,
     ) -> "EstimandSpec":
         if not isinstance(data, pd.DataFrame):
-            raise TypeError("`data` must be a pandas DataFrame.")
+            raise TypeError(
+                "EstimandSpec.from_kwargs(): `data` must be a pandas DataFrame."
+            )
         est = canonical_estimand(estimand)
         spec = cls(
             estimand=est,

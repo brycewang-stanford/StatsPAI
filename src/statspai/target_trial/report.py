@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from .protocol import TargetTrialProtocol
 from .emulate import TargetTrialResult
+from .protocol import TargetTrialProtocol
 
 __all__ = ["to_paper", "target_checklist", "TARGET_ITEMS"]
 
@@ -135,7 +135,7 @@ def target_checklist(
     Emulating a Target Trial.
     """
     if fmt not in ("markdown", "text"):
-        raise ValueError("fmt must be 'markdown' or 'text'")
+        raise ValueError("target_checklist: fmt must be 'markdown' or 'text'")
     p = result.protocol
     lo, hi = result.ci
     est = f"{result.estimate:+.4f} (95% CI [{lo:+.4f}, {hi:+.4f}], SE {result.se:.4f})"

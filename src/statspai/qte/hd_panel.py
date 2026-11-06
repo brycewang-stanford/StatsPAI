@@ -385,7 +385,10 @@ def qte_hd_panel(
         quantiles = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
     taus = np.atleast_1d(np.asarray(quantiles, dtype=float))
     if np.any((taus <= 0) | (taus >= 1)):
-        raise ValueError("quantiles must lie strictly inside (0, 1).")
+        raise ValueError(
+            "sp.qte_hd_panel: "
+            f"quantiles must lie strictly inside (0, 1); got {taus.tolist()}."
+        )
 
     cov = list(covariates)
     df = data[[y, treat, unit, time] + cov].dropna().reset_index(drop=True)

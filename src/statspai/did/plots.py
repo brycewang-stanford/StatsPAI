@@ -1406,7 +1406,7 @@ def cohort_event_study_plot(
     cohorts = [c for c in cohorts if c > 0]  # exclude never-treated
 
     if not cohorts:
-        raise ValueError("No treated cohorts found.")
+        raise ValueError("sp.cohort_event_study_plot: No treated cohorts found.")
 
     # Default palette
     if palette is None:

@@ -345,7 +345,7 @@ def bayes_mixture(
     if n < 2 * k + 4:
         raise DataInsufficient(f"{n} observations are too few for a mixture model.")
     if np.linalg.matrix_rank(X) < k:
-        raise MethodIncompatibility("The regressors are collinear.")
+        raise MethodIncompatibility("sp.bayes_mixture: The regressors are collinear.")
     xtx = X.T @ X
     ols = np.linalg.solve(xtx, X.T @ y)
     s2 = float(((y - X @ ols) ** 2).sum() / max(n - k, 1))
@@ -371,7 +371,9 @@ def bayes_mixture(
     else:
         a0, d0 = (float(v) for v in sigma2_prior)
         if a0 <= 0 or d0 <= 0:
-            raise MethodIncompatibility("sigma2_prior must be two positive numbers.")
+            raise MethodIncompatibility(
+                "sp.bayes_mixture: sigma2_prior must be two positive numbers."
+            )
     b0inv = np.ascontiguousarray(np.linalg.inv(B0))
     b0inv_b0 = b0inv @ b0
     b0_quad = float(b0 @ b0inv_b0)

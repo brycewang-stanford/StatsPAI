@@ -143,7 +143,8 @@ def conformal_synth(
 
     if pre_mask.sum() < 2:
         raise DataInsufficient(
-            "Need at least 2 pre-treatment periods",
+            "sp.conformal_synth: "
+            f"Need at least 2 pre-treatment periods; got {pre_mask.sum()}.",
             recovery_hint=(
                 "Conformal SC inference needs ≥ 2 pre-treatment observations "
                 "to form residuals; consider sp.did or sp.causal_impact "
@@ -154,7 +155,8 @@ def conformal_synth(
         )
     if post_mask.sum() < 1:
         raise DataInsufficient(
-            "Need at least 1 post-treatment period",
+            "sp.conformal_synth: "
+            f"Need at least 1 post-treatment period; got {post_mask.sum()}.",
             recovery_hint=("Verify the treatment_time is before the panel's end."),
             diagnostics={"n_post_periods": int(post_mask.sum())},
             alternative_functions=[],

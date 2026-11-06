@@ -370,7 +370,9 @@ def rd_optimized(
     if criterion not in ("mse", "flci"):
         raise MethodIncompatibility("criterion must be 'mse' or 'flci'")
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.rd_optimized: alpha must be in (0, 1); got {alpha!r}."
+        )
     cols = [y, x] + ([fuzzy] if fuzzy is not None else [])
     check_columns(data, {"y": y, "x": x, "fuzzy": fuzzy}, function="sp.rd_optimized")
     df = data[cols].dropna()
@@ -604,7 +606,9 @@ def rd_optimized(
         # the running variable, so a treatment with no jump leaves rounding
         # noise of order 1e-17 here, not an exact zero
         if abs(first) <= 1e-10 * max(float(np.max(np.abs(dd))), 1e-300):
-            raise DataInsufficient("the treatment received does not jump at the cutoff")
+            raise DataInsufficient(
+                "sp.rd_optimized: the treatment received does not jump at the cutoff"
+            )
         ratio = reduced / first
         se_ratio = float(
             np.sqrt(np.sum(gamma**2 * (dev_y - ratio * dev_d) ** 2)) / abs(first)

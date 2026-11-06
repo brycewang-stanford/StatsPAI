@@ -452,7 +452,7 @@ def structural_break(
     'StructuralBreakResult'
     """
     if data is None:
-        raise ValueError("data is required")
+        raise ValueError("sp.structural_break: data is required")
     assert y is not None
 
     y_data, X_full, kept_names = _break_design(data, y, x, "structural_break")
@@ -1130,7 +1130,9 @@ def cusum_test(
         from scipy.stats import kstwobign
 
         if not 0.0 < alpha < 1.0:
-            raise MethodIncompatibility("alpha must lie in (0, 1)")
+            raise MethodIncompatibility(
+                f"sp.cusum_test: alpha must lie in (0, 1); got {alpha!r}."
+            )
         s = np.sqrt(float(e @ e) / (n - k))
         path = np.cumsum(e) / (s * np.sqrt(n))
         ols_stat = float(np.max(np.abs(path)))

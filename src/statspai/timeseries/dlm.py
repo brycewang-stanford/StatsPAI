@@ -549,7 +549,9 @@ def dlm(
     if method not in ("mle", "gibbs"):
         raise MethodIncompatibility("method must be 'mle' or 'gibbs'.")
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            f"sp.dlm: data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     work = data

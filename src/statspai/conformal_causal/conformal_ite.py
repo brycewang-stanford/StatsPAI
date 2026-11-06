@@ -238,7 +238,10 @@ class ConformalCATE:
 
         unique_d = np.unique(D)
         if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
-            raise ValueError("Treatment must be binary (0/1)")
+            raise ValueError(
+                "ConformalCATE.fit(): "
+                f"Treatment must be binary (0/1); got values {sorted(unique_d)}."
+            )
 
         rng = np.random.RandomState(self.random_state)
 

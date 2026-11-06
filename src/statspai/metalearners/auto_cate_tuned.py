@@ -464,7 +464,7 @@ def auto_cate_tuned(
         )
     if not isinstance(data, pd.DataFrame):
         raise _auto_cate_tuned_error(
-            "data must be a pandas DataFrame.",
+            "sp.auto_cate_tuned: data must be a pandas DataFrame.",
             diagnostics={"type": type(data).__name__},
             recovery_hint=(
                 "Pass a pandas DataFrame with outcome, treatment, and " "covariates."
@@ -514,7 +514,7 @@ def auto_cate_tuned(
         ) from err
     if not (0 < alpha_value < 1):
         raise _auto_cate_tuned_error(
-            "alpha must be between 0 and 1.",
+            "sp.auto_cate_tuned: alpha must be between 0 and 1.",
             diagnostics={"alpha": alpha},
             recovery_hint="Use a confidence level such as alpha=0.05.",
         )

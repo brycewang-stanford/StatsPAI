@@ -494,7 +494,8 @@ def expected_instrument(
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
-            "data must be a pandas DataFrame.",
+            "sp.expected_instrument: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}.",
             recovery_hint="Pass the unit-level data as a DataFrame.",
             diagnostics={"type": type(data).__name__},
         )

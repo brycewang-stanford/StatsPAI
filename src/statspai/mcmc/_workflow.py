@@ -75,7 +75,7 @@ def weakly_informative_prior(
     s_y = float(np.std(y, ddof=1)) if gaussian else 1.0
     m_y = float(np.mean(y)) if gaussian else 0.0
     if gaussian and not s_y > 0:
-        raise DataInsufficient("The outcome does not vary.")
+        raise DataInsufficient("weakly_informative_prior: The outcome does not vary.")
     icpt = xnames.index("Intercept") if "Intercept" in xnames else None
     slopes = [j for j in range(k) if j != icpt]
     s_x = np.std(X, axis=0, ddof=1)

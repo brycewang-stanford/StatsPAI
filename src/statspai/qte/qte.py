@@ -639,7 +639,9 @@ def qte(
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
     taus = np.asarray(quantiles, dtype=float)
     if np.any((taus <= 0) | (taus >= 1)):
-        raise ValueError("quantiles must lie strictly inside (0, 1).")
+        raise ValueError(
+            f"sp.qte: quantiles must lie strictly inside (0, 1); got {taus.tolist()}."
+        )
 
     if method == "quantile_regression":
         raise MethodIncompatibility(

@@ -5,8 +5,16 @@ The public package now exposes agent-native exceptions such as
 the migration measurable by counting:
 
 * raises of taxonomy exceptions,
-* raises of generic built-ins such as ``ValueError`` / ``RuntimeError``, and
-* broad ``except Exception`` handlers.
+* raises of generic built-ins such as ``ValueError`` / ``RuntimeError``,
+* broad ``except Exception`` handlers, and
+* error messages repeated word for word at call sites in different files
+  (rOpenSci G5.2a: a user or an agent reading one cannot tell which
+  function raised it, nor a test which site it pins).
+
+``--messages`` prints that inventory. A message counts as repeated when the
+same literal text, with no ``{...}`` placeholder that would carry the
+offending value, is raised from two or more files. One shared helper raising
+a generic message is a single site and is not counted.
 
 The script parses source with ``ast`` and does not import ``statspai``.
 """
@@ -104,6 +112,17 @@ BROAD_EXCEPT_MAX = 594
 # structured raises in the tree it let almost all of them regress to bare
 # ``ValueError`` unnoticed. Ratchet upward only.
 TAXONOMY_RAISE_MIN = 2600
+# Ceiling on literal error messages raised word for word from two or more
+# files (see the module docstring). 2026-11-06: 135 such messages at 396
+# sites before the first pass. That pass made about 160 raise sites name
+# their function and, where cheap, the offending value (``sp.qte: quantiles
+# must lie strictly inside (0, 1); got [0.5, 1.5].``), leaving 72 at 210
+# sites. Most of the rest sit in files on a Track A estimation path (a
+# change there means re-recording parity traces), in Stata-translation code
+# that mirrors Stata's own wording, or in "matplotlib required" messages.
+# Lower it as messages are made specific; a new raise should say which
+# function failed and on what, not reuse another file's text.
+DUPLICATE_MESSAGE_MAX = 72
 
 
 def _name(node: ast.AST | None) -> str | None:
@@ -120,6 +139,42 @@ def _name(node: ast.AST | None) -> str | None:
     if isinstance(node, ast.Tuple):
         names = [_name(elt) for elt in node.elts]
         return ",".join(n for n in names if n)
+    return None
+
+
+def _message(node: ast.AST | None) -> str | None:
+    """Literal text of an exception message, ``{}`` for interpolated parts."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        return "".join(
+            str(v.value) if isinstance(v, ast.Constant) else "{}" for v in node.values
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
+        left = _message(node.left)
+        if isinstance(node.op, ast.Mod):
+            return left
+        right = _message(node.right)
+        if left is None and right is None:
+            return None
+        return (left or "{}") + (right or "{}")
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "format"
+    ):
+        return _message(node.func.value)
+    return None
+
+
+def _raise_message(exc: ast.AST | None) -> str | None:
+    if not isinstance(exc, ast.Call):
+        return None
+    if exc.args:
+        return _message(exc.args[0])
+    for kw in exc.keywords:
+        if kw.arg in ("message", "msg"):
+            return _message(kw.value)
     return None
 
 
@@ -144,12 +199,14 @@ class ExceptionVisitor(ast.NodeVisitor):
             category = "taxonomy"
         elif exc_name in GENERIC_EXCEPTIONS:
             category = "generic"
+        message = _raise_message(node.exc)
         self.raises.append(
             {
                 "path": self.path.relative_to(REPO_ROOT).as_posix(),
                 "line": node.lineno,
                 "exception": exc_name or "<bare>",
                 "category": category,
+                "message": " ".join(message.split()) if message else None,
             }
         )
         self.generic_visit(node)
@@ -188,6 +245,7 @@ def collect(src_root: Path = SRC_ROOT) -> dict[str, Any]:
 
     by_exception = Counter(row["exception"] for row in raises)
     by_category = Counter(row["category"] for row in raises)
+    duplicates = duplicate_messages(raises)
 
     return {
         "totals": {
@@ -196,7 +254,12 @@ def collect(src_root: Path = SRC_ROOT) -> dict[str, Any]:
             "generic_raises": by_category.get("generic", 0),
             "other_raises": by_category.get("other", 0),
             "broad_exception_handlers": len(broad_handlers),
+            "raises_with_literal_message": sum(1 for r in raises if r["message"]),
+            "distinct_messages": len({r["message"] for r in raises if r["message"]}),
+            "duplicate_messages": len(duplicates),
+            "duplicate_message_sites": sum(len(v) for v in duplicates.values()),
         },
+        "duplicates": duplicates,
         "by_exception": dict(sorted(by_exception.items())),
         "raises": raises,
         "broad_handlers": broad_handlers,
@@ -204,7 +267,23 @@ def collect(src_root: Path = SRC_ROOT) -> dict[str, Any]:
             "generic_raise_max": GENERIC_RAISE_MAX,
             "broad_except_max": BROAD_EXCEPT_MAX,
             "taxonomy_raise_min": TAXONOMY_RAISE_MIN,
+            "duplicate_message_max": DUPLICATE_MESSAGE_MAX,
         },
+    }
+
+
+def duplicate_messages(raises: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Messages with no placeholder raised word for word from 2+ files."""
+    sites: dict[str, list[str]] = {}
+    for row in raises:
+        msg = row.get("message")
+        if not msg or "{}" in msg:
+            continue
+        sites.setdefault(msg, []).append(f"{row['path']}:{row['line']}")
+    return {
+        msg: locs
+        for msg, locs in sorted(sites.items())
+        if len({loc.rsplit(":", 1)[0] for loc in locs}) > 1
     }
 
 
@@ -225,6 +304,13 @@ def check(report: dict[str, Any]) -> int:
         failures.append(
             "taxonomy_raises: "
             f"observed={totals['taxonomy_raises']} min={TAXONOMY_RAISE_MIN}"
+        )
+    if totals["duplicate_messages"] > DUPLICATE_MESSAGE_MAX:
+        failures.append(
+            "duplicate_messages: "
+            f"observed={totals['duplicate_messages']} max={DUPLICATE_MESSAGE_MAX}"
+            " (an error message is raised word for word from another file; "
+            "name the function and the offending input, see --messages)"
         )
     if failures:
         print("[error_taxonomy_audit] REGRESSION", file=sys.stderr)
@@ -249,6 +335,10 @@ def render(report: dict[str, Any]) -> str:
     lines.append(f"  generic built-ins       : {totals['generic_raises']}")
     lines.append(f"  other/custom exceptions : {totals['other_raises']}")
     lines.append(f"Broad except handlers     : {totals['broad_exception_handlers']}")
+    lines.append(
+        f"Messages repeated across files: {totals['duplicate_messages']} "
+        f"({totals['duplicate_message_sites']} sites)"
+    )
     lines.append("")
     lines.append("Most common raised exceptions")
     lines.append("-" * 50)
@@ -266,6 +356,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Emit JSON.")
     parser.add_argument("--check", action="store_true", help="Run CI ratchet.")
     parser.add_argument(
+        "--messages",
+        action="store_true",
+        help="List the messages raised word for word from two or more files.",
+    )
+    parser.add_argument(
         "--details",
         action="store_true",
         help="Include every raise/except site in --json output.",
@@ -275,11 +370,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     report = collect()
     if args.check:
         return check(report)
+    if args.messages:
+        dups = report["duplicates"]
+        for msg, locs in sorted(dups.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+            print(f"{len(locs):4d}  {msg}")
+            for loc in locs:
+                print(f"        {loc}")
+        return 0
     if args.json:
         payload = dict(report)
         if not args.details:
             payload.pop("raises", None)
             payload.pop("broad_handlers", None)
+            payload.pop("duplicates", None)
         json.dump(payload, sys.stdout, indent=2, sort_keys=True)
         print()
         return 0

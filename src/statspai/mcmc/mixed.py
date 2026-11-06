@@ -534,7 +534,10 @@ def bayes_mixed(
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            "sp.bayes_mixed: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     # the design is lined up with its rows by label below
     data = rows_by_position(data)
     check_columns(
@@ -597,7 +600,9 @@ def bayes_mixed(
             "not identified."
         )
     if fam == "poisson" and (np.any(y < 0) or np.any(y != np.round(y))):
-        raise MethodIncompatibility("family='poisson' needs non-negative counts.")
+        raise MethodIncompatibility(
+            "sp.bayes_mixed: family='poisson' needs non-negative counts."
+        )
     not_fixed = [w for w in wnames if w not in xnames]
     if not_fixed:
         warnings.warn(
@@ -613,7 +618,9 @@ def bayes_mixed(
     b0, B0, B0inv = normal_prior(k, prior_mean, prior_var, xnames)
     a0, d0 = (float(v) for v in sigma2_prior)
     if a0 <= 0 or d0 <= 0:
-        raise MethodIncompatibility("sigma2_prior must be two positive numbers.")
+        raise MethodIncompatibility(
+            "sp.bayes_mixed: sigma2_prior must be two positive numbers."
+        )
     if re_prior is None:
         # weak on every scale: the prior adds 0.02 to the sum of squares of
         # each random effect, whatever the units of the outcome

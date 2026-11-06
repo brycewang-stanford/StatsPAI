@@ -136,7 +136,10 @@ def sparse_synth(
     post_times = [t for t in all_times if t >= treatment_time]
 
     if len(pre_times) < 2:
-        raise ValueError("Need at least 2 pre-treatment periods.")
+        raise ValueError(
+            "sparse_synth: "
+            f"Need at least 2 pre-treatment periods; got {len(pre_times)}."
+        )
     if len(post_times) < 1:
         raise ValueError("Need at least 1 post-treatment period.")  # pragma: no cover
     if treated_unit not in panel.index:
@@ -147,7 +150,7 @@ def sparse_synth(
 
     donors = [u for u in panel.index if u != treated_unit]
     if len(donors) < 2:
-        raise ValueError("Need at least 2 donor units.")
+        raise ValueError("sparse_synth: Need at least 2 donor units.")
 
     Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)  # (J, T_pre)
     Y0_post = panel.loc[donors, post_times].values.astype(np.float64)  # (J, T_post)

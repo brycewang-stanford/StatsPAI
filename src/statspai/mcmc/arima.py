@@ -352,6 +352,7 @@ def bayes_arima(
         name = getattr(y, "name", None) or "y"
     if not np.isfinite(raw).all():
         raise MethodIncompatibility(
+            "sp.bayes_arima: "
             "The series has missing or infinite values; remove them first."
         )
     if constant is None:
@@ -359,7 +360,9 @@ def bayes_arima(
     m0, v0 = (float(v) for v in mean_prior)
     a0, d0 = (float(v) for v in sigma2_prior)
     if v0 <= 0 or a0 <= 0 or d0 <= 0:
-        raise MethodIncompatibility("The prior scales must be positive.")
+        raise MethodIncompatibility(
+            "sp.bayes_arima: The prior scales must be positive."
+        )
     w = raw.copy()
     tails: List[float] = []
     for _ in range(d):

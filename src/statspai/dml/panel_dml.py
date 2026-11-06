@@ -458,7 +458,7 @@ def dml_panel(
     # ---- Input validation & bookkeeping --------------------------------
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
-            "`data` must be a pandas DataFrame",
+            "sp.dml_panel: `data` must be a pandas DataFrame",
             recovery_hint="Pass a long-format panel DataFrame.",
             diagnostics={"type": type(data).__name__},
         )
@@ -473,7 +473,7 @@ def dml_panel(
         )
     if not np.isfinite(alpha) or not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be between 0 and 1",
+            f"sp.dml_panel: alpha must be between 0 and 1; got {alpha!r}.",
             recovery_hint="Pass a significance level such as alpha=0.05.",
             diagnostics={"alpha": alpha},
         )
@@ -584,6 +584,7 @@ def dml_panel(
     n = len(df)
     if n == 0:
         raise DataInsufficient(
+            "sp.dml_panel: "
             "No complete observations remain after dropping missing values",
             recovery_hint="Impute or remove missing values before calling dml_panel.",
             diagnostics={"required_columns": required},
@@ -706,7 +707,7 @@ def dml_panel(
         n_folds = len(codes)
         if n_folds < 2:
             raise MethodIncompatibility(
-                "fold_indices must define at least two folds.",
+                "sp.dml_panel: fold_indices must define at least two folds.",
                 recovery_hint="Pass a fold label per row with >= 2 distinct values.",
             )
         if pd.Series(obs_fold).groupby(unit_ids).nunique().max() > 1:

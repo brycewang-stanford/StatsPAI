@@ -147,7 +147,7 @@ def penalized_synth(
 
     donors = [u for u in panel.index if u != treated_unit]
     if len(donors) < 2:
-        raise ValueError("Need at least 2 donor units.")
+        raise ValueError("penalized_synth: Need at least 2 donor units.")
 
     Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y0_post = panel.loc[donors, post_times].values.astype(np.float64)  # (J, T1)

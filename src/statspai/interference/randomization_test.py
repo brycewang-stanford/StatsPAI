@@ -291,11 +291,15 @@ def interference_test(
     Y_arr = np.asarray(Y, dtype=float)
     Z_arr = np.asarray(Z, dtype=int)
     if Y_arr.ndim != 1 or Y_arr.shape != Z_arr.shape:
-        raise MethodIncompatibility("Y and Z must be vectors of the same length")
+        raise MethodIncompatibility(
+            "sp.interference_test: Y and Z must be vectors of the same length"
+        )
     if not np.all(np.isfinite(Y_arr)):
-        raise DataInsufficient("Y contains missing or non-finite values")
+        raise DataInsufficient(
+            "sp.interference_test: Y contains missing or non-finite values"
+        )
     if not np.isin(Z_arr, (0, 1)).all():
-        raise MethodIncompatibility("Z must be coded 0/1")
+        raise MethodIncompatibility("sp.interference_test: Z must be coded 0/1")
     nulls = ("no_spillover", "no_effect", "anonymous", "no_higher_order")
     if null not in nulls:
         raise MethodIncompatibility(f"null must be one of {list(nulls)}")
@@ -315,7 +319,9 @@ def interference_test(
     else:
         A = _to_adj(adjacency, n)
         if A.shape[0] != n:
-            raise MethodIncompatibility("adjacency size must match Y/Z length")
+            raise MethodIncompatibility(
+                "sp.interference_test: adjacency size must match Y/Z length"
+            )
 
     def draw_focal(default_share: float) -> np.ndarray:
         if focal is None or np.isscalar(focal):

@@ -277,7 +277,10 @@ def bcf_longitudinal(
     >>> res.per_time_ate  # doctest: +SKIP
     """
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("`data` must be a pandas DataFrame.")
+        raise TypeError(
+            "sp.bcf_longitudinal: "
+            f"`data` must be a pandas DataFrame; got {type(data).__name__}."
+        )
     check_columns(
         data,
         {

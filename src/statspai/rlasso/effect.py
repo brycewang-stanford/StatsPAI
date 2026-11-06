@@ -344,7 +344,7 @@ def rlasso_effect(
         if isinstance(cluster, str):
             if data is None:
                 raise MethodIncompatibility(
-                    "cluster given as a column name needs `data`."
+                    "sp.rlasso_effect: cluster given as a column name needs `data`."
                 )
             cluster = data[cluster].values
         codes, n_clusters = _cluster_codes(cluster, n)

@@ -81,7 +81,8 @@ def dgp_ddc(
         )
     if not 0 <= beta < 1:
         raise MethodIncompatibility(
-            "beta must be in [0, 1)", recovery_hint="pass a discount factor below one"
+            "sp.dgp_ddc: beta must be in [0, 1)",
+            recovery_hint="pass a discount factor below one",
         )
     if n_units < 1 or n_periods < 1 or n_states < 2:
         raise MethodIncompatibility(

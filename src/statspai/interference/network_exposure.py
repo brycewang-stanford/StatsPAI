@@ -453,15 +453,21 @@ def network_exposure(
     Y_arr = np.asarray(Y, dtype=float)
     Z_arr = np.asarray(Z, dtype=int)
     if Y_arr.ndim != 1 or Y_arr.shape != Z_arr.shape:
-        raise MethodIncompatibility("Y and Z must be vectors of the same length")
+        raise MethodIncompatibility(
+            "sp.network_exposure: Y and Z must be vectors of the same length"
+        )
     if not np.all(np.isfinite(Y_arr)):
-        raise DataInsufficient("Y contains missing or non-finite values")
+        raise DataInsufficient(
+            "sp.network_exposure: Y contains missing or non-finite values"
+        )
     if not np.isin(Z_arr, (0, 1)).all():
-        raise MethodIncompatibility("Z must be coded 0/1")
+        raise MethodIncompatibility("sp.network_exposure: Z must be coded 0/1")
     n = Y_arr.shape[0]
     A = _to_adj(adjacency, n)
     if A.shape[0] != n:
-        raise MethodIncompatibility("adjacency size must match Y/Z length")
+        raise MethodIncompatibility(
+            "sp.network_exposure: adjacency size must match Y/Z length"
+        )
     if design not in ("bernoulli", "complete"):
         raise MethodIncompatibility("design must be 'bernoulli' or 'complete'")
     if estimator not in ("hajek", "ht"):
@@ -469,7 +475,9 @@ def network_exposure(
     if variance not in ("hac_psd", "hac"):
         raise MethodIncompatibility("variance must be 'hac_psd' or 'hac'")
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.network_exposure: alpha must be in (0, 1); got {alpha!r}."
+        )
     if not 0 <= min_prob < 1:
         raise MethodIncompatibility("min_prob must be in [0, 1)")
 

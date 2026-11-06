@@ -399,7 +399,9 @@ def mdp_policy_value(
     True
     """
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.mdp_policy_value: alpha must be in (0, 1); got {alpha!r}."
+        )
     state = list(state)
     cols = [y, treat] + state + [c for c in (trajectory, time) if c is not None]
     if isinstance(propensity, str):
@@ -724,7 +726,9 @@ def marginal_policy_effect(
     True
     """
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.marginal_policy_effect: alpha must be in (0, 1); got {alpha!r}."
+        )
     if int(horizon) != horizon or horizon < 0:
         raise MethodIncompatibility("horizon must be a non-negative integer")
     K = int(horizon)

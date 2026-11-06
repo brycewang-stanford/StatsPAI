@@ -183,7 +183,10 @@ def bayes_ivreg(
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            "sp.bayes_ivreg: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     # the two equations are lined up by row label below
     data = rows_by_position(data)
     ydep, endog, inst, exog = _split_formula(formula)

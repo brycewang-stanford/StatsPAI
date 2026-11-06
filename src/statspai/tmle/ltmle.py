@@ -512,7 +512,7 @@ def ltmle(
         )
     if len(propensity_bounds) != 2:
         raise _ltmle_error(
-            "propensity_bounds must contain exactly two values.",
+            "sp.ltmle: propensity_bounds must contain exactly two values.",
             diagnostics={"propensity_bounds": list(propensity_bounds)},
             recovery_hint="Use propensity_bounds=(0.01, 0.99).",
         )

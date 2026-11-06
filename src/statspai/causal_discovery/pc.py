@@ -797,7 +797,9 @@ class PCAlgorithm:
     def summary(self) -> str:
         """Print a summary of the learned structure."""
         if not hasattr(self, "_cpdag"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError(
+                "PCAlgorithm.summary(): Model must be fitted first. Call .fit()"
+            )
 
         d = len(self._var_names)
         lines = []

@@ -147,13 +147,13 @@ def scdata(
     T0, T1 = int(pre_mask.sum()), int((~pre_mask).sum())
     if T0 < 2:
         raise DataInsufficient(
-            "Need at least 2 pre-treatment periods.",
+            f"sp.scdata: Need at least 2 pre-treatment periods; got {T0}.",
             recovery_hint="Use a later treatment_time or a longer panel.",
             diagnostics={"n_pre_periods": T0},
         )
     if T1 < 1:
         raise DataInsufficient(
-            "Need at least 1 post-treatment period.",
+            f"sp.scdata: Need at least 1 post-treatment period; got {T1}.",
             recovery_hint="treatment_time must not be after the last period.",
             diagnostics={"n_post_periods": T1},
         )

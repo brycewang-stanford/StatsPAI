@@ -267,7 +267,10 @@ def dynotears(
     >>> print(res.summary())  # doctest: +SKIP
     """
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("`data` must be a pandas DataFrame.")
+        raise TypeError(
+            "sp.dynotears: "
+            f"`data` must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if variables is None:
         # ``pd.api.types.is_numeric_dtype`` (not ``np.issubdtype(... .dtype,
         # np.number)``) so a pandas extension dtype — e.g. a ``StringDtype``

@@ -709,7 +709,7 @@ class DeepIV:
             raise ImportError("PyTorch required")
 
         if not hasattr(self, "_response_net"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError("DeepIV.effect(): Model must be fitted first. Call .fit()")
 
         if X is None:
             cols = self.covariates

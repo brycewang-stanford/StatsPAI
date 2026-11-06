@@ -1060,7 +1060,7 @@ class TARNet:
         torch, _ = _check_torch()
 
         if not hasattr(self, "_repr_net"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError("TARNet.effect(): Model must be fitted first. Call .fit()")
 
         if X_new is None:
             return np.asarray(self._cate, dtype=float).copy()
@@ -1445,7 +1445,7 @@ class CFRNet:
         torch, _ = _check_torch()
 
         if not hasattr(self, "_repr_net"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError("CFRNet.effect(): Model must be fitted first. Call .fit()")
 
         if X_new is None:
             return np.asarray(self._cate, dtype=float).copy()
@@ -1890,7 +1890,9 @@ class DragonNet:
         torch, _ = _check_torch()
 
         if not hasattr(self, "_repr_net"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError(
+                "DragonNet.effect(): Model must be fitted first. Call .fit()"
+            )
 
         if X_new is None:
             return np.asarray(self._cate, dtype=float).copy()
@@ -1929,7 +1931,9 @@ class DragonNet:
         torch, _ = _check_torch()
 
         if not hasattr(self, "_prop_head"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError(
+                "DragonNet.propensity(): Model must be fitted first. Call .fit()"
+            )
 
         if X_new is None:
             return np.asarray(self._e_hat, dtype=float).copy()

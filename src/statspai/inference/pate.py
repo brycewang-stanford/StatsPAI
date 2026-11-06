@@ -277,7 +277,9 @@ class PATEEstimator:
         # Treatment must be binary
         vals = self.data_exp[self.treatment].dropna().unique()
         if not set(vals).issubset({0, 1, 0.0, 1.0, True, False}):
-            raise ValueError("Treatment must be binary (0/1)")
+            raise ValueError(
+                f"sp.pate: Treatment must be binary (0/1); got values {sorted(vals)}."
+            )
         _check_alpha(self.alpha, "pate")
         trim_is_number = isinstance(self.trim, numbers.Real) and not isinstance(
             self.trim, bool

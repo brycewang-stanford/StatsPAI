@@ -143,7 +143,9 @@ def bayes_factor(
         else [f"model {i + 1}" for i in range(len(models))]
     )
     if len(labels) != len(models):
-        raise MethodIncompatibility("names must have one label per model.")
+        raise MethodIncompatibility(
+            "sp.bayes_factor: names must have one label per model."
+        )
     for lab, m in zip(labels, models):
         if isinstance(m, (int, float, np.floating)):
             lml.append(float(m))

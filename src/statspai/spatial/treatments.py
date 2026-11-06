@@ -622,7 +622,8 @@ def spatial_treatment(
     """
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1).", recovery_hint="Use e.g. alpha=0.05."
+            "sp.spatial_treatment: alpha must be in (0, 1).",
+            recovery_hint="Use e.g. alpha=0.05.",
         )
     if method not in ("ipw", "nearest", "dml"):
         raise MethodIncompatibility(

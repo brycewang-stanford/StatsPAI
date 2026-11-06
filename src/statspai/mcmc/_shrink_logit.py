@@ -81,13 +81,13 @@ def shrink_logit(
     xbar = X.mean(axis=0)
     sx = X.std(axis=0, ddof=1) if standardize else np.ones(p)
     if np.any(sx == 0):
-        raise MethodIncompatibility("A regressor is constant.")
+        raise MethodIncompatibility("shrink_logit: A regressor is constant.")
     Z = (X - xbar) / sx
     W = np.column_stack([np.ones(n), Z])
     kappa_y = y - 0.5
     Wk = W.T @ kappa_y
     if global_scale is not None and p0 is not None:
-        raise MethodIncompatibility("Pass global_scale or p0, not both.")
+        raise MethodIncompatibility("shrink_logit: Pass global_scale or p0, not both.")
     if p0 is not None:
         if not 0 < p0 < p:
             raise MethodIncompatibility(
@@ -97,11 +97,13 @@ def shrink_logit(
     else:
         tau0 = 1.0 if global_scale is None else float(global_scale)
     if not tau0 > 0:
-        raise MethodIncompatibility("global_scale must be positive.")
+        raise MethodIncompatibility("shrink_logit: global_scale must be positive.")
     regularized = slab_scale is not None
     slab_s = float(slab_scale) if slab_scale is not None else 0.0
     if regularized and not (slab_s > 0 and slab_df > 0):
-        raise MethodIncompatibility("slab_scale and slab_df must be positive.")
+        raise MethodIncompatibility(
+            "shrink_logit: slab_scale and slab_df must be positive."
+        )
     slab2 = slab_s**2 if regularized else np.inf
     steps = np.array([1.0, 0.5, 1.0, 0.5])
     loc2 = np.ones(p)

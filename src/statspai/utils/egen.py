@@ -768,7 +768,7 @@ def egen(
         out = egen_compute(fcn, n, mask, options, frame=frame)
     elif fcn == "seq":
         if x is not None:
-            raise _refuse("egen seq() takes no argument", "Drop x.")
+            raise _refuse("sp.egen: egen seq() takes no argument", "Drop x.")
         out = egen_compute(fcn, n, mask, options, code=code)
     else:
         if x is None:

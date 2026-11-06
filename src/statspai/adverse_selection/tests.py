@@ -224,7 +224,8 @@ def positive_correlation_test(
         )
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1)", recovery_hint="Pass e.g. alpha=0.05."
+            f"sp.positive_correlation_test: alpha must be in (0, 1); got {alpha!r}.",
+            recovery_hint="Pass e.g. alpha=0.05.",
         )
     x1 = _as_list(covariates)
     x2 = x1 if claim_covariates is None else _as_list(claim_covariates)
@@ -549,7 +550,8 @@ def efc_welfare(
         )
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1)", recovery_hint="Pass e.g. alpha=0.05."
+            f"sp.efc_welfare: alpha must be in (0, 1); got {alpha!r}.",
+            recovery_hint="Pass e.g. alpha=0.05.",
         )
     xs = _as_list(covariates)
     cols: Dict[str, Any] = {

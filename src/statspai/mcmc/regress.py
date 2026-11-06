@@ -1354,7 +1354,10 @@ def bayes_regress(
     if inference not in ("mcmc", "vb"):
         raise MethodIncompatibility("inference must be 'mcmc' or 'vb'.")
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            "sp.bayes_regress: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if "~" not in formula:
         raise MethodIncompatibility(
             f"formula must look like 'y ~ x1 + x2'; got {formula!r}."

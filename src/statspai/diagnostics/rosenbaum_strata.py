@@ -514,7 +514,9 @@ def truncated_product(pvalues: Sequence[float], trunc: float = 0.2) -> float:
     if p.size == 0 or np.any(~np.isfinite(p)) or np.any((p < 0) | (p > 1)):
         raise MethodIncompatibility("pvalues must be numbers between 0 and 1")
     if not 0 < trunc <= 1:
-        raise MethodIncompatibility("trunc must satisfy 0 < trunc <= 1")
+        raise MethodIncompatibility(
+            "sp.truncated_product: trunc must satisfy 0 < trunc <= 1"
+        )
     small = p[p <= trunc]
     if small.size == 0:
         return 1.0

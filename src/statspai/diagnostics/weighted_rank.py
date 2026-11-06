@@ -696,17 +696,19 @@ def weighted_rank(
     caller = "weighted_rank"
     if alternative not in {"greater", "less", "two-sided"}:
         raise MethodIncompatibility(
-            "alternative must be 'greater', 'less' or 'two-sided'"
+            "sp.weighted_rank: alternative must be 'greater', 'less' or 'two-sided'"
         )
     if block_scale not in {"range", "gap"}:
         raise MethodIncompatibility("block_scale must be 'range' or 'gap'")
     if bound not in {"separable", "taylor"}:
         raise MethodIncompatibility("bound must be 'separable' or 'taylor'")
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must lie strictly between 0 and 1")
+        raise MethodIncompatibility(
+            f"sp.weighted_rank: alpha must lie strictly between 0 and 1; got {alpha!r}."
+        )
     gammas = np.atleast_1d(np.asarray(gamma, dtype=float))
     if gammas.size == 0 or np.any(~np.isfinite(gammas)) or np.any(gammas < 1):
-        raise MethodIncompatibility("gamma must be >= 1")
+        raise MethodIncompatibility("sp.weighted_rank: gamma must be >= 1")
 
     multiple = isinstance(phi, list)
     phis: List[PhiSpec] = list(phi) if isinstance(phi, list) else [phi]
@@ -1021,7 +1023,10 @@ def weighted_rank_power(
     """
     caller = "weighted_rank_power"
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must lie strictly between 0 and 1")
+        raise MethodIncompatibility(
+            "sp.weighted_rank_power: "
+            f"alpha must lie strictly between 0 and 1; got {alpha!r}."
+        )
     if not sample_ratio > 0:
         raise MethodIncompatibility("sample_ratio must be positive")
     gam = np.atleast_1d(np.asarray(gammas, dtype=float))

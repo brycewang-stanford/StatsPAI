@@ -325,15 +325,15 @@ def lpoly(
     >>> fig, ax = None, result.plot()  # doctest: +SKIP
     """
     if data is None:
-        raise ValueError("data is required")
+        raise ValueError("sp.lpoly: data is required")
     if y is None or x is None:
         raise ValueError("y and x are required")
     if degree < 0:
         raise ValueError("degree must be non-negative")
     if n_grid <= 0:
-        raise ValueError("n_grid must be positive")
+        raise ValueError("sp.lpoly: n_grid must be positive")
     if bandwidth is not None and (bandwidth <= 0 or not np.isfinite(bandwidth)):
-        raise ValueError("bandwidth must be a positive finite number")
+        raise ValueError("sp.lpoly: bandwidth must be a positive finite number")
     if se_method not in ("robust", "stata"):
         raise MethodIncompatibility("se_method must be 'robust' or 'stata'")
     try:
@@ -361,7 +361,7 @@ def lpoly(
 
     if n == 0:
         raise ValueError(
-            "data has no finite observations after dropping missing values"
+            "sp.lpoly: data has no finite observations after dropping missing values"
         )
 
     if bandwidth is None:
@@ -372,7 +372,9 @@ def lpoly(
     else:
         grid = np.asarray(grid, dtype=float)
         if grid.ndim != 1 or len(grid) == 0 or not np.all(np.isfinite(grid)):
-            raise ValueError("grid must be a non-empty one-dimensional finite array")
+            raise ValueError(
+                "sp.lpoly: grid must be a non-empty one-dimensional finite array"
+            )
 
     fitted = np.empty(len(grid))
     se = np.empty(len(grid))

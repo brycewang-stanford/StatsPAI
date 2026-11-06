@@ -524,7 +524,9 @@ def factorial_design(
         )
     k = len(names)
     if k < 1 or len(set(names)) != k:
-        raise MethodIncompatibility("Factor names must be non-empty and distinct.")
+        raise MethodIncompatibility(
+            "sp.factorial_design: Factor names must be non-empty and distinct."
+        )
     if len(lev) != k or min(lev) < 2:
         raise MethodIncompatibility(
             "levels gives one number of levels (at least 2) per factor."

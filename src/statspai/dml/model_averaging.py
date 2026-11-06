@@ -749,7 +749,7 @@ def dml_model_averaging(
             )
         if sw.sum() <= 0:
             raise MethodIncompatibility(
-                "sample_weight has zero total mass",
+                "sp.dml_model_averaging: sample_weight has zero total mass",
                 diagnostics={"context": context},
             )
     else:
@@ -783,7 +783,7 @@ def dml_model_averaging(
         labels_f = np.unique(fold_codes)
         if len(labels_f) < 2:
             raise MethodIncompatibility(
-                "fold_indices must define at least two folds.",
+                "sp.dml_model_averaging: fold_indices must define at least two folds.",
                 diagnostics={"context": context},
             )
         idx_all = np.arange(len(clean))

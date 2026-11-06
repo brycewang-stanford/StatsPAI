@@ -191,6 +191,7 @@ def rd_bias_aware_fuzzy(
     scale_d = max(float(np.max(np.abs(Y[:, 1]))), 1e-300)
     if abs(dD) <= 1e-10 * scale_d:
         raise DataInsufficient(
+            "sp.rd_bias_aware_fuzzy: "
             "the treatment received does not jump at the cutoff",
             recovery_hint="Check the fuzzy= column; a sharp design needs "
             "sp.rd_honest.",

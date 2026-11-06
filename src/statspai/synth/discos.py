@@ -751,7 +751,7 @@ def _discos_micro(
         # requirement of two so that the pre-period fit can be assessed.
         raise DataInsufficient("DiSCo needs at least 2 pre-treatment periods")
     if not post_idx:
-        raise DataInsufficient("Need at least 1 post-treatment period")
+        raise DataInsufficient("sp.discos: Need at least 1 post-treatment period")
     T0 = len(pre_idx)
     units_all = sorted(df[unit].unique().tolist())
     if treated_unit not in units_all:

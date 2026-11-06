@@ -313,7 +313,7 @@ def etwfe_glm(
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
     if not cohorts:
         raise DataInsufficient(
-            "No treated cohorts found. Check 'first_treat' column.",
+            "etwfe_glm: No treated cohorts found. Check 'first_treat' column.",
             recovery_hint="Ensure first_treat holds the first treated period "
             "(0 or NaN for never-treated).",
             diagnostics={"first_treat": first_treat},

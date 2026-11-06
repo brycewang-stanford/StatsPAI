@@ -232,7 +232,7 @@ class DDCResult(ResultProtocolMixin):
         b = self.beta if beta is None else float(beta)
         if not 0 <= b < 1:
             raise MethodIncompatibility(
-                "beta must be in [0, 1)",
+                "DDCResult.counterfactual(): beta must be in [0, 1)",
                 recovery_hint="pass a discount factor below one",
             )
         F = (

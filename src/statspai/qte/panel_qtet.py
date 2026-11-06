@@ -327,7 +327,10 @@ def panel_qtet(
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
     taus = np.atleast_1d(np.asarray(quantiles, dtype=float))
     if np.any((taus <= 0) | (taus >= 1)):
-        raise ValueError("quantiles must lie strictly inside (0, 1).")
+        raise ValueError(
+            "sp.panel_qtet: "
+            f"quantiles must lie strictly inside (0, 1); got {taus.tolist()}."
+        )
     if len({t, tmin1, tmin2}) != 3:
         raise ValueError(
             f"t, tmin1 and tmin2 must be three distinct periods, got "

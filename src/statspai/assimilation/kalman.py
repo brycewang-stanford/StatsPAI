@@ -265,7 +265,7 @@ def causal_kalman(
     if process_var < 0:
         raise ValueError("process_var must be >= 0")
     if np.any(se <= 0):
-        raise ValueError("all standard_errors must be > 0")
+        raise ValueError("sp.causal_kalman: all standard_errors must be > 0")
     return _kalman_filter(
         theta,
         se**2,

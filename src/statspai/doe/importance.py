@@ -223,7 +223,7 @@ def factor_importance(
         raise DataInsufficient(f"{N} complete observations are too few.")
     vy = float(np.var(yy, ddof=1))
     if vy <= 0:
-        raise MethodIncompatibility("The outcome does not vary.")
+        raise MethodIncompatibility("sp.factor_importance: The outcome does not vary.")
     k = (
         int(n_neighbors)
         if n_neighbors is not None

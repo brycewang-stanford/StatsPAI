@@ -522,7 +522,7 @@ def rdplot_numbers(
     cl = None if cl is None else cl[ok]
     if wv is not None and np.any(wv < 0):
         raise MethodIncompatibility(
-            "weights must be non-negative.",
+            "rdplot_numbers: weights must be non-negative.",
             recovery_hint="Drop or fix the rows with negative weights.",
             diagnostics={"n_negative": int(np.sum(wv < 0))},
         )

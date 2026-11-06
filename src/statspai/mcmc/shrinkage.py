@@ -339,11 +339,13 @@ def bayes_shrink(
         raise MethodIncompatibility("family must be 'gaussian' or 'logit'.")
     a0, d0 = (float(v) for v in sigma2_prior)
     if a0 <= 0 or d0 <= 0:
-        raise MethodIncompatibility("sigma2_prior must be two positive numbers.")
+        raise MethodIncompatibility(
+            "sp.bayes_shrink: sigma2_prior must be two positive numbers."
+        )
     xbar = X.mean(axis=0)
     sx = X.std(axis=0, ddof=1) if standardize else np.ones(p)
     if np.any(sx == 0):
-        raise MethodIncompatibility("A regressor is constant.")
+        raise MethodIncompatibility("sp.bayes_shrink: A regressor is constant.")
     Z = (X - xbar) / sx
     ybar = y.mean()
     yc = y - ybar
@@ -361,7 +363,9 @@ def bayes_shrink(
         lam2 = float(lam) ** 2 if lam is not None else 1.0
     elif prior == "horseshoe":
         if global_scale is not None and p0 is not None:
-            raise MethodIncompatibility("Pass global_scale or p0, not both.")
+            raise MethodIncompatibility(
+                "sp.bayes_shrink: Pass global_scale or p0, not both."
+            )
         if p0 is not None:
             if not 0 < p0 < p:
                 raise MethodIncompatibility(
@@ -371,11 +375,15 @@ def bayes_shrink(
         else:
             tau0 = 1.0 if global_scale is None else float(global_scale)
         if not tau0 > 0:
-            raise MethodIncompatibility("global_scale must be positive.")
+            raise MethodIncompatibility(
+                "sp.bayes_shrink: global_scale must be positive."
+            )
         regularized = slab_scale is not None
         slab_s = float(slab_scale) if slab_scale is not None else 0.0
         if regularized and not (slab_s > 0 and slab_df > 0):
-            raise MethodIncompatibility("slab_scale and slab_df must be positive.")
+            raise MethodIncompatibility(
+                "sp.bayes_shrink: slab_scale and slab_df must be positive."
+            )
         slab2 = slab_s**2 if regularized else np.inf
         # log-scale steps: lam, tau, c^2, joint shift of tau against lam
         steps = np.array([1.0, 0.5, 1.0, 0.5])

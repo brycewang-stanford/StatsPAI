@@ -154,7 +154,7 @@ def bayesian_synth(
     if dirichlet_alpha <= 0:
         raise ValueError("dirichlet_alpha must be positive")
     if not (0 < alpha < 1):
-        raise ValueError("alpha must be in (0, 1)")
+        raise ValueError(f"bayesian_synth: alpha must be in (0, 1); got {alpha!r}.")
 
     # ------------------------------------------------------------------
     # Reshape to wide panel

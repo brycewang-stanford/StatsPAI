@@ -282,7 +282,8 @@ def summary_index(
     """
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
-            "data must be a pandas DataFrame.",
+            "sp.summary_index: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}.",
             recovery_hint="Pass the data as a DataFrame with one row per unit.",
         )
     if isinstance(outcomes, str):

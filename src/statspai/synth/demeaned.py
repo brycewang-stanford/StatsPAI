@@ -120,7 +120,10 @@ def demeaned_synth(
     post_mask = times >= treatment_time
 
     if pre_mask.sum() < 2:
-        raise ValueError("Need at least 2 pre-treatment periods")
+        raise ValueError(
+            "sp.demeaned_synth: "
+            f"Need at least 2 pre-treatment periods; got {pre_mask.sum()}."
+        )
     if post_mask.sum() < 1:
         raise ValueError("Need at least 1 post-treatment period")  # pragma: no cover
 

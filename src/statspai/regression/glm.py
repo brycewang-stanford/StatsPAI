@@ -1621,7 +1621,7 @@ class GLMRegression(BaseModel):
             exposure_values = _aligned_numeric_column(exposure, "exposure")
             if (exposure_values <= 0).any():
                 raise MethodIncompatibility(
-                    "exposure must be strictly positive.",
+                    "GLMRegression.fit(): exposure must be strictly positive.",
                     diagnostics={"column": exposure},
                 )
             off = off + np.log(exposure_values)
@@ -1850,7 +1850,7 @@ class GLMRegression(BaseModel):
         """
         if not self.is_fitted:
             raise MethodIncompatibility(
-                "Model must be fitted before prediction.",
+                "GLMRegression.predict(): Model must be fitted before prediction.",
                 recovery_hint="Call fit() before predict().",
                 diagnostics={"is_fitted": False},
             )
@@ -1937,6 +1937,7 @@ class GLMRegression(BaseModel):
                         context="predict: the prediction design matrix",
                     )
                 raise MethodIncompatibility(
+                    "GLMRegression.predict(): "
                     "Could not build prediction design matrix from new data.",
                     recovery_hint=(
                         "Check that new data contains the formula regressors "

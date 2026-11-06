@@ -356,12 +356,13 @@ def risk_class_selection(
         )
     if not 0 < upto_quantile <= 1:
         raise MethodIncompatibility(
-            "upto_quantile must be in (0, 1]",
+            "sp.risk_class_selection: upto_quantile must be in (0, 1]",
             recovery_hint="Pass e.g. upto_quantile=0.8.",
         )
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1)", recovery_hint="Pass e.g. alpha=0.05."
+            f"sp.risk_class_selection: alpha must be in (0, 1); got {alpha!r}.",
+            recovery_hint="Pass e.g. alpha=0.05.",
         )
     if risk_class is not None:
         lo, hi = (float(v) for v in risk_class)
@@ -377,7 +378,8 @@ def risk_class_selection(
         )
     if n_boot and n_boot < 2:
         raise MethodIncompatibility(
-            "n_boot must be 0 or at least 2", recovery_hint="Pass e.g. n_boot=200."
+            "sp.risk_class_selection: n_boot must be 0 or at least 2",
+            recovery_hint="Pass e.g. n_boot=200.",
         )
     scen3 = _scenarios(r2_future)
     if scen3 and pgi is None:

@@ -412,7 +412,9 @@ def residual_balance(
     if estimand_u not in ("ATE", "ATT", "ATC"):
         raise MethodIncompatibility("estimand must be 'ATE', 'ATT' or 'ATC'")
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.residual_balance: alpha must be in (0, 1); got {alpha!r}."
+        )
     if isinstance(outcome_model, str) and outcome_model not in (
         "elnet",
         "lasso",

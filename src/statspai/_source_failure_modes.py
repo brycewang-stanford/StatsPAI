@@ -616,7 +616,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "pass a discount factor below one",
-            "symptom": "beta must be in [0, 1)",
+            "symptom": "sp.dgp_ddc: beta must be in [0, 1)",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -663,7 +663,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1)",
+            "symptom": "sp.efc_welfare: alpha must be in (0, 1); got " "<alpha>.",
         },
         {
             "exception": "statspai.DataInsufficient",
@@ -742,7 +742,9 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass the unit-level data as a DataFrame.",
-            "symptom": "data must be a pandas DataFrame.",
+            "symptom": "sp.expected_instrument: data must be a "
+            "pandas DataFrame; got "
+            "<type(data).__name__>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1323,7 +1325,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1).",
+            "symptom": "sp.noisy_covariates: alpha must be in (0, " "1).",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1422,12 +1424,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. upto_quantile=0.8.",
-            "symptom": "upto_quantile must be in (0, 1]",
+            "symptom": "sp.pooled_price_ratio: upto_quantile must " "be in (0, 1]",
         },
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1)",
+            "symptom": "sp.pooled_price_ratio: alpha must be in "
+            "(0, 1); got <alpha>.",
         },
         {
             "exception": "statspai.DataInsufficient",
@@ -1449,7 +1452,9 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1)",
+            "symptom": "sp.positive_correlation_test: "
+            "alpha must be in (0, 1); got "
+            "<alpha>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1595,12 +1600,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass a DataFrame containing y, x1, x2, and " "treatment.",
-            "symptom": "`data` must be a pandas DataFrame.",
+            "symptom": "sp.rd2d_plot: `data` must be a pandas DataFrame; "
+            "got <type(data).__name__>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass boundary=lambda x1: f(x1), or leave " "boundary=None.",
-            "symptom": "boundary must be callable or None",
+            "symptom": "sp.rd2d_plot: boundary must be callable or None",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1711,12 +1717,13 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. upto_quantile=0.8.",
-            "symptom": "upto_quantile must be in (0, 1]",
+            "symptom": "sp.risk_class_selection: upto_quantile " "must be in (0, 1]",
         },
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1)",
+            "symptom": "sp.risk_class_selection: alpha must be "
+            "in (0, 1); got <alpha>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1792,12 +1799,12 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.DataInsufficient",
             "remedy": "Use a later treatment_time or a longer panel.",
-            "symptom": "Need at least 2 pre-treatment periods.",
+            "symptom": "sp.scdata: Need at least 2 pre-treatment periods; got " "<T0>.",
         },
         {
             "exception": "statspai.DataInsufficient",
             "remedy": "treatment_time must not be after the last period.",
-            "symptom": "Need at least 1 post-treatment period.",
+            "symptom": "sp.scdata: Need at least 1 post-treatment period; got " "<T1>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -1849,7 +1856,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Drop the redundant regressors.",
-            "symptom": "The regressors are collinear.",
+            "symptom": "sp.semiparametric_bayes: The regressors " "are collinear.",
         },
     ],
     "sharpened_qvalues": [
@@ -1982,7 +1989,7 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Use e.g. alpha=0.05.",
-            "symptom": "alpha must be in (0, 1).",
+            "symptom": "sp.spatial_treatment: alpha must be in (0, " "1).",
         },
         {
             "exception": "statspai.MethodIncompatibility",
@@ -2067,7 +2074,8 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
         {
             "exception": "statspai.MethodIncompatibility",
             "remedy": "Pass the data as a DataFrame with one row per " "unit.",
-            "symptom": "data must be a pandas DataFrame.",
+            "symptom": "sp.summary_index: data must be a pandas "
+            "DataFrame; got <type(data).__name__>.",
         },
         {
             "exception": "statspai.MethodIncompatibility",

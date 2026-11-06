@@ -133,7 +133,9 @@ def bayes_sur(
         idx = idx.intersection(X_df.index)
     ynames = [f.split("~", 1)[0].strip() for f in formulas]
     if len(set(ynames)) != len(ynames):
-        raise MethodIncompatibility("Each equation needs a different outcome.")
+        raise MethodIncompatibility(
+            "sp.bayes_sur: Each equation needs a different outcome."
+        )
     Y = np.column_stack([y.loc[idx].to_numpy() for y in ys])
     Xl = [np.asarray(X.loc[idx], dtype=float) for X in Xs]
     n, M = Y.shape

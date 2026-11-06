@@ -890,7 +890,9 @@ def loo_compare(*models: Any, names: Optional[Sequence[str]] = None) -> pd.DataF
         else [str(v) for v in names]
     )
     if len(labels) != len(results):
-        raise MethodIncompatibility("names must have one label per model.")
+        raise MethodIncompatibility(
+            "sp.loo_compare: names must have one label per model."
+        )
     n_obs = {r.n_obs for r in results}
     if len(n_obs) != 1:
         raise MethodIncompatibility(

@@ -152,7 +152,7 @@ def particle_filter(
             "estimates/standard_errors shape mismatch: " f"{theta.shape} vs {se.shape}"
         )
     if np.any(se <= 0):
-        raise ValueError("all standard_errors must be > 0")
+        raise ValueError("sp.particle_filter: all standard_errors must be > 0")
     if n_particles < 100:
         raise ValueError("n_particles must be >= 100 for a stable filter")
     if not (0 < ess_resample_threshold <= 1):

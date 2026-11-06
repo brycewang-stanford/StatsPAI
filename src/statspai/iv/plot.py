@@ -58,11 +58,17 @@ def plot_first_stage(
     def grab(v: Any, cols: bool = False) -> np.ndarray:
         if isinstance(v, str):
             if data is None:
-                raise ValueError("data must be provided when using column names")
+                raise ValueError(
+                    "plot_first_stage: "
+                    f"data must be provided when using column names (column {v!r})."
+                )
             return np.asarray(data[v].values, dtype=float)
         if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
             if data is None:
-                raise ValueError("data must be provided when using column names")
+                raise ValueError(
+                    "plot_first_stage: "
+                    f"data must be provided when using column names (column {v!r})."
+                )
             return np.asarray(data[v].values, dtype=float)
         return np.asarray(v, dtype=float)
 
@@ -164,11 +170,17 @@ def plot_ar_confidence_set(
     def grab(v: Any, cols: bool = False) -> np.ndarray:
         if isinstance(v, str):
             if data is None:
-                raise ValueError("data must be provided when using column names")
+                raise ValueError(
+                    "plot_ar_confidence_set: "
+                    f"data must be provided when using column names (column {v!r})."
+                )
             return np.asarray(data[v].values, dtype=float)
         if cols and isinstance(v, list) and all(isinstance(x, str) for x in v):
             if data is None:
-                raise ValueError("data must be provided when using column names")
+                raise ValueError(
+                    "plot_ar_confidence_set: "
+                    f"data must be provided when using column names (column {v!r})."
+                )
             return np.asarray(data[v].values, dtype=float)
         return np.asarray(v, dtype=float)
 

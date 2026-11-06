@@ -130,7 +130,10 @@ def cluster_synth(
     post_times = [t for t in all_times if t >= treatment_time]
 
     if len(pre_times) < 2:
-        raise ValueError("Need at least 2 pre-treatment periods.")
+        raise ValueError(
+            "cluster_synth: "
+            f"Need at least 2 pre-treatment periods; got {len(pre_times)}."
+        )
     if len(post_times) == 0:
         raise ValueError("No post-treatment periods found.")  # pragma: no cover
 

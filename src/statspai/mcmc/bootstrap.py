@@ -105,7 +105,10 @@ def bayes_bootstrap(
             "draws must be at least 2: one weight draw has no spread to " "summarise."
         )
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            "sp.bayes_bootstrap: "
+            f"data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if (formula is None) == (statistic is None):
         raise MethodIncompatibility(
             "Pass either a formula (least squares) or statistic=, not both."
@@ -127,7 +130,9 @@ def bayes_bootstrap(
         if n <= k:
             raise DataInsufficient(f"{n} observations for {k} coefficients.")
         if np.linalg.matrix_rank(X) < k:
-            raise MethodIncompatibility("The regressors are collinear.")
+            raise MethodIncompatibility(
+                "sp.bayes_bootstrap: The regressors are collinear."
+            )
         w = rng.dirichlet(np.full(n, concentration), size=draws)
         out = np.empty((draws, k))
         for s in range(draws):

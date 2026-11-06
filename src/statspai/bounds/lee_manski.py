@@ -286,7 +286,7 @@ def lee_bounds(
     p0 = np.mean(S[D == 0])  # P(selected | control)
 
     if p1 == 0 or p0 == 0:
-        raise ValueError("One treatment group has zero retention.")
+        raise ValueError("sp.lee_bounds: One treatment group has zero retention.")
 
     # Observed outcomes
     observed = S == 1

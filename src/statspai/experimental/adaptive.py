@@ -960,7 +960,9 @@ def adaptive_inference(
     if method not in ("aw", "aipw", "ipw", "mean"):
         raise MethodIncompatibility("method must be 'aw', 'aipw', 'ipw' or 'mean'")
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must be in (0, 1)")
+        raise MethodIncompatibility(
+            f"sp.adaptive_inference: alpha must be in (0, 1); got {alpha!r}."
+        )
     check_columns(
         data,
         {"y": y, "arm": arm, "prob": prob or None, "time": time or None},

@@ -189,7 +189,9 @@ def lpcmci(
     ancestral-graph orientation search.
     """
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("`data` must be a pandas DataFrame.")
+        raise TypeError(
+            f"sp.lpcmci: `data` must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if variables is None:
         # ``pd.api.types.is_numeric_dtype`` (not ``np.issubdtype(... .dtype,
         # np.number)``) so a pandas extension dtype — e.g. a ``StringDtype``

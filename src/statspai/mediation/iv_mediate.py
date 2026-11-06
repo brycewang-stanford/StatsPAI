@@ -448,7 +448,7 @@ def iv_mediate(
         n_clusters = int(codes.max()) + 1
         if n_clusters < 2:
             raise DataInsufficient(
-                "cluster must identify at least two clusters.",
+                "sp.iv_mediate: cluster must identify at least two clusters.",
                 recovery_hint="Use a cluster variable with several levels.",
             )
     elif robust:

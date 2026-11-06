@@ -516,7 +516,7 @@ def semiparametric_bayes(
             raise DataInsufficient(f"{n} observations for {p} coefficients.")
         if np.linalg.matrix_rank(X0) < p:
             raise MethodIncompatibility(
-                "The regressors are collinear.",
+                "sp.semiparametric_bayes: The regressors are collinear.",
                 recovery_hint="Drop the redundant regressors.",
             )
     if model == "weibull" and np.any(y <= 0):

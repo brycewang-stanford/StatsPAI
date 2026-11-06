@@ -259,9 +259,13 @@ def rd2d(
         )
     )
     if not (isinstance(alpha, (int, float)) and 0.0 < alpha < 1.0):
-        raise _bad("alpha must be between 0 and 1", "Use alpha=0.05.")
+        raise _bad(
+            f"sp.rd2d: alpha must be between 0 and 1; got {alpha!r}.", "Use alpha=0.05."
+        )
     if boundary is not None and not callable(boundary):
-        raise _bad("boundary must be callable or None", "Pass a function x2 = f(x1).")
+        raise _bad(
+            "sp.rd2d: boundary must be callable or None", "Pass a function x2 = f(x1)."
+        )
     if (
         isinstance(n_eval, bool)
         or not isinstance(n_eval, (int, np.integer))
@@ -730,7 +734,10 @@ def rd2d_bw(
         )
     )
     if boundary is not None and not callable(boundary):
-        raise _bad("boundary must be callable or None", "Pass a function x2 = f(x1).")
+        raise _bad(
+            "sp.rd2d_bw: boundary must be callable or None",
+            "Pass a function x2 = f(x1).",
+        )
     vce = _cluster_vce(vce, cluster)
     arrs, valid = _prepare(data, y, x1, x2, treatment, cluster, fuzzy, "sp.rd2d_bw")
     b = _eval_points(eval_points, arrs["x1"], arrs["x2"], boundary, n_eval)

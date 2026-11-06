@@ -163,12 +163,13 @@ def pooled_price_ratio(
     """
     if not 0 < upto_quantile <= 1:
         raise MethodIncompatibility(
-            "upto_quantile must be in (0, 1]",
+            "sp.pooled_price_ratio: upto_quantile must be in (0, 1]",
             recovery_hint="Pass e.g. upto_quantile=0.8.",
         )
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
-            "alpha must be in (0, 1)", recovery_hint="Pass e.g. alpha=0.05."
+            f"sp.pooled_price_ratio: alpha must be in (0, 1); got {alpha!r}.",
+            recovery_hint="Pass e.g. alpha=0.05.",
         )
     pv = _resolve(p, data, "p")
     if weights is None:
@@ -217,7 +218,7 @@ def pooled_price_ratio(
     if n_boot:
         if n_boot < 2:
             raise MethodIncompatibility(
-                "n_boot must be 0 or at least 2",
+                "sp.pooled_price_ratio: n_boot must be 0 or at least 2",
                 recovery_hint="Pass e.g. n_boot=200.",
             )
         rng = np.random.default_rng(seed)

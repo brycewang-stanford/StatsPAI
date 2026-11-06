@@ -451,7 +451,9 @@ class NOTEARS:
     def summary(self) -> str:
         """Print a summary of the learned DAG."""
         if not hasattr(self, "_W"):
-            raise ValueError("Model must be fitted first. Call .fit()")
+            raise ValueError(
+                "NOTEARS.summary(): Model must be fitted first. Call .fit()"
+            )
 
         lines = []
         lines.append("=" * 60)

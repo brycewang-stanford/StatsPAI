@@ -47,7 +47,7 @@ def encode_panel(
         )
     if len(data) == 0:
         raise DataInsufficient(
-            "no observations", recovery_hint="pass a non-empty panel"
+            "encode_panel: no observations", recovery_hint="pass a non-empty panel"
         )
     df = data[cols + ([increment] if increment else [])].reset_index(drop=True)
     if id is not None:

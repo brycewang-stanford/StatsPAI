@@ -81,7 +81,8 @@ def rd2d_plot(
 
     if not isinstance(data, pd.DataFrame):
         raise MethodIncompatibility(
-            "`data` must be a pandas DataFrame.",
+            "sp.rd2d_plot: "
+            f"`data` must be a pandas DataFrame; got {type(data).__name__}.",
             recovery_hint="Pass a DataFrame containing y, x1, x2, and treatment.",
             diagnostics={"type": type(data).__name__},
         )
@@ -92,7 +93,7 @@ def rd2d_plot(
     )
     if boundary is not None and not callable(boundary):
         raise MethodIncompatibility(
-            "boundary must be callable or None",
+            "sp.rd2d_plot: boundary must be callable or None",
             recovery_hint="Pass boundary=lambda x1: f(x1), or leave boundary=None.",
             diagnostics={"boundary_type": type(boundary).__name__},
         )

@@ -276,7 +276,7 @@ def stochvol(
     r = series.to_numpy(dtype=float)
     if not np.isfinite(r).all():
         raise MethodIncompatibility(
-            "The series has missing or infinite values; remove them first."
+            "sp.stochvol: The series has missing or infinite values; remove them first."
         )
     n = r.size
     if n < 30:
@@ -291,7 +291,7 @@ def stochvol(
     a0, b0 = (float(v) for v in phi_prior)
     B_sig = float(sigma_prior)
     if B_mu <= 0 or a0 <= 0 or b0 <= 0 or B_sig <= 0:
-        raise MethodIncompatibility("The prior scales must be positive.")
+        raise MethodIncompatibility("sp.stochvol: The prior scales must be positive.")
     notes = []
     offset = 0.0
     if np.any(r == 0.0):

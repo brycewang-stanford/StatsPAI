@@ -338,7 +338,9 @@ def bayes_mvprobit(
         idx = idx.intersection(X_df.index)
     ynames = [f.split("~", 1)[0].strip() for f in formulas]
     if len(set(ynames)) != len(ynames):
-        raise MethodIncompatibility("Each equation needs a different outcome.")
+        raise MethodIncompatibility(
+            "sp.bayes_mvprobit: Each equation needs a different outcome."
+        )
     Y = np.column_stack([y.loc[idx].to_numpy() for y in ys])
     if not np.isin(Y, (0.0, 1.0)).all():
         raise MethodIncompatibility("Every outcome must be coded 0 and 1.")
@@ -476,7 +478,7 @@ def bayes_mnprobit(
     if n <= k * (J - 1):
         raise DataInsufficient(f"{n} observations for {k * (J - 1)} coefficients.")
     if np.linalg.matrix_rank(X) < k:
-        raise MethodIncompatibility("The regressors are collinear.")
+        raise MethodIncompatibility("sp.bayes_mnprobit: The regressors are collinear.")
     labels = [str(v) for v in levels[1:]]
     names = [f"{lv}:{c}" for lv in labels for c in X_df.columns]
     return _run(

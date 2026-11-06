@@ -703,7 +703,9 @@ def bma(
             f"choose from {allowed}."
         )
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility("data must be a pandas DataFrame.")
+        raise MethodIncompatibility(
+            f"sp.bma: data must be a pandas DataFrame; got {type(data).__name__}."
+        )
     if not occam_ratio > 1:
         raise MethodIncompatibility("occam_ratio must exceed 1.")
 
@@ -753,7 +755,9 @@ def bma(
     if family == "binomial" and not np.all(np.isin(np.unique(y), (0.0, 1.0))):
         raise MethodIncompatibility("family='binomial' needs a 0/1 outcome.")
     if family == "poisson" and (np.any(y < 0) or np.any(y != np.round(y))):
-        raise MethodIncompatibility("family='poisson' needs non-negative counts.")
+        raise MethodIncompatibility(
+            "sp.bma: family='poisson' needs non-negative counts."
+        )
     if family == "gamma" and np.any(y <= 0):
         raise MethodIncompatibility("family='gamma' needs a positive outcome.")
 

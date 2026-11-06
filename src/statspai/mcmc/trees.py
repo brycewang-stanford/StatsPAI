@@ -710,7 +710,9 @@ def bart(
     all_names = [str(c) for c in X_df.columns]
     keep = [j for j in range(Xall.shape[1]) if np.ptp(Xall[:, j]) > 0]
     if not keep:
-        raise MethodIncompatibility("The formula has no regressor that varies.")
+        raise MethodIncompatibility(
+            "sp.bart: The formula has no regressor that varies."
+        )
     X = Xall[:, keep]
     names = [all_names[j] for j in keep]
     n, p = X.shape
@@ -726,7 +728,7 @@ def bart(
         if not np.isin(y, (0.0, 1.0)).all():
             raise MethodIncompatibility("For family='binary' the outcome must be 0/1.")
         if y.min() == y.max():
-            raise DataInsufficient("The outcome does not vary.")
+            raise DataInsufficient("sp.bart: The outcome does not vary.")
         center = float(stats.norm.ppf(y.mean()))
         scale = 1.0
         tau2 = (3.0 / (k * math.sqrt(n_trees))) ** 2
@@ -734,7 +736,7 @@ def bart(
         lam = 0.0
     else:
         if y.max() == y.min():
-            raise MethodIncompatibility("The outcome does not vary.")
+            raise MethodIncompatibility("sp.bart: The outcome does not vary.")
         scale = float(y.max() - y.min())
         center = float(0.5 * (y.max() + y.min()))
         ys = (y - center) / scale

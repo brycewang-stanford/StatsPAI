@@ -265,7 +265,7 @@ def did_timevarying_covariates(
     treated_cohorts = [g for g in cohort_vals if g != never_value]
     if not treated_cohorts:
         raise DataInsufficient(
-            "No treated cohorts found.",
+            "sp.did_timevarying_covariates: No treated cohorts found.",
             diagnostics={"cohorts": [str(c) for c in cohort_vals[:10]]},
         )
     if control_group == "nevertreated" and never_value not in df[cohort].values:

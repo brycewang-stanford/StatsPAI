@@ -237,9 +237,14 @@ def balance_vs_randomization(
     if test not in {"auto", "wilcoxon", "t"}:
         raise MethodIncompatibility("test must be 'auto', 'wilcoxon' or 't'")
     if not 0 < trunc <= 1:
-        raise MethodIncompatibility("trunc must satisfy 0 < trunc <= 1")
+        raise MethodIncompatibility(
+            "sp.balance_vs_randomization: trunc must satisfy 0 < trunc <= 1"
+        )
     if not 0 < alpha < 1:
-        raise MethodIncompatibility("alpha must lie strictly between 0 and 1")
+        raise MethodIncompatibility(
+            "sp.balance_vs_randomization: "
+            f"alpha must lie strictly between 0 and 1; got {alpha!r}."
+        )
     if int(n_sim) < 1:
         raise MethodIncompatibility("n_sim must be a positive integer")
     cols = list(covariates)

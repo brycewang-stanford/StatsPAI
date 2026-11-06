@@ -713,7 +713,8 @@ def causal_impact(
     # ------------------------------------------------------------------
     if not isinstance(data, pd.DataFrame):
         raise _CausalImpactDataTypeError(
-            "`data` must be a pandas DataFrame.",
+            "sp.causal_impact: "
+            f"`data` must be a pandas DataFrame; got {type(data).__name__}.",
             diagnostics={"data": data.__class__.__name__},
         )
     data = _require_dataframe(data, "data")

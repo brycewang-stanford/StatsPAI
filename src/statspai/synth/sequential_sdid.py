@@ -183,7 +183,10 @@ def sequential_sdid(
     1.7
     """
     if not isinstance(data, pd.DataFrame):
-        raise TypeError("`data` must be a pandas DataFrame.")
+        raise TypeError(
+            "sp.sequential_sdid: "
+            f"`data` must be a pandas DataFrame; got {type(data).__name__}."
+        )
     check_columns(
         data,
         {"outcome": outcome, "unit": unit, "time": time, "cohort": cohort},

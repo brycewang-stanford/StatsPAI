@@ -263,7 +263,7 @@ def principal_strat(
     X = df[covariates].values.astype(float) if covariates else None
 
     if not set(np.unique(D)).issubset({0, 1}):
-        raise ValueError("treat must be binary (0/1).")
+        raise ValueError("sp.principal_strat: treat must be binary (0/1).")
     if not set(np.unique(S)).issubset({0, 1}):
         raise ValueError("strata must be binary (0/1).")
 

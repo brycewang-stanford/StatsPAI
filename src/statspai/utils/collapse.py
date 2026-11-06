@@ -66,7 +66,7 @@ def frequency_rows(
         raise _refuse("collapse: negative weights", "Weights must be >= 0.")
     if np.any(w[held] != np.round(w[held])):
         raise _refuse(
-            "may not use noninteger frequency weights",
+            "frequency_rows: may not use noninteger frequency weights",
             "Use weight_type='aweight' for non-integer weights.",
         )
     held &= w > 0
