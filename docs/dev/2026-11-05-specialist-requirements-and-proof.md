@@ -156,8 +156,15 @@ The three estimators that left the denominator are not estimators
    the smallest. The R packages agree with each other but follow no rule we
    could identify. The alternative is the root with the smallest variance
    objective; it is more principled but changes numbers.
+   **Decided 2026-11-06:** the root with the smallest sample objective,
+   smallest root on a tie (⚠️ correctness fix; the R parity fixture's
+   smallest root is already the minimiser, so it is unchanged).
 2. Continuous-treatment weights in `sp.ps_weights`. Keep the density ratio,
    or follow the WeightIt / propensity convention?
+   **Decided 2026-11-06:** kept. WeightIt 1.7.0 `glm` equals propensity
+   (7e-15): a ratio of standard normal densities of standardized values,
+   i.e. the density ratio times `sd_ML(A) / sigma_ML`. The density ratio
+   is the standard definition; WeightIt's weights are rebuilt from ours.
 3. Resolved 2026-11-06, no change needed. The compiled JSS section
    (`05-parity-compact.tex`) uses the exact binomial 99% acceptance region
    `[0.931, 0.967]`, which is correct. The wrong `[0.935, 0.967]` appears only
@@ -172,8 +179,11 @@ The three estimators that left the denominator are not estimators
   - `ivqreg`: R `IVQR` fails on R 4.5; Stata `ivqreg` is not on SSC.
   - `lasso_iv` is StatsPAI's own procedure.
 - `sp.xtivreg` lacks the `fd`, `small`, `regress` and `first` options.
+  **Done 2026-11-06** (`stata_xtivreg_opts.do`, 20 fits and 8 first stages).
 - WRE confidence sets can be disjoint under weak IV. `boottest` finds the
   second piece; StatsPAI does not search for it.
+  **Done 2026-11-06:** `ci_set` (grid scan plus bisection); boottest's
+  default grid cuts that second piece at its grid end.
 - The remaining rOpenSci gaps are listed in the audit:
   - a shared `missing="raise"` option;
   - time-series date-gap checks through `read_series`;

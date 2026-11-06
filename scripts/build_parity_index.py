@@ -8442,10 +8442,11 @@ _FROZEN_PROMOTIONS.update(
         "xtivreg": {
             "status": "aligned",
             "reference": (
-                "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; "
-                "vce conventional / robust / cluster; one and two endogenous "
-                "regressors; unbalanced and balanced panels, time-invariant "
-                "regressors and instruments. R plm within and between IV."
+                "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be, fd; "
+                "vce conventional / robust / cluster; small, first, regress; "
+                "one and two endogenous regressors; unbalanced, balanced and "
+                "gapped panels, time-invariant regressors and instruments. "
+                "R plm within and between IV."
             ),
             "reference_versions": {
                 "Stata": _PANEL_XT_STATA,
@@ -8461,7 +8462,11 @@ _FROZEN_PROMOTIONS.update(
                 "count 7 agree to 1e-12 on every number and the eighth's "
                 "sigma_e is reproduced from our within sum of squares; by "
                 "default sigma_e and rho differ by <= 2.5e-3, coefficients "
-                "by <= 1.2e-4 and standard errors by <= 8.2e-4."
+                "by <= 1.2e-4 and standard errors by <= 8.2e-4. Options "
+                "(stata_xtivreg_opts.json, 20 fits and 8 first stages): "
+                "coefficients and standard errors 1e-12 (observed <= 1.6e-13), "
+                "model chi2 / F, small-sample df and the reported scalars "
+                "1e-11 except the Stata conventions listed in the note."
             ),
             "sides": ["py", "Stata", "R"],
             "test": [
@@ -8469,6 +8474,7 @@ _FROZEN_PROMOTIONS.update(
                 "tests/fixtures/xtivreg/stata_xtivreg.json",
                 "tests/fixtures/xtivreg/stata_xtivreg_tinv.json",
                 "tests/fixtures/xtivreg/stata_xtivreg_more.json",
+                "tests/fixtures/xtivreg/stata_xtivreg_opts.json",
                 "tests/fixtures/xtivreg/r_plm_xtivreg.json",
             ],
             "note": (
@@ -8482,9 +8488,15 @@ _FROZEN_PROMOTIONS.update(
                 "panel Stata's K counts a continuous time-invariant regressor "
                 "(rounding noise in its within transform). plm's vcovHC "
                 "type='sss' leaves the constant out of K, a factor "
-                "(N-K)/(N-K-1) the test reproduces. Not implemented: fd, small, "
-                "regress, first; plm's random-effects IV uses other variance "
-                "components and is not a reference here."
+                "(N-K)/(N-K-1) the test reproduces. plm's random-effects IV "
+                "uses other variance components and is not a reference here. "
+                "Stata option conventions not followed, each asserted: with a "
+                "cluster-robust variance fd's sigma_e divides rss by G - 1; on "
+                "a gapped panel fd's sigma_u / rho / corr / within R-squared "
+                "use a sample not recovered; fd's between R-squared is not "
+                "the manual's formula; fe's chi2 without small includes the "
+                "constant; re's first stage under vce(robust) is HC1 while "
+                "the main fit clusters."
             ),
         },
         "xttobit": {
@@ -8988,7 +9000,8 @@ _FROZEN_PROMOTIONS.update(
                 "boottest after ivregress 2sls, small (WRE, Rademacher weights "
                 "enumerated over 2^12 sign vectors): over- and just-identified, "
                 "with and without an exogenous control, beta0 = 0 and 0.5, levels "
-                "95 / 93.75 / 90, two endogenous regressors"
+                "95 / 93.75 / 90, two endogenous regressors; the disjoint "
+                "weak-IV confidence set with boottest's default and a wide grid"
             ),
             "reference_versions": {
                 "Stata": "18",
@@ -9001,15 +9014,23 @@ _FROZEN_PROMOTIONS.update(
                 "regressor, 0.018 with two)"
             ),
             "sides": ["py", "Stata"],
-            "test": [_REGCMD_TEST, _REGCMD_STATA],
+            "test": [
+                _REGCMD_TEST,
+                _REGCMD_STATA,
+                "tests/reference_parity/_fixtures/wre_disjoint_Stata.json",
+            ],
             "note": (
                 "Aligned, not bit-exact, because of the confidence set: our bounds "
                 "are the exact edges of {beta0 : p(beta0) > alpha}, boottest's are "
                 "not (they lie where p is still above alpha, also at levels where "
                 "alpha * 4096 is an integer), while the two p-value functions agree "
                 "exactly at boottest's bounds. With two endogenous regressors "
-                "boottest's set for d1 has a second piece that this function does "
-                "not search for. The other endogenous regressors are re-estimated "
+                "the set for d1 has two pieces; ci_set finds both (a grid scan "
+                "over +-10 SE refined by bisection), and boottest's own p-value "
+                "crosses alpha within 1e-6 of each of our four edges. boottest's "
+                "default grid cuts the second piece at 1.664, where its p is "
+                "still 0.063; with a wide grid it reports [1.598, 2.05], ours "
+                "[1.598, 2.050]. The other endogenous regressors are re-estimated "
                 "by LIML under the null, as in boottest (corrected in this change; "
                 "with 2SLS the enumerated p-values differed)."
             ),

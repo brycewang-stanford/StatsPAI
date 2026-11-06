@@ -19,6 +19,33 @@ All notable changes to StatsPAI will be documented in this file.
   diagonal matrix is conservative, Sidak) and does not warn. Fits with a
   joint covariance are unaffected. No number changes.
 
+### Added
+
+- **`sp.xtivreg` gains Stata's `fd`, `small`, `first` and `regress`.**
+  `method='fd'` (with the new `time=`) is 2SLS in first differences
+  (Anderson-Hsiao), differencing consecutive periods only.
+  `small=True` reports t statistics and an F model test with Stata's
+  residual degrees of freedom. `first=True` stores each endogenous
+  regressor's first stage in `model_info['first_stage']`, in the
+  estimator's own transformation. `regress=True` treats the endogenous
+  regressors as exogenous. Every fit also reports the Wald test of the
+  slopes (`chi2` or `F`, `df_m`). Graded against Stata 18 on 20 new fits
+  and 8 first stages: coefficients and standard errors agree to 1.6e-13.
+  Stata conventions not followed are listed in
+  `tests/reference_parity/REFERENCES.md`. Existing calls return the same
+  numbers.
+- **`sp.iv_wild_bootstrap` finds every piece of the WRE confidence set.**
+  Under weak instruments `{beta0 : p(beta0) > alpha}` can be a union of
+  disjoint intervals. The new `ci_set` lists all pieces (with
+  `ci_disjoint`), found by a grid scan over `ci_range` standard errors
+  around the estimate (default 10, step `ci_step` = 0.25) with each edge
+  refined by bisection. `ci_boot` is still the piece that contains the
+  estimate, with the same numbers. `sp.ivreg(vce='wild')` warns when the
+  set is disjoint and stores it in `model_info['wild_ci_set']`. On the
+  boottest 4.5.3 weak-IV case, boottest's own p-value crosses alpha
+  within 1e-6 of each of our four edges. Its default grid cuts the second
+  piece at 1.664, where its p-value is still 0.063.
+
 ### Changed
 
 - **Method references on 231 more certified / validated functions.**

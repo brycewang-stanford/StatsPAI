@@ -21,7 +21,7 @@ regressors (``tests/reference_parity/test_regcmd_stata_r_parity.py``).
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -354,6 +354,8 @@ def iv_wild_bootstrap(
     alpha: float = 0.05,
     beta0: float = 0.0,
     efficient: bool = True,
+    ci_range: float = 10.0,
+    ci_step: float = 0.25,
 ) -> Dict[str, Any]:
     """WRE wild cluster bootstrap for a single (endogenous) 2SLS coefficient.
 
@@ -374,6 +376,13 @@ def iv_wild_bootstrap(
         endogenous regressor on the instruments **and** the restricted
         structural residual, exploiting the u-v correlation). If False, use the
         plain restricted reduced form (projection on instruments only).
+    ci_range : float, default 10.0
+        Half-width, in cluster-robust standard errors around the estimate,
+        of the scan for further pieces of the confidence set. ``0`` skips
+        the scan (only the piece that contains the estimate is found).
+    ci_step : float, default 0.25
+        Grid step of that scan, in standard errors. A piece narrower than
+        the step, or a gap between pieces narrower than it, can be missed.
 
     Returns
     -------
@@ -381,9 +390,13 @@ def iv_wild_bootstrap(
         ``beta_hat``, ``se_cluster``, ``t_stat``, ``p_boot`` (symmetric,
         strict inequality as in ``boottest``), ``ci_boot`` (the test-inversion
         confidence interval: the connected part of ``{beta0 : p(beta0) >
-        alpha}`` that contains the estimate; with weak instruments the set
-        can have further pieces, which ``boottest`` reports and this does
-        not search for), ``t_distribution``, ``n_clusters``, ``n_obs``,
+        alpha}`` that contains the estimate), ``ci_set`` (every piece of
+        that set found by a grid scan over ``beta_hat +- ci_range`` SEs with
+        each edge refined by bisection, sorted; a piece that reaches the end
+        of the scan is followed outward, to ``+-inf`` if it does not close;
+        with weak instruments the set can be a union of disjoint
+        intervals), ``ci_disjoint`` (more than one piece),
+        ``t_distribution``, ``n_clusters``, ``n_obs``,
         ``n_boot`` (``2**G`` when the Rademacher grid is enumerated),
         ``enumerated``, ``weight_type`` and ``method`` (``'WRE'`` /
         ``'WUR'``).
@@ -415,6 +428,12 @@ def iv_wild_bootstrap(
     ----------
     roodman2019fast
     """
+    if not (np.isfinite(ci_range) and ci_range >= 0) or not ci_step > 0:
+        raise MethodIncompatibility(
+            "iv_wild_bootstrap: ci_range must be >= 0 and ci_step > 0; got "
+            f"{ci_range!r} and {ci_step!r}.",
+            recovery_hint="ci_range=0 skips the scan for further pieces.",
+        )
     iv = getattr(result, "data_info", {}).get("iv")
     _reject_weighted(iv)
     if iv is None:
@@ -611,10 +630,16 @@ def iv_wild_bootstrap(
             )
         return out
 
+    p_cache: Dict[float, float] = {}
+
     def _pvalue(b0: float) -> float:
-        t0 = (beta_hat[test_idx] - b0) / se
-        # Symmetric two-sided p with a strict inequality, as boottest counts it.
-        return float(np.mean(np.abs(_t_boot(b0)) > abs(t0) * (1 + 1e-10)))
+        b0 = float(b0)
+        if b0 not in p_cache:
+            t0 = (beta_hat[test_idx] - b0) / se
+            # Symmetric two-sided p with a strict inequality, as boottest
+            # counts it.
+            p_cache[b0] = float(np.mean(np.abs(_t_boot(b0)) > abs(t0) * (1 + 1e-10)))
+        return p_cache[b0]
 
     t_boot = _t_boot(beta0)
     p_boot = float(np.mean(np.abs(t_boot) > np.abs(t_obs) * (1 + 1e-10)))
@@ -623,28 +648,70 @@ def iv_wild_bootstrap(
     # the beta0-imposed bootstrap-t quantiles placed around beta_hat -- is
     # valid only at beta0 itself (ADH, AER 2013: [-0.496, -0.078] against
     # boottest's [-0.580, -0.112]).
-    def _bound(direction: float) -> float:
-        step = 2.0 * se
-        inside = float(beta_hat[test_idx])
-        outside = inside + direction * step
-        for _ in range(40):
-            if _pvalue(outside) <= alpha:
+    b_hat = float(beta_hat[test_idx])
+    tol = 1e-6 * max(se, 1e-12)
+
+    def _edge(inside: float, outside: float) -> float:
+        # bisect a bracket with p(inside) > alpha >= p(outside)
+        for _ in range(200):
+            if abs(outside - inside) < tol:
                 break
-            inside, outside = outside, outside + direction * step
-            step *= 2
-        else:
-            return float(direction * np.inf)
-        for _ in range(60):
             mid = 0.5 * (inside + outside)
             if _pvalue(mid) > alpha:
                 inside = mid
             else:
                 outside = mid
-            if abs(outside - inside) < 1e-6 * max(se, 1e-12):
-                break
         return 0.5 * (inside + outside)
 
-    ci = (_bound(-1.0), _bound(1.0))
+    def _march(inside: float, direction: float) -> Tuple[float, float]:
+        # from a point inside the set, step outward (doubling) to a point
+        # outside it; (inside, inf) when none is found
+        step = 2.0 * se
+        outside = inside + direction * step
+        for _ in range(40):
+            if _pvalue(outside) <= alpha:
+                return inside, outside
+            inside, outside = outside, outside + direction * step
+            step *= 2
+        return inside, direction * np.inf
+
+    def _bound(direction: float) -> Tuple[float, float]:
+        inside, outside = _march(b_hat, direction)
+        if not np.isfinite(outside):
+            return float(outside), float(outside)
+        return _edge(inside, outside), outside
+
+    (lo, lo_out), (hi, hi_out) = _bound(-1.0), _bound(1.0)
+    ci = (lo, hi)
+    pieces: List[Tuple[float, float]] = [ci]
+    for direction, start in ((1.0, hi_out), (-1.0, lo_out)):
+        if not np.isfinite(start):
+            continue
+        end = b_hat + direction * ci_range * se
+        if (end - start) * direction <= 0:
+            continue
+        n_pts = int(np.ceil(abs(end - start) / (ci_step * se)))
+        grid = start + direction * ci_step * se * np.arange(1, n_pts + 1)
+        prev, j = start, 0  # prev: a point outside the set
+        while j < len(grid):
+            if _pvalue(grid[j]) <= alpha:
+                prev, j = grid[j], j + 1
+                continue
+            first_in = _edge(grid[j], prev)
+            k = j
+            while k + 1 < len(grid) and _pvalue(grid[k + 1]) > alpha:
+                k += 1
+            if k + 1 < len(grid):
+                last_in = _edge(grid[k], grid[k + 1])
+                prev, j = grid[k + 1], k + 2
+            else:
+                inside, outside = _march(grid[k], direction)
+                last_in = (
+                    _edge(inside, outside) if np.isfinite(outside) else float(outside)
+                )
+                j = len(grid)
+            pieces.append(tuple(sorted((first_in, last_in))))  # type: ignore[arg-type]
+    pieces.sort()
 
     return {
         "beta_hat": float(beta_hat[test_idx]),
@@ -652,6 +719,8 @@ def iv_wild_bootstrap(
         "t_stat": float(t_obs),
         "p_boot": p_boot,
         "ci_boot": ci,
+        "ci_set": pieces,
+        "ci_disjoint": len(pieces) > 1,
         "t_distribution": t_boot,
         "n_clusters": n_clusters,
         "n_obs": n,

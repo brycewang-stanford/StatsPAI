@@ -581,7 +581,8 @@ def test_wre_two_endogenous_matches_boottest_exactly(wre_two, key):
 
 def _p_at(wild, spec, beta0):
     formula, var, _, alpha = spec
-    return _wre(wild, (formula, var, beta0, alpha))[1]["p_boot"]
+    # only p is needed: skip the scan for further confidence-set pieces
+    return _wre(wild, (formula, var, beta0, alpha), ci_range=0.0)[1]["p_boot"]
 
 
 @pytest.mark.parametrize("key", ["wre_over_b0", "wre_over_l9375", "wre_just_b0"])
@@ -611,12 +612,58 @@ def test_wre_bounds_are_the_jumps_of_the_p_value(wild, wre_one, key):
 def test_wre_confidence_bounds_are_close_to_boottests(wre_one, wre_two):
     """boottest interpolates where we take the exact set: the two sets of
     bounds are within 0.02 SE (observed 0.006 SE with one endogenous
-    regressor, 0.018 with two). With two endogenous regressors boottest's d1
-    set has a second piece, [1.598, 1.664], which ours does not search for;
-    our interval is the piece that contains the estimate."""
+    regressor, 0.018 with two). ``ci_boot`` is the piece that contains the
+    estimate; the second piece of the d1 set is checked below."""
     fits = {**wre_one, **wre_two}
     for key, (_, out) in fits.items():
         first = S[key]["ci"][0]
         gap = np.abs(np.subtract(out["ci_boot"], first)) / out["se_cluster"]
         assert gap.max() < 0.02, key
     assert len(S["wre_two_d1"]["ci"]) == 2
+
+
+WRE_DISJOINT = json.loads((FX / "wre_disjoint_Stata.json").read_text(encoding="utf-8"))
+
+
+def test_wre_disjoint_confidence_set_matches_boottest(wre_two):
+    """Under weak identification the d1 set is two intervals. Our scan finds
+    both. boottest's default grid stops at 1.6644, where its own p-value is
+    still 0.063 > alpha (p_at_ci), so its default second piece is cut at the
+    end of its grid; with gridmin(-5) gridmax(10) gridpoints(301) it is
+    [1.5975, 2.05] (2.05 a grid point). Our edges are exact: boottest's own
+    p-value crosses alpha within 1e-6 of each of them (p_probe). The wide
+    grid's bounds lie within 0.02 SE of ours (observed 0.0019 SE)."""
+    _, out = wre_two["wre_two_d1"]
+    alpha = 0.05
+    assert out["ci_disjoint"] and len(out["ci_set"]) == 2
+    assert out["ci_set"][0] == out["ci_boot"]
+    se = out["se_cluster"]
+    wide = WRE_DISJOINT["d1_wide"]["ci"]
+    gap = np.abs(np.subtract(out["ci_set"], wide)) / se
+    assert gap.max() < 0.02
+    # the default boottest piece ends inside ours, where p > alpha
+    default = WRE_DISJOINT["d1_default"]["ci"][1]
+    assert default[1] < out["ci_set"][1][1]
+    assert S["wre_two_d1"]["p_at_ci"][1][1] > alpha
+    # each of our four edges is a jump of boottest's p-value function
+    probes = WRE_DISJOINT["p_probe"]
+    edges = [e for piece in out["ci_set"] for e in piece]
+    for i, edge in enumerate(edges):
+        (b_lo, p_lo), (b_hi, p_hi) = probes[2 * i], probes[2 * i + 1]
+        assert b_lo < edge < b_hi
+        if i % 2 == 0:  # lower edge: outside below, inside above
+            assert p_lo <= alpha < p_hi
+        else:
+            assert p_hi <= alpha < p_lo
+    _, out2 = wre_two["wre_two_d2"]
+    assert not out2["ci_disjoint"] and out2["ci_set"] == [out2["ci_boot"]]
+
+
+def test_wre_scan_options(wild):
+    fit = _quiet(sp.ivreg, _OVER, data=wild, cluster="cl")
+    kw = dict(n_boot=999, seed=1)
+    a = sp.iv_wild_bootstrap(fit, wild, "cl", "d1", ci_range=0.0, **kw)
+    b = sp.iv_wild_bootstrap(fit, wild, "cl", "d1", **kw)
+    assert a["ci_set"] == [a["ci_boot"]] and a["ci_boot"] == b["ci_boot"]
+    with pytest.raises(sp.MethodIncompatibility, match="ci_step"):
+        sp.iv_wild_bootstrap(fit, wild, "cl", "d1", ci_step=0.0, **kw)

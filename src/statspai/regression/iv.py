@@ -3576,6 +3576,16 @@ def ivreg(
             f"{wild_reps} reps, {wild_weight_type}; endogenous coefficient)"
         )
         base.model_info["wild_endogenous"] = endog_name
+        base.model_info["wild_ci_set"] = out["ci_set"]
+        if out["ci_disjoint"]:
+            warnings.warn(
+                f"ivreg(vce='wild'): the WRE confidence set for {endog_name} "
+                f"is a union of {len(out['ci_set'])} disjoint intervals "
+                f"{out['ci_set']}; conf_int() reports the one that contains "
+                "the estimate. Weak instruments make the set disjoint.",
+                UserWarning,
+                stacklevel=2,
+            )
         base.model_info["n_boot"] = wild_reps
         base.model_info["cluster"] = cluster
         return base
