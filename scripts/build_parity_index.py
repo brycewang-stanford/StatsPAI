@@ -8745,6 +8745,278 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# ---- Regression and inference commands vs Stata 18 / R (2026-11-05) ----
+# One fixture set (regcmd_*) plus the committed Hansen and IV-report
+# fixtures. Every number below is copied from the asserting tests and their
+# docstrings (tests/reference_parity/test_regcmd_stata_r_parity.py,
+# test_hansen_methods_stata_parity.py, test_ivreport_stata_parity.py).
+_REGCMD_TEST = "tests/reference_parity/test_regcmd_stata_r_parity.py"
+_REGCMD_STATA = "tests/reference_parity/_fixtures/regcmd_Stata.json"
+_REGCMD_R = "tests/reference_parity/_fixtures/regcmd_R.json"
+_R452 = "R version 4.5.2 (2025-10-31)"
+_FROZEN_PROMOTIONS.update(
+    {
+        "intreg": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata intreg (oim, vce(robust), vce(cluster), [pw=], [pw=] with "
+                "vce(cluster)); R survival::survreg(Surv(type = 'interval2'), "
+                "dist = 'gaussian') with its observed-information covariance"
+            ),
+            "reference_versions": {
+                "Stata": "18",
+                "R": _R452,
+                "survival": "3.8.3",
+            },
+            "tolerance": (
+                "coefficients and standard errors 1e-9 relative (observed 5e-11); "
+                "log likelihood 1e-12"
+            ),
+            "sides": ["py", "Stata", "R"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA, _REGCMD_R],
+            "note": (
+                "800 synthetic rows in 40 clusters with exact, left-, right- and "
+                "interval-censored values and five rows with no bounds. The robust "
+                "variance is also checked against the score sandwich written out "
+                "from the normal CDF. survreg's robust = TRUE variance, built from "
+                "its dfbeta residuals, does not reproduce that sandwich on "
+                "interval-censored rows, so only survreg's observed information is "
+                "compared."
+            ),
+        },
+        "heckprobit": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata heckprobit (oim, vce(robust), vce(cluster), [pw=], [pw=] "
+                "with vce(cluster)); R sampleSelection::selection(method = 'ml') "
+                "with a binary outcome, Newton-Raphson and BHHH"
+            ),
+            "reference_versions": {
+                "Stata": "18",
+                "R": _R452,
+                "sampleSelection": "1.2.14",
+            },
+            "tolerance": (
+                "against Stata: coefficients and standard errors 1e-9 relative "
+                "(observed 4e-11); against sampleSelection's Newton-Raphson fit "
+                "1e-8 (observed 2e-9); log likelihood 1e-12"
+            ),
+            "sides": ["py", "Stata", "R"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA, _REGCMD_R],
+            "note": (
+                "sampleSelection's default maximiser is BHHH, whose covariance is "
+                "the inverse outer product of the scores, a different quantity; it "
+                "is rebuilt from the observed-information and robust fits and "
+                "agrees to 1e-7. With [pw=] the reported log likelihood is Stata's "
+                "pseudo log likelihood (corrected in this change)."
+            ),
+        },
+        "gologit": {
+            "status": "bit-exact",
+            "reference": (
+                "gologit2 (all, no and partial parallel lines; logit and probit "
+                "links; vce(robust), vce(cluster)); R VGAM::vglm(cumulative("
+                "reverse = TRUE)) coefficients"
+            ),
+            "reference_versions": {
+                "Stata": "18",
+                "gologit2": "3.2.8",
+                "R": _R452,
+                "VGAM": "1.1.14",
+            },
+            "tolerance": (
+                "coefficients and standard errors 1e-6 relative (observed 4.4e-7 "
+                "against gologit2, 1.7e-7 against VGAM); log likelihood 1e-12"
+            ),
+            "sides": ["py", "Stata", "R"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA, _REGCMD_R],
+            "note": (
+                "Both references stop where their own derivatives stop: the score "
+                "of the closed-form likelihood is 4e-5 at gologit2's estimate and "
+                "3e-5 at VGAM's, 6e-8 at StatsPAI's, which has the highest log "
+                "likelihood of the three (asserted). VGAM's covariance is the "
+                "expected information, so only its coefficients are compared. "
+                "gologit2 is user-written (SSC) and was run as a black box."
+            ),
+        },
+        "prais": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata prais: Prais-Winsten and Cochrane-Orcutt, rhotype regress / "
+                "freg / tscorr / dw / theil / nagar, iterated and twostep, "
+                "vce(robust) / vce(hc2) / vce(hc3)"
+            ),
+            "reference_versions": {"Stata": "18"},
+            "tolerance": (
+                "coefficients, standard errors, rho, R-squared, F, root MSE and "
+                "both Durbin-Watson statistics 1e-9 relative (observed 2.5e-15)"
+            ),
+            "sides": ["py", "Stata"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA],
+            "note": (
+                "30 cells on the committed textbook time series, with Stata "
+                "iterating to tolerance(1e-14); at Stata's default tolerance "
+                "(1e-6) the iterated rows agree only to 2e-5."
+            ),
+        },
+        "cnsreg": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata cnsreg with two linear constraints (default, vce(robust), "
+                "vce(cluster))"
+            ),
+            "reference_versions": {"Stata": "18"},
+            "tolerance": (
+                "coefficients, standard errors, root MSE and F 1e-9 relative"
+            ),
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_hansen_methods_stata_parity.py",
+                "tests/reference_parity/_fixtures/hansen_methods_Stata.csv",
+            ],
+            "note": (
+                "The constrained coefficient is 0.5 with a zero standard error on "
+                "both sides. Stata leaves the classical F of this model missing. "
+                "method='emd' (efficient minimum distance) has no Stata "
+                "counterpart and is checked against its closed form only."
+            ),
+        },
+        "nls": {
+            "status": "bit-exact",
+            "reference": (
+                "R stats::nls with the analytic gradient from deriv() and "
+                "sandwich::sandwich / vcovCL (gnr, HC1, cluster); Stata nl (gnr, "
+                "robust, cluster, hc2, hc3)"
+            ),
+            "reference_versions": {
+                "R": _R452,
+                "sandwich": "3.1.1",
+                "Stata": "18",
+            },
+            "tolerance": (
+                "against R: estimates and standard errors 1e-8 relative at "
+                "tol=1e-12 (observed 3e-9), 1e-6 at the default tol=1e-10 "
+                "(estimates 2e-7); against Stata nl: estimates 1e-7, standard "
+                "errors 1e-6 (observed 4.2e-7)"
+            ),
+            "sides": ["py", "R", "Stata"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA, _REGCMD_R],
+            "note": (
+                "Stata nl differentiates the regression function by forward "
+                "differences (delta(4e-7)), so its standard errors carry about "
+                "seven digits; R's gradient is analytic. At the default tol the "
+                "search stops with a score of about 1e-6."
+            ),
+        },
+        "mprobit": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata mprobit (independent errors of variance one, "
+                "intpoints(120)): base outcome 1 and 3, noconstant"
+            ),
+            "reference_versions": {"Stata": "18"},
+            "tolerance": (
+                "coefficients 1e-8 relative (observed 1.2e-9), standard errors "
+                "1e-6 (observed 2.8e-7), log likelihood 1e-10"
+            ),
+            "sides": ["py", "Stata"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA],
+            "note": (
+                "Only correlation='independent', stddev='homoskedastic' has a "
+                "deterministic reference (Stata's mprobit also integrates by "
+                "quadrature); the default unstructured, heteroskedastic model "
+                "corresponds to the simulated cmmprobit and is not graded here. "
+                "The standard errors come from a finite difference of "
+                "finite-difference scores."
+            ),
+        },
+        "standardize_coefs": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata regress, beta (e(beta), with and without [aw=]) and regress "
+                "/ ivreg2 / reghdfe / ivreghdfe on z-scored or x-only z-scored "
+                "variables"
+            ),
+            "reference_versions": {
+                "Stata": "18",
+                "ivreg2": "4.1.12",
+                "reghdfe": "6.13.1",
+                "ivreghdfe": "1.1.4",
+            },
+            "tolerance": (
+                "e(beta) 1e-10 relative; coefficients 1e-10 absolute and standard "
+                "errors 1e-9 relative on the refits (observed 1e-13)"
+            ),
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_ivreport_stata_parity.py",
+                "tests/reference_parity/_fixtures/ivreport_Stata.json",
+                _REGCMD_TEST,
+                _REGCMD_STATA,
+            ],
+            "note": (
+                "The standardisation is an exact reparameterisation, so the result "
+                "equals the same estimator run on z-scores: robust and clustered "
+                "OLS, ivreg2 with and without small, reghdfe and ivreghdfe with "
+                "absorbed effects (raw standard deviations), and scale_y=False / "
+                "variables= against fits on x-only z-scores."
+            ),
+        },
+        "conley_sensitivity": {
+            "status": "bit-exact",
+            "reference": (
+                "Stata acreg spatial HAC at 25, 75, 150 and 300 km, OLS and 2SLS, "
+                "uniform and Bartlett kernels"
+            ),
+            "reference_versions": {"Stata": "18", "acreg": "1.1.0"},
+            "tolerance": "standard errors 1e-9 relative (observed 6e-13)",
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_ivreport_stata_parity.py",
+                "tests/reference_parity/_fixtures/ivreport_Stata.json",
+            ],
+            "note": (
+                "600 grid cells with spatially correlated errors. The uniform "
+                "kernel's negative variances at 300 km are missing in acreg and "
+                "NaN here."
+            ),
+        },
+        "iv_wild_bootstrap": {
+            "status": "aligned",
+            "reference": (
+                "boottest after ivregress 2sls, small (WRE, Rademacher weights "
+                "enumerated over 2^12 sign vectors): over- and just-identified, "
+                "with and without an exogenous control, beta0 = 0 and 0.5, levels "
+                "95 / 93.75 / 90, two endogenous regressors"
+            ),
+            "reference_versions": {
+                "Stata": "18",
+                "boottest": "4.5.3",
+            },
+            "tolerance": (
+                "p-values exact (counts over 4,096 enumerated sign vectors), "
+                "t-statistics 1e-9 relative (observed 2e-15); confidence bounds "
+                "within 0.02 standard errors (observed 0.006 with one endogenous "
+                "regressor, 0.018 with two)"
+            ),
+            "sides": ["py", "Stata"],
+            "test": [_REGCMD_TEST, _REGCMD_STATA],
+            "note": (
+                "Aligned, not bit-exact, because of the confidence set: our bounds "
+                "are the exact edges of {beta0 : p(beta0) > alpha}, boottest's are "
+                "not (they lie where p is still above alpha, also at levels where "
+                "alpha * 4096 is an integer), while the two p-value functions agree "
+                "exactly at boottest's bounds. With two endogenous regressors "
+                "boottest's set for d1 has a second piece that this function does "
+                "not search for. The other endogenous regressors are re-estimated "
+                "by LIML under the null, as in boottest (corrected in this change; "
+                "with 2SLS the enumerated p-values differed)."
+            ),
+        },
+    }
+)
+
+
 # --------------------------------------------------------------------------- #
 #  Source parsers
 # --------------------------------------------------------------------------- #
