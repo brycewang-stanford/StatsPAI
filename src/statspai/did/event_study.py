@@ -873,13 +873,44 @@ def _twfe_event_fit(df_clean, y, dummy_cols, cov_cols, cluster_var, w_arr):
         Xw = X_mat
         Yw = Y
 
-    try:
-        XtX_inv = np.linalg.inv(Xw.T @ Xw)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(Xw.T @ Xw)
+    # Rank is decided by a scan of the columns, not by whether np.linalg.inv
+    # raises: on a singular X'X Apple's LAPACK raises and OpenBLAS returns a
+    # numerically meaningless inverse, so a duplicated covariate gave the
+    # right event-time estimates on macOS and wrong ones on Linux. Event-time
+    # dummies come first; a covariate that adds nothing after them and the
+    # earlier covariates is omitted with a note (as Stata and fixest do), and
+    # a dependent event-time dummy is refused, as on the HDFE path.
+    from ..core._collinear import independent_columns
+    from ..exceptions import IdentificationFailure
 
-    beta = XtX_inv @ Xw.T @ Yw
-    resid = Y - X_mat @ beta  # residuals in original scale
+    keep, omitted = independent_columns(Xw, list(col_names))
+    gone = {o["variable"] for o in omitted}
+    lost_events = [c for c in dummy_cols if c in gone]
+    if lost_events:
+        raise IdentificationFailure(
+            f"event_study: event-time regressors {lost_events} are collinear "
+            "with the unit and period effects or with other event-time terms.",
+            recovery_hint="Widen the window, bin the end points, or change "
+            "ref_period so every event time is identified.",
+            diagnostics={"dropped": lost_events},
+        )
+    if omitted:
+        warnings.warn(
+            "event_study: "
+            + "; ".join(
+                f"note: {o['variable']} omitted because of collinearity "
+                f"({o['reason']})"
+                for o in omitted
+            )
+            + ". The event-time estimates are those with the remaining "
+            "covariates.",
+            UserWarning,
+            stacklevel=4,
+        )
+    Xk, Xwk = X_mat[:, keep], Xw[:, keep]
+    XtX_inv_k = np.linalg.inv(Xwk.T @ Xwk)
+    beta_k = XtX_inv_k @ Xwk.T @ Yw
+    resid = Y - Xk @ beta_k  # residuals in original scale
 
     # --- Standard errors (clustered by default) ---
     cluster_ids = df_clean[cluster_var].values
@@ -889,7 +920,14 @@ def _twfe_event_fit(df_clean, y, dummy_cols, cov_cols, cluster_var, w_arr):
     # not). This is what makes the default output match both
     # fixest::feols and reghdfe at machine precision (parity module 85).
     k_fe = _fe_dof_not_nested(df_clean, ["__unit__", "__time_num__"], cluster_var)
-    se, vcov = _cluster_se(Xw, resid, XtX_inv, cluster_ids, w=w_arr, k_fe=k_fe)
+    se_k, vcov_k = _cluster_se(Xwk, resid, XtX_inv_k, cluster_ids, w=w_arr, k_fe=k_fe)
+    # Back to every column; an omitted covariate has no estimate.
+    beta = np.full(k, np.nan)
+    se = np.full(k, np.nan)
+    vcov = np.full((k, k), np.nan)
+    beta[keep] = beta_k
+    se[keep] = se_k
+    vcov[np.ix_(keep, keep)] = vcov_k
     return beta, se, vcov, n, cluster_ids
 
 

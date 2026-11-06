@@ -193,6 +193,27 @@ Deprecated in 1.42 with 1.43 as the stated removal version.
   the `robustness` category to `utils` (it clears session state). The three
   leave the estimator denominator of `docs/parity.md`.
 
+### Fixed (Linux and pandas 3 spot check before 1.43.0)
+
+- ⚠️ **correctness fix: `sp.event_study` with a perfectly collinear
+  covariate depended on the platform.** The TWFE path inverted `X'X` and
+  fell back to a pseudo-inverse only when `np.linalg.inv` raised. Apple's
+  LAPACK raises on the singular matrix; OpenBLAS returns a meaningless
+  inverse, so `covariates=['x1', 'x2']` with `x2 = 2 * x1` gave the fit
+  without `x2` on macOS and a different estimate on Linux (2.194 against
+  2.162 on the edge-case fixture). The rank is now decided by a column
+  scan: a dependent covariate is omitted with a note, as Stata and
+  fixest do, and a dependent event-time dummy raises
+  `IdentificationFailure`. Standard errors no longer count the omitted
+  column in the small-sample factor. Full-rank designs are unchanged
+  (Track A 85 reruns within 4e-16).
+- **Gap detection in time-series inputs failed under pandas 3.** The
+  spacing of a date index was read from `asi8` as nanoseconds; pandas 3
+  parses dates at microsecond resolution, so a monthly series with a
+  skipped month was not recognised as monthly and was fitted as if
+  consecutive. The spacing is now computed in days whatever the
+  resolution.
+
 ### Fixed
 
 - ⚠️ **correctness fix: the Crump trimming cutoff picks the root with the

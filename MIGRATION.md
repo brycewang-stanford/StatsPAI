@@ -62,6 +62,17 @@ on your propensity scores.
 
 ---
 
+## 1.42 → next: ⚠️ `sp.event_study` with collinear covariates
+
+- A covariate that is a linear combination of the others (or of the unit
+  and period effects) is now omitted with a note before the fit. On Linux
+  the event-time estimates of such calls change, to the fit without that
+  covariate; on macOS they were already that, and only the standard
+  errors move slightly (the omitted column no longer counts in the
+  small-sample factor). Drop the redundant covariate to silence the note.
+
+---
+
 ## 1.42 → next: ⚠️ target-trial weights and SEs, conformal quantiles
 
 - `sp.target_trial_emulate`: the SE changes only when you pass `weights=`.

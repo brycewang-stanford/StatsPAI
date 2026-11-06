@@ -398,3 +398,14 @@ def test_time_axis_falls_back_to_positions_when_forecast_dates_are_unknown():
     np.testing.assert_array_equal(x, np.arange(4))
     np.testing.assert_array_equal(xf, [4, 5])
     assert label == "t"
+
+
+@pytest.mark.parametrize("unit", ["s", "ms", "us", "ns"])
+def test_gap_detection_does_not_depend_on_the_index_resolution(unit):
+    """pandas 3 parses dates at microsecond resolution; the spacing of a
+    gapped monthly index must be read in days whatever the unit (the
+    1.43.0 Linux / pandas 3 spot check caught a nanosecond assumption)."""
+    idx = pd.date_range("2020-01-01", periods=24, freq="MS").delete(7).as_unit(unit)
+    alias, missing = missing_periods(idx)
+    assert alias == "M"
+    assert [str(p) for p in missing] == ["2020-08"]

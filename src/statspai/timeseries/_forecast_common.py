@@ -240,7 +240,9 @@ def _coarse_alias(index: pd.DatetimeIndex) -> Optional[str]:
     a month or a week, when each date falls in its own period."""
     if len(index) < 3 or index.hasnans:
         return None
-    step = np.diff(index.asi8) / 86_400e9  # days
+    # In days, independent of the index's resolution: pandas 3 parses
+    # dates at microsecond resolution, so ``asi8`` is not nanoseconds.
+    step = np.asarray((index[1:] - index[:-1]) / pd.Timedelta(days=1), dtype=float)
     med = float(np.median(step))
     if 360.0 <= med <= 370.0:
         alias = "Y"
