@@ -3366,8 +3366,11 @@ def regtable(
     ----------
     *args : model results or lists of model results
         ``EconometricResults``, ``CausalResult``, or any duck-typed object
-        with ``params`` / ``std_errors`` attributes. Pass multiple lists
-        to create a multi-panel table.
+        with ``params`` / ``std_errors`` attributes. A fitted
+        ``sp.causal_forest`` is a one-row ``ATE`` column (``cf.ate()``, the
+        forest's doubly robust estimate and its SE); ``cf.att()`` or any
+        other ``ScalarEffect`` is a row named by its estimand. Pass
+        multiple lists to create a multi-panel table.
     panel_labels : list of str, optional
         Labels for each panel (e.g., ``["Panel A: Wages", "Panel B: Hours"]``).
     coef_labels : dict, optional

@@ -441,6 +441,19 @@ def _extract_model_data(result: Any) -> _ModelData:
 
     if isinstance(result, _ModelData):
         return result  # extracted (and possibly renamed) by the caller
+    from ._effect_columns import (
+        causal_forest_data,
+        is_causal_forest,
+        is_scalar_effect,
+        scalar_effect_data,
+    )
+
+    if is_causal_forest(result):
+        # its params vector is empty: the column used to print blank
+        return causal_forest_data(result)
+    if is_scalar_effect(result):
+        # cf.ate() / cf.att(): a float carrying se / ci / pvalue
+        return scalar_effect_data(result)
     if _is_causal(result):
         full = _full_vector_causal(result)
         if full is not None:

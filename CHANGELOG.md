@@ -122,6 +122,12 @@ All notable changes to StatsPAI will be documented in this file.
   `heterogeneity_detected` (the `grf::test_calibration` regression,
   `sp.calibration_test`, computed from the out-of-bag predictions without
   refitting), `honest_splitting` and `oob_predictions`.
+- **`sp.regtable` printed a blank column for a causal forest** (its
+  `params` vector is empty) and refused `cf.ate()` / `cf.att()`. A forest
+  is now a one-row `ATE` column with the forest's doubly robust estimate,
+  SE, p-value and normal interval (`cf.ate()`), and any `ScalarEffect`
+  (`cf.att()`, ...) is a row named by its estimand, so forest effects sit
+  beside regressions in one table.
 
 
 ### Tests
