@@ -47,6 +47,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
@@ -455,6 +456,7 @@ class SpatialDiDResult(ResultProtocolMixin):
             Path(path).write_text(csv, encoding="utf-8")
         return csv
 
+    @checks_export_path("latex")
     def to_latex(
         self,
         caption: Optional[str] = None,
@@ -476,6 +478,7 @@ class SpatialDiDResult(ResultProtocolMixin):
             Path(path).write_text(latex, encoding="utf-8")
         return latex
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, **kwargs: Any) -> str:
         with pd.ExcelWriter(path) as writer:
             self.tidy(**kwargs).to_excel(writer, sheet_name="effects", index=False)

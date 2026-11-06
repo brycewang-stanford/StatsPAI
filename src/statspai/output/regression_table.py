@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._diagnostics import extract_diagnostic_rows
@@ -2926,6 +2927,7 @@ class RegtableResult:
     # Excel
     # ═══════════════════════════════════════════════════════════════════════
 
+    @checks_export_path("excel")
     def to_excel(self, filename: str) -> None:
         """Export table to Excel as a strict book-tab three-line table.
 
@@ -3045,6 +3047,7 @@ class RegtableResult:
     # Word (docx)
     # ═══════════════════════════════════════════════════════════════════════
 
+    @checks_export_path("word")
     def to_word(self, filename: str) -> None:
         """Export table to Word (.docx) file in AER/QJE book-tab style.
 
@@ -3128,6 +3131,7 @@ class RegtableResult:
 
         doc.save(filename)
 
+    @checks_export_path("word")
     def to_docx(self, filename: str) -> None:
         """Alias for :meth:`to_word` — mirrors Stata ``outreg2`` convention."""
         self.to_word(filename)

@@ -34,6 +34,7 @@ from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence, Union
 
 import pandas as pd
 
+from .._export_path import checks_export_path
 from .regression_table import (
     MeanComparisonResult,
     RegtableResult,
@@ -598,6 +599,7 @@ class Collection:
             Path(path).write_text(content, encoding="utf-8")
         return content
 
+    @checks_export_path("latex")
     def to_latex(self, path: Optional[str] = None) -> str:
         """Concatenate every item's LaTeX into one ``.tex`` file."""
         parts: List[str] = []
@@ -627,6 +629,7 @@ class Collection:
     # DOCX
     # ------------------------------------------------------------------
 
+    @checks_export_path("word")
     def to_docx(self, path: str) -> str:
         """Write the entire collection to a single ``.docx`` file.
 

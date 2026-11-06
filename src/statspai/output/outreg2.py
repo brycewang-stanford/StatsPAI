@@ -41,6 +41,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from ..core.results import EconometricResults
 
 if TYPE_CHECKING:
@@ -196,6 +197,7 @@ class OutReg2:
             variable_labels=variable_labels,
         )
 
+    @checks_export_path("excel")
     def to_excel(
         self,
         filename: str,
@@ -217,6 +219,7 @@ class OutReg2:
         table.to_excel(filename)
         print(f"Regression results exported to: {filename}")
 
+    @checks_export_path("word")
     def to_word(
         self,
         filename: str,
@@ -236,6 +239,7 @@ class OutReg2:
         table.to_word(filename)
         print(f"Regression results exported to: {filename}")
 
+    @checks_export_path("latex")
     def to_latex(
         self,
         filename: Optional[str] = None,

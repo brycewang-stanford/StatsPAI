@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, Ty
 
 import numpy as np
 
+from ._export_path import checks_export_path
 from .core.results import _to_jsonable
 
 
@@ -477,6 +478,7 @@ class ResultProtocolMixin:
             lines.append(f"| {key} | {disp} |")
         return "\n".join(lines)
 
+    @checks_export_path("word")
     def to_word(
         self,
         filename: str,
@@ -518,6 +520,7 @@ class ResultProtocolMixin:
         doc.save(filename)
         return filename
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, **kwargs: Any) -> str:
         """§3 Excel (.xlsx) export.
 

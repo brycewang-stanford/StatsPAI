@@ -59,7 +59,11 @@ never changes how you write the table out:
 
 The string-returning methods (`to_latex` / `to_html` / `to_markdown`) take an
 optional `path=` and write the file *and* return the string. `to_excel` /
-`to_word` take the path as their first argument and return it.
+`to_word` take the path as their first argument and return it. A path
+without a file suffix gets the format's (`to_excel("table")` writes
+`table.xlsx`), and a suffix that names another format
+(`to_excel("t.docx")`) raises `MethodIncompatibility` before anything is
+written.
 
 ### Passing table options through
 

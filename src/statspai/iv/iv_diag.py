@@ -61,6 +61,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
 from ..diagnostics.weak_iv import anderson_rubin_test, tF_critical_value
@@ -452,12 +453,14 @@ class IVDiagResult(ResultProtocolMixin):
             )
         return str(tex)
 
+    @checks_export_path("excel")
     def to_excel(self, path: str) -> None:
         """Write the summary table to ``path`` (one sheet)."""
         self.to_frame().to_excel(path, index=False, sheet_name="iv_diag")
 
     # Own layout without the base class's digits= / fmt= precision options;
     # passing them raises TypeError rather than being ignored.
+    @checks_export_path("word")
     def to_word(  # type: ignore[override]
         self, path: str, title: Optional[str] = None
     ) -> None:

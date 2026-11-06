@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from ..core.results import CausalResult
 from .scm import synth
 
@@ -268,6 +269,7 @@ class SynthComparison:
 
         return synth_to_markdown(self, **kwargs)
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, **kwargs: Any) -> str:
         """Write a multi-sheet Excel workbook covering all methods.
 

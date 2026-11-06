@@ -104,6 +104,10 @@ warn. Clean data give the same numbers as before.
   that category.
 - ⚠️ **A `Decimal` or Python-int object column in a formula is a number,
   not a factor.** Write `C(col)` to keep the factor coding.
+- **Exporters append the format's suffix** when the path has none
+  (`to_excel("table")` writes `table.xlsx`) and refuse a path whose suffix
+  names another format. Code that wrote suffix-less files must expect the
+  new name; the method returns it.
 
 ---
 

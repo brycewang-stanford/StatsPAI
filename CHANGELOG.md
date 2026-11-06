@@ -270,6 +270,14 @@ All notable changes to StatsPAI will be documented in this file.
   note: the column carries no information but still competes for the
   split candidates drawn at each node. The forest family now warns.
   Numbers are unchanged.
+- **Exporters check the file suffix.** `to_excel("t.docx")` wrote xlsx
+  bytes under a Word name, and `to_excel("table")` a file without a
+  suffix. Every `to_excel` / `to_word` / `to_docx` / `to_latex` that writes
+  a file (33 methods, including `regtable`, `outreg2`, `CausalResult` and
+  the regression results) now appends `.xlsx` / `.docx` / `.tex` to a path
+  without a file suffix and refuses a path whose suffix names another
+  format with `MethodIncompatibility`. Buffers and `to_latex()` without a
+  path are unchanged.
 
 ## [1.42.1] — 2026-11-03
 

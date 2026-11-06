@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._export_path import checks_export_path
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
@@ -355,6 +356,7 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
             "\\end{table}"
         )
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, digits: int = 6) -> str:
         """Write a single-sheet Excel summary.
 

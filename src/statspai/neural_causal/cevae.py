@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from .._result_serialize import ResultProtocolMixin
 from ..core._validate import require_binary_treatment
 
@@ -144,6 +145,7 @@ class CEVAEResult(ResultProtocolMixin):
             Path(path).write_text(html, encoding="utf-8")
         return html
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, digits: int = 6) -> str:
         with pd.ExcelWriter(path) as writer:
             self.tidy().round(digits).to_excel(

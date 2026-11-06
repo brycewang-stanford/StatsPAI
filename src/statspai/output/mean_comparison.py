@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._export_path import checks_export_path
 from .._result_serialize import attach_result_protocol
 from ..exceptions import MethodIncompatibility
 from ._format import AUTO
@@ -437,6 +438,7 @@ class MeanComparisonResult:
     # Excel / Word / Save
     # ═══════════════════════════════════════════════════════════════════════
 
+    @checks_export_path("excel")
     def to_excel(self, filename: str) -> None:
         """Export balance table to Excel as a book-tab three-line table."""
         try:
@@ -455,6 +457,7 @@ class MeanComparisonResult:
             index_label="Variable",
         )
 
+    @checks_export_path("word")
     def to_word(self, filename: str) -> None:
         """Export balance table to Word in AER/QJE book-tab style."""
         try:

@@ -21,8 +21,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
-from .regression_table import regtable, RegtableResult
+from .._export_path import checks_export_path
 from ._journals import JOURNALS
+from .regression_table import RegtableResult, regtable
 
 # ---------------------------------------------------------------------------
 # Journal templates (re-exported from ._journals for backwards compatibility)
@@ -90,6 +91,7 @@ class PaperTables:
             if getattr(self, name) is not None
         }
 
+    @checks_export_path("latex")
     def to_latex(self, path: Optional[str] = None) -> str:
         """Concatenate every panel's LaTeX into a single file.
 
@@ -162,6 +164,7 @@ class PaperTables:
     # DOCX / XLSX export
     # ------------------------------------------------------------------
 
+    @checks_export_path("word")
     def to_docx(self, path: str) -> str:
         """Write every populated panel into a single ``.docx`` file.
 
@@ -174,8 +177,8 @@ class PaperTables:
         """
         try:
             from docx import Document
-            from docx.shared import Pt
             from docx.enum.text import WD_ALIGN_PARAGRAPH
+            from docx.shared import Pt
         except ImportError as e:
             raise ImportError(
                 "python-docx is required for .docx export. "

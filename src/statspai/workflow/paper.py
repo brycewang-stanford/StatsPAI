@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from ..exceptions import StatsPAIError
 from ..output._lineage import format_provenance, get_provenance
 from ._degradation import WorkflowDegradedWarning, record_degradation
@@ -288,6 +289,7 @@ class PaperDraft:
             "\\maketitle\n\n" + "\n".join(body_lines) + "\n" + bib + "\\end{document}\n"
         )
 
+    @checks_export_path("word")
     def to_docx(self, path: str) -> None:
         """Write a Word document to ``path``.
 

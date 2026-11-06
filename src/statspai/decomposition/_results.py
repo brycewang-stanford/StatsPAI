@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._export_path import checks_export_path
 from .._result_serialize import ResultProtocolMixin, result_export_rows, result_to_dict
 
 # ════════════════════════════════════════════════════════════════════════
@@ -423,6 +424,7 @@ class DecompResultMixin(ResultProtocolMixin):
 
     # ── Excel export ────────────────────────────────────────────────
 
+    @checks_export_path("excel")
     def to_excel(
         self,
         path: Optional[str] = None,
@@ -483,6 +485,7 @@ class DecompResultMixin(ResultProtocolMixin):
 
     # ── Word export (python-docx) ───────────────────────────────────
 
+    @checks_export_path("word")
     def to_word(self, path: str) -> str:
         """Write a Word ``.docx`` summary (requires ``python-docx``).
 

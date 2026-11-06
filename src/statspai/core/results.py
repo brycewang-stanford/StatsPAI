@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
 import numpy as np
 import pandas as pd
 
+from .._export_path import checks_export_path
 from ..exceptions import MethodIncompatibility
 from ._result_access import DiDAccessorsMixin
 
@@ -1555,6 +1556,7 @@ class EconometricResults:
 
         return econometric_agent_summary(self)
 
+    @checks_export_path("word")
     def to_docx(self, filename: str, title: Optional[str] = None) -> None:
         """
         Export results to a Word (.docx) document.
@@ -1619,6 +1621,7 @@ class EconometricResults:
         lines.insert(anchor + 1, f"\\label{{{label}}}")
         return "\n".join(lines)
 
+    @checks_export_path("latex")
     def to_latex(
         self,
         path: Optional[str] = None,
@@ -1734,6 +1737,7 @@ class EconometricResults:
             Path(path).write_text(md, encoding="utf-8")
         return md
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, **kwargs: Any) -> str:
         """Write the regression result to a styled ``.xlsx`` workbook.
 
@@ -1744,6 +1748,7 @@ class EconometricResults:
         self._as_regtable(**kwargs).to_excel(path)
         return path
 
+    @checks_export_path("word")
     def to_word(
         self,
         path: str,
@@ -5058,6 +5063,7 @@ class CausalResult(DiDAccessorsMixin):
             Path(path).write_text(html, encoding="utf-8")
         return html
 
+    @checks_export_path("excel")
     def to_excel(self, path: str, digits: int = 6) -> str:
         """Write the result to ``.xlsx``.
 
@@ -5090,6 +5096,7 @@ class CausalResult(DiDAccessorsMixin):
                 )
         return path
 
+    @checks_export_path("word")
     def to_word(
         self,
         path: str,
@@ -5199,6 +5206,7 @@ class CausalResult(DiDAccessorsMixin):
         doc.save(path)
         return path
 
+    @checks_export_path("latex")
     def to_latex(
         self,
         path: Optional[str] = None,
@@ -5905,6 +5913,7 @@ class CausalResult(DiDAccessorsMixin):
             default=_to_jsonable,
         )
 
+    @checks_export_path("word")
     def to_docx(self, filename: str, title: Optional[str] = None) -> None:
         """
         Export results to a Word (.docx) document.

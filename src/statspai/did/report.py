@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._export_path import checks_export_path
 from ..core.results import CausalResult
 from . import _cs_conventions as _conv
 from .aggte import aggte
@@ -433,6 +434,7 @@ class CSReport:
     # ------------------------------------------------------------------
     # Export: Excel workbook (multi-sheet)
     # ------------------------------------------------------------------
+    @checks_export_path("excel")
     def to_excel(
         self,
         path: Any,
