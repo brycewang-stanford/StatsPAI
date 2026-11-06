@@ -14534,18 +14534,32 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
+    "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV.",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "plm": "2.6.7"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/test_xtivreg_stata.py",
+        "tests/fixtures/xtivreg/stata_xtivreg.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_tinv.json",
+        "tests/fixtures/xtivreg/stata_xtivreg_more.json",
+        "tests/fixtures/xtivreg/r_plm_xtivreg.json"
+      ],
+      "tolerance": "1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4."
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 300, 4\nids = np.repeat(np.arange(n_id), T)\nz, e = rng.normal(size=(2, n_id * T))\nexper = rng.normal(size=n_id * T)\neduc = z + 0.5 * e + rng.normal(size=n_id * T)\nlwage = (0.1 * educ + 0.05 * exper + rng.normal(size=n_id)[ids] + e)\ndf = pd.DataFrame({'id': ids, 'lwage': lwage, 'educ': educ,\n 'exper': exper, 'meduc': z})\nr = sp.xtivreg(df, y='lwage', x=['exper'], endog='educ',\n instruments=['meduc'], id='id')",
     "failure_modes": [
@@ -14601,7 +14615,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels.",
+      "description": "Instrumental variables for panel data (Stata xtivreg): random-effects G2SLS / EC2SLS, within (fixed-effects) 2SLS, between 2SLS; unbalanced panels. Validation: certified parity evidence.",
       "name": "xtivreg",
       "parameters": {
         "properties": {
@@ -14700,9 +14714,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Cross-language parity (aligned) vs Stata 18 MP xtivreg: re (G2SLS, ec2sls, nosa), fe, be; vce conventional / robust / cluster; one and two endogenous regressors; unbalanced and balanced panels, time-invariant regressors and instruments. R plm within and between IV. [R version 4.5.2 (2025-10-31), Stata 18 MP (born 07 Jun 2023), plm 2.6.7]; tolerance 1e-12 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the three R-squared for 33 of 41 Stata fits (observed <= 2.3e-14) and for the 6 plm fits (observed <= 3e-14). The other 8 are random-effects fits whose sigma_e divisor Stata counts differently (see note): under Stata's count 7 agree to 1e-12 on every number and the eighth's sigma_e is reproduced from our within sum of squares; by default sigma_e and rho differ by <= 2.5e-3, coefficients by <= 1.2e-4 and standard errors by <= 8.2e-4. -- tests/test_xtivreg_stata.py",
       "API/unit contract evidence: tests/test_xtivreg_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -14719,18 +14734,30 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels.",
+    "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP xtpcse, 46 option combinations on a balanced and an unbalanced panel with gaps: correlation(independent / ar1 / psar1) x rhotype(regress / freg / tscorr / dw), hetonly, independent, nmk, np1, casewise / pairwise, noconstant. R pcse for the OLS panel-corrected standard errors.",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "pcse": "1.9.1.1"
+      },
+      "sides": [
+        "py",
+        "Stata",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/test_xtpcse_stata.py",
+        "tests/fixtures/xtpcse/stata_xtpcse.json",
+        "tests/fixtures/xtpcse/r_pcse.json"
+      ],
+      "tolerance": "1e-12 relative on coefficients, standard errors and the AR(1) coefficients (observed <= 2.5e-14; Stata stores the panel-specific ones as a 16-decimal macro); R pcse casewise and pairwise 1e-12 (observed 1.1e-15)"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\ncountries, years = 10, 20\ndf = pd.DataFrame({'country': np.repeat(np.arange(countries), years),\n 'year': np.tile(np.arange(years), countries)})\ndf['trade'] = rng.normal(size=len(df))\ndf['gdp'] = 1 + 0.5 * df.trade + rng.normal(size=len(df))\nr = sp.xtpcse(df, y='gdp', x=['trade'], id='country', time='year',\n correlation='ar1')",
     "failure_modes": [
@@ -14780,7 +14807,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels.",
+      "description": "Linear regression with panel-corrected standard errors (Stata xtpcse; Beck-Katz): OLS or Prais-Winsten with AR(1), disturbances heteroskedastic and contemporaneously correlated across panels. Validation: certified parity evidence.",
       "name": "xtpcse",
       "parameters": {
         "properties": {
@@ -14887,9 +14914,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP xtpcse, 46 option combinations on a balanced and an unbalanced panel with gaps: correlation(independent / ar1 / psar1) x rhotype(regress / freg / tscorr / dw), hetonly, independent, nmk, np1, casewise / pairwise, noconstant. R pcse for the OLS panel-corrected standard errors. [R version 4.5.2 (2025-10-31), Stata 18 MP (born 07 Jun 2023), pcse 1.9.1.1]; tolerance 1e-12 relative on coefficients, standard errors and the AR(1) coefficients (observed <= 2.5e-14; Stata stores the panel-specific ones as a 16-decimal macro); R pcse casewise and pairwise 1e-12 (observed 1.1e-15) -- tests/test_xtpcse_stata.py",
       "API/unit contract evidence: tests/test_xtpcse_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -14906,18 +14934,26 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP xtintreg: default (mvaghermite) fits at 12 and 40 nodes, non-adaptive intmethod(ghermite) intpoints(100), left- and right-censored intervals, a collinear regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/test_xttobit_stata.py",
+        "tests/fixtures/xttobit/stata_xttobit.json"
+      ],
+      "tolerance": "Estimates and log-likelihood 1e-6 against every Stata fit that reached its maximum (observed <= 2e-7); standard errors 1e-6 against the non-adaptive 100-node fits (observed <= 6.8e-8). Against Stata's default adaptive fits the standard errors differ by up to 0.47% (interval data) and 2.3% (right-censored) on se(sigma_e), compared at 5e-2."
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 100, 4\nids = np.repeat(np.arange(n_id), T)\neduc = rng.normal(size=n_id * T)\nw = 2 + educ + rng.normal(size=n_id)[ids] + rng.normal(size=n_id * T)\ndf = pd.DataFrame({'id': ids, 'educ': educ,\n 'wage_lo': np.floor(w), 'wage_hi': np.floor(w) + 1})\nr = sp.xtintreg(df, y_lower='wage_lo', y_upper='wage_hi', x=['educ'],\n id='id')",
     "failure_modes": [
@@ -14966,7 +15002,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+      "description": "Random-effects interval regression by ML (Stata xtintreg): exact, left-, right- and interval-censored outcomes with a normal panel effect; adaptive Gauss-Hermite quadrature. Validation: certified parity evidence.",
       "name": "xtintreg",
       "parameters": {
         "properties": {
@@ -15025,9 +15061,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Cross-language parity (aligned) vs Stata 18 MP xtintreg: default (mvaghermite) fits at 12 and 40 nodes, non-adaptive intmethod(ghermite) intpoints(100), left- and right-censored intervals, a collinear regressor [Stata 18 MP (born 07 Jun 2023)]; tolerance Estimates and log-likelihood 1e-6 against every Stata fit that reached its maximum (observed <= 2e-7); standard errors 1e-6 against the non-adaptive 100-node fits (observed <= 6.8e-8). Against Stata's default adaptive fits the standard errors differ by up to 0.47% (interval data) and 2.3% (right-censored) on se(sigma_e), compared at 5e-2. -- tests/test_xttobit_stata.py",
       "API/unit contract evidence: tests/test_xttobit_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -15043,18 +15080,26 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics.",
+    "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP xtregar, 35 fits on a panel with gaps: fe and re with every rhotype, iterated and twostep, onestep, rhof(), lbi, the gap-free panels alone, a time-invariant regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/test_xtregar_stata.py",
+        "tests/fixtures/xtregar/stata_xtregar.json"
+      ],
+      "tolerance": "1e-10 relative on coefficients, standard errors and every stored scalar (rho_ar, sigma_u, sigma_e, rho_fov, the R-squared, theta percentiles, F tests, the modified Durbin-Watson and LBI statistics); observed <= 5.1e-15"
     },
     "example": "sp.xtregar(df, y=\"invest\", x=[\"mvalue\", \"kstock\"], id=\"firm\", time=\"year\", method=\"fe\")",
     "failure_modes": [
@@ -15116,7 +15161,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics.",
+      "description": "Fixed- or random-effects linear regression with an AR(1) disturbance on unbalanced, unequally spaced panels (Stata xtregar): rho from the demeaned regression (dw, regress, freg, tscorr, theil, nagar, onestep) or fixed, Baltagi-Wu transformation, within estimator or Baltagi-Wu GLS, and the modified Bhargava et al. Durbin-Watson and LBI statistics. Validation: certified parity evidence.",
       "name": "xtregar",
       "parameters": {
         "properties": {
@@ -15196,9 +15241,10 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP xtregar, 35 fits on a panel with gaps: fe and re with every rhotype, iterated and twostep, onestep, rhof(), lbi, the gap-free panels alone, a time-invariant regressor [Stata 18 MP (born 07 Jun 2023)]; tolerance 1e-10 relative on coefficients, standard errors and every stored scalar (rho_ar, sigma_u, sigma_e, rho_fov, the R-squared, theta percentiles, F tests, the modified Durbin-Watson and LBI statistics); observed <= 5.1e-15 -- tests/test_xtregar_stata.py",
       "API/unit contract evidence: tests/test_xtregar_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -15213,18 +15259,27 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors.",
+    "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP with SSC mmqreg 2.6 (run as a black box): one and two absorbed sets and none, q(10 / 25 / 50 / 75 / 90), vce default (GLS) / robust / cluster",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "mmqreg": "2.6"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "tests": [
+        "tests/test_mmqreg.py",
+        "tests/fixtures/mmqreg/stata_mmqreg.json"
+      ],
+      "tolerance": "Location, scale and quantile coefficients and the 12 x 12 covariance of the three equations 1e-10 (observed <= 4e-12) on 18 fits; density e(fden) and e(qval) 1e-10. On 6 fits where n tau is an integer Stata returns the other end of a tied sample quantile (see note): there the quantile coefficients differ by up to 1.7% and agree to 1e-10 once tau is moved 1e-11 to select that end."
     },
     "example": "sp.mmqreg(df, \"y\", [\"x1\", \"x2\"], absorb=\"id\", quantile=0.25)",
     "failure_modes": [
@@ -15281,7 +15336,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors.",
+      "description": "Quantile regression via moments (Machado-Santos Silva MMQR) with one or more absorbed fixed effects (Stata xtqreg / mmqreg): location, scale and quantile equations, with GLS, robust or cluster influence-function standard errors. Validation: certified parity evidence.",
       "name": "mmqreg",
       "parameters": {
         "properties": {
@@ -15347,9 +15402,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
+      "Cross-language parity (aligned) vs Stata 18 MP with SSC mmqreg 2.6 (run as a black box): one and two absorbed sets and none, q(10 / 25 / 50 / 75 / 90), vce default (GLS) / robust / cluster [Stata 18 MP (born 07 Jun 2023), mmqreg 2.6]; tolerance Location, scale and quantile coefficients and the 12 x 12 covariance of the three equations 1e-10 (observed <= 4e-12) on 18 fits; density e(fden) and e(qval) 1e-10. On 6 fits where n tau is an integer Stata returns the other end of a tied sample quantile (see note): there the quantile coefficients differ by up to 1.7% and agree to 1e-10 once tau is moved 1e-11 to select that end. -- tests/test_mmqreg.py",
       "API/unit contract evidence: tests/test_mmqreg.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -15799,18 +15855,26 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+    "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature. Validation: certified parity evidence.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
-      "tolerance": ""
+      "reference": "Stata 18 MP xttobit (random effects): ll() and ul(), ll() only, ul() only, the 12-node default and 40 nodes, a collinear regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "tests": [
+        "tests/test_xttobit_stata.py",
+        "tests/fixtures/xttobit/stata_xttobit.json"
+      ],
+      "tolerance": "1e-6 relative on coefficients, standard errors (sigma_u and sigma_e included), rho, the log-likelihood and the LR test against the pooled tobit (observed <= 4.2e-8 on 5 fits)"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn_id, T = 200, 5\nids = np.repeat(np.arange(n_id), T)\nwage = rng.normal(size=n_id * T)\ny = 1 + wage + rng.normal(size=n_id)[ids] + rng.normal(size=n_id * T)\ndf = pd.DataFrame({'id': ids, 'wage': wage, 'hours': np.maximum(y, 0)})\nr = sp.xttobit(df, y='hours', x=['wage'], id='id', ll=0)",
     "failure_modes": [
@@ -15853,7 +15917,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature.",
+      "description": "Random-effects tobit by ML (Stata xttobit): censoring at ll / ul with a normal panel effect; adaptive Gauss-Hermite quadrature. Validation: certified parity evidence.",
       "name": "xttobit",
       "parameters": {
         "properties": {
@@ -15916,9 +15980,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "Cross-language parity (bit-exact) vs Stata 18 MP xttobit (random effects): ll() and ul(), ll() only, ul() only, the 12-node default and 40 nodes, a collinear regressor [Stata 18 MP (born 07 Jun 2023)]; tolerance 1e-6 relative on coefficients, standard errors (sigma_u and sigma_e included), rho, the log-likelihood and the LR test against the pooled tobit (observed <= 4.2e-8 on 5 fits) -- tests/test_xttobit_stata.py",
       "API/unit contract evidence: tests/test_xttobit_stata.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -15934,22 +15999,27 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
+    "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: certified parity evidence. Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 MP xthtaylor: Hausman-Taylor conventional / vce(robust) / vce(cluster) with one and two endogenous time-varying regressors, Amemiya-MaCurdy (amacurdy) conventional / robust / cluster on balanced panels",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_hansen_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the Wald statistic (observed <= 9.6e-15 on 7 fits of a panel with gaps, plus 4 fits of the Hansen textbook panel)"
     },
     "example": "sp.xthtaylor(\"lwage ~ exper + union + female + educ\", df, id=\"person\", endog=[\"exper\", \"educ\"])",
     "failure_modes": [
@@ -15991,7 +16061,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
+      "description": "Hausman-Taylor estimator for panels with time-invariant regressors, some of which (and some time-varying ones) may be correlated with the unit effect. Fixed effects cannot estimate time-invariant coefficients and random effects assumes none of the regressors is correlated with the effect; this instruments the endogenous ones with the within variation and the unit means of the exogenous time-varying regressors. Which regressors vary is read from the data. Reproduces Stata xthtaylor, conventional and cluster-robust standard errors. Validation: certified parity evidence. Do NOT use when: Only the time-varying coefficients matter -- fixed effects (sp.panel(method='fe')) needs no exogeneity assumption on the regressors.",
       "name": "xthtaylor",
       "parameters": {
         "properties": {
@@ -16064,9 +16134,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_hansen_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 MP xthtaylor: Hausman-Taylor conventional / vce(robust) / vce(cluster) with one and two endogenous time-varying regressors, Amemiya-MaCurdy (amacurdy) conventional / robust / cluster on balanced panels [Stata 18 MP (born 07 Jun 2023)]; tolerance 1e-9 relative on coefficients, standard errors, sigma_u, sigma_e, rho and the Wald statistic (observed <= 9.6e-15 on 7 fits of a panel with gaps, plus 4 fits of the Hansen textbook panel) -- tests/reference_parity/test_panel_xt_tools_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -19147,22 +19217,27 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 MP xtsum, every stored result (N, n, Tbar, mean, overall / between / within sd, min, max) for an outcome, a regressor, a time-invariant variable and one with missing values, on a panel with gaps",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative (observed <= 1.8e-14); counts exact"
     },
     "example": "sp.xtsum(df, [\"wage\", \"tenure\"], id=\"person\")",
     "failure_modes": [
@@ -19191,7 +19266,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Overall, between and within summary statistics of panel variables (Stata xtsum): the standard deviation of the panel means and of the deviations from them. A regressor with little within variation is barely identified under fixed effects. Validation: certified parity evidence.",
       "name": "xtsum",
       "parameters": {
         "properties": {
@@ -19223,9 +19298,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 MP xtsum, every stored result (N, n, Tbar, mean, overall / between / within sd, min, max) for an outcome, a regressor, a time-invariant variable and one with missing values, on a panel with gaps [Stata 18 MP (born 07 Jun 2023)]; tolerance 1e-9 relative (observed <= 1.8e-14); counts exact -- tests/reference_parity/test_panel_xt_tools_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -19239,22 +19314,28 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata xtserial 1.1.0 (Stata Journal st0039; run as a black box) on a panel with gaps, its balanced half and with a time-invariant regressor",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "xtserial": "1.1.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on F, p-value and the residual autocorrelation (observed <= 4.6e-14); degrees of freedom exact"
     },
     "example": "sp.xtserial(df, \"y\", [\"x1\", \"x2\"], id=\"firm\", time=\"year\")",
     "failure_modes": [
@@ -19302,7 +19383,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Wooldridge test for first-order serial correlation in the errors of a linear panel model (Stata xtserial): the model is estimated in first differences and the residuals' autocorrelation is tested against -0.5 with a panel-clustered variance. Works with unbalanced panels and gaps. Rejection means cluster the standard errors on the panel or model the dynamics. Validation: certified parity evidence.",
       "name": "xtserial",
       "parameters": {
         "properties": {
@@ -19352,9 +19433,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata xtserial 1.1.0 (Stata Journal st0039; run as a black box) on a panel with gaps, its balanced half and with a time-invariant regressor [Stata 18 MP (born 07 Jun 2023), xtserial 1.1.0]; tolerance 1e-9 relative on F, p-value and the residual autocorrelation (observed <= 4.6e-14); degrees of freedom exact -- tests/reference_parity/test_panel_xt_tools_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -19367,22 +19448,29 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "SSC xtoverid 2.1.8 (run as a black box) after xtreg, re vce(robust) and vce(cluster), with and without a time-invariant regressor, full and balanced panel",
+      "reference_versions": {
+        "Stata": "18 MP (born 07 Jun 2023)",
+        "ivreg2": "4.1.12",
+        "xtoverid": "2.1.8"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
+        "tests/reference_parity/test_panel_xt_tools_stata_parity.py",
+        "tests/reference_parity/_fixtures/panel_xt_tools_Stata.csv",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on the statistic and p-value (observed <= 2.5e-13); degrees of freedom exact"
     },
     "example": "sp.xtoverid(df, \"y\", [\"x1\", \"x2\"], id=\"firm\")",
     "failure_modes": [
@@ -19418,7 +19506,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Cluster-robust test of random effects against fixed effects (Stata xtoverid after xtreg, re): the random-effects equation is augmented with the regressors in deviation-from-panel-mean form and the added terms are tested jointly. Unlike the classical Hausman test it is valid under heteroskedasticity and within-panel correlation and cannot be negative. Validation: certified parity evidence.",
       "name": "xtoverid",
       "parameters": {
         "properties": {
@@ -19475,9 +19563,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_textbook_methods_stata_parity.py"
+      "Cross-language parity (bit-exact) vs SSC xtoverid 2.1.8 (run as a black box) after xtreg, re vce(robust) and vce(cluster), with and without a time-invariant regressor, full and balanced panel [Stata 18 MP (born 07 Jun 2023), ivreg2 4.1.12, xtoverid 2.1.8]; tolerance 1e-9 relative on the statistic and p-value (observed <= 2.5e-13); degrees of freedom exact -- tests/reference_parity/test_panel_xt_tools_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
