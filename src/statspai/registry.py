@@ -36159,9 +36159,12 @@ def _build_registry() -> None:
                     "allow_diagonal",
                     "bool",
                     False,
-                    True,
-                    "Fall back to diag(se^2) with a warning when no joint "
-                    "covariance exists",
+                    None,
+                    "When no joint covariance exists: True falls back to "
+                    "diag(se^2) with a warning, False raises. Unset behaves "
+                    "as True with a FutureWarning; the default becomes False "
+                    "in 1.44 (a diagonal matrix makes joint pre-trend tests "
+                    "and HonestDiD wrong)",
                 ),
             ],
             returns="EventStudyVcov(times, beta, vcov, joint, source, note)",

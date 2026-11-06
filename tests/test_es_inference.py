@@ -257,6 +257,60 @@ def test_sidak_critical_value_under_independence():
     assert band.attrs["crit_uniform"] == pytest.approx(sidak, abs=0.01)
 
 
+def _no_joint_vcov_result():
+    es = pd.DataFrame(
+        {
+            "relative_time": [-2, -1, 0, 1],
+            "att": [0.1, -0.2, 0.5, 0.7],
+            "se": [0.2, 0.3, 0.4, 0.5],
+        }
+    )
+    return sp.CausalResult(
+        method="toy",
+        estimand="ATT",
+        estimate=0.6,
+        se=0.4,
+        pvalue=0.1,
+        ci=(-0.2, 1.4),
+        alpha=0.05,
+        n_obs=10,
+        model_info={"event_study": es},
+    )
+
+
+def test_diagonal_fallback_default_announces_the_1_44_flip():
+    """Unset allow_diagonal keeps the diagonal for now, with a FutureWarning."""
+    res = _no_joint_vcov_result()
+    with pytest.warns(FutureWarning, match="allow_diagonal=False"):
+        es = sp.event_study_vcov(res)
+    assert es.joint is False
+    np.testing.assert_array_equal(es.vcov, np.diag(np.array([0.2, 0.3, 0.4, 0.5]) ** 2))
+    # pinning True keeps the diagonal and its UserWarning, no FutureWarning
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        pinned = sp.event_study_vcov(res, allow_diagonal=True)
+    kinds = {type(w.message) for w in rec}
+    assert FutureWarning not in kinds and UserWarning in kinds
+    np.testing.assert_array_equal(pinned.vcov, es.vcov)
+    with pytest.raises(sp.MethodIncompatibility, match="no joint"):
+        sp.event_study_vcov(res, allow_diagonal=False)
+
+
+def test_default_is_silent_when_a_joint_covariance_exists(fits):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        es = sp.event_study_vcov(fits["sa"])
+    assert es.joint is True
+
+
+def test_uniform_bands_keep_the_diagonal_without_a_future_warning():
+    with warnings.catch_warnings(record=True) as rec:
+        warnings.simplefilter("always")
+        band = sp.uniform_bands(_no_joint_vcov_result(), n_draws=2_000, seed=1)
+    assert band.attrs["joint"] is False
+    assert not any(isinstance(w.message, FutureWarning) for w in rec)
+
+
 def test_perfect_correlation_collapses_to_pointwise():
     k = 4
     V = np.full((k, k), 0.25)

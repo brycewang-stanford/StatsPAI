@@ -4,6 +4,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Deprecated (default announced for 1.44)
+
+- **`sp.event_study_vcov(allow_diagonal=)` will default to `False`.** When
+  a fit carries per-horizon SEs but no joint covariance, the default
+  returned `diag(se**2)` (flagged `joint=False`, with a `UserWarning`). A
+  diagonal matrix drops the cross-horizon covariances, so a joint (Wald)
+  pre-trend test or a HonestDiD `sigma` built from it is wrong; StatsPAI's
+  own `honest_did` and `pretrends_test` already refuse it
+  (`allow_diagonal=False`). The default is now `None`: it behaves as
+  before and adds a `FutureWarning`; from 1.44 it raises
+  `MethodIncompatibility`. Pass `allow_diagonal=True` to keep the
+  diagonal. `sp.uniform_bands` passes `True` itself (a sup-t band from a
+  diagonal matrix is conservative, Sidak) and does not warn. Fits with a
+  joint covariance are unaffected. No number changes.
+
 ### Changed
 
 - **Parity evidence for eleven estimators that had none recorded.**

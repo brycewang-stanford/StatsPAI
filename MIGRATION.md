@@ -5,6 +5,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42.1 → next: `sp.event_study_vcov` default announced for 1.44
+
+Nothing changes numerically. `sp.event_study_vcov(result)` on a fit with
+per-horizon SEs but no joint covariance still returns `diag(se**2)`
+(`joint=False`), now with a `FutureWarning`: from 1.44 the default is
+`allow_diagonal=False` and the call raises `MethodIncompatibility`.
+
+- To keep the diagonal (for a conservative sup-t band, say), pass
+  `allow_diagonal=True`.
+- Do not feed a diagonal matrix to a joint pre-trend test or to HonestDiD:
+  fit an estimator that stores the joint covariance (`sp.aggte(...,
+  type='dynamic')`, `sp.sun_abraham`, `sp.did_imputation(horizon=...)`,
+  `sp.event_study`, ...), which `sp.event_study_vcov` reads without a
+  warning.
+
+---
+
 ## 1.42.1 → next: ⚠️ `sp.bacon_decomposition` refuses an absorbed treatment
 
 A treatment column that the unit and period effects absorb (constant

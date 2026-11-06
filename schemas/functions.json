@@ -36546,8 +36546,7 @@
     "parameters": {
       "properties": {
         "allow_diagonal": {
-          "default": true,
-          "description": "Fall back to diag(se^2) with a warning when no joint covariance exists",
+          "description": "When no joint covariance exists: True falls back to diag(se^2) with a warning, False raises. Unset behaves as True with a FutureWarning; the default becomes False in 1.44 (a diagonal matrix makes joint pre-trend tests and HonestDiD wrong)",
           "type": "boolean"
         },
         "result": {
