@@ -31,6 +31,29 @@ Rules:
 
 ## Entries
 
+### 2026-11-05 — bacon identification guard, synth weight certificate, event_study_vcov default
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `2a5a99389` re-recorded
+  `tests/r_parity/results/_implementation_trace.json` (modules 07, 10, 18,
+  19, 20, 21, 52) and `tests/orig_parity/results/_implementation_trace.json`
+  (module 03).
+- **Reason.** Source on their traced paths changed:
+  `did/bacon.py` (refuses a treatment the two-way effects absorb),
+  `synth/scm.py` and `synth/_core.py` (KKT certificate of the fixed-V
+  donor weights, a diagnostic only) and `did/es_inference.py` (the
+  `allow_diagonal` default now warns; the modules pass joint covariances).
+- **Effect on the paper.** None. Modules 07 and orig 03 reproduce their
+  committed results byte for byte; 20 and 52 reproduce byte for byte what
+  unmodified `origin/main` produces in the same environment (both differ
+  from the committed files in the last digit only, an environment
+  difference that predates these edits, so the committed files were left
+  as they are).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-19 — did: bacon_decomposition(covariates=)
 
 - **Commits.** `bcc645a0` re-recorded
