@@ -18,6 +18,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.42 → next: ⚠️ two corrections in regression commands
+
+**⚠️ correctness fix: `sp.iv_wild_bootstrap` with two or more endogenous
+regressors.** The WRE bootstrap re-estimates the restricted model under the
+null. When other endogenous regressors remain in it, StatsPAI now uses LIML,
+as Stata `boottest` does; it used 2SLS. The bootstrap p-values and
+confidence intervals of such tests change (on the test fixture: 82 / 4,096
+before, 98 / 4,096 now, equal to `boottest`'s). The same applies to
+`sp.ivreg(..., vce='wild')`, `sp.wild_cluster_boot` and `sp.feols` IV fits
+with two or more endogenous regressors. Tests of a model with one
+endogenous regressor are unchanged. There is no option to restore the old
+numbers.
+
+**⚠️ correctness fix: the log likelihood of `sp.intreg` / `sp.heckprobit`
+with `weights=`.** `model_info['log_likelihood']` is now Stata's pseudo log
+likelihood, `sum(w_i * ll_i)` with the weights as given; it was the sum with
+the weights rescaled to sum to n. Multiply an old value by
+`sum(w) / n` to compare. Coefficients and standard errors are unchanged.
+
+---
+
 ## 1.41 → 1.42: announced defaults take effect
 
 The defaults that 1.40.1, 1.40.2 and 1.41.0 announced for 1.42 with a

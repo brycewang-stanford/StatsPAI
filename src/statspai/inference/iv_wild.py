@@ -12,9 +12,10 @@ correlation), regenerates the endogenous regressor and the outcome, and refits
 
 Reads the 2SLS structure stored on the ivreg result under ``data_info['iv']``.
 Supports one or more endogenous regressors; the tested coefficient must be one
-of them (the other endogenous regressors are re-estimated by 2SLS under the
-null). Validated against ``boottest`` for both the single- and two-endogenous
-cases.
+of them (the other endogenous regressors are re-estimated by LIML under the
+null, as ``boottest`` does). With Rademacher weights enumerated over 12
+clusters the p-values equal ``boottest``'s exactly for one and two endogenous
+regressors (``tests/reference_parity/test_regcmd_stata_r_parity.py``).
 """
 
 from __future__ import annotations
@@ -379,7 +380,10 @@ def iv_wild_bootstrap(
     dict
         ``beta_hat``, ``se_cluster``, ``t_stat``, ``p_boot`` (symmetric,
         strict inequality as in ``boottest``), ``ci_boot`` (the test-inversion
-        confidence set), ``t_distribution``, ``n_clusters``, ``n_obs``,
+        confidence interval: the connected part of ``{beta0 : p(beta0) >
+        alpha}`` that contains the estimate; with weak instruments the set
+        can have further pieces, which ``boottest`` reports and this does
+        not search for), ``t_distribution``, ``n_clusters``, ``n_obs``,
         ``n_boot`` (``2**G`` when the Rademacher grid is enumerated),
         ``enumerated``, ``weight_type`` and ``method`` (``'WRE'`` /
         ``'WUR'``).
@@ -462,10 +466,17 @@ def iv_wild_bootstrap(
     absorb = _absorber(iv.get("fe_codes"))
 
     # --- projection / 2SLS bread (instruments are fixed across bootstrap) ---
-    P_W = W @ np.linalg.solve(W.T @ W, W.T)  # A = P_W for kappa = 1 (2SLS)
+    # A = P_W for kappa = 1 (2SLS), applied through an orthonormal basis of
+    # the instruments rather than as an n x n matrix: each refit costs
+    # O(n r k) instead of O(n^2 k).
+    Q_w, _ = np.linalg.qr(W)
+
+    def _proj(M: np.ndarray) -> np.ndarray:
+        out: np.ndarray = Q_w @ (Q_w.T @ M)
+        return out
 
     def _fit(Xmat: np.ndarray, yvec: np.ndarray) -> Any:
-        AX = P_W @ Xmat
+        AX = _proj(Xmat)
         bread = np.linalg.inv(Xmat.T @ AX)
         beta = bread @ (AX.T @ yvec)
         resid = yvec - Xmat @ beta
@@ -477,7 +488,7 @@ def iv_wild_bootstrap(
     t_obs = (beta_hat[test_idx] - beta0) / se if se > 0 else 0.0
     other = [j for j in range(k) if j != test_idx]
     Xo = X[:, other]
-    AXo = P_W @ Xo
+    AXo = _proj(Xo)
     n_w = W.shape[1]
 
     # With Rademacher weights and 2**G <= n_boot every sign vector is used
@@ -486,13 +497,40 @@ def iv_wild_bootstrap(
     # draws serve every null value, as in boottest's test inversion.
     weights, enumerated = _wild_weight_matrix(n_clusters, n_boot, weight_type, rng)
 
+    other_endog = [j for j in endog_cols if j != test_idx]
+    exog_cols = [j for j in range(n_exog)]
+
+    def _annihilate(B: np.ndarray, M: np.ndarray) -> np.ndarray:
+        if M.shape[1] == 0:
+            return B
+        return B - M @ np.linalg.lstsq(M, B, rcond=None)[0]
+
+    MW_Xo = _annihilate(Xo, W)
+
     def _restricted(b0: float) -> Any:
-        # Fix the tested coefficient and re-estimate the rest by 2SLS (the
-        # *other* endogenous regressors stay endogenous), giving the
-        # restricted structural residual u_tilde; then the (efficient)
-        # restricted reduced form of every endogenous regressor.
+        # Fix the tested coefficient and re-estimate the rest under the null,
+        # giving the restricted structural residual u_tilde; then the
+        # (efficient) restricted reduced form of every endogenous regressor.
+        # When other endogenous regressors remain, the restricted model is
+        # estimated by LIML, as boottest does: with 2SLS there the
+        # enumerated p-values differ from boottest's (by 16 of 4,096 sign
+        # vectors on the test fixture), with LIML they are identical. With
+        # no other endogenous regressor every k-class estimator is OLS.
         y_tilde = y - b0 * X[:, test_idx]
-        g = np.linalg.solve(Xo.T @ AXo, AXo.T @ y_tilde)
+        if other_endog:
+            Yr = np.column_stack([y_tilde, X[:, other_endog]])
+            m1 = _annihilate(Yr, X[:, exog_cols])
+            mw = _annihilate(Yr, W)
+            kappa = float(
+                np.min(
+                    np.real(np.linalg.eigvals(np.linalg.solve(mw.T @ mw, m1.T @ m1)))
+                )
+            )
+            lhs = Xo.T @ Xo - kappa * (MW_Xo.T @ MW_Xo)
+            rhs = Xo.T @ y_tilde - kappa * (MW_Xo.T @ _annihilate(y_tilde, W))
+            g = np.linalg.solve(lhs, rhs)
+        else:
+            g = np.linalg.solve(Xo.T @ AXo, AXo.T @ y_tilde)
         u_tilde = y_tilde - Xo @ g
         wd = np.column_stack([W, u_tilde]) if efficient else W
         base, rres = {}, {}
@@ -501,7 +539,7 @@ def iv_wild_bootstrap(
                 coef = np.linalg.lstsq(wd, X[:, e], rcond=None)[0]
                 d_base = W @ coef[:n_w]
             else:
-                d_base = P_W @ X[:, e]
+                d_base = _proj(X[:, e])
             base[e] = d_base
             rres[e] = X[:, e] - d_base
         return g, u_tilde, base, rres
@@ -512,11 +550,11 @@ def iv_wild_bootstrap(
     # draw, so the draws are processed as matrices.
     single = len(endog_cols) == 1 and np.allclose(AXo, Xo, atol=1e-9)
     corr = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
+    onehot_all = np.zeros((n_clusters, n))
+    onehot_all[cl_codes, np.arange(n)] = 1.0
     if single:
-        Q_w, _ = np.linalg.qr(W)
         ZtZi_Zt = np.linalg.solve(Xo.T @ Xo, Xo.T)
-        onehot = np.zeros((n_clusters, n))
-        onehot[cl_codes, np.arange(n)] = 1.0
+        onehot = onehot_all
 
     def _t_boot(b0: float) -> np.ndarray:
         g, u_tilde, base, rres = _restricted(b0)
@@ -540,18 +578,37 @@ def iv_wild_bootstrap(
                 with np.errstate(divide="ignore", invalid="ignore"):
                     out[lo : lo + 512] = np.where(se_s > 0, (bs - b0) / se_s, 0.0)
             return out
+        # General path: every draw refits the full 2SLS. The draws are
+        # processed in blocks as stacked (n, k, C) designs -- the same
+        # algebra as ``_fit`` per draw, batched with einsum.
         out = np.empty(weights.shape[0])
-        for b, w_g in enumerate(weights):
-            eps = w_g[cl_codes]
-            x_star = X.copy()
+        for lo in range(0, weights.shape[0], 256):
+            eps = weights[lo : lo + 256][:, cl_codes].T  # (n, C)
+            C = eps.shape[1]
+            xs = np.repeat(X[:, :, None], C, axis=2)  # (n, k, C)
             for e in endog_cols:
-                x_star[:, e] = base[e] + eps * rres[e]
-            y_star = b0 * x_star[:, test_idx] + x_star[:, other] @ g + eps * u_tilde
-            x_star = absorb(x_star)
-            y_star = absorb(y_star[:, None])[:, 0]
-            beta_s, V_s = _fit(x_star, y_star)
-            se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
-            out[b] = (beta_s[test_idx] - b0) / se_s if se_s > 0 else 0.0
+                xs[:, e, :] = base[e][:, None] + eps * rres[e][:, None]
+            ys = (
+                b0 * xs[:, test_idx, :]
+                + np.einsum("nkc,k->nc", xs[:, other, :], g)
+                + eps * u_tilde[:, None]
+            )
+            if iv.get("fe_codes"):
+                xs = absorb(xs.reshape(n, k * C)).reshape(n, k, C)
+                ys = absorb(ys)
+            ax = np.einsum("nr,rkc->nkc", Q_w, np.einsum("nr,nkc->rkc", Q_w, xs))
+            xtax = np.einsum("nkc,nlc->ckl", xs, ax)
+            bread_s = np.linalg.inv(xtax)
+            beta_s = np.einsum("ckl,lc->ck", bread_s, np.einsum("nkc,nc->kc", ax, ys))
+            resid = ys - np.einsum("nkc,ck->nc", xs, beta_s)
+            sc = np.einsum("gn,nkc->cgk", onehot_all, ax * resid[:, None, :])
+            row = bread_s[:, test_idx, :]  # (C, k)
+            proj = np.einsum("ck,cgk->cg", row, sc)
+            v_s = corr * np.sum(proj**2, axis=1)
+            se_s = np.sqrt(np.maximum(v_s, 1e-20))
+            out[lo : lo + C] = np.where(
+                se_s > 0, (beta_s[:, test_idx] - b0) / se_s, 0.0
+            )
         return out
 
     def _pvalue(b0: float) -> float:

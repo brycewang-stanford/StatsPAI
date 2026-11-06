@@ -36,6 +36,23 @@ All notable changes to StatsPAI will be documented in this file.
   the matching estimators do (score below 1e-10; a redundant covariate is
   dropped instead of fitting an unidentified model). Scores move by about
   1e-8, and a Crump cutoff computed from them by as much.
+- ⚠️ **correctness fix: `sp.iv_wild_bootstrap` with two or more endogenous
+  regressors** (also `sp.ivreg(vce='wild')`, `sp.wild_cluster_boot` and
+  `sp.feols` IV fits that route there). Under the null the other
+  endogenous regressors were re-estimated by 2SLS; Stata `boottest` uses
+  LIML. With 12 clusters, where both sides enumerate all 4,096 Rademacher
+  sign vectors, the p-value for the second of two endogenous coefficients
+  was 82 / 4,096 against `boottest`'s 98 / 4,096; it is now identical, and
+  so is every other enumerated p-value in the new fixture. One endogenous
+  regressor is unaffected (every k-class estimator of the restricted model
+  is then OLS). The general path is also vectorised over draws (about five
+  times faster); `ci_boot` is documented as the piece of the confidence
+  set that contains the estimate.
+- ⚠️ **correctness fix: `sp.intreg` and `sp.heckprobit` with `weights=`**
+  reported as `model_info['log_likelihood']` the sum of `w_i * ll_i` with
+  the weights rescaled to sum to n. They now report Stata's pseudo log
+  likelihood, with the weights as given (-1417.80 instead of -1156.37 on
+  the test fixture). Estimates and standard errors do not change.
 
 ### Tests
 
@@ -71,6 +88,16 @@ All notable changes to StatsPAI will be documented in this file.
   `sigma_u`); its `xtintreg` default fit on right-censored data stops
   short of the maximum; at an integer `n tau` `mmqreg` returns either end
   of the tied sample quantile.
+- Same-byte Stata 18 / R evidence for regression and inference commands
+  (`tests/reference_parity/test_regcmd_stata_r_parity.py`): `sp.intreg`,
+  `sp.heckprobit`, `sp.gologit`, `sp.prais`, `sp.nls`, `sp.mprobit`,
+  `sp.standardize_coefs` and `sp.iv_wild_bootstrap` against `intreg`,
+  `heckprobit`, `gologit2`, `prais`, `nl`, `mprobit`, `boottest`, survival
+  `survreg`, `sampleSelection`, `VGAM` and `nls`, over their main options.
+  With the existing fixtures of `sp.cnsreg` and `sp.conley_sensitivity`
+  these ten functions now carry a parity grade (nine bit-exact,
+  `iv_wild_bootstrap` aligned); `sp.ibragimov_mueller`, which no package
+  implements, is pinned to its closed form (analytical-only).
 
 ## [1.42.1] — 2026-11-03
 

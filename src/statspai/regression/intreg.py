@@ -194,6 +194,10 @@ def intreg(
     if int(point.sum() + inter.sum()) == 0 and n < k + 1:
         raise DataInsufficient("intreg: too few observations.")
     wt = np.ones(n)
+    # The fit uses weights rescaled to sum to n (the estimates and the
+    # sandwich do not depend on the scale); the reported pseudo log
+    # likelihood is Stata's sum of w_i * ll_i with the weights as given.
+    ll_scale = 1.0
     if weights is not None:
         wt = df[weights].to_numpy(dtype=float)
         if not np.all(np.isfinite(wt)) or np.any(wt <= 0):
@@ -201,6 +205,7 @@ def intreg(
                 "intreg: weights must be finite and strictly positive.",
                 diagnostics={"weights": weights},
             )
+        ll_scale = float(wt.sum() / n)
         wt = wt * (n / wt.sum())
     lo0 = np.where(np.isnan(lo), 0.0, lo)
     hi0 = np.where(np.isnan(hi), 0.0, hi)
@@ -287,7 +292,7 @@ def intreg(
         "n_left_censored": int(left.sum()),
         "n_right_censored": int(right.sum()),
         "n_interval": int(inter.sum()),
-        "log_likelihood": float(np.sum(obs_loglik(theta))),
+        "log_likelihood": ll_scale * float(np.sum(obs_loglik(theta))),
         "wald_chi2": wald,
         "wald_df": k - 1,
         "wald_pvalue": float(stats.chi2.sf(wald, k - 1)) if k > 1 else np.nan,

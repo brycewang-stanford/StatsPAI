@@ -224,6 +224,10 @@ def heckprobit(
     X[~sel] = 0.0
     kx, kz = X.shape[1], Z.shape[1]
     wt = np.ones(n)
+    # The fit uses weights rescaled to sum to n (the estimates and the
+    # sandwich do not depend on the scale); the reported pseudo log
+    # likelihood is Stata's sum of w_i * ll_i with the weights as given.
+    ll_scale = 1.0
     if weights is not None:
         wt = df[weights].to_numpy(dtype=float)
         if not np.all(np.isfinite(wt)) or np.any(wt <= 0):
@@ -231,6 +235,7 @@ def heckprobit(
                 "heckprobit: weights must be finite and strictly positive.",
                 diagnostics={"weights": weights},
             )
+        ll_scale = float(wt.sum() / n)
         wt = wt * (n / wt.sum())
     q = np.where(sel, 2.0 * Yv - 1.0, 0.0)
     q_sel = q[sel]
@@ -278,7 +283,7 @@ def heckprobit(
     athrho = float(theta[t_idx])
     rho = float(np.tanh(athrho))
     se_rho = float((1.0 - rho**2) * se[t_idx])
-    loglik = float(np.sum(obs_loglik(theta)))
+    loglik = ll_scale * float(np.sum(obs_loglik(theta)))
 
     names = ["const"] + x + ["select:const"] + [f"select:{v}" for v in z] + ["athrho"]
     coef = np.append(theta, rho)
