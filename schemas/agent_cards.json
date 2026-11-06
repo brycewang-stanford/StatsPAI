@@ -7863,22 +7863,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "grf 2.6.1 variable_importance (decay 2, depth 4) from grf's split frequencies, for nine forest kinds",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "grf": "2.6.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_grf_family_operator_parity.py"
+        "tests/reference_parity/test_grf_family_operator_parity.py",
+        "tests/reference_parity/_fixtures/grf_family_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 absolute"
     },
     "example": "sp.variable_importance(cf)",
     "failure_modes": [
@@ -7942,7 +7947,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: certified parity evidence.",
       "name": "variable_importance",
       "parameters": {
         "properties": {
@@ -7970,9 +7975,9 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_grf_family_operator_parity.py"
+      "Cross-language parity (bit-exact) vs grf 2.6.1 variable_importance (decay 2, depth 4) from grf's split frequencies, for nine forest kinds [R version 4.5.2 (2025-10-31), grf 2.6.1]; tolerance 1e-12 absolute -- tests/reference_parity/test_grf_family_operator_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -8140,22 +8145,30 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "grf 2.6.1 best_linear_projection (HC0 to HC3, clusters and equalized cluster weights; instrumental and causal survival scores), forest outputs held fixed",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "grf": "2.6.1",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_dml_irm_blp_parity.py"
+        "tests/reference_parity/test_grf_cluster_operator_parity.py",
+        "tests/reference_parity/_fixtures/grf_cluster_operator_R.json",
+        "tests/reference_parity/test_grf_family_operator_parity.py",
+        "tests/reference_parity/_fixtures/grf_family_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "coefficients and SEs 1e-9 relative (observed <= 8.5e-15) with clusters; 1e-12 absolute on the family operators"
     },
     "example": "sp.best_linear_projection(cf, A=df[['age']])",
     "failure_modes": [
@@ -8225,7 +8238,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: certified parity evidence.",
       "name": "best_linear_projection",
       "parameters": {
         "properties": {
@@ -8260,10 +8273,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_dml_irm_blp_parity.py",
-      "tests/reference_parity/test_grf_family_operator_parity.py"
+      "Cross-language parity (bit-exact) vs grf 2.6.1 best_linear_projection (HC0 to HC3, clusters and equalized cluster weights; instrumental and causal survival scores), forest outputs held fixed [R version 4.5.2 (2025-10-31), grf 2.6.1, sandwich 3.1.1]; tolerance coefficients and SEs 1e-9 relative (observed <= 8.5e-15) with clusters; 1e-12 absolute on the family operators -- tests/reference_parity/test_grf_cluster_operator_parity.py",
+      "tests/external_parity/test_dml_irm_blp_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -8277,22 +8290,29 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "grf 2.6.1 get_scores (causal, instrumental, multi-arm and causal survival forests), forest outputs held fixed",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "grf": "2.6.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_grf_family_operator_parity.py"
+        "tests/reference_parity/test_grf_family_operator_parity.py",
+        "tests/reference_parity/_fixtures/grf_family_R.json",
+        "tests/reference_parity/test_grf_aipw_operator_parity.py",
+        "tests/reference_parity/_fixtures/grf_scores_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-11 absolute elementwise (observed <= 2.3e-14)"
     },
     "example": "sp.get_scores(cf)",
     "failure_modes": [
@@ -8326,7 +8346,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: certified parity evidence.",
       "name": "get_scores",
       "parameters": {
         "properties": {
@@ -8350,9 +8370,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_grf_family_operator_parity.py"
+      "Cross-language parity (bit-exact) vs grf 2.6.1 get_scores (causal, instrumental, multi-arm and causal survival forests), forest outputs held fixed [R version 4.5.2 (2025-10-31), grf 2.6.1]; tolerance 1e-11 absolute elementwise (observed <= 2.3e-14) -- tests/reference_parity/test_grf_family_operator_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -27916,6 +27936,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py"
     ],
     "validation_status": "validated"
@@ -32785,22 +32806,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ivreg::ivreg default covariance and Stata ivregress 2sls, small (outcome-bridge 2SLS: y on 1, d, X, W with instruments 1, d, X, Z)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_proximal_parity.py"
+        "tests/reference_parity/test_proximal_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 2.3e-14 R, 2.8e-15 Stata)"
     },
     "example": "sp.proximal(df, y=\"y\", treat=\"d\", proxy_z=[\"z\"], proxy_w=[\"w\"])",
     "failure_modes": [
@@ -32862,7 +32892,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: certified parity evidence.",
       "name": "proximal",
       "parameters": {
         "properties": {
@@ -32941,10 +32971,11 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_proximal_parity.py",
+      "Cross-language parity (bit-exact) vs ivreg::ivreg default covariance and Stata ivregress 2sls, small (outcome-bridge 2SLS: y on 1, d, X, W with instruments 1, d, X, Z) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 2.3e-14 R, 2.8e-15 Stata) -- tests/reference_parity/test_proximal_r_parity.py",
+      "tests/reference_parity/test_proximal_parity.py",
       "API/unit contract evidence: tests/test_proximal.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -34532,7 +34563,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_target_trial_parity.py"
+        "tests/reference_parity/test_target_trial_parity.py",
+        "tests/reference_parity/test_tte_longitudinal_r_parity.py"
       ],
       "tolerance": ""
     },
@@ -34696,22 +34728,30 @@
     ],
     "category": "target_trial",
     "cost_profile": "",
-    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ipw::ipwtm(type = 'cens', family = 'binomial', link = 'logit') on the at-risk rows of each strategy, stabilised (numerator ~1) and unstabilised",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SuperLearner": "2.0.40",
+        "ipw": "1.3.0",
+        "ltmle": "1.3.0",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_target_trial_parity.py"
+        "tests/reference_parity/test_tte_longitudinal_r_parity.py",
+        "tests/reference_parity/_fixtures/tte_longitudinal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on every weight (observed 6.6e-15); uncensored (id, time) rows identical"
     },
     "example": "res = sp.clone_censor_weight(df, id_col=\"id\", time_col=\"time\",\n treatment_col=\"treat\", strategies=strategies)",
     "failure_modes": [
@@ -34752,12 +34792,12 @@
       }
     },
     "signature": {
-      "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: certified parity evidence.",
       "name": "clone_censor_weight",
       "parameters": {
         "properties": {
           "censor_covariates": {
-            "description": "Covariates used to estimate IP-of-censoring weights after cloning. Defaults to all non-key columns.",
+            "description": "Covariates used to estimate IP-of-censoring weights after cloning. Defaults to all non-key columns. An empty list fits no censoring model and every weight is 1. Include ``time_col`` here for a time-specific censoring hazard.",
             "items": {
               "type": "string"
             },
@@ -34775,7 +34815,7 @@
           },
           "stabilize": {
             "default": true,
-            "description": "Use stabilized IPC weights.",
+            "description": "Use stabilized IPC weights (each factor multiplied by the pooled share of at-risk rows that remain uncensored).",
             "type": "boolean"
           },
           "strategies": {
@@ -34810,10 +34850,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_target_trial_parity.py",
+      "Cross-language parity (bit-exact) vs ipw::ipwtm(type = 'cens', family = 'binomial', link = 'logit') on the at-risk rows of each strategy, stabilised (numerator ~1) and unstabilised [R version 4.5.2 (2025-10-31), SuperLearner 2.0.40, ipw 1.3.0, ltmle 1.3.0, sandwich 3.1.1]; tolerance 1e-9 relative on every weight (observed 6.6e-15); uncensored (id, time) rows identical -- tests/reference_parity/test_tte_longitudinal_r_parity.py",
+      "tests/reference_parity/test_target_trial_parity.py",
       "API/unit contract evidence: tests/test_target_trial.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -38809,22 +38850,30 @@
     ],
     "category": "longitudinal",
     "cost_profile": "",
-    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "IPW path: ipw::ipwpoint weights + lm(Y ~ 1, weights) + sandwich HC0; g-formula path: ltmle::ltmle(gcomp = TRUE) with SL.lm (iterated conditional expectations with linear regressions on the full history)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SuperLearner": "2.0.40",
+        "ipw": "1.3.0",
+        "ltmle": "1.3.0",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_longitudinal_parity.py"
+        "tests/reference_parity/test_tte_longitudinal_r_parity.py",
+        "tests/reference_parity/_fixtures/tte_longitudinal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "IPW path 1e-9 relative on estimate and SE (observed 2.6e-15); g-formula path 1e-9 on the estimate (observed 1.9e-11)"
     },
     "example": "sp.longitudinal_analyze(df, id='pid', time='visit', treatment='drug', outcome='cd4', time_varying=['cd4_lag'], regime='if cd4_lag < 200 then 1 else 0')",
     "failure_modes": [
@@ -38869,7 +38918,7 @@
       }
     },
     "signature": {
-      "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: certified parity evidence.",
       "name": "longitudinal_analyze",
       "parameters": {
         "properties": {
@@ -38953,7 +39002,7 @@
           },
           "trim": {
             "default": 0.01,
-            "description": "Weight truncation quantile (MSM/IPW paths).",
+            "description": "On the IPW path, propensity scores are clipped to ``[trim, 1 - trim]``; on the MSM path it is passed to :func:`sp.msm` as its ``trim``.",
             "type": "number"
           }
         },
@@ -38970,10 +39019,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_longitudinal_parity.py",
+      "Cross-language parity (bit-exact) vs IPW path: ipw::ipwpoint weights + lm(Y ~ 1, weights) + sandwich HC0; g-formula path: ltmle::ltmle(gcomp = TRUE) with SL.lm (iterated conditional expectations with linear regressions on the full history) [R version 4.5.2 (2025-10-31), SuperLearner 2.0.40, ipw 1.3.0, ltmle 1.3.0, sandwich 3.1.1]; tolerance IPW path 1e-9 relative on estimate and SE (observed 2.6e-15); g-formula path 1e-9 on the estimate (observed 1.9e-11) -- tests/reference_parity/test_tte_longitudinal_r_parity.py",
+      "tests/reference_parity/test_longitudinal_parity.py",
       "API/unit contract evidence: tests/test_longitudinal.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -38990,22 +39040,30 @@
     ],
     "category": "longitudinal",
     "cost_profile": "",
-    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "IPW path: lm(Y ~ A, weights = ipwpoint weights) + sandwich HC0; g-formula path: ATE of ltmle::ltmle(gcomp = TRUE, SL.lm)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SuperLearner": "2.0.40",
+        "ipw": "1.3.0",
+        "ltmle": "1.3.0",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_longitudinal_parity.py"
+        "tests/reference_parity/test_tte_longitudinal_r_parity.py",
+        "tests/reference_parity/_fixtures/tte_longitudinal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "IPW path 1e-9 relative on contrast and SE (observed 2e-15); g-formula path 1e-9 on the contrast (observed 8.4e-12)"
     },
     "example": "res = sp.longitudinal_contrast(\n df, id=\"id\", time=\"time\", treatment=\"A\", outcome=\"Y\",\n regime_a=\"always_treat\", regime_b=\"never_treat\")",
     "failure_modes": [
@@ -39047,7 +39105,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: certified parity evidence.",
       "name": "longitudinal_contrast",
       "parameters": {
         "properties": {
@@ -39108,10 +39166,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_longitudinal_parity.py",
+      "Cross-language parity (bit-exact) vs IPW path: lm(Y ~ A, weights = ipwpoint weights) + sandwich HC0; g-formula path: ATE of ltmle::ltmle(gcomp = TRUE, SL.lm) [R version 4.5.2 (2025-10-31), SuperLearner 2.0.40, ipw 1.3.0, ltmle 1.3.0, sandwich 3.1.1]; tolerance IPW path 1e-9 relative on contrast and SE (observed 2e-15); g-formula path 1e-9 on the contrast (observed 8.4e-12) -- tests/reference_parity/test_tte_longitudinal_r_parity.py",
+      "tests/reference_parity/test_longitudinal_parity.py",
       "API/unit contract evidence: tests/test_longitudinal.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -42483,6 +42542,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
         "tests/reference_parity/test_frontier_known_truth_recovery.py"
       ],
       "tolerance": ""
@@ -42618,7 +42678,7 @@
     "stability": "stable",
     "typical_n_min": 400,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_conformal_cfcausal_r_parity.py",
       "API/unit contract evidence: tests/test_conformal_extended.py"
     ],
     "validation_status": "validated"
@@ -42650,6 +42710,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_third_pass.py"
       ],
@@ -42777,7 +42838,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fifth_pass.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_conformal_cfcausal_r_parity.py",
       "API/unit contract evidence: tests/test_conformal_extended.py"
     ],
     "validation_status": "validated"
@@ -43226,22 +43287,31 @@
     ],
     "category": "interference",
     "cost_profile": "",
-    "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::lm classical covariance and Stata regress (inward and outward exposure coefficients)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_interference_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimates and SEs (observed 6.7e-15 R, 9.7e-15 Stata)"
     },
     "example": "res = sp.inward_outward_spillover(\n df, y=\"y\", treatment=\"d\",\n inward_exposure=\"e_in\", outward_exposure=\"e_out\",\n)",
     "failure_modes": [
@@ -43282,7 +43352,7 @@
       }
     },
     "signature": {
-      "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: certified parity evidence.",
       "name": "inward_outward_spillover",
       "parameters": {
         "properties": {
@@ -43342,10 +43412,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py",
+      "Cross-language parity (bit-exact) vs stats::lm classical covariance and Stata regress (inward and outward exposure coefficients) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimates and SEs (observed 6.7e-15 R, 9.7e-15 Stata) -- tests/reference_parity/test_interference_r_parity.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py",
       "API/unit contract evidence: tests/test_interference_extensions.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45001,23 +45072,27 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: certified parity evidence. Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "rkriging 1.0.2 ordinary kriging, Gaussian kernel: predictions and sd at given hyperparameters, and the fitted interpolator (restricted likelihood)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "rkriging": "1.0.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_bayes_nonparametric_exact.py",
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "at given hyperparameters 1e-10 absolute on mean, predictions and sd; fitted: hyperparameters 1e-4 relative, predictions and expected improvement 2e-4 absolute"
     },
     "example": "sp.gp_regress(\"y ~ x\", df).predict(new)",
     "failure_modes": [],
@@ -45053,7 +45128,7 @@
       }
     },
     "signature": {
-      "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+      "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: certified parity evidence. Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
       "name": "gp_regress",
       "parameters": {
         "properties": {
@@ -45152,9 +45227,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bayes_nonparametric_exact.py"
+      "Cross-language parity (aligned) vs rkriging 1.0.2 ordinary kriging, Gaussian kernel: predictions and sd at given hyperparameters, and the fitted interpolator (restricted likelihood) [R version 4.5.2 (2025-10-31), rkriging 1.0.2]; tolerance at given hyperparameters 1e-10 absolute on mean, predictions and sd; fitted: hyperparameters 1e-4 relative, predictions and expected improvement 2e-4 absolute -- tests/reference_parity/test_joseph_doe_parity.py",
+      "tests/reference_parity/test_bayes_nonparametric_exact.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45325,22 +45401,27 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
+    "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: certified parity evidence. Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "MaxPro 4.1-2 MaxProAugment (greedy MaxPro augmentation from given candidates)",
+      "reference_versions": {
+        "MaxPro": "4.1.2",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-14 absolute on the chosen runs (the same six candidates in the same order)"
     },
     "example": "sp.design_augment(sp.space_filling(10, 2, seed=1), 10, seed=2)",
     "failure_modes": [],
@@ -45373,7 +45454,7 @@
       }
     },
     "signature": {
-      "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
+      "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: certified parity evidence. Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
       "name": "design_augment",
       "parameters": {
         "properties": {
@@ -45430,9 +45511,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs MaxPro 4.1-2 MaxProAugment (greedy MaxPro augmentation from given candidates) [MaxPro 4.1.2, R version 4.5.2 (2025-10-31)]; tolerance 1e-14 absolute on the chosen runs (the same six candidates in the same order) -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45443,22 +45524,27 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "SFDesign 0.1.5 maxpro.crit, maximin.crit (plain and surrogate, r = 4), uniform.crit on a given design",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SFDesign": "0.1.5"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 relative"
     },
     "example": "sp.design_criteria(sp.space_filling(20, 3, seed=1))",
     "failure_modes": [],
@@ -45480,7 +45566,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: certified parity evidence.",
       "name": "design_criteria",
       "parameters": {
         "properties": {
@@ -45515,9 +45601,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs SFDesign 0.1.5 maxpro.crit, maximin.crit (plain and surrogate, r = 4), uniform.crit on a given design [R version 4.5.2 (2025-10-31), SFDesign 0.1.5]; tolerance 1e-12 relative -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45530,22 +45616,28 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
+    "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: certified evidence with scoped limitations. Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "FrF2 2.3-5 minimum aberration catalogue (resolution and word length pattern) and DoE.base 1.2-5 GWLP of the catalogued L9 / L18 arrays",
+      "reference_versions": {
+        "DoE.base": "1.2.5",
+        "FrF2": "2.3.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "resolution and word length pattern equal as integers; designs compared up to isomorphism, not run by run"
     },
     "example": "sp.factorial_design(5, n_runs=16).summary()",
     "failure_modes": [],
@@ -45579,7 +45671,7 @@
       }
     },
     "signature": {
-      "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
+      "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: certified evidence with scoped limitations. Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
       "name": "factorial_design",
       "parameters": {
         "properties": {
@@ -45660,9 +45752,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (aligned) vs FrF2 2.3-5 minimum aberration catalogue (resolution and word length pattern) and DoE.base 1.2-5 GWLP of the catalogued L9 / L18 arrays [DoE.base 1.2.5, FrF2 2.3.5, R version 4.5.2 (2025-10-31)]; tolerance resolution and word length pattern equal as integers; designs compared up to isomorphism, not run by run -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45674,22 +45766,27 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "DoE.base 1.2-5 GWLP (generalized word length pattern) of given designs: replicated L9, columns of L18, an unbalanced mixed-level design",
+      "reference_versions": {
+        "DoE.base": "1.2.5",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute"
     },
     "example": "sp.design_aberration(sp.factorial_design(5, n_runs=16).design)",
     "failure_modes": [],
@@ -45711,7 +45808,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: certified parity evidence.",
       "name": "design_aberration",
       "parameters": {
         "properties": {
@@ -45740,9 +45837,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs DoE.base 1.2-5 GWLP (generalized word length pattern) of given designs: replicated L9, columns of L18, an unbalanced mixed-level design [DoE.base 1.2.5, R version 4.5.2 (2025-10-31)]; tolerance 1e-10 absolute -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45757,22 +45854,27 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
+    "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: certified parity evidence. Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "unrepx 1.0-2 (effects and Lenth's pseudo standard error) and stats::lm on a half fraction (aliased coefficients)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "unrepx": "1.0.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "effects and coefficients 1e-10 absolute; pseudo standard error 1e-12 relative"
     },
     "example": "sp.factorial_effects(df, \"y\", factors=[\"A\", \"B\", \"C\"]).summary()",
     "failure_modes": [],
@@ -45808,7 +45910,7 @@
       }
     },
     "signature": {
-      "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
+      "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: certified parity evidence. Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
       "name": "factorial_effects",
       "parameters": {
         "properties": {
@@ -45868,9 +45970,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs unrepx 1.0-2 (effects and Lenth's pseudo standard error) and stats::lm on a half fraction (aliased coefficients) [R version 4.5.2 (2025-10-31), unrepx 1.0.2]; tolerance effects and coefficients 1e-10 absolute; pseudo standard error 1e-12 relative -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -45882,22 +45984,27 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "mixexp 1.2.7 SLD (simplex lattice, 3 to 5 components, degree 1 to 4) and SCD (simplex centroid, 3 to 6 components)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "mixexp": "1.2.7"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_oct2026_reanchor_known_truth.py"
+        "tests/reference_parity/test_mixture_design_r_parity.py",
+        "tests/reference_parity/_fixtures/mixture_design_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 absolute on every share, the set of runs compared after sorting"
     },
     "example": "sp.mixture_design([\"stocks\", \"bonds\", \"cash\"], degree=3)",
     "failure_modes": [],
@@ -45927,7 +46034,7 @@
       }
     },
     "signature": {
-      "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: certified parity evidence.",
       "name": "mixture_design",
       "parameters": {
         "properties": {
@@ -45994,10 +46101,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_reanchor_known_truth.py",
+      "Cross-language parity (bit-exact) vs mixexp 1.2.7 SLD (simplex lattice, 3 to 5 components, degree 1 to 4) and SCD (simplex centroid, 3 to 6 components) [R version 4.5.2 (2025-10-31), mixexp 1.2.7]; tolerance 1e-12 absolute on every share, the set of runs compared after sorting -- tests/reference_parity/test_mixture_design_r_parity.py",
+      "tests/reference_parity/test_oct2026_reanchor_known_truth.py",
       "API/unit contract evidence: tests/test_doe.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -46013,22 +46121,27 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
+    "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: certified parity evidence. Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "AlgDesign 1.2.1.2 optFederov (D, A, I) on the same candidate sets",
+      "reference_versions": {
+        "AlgDesign": "1.2.1.2",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "saturated degree-9 polynomial: the same ten runs (1e-12) and D value (1e-9); 14-run quadratic in three factors: D and A values 1e-9 relative, I value no worse than optFederov's design"
     },
     "example": "sp.doe_optimal(\"x + I(x**2)\", {\"x\": (-1, 1)})",
     "failure_modes": [],
@@ -46064,7 +46177,7 @@
       }
     },
     "signature": {
-      "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
+      "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: certified parity evidence. Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
       "name": "doe_optimal",
       "parameters": {
         "properties": {
@@ -46144,9 +46257,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (aligned) vs AlgDesign 1.2.1.2 optFederov (D, A, I) on the same candidate sets [AlgDesign 1.2.1.2, R version 4.5.2 (2025-10-31)]; tolerance saturated degree-9 polynomial: the same ten runs (1e-12) and D value (1e-9); 14-run quadratic in three factors: D and A values 1e-9 relative, I value no worse than optFederov's design -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -46161,22 +46274,27 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
+    "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: certified parity evidence. Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "sensitivity 1.31.0 soboljansen on the same two input matrices (estimator='jansen')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sensitivity": "1.31.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 absolute after the divisor rescaling"
     },
     "example": "sp.sobol_indices(model, {\"beta\": (0.9, 0.99), \"gamma\": (1, 5)}, n=1024)",
     "failure_modes": [],
@@ -46209,7 +46327,7 @@
       }
     },
     "signature": {
-      "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
+      "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: certified parity evidence. Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
       "name": "sobol_indices",
       "parameters": {
         "properties": {
@@ -46300,9 +46418,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (aligned) vs sensitivity 1.31.0 soboljansen on the same two input matrices (estimator='jansen') [R version 4.5.2 (2025-10-31), sensitivity 1.31.0]; tolerance 1e-12 absolute after the divisor rescaling -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -46317,22 +46435,27 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
+    "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: certified parity evidence. Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "first 2.1 first (FIRST factor importance: forward selection with early dropping, backward elimination)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "first": "2.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on every importance"
     },
     "example": "sp.factor_importance(df, \"y\").summary()",
     "failure_modes": [],
@@ -46364,7 +46487,7 @@
       }
     },
     "signature": {
-      "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
+      "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: certified parity evidence. Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
       "name": "factor_importance",
       "parameters": {
         "properties": {
@@ -46418,9 +46541,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs first 2.1 first (FIRST factor importance: forward selection with early dropping, backward elimination) [R version 4.5.2 (2025-10-31), first 2.1]; tolerance 1e-10 absolute on every importance -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -46432,22 +46555,27 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "sensitivity 1.31.0 morris statistics (mu, mu*, sigma) from the same trajectories and responses",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sensitivity": "1.31.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on effects of order 100"
     },
     "example": "sp.morris_screening(model, [\"a\", \"b\", \"c\"], r=10, seed=1)",
     "failure_modes": [],
@@ -46475,7 +46603,7 @@
       }
     },
     "signature": {
-      "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: certified parity evidence.",
       "name": "morris_screening",
       "parameters": {
         "properties": {
@@ -46550,9 +46678,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs sensitivity 1.31.0 morris statistics (mu, mu*, sigma) from the same trajectories and responses [R version 4.5.2 (2025-10-31), sensitivity 1.31.0]; tolerance 1e-10 absolute on effects of order 100 -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -46700,22 +46828,28 @@
     "assumptions": [],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
+    "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: certified parity evidence. Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "twinning 1.1 twin (method='twinning': the test rows from a given start, numeric and factor columns, rows not divisible by r) and SPlit 1.3 subsample (nearest-row rule)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SPlit": "1.3",
+        "twinning": "1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_joseph_doe_parity.py"
+        "tests/reference_parity/test_joseph_doe_parity.py",
+        "tests/reference_parity/_fixtures/joseph_doe_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "identical row indices"
     },
     "example": "train, test = sp.split_data(df, test_size=0.2, seed=1)",
     "failure_modes": [],
@@ -46747,7 +46881,7 @@
       }
     },
     "signature": {
-      "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
+      "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: certified parity evidence. Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
       "name": "split_data",
       "parameters": {
         "properties": {
@@ -46806,9 +46940,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_joseph_doe_parity.py"
+      "Cross-language parity (bit-exact) vs twinning 1.1 twin (method='twinning': the test rows from a given start, numeric and factor columns, rows not divisible by r) and SPlit 1.3 subsample (nearest-row rule) [R version 4.5.2 (2025-10-31), SPlit 1.3, twinning 1.1]; tolerance identical row indices -- tests/reference_parity/test_joseph_doe_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -61475,22 +61609,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::lm on cluster means and Stata collapse + regress (direct and spillover coefficients, classical SE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_cluster_cross_interference_parity.py"
+        "tests/reference_parity/test_interference_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimates and SEs (observed 6.0e-14 R, 6.9e-14 Stata)"
     },
     "example": "sp.cluster_cross_interference(df, y=\"y\", cluster=\"city\", treat=\"d\", neighbour_treat_share=\"neighbour_d\")",
     "failure_modes": [
@@ -61540,7 +61683,7 @@
       }
     },
     "signature": {
-      "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: certified parity evidence.",
       "name": "cluster_cross_interference",
       "parameters": {
         "properties": {
@@ -61588,10 +61731,11 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cluster_cross_interference_parity.py",
+      "Cross-language parity (bit-exact) vs stats::lm on cluster means and Stata collapse + regress (direct and spillover coefficients, classical SE) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimates and SEs (observed 6.0e-14 R, 6.9e-14 Stata) -- tests/reference_parity/test_interference_r_parity.py",
+      "tests/reference_parity/test_cluster_cross_interference_parity.py",
       "API/unit contract evidence: tests/test_cluster_rct.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -64860,7 +65004,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_interference_parity.py"
+        "tests/reference_parity/test_interference_parity.py",
+        "tests/reference_parity/test_interference_r_parity.py"
       ],
       "tolerance": ""
     },
@@ -67979,22 +68124,27 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 gsbounds (intpointsscale(60) infotol(1e-12)): 117 designs over every boundary family, one- and two-sided, efficacy, futility, binding and nonbinding",
+      "reference_versions": {
+        "Stata": "Stata 18 MP"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_group_sequential_stata_parity.py"
+        "tests/reference_parity/test_group_sequential_stata_parity.py",
+        "tests/reference_parity/_fixtures/gsbounds_Stata.json",
+        "tests/reference_parity/_fixtures/gsdesign_ess_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "3e-7 relative on every bound and on the maximum information ratio (test bound 1e-6)"
     },
     "example": "r = sp.group_sequential(n_looks=3, efficacy='errobfleming',\n futility='errpocock', side='upper')",
     "failure_modes": [
@@ -68041,7 +68191,7 @@
       }
     },
     "signature": {
-      "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: certified parity evidence.",
       "name": "group_sequential",
       "parameters": {
         "properties": {
@@ -68127,9 +68277,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_group_sequential_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 gsbounds (intpointsscale(60) infotol(1e-12)): 117 designs over every boundary family, one- and two-sided, efficacy, futility, binding and nonbinding [Stata 18 MP]; tolerance 3e-7 relative on every bound and on the maximum information ratio (test bound 1e-6) -- tests/reference_parity/test_group_sequential_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -117262,7 +117412,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_conformal_causal_parity.py"
+        "tests/reference_parity/test_conformal_causal_parity.py",
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py"
       ],
       "tolerance": ""
     },
@@ -131531,22 +131682,26 @@
     ],
     "category": "experimental",
     "cost_profile": "",
-    "description": "Compute optimal sample size and design parameters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute optimal sample size and design parameters. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 power twomeans, knownsds (and cluster m1() m2() rho()): sample sizes, cluster counts and the minimum detectable difference",
+      "reference_versions": {
+        "Stata": "Stata 18 MP (07 Jun 2023)"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/reference_parity/test_optimal_design_stata_parity.py",
+        "tests/reference_parity/_fixtures/optimal_design_Stata.csv"
       ],
-      "tolerance": ""
+      "tolerance": "sample sizes and cluster counts equal (integers); unrounded n and detectable difference 2.5e-6 relative, rebuilt to 1e-9"
     },
     "example": "result = sp.optimal_design(\n design=\"cluster\", mde=0.2, sigma=1.0, icc=0.05, cluster_size=20\n)",
     "failure_modes": [
@@ -131596,7 +131751,7 @@
       }
     },
     "signature": {
-      "description": "Compute optimal sample size and design parameters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Compute optimal sample size and design parameters. Validation: certified parity evidence.",
       "name": "optimal_design",
       "parameters": {
         "properties": {
@@ -131681,9 +131836,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Cross-language parity (aligned) vs Stata 18 power twomeans, knownsds (and cluster m1() m2() rho()): sample sizes, cluster counts and the minimum detectable difference [Stata 18 MP (07 Jun 2023)]; tolerance sample sizes and cluster counts equal (integers); unrounded n and detectable difference 2.5e-6 relative, rebuilt to 1e-9 -- tests/reference_parity/test_optimal_design_stata_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -157371,22 +157527,30 @@
     ],
     "category": "target_trial",
     "cost_profile": "",
-    "description": "Emulate the target trial defined by ``protocol``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Emulate the target trial defined by ``protocol``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::lm(Y ~ A, weights = w) + sandwich::vcovHC(type = 'HC0') on the eligible subset; weights from ipw::ipwpoint (unweighted, unstabilised, stabilised)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SuperLearner": "2.0.40",
+        "ipw": "1.3.0",
+        "ltmle": "1.3.0",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_target_trial_parity.py"
+        "tests/reference_parity/test_tte_longitudinal_r_parity.py",
+        "tests/reference_parity/_fixtures/tte_longitudinal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 1.2e-15)"
     },
     "example": "res = sp.target_trial_emulate(\n proto, df, outcome_col=\"mi\", treatment_col=\"statin\")",
     "failure_modes": [
@@ -157434,7 +157598,7 @@
       }
     },
     "signature": {
-      "description": "Emulate the target trial defined by ``protocol``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Emulate the target trial defined by ``protocol``. Validation: certified parity evidence.",
       "name": "target_trial_emulate",
       "parameters": {
         "properties": {
@@ -157478,9 +157642,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_target_trial_parity.py"
+      "Cross-language parity (bit-exact) vs stats::lm(Y ~ A, weights = w) + sandwich::vcovHC(type = 'HC0') on the eligible subset; weights from ipw::ipwpoint (unweighted, unstabilised, stabilised) [R version 4.5.2 (2025-10-31), SuperLearner 2.0.40, ipw 1.3.0, ltmle 1.3.0, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 1.2e-15) -- tests/reference_parity/test_tte_longitudinal_r_parity.py",
+      "tests/reference_parity/test_target_trial_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -161936,22 +162101,31 @@
     ],
     "category": "interference",
     "cost_profile": "",
-    "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
+    "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: certified parity evidence. Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::t.test(paired = TRUE) estimate and stderr, Stata ttest on the collapsed cluster means",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/reference_parity/test_interference_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 6.5e-16 R, 5.8e-16 Stata)"
     },
     "example": "res = sp.cluster_matched_pair(df, y=\"y\", cluster=\"cluster\",\n treat=\"treat\", pair=\"pair\")",
     "failure_modes": [
@@ -161996,7 +162170,7 @@
       }
     },
     "signature": {
-      "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
+      "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: certified parity evidence. Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
       "name": "cluster_matched_pair",
       "parameters": {
         "properties": {
@@ -162043,9 +162217,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Cross-language parity (bit-exact) vs stats::t.test(paired = TRUE) estimate and stderr, Stata ttest on the collapsed cluster means [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 6.5e-16 R, 5.8e-16 Stata) -- tests/reference_parity/test_interference_r_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -164899,22 +165074,31 @@
     ],
     "category": "interference",
     "cost_profile": "",
-    "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ivreg::ivreg + sandwich::vcovHC(type = 'HC0') and Stata ivregress 2sls, vce(robust): y on 1, Wy, X[, WX] with instruments 1, X, WX, W^2X, W^3X",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_peer_effects_parity.py"
+        "tests/reference_parity/test_interference_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on every coefficient and SE (observed 3.8e-14 R, 2.7e-14 Stata)"
     },
     "example": "res = sp.peer_effects(df, y=\"y\", covariates=[\"x\"], W=W)",
     "failure_modes": [
@@ -164957,7 +165141,7 @@
       }
     },
     "signature": {
-      "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: certified parity evidence.",
       "name": "peer_effects",
       "parameters": {
         "properties": {
@@ -165006,9 +165190,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_peer_effects_parity.py"
+      "Cross-language parity (bit-exact) vs ivreg::ivreg + sandwich::vcovHC(type = 'HC0') and Stata ivregress 2sls, vce(robust): y on 1, Wy, X[, WX] with instruments 1, X, WX, W^2X, W^3X [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on every coefficient and SE (observed 3.8e-14 R, 2.7e-14 Stata) -- tests/reference_parity/test_interference_r_parity.py",
+      "tests/reference_parity/test_peer_effects_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -165031,22 +165216,28 @@
     ],
     "category": "conformal_causal",
     "cost_profile": "",
-    "description": "Split conformal prediction with per-calibration-point weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Split conformal prediction with per-calibration-point weights. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cfcausal::conformal + predict.conformalSplit (type='mean', side='two'), unweighted and with density-ratio weights including the test point's own weight; conformalInference::conformal.pred.split(w=) agrees",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cfcausal": "0.2.1 (GitHub lihualei71/cfcausal e4ca670)",
+        "conformalInference": "1.1 (GitHub ryantibs/conformal 15c51c6)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_conformal_causal_parity.py"
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+        "tests/reference_parity/_fixtures/conformal_cfcausal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 relative on lower, upper and centre (observed <= 1e-15); infinite bands at the same test points"
     },
     "example": "lower, upper, point = sp.weighted_conformal_prediction(\n X_train, y_train, X_calib, y_calib, X_test, alpha=0.1)",
     "failure_modes": [
@@ -165103,7 +165294,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Split conformal prediction with per-calibration-point weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Split conformal prediction with per-calibration-point weights. Validation: certified parity evidence.",
       "name": "weighted_conformal_prediction",
       "parameters": {
         "properties": {
@@ -165158,9 +165349,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_conformal_causal_parity.py"
+      "Cross-language parity (bit-exact) vs cfcausal::conformal + predict.conformalSplit (type='mean', side='two'), unweighted and with density-ratio weights including the test point's own weight; conformalInference::conformal.pred.split(w=) agrees [R version 4.5.2 (2025-10-31), cfcausal 0.2.1 (GitHub lihualei71/cfcausal e4ca670), conformalInference 1.1 (GitHub ryantibs/conformal 15c51c6)]; tolerance 1e-12 relative on lower, upper and centre (observed <= 1e-15); infinite bands at the same test points -- tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+      "tests/reference_parity/test_conformal_causal_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -165176,22 +165368,28 @@
     ],
     "category": "conformal_causal",
     "cost_profile": "",
-    "description": "Prediction intervals for the counterfactual potential outcomes Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Prediction intervals for the counterfactual potential outcomes Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cfcausal conformalCf_split steps with estimand='unconditional' (cfcausal::conformal per arm, weights 1/e(x) and 1/(1-e(x))), split supplied",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cfcausal": "0.2.1 (GitHub lihualei71/cfcausal e4ca670)",
+        "conformalInference": "1.1 (GitHub ryantibs/conformal 15c51c6)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+        "tests/reference_parity/_fixtures/conformal_cfcausal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 relative on both arms' lower, upper and centre (observed <= 2.1e-15); infinite band where overlap fails"
     },
     "example": "res = sp.conformal_counterfactual(\n df, y=\"y\", treat=\"t\", covariates=[\"x1\", \"x2\"],\n alpha=0.1, random_state=0)",
     "failure_modes": [
@@ -165236,7 +165434,7 @@
       }
     },
     "signature": {
-      "description": "Prediction intervals for the counterfactual potential outcomes Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Prediction intervals for the counterfactual potential outcomes Validation: certified parity evidence.",
       "name": "conformal_counterfactual",
       "parameters": {
         "properties": {
@@ -165306,9 +165504,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py"
+      "Cross-language parity (bit-exact) vs cfcausal conformalCf_split steps with estimand='unconditional' (cfcausal::conformal per arm, weights 1/e(x) and 1/(1-e(x))), split supplied [R version 4.5.2 (2025-10-31), cfcausal 0.2.1 (GitHub lihualei71/cfcausal e4ca670), conformalInference 1.1 (GitHub ryantibs/conformal 15c51c6)]; tolerance 1e-12 relative on both arms' lower, upper and centre (observed <= 2.1e-15); infinite band where overlap fails -- tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -165331,22 +165530,28 @@
     ],
     "category": "conformal_causal",
     "cost_profile": "",
-    "description": "Conformal prediction intervals for the individual treatment Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Conformal prediction intervals for the individual treatment Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "cfcausal naive ITE rule (conformalIteNaive: [L1 - U0, U1 - L0] from counterfactual bands at alpha/2) on the unconditional counterfactual bands",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "cfcausal": "0.2.1 (GitHub lihualei71/cfcausal e4ca670)",
+        "conformalInference": "1.1 (GitHub ryantibs/conformal 15c51c6)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_conformal_causal_parity.py"
+        "tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+        "tests/reference_parity/_fixtures/conformal_cfcausal_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-12 relative (observed <= 2.6e-15) with the reference run under StatsPAI's target population"
     },
     "example": "res = sp.conformal_ite_interval(\n df, y=\"y\", treat=\"t\", covariates=[\"x1\", \"x2\"],\n alpha=0.1, random_state=0)",
     "failure_modes": [
@@ -165410,7 +165615,7 @@
       }
     },
     "signature": {
-      "description": "Conformal prediction intervals for the individual treatment Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Conformal prediction intervals for the individual treatment Validation: certified parity evidence.",
       "name": "conformal_ite_interval",
       "parameters": {
         "properties": {
@@ -165480,9 +165685,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_conformal_causal_parity.py"
+      "Cross-language parity (aligned) vs cfcausal naive ITE rule (conformalIteNaive: [L1 - U0, U1 - L0] from counterfactual bands at alpha/2) on the unconditional counterfactual bands [R version 4.5.2 (2025-10-31), cfcausal 0.2.1 (GitHub lihualei71/cfcausal e4ca670), conformalInference 1.1 (GitHub ryantibs/conformal 15c51c6)]; tolerance 1e-12 relative (observed <= 2.6e-15) with the reference run under StatsPAI's target population -- tests/reference_parity/test_conformal_cfcausal_r_parity.py",
+      "tests/reference_parity/test_conformal_causal_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -167730,22 +167936,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ivreg::ivreg + sandwich::vcovHC(type = 'HC1') and Stata ivregress 2sls, vce(robust) small (y on d, nco, X with d, nce, X)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_proximal_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 4.9e-15 R, 6.0e-15 Stata)"
     },
     "example": "res = sp.double_negative_control(df, y=\"Y\", treat=\"D\", nce=\"NCE\",\n nco=\"NCO\")",
     "failure_modes": [
@@ -167796,7 +168011,7 @@
       }
     },
     "signature": {
-      "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: certified parity evidence.",
       "name": "double_negative_control",
       "parameters": {
         "properties": {
@@ -167850,9 +168065,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py"
+      "Cross-language parity (bit-exact) vs ivreg::ivreg + sandwich::vcovHC(type = 'HC1') and Stata ivregress 2sls, vce(robust) small (y on d, nco, X with d, nce, X) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 4.9e-15 R, 6.0e-15 Stata) -- tests/reference_parity/test_proximal_r_parity.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -167868,22 +168084,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Regress outcome on a *negative-control exposure*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Regress outcome on a *negative-control exposure*. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/reference_parity/test_proximal_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 2.1e-16 R, 6.7e-16 Stata)"
     },
     "example": "res = sp.negative_control_exposure(df, y=\"Y\", nce=\"NCE\")",
     "failure_modes": [
@@ -167927,7 +168152,7 @@
       }
     },
     "signature": {
-      "description": "Regress outcome on a *negative-control exposure*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Regress outcome on a *negative-control exposure*. Validation: certified parity evidence.",
       "name": "negative_control_exposure",
       "parameters": {
         "properties": {
@@ -167970,9 +168195,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Cross-language parity (bit-exact) vs stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 2.1e-16 R, 6.7e-16 Stata) -- tests/reference_parity/test_proximal_r_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -167988,22 +168214,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Lipsitch-style NCO calibration. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lipsitch-style NCO calibration. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "Stata 18 MP (07 Jun 2023)",
+        "ivreg": "0.6.7",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_closed_form_identities.py"
+        "tests/reference_parity/test_proximal_r_parity.py",
+        "tests/reference_parity/_fixtures/proximal_interference_R.json",
+        "tests/reference_parity/_fixtures/proximal_interference_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on estimate and SE (observed 1.2e-15 R, 2.2e-15 Stata)"
     },
     "example": "res = sp.negative_control_outcome(df, nco=\"NCO\", treat=\"D\",\n covariates=[\"X\"])",
     "failure_modes": [
@@ -168048,7 +168283,7 @@
       }
     },
     "signature": {
-      "description": "Lipsitch-style NCO calibration. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Lipsitch-style NCO calibration. Validation: certified parity evidence.",
       "name": "negative_control_outcome",
       "parameters": {
         "properties": {
@@ -168091,9 +168326,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
+      "Cross-language parity (bit-exact) vs stats::lm + sandwich::vcovHC(type = 'HC1') and Stata regress, vce(robust) [R version 4.5.2 (2025-10-31), Stata 18 MP (07 Jun 2023), ivreg 0.6.7, sandwich 3.1.1]; tolerance 1e-9 relative on estimate and SE (observed 1.2e-15 R, 2.2e-15 Stata) -- tests/reference_parity/test_proximal_r_parity.py",
+      "tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,

@@ -4072,7 +4072,7 @@
     }
   },
   {
-    "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Split-frequency variable importance of any GRF-engine forest (grf::variable_importance): depth-weighted shares of splits per covariate, summing to one. Describes how the forest uses covariates; it is not a test of heterogeneity -- use sp.calibration_test or sp.best_linear_projection for that. Matches grf to 1e-15 given the same split counts. Validation: certified parity evidence.",
     "name": "variable_importance",
     "parameters": {
       "properties": {
@@ -4161,7 +4161,7 @@
     }
   },
   {
-    "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Best linear projection of a forest's conditional effect on covariates (grf::best_linear_projection): OLS of the doubly-robust scores on (1, A) with HC0-HC3 (cluster-robust when the forest has clusters) standard errors -- valid inference on a low-dimensional summary of tau(x) (Semenova and Chernozhukov 2021). Works for causal, instrumental, multi-arm and causal-survival forests; matches grf to 1e-15 given the scores. Validation: certified parity evidence.",
     "name": "best_linear_projection",
     "parameters": {
       "properties": {
@@ -4194,7 +4194,7 @@
     }
   },
   {
-    "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Doubly-robust scores behind a forest's average effect (grf::get_scores): AIPW for causal and multi-arm forests, compliance-weighted for instrumental forests, censoring-adjusted for causal survival forests. Their mean is the average effect; use them for custom averages, subgroup contrasts or policy values. Validation: certified parity evidence.",
     "name": "get_scores",
     "parameters": {
       "properties": {
@@ -14972,7 +14972,7 @@
     }
   },
   {
-    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Proximal Causal Inference via linear 2SLS on the outcome bridge. Identifies ATE with unmeasured confounding using two proxy variables: a treatment-side Z (instrument for W) and an outcome-side W (endogenous bridge regressor). Validation: certified parity evidence.",
     "name": "proximal",
     "parameters": {
       "properties": {
@@ -15954,12 +15954,12 @@
     }
   },
   {
-    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: certified parity evidence.",
     "name": "clone_censor_weight",
     "parameters": {
       "properties": {
         "censor_covariates": {
-          "description": "Covariates used to estimate IP-of-censoring weights after cloning. Defaults to all non-key columns.",
+          "description": "Covariates used to estimate IP-of-censoring weights after cloning. Defaults to all non-key columns. An empty list fits no censoring model and every weight is 1. Include ``time_col`` here for a time-specific censoring hazard.",
           "items": {
             "type": "string"
           },
@@ -15977,7 +15977,7 @@
         },
         "stabilize": {
           "default": true,
-          "description": "Use stabilized IPC weights.",
+          "description": "Use stabilized IPC weights (each factor multiplied by the pooled share of at-risk rows that remain uncensored).",
           "type": "boolean"
         },
         "strategies": {
@@ -17319,7 +17319,7 @@
     }
   },
   {
-    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: certified parity evidence.",
     "name": "longitudinal_analyze",
     "parameters": {
       "properties": {
@@ -17403,7 +17403,7 @@
         },
         "trim": {
           "default": 0.01,
-          "description": "Weight truncation quantile (MSM/IPW paths).",
+          "description": "On the IPW path, propensity scores are clipped to ``[trim, 1 - trim]``; on the MSM path it is passed to :func:`sp.msm` as its ``trim``.",
           "type": "number"
         }
       },
@@ -17418,7 +17418,7 @@
     }
   },
   {
-    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: certified parity evidence.",
     "name": "longitudinal_contrast",
     "parameters": {
       "properties": {
@@ -19258,7 +19258,7 @@
     }
   },
   {
-    "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Decompose network spillover into inward (incoming edges to unit i) and outward (from i to neighbours) components. Validation: certified parity evidence.",
     "name": "inward_outward_spillover",
     "parameters": {
       "properties": {
@@ -20224,7 +20224,7 @@
     }
   },
   {
-    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
+    "description": "Gaussian process regression: nonparametric regression with closed-form posterior bands. RBF or Matern kernel, one length scale per regressor, hyperparameters by maximum marginal likelihood, constant mean estimated with its uncertainty. Validation: certified parity evidence. Do NOT use when: More than a few thousand observations: cost grows with n cubed; Jumps or kinks in the regression function: a stationary smooth kernel blurs them.",
     "name": "gp_regress",
     "parameters": {
       "properties": {
@@ -20411,7 +20411,7 @@
     }
   },
   {
-    "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
+    "description": "Add runs to an existing design so that the whole stays space-filling: a second batch, validation runs, or a design on an irregular region from feasible candidates. Greedy maximum projection or maximin (R MaxPro::MaxProAugment). Validation: certified parity evidence. Do NOT use when: The responses of the first batch should guide the second: use sp.sequential_design.",
     "name": "design_augment",
     "parameters": {
       "properties": {
@@ -20466,7 +20466,7 @@
     }
   },
   {
-    "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Space-filling measures of a design: maximin distance, reciprocal distance, MaxPro criterion, wrap-around and centered L2 discrepancy, fill distance, smallest projected gap, largest correlation, and energy distance to a target sample (R SFDesign maximin.crit / maxpro.crit / uniform.crit). Validation: certified parity evidence.",
     "name": "design_criteria",
     "parameters": {
       "properties": {
@@ -20499,7 +20499,7 @@
     }
   },
   {
-    "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
+    "description": "Full factorial design for factors with any number of levels, or a fraction: two-level 2^(k-m) from generators or by minimum-aberration search (with defining relation, resolution, word length pattern and alias structure; R FrF2), Plackett-Burman in 12 / 20 / 24 runs, regular fractions at 3, 5 or 7 levels, and the orthogonal array L18. For multi-factor experiments, conjoint and factorial survey designs. Validation: certified evidence with scoped limitations. Known limitations: Mixed-level fractions only as columns of L18; other mixed-level orthogonal arrays are not implemented; Minimum-aberration search only up to about 15 factors in 32 runs or 12 in 64; beyond that generators= is required.",
     "name": "factorial_design",
     "parameters": {
       "properties": {
@@ -20578,7 +20578,7 @@
     }
   },
   {
-    "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Generalized word length pattern, resolution and strength of any factorial design, regular or not, with factors at any number of levels: how badly main effects and interactions are confounded (R DoE.base::GWLP). Validation: certified parity evidence.",
     "name": "design_aberration",
     "parameters": {
       "properties": {
@@ -20605,7 +20605,7 @@
     }
   },
   {
-    "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
+    "description": "Main effects and interactions of a two-level factorial experiment, with Lenth's pseudo standard error, margins of error and p-values for unreplicated designs (simulated null as in R unrepx, or the t(m/3) approximation) and a half-normal plot. Aliased terms are detected and reported. Validation: certified parity evidence. Do NOT use when: Factors have more than two levels: fit the model with sp.regress; Half or more of the effects are real: Lenth's pseudo standard error is then inflated and nothing is detected.",
     "name": "factorial_effects",
     "parameters": {
       "properties": {
@@ -20663,7 +20663,7 @@
     }
   },
   {
-    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Design for factors that are shares summing to one (blends, budgets, portfolios, time use): simplex-lattice, simplex-centroid, or space-filling over the simplex or a constrained part of it (support points). Validation: certified parity evidence.",
     "name": "mixture_design",
     "parameters": {
       "properties": {
@@ -20728,7 +20728,7 @@
     }
   },
   {
-    "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
+    "description": "D-, A- or I-optimal design for a given model: where to put the runs so that the model is estimated most precisely. Linear models by formula, nonlinear models with parameters in braces (locally optimal at a guess, or averaged over a prior), logit and Poisson responses. Approximate designs (support points and weights, certified by the equivalence theorem) or exact n-run designs by exchange (R AlgDesign::optFederov, ICAOD). Validation: certified parity evidence. Do NOT use when: The functional form is in doubt: an optimal design puts the runs on a few support points and cannot detect lack of fit; The question is how many units to randomise in an RCT: that is sp.optimal_design / sp.power; A certified optimal exact design is required: the n-run search is a multi-start exchange without a guarantee (check .efficiency).",
     "name": "doe_optimal",
     "parameters": {
       "properties": {
@@ -20806,7 +20806,7 @@
     }
   },
   {
-    "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
+    "description": "Variance-based global sensitivity analysis of a model: first-order and total Sobol' indices of each input with bootstrap intervals (Jansen or Saltelli estimator, Sobol' sampling). Which parameters or assumptions drive the output of a structural model, simulator or fitted surrogate (R sensitivity::soboljansen). Validation: certified parity evidence. Do NOT use when: Sensitivity of a causal estimate to unobserved confounding is the question: that is sp.sensemakr / sp.evalue; Each model evaluation is expensive and there are many inputs: screen with sp.morris_screening first, or run the indices on a surrogate fitted by sp.gp_regress.",
     "name": "sobol_indices",
     "parameters": {
       "properties": {
@@ -20895,7 +20895,7 @@
     }
   },
   {
-    "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
+    "description": "Model-free ranking and selection of regressors by total Sobol' index, straight from data (FIRST): nearest-neighbour estimates of the conditional variance of the outcome with forward-backward selection. Sees non-linear effects and interactions; no model is fitted (R first::first). Validation: certified parity evidence. Do NOT use when: A causal effect is wanted: importance for prediction says nothing about what happens under intervention; More than about ten relevant factors: nearest neighbours degrade and weak factors are missed.",
     "name": "factor_importance",
     "parameters": {
       "properties": {
@@ -20947,7 +20947,7 @@
     }
   },
   {
-    "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Morris elementary-effects screening of a model's inputs with one-factor-at-a-time trajectories: mu, mu* and sigma per input from r (p + 1) runs. A cheap first pass before Sobol' indices (R sensitivity::morris). Validation: certified parity evidence.",
     "name": "morris_screening",
     "parameters": {
       "properties": {
@@ -21088,7 +21088,7 @@
     }
   },
   {
-    "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
+    "description": "Split data into training and test sets that both resemble the whole data set in joint distribution, outcome included: SPlit (support points) or twinning. Removes the luck of a random split from a measured test error (R SPlit, twinning::twin). Validation: certified parity evidence. Do NOT use when: The procedure relies on the two parts being independent random samples (cross-fitting in sp.dml, honest splitting in forests, sample-split inference): use a random split there.",
     "name": "split_data",
     "parameters": {
       "properties": {
@@ -27660,7 +27660,7 @@
     }
   },
   {
-    "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cluster-randomised trial under cross-cluster interference (Ding et al. 2025). Estimates direct + spillover effects when treatment of one cluster affects outcomes in adjacent clusters. Validation: certified parity evidence.",
     "name": "cluster_cross_interference",
     "parameters": {
       "properties": {
@@ -30620,7 +30620,7 @@
     }
   },
   {
-    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stopping boundaries and maximum-information inflation of a group sequential trial (Stata gsbounds / gsdesign): classical O'Brien-Fleming, Pocock and Wang-Tsiatis bounds or Lan-DeMets error spending (OBF-, Pocock-type, Kim-DeMets, Hwang-Shih-DeCani), efficacy and binding or nonbinding futility, one- or two-sided; .decision(z) applies the bounds to observed z. Validation: certified parity evidence.",
     "name": "group_sequential",
     "parameters": {
       "properties": {
@@ -62454,7 +62454,7 @@
     }
   },
   {
-    "description": "Compute optimal sample size and design parameters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute optimal sample size and design parameters. Validation: certified parity evidence.",
     "name": "optimal_design",
     "parameters": {
       "properties": {
@@ -75281,7 +75281,7 @@
     }
   },
   {
-    "description": "Emulate the target trial defined by ``protocol``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Emulate the target trial defined by ``protocol``. Validation: certified parity evidence.",
     "name": "target_trial_emulate",
     "parameters": {
       "properties": {
@@ -77305,7 +77305,7 @@
     }
   },
   {
-    "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
+    "description": "Matched-pair cluster RCT estimator (cluster-level DIM, pair-difference SE). Validation: certified parity evidence. Do NOT use when: assignment was not pair-randomised -- the matched-pair variance estimator does not apply.",
     "name": "cluster_matched_pair",
     "parameters": {
       "properties": {
@@ -78323,7 +78323,7 @@
     }
   },
   {
-    "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: certified parity evidence.",
     "name": "peer_effects",
     "parameters": {
       "properties": {
@@ -78370,7 +78370,7 @@
     }
   },
   {
-    "description": "Split conformal prediction with per-calibration-point weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Split conformal prediction with per-calibration-point weights. Validation: certified parity evidence.",
     "name": "weighted_conformal_prediction",
     "parameters": {
       "properties": {
@@ -78423,7 +78423,7 @@
     }
   },
   {
-    "description": "Prediction intervals for the counterfactual potential outcomes Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Prediction intervals for the counterfactual potential outcomes Validation: certified parity evidence.",
     "name": "conformal_counterfactual",
     "parameters": {
       "properties": {
@@ -78491,7 +78491,7 @@
     }
   },
   {
-    "description": "Conformal prediction intervals for the individual treatment Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Conformal prediction intervals for the individual treatment Validation: certified parity evidence.",
     "name": "conformal_ite_interval",
     "parameters": {
       "properties": {
@@ -79694,7 +79694,7 @@
     }
   },
   {
-    "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Double negative control estimator (Miao et al. 2018; Shi et al. 2020). Validation: certified parity evidence.",
     "name": "double_negative_control",
     "parameters": {
       "properties": {
@@ -79746,7 +79746,7 @@
     }
   },
   {
-    "description": "Regress outcome on a *negative-control exposure*. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Regress outcome on a *negative-control exposure*. Validation: certified parity evidence.",
     "name": "negative_control_exposure",
     "parameters": {
       "properties": {
@@ -79787,7 +79787,7 @@
     }
   },
   {
-    "description": "Lipsitch-style NCO calibration. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lipsitch-style NCO calibration. Validation: certified parity evidence.",
     "name": "negative_control_outcome",
     "parameters": {
       "properties": {
