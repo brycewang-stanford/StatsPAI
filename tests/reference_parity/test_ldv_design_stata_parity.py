@@ -81,11 +81,17 @@ def test_tobit_matches_stata(case: str) -> None:
     assert res.n_obs == int(ref["N"])
 
 
-def test_unweighted_loglik_matches_stata() -> None:
-    for case in ("left_oim", "two_oim"):
-        np.testing.assert_allclose(
-            _fit(case).model_info["log_likelihood"], _ref()[case]["ll"], rtol=1e-10
-        )
+@pytest.mark.parametrize("case", list(CASES))
+def test_loglik_matches_stata(case: str) -> None:
+    """Weighted cases report Stata's pseudo log likelihood, sum(w_i * ll_i).
+
+    Before 2026-11-06 only the unweighted cases were compared; the weighted
+    ones reported the likelihood under weights rescaled to sum to n
+    (-1178.80 instead of -1626.42 for ``left_pw``).
+    """
+    np.testing.assert_allclose(
+        _fit(case).model_info["log_likelihood"], _ref()[case]["ll"], rtol=1e-10
+    )
 
 
 def test_pweights_imply_robust_and_move_the_estimate() -> None:
@@ -170,11 +176,14 @@ def test_heckman_ml_matches_stata(case: str) -> None:
     assert res.model_info["n_selected"] == int(ref["N_selected"])
 
 
-def test_heckman_ml_loglik_matches_stata() -> None:
+@pytest.mark.parametrize(
+    "case", ["heckman_oim", "heckman_robust", "heckman_pw", "heckman_pw_cluster"]
+)
+def test_heckman_ml_loglik_matches_stata(case: str) -> None:
     np.testing.assert_allclose(
-        _heckman("heckman_oim").model_info["log_likelihood"],
-        _ref()["heckman_oim"]["ll"],
-        rtol=1e-12,
+        _heckman(case).model_info["log_likelihood"],
+        _ref()[case]["ll"],
+        rtol=1e-10,
     )
 
 

@@ -1713,7 +1713,7 @@
    "result_sha256": "a11c44c4bb53314cb1b4856ec5ed19ea977a546b9aaa0b5f3ee74a9ff6564d89"
   },
   "41_tobit": {
-   "seconds": 0.71,
+   "seconds": 3.77,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1729,7 +1729,7 @@
     "src/statspai/core/results.py": "4f4485e77637c803480b2af842b7cb44e1de6f49f61cba6b407215db08d33e58",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/regression/_optim_helpers.py": "c96d13611572465925d1a4bbbecfa5d304f8de442625768004bdc1d24e152d08",
-    "src/statspai/regression/tobit.py": "a489ac64d87cd8413944a88d86fc15f13ab4f0757fe87ae2f05db2ca6042861c"
+    "src/statspai/regression/tobit.py": "920144f468bf05affc828ef4e3c9e795568020933a2d5e6230e06de47df21d2c"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

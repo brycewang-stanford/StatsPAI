@@ -68,6 +68,13 @@ All notable changes to StatsPAI will be documented in this file.
   the weights rescaled to sum to n. They now report Stata's pseudo log
   likelihood, with the weights as given (-1417.80 instead of -1156.37 on
   the test fixture). Estimates and standard errors do not change.
+- ⚠️ **correctness fix: `sp.tobit` and `sp.heckman(method='ml')` with
+  `weights=`** had the same rescaling. They now report Stata's pseudo log
+  likelihood too (`tobit` -1626.42 instead of -1178.80, `heckman`
+  -2157.64 instead of -1563.82), both equal to Stata 18 to 1e-10. The
+  fixture `tests/reference_parity/_fixtures/ldv_design_stata.json` held
+  the weighted values all along; its test compared only the unweighted
+  ones. Estimates and standard errors do not change.
 
 - **⚠️ correctness fix: `sp.bacon_decomposition` returned a silent zero
   when the treatment is absorbed by the two-way effects.** With a

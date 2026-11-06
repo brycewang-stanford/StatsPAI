@@ -62,7 +62,7 @@ endogenous regressor are unchanged. There is no option to restore the old
 numbers.
 
 **⚠️ correctness fix: the log likelihood of `sp.intreg` / `sp.heckprobit`
-with `weights=`.** `model_info['log_likelihood']` is now Stata's pseudo log
+/ `sp.tobit` / `sp.heckman(method='ml')` with `weights=`.** `model_info['log_likelihood']` is now Stata's pseudo log
 likelihood, `sum(w_i * ll_i)` with the weights as given; it was the sum with
 the weights rescaled to sum to n. Multiply an old value by
 `sum(w) / n` to compare. Coefficients and standard errors are unchanged.

@@ -78,6 +78,10 @@ def heckman_ml(
     Y = np.where(sel, df[y].to_numpy(dtype=float, na_value=0.0), 0.0)
     kx, kz = X.shape[1], Z.shape[1]
 
+    # The fit uses weights rescaled to sum to n (the estimates and the
+    # sandwich do not depend on the scale); the reported pseudo log
+    # likelihood is Stata's sum of w_i * ll_i with the weights as given.
+    ll_scale = 1.0
     wt = np.ones(n)
     if weights is not None:
         wt = df[weights].to_numpy(dtype=float)
@@ -86,6 +90,7 @@ def heckman_ml(
                 "heckman: weights must be finite and strictly positive.",
                 diagnostics={"weights": weights},
             )
+        ll_scale = float(wt.sum() / n)
         wt = wt * (n / wt.sum())
 
     half_log_2pi = 0.5 * np.log(2 * np.pi)
@@ -180,7 +185,7 @@ def heckman_ml(
         "sigma": sigma,
         "lambda": lam,
         "lambda_se": se_lam,
-        "loglik": float(np.sum(obs_loglik(theta))),
+        "loglik": ll_scale * float(np.sum(obs_loglik(theta))),
         "n_total": n,
         "n_selected": int(sel.sum()),
         "converged": converged,

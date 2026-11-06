@@ -199,6 +199,10 @@ def tobit(
         )
     if method_key == "scls":
         return _tobit_scls(df, Y, X, y, list(x), ll, ul, cluster, weights, alpha)
+    # The fit uses weights rescaled to sum to n (the estimates and the
+    # sandwich do not depend on the scale); the reported pseudo log
+    # likelihood is Stata's sum of w_i * ll_i with the weights as given.
+    ll_scale = 1.0
     wt = np.ones(n)
     if weights is not None:
         wt = df[weights].to_numpy(dtype=float)
@@ -207,6 +211,7 @@ def tobit(
                 "tobit: weights must be finite and strictly positive.",
                 diagnostics={"weights": weights},
             )
+        ll_scale = float(wt.sum() / n)
         wt = wt * (n / wt.sum())
 
     if ul is None:
@@ -351,7 +356,7 @@ def tobit(
         "censor_pct": round(n_censored / n * 100, 1),
         "lower_limit": ll,
         "upper_limit": ul if np.isfinite(ul) else None,
-        "log_likelihood": float(-result.fun),
+        "log_likelihood": ll_scale * float(-result.fun),
         "converged": converged,
         "gradient_norm": grad_norm,
         "vce": se_kind,
