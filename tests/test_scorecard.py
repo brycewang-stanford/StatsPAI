@@ -77,16 +77,21 @@ def test_coverage_verdicts_follow_the_committed_rates(scorecard):
 
 
 def test_speed_rows_use_the_reference_compare_perf_declares(scorecard):
-    spec = importlib.util.spec_from_file_location(
-        "statspai_compare_perf_for_tests",
-        REPO_ROOT / "tests" / "perf" / "compare_perf.py",
+    # Read ESTIMATORS without importing compare_perf: importing it creates
+    # Paper-JSS/manuscript/{tables,figures}, and in a worktree that empty
+    # tree turns the JSS tests' designed skips into failures.
+    import ast
+
+    tree = ast.parse(
+        (REPO_ROOT / "tests" / "perf" / "compare_perf.py").read_text(encoding="utf-8")
     )
-    compare_perf = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = compare_perf
-    spec.loader.exec_module(compare_perf)
-    declared = {
-        stem: meta.get("ref_side", "R")
-        for stem, meta in compare_perf.ESTIMATORS.items()
-    }
+    node = next(
+        n.value
+        for n in tree.body
+        if isinstance(n, ast.Assign)
+        and any(getattr(t, "id", None) == "ESTIMATORS" for t in n.targets)
+    )
+    estimators = ast.literal_eval(node)
+    declared = {stem: meta.get("ref_side", "R") for stem, meta in estimators.items()}
     for stem, _label, _ref, side in scorecard.PERF_MODULES:
         assert declared[stem] == side, stem
