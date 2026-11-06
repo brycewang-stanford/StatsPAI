@@ -99,9 +99,11 @@ import importlib
 import inspect as _inspect
 import sys
 from types import ModuleType
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 import numpy as np
+
+from .._input_validation import checks_input
 
 # ─── Weak-identification diagnostics ────────────────────────────────────
 from ..diagnostics.weak_iv import (
@@ -313,12 +315,14 @@ def _iv_provenance(
 _FORMULA_METHODS = frozenset({"2sls", "liml", "fuller", "gmm", "jive"})
 
 
+@checks_input("iv", outcome=("formula", "y"))
 def _dispatch(
     formula: Optional[str] = None,
     data: Any = None,
     *,
     method: str = "2sls",
     augmented_diagnostics: bool = True,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> Any:
     """
@@ -342,6 +346,11 @@ def _dispatch(
     **kwargs
         Method-specific options (e.g. ``fuller_alpha=4`` for Fuller,
         ``bandwidth=`` for Kernel IV, ``n_folds=`` for IVDML).
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

@@ -153,6 +153,40 @@ the weights rescaled to sum to n. Multiply an old value by
 
 ---
 
+## 1.42 → next: ⚠️ shared input checks and `missing=` on the core estimators
+
+The 25 core estimators (`regress` ... `aipw`, list in
+`docs/guides/missing_values.md`) gain `missing="drop" | "raise"`. The
+default `"drop"` is the old behaviour. Clean data give the same numbers.
+Inputs that used to give a wrong number now raise or warn.
+
+- ⚠️ `inf` in a used column raises `DataInsufficient` in `poisson`,
+  `ivreg`, `iv`, `qreg`, `tobit`, `heckman`, `event_study`, `match`, `ipw`
+  and `aipw` too. Recode with `df.replace([np.inf, -np.inf], np.nan)` to
+  have those rows dropped.
+- ⚠️ A cluster variable with one value raises `DataInsufficient` in every
+  core estimator (`tobit` and `rdrobust` returned near-zero standard
+  errors).
+- ⚠️ `sp.did(..., cluster=c)` on the staggered path now clusters on `c`;
+  it used to cluster on the unit whatever was passed. Drop `cluster=` to
+  get the unit-clustered errors.
+- ⚠️ `sp.panel(method="fe")` raises when the fixed effects absorb every
+  regressor.
+- ⚠️ `sp.heckman`, `sp.aipw`, `sp.callaway_santanna`, `sp.sun_abraham`
+  and `sp.did` omit a regressor or covariate that is perfectly collinear
+  with the others, with a note. The estimate is the one without it.
+  `sp.ivreg` / `sp.iv` do the same for exogenous regressors instead of
+  raising `LinAlgError`.
+- Errors that were bare (`ValueError`, `TypeError`, `LinAlgError`,
+  `ZeroDivisionError`) on zero rows, an all-missing column, a text outcome,
+  a non-binary `logit` outcome or a collinear `rdrobust` covariate are
+  now `DataInsufficient`, `MethodIncompatibility` or
+  `IdentificationFailure`. All three are `ValueError`s, so `except
+  ValueError` still catches them; code that caught `TypeError` or
+  `LinAlgError` must catch `sp.StatsPAIError` instead.
+
+---
+
 ## 1.42 → next: ⚠️ input hygiene (rOpenSci standards audit)
 
 Inputs that used to give a wrong number without a signal now raise or

@@ -25,14 +25,14 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 """
 
 import warnings
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import missing_named_columns
+from .._input_validation import checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_binary_treatment
@@ -75,6 +75,7 @@ def _cluster_fold_ids(
 @records_call("aipw")
 @accepts_aliases(_strict=True, controls="covariates")
 @accepts_vce(default="robust", native={"robust": {"se_method": "influence"}})
+@checks_input("aipw", outcome=("y",))
 @_expands_categorical("covariates")
 def aipw(
     data: pd.DataFrame,
@@ -95,6 +96,8 @@ def aipw(
     design: Optional[Any] = None,
     ps_learner: Optional[Any] = None,
     outcome_learner: Optional[Any] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -251,6 +254,11 @@ def aipw(
         (``cross_fit=False`` warns: flexible learners fitted and evaluated
         on the same rows bias the estimate); ``se_method='sandwich'`` is
         refused.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------
@@ -397,7 +405,20 @@ def aipw(
     df = data[used_cols].dropna()
     Y = df[y].values.astype(float)
     D = _treatment_as_float(df[treat], function="aipw")
-    X = df[covariates].values.astype(float)
+    # A constant or perfectly collinear covariate made the propensity logit
+    # singular, and the fit fell back to a constant propensity (an
+    # outcome-regression estimate with an invalid SE). Omit the later member
+    # of each dependent set, as sp.ipw does; the parametric nuisance fits
+    # span the same column space, so their predictions are unchanged.
+    collinear_omitted: List[Dict[str, str]] = []
+    x_cols = list(covariates)
+    if ps_learner is None and outcome_learner is None and x_cols:
+        from ..core._collinear import drop_collinear_names
+
+        x_cols, collinear_omitted = drop_collinear_names(
+            df, x_cols, "aipw", stacklevel=4
+        )
+    X = df[x_cols].values.astype(float)
     n = len(Y)
 
     require_binary_treatment(D, function="aipw", argument=treat)
@@ -735,6 +756,8 @@ def aipw(
         # estimate is not reproducible by re-running.
         "seed": seed,
     }
+    if collinear_omitted:
+        model_info["omitted"] = collinear_omitted
     if svy is not None:
         from ..survey.linearization import design_info
 

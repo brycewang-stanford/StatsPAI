@@ -420,6 +420,75 @@ Deprecated in 1.42 with 1.43 as the stated removal version.
   `iv_wild_bootstrap` aligned); `sp.ibragimov_mueller`, which no package
   implements, is pinned to its closed form (analytical-only).
 
+### Added (missing-data option and edge-case contract, rOpenSci audit gaps 4 and 16)
+
+- **`missing="drop" | "raise"` on 25 core estimators.** `regress`,
+  `logit`, `probit`, `poisson`, `glm`, `ivreg`, `iv`, `feols`, `fepois`,
+  `feglm`, `qreg`, `tobit`, `heckman`, `did`, `callaway_santanna`,
+  `sun_abraham`, `did_imputation`, `event_study`, `rdrobust`, `synth`,
+  `dml`, `panel`, `match`, `ipw` and `aipw`. The default `"drop"` keeps
+  listwise deletion. `"raise"` refuses data with a missing value in a used
+  column (outcome, regressors, weights, cluster) with a `DataInsufficient`
+  that names each column and its count. A missing cohort in a staggered
+  DiD and an unselected outcome in `heckman` are not counted. One shared
+  implementation, `_input_validation.checks_input`, which also runs the
+  checks below. `clean_frame(missing=)` takes the same option. Guide:
+  `docs/guides/missing_values.md`.
+- **Shared input checks before every one of these fits.** Zero rows, a
+  used column with no value, a text outcome, a single cluster and `inf`
+  now give one typed error with a recovery hint each, where several
+  estimators raised numpy, pandas or sklearn errors (`max() arg is an
+  empty sequence`, `could not convert string to float`, `operands could
+  not be broadcast`, `ZeroDivisionError`).
+- `tests/test_edge_case_contract.py` runs these inputs, constant and
+  duplicated covariates, 1e-13 noise on the outcome and exact fits over
+  the 25 estimators. Each cell asserts a typed refusal or a result equal
+  to a known truth or identity.
+
+### Fixed (found by the edge-case contract)
+
+- ⚠️ **`inf` reached nine more estimators.** `poisson`, `ivreg` / `iv`,
+  `qreg`, `tobit`, `event_study`, `match`, `ipw` and `aipw` returned NaN or
+  `inf` with numpy warnings, and `heckman` returned a changed estimate
+  without a word. They now raise `DataInsufficient` like the rest.
+- ⚠️ **A single cluster is refused everywhere.** `tobit` and `rdrobust`
+  returned standard errors of about 1e-15 with one cluster.
+- ⚠️ **`sp.did(cluster=)` on the staggered (Callaway-Sant'Anna) path was
+  ignored.** The standard errors stayed clustered on the unit. `cluster=`
+  is now passed on as `clustervars=`, so the result equals
+  `sp.callaway_santanna(clustervars=)`. Calls without `cluster=` are
+  unchanged.
+- ⚠️ **`sp.panel(method="fe")` with every regressor absorbed** by the
+  fixed effects reported the grand mean of the outcome under the
+  regressor's name. It now raises `MethodIncompatibility`.
+- ⚠️ **`sp.heckman` with a constant or duplicated regressor** split one
+  coefficient over the dependent columns (the minimum-norm solution). The
+  later member of each dependent set is now omitted with a note in each
+  equation, as Stata's `heckman` does, and listed in
+  `model_info["omitted"]`. Rows dropped for a missing regressor are
+  announced; they used to go silently.
+- ⚠️ **`sp.aipw` with a duplicated covariate** fell back to a constant
+  propensity (a regression-adjustment estimate with an invalid standard
+  error). Collinear covariates are now omitted as in `sp.ipw`.
+- ⚠️ **`sp.callaway_santanna` / `sp.sun_abraham` (and `sp.did`) with a
+  covariate that duplicates another** returned whatever the
+  rank-deficient solve gave (2.224 against 2.249 on the test panel). The
+  later covariate is now omitted with a note
+  (`did._core.independent_covariates`).
+- `sp.ivreg` / `sp.iv` omit a constant or collinear exogenous regressor
+  with a note instead of failing with numpy's `LinAlgError`; an
+  endogenous regressor that the exogenous ones reproduce raises
+  `IdentificationFailure`.
+- `sp.feglm(family="logit" | "probit")` warns on complete separation, as
+  `sp.logit` does. Slopes of several hundred came back without a word.
+- `sp.qreg` and `sp.tobit` announce rows dropped for missing values and
+  record provenance.
+- Typed errors in place of bare ones: a non-binary `logit` / `probit`
+  outcome (`MethodIncompatibility`), a `rdrobust` covariate collinear with
+  the running-variable polynomial (`IdentificationFailure`), and
+  pyfixest's "dependent variable must ..." in the fixest wrappers. All are
+  still `ValueError`s.
+
 ### Fixed (input hygiene, rOpenSci standards audit)
 
 - ⚠️ **One rule for `inf` in the data.** The same data used to give five

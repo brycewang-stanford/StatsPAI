@@ -19,14 +19,14 @@ Heckman, J.J. (1979).
 """
 
 import warnings
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns
+from .._input_validation import check_columns, checks_input
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
@@ -35,6 +35,7 @@ from ._limited_dep_result import LimitedDepResult
 
 @records_call("heckman")
 @accepts_aliases(robust="vce")
+@checks_input("heckman", outcome=("y",), nan_ok=("y",))
 def heckman(
     data: pd.DataFrame,
     y: str,
@@ -46,6 +47,8 @@ def heckman(
     vce: Optional[str] = None,
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Heckman (1979) two-step selection model.
@@ -86,6 +89,12 @@ def heckman(
     weights : str, optional
         ``method='ml'`` only: sampling weights (``[pw=]``), which imply
         robust standard errors as in Stata.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing outcome marks an unselected row and is not counted.
 
     Returns
     -------
@@ -194,6 +203,7 @@ def heckman(
             "observed), 0 = not selected; missing codes are dropped.",
             diagnostics={"select": select, "values": np.unique(d_seen).tolist()[:6]},
         )
+    x, z, omitted = _heckman_usable_design(df, y, list(x), select, list(z))
 
     # --- Step 1: Probit selection equation ---
     Z = np.column_stack([np.ones(n_total)] + [df[v].values.astype(float) for v in z])
@@ -364,6 +374,8 @@ def heckman(
         "rho_two_step": rho_two_step,
         "rho_truncated": bool(rho_truncated),
     }
+    if omitted:
+        model_info["omitted"] = omitted
     # the first step, which Stata prints as the `select` equation
     se_gamma = np.sqrt(np.maximum(np.diag(V_gamma), 0.0))
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -408,6 +420,74 @@ def heckman(
         "nobs": int(n_total),
     }
     return res
+
+
+def _heckman_usable_design(
+    df: pd.DataFrame, y: str, x: List[str], select: str, z: List[str]
+) -> Tuple[List[str], List[str], List[dict]]:
+    """Announce the rows each equation drops and omit collinear regressors.
+
+    The selection probit uses the rows where ``select`` and every ``z`` are
+    observed; the outcome regression uses the selected rows where ``y`` and
+    every ``x`` are observed. A missing outcome on an unselected row is the
+    design, not a dropped row. Rows dropped for any other missing value were
+    left out without a word, and a constant or perfectly collinear regressor
+    gave the minimum-norm least-squares split of one coefficient over the
+    dependent columns (two equal "estimates" for a constant and the
+    intercept). Both are now reported, and the later member of a dependent
+    set is omitted, as Stata's heckman does.
+    """
+    from ..core._collinear import drop_collinear_names
+
+    sel_cols = [select] + [c for c in z if c != select]
+    usable_s = df[sel_cols].notna().all(axis=1)
+    selected = usable_s & (pd.to_numeric(df[select], errors="coerce") == 1)
+    out_cols = [y] + [c for c in x if c != y]
+    usable_o = selected & df[out_cols].notna().all(axis=1)
+    n_drop = int((~usable_s).sum() + (selected & ~usable_o).sum())
+    if n_drop:
+        by_column = {
+            c: int(n) for c, n in df.loc[~usable_s, sel_cols].isna().sum().items() if n
+        }
+        for c, n in df.loc[selected & ~usable_o, out_cols].isna().sum().items():
+            if n:
+                by_column[c] = by_column.get(c, 0) + int(n)
+        warnings.warn(
+            AssumptionWarning(
+                f"heckman: {n_drop} of {len(df)} rows dropped for missing "
+                f"values (listwise deletion) -- by column: {by_column}. A "
+                "missing outcome on an unselected row is not counted.",
+                recovery_hint=(
+                    "Estimates use complete cases only, which is unbiased only "
+                    "if missingness is unrelated to the outcome given the "
+                    "model's variables. Impute with sp.mice to check, or pass "
+                    "missing='raise' to refuse incomplete rows."
+                ),
+                diagnostics={
+                    "n_rows_dropped_missing": n_drop,
+                    "missing_by_column": by_column,
+                },
+            ),
+            stacklevel=4,
+        )
+    z_kept, z_omitted = drop_collinear_names(
+        df.loc[usable_s], z, "heckman (selection equation)", stacklevel=4
+    )
+    x_kept, x_omitted = drop_collinear_names(
+        df.loc[usable_o], x, "heckman (outcome equation)", stacklevel=4
+    )
+    if x and not x_kept:
+        raise MethodIncompatibility(
+            "heckman: every regressor of the outcome equation is collinear "
+            f"with the constant ({x}), so no slope is identified.",
+            recovery_hint="Pass at least one x= variable that varies across "
+            "the selected rows.",
+            diagnostics={"omitted": x_omitted},
+        )
+    omitted = [dict(o, equation="selection") for o in z_omitted] + [
+        dict(o, equation="outcome") for o in x_omitted
+    ]
+    return x_kept, z_kept, omitted
 
 
 def _heckman_ml_result(

@@ -20,7 +20,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 """
 
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,11 +28,12 @@ from scipy import stats
 from scipy.optimize import linprog
 
 from .._aliases import accepts_formula_first
-from .._input_validation import check_columns, missing_named_columns
+from .._input_validation import check_columns, checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core._fitted_series import StoredFitMixin
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import ColumnNotFound, MethodIncompatibility
+from ..output._lineage import records_provenance
 
 
 def _as_float_array(value: object) -> np.ndarray:
@@ -93,6 +94,8 @@ class QuantileRegressionResult(StoredFitMixin, CausalResult):
 
 @records_call("qreg")
 @accepts_formula_first()
+@checks_input("qreg", outcome=("formula", "y"))
+@records_provenance("sp.qreg")
 def qreg(
     data: pd.DataFrame,
     formula: Optional[str] = None,
@@ -104,6 +107,8 @@ def qreg(
     cluster: Optional[str] = None,
     kernel_scale: str = "mad",
     weights: Optional[object] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Quantile regression at a single quantile.
@@ -181,6 +186,11 @@ def qreg(
         sparsity has no meaning for a weighted sample (Stata ``qreg``
         switches to ``vce(robust)`` under ``pweight`` for the same reason).
         Weights must be positive; rows with a missing weight are dropped.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

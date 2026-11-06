@@ -27,14 +27,14 @@ from __future__ import annotations
 
 import numbers
 import warnings
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Literal, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import missing_named_columns
+from .._input_validation import checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_binary_treatment
@@ -61,6 +61,7 @@ from .basic_tests import _check_alpha
         "bootstrap": {"se_method": "bootstrap"},
     },
 )
+@checks_input("ipw", outcome=("y",))
 @_expands_categorical("covariates")
 def ipw(
     data: pd.DataFrame,
@@ -82,6 +83,8 @@ def ipw(
     ps_learner: Optional[Any] = None,
     cross_fit: bool = True,
     n_folds: int = 5,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -217,6 +220,11 @@ def ipw(
         stays in that unit's fold.
     n_folds : int, default 5
         Number of cross-fitting folds (at least 2), drawn from ``seed``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

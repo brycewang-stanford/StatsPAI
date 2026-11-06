@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
@@ -48,6 +49,7 @@ from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import covariates_from_formula as _covariates_from_formula
 from ._core import drop_unusable_rows as _drop_unusable_rows
+from ._core import independent_covariates as _independent_covariates
 from ._core import influence_se_did
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import normalize_se_method as _normalize_se_method
@@ -256,6 +258,7 @@ def _require_columns(
 @accepts_vce(
     default=None, cluster="clustervars", native={"bootstrap": {"bstrap": True}}
 )
+@checks_input("callaway_santanna", outcome=("y",), nan_ok=("g",), inf_ok=("g",))
 @_calendar_time_aware(time="t", cohort="g")
 @_expands_categorical("x")
 @_conv.track_explicit
@@ -290,6 +293,8 @@ def callaway_santanna(
     variance_convention: Literal["delta", "reference"] = "delta",
     always_treated: Literal["drop", "error"] = "drop",
     parity: Optional[Literal["r", "stata"]] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -563,6 +568,12 @@ def callaway_santanna(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing cohort ``g`` means never treated and is not counted.
 
     Returns
     -------
@@ -915,6 +926,7 @@ def callaway_santanna(
         columns=[y, t, i, *(x or [])],
         function="callaway_santanna",
     )
+    x = _independent_covariates(data, x, function="callaway_santanna")
     data = _never_treated_beyond_horizon(data, g, t)
     if panel:
         # R `did` stops on a cohort that varies within a unit; the reshape

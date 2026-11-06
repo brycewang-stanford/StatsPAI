@@ -20,11 +20,12 @@ underlying module — not this file.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 import pandas as pd
 
 from ._aliases import accepts_aliases
+from ._input_validation import checks_input
 from .core._covariates import expands_categorical_covariates as _expands_categorical
 from .core.results import CausalResult
 from .dml.oof import OOFPredictions
@@ -1103,6 +1104,7 @@ def policy_tree(
 
 
 @accepts_aliases(_strict=True, controls="covariates", weights="sample_weight")
+@checks_input("dml", outcome=("y",))
 @_expands_categorical("covariates", "X")
 def dml(
     data: pd.DataFrame,
@@ -1119,6 +1121,7 @@ def dml(
     store_oof: bool = False,
     observation_ids: Optional[Sequence[str]] = None,
     design: Optional[Any] = None,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> CausalResult:
     """Double/Debiased Machine Learning — article-facing alias.
@@ -1153,6 +1156,15 @@ def dml(
     predictions are accepted when the explicit partition is equivalent for
     every repeat. ``observation_ids`` and the other two controls are Python-only
     and omitted from callable JSON/MCP schemas.
+
+    Parameters
+    ----------
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
+    Other parameters: see :func:`statspai.dml.dml`.
 
     Notes
     -----

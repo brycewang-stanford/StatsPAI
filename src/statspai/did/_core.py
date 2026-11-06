@@ -691,6 +691,53 @@ def long_difference(
 # ----------------------------------------------------------------------
 
 
+def independent_covariates(
+    data: pd.DataFrame,
+    covariates: Optional[Sequence[str]],
+    *,
+    function: str,
+    stacklevel: int = 4,
+) -> Optional[List[str]]:
+    """The covariates that add information, the later member of each
+    perfectly collinear set omitted with a note (as Stata does).
+
+    A covariate that duplicates another (``x2 = 2 * x1``) made the
+    propensity logit and the outcome regressions rank deficient, and the
+    DR estimate was whatever the solver returned, not the fit on the
+    independent covariates. Constant covariates are left alone: the
+    regressions already absorb them in their intercept. ``data`` holds the
+    usable rows (after :func:`drop_unusable_rows`).
+    """
+    if not covariates or isinstance(covariates, str) or len(covariates) < 2:
+        return covariates
+    from ..core._collinear import independent_columns
+
+    cols = [str(c) for c in covariates]
+    X = data[cols].to_numpy(dtype=float)
+    centred = X - X.mean(axis=0)
+    varying = [j for j in range(len(cols)) if np.any(np.abs(centred[:, j]) > 0)]
+    if len(varying) < 2:
+        return covariates
+    keep, omitted = independent_columns(
+        np.column_stack([np.ones(len(X)), X[:, varying]]),
+        ["_cons"] + [cols[j] for j in varying],
+    )
+    if not omitted:
+        return covariates
+    gone = {o["variable"] for o in omitted}
+    warnings.warn(
+        f"{function}: "
+        + "; ".join(
+            f"note: {o['variable']} omitted because of collinearity ({o['reason']})"
+            for o in omitted
+        )
+        + ". The estimate is the one with the remaining covariates.",
+        UserWarning,
+        stacklevel=stacklevel,
+    )
+    return [c for c in covariates if str(c) not in gone]
+
+
 def drop_unusable_rows(
     data: pd.DataFrame,
     *,

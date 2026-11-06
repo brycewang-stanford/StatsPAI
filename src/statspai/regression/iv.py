@@ -31,12 +31,13 @@ References
 import re
 import warnings
 import zlib
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
@@ -1483,6 +1484,71 @@ class IVRegression(BaseModel):
         self._instrument_names = instrument_names
         self._clean_data = clean
 
+    def _omit_collinear_regressors(
+        self, X_exog: Any, X_endog: Any
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Omit dependent exogenous regressors; refuse a dependent endogenous one.
+
+        A constant regressor next to the intercept, or one that is a linear
+        combination of the others, made the cross-product singular and the
+        fit stop in numpy's ``LinAlgError``. The later member of each
+        dependent exogenous set is now omitted with a note, as Stata's
+        ``ivregress`` does; an endogenous regressor the exogenous ones
+        reproduce has no identified coefficient and is refused.
+        """
+        from ..core._collinear import independent_columns
+
+        X_exog = np.asarray(X_exog, dtype=float)
+        X_endog = np.asarray(X_endog, dtype=float)
+        names = list(self._exog_names) or [f"exog{i}" for i in range(X_exog.shape[1])]
+        if X_exog.ndim == 2 and X_exog.shape[1] > 1 and len(names) == X_exog.shape[1]:
+            keep, omitted = independent_columns(X_exog, names)
+            if omitted:
+                warnings.warn(
+                    "iv: "
+                    + "; ".join(
+                        f"note: {o['variable']} omitted because of collinearity "
+                        f"({o['reason']})"
+                        for o in omitted
+                    )
+                    + ". The remaining coefficients are identified; the "
+                    "omitted one is not.",
+                    UserWarning,
+                    stacklevel=4,
+                )
+                X_exog = X_exog[:, keep]
+                self.X_exog = X_exog
+                self._exog_names = [names[j] for j in keep]
+                self._omitted_regressors = [dict(o) for o in omitted]
+        endog_names = list(self._endog_names) or [
+            f"endog{i}" for i in range(X_endog.shape[1])
+        ]
+        if (
+            X_endog.ndim == 2
+            and X_endog.shape[1]
+            and len(endog_names) == X_endog.shape[1]
+        ):
+            full = np.column_stack([X_exog, X_endog])
+            labels = list(self._exog_names) + endog_names
+            k_exog = X_exog.shape[1]
+            _, omitted = independent_columns(full, labels)
+            dependent = [o for o in omitted if o["variable"] in endog_names]
+            if dependent:
+                from ..exceptions import IdentificationFailure
+
+                raise IdentificationFailure(
+                    "iv: the endogenous regressor(s) "
+                    f"{[o['variable'] for o in dependent]} are "
+                    "perfectly collinear with the other regressors "
+                    f"({dependent[0]['reason']}), so their coefficients are "
+                    "not identified.",
+                    recovery_hint="Drop the exogenous regressor that "
+                    "reproduces the endogenous one, or check how the "
+                    "endogenous variable was built.",
+                    diagnostics={"collinear": dependent, "n_exog": int(k_exog)},
+                )
+        return X_exog, X_endog
+
     def fit(
         self,
         robust: Any = "nonrobust",
@@ -1720,6 +1786,10 @@ class IVRegression(BaseModel):
                     "has_Z": Z_fit is not None,
                 },
             )
+
+        X_exog_fit, X_endog_fit = self._omit_collinear_regressors(
+            X_exog_fit, X_endog_fit
+        )
 
         # Excluded instruments that add nothing to the ones before them
         # (a full set of quarter-by-year cells next to the year dummies):
@@ -3413,6 +3483,7 @@ _IV_WILD_VCOV = frozenset({"wild", "wildbootstrap", "wild_cluster", "wre", "boot
 
 
 @records_call("ivreg")
+@checks_input("ivreg", outcome=("formula",))
 @markout_clusters
 def ivreg(
     formula: str,
@@ -3428,6 +3499,7 @@ def ivreg(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -3460,6 +3532,11 @@ def ivreg(
         With ``vce="conley"``: the distance cutoff in km for the Conley
         spatial HAC standard errors (uniform kernel, Stata ``acreg``
         compatible). Required for that ``vce``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

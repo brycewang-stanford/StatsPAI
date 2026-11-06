@@ -50,6 +50,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -205,6 +206,7 @@ def _coerce_optional_column_list(columns: Any, name: str) -> Optional[List[str]]
 
 
 @accepts_aliases(treat="treatment", _strict=True, id="unit")
+@checks_input("synth", outcome=("outcome", "y"))
 def synth(
     data: pd.DataFrame,
     outcome: Optional[str] = None,
@@ -220,6 +222,8 @@ def synth(
     inference: Optional[str] = None,
     treatment: Optional[str] = None,
     y: Optional[str] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> CausalResult:
     """Public ``sp.synth`` entry point — see ``_dispatch_synth_impl`` for
@@ -231,6 +235,15 @@ def synth(
     the call (function name, args, data hash) without each individual
     SCM backend having to opt in. The 20-method dispatcher itself
     lives in :func:`_dispatch_synth_impl`.
+
+    Parameters
+    ----------
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
+    Other parameters are described in the dispatcher's docstring.
 
     References
     ----------

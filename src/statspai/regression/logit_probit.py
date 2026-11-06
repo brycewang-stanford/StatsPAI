@@ -23,7 +23,7 @@ Hosmer, D.W. & Lemeshow, S. (2000).
 
 import functools
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -31,6 +31,7 @@ from scipy import stats
 from scipy.special import expit as _expit
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
@@ -812,9 +813,15 @@ def _fit_binary(
                 diagnostics={"n_obs": int(len(y_vec))},
             )
         else:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"Dependent variable must be binary (0/1). "
-                f"Found values: {unique_vals[:10]}"
+                f"Found values: {unique_vals[:10]}",
+                recovery_hint="Recode the outcome as 0/1 (e.g. "
+                "(data[y] > threshold).astype(int)). A two-level outcome "
+                "stored as 1/2 or as labels must be mapped to 0/1 first; for "
+                "a fractional outcome in [0, 1] use sp.fracreg, for counts "
+                "sp.poisson.",
+                diagnostics={"values": [float(v) for v in unique_vals[:10]]},
             )
 
     n, k = X_mat.shape
@@ -1246,6 +1253,7 @@ def _bound_classification_table(
 
 @records_call("logit")
 @accepts_aliases(vce="robust")
+@checks_input("logit", outcome=("formula", "y"))
 @records_provenance("sp.logit")
 @markout_clusters
 def logit(
@@ -1265,6 +1273,8 @@ def logit(
     perfect_prediction: str = "drop",
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -1335,6 +1345,11 @@ def logit(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------
@@ -1391,6 +1406,7 @@ def logit(
 
 @records_call("probit")
 @accepts_aliases(vce="robust")
+@checks_input("probit", outcome=("formula", "y"))
 @records_provenance("sp.probit")
 @markout_clusters
 def probit(
@@ -1409,6 +1425,8 @@ def probit(
     perfect_prediction: str = "drop",
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -1477,6 +1495,11 @@ def probit(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

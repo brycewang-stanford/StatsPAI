@@ -14,13 +14,14 @@ References
 
 import re
 import warnings
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Literal, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
@@ -2057,6 +2058,7 @@ class GLMRegression(BaseModel):
 
 @records_call("glm")
 @accepts_aliases(vce="robust")
+@checks_input("glm", outcome=("formula", "y"))
 @records_provenance("sp.glm")
 @markout_clusters
 def glm(
@@ -2077,6 +2079,8 @@ def glm(
     information: str = "observed",
     scale: Optional[Union[str, float]] = None,
     weights_as: Optional[str] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> EconometricResults:
     """
     Fit a Generalized Linear Model.
@@ -2171,6 +2175,11 @@ def glm(
         the estimated dispersion, the coefficients are unchanged. It
         cannot be combined with a robust or clustered covariance, which
         does not rely on the variance function at all.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

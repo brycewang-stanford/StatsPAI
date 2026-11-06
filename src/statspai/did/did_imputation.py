@@ -15,7 +15,7 @@ Borusyak, K., Jaravel, X. and Spiess, J. (2024).
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,7 @@ from scipy import sparse, stats
 from scipy.sparse.linalg import lsqr
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, missing_named_columns
+from .._input_validation import check_columns, checks_input, missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
@@ -130,6 +130,9 @@ def _raise_missing(df: pd.DataFrame, columns: Dict[str, Any], what: str) -> None
     g="first_treat",
     seed="boot_seed",
 )
+@checks_input(
+    "did_imputation", outcome=("y",), nan_ok=("first_treat",), inf_ok=("first_treat",)
+)
 @_calendar_time_aware(time="time", cohort="first_treat")
 @_expands_categorical("controls")
 def did_imputation(
@@ -160,6 +163,8 @@ def did_imputation(
     weights: Optional[str] = None,
     autosample: bool = False,
     shift: int = 0,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Borusyak, Jaravel & Spiess (2024) imputation DID estimator.
@@ -384,6 +389,12 @@ def did_imputation(
         residuals ``y - ŷ⁰`` in ``model_info['residuals']`` (aligned
         with the rows of ``data``; ``NaN`` on treated rows, whose
         ``y - ŷ⁰`` is the treatment effect, not a residual).
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing ``first_treat`` means never treated and is not counted.
 
     Returns
     -------

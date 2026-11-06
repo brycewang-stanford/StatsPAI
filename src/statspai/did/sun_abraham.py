@@ -49,7 +49,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns
+from .._input_validation import check_columns, checks_input
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
@@ -59,6 +59,7 @@ from . import _crit
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
+from ._core import independent_covariates as _independent_covariates
 from ._sa_sample import drop_unidentified_cohorts as _drop_unidentified_cohorts
 from ._sa_sample import resolve_reference_periods as _resolve_reference_periods
 from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
@@ -299,6 +300,7 @@ def _resolve_control_cohort(
     controls="covariates",
 )
 @accepts_vce(default="cluster")
+@checks_input("sun_abraham", outcome=("y",), nan_ok=("g",), inf_ok=("g",))
 @_calendar_time_aware(time="t", cohort="g", numeric_gaps=True)
 @_expands_categorical("covariates")
 def sun_abraham(
@@ -323,6 +325,8 @@ def sun_abraham(
     ref_p: Optional[Any] = None,
     parity: Optional[Literal["r", "stata"]] = None,
     crit_dist: Optional[Literal["t", "normal"]] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -502,6 +506,12 @@ def sun_abraham(
         Counted over the leads that exist, not by literal event time:
         ℓ = −1 is the omitted reference, so on a panel whose leads are
         −4, −3, −2 the value ``2`` selects ``[-3, -2]``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing cohort ``g`` means never treated and is not counted.
 
     Returns
     -------
@@ -578,6 +588,7 @@ def sun_abraham(
         columns=[y, t, *([i] if i is not None else []), *(covariates or [])],
         function="sun_abraham",
     )
+    covariates = _independent_covariates(df, covariates, function="sun_abraham")
     # rows the fit can use (n_obs counted the dropped missing rows too)
     n_usable = len(df)
     if i is not None:

@@ -18,17 +18,18 @@ Amemiya, T. (1984).
 *Journal of Econometrics*, 24(1-2), 3-61. [@amemiya1984tobit]
 """
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
-from .._input_validation import missing_named_columns
+from .._input_validation import checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
 
@@ -36,6 +37,8 @@ from ._optim_helpers import robust_convergence
 @records_call("tobit")
 @accepts_formula_first()
 @accepts_aliases(robust="vce", covariates="x")
+@checks_input("tobit", outcome=("formula", "y"))
+@records_provenance("sp.tobit")
 def tobit(
     data: pd.DataFrame,
     y: Optional[str] = None,
@@ -49,6 +52,7 @@ def tobit(
     method: str = "mle",
     *,
     formula: Optional[str] = None,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Tobit (Type I) censored regression via MLE.
@@ -94,6 +98,11 @@ def tobit(
         ``"y ~ x1 + I(x1**2) + C(g)"`` in place of ``y=`` and ``x=``.
         Transformed, factor and interaction terms are built as columns
         and named as ``sp.regress`` names them.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

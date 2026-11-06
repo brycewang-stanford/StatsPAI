@@ -14,12 +14,24 @@ import inspect
 import re
 import threading
 import warnings
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._design_guardrails import check_design as _check_design
 from ..core._vcov_spec import markout_clusters, stata_vce_to_fixest
@@ -1761,6 +1773,7 @@ def _note_dropped_singletons(out: _Fit, n_drop: int) -> _Fit:
 
 @records_call("feols")
 @accepts_aliases(vce="vcov")
+@checks_input("feols", outcome=("fml",))
 @records_provenance("sp.feols")
 @normalises_fixest_vcov("feols")
 @markout_clusters
@@ -1783,6 +1796,7 @@ def feols(
     conley_cutoff: Optional[float] = None,
     backend: str = "auto",
     weights_as: Optional[str] = None,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -1891,6 +1905,11 @@ def feols(
         (``sp.hdfe_ols``), and refuses the rest.
     **kwargs
         Additional arguments passed to ``pyfixest.feols()``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------
@@ -2341,6 +2360,7 @@ def _note_multiway_adjustment(out: Any, vcov: Any, n_negative: int) -> None:
 
 @records_call("fepois")
 @accepts_aliases(vce="vcov")
+@checks_input("fepois", outcome=("fml",))
 @records_provenance("sp.fepois")
 @normalises_fixest_vcov("fepois")
 @markout_clusters
@@ -2363,6 +2383,7 @@ def fepois(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     backend: str = "auto",
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -2428,6 +2449,11 @@ def fepois(
         the native engine cannot fit.
     **kwargs
         Additional arguments passed to ``pyfixest.fepois()``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------
@@ -2631,6 +2657,7 @@ def fepois(
 
 @records_call("feglm")
 @accepts_aliases(vce="vcov")
+@checks_input("feglm", outcome=("fml",))
 @records_provenance("sp.feglm")
 @normalises_fixest_vcov("feglm")
 @markout_clusters
@@ -2649,6 +2676,7 @@ def feglm(
     conley_cutoff: Optional[float] = None,
     backend: str = "auto",
     bias_correction: bool = False,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -2717,6 +2745,11 @@ def feglm(
         ``fernandezval2016individual``.
     **kwargs
         Additional arguments passed to ``pyfixest.feglm()``.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

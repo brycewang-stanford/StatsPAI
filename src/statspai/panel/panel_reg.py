@@ -1063,6 +1063,21 @@ def _dispatch_panel_impl(
         kept, omitted = _drop_absorbed_regressors(
             data, dep_var, indep_vars, entity, time, canonical
         )
+        if omitted and not kept:
+            # Every slope is absorbed. The fit used to go ahead and report
+            # the constant linearmodels adds back (the grand mean of y)
+            # under the regressor's name.
+            raise MethodIncompatibility(
+                f"sp.panel(method={canonical!r}): every regressor {omitted} "
+                "is absorbed by the fixed effects (no variation left within "
+                f"{'units and periods' if canonical == 'twoway' else 'units'}"
+                "), so no slope is identified.",
+                recovery_hint="Use regressors that vary within units, or a "
+                "random-effects / correlated-random-effects fit "
+                "(method='re' or 'cre') for time-invariant variables.",
+                diagnostics={"omitted": list(omitted), "method": canonical},
+                alternative_functions=_PANEL_ALTERNATIVES,
+            )
         if omitted and kept:
             warnings.warn(
                 f"sp.panel(method={canonical!r}): {omitted} omitted because "

@@ -18,14 +18,19 @@ Imbens, G. and Kalyanaraman, K. (2012).
 
 import warnings
 from math import factorial
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, missing_named_columns, require_finite
+from .._input_validation import (
+    check_columns,
+    checks_input,
+    missing_named_columns,
+    require_finite,
+)
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
@@ -323,6 +328,7 @@ def _rdrobust_bayes_engine(
     controls="covs",
     seed="random_state",
 )
+@checks_input("rdrobust", outcome=("y",))
 def rdrobust(
     data: pd.DataFrame,
     y: str,
@@ -352,6 +358,8 @@ def rdrobust(
     engine: str = "ols",
     masspoints: str = "adjust",
     scalepar: float = 1.0,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Local polynomial RD estimation with robust bias-corrected inference.
@@ -511,6 +519,11 @@ def rdrobust(
         and bootstrap options are OLS-only — setting them with
         ``engine='bayes'`` raises. For full prior / sampler control call
         ``sp.bayes_rd`` directly.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

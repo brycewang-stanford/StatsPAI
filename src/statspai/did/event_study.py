@@ -36,7 +36,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns
+from .._input_validation import check_columns, checks_input
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
@@ -231,6 +231,9 @@ def _build_bins(
     _strict=True, id="unit", controls="covariates", first_treat="treat_time"
 )
 @accepts_vce(default="cluster")
+@checks_input(
+    "event_study", outcome=("y",), nan_ok=("treat_time",), inf_ok=("treat_time",)
+)
 @_expands_categorical("covariates")
 def event_study(
     data: pd.DataFrame,
@@ -250,6 +253,8 @@ def event_study(
     absorb: Optional[Union[str, List[str]]] = None,
     parity: Optional[Literal["r", "stata"]] = None,
     crit_dist: Optional[Literal["t", "normal"]] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -354,6 +359,12 @@ def event_study(
         (since 1.41). Coefficients, SEs and the pre-trend F test do not
         depend on it. ``'normal'`` together with ``parity=`` raises. See
         MIGRATION.md.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing ``treat_time`` means never treated and is not counted.
 
     Returns
     -------

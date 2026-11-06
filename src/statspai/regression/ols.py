@@ -3,7 +3,7 @@ OLS regression implementation with comprehensive features
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ from scipy import stats
 from scipy.linalg import solve_triangular
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
@@ -1792,6 +1793,7 @@ def _refuse_weights(weights: Any, what: str) -> None:
 
 @records_call("regress")
 @accepts_aliases(vce="robust")
+@checks_input("regress", outcome=("formula",))
 @markout_clusters
 def regress(
     formula: str,
@@ -1813,6 +1815,7 @@ def regress(
     dfadjust: bool = False,
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1929,6 +1932,11 @@ def regress(
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not
         silently fall back to default standard errors.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count.
 
     Returns
     -------

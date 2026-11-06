@@ -996,6 +996,13 @@ def fit_feglm(
         model_info["multiway_negative_eigenvalues"] = n_negative
     y = np.asarray(a["y"], dtype=float)
     mu = np.asarray(a["mu"], dtype=float)
+    if family in ("logit", "probit"):
+        # Complete separation left the fit at the optimiser's stopping
+        # point (slopes in the hundreds, SEs in the tens of thousands)
+        # without a word; sp.logit / sp.probit warn on the same event.
+        from ..regression.logit_probit import _warn_if_separated
+
+        _warn_if_separated(y, mu)
     data_info: Dict[str, Any] = {
         "nobs": N,
         "df_resid": N - max(k, df_k),

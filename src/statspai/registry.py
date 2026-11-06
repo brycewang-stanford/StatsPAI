@@ -891,6 +891,21 @@ def _returns_block_for(spec: "FunctionSpec") -> Dict[str, Any]:
 #  Registry
 # ====================================================================== #
 
+
+#: The shared ``missing=`` option of the core estimators (rOpenSci audit
+#: gap 4); ``statspai._input_validation.checks_input`` applies it.
+_MISSING_PARAM = ParamSpec(
+    "missing",
+    "str",
+    False,
+    "drop",
+    "Rows with a missing value in a used column (outcome, regressors, "
+    "weights, cluster): 'drop' deletes them listwise and reports the count; "
+    "'raise' refuses the data with DataInsufficient naming each column and "
+    "its count",
+    ["drop", "raise"],
+)
+
 _REGISTRY: Dict[str, FunctionSpec] = {}
 _BASE_REGISTRY_BUILT = False
 _VALIDATION_EVIDENCE_APPLIED = False
@@ -1067,6 +1082,7 @@ def _build_registry() -> None:
                     "variance, t and F critical values): number of cosine "
                     "terms = degrees of freedom. Default floor(0.4*T^(2/3))",
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example=(
@@ -1269,6 +1285,7 @@ def _build_registry() -> None:
                     "wmatrix(unadjusted)",
                     ["sandwich", "efficient"],
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example='sp.iv("wage ~ (education ~ parent_edu + distance) + experience", data=df, method="liml")',
@@ -1394,6 +1411,7 @@ def _build_registry() -> None:
                     "wild cluster bootstrap on the endogenous coefficient "
                     "(Stata boottest after ivreg2)",
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example='sp.ivreg("wage ~ (education ~ parent_edu + distance) + experience", data=df)',
@@ -1463,6 +1481,7 @@ def _build_registry() -> None:
                     "rescaled data. Without vce= the default becomes "
                     "'robust'. Weights must be positive",
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example='sp.qreg(df, "wage ~ education", quantile=0.9)',
@@ -1548,6 +1567,7 @@ def _build_registry() -> None:
                     None,
                     "method='ml' only: sampling weights [pw=] (imply robust SEs)",
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example='sp.heckman(df, y="wage", x=["education", "experience"], select="employed", z=["age", "kids"])',
@@ -1826,6 +1846,7 @@ def _build_registry() -> None:
                     "lower limit only)",
                     ["mle", "scls"],
                 ),
+                _MISSING_PARAM,
             ],
             returns="EconometricResults",
             example='sp.tobit(df, y="hours", x=["wage", "kids"], ll=0)',
@@ -2799,6 +2820,7 @@ def _build_registry() -> None:
                     "other value with such a method raises.",
                     ["t", "residual", "normal", "legacy"],
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.did(df, y="wage", treat="treated", time="post")',
@@ -3257,6 +3279,7 @@ def _build_registry() -> None:
                     "in model_info['conventions'].",
                     ["r", "stata"],
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.callaway_santanna(df, y="earnings", g="first_treat", t="year", i="worker")',
@@ -3450,6 +3473,7 @@ def _build_registry() -> None:
                     "a sharp kink design with deriv=1, 1 / (kink in the policy "
                     "rule) turns the slope change into the policy effect.",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.rdrobust(df, y="score", x="income", c=10000)',
@@ -3745,6 +3769,7 @@ def _build_registry() -> None:
                     None,
                     "Binary treatment column (staggered only)",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.synth(data=df, outcome="gdp", unit="state", time="year", treated_unit="CA", treatment_time=1989, method="demeaned")',
@@ -3943,6 +3968,7 @@ def _build_registry() -> None:
                     None,
                     "Observation weights (column or array); weights= is an " "alias.",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.dml(df, y="wage", treat="training", covariates=["age","edu"], model="plr")',
@@ -6806,6 +6832,7 @@ def _build_registry() -> None:
                     "the Mahalanobis distance of these columns, the score "
                     "serving only as caliper (MatchIt mahvars=~...).",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
@@ -7477,6 +7504,7 @@ def _build_registry() -> None:
                     "gmm_lags", "str", False, "(2, 5)", "GMM instrument lag range"
                 ),
                 ParamSpec("twostep", "bool", False, False, "Two-step GMM"),
+                _MISSING_PARAM,
             ],
             returns="PanelResults",
             example='sp.panel(df, "wage ~ edu + exp", entity="worker", time="year", method="fe")',
@@ -16380,6 +16408,7 @@ def _build_registry() -> None:
                     5,
                     "Cross-fitting folds for ps_learner (>= 2), drawn from seed",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.ipw(df, y="wage", treat="training", covariates=["age","edu"], estimand="ATT")',
@@ -31159,6 +31188,7 @@ def _build_registry() -> None:
                     "cluster", "str", False, None, "Cluster variable (defaults to i)"
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                _MISSING_PARAM,
             ],
             returns="CausalResult with event-study in model_info['event_study']",
             example=(
@@ -31752,6 +31782,7 @@ def _build_registry() -> None:
                     "shift=3 horizon 1 is the effect two periods before "
                     "actual treatment.",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example=(
@@ -32944,6 +32975,7 @@ def _build_registry() -> None:
                     "raises.",
                     ["t", "normal"],
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult with event_study DataFrame",
             example=(
@@ -35739,6 +35771,7 @@ def _build_registry() -> None:
                     "Regressor for the per-arm outcome regressions in place of "
                     "outcome_model; influence-function SE (sandwich refused)",
                 ),
+                _MISSING_PARAM,
             ],
             returns="CausalResult",
             example='sp.aipw(df, y="wage", treat="trained", covariates=["age", "edu"])',

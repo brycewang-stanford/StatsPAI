@@ -375,12 +375,18 @@ def _check_covariate_rank(
     # covariate caused it. Warning and continuing would leave all three
     # outcomes in play and none of them meaningful. R refuses this design
     # too under `covs_drop=FALSE`.
-    raise ValueError(
+    from ..exceptions import IdentificationFailure
+
+    raise IdentificationFailure(
         f"{where}: the covariate-augmented local design is numerically rank "
         f"deficient (smallest relative singular value {rel:.2e}, below the "
         f"{_RANK_TOL:.2e} cutoff). At least one covariate{label} is collinear "
         f"with the polynomial basis in the running variable, which the "
         f"estimator already fits, so the covariate adjustment is not "
         f"identified. Drop the offending covariate, or lower p if the "
-        f"collinearity comes from a high-order term."
+        f"collinearity comes from a high-order term.",
+        recovery_hint="Drop the covariate that is constant or collinear "
+        "with the running-variable polynomial in the bandwidth (covs=), or "
+        "lower p.",
+        diagnostics={"smallest_relative_singular_value": float(rel)},
     )

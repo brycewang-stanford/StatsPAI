@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._input_validation import checks_input
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
@@ -329,6 +330,7 @@ _CRIT_LEGACY = {
 @accepts_aliases(
     _strict=True, unit="id", controls="covariates", outcome="y", treatment="treat"
 )
+@checks_input("did", outcome=("y",), nan_ok=("treat",), inf_ok=("treat",))
 @_conv.track_explicit
 def did(
     data: pd.DataFrame,
@@ -365,6 +367,8 @@ def did(
     design: Any = None,
     parity: Optional[Literal["r", "stata"]] = None,
     crit_dist: Optional[str] = None,
+    *,
+    missing: Literal["drop", "raise"] = "drop",
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -517,6 +521,12 @@ def did(
         ``pretrends`` / ``pretrend_method`` for the BJS imputation
         method, the synthetic-DiD options for ``'sdid'``. Anything else
         raises rather than being ignored.
+    missing : {'drop', 'raise'}, default 'drop'
+        Rows with a missing value in a column the call uses (outcome,
+        regressors, weights, cluster). ``'drop'`` deletes them listwise and
+        reports the count; ``'raise'`` refuses the data with a
+        ``DataInsufficient`` that names each column and its count. A
+        missing cohort in ``treat`` means never treated and is not counted.
 
     Returns
     -------
@@ -996,6 +1006,9 @@ def did(
             panel=panel,
             allow_unbalanced_panel=allow_unbalanced_panel,
             design=design,
+            # cluster= used to be dropped on this branch, so the standard
+            # errors stayed clustered on the unit whatever was passed.
+            **({"clustervars": cluster} if cluster is not None else {}),
             **_parity_kw,
         )
         if aggregation is not None:

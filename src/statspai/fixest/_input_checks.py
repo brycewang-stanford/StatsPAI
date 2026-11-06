@@ -158,6 +158,20 @@ def translate_backend_failure(exc: BaseException, entry: str) -> None:
             ),
             diagnostics={"backend": "pyfixest", "backend_error": text.strip()},
         ) from exc
+    if isinstance(exc, (ValueError, TypeError)) and (
+        "dependent variable must" in text.lower()
+    ):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"{entry}: the outcome does not fit the model family " f"({text.strip()}).",
+            recovery_hint=(
+                "A logit / probit family needs a 0/1 outcome and a Poisson "
+                "one a non-negative count; recode the outcome or pick the "
+                "family that matches it (feols for a continuous outcome)."
+            ),
+            diagnostics={"backend": "pyfixest", "backend_error": text.strip()},
+        ) from exc
     if isinstance(exc, np.linalg.LinAlgError):
         raise NumericalInstability(
             f"{entry}: the pyfixest backend could not invert the design "
