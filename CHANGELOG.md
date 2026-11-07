@@ -22,7 +22,6 @@ All notable changes to StatsPAI will be documented in this file.
   Unknown roles or values raise `MethodIncompatibility`. The string forms
   and the default are unchanged. The schema exports the parameter as a
   string or a dict of strings per role. See `docs/guides/missing_values.md`.
-
 - **Chain controls for every `statspai.mcmc` sampler** (rOpenSci gap #11,
   BS1.3a, BS2.7, BS2.8, BS2.12, BS5.0, BS6.2). `inits=`, `continue_from=`,
   `verbose=` and `keep_burnin=`, added to `sp.bayes_regress` in 1.43, now
