@@ -189,6 +189,11 @@ The three estimators that left the denominator are not estimators
   - time-series date-gap checks through `read_series`;
   - result accessors that keep the sample index;
   - MCMC start values and resumption.
+  **All four done 2026-11-06** (gaps #4, #7, #9, #11; status lines in the
+  audit). Still open there: a separate missing-value policy for predictors
+  and response (RE2.2), a test that triggers every error message (G5.2b),
+  173 validated functions without a method reference, and `inits=` /
+  `continue_from=` on the other 15 `statspai.mcmc` samplers.
 - Families with no cross-language row: `bayes`, `doe`, `conformal_causal`,
   `interference`, `proximal`, `target_trial` and others (scorecard section 4).
   Several have R references worth trying first: `doe` (`AlgDesign`, `DoE.base`),
@@ -208,3 +213,31 @@ The three estimators that left the denominator are not estimators
 - Worktrees from this round remain under `.claude/worktrees/`. Their work is
   all on `main`. `input-hygiene` holds an uncommitted copy of what was pushed
   from `input-hygiene-commit`.
+
+## 6. Release 1.43.0 (2026-11-06)
+
+Released to PyPI with tag `v1.43.0` = `401de8169`. No GitHub Release was
+created, so no Zenodo DOI was minted. It shipped these figures:
+
+- Estimators with numerical evidence: 1,009 of 1,009.
+- Matched to an R / Stata / author reference on the same data: 576 (57.1%),
+  against 508 (50.2%) at 1.42.1. The target of 55% is met.
+- Full local suite on the release tree: 48,429 passed, 0 failed. The six
+  push workflows on the tagged commit are green.
+
+The Linux and pandas 3 spot check of the 36 new or changed test files,
+run before tagging, found two platform-dependent bugs that macOS could not
+show. Both are fixed in the release (`26d546a60`):
+
+- `sp.event_study` relied on `np.linalg.inv` raising for a singular `X'X`.
+  OpenBLAS does not raise, so a duplicated covariate gave a different
+  estimate on Linux.
+- The time-series gap check read `asi8` as nanoseconds. pandas 3 parses
+  dates at microsecond resolution.
+
+Day two also fixed two more problems:
+
+- `sp.longitudinal_contrast` on the MSM path returned 0 by construction.
+- The g-formula contrast ignored the covariance of the two regimes.
+
+These were found while closing the parity line's open items (`8364d85f9`).
