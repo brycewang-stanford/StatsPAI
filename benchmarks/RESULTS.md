@@ -1,31 +1,32 @@
 # StatsPAI Benchmark Results
 
-- **StatsPAI**: 1.18.0
+- **StatsPAI**: 1.43.0
 - **Python**: 3.10.20
-- **Platform**: macOS-26.5-arm64-arm-64bit
+- **Platform**: macOS-26.6.2-arm64-arm-64bit
 - **Mode**: quick
-- **Timestamp (UTC)**: 2026-06-17T09:40:55.306723+00:00
+- **Timestamp (UTC)**: 2026-11-07T14:19:45.594696+00:00
+- **Load average at start**: 2.76 on 8 logical CPUs
 
 ## OLS regression (5 covariates, HC1 SE)
 
 | n | sp.regress | statsmodels | vs statsmodels |
 |---:|---:|---:|:---:|
-| 1,000 | 0.6 ms | 0.2 ms | 3.5x slower |
-| 10,000 | 1.3 ms | 1.0 ms | 1.3x slower |
+| 1,000 | 1.9 ms | 0.2 ms | 11.5x slower |
+| 10,000 | 2.6 ms | 1.0 ms | 2.8x slower |
 
 ## HDFE (two-way FE: unit × time)
 
 | units × T | n | sp.absorb_ols | linearmodels | vs lm |
 |---|---:|---:|---:|:---:|
-| 500 × 10 | 5,000 | 0.4 ms | 14 ms | 34.3x faster |
-| 2,000 × 10 | 20,000 | 1.6 ms | 24 ms | 14.9x faster |
+| 500 × 10 | 5,000 | 0.9 ms | 14 ms | 15.3x faster |
+| 2,000 × 10 | 20,000 | 2.3 ms | 25 ms | 10.7x faster |
 
 ## Staggered DID (4 cohorts, 8 periods)
 
 | units | obs | CS 2021 | Wooldridge |
 |---:|---:|---:|---:|
-| 200 | 1,600 | 9 ms | 12 ms |
-| 1,000 | 8,000 | 9 ms | 19 ms |
+| 200 | 1,600 | 11 ms | 13 ms |
+| 1,000 | 8,000 | 14 ms | 20 ms |
 
 ---
 
