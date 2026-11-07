@@ -35,6 +35,12 @@ def main(mode: str = "quick") -> None:
         "platform": platform.platform(),
         "mode": mode,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        # Timings on a busy machine are not comparable across runs; say how
+        # busy it was (Track C records the same thing and refuses a busy one).
+        "load_avg_1m_at_start": (
+            round(os.getloadavg()[0], 2) if hasattr(os, "getloadavg") else None
+        ),
+        "cpu_count": os.cpu_count(),
     }
     print(
         f"StatsPAI {meta['statspai_version']} · Python "
@@ -94,6 +100,11 @@ def _render_markdown(results: dict, path: str) -> None:
     lines.append(f"- **Platform**: {meta['platform']}")
     lines.append(f"- **Mode**: {meta['mode']}")
     lines.append(f"- **Timestamp (UTC)**: {meta['timestamp_utc']}")
+    if meta.get("load_avg_1m_at_start") is not None:
+        lines.append(
+            f"- **Load average at start**: {meta['load_avg_1m_at_start']} "
+            f"on {meta.get('cpu_count')} logical CPUs"
+        )
     lines.append("")
 
     # Regression panel
