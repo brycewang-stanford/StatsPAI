@@ -883,6 +883,20 @@ def check_estimator_input(
     }
 
 
+#: Parameters naming a per-row auxiliary column (weights, offset, exposure)
+#: that estimators read after building their sample from the variables.
+_AUXILIARY_ROW_PARAMS = (
+    "weights",
+    "weight",
+    "aweights",
+    "pweights",
+    "fweights",
+    "iweights",
+    "offset",
+    "exposure",
+)
+
+
 def checks_input(
     function: str,
     *,
@@ -941,6 +955,42 @@ def checks_input(
                 inf_ok=inf_ok,
                 data_arg=data_arg,
             )
+            # A missing weight (or offset / exposure) is a missing value in a
+            # used column: under "drop" the row leaves the sample, as the
+            # other used columns' rows do (Stata's marksample, R's na.omit).
+            # Estimators build their sample from the formula / variable
+            # columns and checked these columns afterwards, so five of them
+            # refused the data and three dropped the row; the drop is done
+            # here, once, for all.
+            frame = arguments.get(data_arg)
+            drops_predictors = policy == "drop" or (
+                isinstance(policy, Mapping) and policy.get("predictors") == "drop"
+            )
+            if drops_predictors and isinstance(frame, pd.DataFrame):
+                weight_cols = [
+                    v
+                    for key in _AUXILIARY_ROW_PARAMS
+                    for v in [arguments.get(key)]
+                    if isinstance(v, str) and v in frame.columns
+                ]
+                if weight_cols:
+                    gone = frame[weight_cols].isna().any(axis=1)
+                    if bool(gone.any()):
+                        import warnings
+
+                        from .exceptions import AssumptionWarning
+
+                        warnings.warn(
+                            f"{function}: {int(gone.sum())} row(s) with a "
+                            "missing value in "
+                            f"{', '.join(map(repr, weight_cols))} dropped "
+                            "listwise; pass missing='raise' to refuse them "
+                            "instead.",
+                            AssumptionWarning,
+                            stacklevel=2,
+                        )
+                        bound.arguments[data_arg] = frame.loc[~gone.to_numpy()]
+                        args, kwargs = bound.args, dict(bound.kwargs)
             result = fn(*args, **kwargs)
             if record is not None:
                 diagnostics = getattr(result, "diagnostics", None)

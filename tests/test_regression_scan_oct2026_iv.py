@@ -230,8 +230,17 @@ class TestWeights:
 
     def test_invalid_weights_are_refused(self):
         df = _data()
-        with pytest.raises(DataInsufficient, match="NaN or infinite"):
-            _fit(F, df.assign(w=np.r_[np.nan, df.w.to_numpy()[1:]]), weights="w")
+        # A missing weight drops its row under the default missing="drop"
+        # (the fit equals the one without it) and is refused under "raise".
+        bad = df.assign(w=np.r_[np.nan, df.w.to_numpy()[1:]])
+        with pytest.warns(sp.AssumptionWarning, match="missing value in 'w'"):
+            got = sp.iv(F, bad, weights="w")
+        want = _fit(F, bad.iloc[1:], weights="w")
+        np.testing.assert_allclose(
+            np.asarray(got.params, float), np.asarray(want.params, float), rtol=1e-12
+        )
+        with pytest.raises(DataInsufficient, match="missing"):
+            _fit(F, bad, weights="w", missing="raise")
         with pytest.raises(MethodIncompatibility, match="strictly positive"):
             _fit(F, df.assign(w=0.0), weights="w")
         with pytest.raises(MethodIncompatibility, match="not a column"):

@@ -31,7 +31,10 @@ The columns counted are the ones the call uses. They are the outcome, the
 regressors and covariates (formula terms included), the weights column, the
 cluster column (also when it is spelled `vce="cluster firm"` or
 `vcov={"CRV1": "firm"}`), and any other column named in the call. A missing
-value in a column the call does not use is ignored.
+value in a column the call does not use is ignored. A missing weight, offset
+or exposure drops its row like any other missing value; through 1.43.0,
+`sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
+`sp.callaway_santanna` refused the data instead.
 
 Two kinds of missing value carry meaning and are not counted:
 

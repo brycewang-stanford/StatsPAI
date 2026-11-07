@@ -153,7 +153,6 @@ class TestWeightedVarianceMenu:
     @pytest.mark.parametrize(
         "bad, exc, match",
         [
-            (np.nan, DataInsufficient, "NaN or infinite"),
             (np.inf, DataInsufficient, "infinite value"),
             (0.0, MethodIncompatibility, "strictly positive"),
             (-1.0, MethodIncompatibility, "strictly positive"),
@@ -164,6 +163,17 @@ class TestWeightedVarianceMenu:
         df.loc[5, "w"] = bad
         with pytest.raises(exc, match=match):
             sp.regress("y ~ x1 + x2", df, weights="w")
+
+    def test_missing_weight_drops_its_row_or_raises(self):
+        df = _data()
+        df.loc[5, "w"] = np.nan
+        with pytest.warns(sp.AssumptionWarning, match="missing value in 'w'"):
+            got = sp.regress("y ~ x1 + x2", df, weights="w")
+        want = sp.regress("y ~ x1 + x2", df.drop(index=5), weights="w")
+        np.testing.assert_allclose(got.params, want.params, rtol=1e-12)
+        np.testing.assert_allclose(got.std_errors, want.std_errors, rtol=1e-12)
+        with pytest.raises(DataInsufficient, match="missing"):
+            sp.regress("y ~ x1 + x2", df, weights="w", missing="raise")
 
     def test_weights_refused_where_the_variance_would_ignore_them(self):
         df = _data().assign(lat=0.1, lon=0.2)

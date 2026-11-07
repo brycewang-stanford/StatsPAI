@@ -301,7 +301,29 @@ class TestRefusals:
                 weights="w",
             )
 
-    @pytest.mark.parametrize("bad", [0.0, -1.0, np.nan])
+    def test_missing_weight_drops_its_row_or_raises(self):
+        df = _panel()
+        w = df["w"].to_numpy().copy()
+        w[3] = np.nan
+        bad = df.assign(w=w)
+        with pytest.warns(sp.AssumptionWarning, match="missing value in 'w'"):
+            got = sp.panel(bad, "y ~ x1 + x2", entity="id", time="t", weights="w")
+        want = sp.panel(
+            bad.drop(index=bad.index[3]),
+            "y ~ x1 + x2",
+            entity="id",
+            time="t",
+            weights="w",
+        )
+        np.testing.assert_allclose(
+            np.asarray(got.params, float), np.asarray(want.params, float), rtol=1e-12
+        )
+        with pytest.raises(sp.DataInsufficient, match="missing"):
+            sp.panel(
+                bad, "y ~ x1 + x2", entity="id", time="t", weights="w", missing="raise"
+            )
+
+    @pytest.mark.parametrize("bad", [0.0, -1.0])
     def test_bad_weight_is_refused(self, bad):
         df = _panel()
         w = df["w"].to_numpy().copy()

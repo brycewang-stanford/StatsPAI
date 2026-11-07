@@ -182,11 +182,19 @@ class TestWeightsChangeTheEstimand:
         with pytest.raises(MethodIncompatibility, match="negative"):
             sp.callaway_santanna(bad, weights="w", **KEYS)
 
-    def test_nan_weights_rejected(self, panel):
+    def test_nan_weights_drop_the_unit_or_raise(self, panel):
+        # A missing weight is a missing value in a used column: the default
+        # missing="drop" removes those rows (here every row of unit 0, so
+        # the panel stays balanced), missing="raise" refuses the data.
         bad = panel.copy()
         bad.loc[bad["i"] == 0, "w"] = np.nan
-        with pytest.raises(MethodIncompatibility, match="NaN or infinite"):
-            sp.callaway_santanna(bad, weights="w", **KEYS)
+        with pytest.warns(sp.AssumptionWarning, match="missing value in 'w'"):
+            got = sp.callaway_santanna(bad, weights="w", **KEYS)
+        want = sp.callaway_santanna(panel[panel["i"] != 0], weights="w", **KEYS)
+        assert got.estimate == pytest.approx(want.estimate, rel=1e-12)
+        assert got.se == pytest.approx(want.se, rel=1e-12)
+        with pytest.raises(sp.DataInsufficient, match="missing"):
+            sp.callaway_santanna(bad, weights="w", missing="raise", **KEYS)
 
     def test_all_zero_weights_rejected(self, panel):
         with pytest.raises(MethodIncompatibility, match="sums to"):

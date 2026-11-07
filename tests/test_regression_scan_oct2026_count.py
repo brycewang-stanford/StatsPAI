@@ -224,8 +224,23 @@ class TestCountOptionsShared:
         df = _count_data()
         with pytest.raises(MethodIncompatibility, match="strictly positive"):
             fn(F, df.assign(e=0.0), exposure="e", **kw)
-        with pytest.raises(StatsPAIError, match="NaN or infinite"):
-            fn(F, df.assign(e=np.r_[np.nan, df.e.to_numpy()[1:]]), exposure="e", **kw)
+        bad = df.assign(e=np.r_[np.nan, df.e.to_numpy()[1:]])
+        if getattr(fn, "__statspai_checks_input__", False):
+            # On the shared input layer a missing exposure is a missing value
+            # in a used column: dropped under missing="drop", refused under
+            # missing="raise".
+            got = _quiet(fn, F, bad, exposure="e", **kw)
+            want = _quiet(fn, F, bad.iloc[1:], exposure="e", **kw)
+            np.testing.assert_allclose(
+                np.asarray(got.params, float),
+                np.asarray(want.params, float),
+                rtol=1e-12,
+            )
+            with pytest.raises(StatsPAIError, match="missing"):
+                fn(F, bad, exposure="e", missing="raise", **kw)
+        else:
+            with pytest.raises(StatsPAIError, match="NaN or infinite"):
+                fn(F, bad, exposure="e", **kw)
         with pytest.raises(MethodIncompatibility, match="not available"):
             fn(F, df, robust="hc3", **kw)
 

@@ -472,21 +472,24 @@ class TestGlmValidation:
         df = _data()
         kw = dict(family="poisson")
         f = "cnt ~ x1 + x2"
-        with pytest.raises(MethodIncompatibility, match="weights contains missing"):
-            sp.glm(
-                f, df.assign(w=np.r_[np.nan, df.w.to_numpy()[1:]]), weights="w", **kw
+        # Missing weights / offsets drop their rows under missing="drop"
+        # (equal to the fit without them) and are refused under "raise".
+        for col, arg in (("w", "weights"), ("loge", "offset")):
+            bad = df.assign(**{col: np.r_[np.nan, df[col].to_numpy()[1:]]})
+            with pytest.warns(sp.AssumptionWarning, match=f"missing value in '{col}'"):
+                got = sp.glm(f, bad, **{arg: col}, **kw)
+            want = sp.glm(f, bad.iloc[1:], **{arg: col}, **kw)
+            np.testing.assert_allclose(
+                np.asarray(got.params, float),
+                np.asarray(want.params, float),
+                rtol=1e-12,
             )
+            with pytest.raises(sp.DataInsufficient, match="missing"):
+                sp.glm(f, bad, **{arg: col}, missing="raise", **kw)
         with pytest.raises(MethodIncompatibility, match="non-negative"):
             sp.glm(f, df.assign(w=-df.w), weights="w", **kw)
         with pytest.raises(MethodIncompatibility, match="at least one positive"):
             sp.glm(f, df.assign(w=0.0), weights="w", **kw)
-        with pytest.raises(MethodIncompatibility, match="offset contains missing"):
-            sp.glm(
-                f,
-                df.assign(loge=np.r_[np.nan, df.loge.to_numpy()[1:]]),
-                offset="loge",
-                **kw,
-            )
         with pytest.raises(MethodIncompatibility, match="strictly positive"):
             sp.glm(f, df.assign(e=-1.0), exposure="e", **kw)
         with pytest.raises(MethodIncompatibility, match="at least two clusters"):

@@ -5,6 +5,17 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: missing weights drop their rows
+
+`sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
+`sp.callaway_santanna` no longer raise when the weights (or `offset=` /
+`exposure=`) column has a missing value. Under the default
+`missing="drop"` the row is deleted with an `AssumptionWarning`, as for any
+other used column. Code that relied on the error to catch incomplete
+weights should pass `missing="raise"`.
+
+---
+
 ## 1.42 → 1.43: announced removals and the power_two_proportions default
 
 **`sp.power_two_proportions(test=)` defaults to `"chi2"`.** 1.42 announced

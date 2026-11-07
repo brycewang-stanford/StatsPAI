@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **A missing weight, offset or exposure drops its row under the default
+  `missing="drop"`.** The guide counts those columns as used, so their
+  missing values should be deleted listwise like the others. Seven
+  estimators (`sp.regress`, `sp.iv` / `sp.ivreg`, `sp.logit`, `sp.glm`,
+  `sp.poisson`, `sp.panel`, `sp.callaway_santanna`) refused the data
+  instead, while `sp.feols`, `sp.qreg` and `sp.tobit` dropped the row. The
+  shared input layer now drops it for all of them, with an
+  `AssumptionWarning` naming the column, and the fit equals the fit
+  without those rows. `missing="raise"` still refuses; `inf` and
+  non-positive weights still raise. No call that ran before returns a
+  different number.
+
 ### Added
 - Method references for 43 more certified / validated functions in
   `sp.describe_function` and the agent cards (rOpenSci gap #14). 42 new
