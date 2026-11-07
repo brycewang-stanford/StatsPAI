@@ -11373,10 +11373,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "lumley2004analysis",
     "returns": {
       "class": "SurveyDesign",
       "description": "SurveyDesign",
@@ -19965,9 +19966,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "wilcoxon1945individual, mann1947test",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -20077,9 +20079,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "wilcoxon1945individual",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -21896,9 +21899,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "kruskal1952use",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -23004,9 +23008,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "hedges1981distribution",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -23281,9 +23286,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "kendall1938new, kendall1945treatment",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -23603,9 +23609,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "brown1974robust",
     "returns": {
       "class": "ClassicTestResult",
       "description": "ClassicTestResult",
@@ -24034,9 +24041,10 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "pregibon1981logistic",
     "returns": {
       "class": "DataFrame",
       "description": "DataFrame",
@@ -24225,10 +24233,11 @@
       "example": "curated",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "student1908probable, welch1947generalization",
     "returns": {
       "class": "TTestResult",
       "description": "TTestResult",
@@ -110659,9 +110668,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "kitagawa2015test",
     "returns": {
       "class": "KitagawaResult",
       "description": "KitagawaResult: Test results including statistic, p-value, and first-stage effect.",
@@ -119805,7 +119815,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Masten-Poirier (2020) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -119845,10 +119855,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "masten2020inference",
     "returns": {
       "class": "BoundsResult",
       "description": "BoundsResult: lower/upper give the identified set at the maximum violation. model_info contains 'breakdown_point' (the violation magnitude at which the conclusion reverses) and 'frontier_grid' / 'frontier_bounds' for plotting.",
@@ -119866,7 +119877,7 @@
       }
     },
     "signature": {
-      "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Masten-Poirier (2020) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "breakdown_frontier",
       "parameters": {
         "properties": {
@@ -120374,9 +120385,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "lumley2004analysis",
     "returns": {
       "class": "SurveyResult",
       "description": "SurveyResult",
@@ -120512,9 +120524,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "lumley2004analysis",
     "returns": {
       "class": "SurveyResult",
       "description": "SurveyResult",
@@ -120649,9 +120662,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "binder1983variances, lumley2004analysis",
     "returns": {
       "class": "SurveyResult",
       "description": "SurveyResult with regression coefficient estimates.",
@@ -121053,10 +121067,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "burlig2020panel",
     "returns": {
       "class": "PowerResult",
       "description": "PowerResult",
@@ -131652,10 +131667,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "imbens2015causal",
     "returns": {
       "class": "BalanceResult",
       "description": "BalanceResult",
@@ -134585,9 +134601,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "schwarz2025effect",
     "returns": {
       "class": "MultiScoreRDResult",
       "description": "",
@@ -139530,9 +139547,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "self1987asymptotic, stram1994variance",
     "returns": {
       "class": "LRTestResult",
       "description": "LRTestResult",
@@ -146782,10 +146800,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "fotheringham2017multiscale",
     "returns": {
       "class": "MGWRResult",
       "description": "MGWRResult: params, bse, tvalues, ENP_j, tr_S, sigma2, aicc / aic / bic as mgwr.gwr.MGWRResults; converged is False (with a RuntimeWarning) when max_iter sweeps did not reach tol.",
@@ -153451,9 +153470,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zubizarreta2014matching",
     "returns": {
       "class": "CardinalityMatchResult",
       "description": "",
@@ -153963,9 +153983,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "deville1992calibration",
     "returns": {
       "class": "CalibrationResult",
       "description": "",
@@ -154076,9 +154097,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "deming1940least",
     "returns": {
       "class": "CalibrationResult",
       "description": "CalibrationResult: calibrated_weights sum to 1 (multiply by the population size to get R weights(rake(...)) when the margins are counts).",
@@ -157623,9 +157645,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "heinzedeml2018invariant",
     "returns": {
       "class": "ICPResult",
       "description": "",
@@ -157737,10 +157760,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "maathuis2009estimating",
     "returns": {
       "class": "IDAResult",
       "description": "IDAResult: effects (one per parent set or DAG), parent_sets and min_abs_effect.",
@@ -157994,9 +158018,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "suissa2008immortal",
     "returns": {
       "class": "ImmortalTimeDiagnostic",
       "description": "ImmortalTimeDiagnostic",
@@ -159169,9 +159194,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "barnatchez2026debiased",
     "returns": {
       "class": "DebiasedConformalResult",
       "description": "DebiasedConformalResult",
@@ -159309,9 +159335,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "wang2025conformal",
     "returns": {
       "class": "ConformalDensityResult",
       "description": "ConformalDensityResult",
@@ -159441,9 +159468,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "bose2025prediction",
     "returns": {
       "class": "MultiDPConformalResult",
       "description": "MultiDPConformalResult",
@@ -159568,10 +159596,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "ringlein2025demystifying",
     "returns": {
       "class": "ProxyScoreResult",
       "description": "ProxyScoreResult",
@@ -159920,10 +159949,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "vandijcke2025regression",
     "returns": {
       "class": "DistRDResult",
       "description": "DistRDResult: qte with bootstrap se / ci_lower / ci_upper, and cdf_effect with cdf_se, at each requested quantile.",
@@ -160030,7 +160060,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Sharp RDD with network interference (Dal Torrione et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -160076,10 +160106,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "daltorrione2024regression",
     "returns": {
       "class": "RDInterferenceResult",
       "description": "RDInterferenceResult",
@@ -160093,7 +160124,7 @@
       }
     },
     "signature": {
-      "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Sharp RDD with network interference (Dal Torrione et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_interference",
       "parameters": {
         "properties": {
@@ -160238,10 +160269,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "schwarz2025effect",
     "returns": {
       "class": "MultiScoreRDResult",
       "description": "MultiScoreRDResult",
@@ -161410,10 +161442,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "tao2026bayesian",
     "returns": {
       "class": "BayesRDHTEResult",
       "description": "BayesRDHTEResult",
@@ -161568,10 +161601,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "schindl2026distributional",
     "returns": {
       "class": "DDDResult",
       "description": "DDDResult: Quantile-by-quantile level jump (rdd_effect) and slope jump (rkd_effect) in the conditional CDF of y at the cutoff.",
@@ -162448,9 +162482,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "bai2024inference",
     "returns": {
       "class": "MatchedPairResult",
       "description": "MatchedPairResult",
@@ -162581,9 +162616,10 @@
       "failure_modes": "curated",
       "not_recommended_when": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "chen2025modelassisted",
     "returns": {
       "class": "StaggeredClusterRCTResult",
       "description": "StaggeredClusterRCTResult",
@@ -162753,10 +162789,11 @@
       "failure_modes": "family",
       "not_recommended_when": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "zhang2026difference",
     "returns": {
       "class": "DNCGNNDiDResult",
       "description": "DNCGNNDiDResult",
@@ -162907,10 +162944,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "salmaso2026doubly",
     "returns": {
       "class": "FunctionalCATEResult",
       "description": "FunctionalCATEResult",
@@ -163034,10 +163072,11 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "family"
     },
-    "reference": "",
+    "reference": "cerqua2024heterogeneous",
     "returns": {
       "class": "ClusterCATEResult",
       "description": "ClusterCATEResult",
@@ -164611,9 +164650,10 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "bonacich1972factoring",
     "returns": {
       "class": "Series",
       "description": "pandas.Series",
@@ -170246,10 +170286,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "diaz2023nonparametric",
     "returns": {
       "class": "CausalResult",
       "description": "CausalResult: estimate is E[Y(d)]. model_info holds the natural-course mean E[Y], the effect E[Y(d)] - E[Y] with its standard error (difference of influence functions, R lmtp_contrast), the density ratios and the influence function.",
@@ -170448,9 +170489,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "bica2020estimating",
     "returns": {
       "class": "VCNetResult",
       "description": "",
@@ -170580,10 +170622,11 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "returns": "docstring",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "nie2021vcnet",
     "returns": {
       "class": "VCNetResult",
       "description": "VCNetResult",

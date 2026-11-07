@@ -2,6 +2,27 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Method references for 43 more certified / validated functions in
+  `sp.describe_function` and the agent cards (rOpenSci gap #14). 42 new
+  `paper.bib` entries, each checked against two independent records
+  (Crossref with doi.org or PubMed for articles; arXiv with DataCite, plus
+  the proceedings page where one exists, for preprints and conference
+  papers); the sources are in each entry's `annote`. 130 validated functions still have no
+  reference, listed with reasons in the audit doc.
+
+### Fixed
+- Wrong citations in docstrings. `sp.vcnet` named five authors and the
+  R-learner key `nie2021quasi`; the paper is Nie, Ye, Liu and Nicolae
+  (ICLR 2021), now `nie2021vcnet`. `sp.rd_interference` credited
+  "Cabrelli-Marconi 2024"; its module implements Dal Torrione, Arduini and
+  Forastiere (2024). `sp.breakdown_frontier` and its `.cite()` named
+  Masten and Poirier (2021, "Salvaging Falsified Instrumental Variable
+  Models"); the breakdown frontier is from their 2020 Quantitative
+  Economics paper, now `masten2020inference`. No number changes.
+
 ## [1.43.0] — 2026-11-06
 
 A correctness and evidence release. It does four things:

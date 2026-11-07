@@ -756,7 +756,7 @@ def unified_sensitivity(
 
     # 5. Breakdown frontier: the smallest additive bias that moves the
     #    CI bound closest to zero *through* zero, flipping
-    #    the significance conclusion (Masten & Poirier 2021).  This is
+    #    the significance conclusion (Masten & Poirier 2020).  This is
     #    the bound on the CI side closer to null, not the point estimate.
     lo, hi = ci
     sign = np.sign(estimate)

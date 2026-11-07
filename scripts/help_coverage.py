@@ -68,10 +68,11 @@ FLOORS: Dict[str, float] = {
 # ``reference`` is empty, so a reviewer cannot see the method source of a
 # function the package calls validated (rOpenSci G1.0). 404 on 2026-11-05;
 # 173 after ``statspai/_reference_seeds.py`` mapped existing paper.bib keys
-# (2026-11-06). Lower it when you add references; never raise it without a
-# recorded reason.
+# (2026-11-06); 130 after 42 verified entries were added to paper.bib for
+# the seeds (2026-11-07). Lower it when you add references; never raise it
+# without a recorded reason.
 CEILINGS: Dict[str, int] = {
-    "validated_without_reference": 173,
+    "validated_without_reference": 130,
 }
 
 

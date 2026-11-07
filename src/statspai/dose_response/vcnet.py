@@ -1,6 +1,6 @@
 """
-VCNet-style neural dose-response estimation (Nie, Ye, Zhang, Yang &
-Wen 2021, ICLR).
+VCNet-style neural dose-response estimation (Nie, Ye, Liu & Nicolae
+2021, ICLR).
 
 VCNet (Variational Continuous-treatment Network) fits a neural
 network that outputs a smooth dose-response curve :math:`\\mu(t, x)`
@@ -33,9 +33,13 @@ bootstrap standard errors.
 
 References
 ----------
-Nie, L., Ye, M., Zhang, L., Yang, Q., & Wen, Q. (2021).
+Nie, L., Ye, M., Liu, Q., & Nicolae, D. (2021).
 "VCNet and Functional Targeted Regularization For Learning Causal
-Effects of Continuous Treatments." *ICLR 2021*. [@nie2021quasi]
+Effects of Continuous Treatments." *ICLR 2021*. [@nie2021vcnet]
+
+Bica, I., Jordon, J., & van der Schaar, M. (2020). "Estimating the
+Effects of Continuous-valued Interventions using Generative Adversarial
+Networks." *NeurIPS 2020*. [@bica2020estimating]
 """
 
 from __future__ import annotations

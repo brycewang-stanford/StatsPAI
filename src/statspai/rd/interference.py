@@ -85,7 +85,7 @@ def rd_interference(
     alpha: float = 0.05,
 ) -> RDInterferenceResult:
     """
-    Sharp RDD with network interference (Cabrelli-Marconi 2024).
+    Sharp RDD with network interference (Dal Torrione et al. 2024).
 
     Parameters
     ----------

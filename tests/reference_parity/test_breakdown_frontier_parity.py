@@ -1,7 +1,7 @@
 """Analytical parity: sp.breakdown_frontier closed-form identities.
 
-The additive-violation breakdown frontier (Masten & Poirier 2021 framework;
-see paper.bib masten2021salvaging) reports exact closed forms of
+The additive-violation breakdown frontier (Masten & Poirier 2020 framework;
+see paper.bib masten2020inference) reports exact closed forms of
 (estimate, se, max_violation, alpha):
 
     breakdown_point    == estimate            (violation flipping sign at 0)

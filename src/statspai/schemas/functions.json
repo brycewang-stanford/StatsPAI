@@ -56611,7 +56611,7 @@
     }
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Masten-Poirier (2020) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "breakdown_frontier",
     "parameters": {
       "properties": {
@@ -76398,7 +76398,7 @@
     }
   },
   {
-    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Sharp RDD with network interference (Dal Torrione et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_interference",
     "parameters": {
       "properties": {

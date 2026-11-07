@@ -7,7 +7,7 @@ Methods
 - **IV Bounds** : Bounds under imperfect instruments (Nevo & Rosen 2012)
 - **Oster Delta** : Coefficient stability / identified set (Oster 2019)
 - **Selection Bounds** : Lee bounds with covariates (Lee 2009, conditional)
-- **Breakdown Frontier** : Assumption robustness frontier (Masten & Poirier 2021)
+- **Breakdown Frontier** : Assumption robustness frontier (Masten & Poirier 2020)
 
 References
 ----------
@@ -28,9 +28,9 @@ Journal of Business & Economic Statistics, 37(2), 187-204. [@oster2019unobservab
 Lee, D. S. (2009).
 "Training, Wages, and Sample Selection." RES, 76(3), 1071-1102. [@lee2009training]
 
-Masten, M. A. & Poirier, A. (2021).
-"Salvaging Falsified Instrumental Variable Models."
-Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
+Masten, M. A. & Poirier, A. (2020).
+"Inference on Breakdown Frontiers."
+Quantitative Economics, 11(1), 41-111. [@masten2020inference]
 """
 
 import warnings
@@ -1282,7 +1282,7 @@ def _selection_lee_point(
 
 
 # ======================================================================
-# 5. Breakdown Frontier (Masten & Poirier 2021)
+# 5. Breakdown Frontier (Masten & Poirier 2020)
 # ======================================================================
 
 
@@ -1295,7 +1295,7 @@ def breakdown_frontier(
     alpha: float = 0.05,
 ) -> BoundsResult:
     """
-    Masten-Poirier (2021) breakdown frontier for qualitative conclusions.
+    Masten-Poirier (2020) breakdown frontier for qualitative conclusions.
 
     For a given point estimate and standard error, computes how much an
     identifying assumption can be violated before a qualitative conclusion
@@ -1460,13 +1460,14 @@ CausalResult._CITATIONS["selection_bounds"] = (
 )
 
 CausalResult._CITATIONS["breakdown_frontier"] = (
-    "@article{masten2021salvaging,\n"
-    "  title={Salvaging Falsified Instrumental Variable Models},\n"
-    "  author={Masten, Matthew A and Poirier, Alexandre},\n"
-    "  journal={Econometrica},\n"
-    "  volume={89},\n"
-    "  number={3},\n"
-    "  pages={1449--1469},\n"
-    "  year={2021}\n"
+    "@article{masten2020inference,\n"
+    "  title={Inference on Breakdown Frontiers},\n"
+    "  author={Masten, Matthew A. and Poirier, Alexandre},\n"
+    "  journal={Quantitative Economics},\n"
+    "  volume={11},\n"
+    "  number={1},\n"
+    "  pages={41--111},\n"
+    "  year={2020},\n"
+    "  doi={10.3982/QE1288}\n"
     "}"
 )

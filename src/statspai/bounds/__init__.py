@@ -13,7 +13,7 @@ Methods
 - **IV Bounds** : Bounds under imperfect instruments (Nevo & Rosen 2012)
 - **Oster Delta** : Coefficient stability / identified set (Oster 2019)
 - **Selection Bounds** : Lee bounds with covariates (Lee 2009, conditional)
-- **Breakdown Frontier** : Assumption robustness frontier (Masten & Poirier 2021)
+- **Breakdown Frontier** : Assumption robustness frontier (Masten & Poirier 2020)
 
 References
 ----------
@@ -37,9 +37,9 @@ Oster, E. (2019).
 Unobservable Selection and Coefficient Stability.
 JBES, 37(2), 187-204. [@oster2019unobservable]
 
-Masten, M. A. & Poirier, A. (2021).
-Salvaging Falsified Instrumental Variable Models.
-Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
+Masten, M. A. & Poirier, A. (2020).
+Inference on Breakdown Frontiers.
+Quantitative Economics, 11(1), 41-111. [@masten2020inference]
 """
 
 from .balke_pearl import BalkePearlResult, balke_pearl

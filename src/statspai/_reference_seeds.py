@@ -18,6 +18,12 @@ rests on evidence in the repository, noted per block below:
   (for example ``kaplan1958nonparametric``, "Nonparametric Estimation from
   Incomplete Observations", for ``sp.kaplan_meier``).
 
+* ``new``: the last block names keys added to ``paper.bib`` on
+  2026-11-07 for this file. Each paper was found from the evidence above
+  (or is the method's primary source when the function is a classical
+  test) and its authors, year, title, venue and DOI were checked against
+  two independent records; the sources are in each entry's ``annote``.
+
 A function with no fitting key in ``paper.bib`` is left out on purpose.
 Adding a key here never adds a bib entry; a new paper goes into
 ``paper.bib`` first, verified as ``docs/dev/handbook/citations.md`` requires.
@@ -270,4 +276,52 @@ REFERENCE_SEEDS: Dict[str, str] = {
     "policy_weight_prte": "heckman2005structural",
     "policy_weight_subsidy": "heckman2005structural",
     "policy_weight_marginal": "heckman2005structural, carneiro2011estimating",
+    # ---- new: entries added to paper.bib 2026-11-07 (see annote) ----
+    # docstring / module docstring names the paper
+    "cardinality_match": "zubizarreta2014matching",
+    "kitagawa_test": "kitagawa2015test",
+    "linear_calibration": "deville1992calibration",
+    "rake": "deming1940least",
+    "logit_influence": "pregibon1981logistic",
+    "nonlinear_icp": "heinzedeml2018invariant",
+    "power_did": "burlig2020panel",
+    "breakdown_frontier": "masten2020inference",
+    "lrtest": "self1987asymptotic, stram1994variance",
+    "ktau": "kendall1938new, kendall1945treatment",
+    "ttest": "student1908probable, welch1947generalization",
+    "robvar": "brown1974robust",
+    "cluster_cate": "cerqua2024heterogeneous",
+    "cluster_matched_pair": "bai2024inference",
+    "cluster_staggered_rollout": "chen2025modelassisted",
+    "conformal_debiased_ml": "barnatchez2026debiased",
+    "conformal_density_ite": "wang2025conformal",
+    "conformal_ite_multidp": "bose2025prediction",
+    "dnc_gnn_did": "zhang2026difference",
+    "focal_cate": "salmaso2026doubly",
+    "rd_bayes_hte": "tao2026bayesian",
+    "rd_distribution": "vandijcke2025regression",
+    "rd_distributional_design": "schindl2026distributional",
+    "rd_interference": "daltorrione2024regression",
+    "rd_multi_score": "schwarz2025effect",
+    "multi_score_rd": "schwarz2025effect",
+    "select_pci_proxies": "ringlein2025demystifying",
+    "scigan": "bica2020estimating",
+    "vcnet": "nie2021vcnet",
+    # the method's primary source; the docstring names the method or the
+    # reference package (R survey, pcalg, lmtp; PySAL mgwr) cites it
+    "ida": "maathuis2009estimating",
+    "lmtp": "diaz2023nonparametric",
+    "mgwr": "fotheringham2017multiscale",
+    "kwallis": "kruskal1952use",
+    "signrank": "wilcoxon1945individual",
+    "ranksum": "wilcoxon1945individual, mann1947test",
+    "esize": "hedges1981distribution",
+    "immortal_time_check": "suissa2008immortal",
+    "eigenvector_centrality": "bonacich1972factoring",
+    "svydesign": "lumley2004analysis",
+    "svymean": "lumley2004analysis",
+    "svytotal": "lumley2004analysis",
+    "svyglm": "binder1983variances, lumley2004analysis",
+    # src: existing key named in a source comment
+    "balance_check": "imbens2015causal",
 }
