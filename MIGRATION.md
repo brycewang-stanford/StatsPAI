@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.43 → next: missing weights drop their rows
+## 1.43 → 1.43.1: missing weights drop their rows
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
 `sp.callaway_santanna` no longer raise when the weights (or `offset=` /

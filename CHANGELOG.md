@@ -2,7 +2,20 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.43.1] — 2026-11-07
+
+Follow-up to 1.43.0 from the same rOpenSci standards round:
+
+- A missing weight, offset or exposure now drops its row under the default
+  `missing="drop"`, as the guide always said. Seven estimators used to
+  refuse the data and three dropped the row. No call that ran before
+  returns a different number.
+- `missing=` takes a rule per role, `{"response": ..., "predictors": ...}`.
+- 13 more `statspai.mcmc` samplers take `inits=`, `continue_from=`,
+  `verbose=` and `keep_burnin=`.
+- Method references are filled for 43 more functions, with 42 new `paper.bib`
+  entries, each checked against two independent records. Three wrong
+  docstring citations are corrected.
 
 ### Fixed
 - **A missing weight, offset or exposure drops its row under the default
