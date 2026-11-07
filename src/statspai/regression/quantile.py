@@ -20,7 +20,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 """
 
 import warnings
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,12 @@ from scipy import stats
 from scipy.optimize import linprog
 
 from .._aliases import accepts_formula_first
-from .._input_validation import check_columns, checks_input, missing_named_columns
+from .._input_validation import (
+    MissingPolicy,
+    check_columns,
+    checks_input,
+    missing_named_columns,
+)
 from ..core._call_record import records_call
 from ..core._fitted_series import StoredFitMixin
 from ..core.results import CausalResult, EconometricResults
@@ -108,7 +113,7 @@ def qreg(
     kernel_scale: str = "mad",
     weights: Optional[object] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Quantile regression at a single quantile.
@@ -186,11 +191,15 @@ def qreg(
         sparsity has no meaning for a weighted sample (Stata ``qreg``
         switches to ``vce(robust)`` under ``pweight`` for the same reason).
         Weights must be positive; rows with a missing weight are dropped.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

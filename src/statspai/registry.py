@@ -339,6 +339,7 @@ class FunctionSpec:
                     prop["type"] = "object"
             if role != "dataframe":
                 _union_with_scalars(prop, p.type)
+                _enum_or_role_mapping(prop, p)
             key = p.name
             facts = spelling.get(p.name)
             if facts:
@@ -893,16 +894,21 @@ def _returns_block_for(spec: "FunctionSpec") -> Dict[str, Any]:
 
 
 #: The shared ``missing=`` option of the core estimators (rOpenSci audit
-#: gap 4); ``statspai._input_validation.checks_input`` applies it.
+#: gaps 4 and RE2.2); ``statspai._input_validation.checks_input`` applies
+#: it, and every function it wraps gets this card
+#: (``_apply_schema_enrichment``).
 _MISSING_PARAM = ParamSpec(
     "missing",
-    "str",
+    "str | dict",
     False,
     "drop",
     "Rows with a missing value in a used column (outcome, regressors, "
     "weights, cluster): 'drop' deletes them listwise and reports the count; "
     "'raise' refuses the data with DataInsufficient naming each column and "
-    "its count",
+    "its count. A dict sets the rule per role, e.g. {'response': 'raise', "
+    "'predictors': 'drop'}: 'response' is the outcome, 'predictors' every "
+    "other used column (weights and cluster included); a role left out is "
+    "'drop'",
     ["drop", "raise"],
 )
 
@@ -42823,6 +42829,37 @@ def _union_with_scalars(prop: Dict[str, Any], type_text: str) -> None:
     prop["anyOf"] = branches
 
 
+def _enum_or_role_mapping(prop: Dict[str, Any], p: "ParamSpec") -> None:
+    """``str | dict`` with a string enum: the choice, or a dict of choices.
+
+    The shared ``missing=`` option takes ``'drop'`` / ``'raise'`` or a
+    dict of those per role (``{'response': 'raise'}``). The type map
+    alone would export ``object`` and put the string enum on it. Only a
+    parameter with an enum whose declared type is exactly a string and a
+    dict is rewritten.
+    """
+    if not p.enum:
+        return
+    members = {m.strip().lower() for m in _union_members(p.type)}
+    if members != {"str", "dict"}:
+        return
+    enum = list(p.enum)
+    for key in ("type", "enum"):
+        prop.pop(key, None)
+    prop["anyOf"] = [
+        {"type": "string", "enum": enum},
+        {
+            "type": "object",
+            "properties": {
+                role: {"type": "string", "enum": enum}
+                for role in ("response", "predictors")
+            },
+            "additionalProperties": False,
+            "minProperties": 1,
+        },
+    ]
+
+
 def _json_type_of(value: Any) -> Optional[str]:
     if isinstance(value, bool):
         return "boolean"
@@ -43083,6 +43120,11 @@ def _apply_schema_enrichment() -> None:
 
     for name, spec in _REGISTRY.items():
         obj = _live_callable(name)
+        if getattr(obj, "__statspai_checks_input__", False):
+            # one card for the shared missing= option, whatever the entry
+            spec.params = [
+                _MISSING_PARAM if p.name == "missing" else p for p in spec.params
+            ]
         is_class = getattr(spec, "_kind", None) == "class" or inspect.isclass(obj)
         target_name = FUNCTION_ALIAS_OF.get(name)
         if target_name and not spec.alias_of and target_name in _REGISTRY:

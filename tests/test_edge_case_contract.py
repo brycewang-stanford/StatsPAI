@@ -13,7 +13,7 @@ estimators. Every cell asserts a true proposition:
   the coefficients that generated the data.
 
 The shared checks (zero rows, an entirely missing column, a text outcome,
-``inf``, a single cluster, ``missing="raise"``) live in
+``inf``, a single cluster, ``missing="raise"`` and its rule per role) live in
 ``statspai._input_validation.check_estimator_input``.
 """
 
@@ -695,6 +695,177 @@ def test_missing_is_registered_with_its_enum() -> None:
         params = {p["name"]: p for p in sp.describe_function(name)["params"]}
         assert params["missing"]["default"] == "drop", name
         assert params["missing"]["enum"] == ["drop", "raise"], name
+        # the schema offers the string or a dict of strings per role
+        prop = sp.function_schema(name)["parameters"]["properties"]["missing"]
+        string, mapping = prop["anyOf"]
+        assert string == {"type": "string", "enum": ["drop", "raise"]}, name
+        assert set(mapping["properties"]) == {"response", "predictors"}, name
+        assert mapping["additionalProperties"] is False, name
+
+
+# --------------------------------------------------------------------- #
+#  missing= per role (rOpenSci RE2.2)
+# --------------------------------------------------------------------- #
+
+ROLES = ("response", "predictors")
+
+
+def _role_column(spec: Spec, role: str) -> str:
+    if role == "response":
+        return spec.y
+    return spec.covs[0] if spec.covs else "t"  # synth: the time column
+
+
+def _one_missing_in(spec: Spec, role: str) -> tuple:
+    df = spec.data()
+    col = _role_column(spec, role)
+    # a donor row for synth, whose treated unit must be complete
+    ok = df[col].notna() & df[spec.y].notna()
+    if spec.name == "synth":
+        ok &= df["unit"] != 0
+    row = df.index[ok][4]
+    df.loc[row, col] = np.nan
+    return df, col
+
+
+def _other(role: str) -> str:
+    return "predictors" if role == "response" else "response"
+
+
+ROLE_CELLS = [
+    (s, r)
+    for s in SPECS
+    for r in ROLES
+    if not (s.name == "heckman" and r == "response")
+]
+ROLE_IDS = [f"{s.name}-{r}" for s, r in ROLE_CELLS]
+
+
+@pytest.mark.parametrize("spec, role", ROLE_CELLS, ids=ROLE_IDS)
+def test_missing_raise_for_one_role_names_the_role(spec: Spec, role: str) -> None:
+    df, col = _one_missing_in(spec, role)
+    rule = {role: "raise", _other(role): "drop"}
+    with pytest.raises(DataInsufficient) as ei:
+        _quiet(lambda: spec.fit(df, spec.covs, missing=rule))
+    err = _refusal(ei, DataInsufficient)
+    assert err.diagnostics["missing_policy"] == rule
+    assert err.diagnostics["missing_by_role"] == {role: {col: 1}}
+    assert err.diagnostics["missing_roles"] == [role]
+    assert err.diagnostics["missing_by_column"] == {col: 1}
+    assert err.diagnostics["n_rows_missing"] == 1
+
+
+@pytest.mark.parametrize(
+    "spec, role",
+    [(s, r) for s, r in ROLE_CELLS if s.name != "synth"],
+    ids=[i for (s, _), i in zip(ROLE_CELLS, ROLE_IDS) if s.name != "synth"],
+)
+def test_missing_drop_for_one_role_while_the_other_raises(
+    spec: Spec, role: str
+) -> None:
+    # The role set to 'drop' is deleted listwise exactly as by the default,
+    # and the result records which role's columns held missing values.
+    df, col = _one_missing_in(spec, role)
+    rule = {_other(role): "raise"}
+    res = _quiet(lambda: spec.fit(df, spec.covs, missing=rule))
+    default = _quiet(lambda: spec.fit(df, spec.covs))
+    np.testing.assert_array_equal(
+        _numbers(res).to_numpy(), _numbers(default).to_numpy()
+    )
+    assert res.diagnostics["missing_by_role"] == {
+        "policy": {role: "drop", _other(role): "raise"},
+        "missing_by_role": {role: {col: 1}},
+        "n_rows_missing": 1,
+    }
+    assert "missing_by_role" not in default.diagnostics
+
+
+def test_heckman_response_role_does_not_count_unselected_rows() -> None:
+    # A missing outcome in a selection model marks an unselected row, so
+    # the response role has nothing to refuse.
+    spec = BY_NAME["heckman"]
+    df = spec.data()
+    assert df["yh"].isna().any()
+    res = _quiet(lambda: spec.fit(df, spec.covs, missing={"response": "raise"}))
+    _same_numbers(res, _quiet(lambda: spec.fit(df, spec.covs)), rel=1e-12)
+    assert res.diagnostics["missing_by_role"]["missing_by_role"] == {"predictors": {}}
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=IDS)
+def test_missing_rejects_an_unknown_role(spec: Spec) -> None:
+    with pytest.raises(MethodIncompatibility) as ei:
+        _quiet(lambda: spec.fit(spec.data(), spec.covs, missing={"outcome": "raise"}))
+    err = _refusal(ei, MethodIncompatibility)
+    assert err.diagnostics["unknown_roles"] == ["outcome"]
+    assert err.diagnostics["allowed_roles"] == ["response", "predictors"]
+
+
+@pytest.mark.parametrize(
+    "rule, key, value",
+    [
+        ({}, "unknown_roles", []),
+        ({"response": "omit"}, "invalid_values", {"response": "'omit'"}),
+        ({"predictors": True}, "invalid_values", {"predictors": "True"}),
+        ({"response": "raise", "weights": "drop"}, "unknown_roles", ["weights"]),
+    ],
+    ids=["empty", "bad-value", "not-a-string", "unknown-role"],
+)
+def test_missing_rejects_an_invalid_rule_per_role(
+    rule: Dict[str, Any], key: str, value: Any
+) -> None:
+    df = _cross_section()
+    with pytest.raises(MethodIncompatibility) as ei:
+        sp.regress("y ~ x1", df, missing=rule)
+    err = _refusal(ei, MethodIncompatibility)
+    assert err.diagnostics[key] == value
+    assert err.diagnostics["allowed"] == ["drop", "raise"]
+
+
+def test_weights_and_cluster_follow_the_predictors_role() -> None:
+    df = _cross_section()
+    df["w"] = np.random.default_rng(0).uniform(0.5, 2, len(df))
+    df["cl"] = df["cl"].astype(float)
+    df.loc[[3, 9], "w"] = np.nan
+    df.loc[5, "cl"] = np.nan
+
+    def fit(rule: Any) -> Any:
+        return _quiet(
+            lambda: sp.regress("y ~ x1", df, weights="w", cluster="cl", missing=rule)
+        )
+
+    with pytest.raises(DataInsufficient) as ei:
+        fit({"predictors": "raise"})
+    assert ei.value.diagnostics["missing_by_role"] == {"predictors": {"w": 2, "cl": 1}}
+    assert ei.value.diagnostics["n_rows_missing"] == 3
+    # with the predictors left to 'drop', the incomplete cluster row goes
+    df["w"] = 1.0
+    res = fit({"response": "raise"})
+    assert res.diagnostics["missing_by_role"]["missing_by_role"] == {
+        "predictors": {"cl": 1}
+    }
+    _same_numbers(res, fit("drop"), rel=0.0)
+
+
+def test_a_weights_array_follows_the_predictors_role() -> None:
+    df = _cross_section()
+    w = np.random.default_rng(0).uniform(0.5, 2, len(df))
+    w[[4, 7]] = np.nan
+    with pytest.raises(DataInsufficient) as ei:
+        _quiet(
+            lambda: sp.feols("y ~ x1", df, weights=w, missing={"predictors": "raise"})
+        )
+    assert ei.value.diagnostics["missing_by_role"] == {"predictors": {"weights": 2}}
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=IDS)
+def test_both_roles_raise_on_complete_data_changes_nothing(spec: Spec) -> None:
+    df = spec.data()
+    rule = {"response": "raise", "predictors": "raise"}
+    strict = _quiet(lambda: spec.fit(df, spec.covs, missing=rule))
+    default = _quiet(lambda: spec.fit(df, spec.covs))
+    np.testing.assert_array_equal(
+        _numbers(strict).to_numpy(), _numbers(default).to_numpy()
+    )
 
 
 # --------------------------------------------------------------------- #

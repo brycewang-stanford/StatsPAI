@@ -49,7 +49,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, checks_input
+from .._input_validation import MissingPolicy, check_columns, checks_input
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
@@ -326,7 +326,7 @@ def sun_abraham(
     parity: Optional[Literal["r", "stata"]] = None,
     crit_dist: Optional[Literal["t", "normal"]] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -506,12 +506,16 @@ def sun_abraham(
         Counted over the leads that exist, not by literal event time:
         ℓ = −1 is the omitted reference, so on a panel whose leads are
         −4, −3, −2 the value ``2`` selects ``[-3, -2]``.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count. A
         missing cohort ``g`` means never treated and is not counted.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

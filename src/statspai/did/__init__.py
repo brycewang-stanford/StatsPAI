@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import (
@@ -368,7 +368,7 @@ def did(
     parity: Optional[Literal["r", "stata"]] = None,
     crit_dist: Optional[str] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -521,12 +521,16 @@ def did(
         ``pretrends`` / ``pretrend_method`` for the BJS imputation
         method, the synthetic-DiD options for ``'sdid'``. Anything else
         raises rather than being ignored.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count. A
         missing cohort in ``treat`` means never treated and is not counted.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

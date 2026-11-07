@@ -50,7 +50,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -223,7 +223,7 @@ def synth(
     treatment: Optional[str] = None,
     y: Optional[str] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
     **kwargs: Any,
 ) -> CausalResult:
     """Public ``sp.synth`` entry point — see ``_dispatch_synth_impl`` for
@@ -241,11 +241,15 @@ def synth(
 
     Parameters
     ----------
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     References
     ----------

@@ -38,10 +38,10 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University
 Press. [@rosenbaum1983central]
 """
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Optional
 
 from .._aliases import accepts_aliases
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
 from ._cem_extras import l1_imbalance
@@ -247,7 +247,7 @@ def match(
     covariates: Optional[List[str]] = None,
     *,
     method: str = "nearest",
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
     **kwargs: Any,
 ) -> Any:
     """Unified matching/weighting dispatcher.
@@ -285,11 +285,15 @@ def match(
         ``replace`` / ``bias_correction`` / ``ps_poly`` /
         ``n_strata`` / ``n_bins`` / ``alpha``.  Advanced methods see
         their own docstring for kwargs.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

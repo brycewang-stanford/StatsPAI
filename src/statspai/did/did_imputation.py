@@ -15,7 +15,7 @@ Borusyak, K., Jaravel, X. and Spiess, J. (2024).
 """
 
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,12 @@ from scipy import sparse, stats
 from scipy.sparse.linalg import lsqr
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, checks_input, missing_named_columns
+from .._input_validation import (
+    MissingPolicy,
+    check_columns,
+    checks_input,
+    missing_named_columns,
+)
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
@@ -164,7 +169,7 @@ def did_imputation(
     autosample: bool = False,
     shift: int = 0,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Borusyak, Jaravel & Spiess (2024) imputation DID estimator.
@@ -389,12 +394,16 @@ def did_imputation(
         residuals ``y - ŷ⁰`` in ``model_info['residuals']`` (aligned
         with the rows of ``data``; ``NaN`` on treated rows, whose
         ``y - ŷ⁰`` is the treatment effect, not a residual).
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count. A
         missing ``first_treat`` means never treated and is not counted.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

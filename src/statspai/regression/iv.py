@@ -31,13 +31,13 @@ References
 import re
 import warnings
 import zlib
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
@@ -3499,7 +3499,7 @@ def ivreg(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -3532,11 +3532,15 @@ def ivreg(
         With ``vce="conley"``: the distance cutoff in km for the Conley
         spatial HAC standard errors (uniform kernel, Stata ``acreg``
         compatible). Required for that ``vce``.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

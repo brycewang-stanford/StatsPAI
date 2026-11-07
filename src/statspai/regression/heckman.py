@@ -19,14 +19,14 @@ Heckman, J.J. (1979).
 """
 
 import warnings
-from typing import List, Literal, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import check_columns, checks_input
+from .._input_validation import MissingPolicy, check_columns, checks_input
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, MethodIncompatibility
@@ -48,7 +48,7 @@ def heckman(
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Heckman (1979) two-step selection model.
@@ -89,12 +89,16 @@ def heckman(
     weights : str, optional
         ``method='ml'`` only: sampling weights (``[pw=]``), which imply
         robust standard errors as in Stata.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count. A
         missing outcome marks an unselected row and is not counted.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

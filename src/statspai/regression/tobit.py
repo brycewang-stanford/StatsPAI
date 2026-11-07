@@ -18,14 +18,14 @@ Amemiya, T. (1984).
 *Journal of Econometrics*, 24(1-2), 3-61. [@amemiya1984tobit]
 """
 
-from typing import List, Literal, Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases, accepts_formula_first
-from .._input_validation import checks_input, missing_named_columns
+from .._input_validation import MissingPolicy, checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -52,7 +52,7 @@ def tobit(
     method: str = "mle",
     *,
     formula: Optional[str] = None,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Tobit (Type I) censored regression via MLE.
@@ -98,11 +98,15 @@ def tobit(
         ``"y ~ x1 + I(x1**2) + C(g)"`` in place of ``y=`` and ``x=``.
         Transformed, factor and interaction terms are built as columns
         and named as ``sp.regress`` names them.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

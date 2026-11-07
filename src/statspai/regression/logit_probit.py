@@ -23,7 +23,7 @@ Hosmer, D.W. & Lemeshow, S. (2000).
 
 import functools
 import warnings
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -31,7 +31,7 @@ from scipy import stats
 from scipy.special import expit as _expit
 
 from .._aliases import accepts_aliases
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
@@ -1274,7 +1274,7 @@ def logit(
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -1345,11 +1345,15 @@ def logit(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------
@@ -1426,7 +1430,7 @@ def probit(
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -1495,11 +1499,15 @@ def probit(
         too: the estimator is refitted with every replicate's weights
         and the replicate variance replaces the linearisation (R
         ``svrepdesign`` / Stata ``svy brr`` / ``svy jackknife``).
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

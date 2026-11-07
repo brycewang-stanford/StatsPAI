@@ -23,7 +23,17 @@ uses :class:`~statspai.exceptions.DataInsufficient`, which is *also* a
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+)
 
 import pandas as pd
 
@@ -334,6 +344,16 @@ class TooFewClusters(DataInsufficient, MethodIncompatibility):
 #: Values of the shared ``missing=`` option.
 MISSING_POLICIES = ("drop", "raise")
 
+#: Roles a ``missing=`` mapping may name. ``"response"`` is the outcome
+#: (the left side of a formula, or the outcome argument); ``"predictors"``
+#: is every other column the call uses: regressors, covariates, treatment,
+#: instruments, weights, cluster, unit and time identifiers.
+MISSING_ROLES = ("response", "predictors")
+
+#: The annotation of the shared ``missing=`` parameter: one rule for every
+#: used column, or a rule per role (``{"response": "raise"}``).
+MissingPolicy = Union[Literal["drop", "raise"], Mapping[str, Literal["drop", "raise"]]]
+
 #: The hint every ``missing="raise"`` refusal gives.
 MISSING_RAISE_HINT = (
     "missing='raise' refuses incomplete rows instead of deleting them. "
@@ -356,6 +376,74 @@ def check_missing_policy(missing: Any, *, function: str) -> str:
         "rows listwise with a warning) or missing='raise' (refuse data with "
         "missing values in the columns the call uses).",
         diagnostics={"missing": repr(missing), "allowed": list(MISSING_POLICIES)},
+    )
+
+
+_ROLE_POLICY_HINT = (
+    "Pass missing='drop', missing='raise', or a dict giving 'drop' or "
+    "'raise' per role, e.g. missing={'response': 'raise', 'predictors': "
+    "'drop'}. The roles are 'response' (the outcome) and 'predictors' "
+    "(every other column the call uses, weights and cluster included); a "
+    "role left out of the dict follows the default, 'drop'."
+)
+
+
+def resolve_missing_policy(
+    missing: Any, *, function: str
+) -> Union[str, Dict[str, str]]:
+    """Validate ``missing=`` in either form.
+
+    A string must be ``"drop"`` or ``"raise"`` and is returned as is. A
+    mapping must name at least one role of :data:`MISSING_ROLES`, each with
+    ``"drop"`` or ``"raise"``; it is returned with every role filled in (a
+    role left out is ``"drop"``, the default). Anything else raises
+    :class:`~statspai.exceptions.MethodIncompatibility`.
+
+    Examples
+    --------
+    >>> from statspai._input_validation import resolve_missing_policy
+    >>> resolve_missing_policy({"response": "raise"}, function="demo")
+    {'response': 'raise', 'predictors': 'drop'}
+    """
+    if isinstance(missing, str):
+        if missing in MISSING_POLICIES:
+            return missing
+    elif isinstance(missing, Mapping):
+        unknown = [k for k in missing if k not in MISSING_ROLES]
+        bad = {
+            str(k): v
+            for k, v in missing.items()
+            if k in MISSING_ROLES and not (isinstance(v, str) and v in MISSING_POLICIES)
+        }
+        if missing and not unknown and not bad:
+            return {role: str(missing.get(role, "drop")) for role in MISSING_ROLES}
+        if not missing:
+            problem = "the dict names no role"
+        elif unknown:
+            problem = f"unknown role(s) {[str(k) for k in unknown]}"
+        else:
+            problem = f"role value(s) {bad} are not 'drop' or 'raise'"
+        raise MethodIncompatibility(
+            f"{function}: missing={dict(missing)!r} is not a valid rule per "
+            f"role: {problem}.",
+            recovery_hint=_ROLE_POLICY_HINT,
+            diagnostics={
+                "missing": repr(dict(missing)),
+                "allowed": list(MISSING_POLICIES),
+                "allowed_roles": list(MISSING_ROLES),
+                "unknown_roles": [str(k) for k in unknown],
+                "invalid_values": {k: repr(v) for k, v in bad.items()},
+            },
+        )
+    raise MethodIncompatibility(
+        f"{function}: missing must be 'drop', 'raise' or a dict of those per "
+        f"role, got {missing!r}.",
+        recovery_hint=_ROLE_POLICY_HINT,
+        diagnostics={
+            "missing": repr(missing),
+            "allowed": list(MISSING_POLICIES),
+            "allowed_roles": list(MISSING_ROLES),
+        },
     )
 
 
@@ -394,12 +482,17 @@ def raise_on_missing(
     *,
     function: str,
     extra: Optional[Mapping[str, int]] = None,
+    roles: Optional[Mapping[str, Sequence[str]]] = None,
+    policy: Optional[Mapping[str, str]] = None,
 ) -> None:
     """The ``missing="raise"`` refusal: name each column and its count.
 
     ``extra`` adds counts for inputs that are not columns of ``data`` (a
     weights array, say), keyed by the argument name. Does nothing when no
-    value is missing.
+    value is missing. With a rule per role, ``roles`` maps each role set to
+    ``"raise"`` to its columns (and ``extra`` keys), and ``policy`` is the
+    full rule; the diagnostics then add ``missing_by_role`` and
+    ``missing_roles``.
 
     Examples
     --------
@@ -423,18 +516,30 @@ def raise_on_missing(
     by_column = {**counts, **extra_counts}
     total = int(sum(by_column.values()))
     listing = ", ".join(f"{c!r} ({n})" for c, n in by_column.items())
+    diagnostics: Dict[str, Any] = {
+        "missing_policy": "raise" if policy is None else dict(policy),
+        "missing_by_column": by_column,
+        "n_missing": total,
+        "n_rows_missing": n_rows,
+    }
+    where = "the columns this call uses"
+    if roles is not None:
+        by_role = {
+            role: {str(c): by_column[str(c)] for c in cols if str(c) in by_column}
+            for role, cols in roles.items()
+        }
+        by_role = {role: cols for role, cols in by_role.items() if cols}
+        diagnostics["missing_by_role"] = by_role
+        diagnostics["missing_roles"] = list(by_role)
+        where = "the " + " and ".join(by_role) + " column(s)"
     raise DataInsufficient(
-        f"{function}: missing='raise' and the data hold {total} missing "
-        f"value(s) in the columns this call uses"
+        f"{function}: missing="
+        + ("'raise'" if policy is None else repr(dict(policy)))
+        + f" and the data hold {total} missing value(s) in {where}"
         + (f", in {n_rows} row(s)" if n_rows else "")
         + f" -- by column: {listing}.",
         recovery_hint=MISSING_RAISE_HINT,
-        diagnostics={
-            "missing_policy": "raise",
-            "missing_by_column": by_column,
-            "n_missing": total,
-            "n_rows_missing": n_rows,
-        },
+        diagnostics=diagnostics,
     )
 
 
@@ -594,12 +699,12 @@ def check_estimator_input(
     *,
     function: str,
     signature: Any = None,
-    missing: str = "drop",
+    missing: Union[str, Mapping[str, str]] = "drop",
     outcome: Sequence[str] = (),
     nan_ok: Sequence[str] = (),
     inf_ok: Sequence[str] = (),
     data_arg: str = "data",
-) -> None:
+) -> Optional[Dict[str, Any]]:
     """The input checks every core estimator runs before it fits.
 
     ``arguments`` maps parameter names to the values of the call (the
@@ -617,14 +722,27 @@ def check_estimator_input(
     5. a cluster column takes fewer than two values;
     6. ``missing="raise"`` and a used column holds a missing value.
 
+    ``missing`` may instead be a rule per role, as returned by
+    :func:`resolve_missing_policy`: the ``outcome`` columns are the
+    ``"response"`` role and every other used column (array arguments such
+    as a weights vector included) is ``"predictors"``. Step 6 then applies
+    to the roles set to ``"raise"``, and the return value records the
+    missing values of the roles set to ``"drop"``, which the estimator
+    deletes by its own rule: ``{"policy": ..., "missing_by_role": {role:
+    {column: count}}, "n_rows_missing": ...}``. A string policy returns
+    ``None``.
+
     Columns named by a parameter in ``nan_ok`` are exempt from 2 and 6
     (``NaN`` there carries meaning: a never-treated cohort, an unobserved
     outcome in a selection model); ``inf_ok`` exempts from 4 (``g = inf``
     for never treated). Only ``DataFrame`` input is checked.
     """
     if not isinstance(data, pd.DataFrame):
-        return
+        return None
     import inspect
+
+    by_role = isinstance(missing, Mapping)
+    collect_arrays = by_role or missing == "raise"
 
     params = signature.parameters if signature is not None else {}
     columns = data.columns
@@ -641,7 +759,7 @@ def check_estimator_input(
         cols = _named_columns(value, columns)
         if cols:
             used[name] = list(dict.fromkeys(cols))
-        elif missing == "raise" and name not in nan_ok:
+        elif collect_arrays and name not in nan_ok:
             n_missing = _array_missing(value, len(data))
             if n_missing:
                 array_missing[name] = n_missing
@@ -717,8 +835,52 @@ def check_estimator_input(
                 diagnostics={"cluster": str(c), "n_clusters": n_levels},
             )
     # 6. the missing-data policy
-    if missing == "raise":
-        raise_on_missing(data, nan_cols, function=function, extra=array_missing)
+    if not by_role:
+        if missing == "raise":
+            raise_on_missing(data, nan_cols, function=function, extra=array_missing)
+        return None
+    assert isinstance(missing, Mapping)
+    response = set(outcome_cols)
+    role_columns: Dict[str, list] = {
+        "response": [c for c in nan_cols if c in response]
+        + [a for a in array_missing if a in outcome],
+        "predictors": [c for c in nan_cols if c not in response]
+        + [a for a in array_missing if a not in outcome],
+    }
+    strict = {r: cols for r, cols in role_columns.items() if missing[r] == "raise"}
+    if strict:
+        raise_on_missing(
+            data,
+            [c for cols in strict.values() for c in cols if c in columns],
+            function=function,
+            extra={
+                a: n
+                for a, n in array_missing.items()
+                if any(a in v for v in strict.values())
+            },
+            roles=strict,
+            policy=missing,
+        )
+    lenient = {r: cols for r, cols in role_columns.items() if missing[r] == "drop"}
+    record_by_role: Dict[str, Dict[str, int]] = {}
+    lenient_frame_cols: List[Any] = []
+    for role, cols in lenient.items():
+        frame_cols = [c for c in cols if c in columns]
+        lenient_frame_cols += frame_cols
+        counts = missing_values_by_column(data, frame_cols)
+        counts.update({str(a): array_missing[a] for a in cols if a in array_missing})
+        record_by_role[role] = counts
+    lenient_frame_cols = list(dict.fromkeys(lenient_frame_cols))
+    n_rows = (
+        int(data[lenient_frame_cols].isna().any(axis=1).sum())
+        if lenient_frame_cols
+        else 0
+    )
+    return {
+        "policy": dict(missing),
+        "missing_by_role": record_by_role,
+        "n_rows_missing": n_rows,
+    }
 
 
 def checks_input(
@@ -731,10 +893,14 @@ def checks_input(
 ) -> Any:
     """Decorator: run :func:`check_estimator_input` before the estimator.
 
-    The wrapped function declares ``missing: Literal["drop", "raise"] =
-    "drop"`` in its signature (that is where the registry, the schema and
-    the docstring read it from); the decorator validates the value and
-    applies the policy, so the function body never looks at it. Place it
+    The wrapped function declares ``missing: MissingPolicy = "drop"`` in
+    its signature; the decorator validates the value and applies the
+    policy, so the function body never looks at it. The registry gives
+    every decorated function the shared ``missing`` parameter card
+    (``__statspai_checks_input__`` marks the wrapper). With a rule per
+    role (``missing={"response": "raise"}``) the decorator also writes the
+    record of :func:`check_estimator_input` to
+    ``result.diagnostics["missing_by_role"]``. Place it
     below ``accepts_aliases`` / ``accepts_vce`` (it reads canonical names)
     and above decorators that rewrite the data (``markout_clusters``,
     ``_expands_categorical``, ``_calendar_time_aware``), so it sees the
@@ -761,10 +927,10 @@ def checks_input(
                     arguments.update(value)
                 else:
                     arguments[name] = value
-            policy = check_missing_policy(
+            policy = resolve_missing_policy(
                 arguments.get("missing", default), function=function
             )
-            check_estimator_input(
+            record = check_estimator_input(
                 arguments.get(data_arg),
                 arguments,
                 function=function,
@@ -775,8 +941,14 @@ def checks_input(
                 inf_ok=inf_ok,
                 data_arg=data_arg,
             )
-            return fn(*args, **kwargs)
+            result = fn(*args, **kwargs)
+            if record is not None:
+                diagnostics = getattr(result, "diagnostics", None)
+                if isinstance(diagnostics, dict):
+                    diagnostics["missing_by_role"] = record
+            return result
 
+        wrapper.__statspai_checks_input__ = True  # type: ignore[attr-defined]
         return wrapper
 
     return deco

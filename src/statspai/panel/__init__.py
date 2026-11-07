@@ -46,10 +46,10 @@ Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section Dependence."
 Correia, S. (2017). "Linear Models with High-Dimensional Fixed Effects."
 """
 
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from .._aliases import accepts_aliases, accepts_formula_first
-from .._input_validation import checks_input
+from .._input_validation import MissingPolicy, checks_input
 from ..exceptions import MethodIncompatibility
 from .feols import FEOLSResult
 from .feols import feols as hdfe_feols
@@ -161,7 +161,7 @@ def panel(
     time: Optional[str] = None,
     *,
     method: str = "fe",
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
     **kwargs: Any,
 ) -> Union[PanelResults, FEOLSResult]:
     """Unified panel-regression dispatcher.
@@ -195,11 +195,15 @@ def panel(
         two-way ``cluster=['a', 'b']``, ``conley_lat/lon/cutoff`` and
         ``wild_reps`` / ``seed``.  HDFE accepts ``cluster`` / ``vce`` /
         ``se_type`` / ``wild`` / ``alpha`` etc.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

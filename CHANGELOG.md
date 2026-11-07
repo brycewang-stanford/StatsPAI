@@ -12,6 +12,16 @@ All notable changes to StatsPAI will be documented in this file.
   the proceedings page where one exists, for preprints and conference
   papers); the sources are in each entry's `annote`. 130 validated functions still have no
   reference, listed with reasons in the audit doc.
+- **`missing=` takes a rule per role** (rOpenSci RE2.2). The 25 estimators
+  with the shared `missing=` option also accept a dict such as
+  `missing={"response": "raise", "predictors": "drop"}`. `"response"` is
+  the outcome; `"predictors"` is every other used column, weights and
+  cluster included. A role left out is `"drop"`. A refusal names the role
+  in `diagnostics["missing_by_role"]`, and a fit records the dropped
+  role's missing values in `result.diagnostics["missing_by_role"]`.
+  Unknown roles or values raise `MethodIncompatibility`. The string forms
+  and the default are unchanged. The schema exports the parameter as a
+  string or a dict of strings per role. See `docs/guides/missing_values.md`.
 
 ### Fixed
 - Wrong citations in docstrings. `sp.vcnet` named five authors and the

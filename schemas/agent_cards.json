@@ -169,13 +169,38 @@
             "type": "boolean"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "robust": {
             "default": "nonrobust",
@@ -411,13 +436,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "robust": {
             "default": "nonrobust",
@@ -635,13 +685,38 @@
             "x-statspai-role": "formula"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "robust": {
             "default": "nonrobust",
@@ -827,13 +902,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "quantile": {
             "default": 0.5,
@@ -1003,13 +1103,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "select": {
             "description": "Binary selection indicator (1 = observed, 0 = not); omitted, selected means y is not missing",
@@ -1684,13 +1809,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "ul": {
             "description": "Upper censoring limit (default: none)",
@@ -3480,13 +3630,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_boot": {
             "default": 1000,
@@ -4096,13 +4271,38 @@
             "x-statspai-role": "column"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "notyet_cutoff": {
             "default": "period",
@@ -4479,13 +4679,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_boot": {
             "default": 999,
@@ -5112,13 +5337,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "outcome": {
             "description": "Outcome variable column name or outcome array.",
@@ -5363,13 +5613,38 @@
             "x-statspai-role": "column"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "model": {
             "default": "plr",
@@ -9609,13 +9884,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "ps_model": {
             "default": "logit",
@@ -10579,13 +10879,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "robust": {
             "default": "nonrobust",
@@ -31031,13 +31356,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_bootstrap": {
             "default": 500,
@@ -71149,13 +71499,38 @@
             "x-statspai-role": "column"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "parity": {
             "description": "Inference conventions of a reference program; estimates unchanged. None: crit_dist's critical values, share term carried. 'stata' (eventstudyinteract): t(G-1) for cluster SEs, t(N-K) for the HC1 SEs of i=None, share term carried. 'r' (fixest sunab): the same t and share_variance=False. Recorded in model_info['conventions'].",
@@ -71841,13 +72216,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_boot": {
             "default": 199,
@@ -73867,13 +74267,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "parity": {
             "description": "Critical values of a reference program for p-values and CIs (estimates and SEs unchanged). None: follow crit_dist. 'stata' (reghdfe, vce(cluster)) and 'r' (fixest, cluster=): Student t with G-1 df. Recorded in model_info['conventions'].",
@@ -79718,13 +80143,38 @@
             "type": "string"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_folds": {
             "default": 5,
@@ -89196,13 +89646,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count. A missing ``first_treat`` means never treated and is not counted.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_boot": {
             "default": 199,
@@ -89547,13 +90022,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count. A missing ``first_treat`` means never treated and is not counted.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "n_boot": {
             "default": 199,
@@ -106370,13 +106870,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "odds_ratio": {
             "default": false,
@@ -106580,13 +107105,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "perfect_prediction": {
             "default": "drop",
@@ -106987,13 +107537,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "offset": {
             "description": "Variable name for offset.",
@@ -107203,13 +107778,38 @@
             "type": "integer"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "offset": {
             "description": "Offset variable (log of exposure already computed).",
@@ -127303,13 +127903,38 @@
             "type": "boolean"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "seed": {
             "description": "RNG seed for ``vce=\"wild\"``.",
@@ -127523,13 +128148,38 @@
             "type": "number"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "seed": {
             "description": "RNG seed for sampled (non-enumerated) ``vce=\"wild\"`` draws.",
@@ -127716,13 +128366,38 @@
             "x-statspai-role": "formula"
           },
           "missing": {
-            "default": "drop",
-            "description": "Rows with a missing value in a column the call uses (outcome, regressors, weights, cluster). ``'drop'`` deletes them listwise and reports the count; ``'raise'`` refuses the data with a ``DataInsufficient`` that names each column and its count.",
-            "enum": [
-              "drop",
-              "raise"
+            "anyOf": [
+              {
+                "enum": [
+                  "drop",
+                  "raise"
+                ],
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "predictors": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  },
+                  "response": {
+                    "enum": [
+                      "drop",
+                      "raise"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
             ],
-            "type": "string"
+            "default": "drop",
+            "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
           "seed": {
             "description": "RNG seed for sampled (non-enumerated) ``vce=\"wild\"`` draws.",

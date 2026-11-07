@@ -39,6 +39,46 @@ Two kinds of missing value carry meaning and are not counted:
   or `treat` in `sp.did`) means the unit is never treated;
 - a missing outcome in `sp.heckman` marks an unselected row.
 
+## A rule per role: response and predictors
+
+A missing outcome and a missing regressor are not the same problem. A
+missing outcome is often the design (attrition, non-response), and a
+silent drop there changes the estimand. A missing regressor is more often
+a merge that did not match. `missing=` therefore also takes a dict with a
+rule per role:
+
+```python
+fit = sp.regress("wage ~ educ + exper", df, cluster="firm",
+                 missing={"response": "raise", "predictors": "drop"})
+```
+
+There are two roles. `"response"` is the outcome: the left side of the
+formula, or the outcome argument (`y=`, `outcome=`). `"predictors"` is
+every other column the call uses. That covers regressors, covariates,
+the treatment, instruments, the weights, the cluster column and the unit
+and time identifiers. Each role takes `"drop"` or `"raise"`, and a role
+left out of the dict follows the default, `"drop"`. Any other key or
+value is refused with a `MethodIncompatibility`. Its `diagnostics` carry
+`allowed`, `allowed_roles`, `unknown_roles` and `invalid_values`.
+
+A role set to `"raise"` is refused as above. The error's `diagnostics`
+then also carry `missing_by_role` (role to column to count) and
+`missing_roles`, and `missing_policy` is the full rule. A role set to
+`"drop"` is deleted listwise as before. The result records what that
+role held in `result.diagnostics["missing_by_role"]`:
+
+```python
+fit.diagnostics["missing_by_role"]
+# {'policy': {'response': 'raise', 'predictors': 'drop'},
+#  'missing_by_role': {'predictors': {'exper': 2, 'firm': 1}},
+#  'n_rows_missing': 3}
+```
+
+The string forms are unchanged and record nothing. The two exemptions
+below still hold: a missing cohort is not counted in either role, and in
+`sp.heckman` the response role counts nothing, because a missing outcome
+there marks an unselected row.
+
 `missing=` is available on `regress`, `logit`, `probit`, `poisson`, `glm`,
 `ivreg`, `iv`, `feols`, `fepois`, `feglm`, `qreg`, `tobit`, `heckman`,
 `did`, `callaway_santanna`, `sun_abraham`, `did_imputation`,
@@ -86,6 +126,6 @@ polynomial.
 ## Where this is tested
 
 `tests/test_edge_case_contract.py` runs each of these inputs over the 25
-estimators above. It also checks that noise of relative size 1e-13 on the
+estimators above, with one cell per role for the rule per role. It also checks that noise of relative size 1e-13 on the
 outcome leaves every estimate unchanged and that exact fits recover the
 coefficients that generated the data.

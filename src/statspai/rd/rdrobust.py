@@ -18,7 +18,7 @@ Imbens, G. and Kalyanaraman, K. (2012).
 
 import warnings
 from math import factorial
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import (
+    MissingPolicy,
     check_columns,
     checks_input,
     missing_named_columns,
@@ -359,7 +360,7 @@ def rdrobust(
     masspoints: str = "adjust",
     scalepar: float = 1.0,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Local polynomial RD estimation with robust bias-corrected inference.
@@ -519,11 +520,15 @@ def rdrobust(
         and bootstrap options are OLS-only — setting them with
         ``engine='bayes'`` raises. For full prior / sampler control call
         ``sp.bayes_rd`` directly.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

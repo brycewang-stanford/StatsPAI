@@ -25,14 +25,14 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 """
 
 import warnings
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
-from .._input_validation import checks_input, missing_named_columns
+from .._input_validation import MissingPolicy, checks_input, missing_named_columns
 from ..core._call_record import records_call
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_binary_treatment
@@ -97,7 +97,7 @@ def aipw(
     ps_learner: Optional[Any] = None,
     outcome_learner: Optional[Any] = None,
     *,
-    missing: Literal["drop", "raise"] = "drop",
+    missing: MissingPolicy = "drop",
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -254,11 +254,15 @@ def aipw(
         (``cross_fit=False`` warns: flexible learners fitted and evaluated
         on the same rows bias the estimate); ``se_method='sandwich'`` is
         refused.
-    missing : {'drop', 'raise'}, default 'drop'
+    missing : {'drop', 'raise'} or dict, default 'drop'
         Rows with a missing value in a column the call uses (outcome,
         regressors, weights, cluster). ``'drop'`` deletes them listwise and
         reports the count; ``'raise'`` refuses the data with a
         ``DataInsufficient`` that names each column and its count.
+        A dict sets the rule per role, e.g. ``{'response': 'raise',
+        'predictors': 'drop'}``: ``'response'`` is the outcome,
+        ``'predictors'`` every other column the call uses (weights and
+        cluster included), and a role left out is ``'drop'``.
 
     Returns
     -------

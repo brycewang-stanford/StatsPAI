@@ -142,7 +142,11 @@ def test_describe_function_sends_the_parameters_once():
     for p in sp.describe_function("callaway_santanna")["params"]:
         assert p["name"] in props
         if p.get("enum"):
-            assert props[p["name"]]["enum"] == p["enum"]
+            prop = props[p["name"]]
+            # a union (missing= takes a string or a dict per role) carries
+            # the enum on its string branch
+            enums = [prop.get("enum")] + [b.get("enum") for b in prop.get("anyOf", [])]
+            assert p["enum"] in enums, (p["name"], prop)
     assert set(out["schema"]) == {"name", "parameters"}
     full = len(json.dumps(sp.describe_function("callaway_santanna"), default=str))
     full += len(json.dumps(sp.function_schema("callaway_santanna"), default=str))
