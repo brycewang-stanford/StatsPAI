@@ -27,6 +27,7 @@ from scipy import linalg
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -136,6 +137,7 @@ def _run(
     level: float,
     formula: str,
     info: Dict[str, Any],
+    ctl: ChainRun,
 ) -> BayesRegressResult:
     m = len(Xl)
     n = Xl[0].shape[0]
@@ -154,43 +156,125 @@ def _run(
         aux = [f"var({labels[a]})" for a in range(1, m)] + [
             f"cov({labels[a]},{labels[b]})" for a, b in pairs
         ]
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+
+    def report(beta: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        # the identified quantities: the latent scale is normalised away
+        if kind == "mv":
+            sd = np.sqrt(np.diag(Sigma))
+            return np.concatenate(
+                [
+                    beta / np.repeat(sd, ks),
+                    [Sigma[a, b] / (sd[a] * sd[b]) for a, b in pairs],
+                ]
+            )
+        s11 = Sigma[0, 0]
+        return np.concatenate(
+            [
+                beta / np.sqrt(s11),
+                np.diag(Sigma)[1:] / s11,
+                [Sigma[a, b] / s11 for a, b in pairs],
+            ]
+        )
+
+    def to_state(row: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        # a point of the identified parameters on the latent scale with a
+        # unit (first) variance
+        Sigma = np.eye(m)
+        if kind == "mv":
+            for (a, b), val in zip(pairs, row[K:]):
+                Sigma[a, b] = Sigma[b, a] = val
+        else:
+            Sigma[np.arange(1, m), np.arange(1, m)] = row[K : K + m - 1]
+            for (a, b), val in zip(pairs, row[K + m - 1 :]):
+                Sigma[a, b] = Sigma[b, a] = val
+        return np.array(row[:K], dtype=float), Sigma
+
+    def positive_definite(row: np.ndarray) -> bool:
+        return bool(np.linalg.eigvalsh(to_state(row)[1]).min() > 0)
+
+    ctl.setup(
+        {
+            "kind": kind,
+            "y": y,
+            "X": Xl,
+            "names": names,
+            "b0": b0,
+            "B0": B0,
+            "nu0": nu0,
+            "V0": V0,
+        },
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+        init_names=names + aux,
+        support=positive_definite,
+        support_text="the covariance terms must give a positive definite matrix",
+        to_state=to_state,
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
     pieces = []
     # moments of the coefficients on the scale the prior is written on
     raw_sum, raw_sq = np.zeros(K), np.zeros(K)
     for ch in range(chains):
-        rng = rngs[ch]
-        if kind == "mv":
-            w = np.where(y > 0, 0.5, -0.5).astype(float)
+        ctl.begin(ch)
+        rng = ctl.rngs[ch]
+        if ctl.continuing:
+            w, beta, Sigma, ch_sum, ch_sq = (
+                np.array(a, dtype=float) for a in ctl.prev_state(ch)
+            )
+            raw_sum += ch_sum
+            raw_sq += ch_sq
         else:
-            w = np.full((n, m), -1.0)
-            hit = y > 0
-            w[np.where(hit)[0], y[hit] - 1] = 1.0
-        beta = np.zeros(K)
-        Sigma = np.eye(m)
-        if chains > 1:
-            beta = 0.3 * rng.standard_normal(K)
+            if kind == "mv":
+                w = np.where(y > 0, 0.5, -0.5).astype(float)
+            else:
+                w = np.full((n, m), -1.0)
+                hit = y > 0
+                w[np.where(hit)[0], y[hit] - 1] = 1.0
+            beta = np.zeros(K)
+            Sigma = np.eye(m)
+            if ctl.starts[ch] is not None:
+                beta, Sigma = ctl.starts[ch]
+            elif chains > 1:
+                beta = 0.3 * rng.standard_normal(K)
+            ch_sum, ch_sq = np.zeros(K), np.zeros(K)
+        first = report(beta, Sigma)
         out = np.empty((draws, K + len(aux)))
+        burn = np.empty((run_burnin if ctl.keep_burnin else 0, K + len(aux)))
         kept = 0
         for it in range(n_iter):
             w, beta, Sigma = _sweep(rng, w, beta, Sigma, y, Xl, XX, off, prior, kind)
-            if it >= burnin and (it - burnin) % thin == 0:
+            if it >= run_burnin and (it - run_burnin) % thin == 0:
                 raw_sum += beta
                 raw_sq += beta * beta
-                if kind == "mv":
-                    sd = np.sqrt(np.diag(Sigma))
-                    out[kept, :K] = beta / np.repeat(sd, ks)
-                    out[kept, K:] = [Sigma[a, b] / (sd[a] * sd[b]) for a, b in pairs]
-                else:
-                    s11 = Sigma[0, 0]
-                    out[kept, :K] = beta / np.sqrt(s11)
-                    out[kept, K : K + m - 1] = np.diag(Sigma)[1:] / s11
-                    out[kept, K + m - 1 :] = [Sigma[a, b] / s11 for a, b in pairs]
+                ch_sum += beta
+                ch_sq += beta * beta
+                out[kept] = report(beta, Sigma)
                 kept += 1
+            elif it < len(burn):
+                burn[it] = report(beta, Sigma)
         pieces.append(out)
-    d_df = pd.DataFrame(np.vstack(pieces), columns=names + aux)
-    chain_idx = np.repeat(np.arange(chains), draws)
+        ctl.end(
+            ch,
+            (w.copy(), beta.copy(), Sigma.copy(), ch_sum, ch_sq),
+            start=first,
+            burn=burn,
+        )
+    prev = ctl.prev
+    d_df = pd.DataFrame(
+        ctl.stack(
+            pieces,
+            None if prev is None else prev.draws.to_numpy(),
+            None if prev is None else prev.chain,
+        ),
+        columns=names + aux,
+    )
+    chain_idx = ctl.chain_index()
     table, diag = posterior_table(d_df, chain_idx, chains, level)
     res = BayesRegressResult(
         model="mvprobit" if kind == "mv" else "mnprobit",
@@ -201,7 +285,7 @@ def _run(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -219,6 +303,8 @@ def _run(
         diagnostics_info=diag,
         _model=None,
     )
+    ctl.attach(res, names + aux, info)
+    ctl.done(diag["min_ess"], diag["max_split_rhat"])
     if diag["min_ess"] < 100:
         text = (
             "The chain mixes slowly: effective sample size "
@@ -231,7 +317,7 @@ def _run(
         # the prior is on the unnormalised coefficients, so those are the
         # draws to hold against it (the reported ones are divided by the
         # latent standard deviation)
-        kept_n = draws * chains
+        kept_n = len(d_df)
         raw_mean = raw_sum / kept_n
         raw_sd = np.sqrt(np.clip(raw_sq / kept_n - raw_mean**2, 0.0, None))
         note_default_prior(
@@ -259,6 +345,10 @@ def bayes_mvprobit(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian multivariate probit.
 
@@ -285,6 +375,27 @@ def bayes_mvprobit(
         correlation.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : dict, list of dicts or array, optional
+        Starting values on the reported (identified) scale: every
+        coefficient and every corr(<a>,<b>), for all chains or one set
+        per chain. The chain starts on the latent scale with unit
+        variances there; the latent utilities start at the default.
+        ``result.inits`` records the starting state of each chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_mvprobit`` fit of the
+        same data, prior and settings by ``draws`` more draws each,
+        from where each chain stopped and with its own generator, with
+        no new burn-in. The sampler draws its random numbers iteration
+        by iteration, so a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -320,6 +431,13 @@ def bayes_mvprobit(
     rossi2005bayesian, albert1993bayesian
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_mvprobit",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if isinstance(formulas, str) or len(formulas) < 2:
@@ -377,6 +495,7 @@ def bayes_mvprobit(
         level,
         " ; ".join(formulas),
         {"equations": list(formulas), "outcomes": ynames},
+        ctl,
     )
 
 
@@ -393,6 +512,10 @@ def bayes_mnprobit(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian multinomial probit.
 
@@ -419,6 +542,28 @@ def bayes_mnprobit(
         differences. Default ``(J + 2, (J + 2) I)`` for ``J`` categories.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : dict, list of dicts or array, optional
+        Starting values on the reported (identified) scale: every
+        coefficient, var(<level>) and cov(<a>,<b>), for all chains or
+        one set per chain. The chain starts on the latent scale with
+        the first variance one; the latent utilities start at the
+        default. ``result.inits`` records the starting state of each
+        chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_mnprobit`` fit of the
+        same data, prior and settings by ``draws`` more draws each,
+        from where each chain stopped and with its own generator, with
+        no new burn-in. The sampler draws its random numbers iteration
+        by iteration, so a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -456,6 +601,13 @@ def bayes_mnprobit(
     mcculloch1994exact, rossi2005bayesian
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_mnprobit",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(formula, str) or "~" not in formula:
@@ -505,4 +657,5 @@ def bayes_mnprobit(
         level,
         formula,
         {"levels": [str(v) for v in levels], "base_level": str(levels[0])},
+        ctl,
     )

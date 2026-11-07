@@ -18,7 +18,8 @@ import pandas as pd
 from scipy import special
 
 from ..exceptions import ConvergenceWarning, MethodIncompatibility
-from ._core import rmvnorm_prec
+from ._chains import ChainRun
+from ._core import rmvnorm_prec, spawn_rngs
 from ._polyagamma import rpolyagamma
 from .diagnostics import mcmc_summary
 from .regress import BayesRegressResult
@@ -66,8 +67,9 @@ def shrink_logit(
     draws: int,
     burnin: int,
     thin: int,
-    rng: np.random.Generator,
+    seed: Any,
     level: float,
+    ctl: ChainRun,
 ) -> BayesRegressResult:
     """Fit; called by :func:`statspai.bayes_shrink` with ``family='logit'``."""
     from .shrinkage import _hs_variance, _regularized_hs_step
@@ -114,13 +116,60 @@ def shrink_logit(
     theta = np.zeros(p + 1)
     share = float(np.clip(y.mean(), 1e-3, 1 - 1e-3))
     theta[0] = np.log(share / (1.0 - share))
+    out_k = np.zeros(p)
+    m_eff = 0.0
+    init_names = ["Intercept"] + names + ["tau"] + (["slab"] if regularized else [])
+    ctl.setup(
+        {
+            "y": y,
+            "X": X,
+            "standardize": bool(standardize),
+            "horseshoe": [global_scale, p0, slab_scale, slab_df],
+        },
+        chains=1,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, 1),
+        exact=True,
+        init_names=init_names,
+        support=lambda row: bool(np.all(row[p + 1 :] > 0)),
+        support_text="tau and slab must be positive",
+    )
+    thin, run_burnin = ctl.thin, ctl.burnin
+    rng = ctl.rngs[0]
+    ctl.begin(0)
+    if ctl.continuing:
+        st = ctl.prev_state(0)
+        theta, loc2, nu_aux, steps, out_k = (
+            np.array(st[key], dtype=float)
+            for key in ("theta", "loc2", "nu_aux", "steps", "out_k")
+        )
+        glob2, slab2, xi_aux, m_eff = (
+            float(st[key]) for key in ("glob2", "slab2", "xi_aux", "m_eff")
+        )
+    elif ctl.starts[0] is not None:
+        row = ctl.starts[0]
+        slopes0 = row[1 : p + 1]
+        theta = np.concatenate([[row[0] + xbar @ slopes0], slopes0 * sx])
+        glob2 = float(row[p + 1]) ** 2
+        if regularized:
+            slab2 = float(row[p + 2]) ** 2
+
+    def report() -> List[float]:
+        slopes = theta[1:] / sx
+        vals = [theta[0] - xbar @ slopes, *slopes, np.sqrt(glob2)]
+        return vals + ([np.sqrt(slab2)] if regularized else [])
+
+    first = np.array(report(), dtype=float)
+    burn = np.empty((run_burnin if ctl.keep_burnin else 0, len(init_names)))
     out = np.empty((draws, p + 1))
     out_t = np.empty(draws)
     out_c = np.empty(draws)
-    out_k = np.zeros(p)
-    m_eff = 0.0
     kept = 0
-    for it in range(burnin + draws * thin):
+    for it in range(run_burnin + draws * thin):
         omega = rpolyagamma(rng, W @ theta)
         prec = (W * omega[:, None]).T @ W
         v = np.maximum(_hs_variance(loc2, glob2, slab2), 1e-300)
@@ -132,7 +181,7 @@ def shrink_logit(
                 loc2, glob2, slab2, rates = _regularized_hs_step(
                     rng, b2, 1.0, loc2, glob2, slab2, tau0, slab_df, slab_s**2, steps
                 )
-            if it < burnin:
+            if it < run_burnin:
                 steps *= np.exp(0.03 * (rates - 0.35))
         else:
             # Gibbs draws of the scales; a few passes per draw of the
@@ -147,7 +196,9 @@ def shrink_logit(
                 glob2 = min(max(glob2, 1e-300), 1e300)
                 nu_aux = (1.0 + 1.0 / loc2) / rng.gamma(1.0, size=p)
                 xi_aux = float((1.0 / tau0**2 + 1.0 / glob2) / rng.gamma(1.0))
-        if it >= burnin and (it - burnin) % thin == 0:
+        if it < len(burn):
+            burn[it] = report()
+        if it >= run_burnin and (it - run_burnin) % thin == 0:
             slopes = theta[1:] / sx
             out[kept, 1:] = slopes
             out[kept, 0] = theta[0] - xbar @ slopes
@@ -159,6 +210,22 @@ def shrink_logit(
             out_k += kap
             m_eff += float((1.0 - kap).sum())
             kept += 1
+    ctl.end(
+        0,
+        {
+            "theta": theta.copy(),
+            "loc2": loc2.copy(),
+            "nu_aux": nu_aux.copy(),
+            "steps": steps.copy(),
+            "out_k": out_k.copy(),
+            "glob2": glob2,
+            "slab2": slab2,
+            "xi_aux": xi_aux,
+            "m_eff": m_eff,
+        },
+        start=first,
+        burn=burn,
+    )
     cols: Dict[str, np.ndarray] = {"Intercept": out[:, 0]}
     for j, nm in enumerate(names):
         cols[nm] = out[:, j + 1]
@@ -166,6 +233,12 @@ def shrink_logit(
     if regularized:
         cols["slab"] = out_c
     d_df = pd.DataFrame(cols)
+    prev = ctl.prev
+    if prev is not None:
+        d_df = pd.DataFrame(
+            ctl.stack([d_df.to_numpy()], prev.draws.to_numpy()), columns=d_df.columns
+        )
+    n_kept = len(d_df)
     summ = mcmc_summary(d_df, quantiles=())
     lo = (1.0 - level) / 2.0
     table = pd.DataFrame(
@@ -181,14 +254,14 @@ def shrink_logit(
         }
     )
     shrink = pd.Series(np.nan, index=table.index)
-    shrink.loc[names] = out_k / draws
+    shrink.loc[names] = out_k / n_kept
     table["shrinkage"] = shrink
     info: Dict[str, Any] = {
         "prior": "horseshoe",
         "family": "logit",
         "standardize": bool(standardize),
         "global_scale": tau0,
-        "m_eff": m_eff / draws,
+        "m_eff": m_eff / n_kept,
     }
     if regularized:
         info.update({"slab_scale": slab_s, "slab_df": float(slab_df)})
@@ -200,9 +273,9 @@ def shrink_logit(
         std_errors=table["sd"].copy(),
         table=table,
         draws=d_df,
-        chain=np.zeros(draws, dtype=int),
+        chain=np.zeros(n_kept, dtype=int),
         n_obs=n,
-        n_draws=draws,
+        n_draws=n_kept,
         burnin=burnin,
         thin=thin,
         chains=1,
@@ -217,6 +290,8 @@ def shrink_logit(
         ),
         _design_info=design_info,
     )
+    ctl.attach(res, list(d_df.columns), info)
+    ctl.done(diag["min_ess"], float("nan"))
     if diag["min_ess"] < 100:
         text = (
             "The chain mixes slowly: effective sample size "

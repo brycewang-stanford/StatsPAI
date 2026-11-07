@@ -30,6 +30,7 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -99,6 +100,10 @@ def bayes_ivreg(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian linear instrumental variables by Gibbs sampling.
 
@@ -139,6 +144,27 @@ def bayes_ivreg(
         identity scale, ``sigma_prior=(3, 1.0)``.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : dict, list of dicts or array, optional
+        Starting values of rho, sigma2_y, sigma2_d and the first-stage
+        coefficients (fs:<term>), for every chain or one set per chain.
+        The first step draws the structural coefficients given them, so
+        values for those are accepted (result.params can be passed) and
+        not used. ``result.inits`` records the starting state of each
+        chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_ivreg`` fit of the same
+        data, prior and settings by ``draws`` more draws each, from
+        where each chain stopped and with its own generator, with no
+        new burn-in. The sampler draws its random numbers iteration by
+        iteration, so a fit of ``m`` draws continued by ``m'`` equals
+        one fit of ``m + m'`` draws with the same seed, draw for draw.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -184,6 +210,13 @@ def bayes_ivreg(
     rossi2005bayesian, ramirezhassan2026introduction
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_ivreg",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
@@ -272,22 +305,69 @@ def bayes_ivreg(
     What = np.column_stack([X, Z @ delta_ols])
     theta_2sls = np.linalg.lstsq(What, y, rcond=None)[0]
 
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
     names = wnames + ["rho", "sigma2_y", "sigma2_d"] + [f"fs:{c}" for c in znames]
+    init_names = names[kw:]
+
+    def to_state(row: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        rho, s_y, s_d = row[0], row[1], row[2]
+        c = rho * np.sqrt(s_y * s_d)
+        return np.array(row[3:], dtype=float), np.array([[s_d, c], [c, s_y]])
+
+    ctl.setup(
+        {
+            "y": y,
+            "d": d,
+            "X": X,
+            "Z": Z,
+            "names": names,
+            "t0": t0,
+            "T0": T0,
+            "D0": D0,
+            "nu0": nu0,
+            "V0": V0,
+        },
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+        init_names=init_names,
+        drawn_first=wnames,
+        support=lambda row: bool(row[1] > 0 and row[2] > 0 and abs(row[0]) < 1),
+        support_text="the variances must be positive and |rho| < 1",
+        to_state=to_state,
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
+
+    def row(theta: np.ndarray, delta: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        rho = Sigma[0, 1] / np.sqrt(Sigma[0, 0] * Sigma[1, 1])
+        return np.concatenate([theta, [rho, Sigma[1, 1], Sigma[0, 0]], delta])
+
     pieces = []
     for ch in range(chains):
-        rng = rngs[ch]
-        delta = delta_ols.copy()
-        theta = theta_2sls.copy()
-        if chains > 1:
-            delta = delta + rng.standard_normal(kz) * 0.1 * np.abs(delta).max()
-            theta = theta + rng.standard_normal(kw) * 0.1 * max(np.abs(theta).max(), 1)
-        v = d - Z @ delta
-        eps = y - W @ theta
-        E = np.column_stack([v, eps])
-        Sigma = (V0 + E.T @ E) / n
+        ctl.begin(ch)
+        rng = ctl.rngs[ch]
+        if ctl.starts[ch] is not None:
+            delta, Sigma = (np.array(a, dtype=float) for a in ctl.starts[ch])
+        else:
+            delta = delta_ols.copy()
+            theta = theta_2sls.copy()
+            if chains > 1:
+                delta = delta + rng.standard_normal(kz) * 0.1 * np.abs(delta).max()
+                theta = theta + rng.standard_normal(kw) * 0.1 * max(
+                    np.abs(theta).max(), 1
+                )
+            v = d - Z @ delta
+            eps = y - W @ theta
+            E = np.column_stack([v, eps])
+            Sigma = (V0 + E.T @ E) / n
+        # the structural coefficients are drawn first
+        first = row(np.full(kw, np.nan), delta, Sigma)
         out = np.empty((draws, len(names)))
+        burn = np.empty((run_burnin if ctl.keep_burnin else 0, len(names)))
         kept = 0
         for it in range(n_iter):
             s11, s12, s22 = Sigma[0, 0], Sigma[0, 1], Sigma[1, 1]
@@ -315,17 +395,21 @@ def bayes_ivreg(
             eps = y - W @ theta
             E = np.column_stack([v, eps])
             Sigma = rinvwishart(rng, nu0 + n, V0 + E.T @ E)
-            if it >= burnin and (it - burnin) % thin == 0:
-                out[kept, :kw] = theta
-                out[kept, kw] = Sigma[0, 1] / np.sqrt(Sigma[0, 0] * Sigma[1, 1])
-                out[kept, kw + 1] = Sigma[1, 1]
-                out[kept, kw + 2] = Sigma[0, 0]
-                out[kept, kw + 3 :] = delta
+            if it >= run_burnin and (it - run_burnin) % thin == 0:
+                out[kept] = row(theta, delta, Sigma)
                 kept += 1
+            elif it < len(burn):
+                burn[it] = row(theta, delta, Sigma)
         pieces.append(out)
-    arr = np.vstack(pieces)
+        ctl.end(ch, (delta.copy(), Sigma.copy()), start=first, burn=burn)
+    prev = ctl.prev
+    arr = ctl.stack(
+        pieces,
+        None if prev is None else prev.draws.to_numpy(),
+        None if prev is None else prev.chain,
+    )
     d_df2 = pd.DataFrame(arr, columns=names)
-    chain_idx = np.repeat(np.arange(chains), draws)
+    chain_idx = ctl.chain_index()
     ess = np.zeros(len(names))
     for ch in range(chains):
         ess += mcmc_summary(d_df2.loc[chain_idx == ch], quantiles=())["ess"].to_numpy()
@@ -369,7 +453,7 @@ def bayes_ivreg(
         draws=d_df2,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df2),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -389,6 +473,8 @@ def bayes_ivreg(
         _model=_IVShim(W, wnames),
         _design_info=None,
     )
+    ctl.attach(res, names, info)
+    ctl.done(diag_info["min_ess"], diag_info["max_split_rhat"])
     if f_stat < 10.0:
         text = (
             f"Weak instruments: the first-stage F statistic is {f_stat:.2f}. "

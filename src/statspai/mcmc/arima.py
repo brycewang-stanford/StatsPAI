@@ -23,6 +23,7 @@ from scipy import special
 from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -257,6 +258,10 @@ def bayes_arima(
     seed: Optional[int] = None,
     level: float = 0.95,
     tune: Optional[float] = None,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian ARIMA(p, d, q) with the exact Gaussian likelihood.
 
@@ -289,6 +294,28 @@ def bayes_arima(
     tune : float, optional
         Scale of the proposal relative to the curvature at the mode.
         Default ``2.38 / sqrt(k)``.
+    inits : dict, list of dicts or array, optional
+        Starting values of every parameter on the reported scale
+        (``const``, ``ar.L*``, ``ma.L*``, ``sigma2``), for every chain
+        or one set per chain, inside the stationary and invertible
+        region. ``result.inits`` records the starting state of each
+        chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_arima`` fit of the same
+        data, prior and settings by ``draws`` more draws each, from
+        where each chain stopped and with its own generator, with no
+        new burn-in. The Metropolis sampler draws a whole run's
+        proposals at once, so the continued draws are a valid
+        continuation of the same chain, reproducible from the earlier
+        result, but not the draws of one longer run;
+        ``model_info['continued']['exact']`` is False.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -325,6 +352,13 @@ def bayes_arima(
     ramirezhassan2026introduction
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_arima",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     try:
@@ -386,20 +420,62 @@ def bayes_arima(
     scale = 2.38 / np.sqrt(k) if tune is None else float(tune)
     if scale <= 0:
         raise MethodIncompatibility("tune must be positive.")
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+
+    def in_support(row: np.ndarray) -> bool:
+        u = mdl.to_u(row)[0]
+        return bool(np.isfinite(u).all() and np.isfinite(mdl.log_kernel(u)))
+
+    ctl.setup(
+        {"w": w, "order": (p, d, q), "model": mdl.__dict__, "tune": scale},
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=False,
+        init_names=mdl.names,
+        support=in_support,
+        support_text=(
+            "the AR part must be stationary, the MA part invertible and "
+            "sigma2 positive"
+        ),
+        to_state=lambda row: mdl.to_u(row)[0],
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
+    rngs = ctl.rngs
     pieces, accepts = [], []
     for c in range(chains):
-        start = mode.copy()
-        if chains > 1:
-            start = start + np.linalg.cholesky(cov) @ rngs[c].standard_normal(k)
+        ctl.begin(c)
+        if ctl.starts[c] is not None:
+            start = np.array(ctl.starts[c], dtype=float)
+        else:
+            start = mode.copy()
+            if chains > 1:
+                start = start + np.linalg.cholesky(cov) @ rngs[c].standard_normal(k)
         out, acc = random_walk_metropolis(
             rngs[c], mdl.log_kernel, start, scale * scale * cov, n_iter
         )
-        pieces.append(mdl.from_u(out[burnin:n_iter:thin]))
+        pieces.append(mdl.from_u(out[run_burnin:n_iter:thin]))
         accepts.append(acc)
-    d_df = pd.DataFrame(np.vstack(pieces), columns=mdl.names)
-    chain_idx = np.repeat(np.arange(chains), draws)
+        ctl.end(
+            c,
+            out[-1].copy(),
+            start=mdl.from_u(start)[0],
+            burn=mdl.from_u(out[:run_burnin]) if ctl.keep_burnin else None,
+            accept=acc,
+        )
+    prev = ctl.prev
+    d_df = pd.DataFrame(
+        ctl.stack(
+            pieces,
+            None if prev is None else prev.draws.to_numpy(),
+            None if prev is None else prev.chain,
+        ),
+        columns=mdl.names,
+    )
+    chain_idx = ctl.chain_index()
     table, diag = posterior_table(d_df, chain_idx, chains, level)
     info: Dict[str, Any] = {
         "order": (p, d, q),
@@ -451,12 +527,14 @@ def bayes_arima(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
         sampler="random-walk Metropolis on the partial autocorrelations",
-        acceptance_rate=float(np.mean(accepts)),
+        acceptance_rate=ctl.rate(
+            float(np.mean(accepts)), None if prev is None else prev.acceptance_rate
+        ),
         prior={
             "const": f"N({m0:g}, {v0:g})" if constant else "none",
             "ar": "uniform over the stationary region",
@@ -468,6 +546,8 @@ def bayes_arima(
         diagnostics_info=diag,
         _model=mdl,
     )
+    ctl.attach(res, mdl.names, info)
+    ctl.done(diag["min_ess"], diag["max_split_rhat"])
     acc = res.acceptance_rate or 0.0
     if acc < 0.05 or diag["min_ess"] < 100:
         text = (

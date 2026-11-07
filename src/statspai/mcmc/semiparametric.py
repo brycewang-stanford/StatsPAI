@@ -34,7 +34,7 @@ retained chain is a fixed-kernel Markov chain with the same target.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Callable, List, Literal, Optional, Sequence, Tuple, cast
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -49,6 +49,7 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -237,7 +238,9 @@ def _augmented_chain(
     cov0: np.ndarray,
     delta_sd: float,
     mh_steps: int = _MH_STEPS,
-) -> Tuple[np.ndarray, float, float]:
+    state: Optional[Dict[str, Any]] = None,
+    keep_burn: bool = False,
+) -> Tuple[np.ndarray, float, float, Dict[str, Any], np.ndarray]:
     m = spec.start.size
     n_obs = y.shape[0]
     dim = start.size
@@ -247,6 +250,17 @@ def _augmented_chain(
     out = np.empty((draws, dim))
     kept = 0
     acc_sum, acc_n, rej_sum = 0.0, 0, 0.0
+    if state is not None:
+        # a continued chain: the proposal tuned in the first run's burn-in
+        # and the running acceptance statistics
+        cur = np.array(state["cur"], dtype=float)
+        scale, cov = float(state["scale"]), np.array(state["cov"], dtype=float)
+        acc_sum, acc_n, rej_sum = (
+            float(state["acc_sum"]),
+            int(state["acc_n"]),
+            float(state["rej_sum"]),
+        )
+    burn = np.empty((burnin if keep_burn else 0, dim))
     hist = np.empty((max(burnin, 1), dim))
     window_acc: List[float] = []
     checkpoints = (
@@ -264,6 +278,8 @@ def _augmented_chain(
         cur = states[-1]
         if it < burnin:
             hist[it] = cur
+            if it < len(burn):
+                burn[it] = cur
             window_acc.append(acc)
             if it + 1 in checkpoints:
                 rate = float(np.mean(window_acc))
@@ -282,7 +298,15 @@ def _augmented_chain(
         if (it - burnin) % thin == 0 and kept < draws:
             out[kept] = cur
             kept += 1
-    return out, acc_sum / max(acc_n, 1), rej_sum / max(acc_n, 1)
+    end = {
+        "cur": cur.copy(),
+        "scale": scale,
+        "cov": np.array(cov, dtype=float),
+        "acc_sum": acc_sum,
+        "acc_n": acc_n,
+        "rej_sum": rej_sum,
+    }
+    return out, acc_sum / max(acc_n, 1), rej_sum / max(acc_n, 1), end, burn
 
 
 # --------------------------------------------------------------------------
@@ -383,6 +407,10 @@ def semiparametric_bayes(
     seed: Optional[int] = None,
     level: float = 0.95,
     baseline: bool = True,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> SemiparametricBayesResult:
     """Locally robust, semiparametrically efficient Bayesian inference.
 
@@ -448,6 +476,31 @@ def semiparametric_bayes(
     baseline : bool
         Also sample the baseline (non-robust) posterior, for the
         comparison in ``diagnostics_info``.
+    inits : dict, list of dicts or array, optional
+        Starting values on the sampler scale: the names in
+        ``model_info['sampler_scale']`` (the coefficients after
+        ``interest=`` partials them out, and the log scale parameters
+        of the built-in models) and ``delta:<name>``, for every chain
+        or one set per chain. The baseline log posterior must be finite
+        there. ``result.inits`` records the starting state of each
+        chain.
+    continue_from : SemiparametricBayesResult, optional
+        Extend the chains of an earlier ``semiparametric_bayes`` fit of
+        the same data, prior and settings by ``draws`` more draws each,
+        from where each chain stopped and with its own generator, with
+        no new burn-in. The sampler draws its random numbers iteration
+        by iteration, so a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw. A continued chain keeps the proposal tuned in the first
+        run's burn-in; the baseline posterior of the comparison is the
+        first run's.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -494,6 +547,13 @@ def semiparametric_bayes(
     [@mueller2026locally], [@rao2016data]
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "semiparametric_bayes",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if model not in ("student_t", "weibull", "custom"):
@@ -553,42 +613,84 @@ def semiparametric_bayes(
 
     mode, lap_cov = find_mode(neg_base, spec.start, what="baseline posterior")
     m = mode.size
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains + 1)
+    dnames = [f"delta:{nm}" for nm in spec.interest]
+    ctl.setup(
+        {
+            "y": y,
+            "X": X,
+            "model": model,
+            "names": list(spec.names_u),
+            "interest": list(spec.interest),
+            "prior": [prior_sd, delta_prior_sd],
+            "custom": [loglik, score, efficient_score, simulate, log_prior],
+            "theta_start": theta_start,
+        },
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=1500,
+        make_rngs=lambda c: spawn_rngs(seed, c + 1),
+        exact=True,
+        init_names=list(spec.names_u) + dnames,
+        support=lambda row: bool(neg_base(row[:m]) < 1e299),
+        support_text="the baseline log posterior must be finite there",
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
+    rngs = ctl.rngs
     cov0 = _initial_cov(spec, mode, y, X, prior_sd, delta_prior_sd)
-    pieces, accs, rejs = [], [], []
+    pieces, accs, rejs, burns = [], [], [], []
     for ch in range(chains):
+        ctl.begin(ch)
         start = np.concatenate([mode, np.zeros(spec.k)])
-        if ch > 0:
+        state = ctl.prev_state(ch) if ctl.continuing else None
+        if ctl.starts[ch] is not None and state is None:
+            start = np.array(ctl.starts[ch], dtype=float)
+        elif ch > 0 and state is None:
             start = start + rngs[ch].multivariate_normal(np.zeros(start.size), cov0)
-        out, acc, rej = _augmented_chain(
+        out, acc, rej, end, burn = _augmented_chain(
             spec,
             rngs[ch],
             start,
             y,
             X,
             n_iter,
-            burnin,
+            run_burnin,
             thin,
             draws,
             cov0,
             delta_prior_sd,
+            state=state,
+            keep_burn=ctl.keep_burnin,
         )
         pieces.append(out)
         accs.append(acc)
         rejs.append(rej)
+        burns.append(burn)
+        ctl.end(ch, end, start=start, burn=burn, accept=acc)
+    prev = ctl.prev
+
+    def to_frame(U: np.ndarray) -> np.ndarray:
+        return np.column_stack([spec.to_report(U[:, :m]), U[:, m:]])
+
     U = np.vstack(pieces)
-    rep = spec.to_report(U[:, :m])
-    dnames = [f"delta:{nm}" for nm in spec.interest]
-    d_df = pd.DataFrame(
-        np.column_stack([rep, U[:, m:]]), columns=spec.report_names + dnames
-    )
-    chain_idx = np.repeat(np.arange(chains), draws)
+    rep_new = to_frame(U)
+    if prev is not None:
+        rep_new = ctl.stack(
+            np.split(rep_new, chains), prev.draws.to_numpy(), prev.chain
+        )
+    d_df = pd.DataFrame(rep_new, columns=spec.report_names + dnames)
+    chain_idx = ctl.chain_index()
     table, diag = posterior_table(d_df, chain_idx, chains, level)
 
     base_mean_u = mode
     base_tab = None
-    if baseline:
+    if prev is not None:
+        # the baseline posterior is not sampled again
+        base_tab = prev.diagnostics_info["baseline_posterior"]
+        base_mean_u = prev._extras["baseline_mean_u"]
+    elif baseline:
         bu, _rw, _ind = metropolis_mixture(
             rngs[chains],
             lambda u: -neg_base(u),
@@ -643,7 +745,7 @@ def semiparametric_bayes(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -667,7 +769,12 @@ def semiparametric_bayes(
             "sampler_scale": list(spec.names_u),
         },
         diagnostics_info=diag,
+        _extras={"baseline_mean_u": base_mean_u},
     )
+    # the starting values and the burn-in are recorded on the sampler scale
+    ctl.map_rows(to_frame)
+    ctl.attach(res, spec.report_names + dnames, res.model_info)
+    ctl.done(diag["min_ess"], diag["max_split_rhat"])
     rhat = diag["max_split_rhat"]
     if diag["min_ess"] < 100:
         text = (

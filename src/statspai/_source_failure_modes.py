@@ -14,6 +14,15 @@ from __future__ import annotations
 from typing import Dict, List
 
 SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
+    "abc": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Start where simulate() gives summaries with a nonsingular "
+            "covariance.",
+            "symptom": "inits: the synthetic likelihood is not finite at the "
+            "starting value.",
+        }
+    ],
     "akm": [
         {
             "exception": "statspai.MethodIncompatibility",

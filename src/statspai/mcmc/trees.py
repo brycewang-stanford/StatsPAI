@@ -28,6 +28,7 @@ from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import prediction_design, rtruncnorm
 
 _KERNEL: Dict[str, Any] = {}
@@ -412,6 +413,16 @@ class _Forest:
             k["logm"],
         )
 
+    _STATE = ("var", "cut", "val", "leaves", "nleaf", "leaf_of", "tree_fit", "total")
+
+    def snapshot(self) -> Dict[str, np.ndarray]:
+        """Copies of every array the next sweep reads."""
+        return {key: getattr(self, key).copy() for key in self._STATE}
+
+    def restore(self, state: Dict[str, np.ndarray]) -> None:
+        for key in self._STATE:
+            setattr(self, key, np.array(state[key], dtype=getattr(self, key).dtype))
+
     def pack(self) -> Tuple[np.ndarray, ...]:
         """The existing nodes only: (tree, node, variable, cut, value)."""
         tr, nd = np.nonzero(self.var > _ABSENT)
@@ -454,6 +465,9 @@ class BARTResult(ResultProtocolMixin):
         ``sigma`` (posterior mean) and the average number of leaves per
         tree.
     n_trees, formula, family, n_obs, level
+    burnin_draws : pd.DataFrame or None
+        With ``keep_burnin=True``: ``sigma`` (Gaussian) and the mean number
+        of leaves per tree at every burn-in iteration.
 
     Examples
     --------
@@ -480,6 +494,11 @@ class BARTResult(ResultProtocolMixin):
     sigma: Optional[pd.Series] = None
     model_info: Dict[str, Any] = field(default_factory=dict)
     _state: Dict[str, Any] = field(default_factory=dict, repr=False)
+    burnin_draws: Optional[pd.DataFrame] = field(default=None, repr=False)
+    #: the forest and generator after the last iteration (``continue_from=``)
+    _chain_state: Optional[List[Dict[str, Any]]] = field(default=None, repr=False)
+    _chain_key: Optional[str] = field(default=None, repr=False)
+    _seed: Any = field(default=None, repr=False)
 
     _citation_keys = ("chipman2010bart",)
 
@@ -607,6 +626,10 @@ def bart(
     thin: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BARTResult:
     """Bayesian additive regression trees.
 
@@ -650,6 +673,28 @@ def bart(
     draws, burnin, thin : int
     seed : int, optional
     level : float, default 0.95
+    inits : None
+        Not available: the trees start as single leaves; there is no
+        parameter vector to start them from. Passing it raises
+        ``MethodIncompatibility``.
+    continue_from : BARTResult, optional
+        Extend the chains of an earlier ``bart`` fit of the same data,
+        prior and settings by ``draws`` more draws each, from where
+        each chain stopped and with its own generator, with no new
+        burn-in. The trees and the error variance continue from where
+        the chain stopped, but the tree moves draw from numba's own
+        generator, which a result cannot store; it is seeded again from
+        the chain's generator, so the continued draws are a valid
+        continuation of the same chain, reproducible from the earlier
+        result, but not the draws of one longer run
+        (``model_info['continued']['exact']`` is False).
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep ``sigma`` (Gaussian) and the mean number of leaves per
+        tree of every burn-in iteration in ``result.burnin_draws``;
+        they are never used in the summaries.
 
     Returns
     -------
@@ -707,6 +752,17 @@ def bart(
         raise MethodIncompatibility("max_depth must be between 1 and 12.")
     if min_leaf < 0:
         raise MethodIncompatibility("min_leaf must be non-negative.")
+    ctl = ChainRun(
+        "bart",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+        no_inits=(
+            "the trees start as single leaves; there is no parameter vector "
+            "to start them from."
+        ),
+    )
     y_df, X_df = create_design_matrices(formula, data)
     y = np.asarray(y_df, dtype=float).reshape(-1)
     Xall = np.asarray(X_df, dtype=float)
@@ -767,9 +823,33 @@ def bart(
         int(max_depth),
         int(min_leaf),
     )
-    rng = np.random.default_rng(seed)
+    ctl.setup(
+        {
+            "y": y,
+            "xcut": xcut,
+            "family": fam,
+            "settings": [n_trees, k, base, power, nu, q, numcut, max_depth, min_leaf],
+        },
+        chains=1,
+        thin=int(thin),
+        burnin=int(burnin),
+        draws=int(draws),
+        seed=seed,
+        default_burnin=500,
+        make_rngs=lambda c: [np.random.default_rng(seed)],
+        exact=False,
+    )
+    thin, run_burnin, n_iter = ctl.thin, ctl.burnin, ctl.n_iter
+    rng = ctl.rngs[0]
+    ctl.begin(0)
+    if ctl.continuing:
+        st = ctl.prev_state(0)
+        forest.restore(st["forest"])
+        sigma2 = float(st["sigma2"])
+    # numba's generator, which the tree moves use, cannot be stored: a
+    # continued run seeds it again from the chain's own generator
     forest.k["seed"](int(rng.integers(0, 2**31 - 1)))
-    n_iter = int(burnin) + int(draws) * int(thin)
+    burn = np.empty((run_burnin if ctl.keep_burnin else 0, 2))
     train = np.empty((int(draws), n), dtype=np.float32)
     sig = np.empty(int(draws))
     counts = np.zeros((int(draws), p))
@@ -787,7 +867,9 @@ def bart(
         if fam == "gaussian":
             sse = float(((z - forest.total) ** 2).sum())
             sigma2 = (nu * lam + sse) / rng.chisquare(nu + n)
-        if it >= burnin and (it - burnin) % thin == 0:
+        if it < len(burn):
+            burn[it] = (math.sqrt(sigma2) * scale, forest.nleaf.mean())
+        if it >= run_burnin and (it - run_burnin) % thin == 0:
             train[kept] = forest.total
             sig[kept] = math.sqrt(sigma2) * scale
             used = forest.var[forest.var >= 0]
@@ -795,9 +877,19 @@ def bart(
             leaves_avg[kept] = forest.nleaf.mean()
             packed.append(forest.pack())
             kept += 1
+    ctl.end(0, {"forest": forest.snapshot(), "sigma2": sigma2})
     f_train = center + scale * train.astype(float)
     if fam == "binary":
         f_train = special.ndtr(f_train)
+    prev = ctl.prev
+    if prev is not None:
+        # the earlier run's draws first
+        f_train = np.vstack([prev._state["train_draws"], f_train])
+        counts = np.vstack([prev._state["counts"], counts])
+        leaves_avg = np.concatenate([prev._state["leaves"], leaves_avg])
+        if prev.sigma is not None:
+            sig = np.concatenate([prev.sigma.to_numpy(), sig])
+        packed = list(prev._state["packed"]) + packed
     lo = (1.0 - level) / 2.0
     fitted = pd.DataFrame(
         {
@@ -840,8 +932,8 @@ def bart(
         level=level,
         sigma=pd.Series(sig, name="sigma") if fam == "gaussian" else None,
         model_info={
-            "draws": int(draws),
-            "burnin": int(burnin),
+            "draws": int(len(f_train)),
+            "burnin": int(burnin) if prev is None else prev.model_info["burnin"],
             "thin": int(thin),
             "k": float(k),
             "base": float(base),
@@ -863,8 +955,19 @@ def bart(
             "center": center,
             "scale": scale,
             "train_draws": f_train,
+            "counts": counts,
+            "leaves": leaves_avg,
         },
     )
+    ctl.attach(res, [], res.model_info, frame_fields=False)
+    if len(burn):
+        res.burnin_draws = pd.DataFrame(
+            burn if fam == "gaussian" else burn[:, 1:],
+            columns=(["sigma"] if fam == "gaussian" else []) + ["leaves_per_tree"],
+        )
+    elif prev is not None:
+        res.burnin_draws = prev.burnin_draws
+    ctl.done(ess, float("nan"))
     for note in notes:
         if "effective sample size" in note:
             warnings.warn(note, ConvergenceWarning, stacklevel=2)

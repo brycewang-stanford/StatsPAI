@@ -29,6 +29,7 @@ from scipy import stats
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import check_mcmc_args, spawn_rngs
 from ._results import posterior_table
 from .regress import BayesRegressResult
@@ -228,6 +229,10 @@ def bayes_mixture(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian mixture of normal regressions, finite or Dirichlet process.
 
@@ -271,6 +276,30 @@ def bayes_mixture(
         Points of the density estimate (``"y ~ 1"`` only).
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : None
+        Not available: the collapsed sampler's state is the allocation
+        of every observation to a component, not a parameter vector;
+        the component parameters are integrated out. Passing it raises
+        ``MethodIncompatibility``.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_mixture`` fit of the
+        same data, prior and settings by ``draws`` more draws each,
+        from where each chain stopped and with its own generator, with
+        no new burn-in. The sampler draws its random numbers iteration
+        by iteration, so a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw. ``n_clusters``, the similarity matrix, the partition and
+        the density then use the draws of both runs.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries. The collapsed sampler draws the weights and
+        component parameters only at kept iterations, so in the burn-in
+        rows only ``n_clusters`` (and ``alpha``) are filled and the
+        rest is NaN.
 
     Returns
     -------
@@ -318,6 +347,17 @@ def bayes_mixture(
     neal2000markov, escobar1995bayesian
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_mixture",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+        no_inits=(
+            "the collapsed sampler's state is the allocation of every "
+            "observation to a component, not a parameter vector."
+        ),
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     dp = isinstance(components, str)
@@ -403,8 +443,27 @@ def bayes_mixture(
         scale = np.sqrt(dn / an * (1.0 + 1.0 / lam[0, 0]))
         return stats.t.pdf(pts, an, loc=mean[0], scale=scale)
 
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+    ctl.setup(
+        {
+            "y": y,
+            "X": X,
+            "components": "dp" if dp else cap,
+            "alpha": alpha,
+            "alpha_prior": alpha_prior,
+            "hyper": hyper,
+            "grid": int(grid),
+        },
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=1000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
+    rngs = ctl.rngs
     K = cap if not dp else 0
     col_names: List[str] = []
     if not dp:
@@ -415,33 +474,49 @@ def bayes_mixture(
     if dp and alpha_prior is not None:
         col_names += ["alpha"]
     pieces = []
-    z_keep = np.empty((chains * draws, n), dtype=np.int16)
-    dens = np.empty((chains * draws, int(grid))) if density_only else None
+    z_pieces: List[np.ndarray] = []
+    dens_pieces: List[np.ndarray] = []
     capped = False
-    row = 0
     for ch in range(chains):
+        ctl.begin(ch)
         rng = rngs[ch]
-        # start from a k-means-like split on the fitted values' residual order
-        start_k = min(cap - 1 if dp else cap, 4)
-        order = np.argsort(y - X @ ols if not density_only else y)
-        z = np.empty(n, dtype=np.int64)
-        z[order] = (np.arange(n) * start_k // n).astype(np.int64)
-        cnt = np.zeros(cap)
-        sxx = np.zeros((cap, k, k))
-        sxy = np.zeros((cap, k))
-        syy = np.zeros(cap)
-        lml = np.zeros(cap)
-        for c in range(cap):
-            idx = z == c
-            if idx.any():
-                cnt[c] = idx.sum()
-                sxx[c] = X[idx].T @ X[idx]
-                sxy[c] = X[idx].T @ y[idx]
-                syy[c] = y[idx] @ y[idx]
-                lml[c] = lm(cnt[c], sxx[c], sxy[c], syy[c], *hyper)
-        a_cur = float(alpha)
+        if ctl.continuing:
+            st = ctl.prev_state(ch)
+            z = np.array(st["z"], dtype=np.int64)
+            cnt, sxx, sxy, syy, lml = (
+                np.array(st[key], dtype=float)
+                for key in ("cnt", "sxx", "sxy", "syy", "lml")
+            )
+            a_cur = float(st["alpha"])
+            capped = capped or bool(st["capped"])
+        else:
+            # start from a k-means-like split on the fitted values' residual
+            # order
+            start_k = min(cap - 1 if dp else cap, 4)
+            order = np.argsort(y - X @ ols if not density_only else y)
+            z = np.empty(n, dtype=np.int64)
+            z[order] = (np.arange(n) * start_k // n).astype(np.int64)
+            cnt = np.zeros(cap)
+            sxx = np.zeros((cap, k, k))
+            sxy = np.zeros((cap, k))
+            syy = np.zeros(cap)
+            lml = np.zeros(cap)
+            for c in range(cap):
+                idx = z == c
+                if idx.any():
+                    cnt[c] = idx.sum()
+                    sxx[c] = X[idx].T @ X[idx]
+                    sxy[c] = X[idx].T @ y[idx]
+                    syy[c] = y[idx] @ y[idx]
+                    lml[c] = lm(cnt[c], sxx[c], sxy[c], syy[c], *hyper)
+            a_cur = float(alpha)
         out = np.empty((draws, len(col_names)))
+        z_keep = np.empty((draws, n), dtype=np.int16)
+        dens = np.empty((draws, int(grid))) if density_only else None
+        burn = np.full((run_burnin if ctl.keep_burnin else 0, len(col_names)), np.nan)
+        chain_capped = False
         kept = 0
+        row = 0
         for it in range(n_iter):
             sweep(
                 z,
@@ -462,6 +537,7 @@ def bayes_mixture(
             occ = int((cnt > 0.5).sum())
             if dp and occ >= cap - 1:
                 capped = True
+                chain_capped = True
             if dp and alpha_prior is not None:
                 # Escobar and West's auxiliary-variable update
                 sh, rt = alpha_prior
@@ -471,7 +547,13 @@ def bayes_mixture(
                     sh + occ if rng.random() < odds / (1.0 + odds) else sh + occ - 1.0
                 )
                 a_cur = rng.gamma(shape, 1.0 / (rt - np.log(eta)))
-            if it >= burnin and (it - burnin) % thin == 0:
+            if it < len(burn):
+                # the weights and components are drawn at kept iterations
+                # only
+                burn[it, col_names.index("n_clusters")] = occ
+                if dp and alpha_prior is not None:
+                    burn[it, -1] = a_cur
+            if it >= run_burnin and (it - run_burnin) % thin == 0:
                 z_keep[row] = z
                 vals: List[float] = []
                 if not dp:
@@ -523,8 +605,36 @@ def bayes_mixture(
                 kept += 1
                 row += 1
         pieces.append(out)
-    d_df = pd.DataFrame(np.vstack(pieces), columns=col_names)
-    chain_idx = np.repeat(np.arange(chains), draws)
+        z_pieces.append(z_keep)
+        if dens is not None:
+            dens_pieces.append(dens)
+        ctl.end(
+            ch,
+            {
+                "z": z.copy(),
+                "cnt": cnt.copy(),
+                "sxx": sxx.copy(),
+                "sxy": sxy.copy(),
+                "syy": syy.copy(),
+                "lml": lml.copy(),
+                "alpha": a_cur,
+                "capped": chain_capped
+                or bool(ctl.continuing and ctl.prev_state(ch)["capped"]),
+            },
+            burn=burn,
+        )
+    prev = ctl.prev
+
+    def joined(new: List[np.ndarray], key: str) -> np.ndarray:
+        if prev is None:
+            return ctl.stack(new)
+        before = prev.draws.to_numpy() if key == "draws" else prev._extras[key]
+        return ctl.stack(new, before, prev.chain)
+
+    d_df = pd.DataFrame(joined(pieces, "draws"), columns=col_names)
+    chain_idx = ctl.chain_index()
+    z_keep = joined(z_pieces, "allocations")
+    dens = joined(dens_pieces, "density_draws") if density_only else None
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         table, diag = posterior_table(d_df, chain_idx, chains, level)
@@ -593,7 +703,7 @@ def bayes_mixture(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -604,7 +714,15 @@ def bayes_mixture(
         model_info=info,
         diagnostics_info=diag,
         _model=None,
+        # kept so that a continued run summarises the allocations and the
+        # density over the draws of both runs
+        _extras={
+            "allocations": z_keep,
+            **({"density_draws": dens} if dens is not None else {}),
+        },
     )
+    ctl.attach(res, col_names, info)
+    ctl.done(diag["min_ess"], diag.get("max_split_rhat", float("nan")))
     if capped:
         text = (
             "The number of occupied clusters reached max_components; the "

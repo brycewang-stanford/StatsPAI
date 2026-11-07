@@ -20220,6 +20220,42 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values: sigma2 and the var()/cov() terms (normal; "
+                    "fixed effects are drawn first) or the fixed effects and "
+                    "var()/cov() terms (logit, poisson), for every chain or one "
+                    "dict per chain. result.inits records each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesMixedResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_mixed fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesMixedResult",
             example='sp.bayes_mixed("y ~ x", df, group="id", random=["x"], seed=1)',
@@ -20418,6 +20454,41 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of mu, phi and sigma for every chain or one "
+                    "dict per chain; the log-variance path starts at mu. "
+                    "result.inits records each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier stochvol fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example="sp.stochvol(returns, seed=1).model_info['volatility']",
@@ -20474,6 +20545,42 @@ def _build_registry() -> None:
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
                 ParamSpec("tune", "float", False, None),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of every reported parameter, inside the "
+                    "stationary and invertible region, for every chain or one dict "
+                    "per chain. result.inits records each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_arima fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; reproducible but not "
+                    "equal to one longer run (model_info['continued']['exact'] is "
+                    "False)",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example="sp.bayes_arima(y, order=(1, 0, 1), horizon=8, seed=1)",
@@ -20525,6 +20632,41 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of the reported coefficients and corr() terms "
+                    "for every chain or one dict per chain. result.inits records "
+                    "each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_mvprobit fit of the same data, prior "
+                    "and settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_mvprobit(["y1 ~ x", "y2 ~ x + z"], df, seed=1)',
@@ -20568,6 +20710,41 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of the reported coefficients, var() and cov() "
+                    "terms for every chain or one dict per chain. result.inits "
+                    "records each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_mnprobit fit of the same data, prior "
+                    "and settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_mnprobit("choice ~ income", df, seed=1)',
@@ -20616,6 +20793,40 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Refused: the collapsed sampler's state is the allocations, not "
+                    "a parameter vector",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_mixture fit of the same data, prior "
+                    "and settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_mixture("y ~ 1", df, components="dp", seed=1)',
@@ -21692,6 +21903,43 @@ def _build_registry() -> None:
                 ParamSpec("vectorized", "bool", False, False),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "method='synthetic': the starting value of the chain, one value "
+                    "per parameter (the pilot still sets the proposal); refused for "
+                    "method='rejection'",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "method='synthetic': Extend an earlier abc fit of the same "
+                    "data, prior and settings by draws= more draws per chain, from "
+                    "each chain's last state and generator, no new burn-in; equal "
+                    "to one longer run with the same seed, draw for draw; refused "
+                    "for method='rejection'",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "method='synthetic': Keep the burn-in iterations in "
+                    "result.burnin_draws; never used in the summaries; refused for "
+                    "method='rejection'",
+                ),
             ],
             returns="BayesRegressResult",
             example="sp.abc(simulate, s_obs, [stats.norm(0, 3)], seed=1)",
@@ -21747,6 +21995,40 @@ def _build_registry() -> None:
                 ParamSpec("thin", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Refused: the trees start as single leaves",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BARTResult",
+                    False,
+                    None,
+                    "Extend an earlier bart fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; reproducible but not "
+                    "equal to one longer run (model_info['continued']['exact'] is "
+                    "False)",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BARTResult",
             example='sp.bart("y ~ x1 + x2 + x3", df, seed=1).predict(new)',
@@ -21864,6 +22146,40 @@ def _build_registry() -> None:
                     "(dbarts useQuantiles = FALSE)",
                     enum=["auto", "quantile", "uniform"],
                 ),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Refused: the forests start as single leaves",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesCausalResult",
+                    False,
+                    None,
+                    "Extend an earlier bart_causal fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; reproducible but not "
+                    "equal to one longer run (model_info['continued']['exact'] is "
+                    "False)",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesCausalResult",
             example='sp.bart_causal(df, "y", "d", ["x1", "x2"], method="bcf", seed=1)',
@@ -21917,6 +22233,42 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of the coefficients (<outcome>:<term>) for "
+                    "every chain or one dict per chain; the covariance is drawn "
+                    "first, so its values are accepted and not used. result.inits "
+                    "records each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_sur fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_sur(["y1 ~ x", "y2 ~ z"], df, seed=1)',
@@ -22019,6 +22371,42 @@ def _build_registry() -> None:
                 ParamSpec("thin", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of the scales the first step uses (sigma2, "
+                    "lam, tau, slab); the coefficients are drawn first, except for "
+                    "family='logit', which needs them. One chain. result.inits "
+                    "records the start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_shrink fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_shrink("y ~ x1 + x2 + x3", df, prior="ssvs", seed=1)',
@@ -22982,6 +23370,42 @@ def _build_registry() -> None:
                 ParamSpec("chains", "int", False, 1),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values of rho, sigma2_y, sigma2_d and the fs: "
+                    "coefficients for every chain or one dict per chain; the "
+                    "structural coefficients are drawn first. result.inits records "
+                    "each chain's start",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "BayesRegressResult",
+                    False,
+                    None,
+                    "Extend an earlier bayes_ivreg fit of the same data, prior and "
+                    "settings by draws= more draws per chain, from each chain's "
+                    "last state and generator, no new burn-in; equal to one longer "
+                    "run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_ivreg("y ~ x + (d ~ z)", df, seed=1)',
@@ -24264,6 +24688,34 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("level", "float", False, 0.95, "Credible interval mass"),
+                ParamSpec(
+                    "inits",
+                    "None",
+                    False,
+                    None,
+                    "Refused: the draws are independent, there is no chain",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "None",
+                    False,
+                    None,
+                    "Refused: the draws are independent, there is no chain",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout when the weight draws start and end",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Refused: the draws are independent, there is no burn-in",
+                ),
             ],
             returns="BayesRegressResult",
             example='sp.bayes_bootstrap("y ~ x1 + x2", df, seed=1)',
@@ -40333,6 +40785,42 @@ def _build_registry() -> None:
                     True,
                     "Also sample the baseline (non-robust) posterior for the "
                     "comparison in diagnostics_info",
+                ),
+                ParamSpec(
+                    "inits",
+                    "dict | list | array",
+                    False,
+                    None,
+                    "Starting values on the sampler scale "
+                    "(model_info['sampler_scale'] names and delta:<name>) for every "
+                    "chain or one dict per chain. result.inits records each chain's "
+                    "start on the reported scale",
+                ),
+                ParamSpec(
+                    "continue_from",
+                    "SemiparametricBayesResult",
+                    False,
+                    None,
+                    "Extend an earlier semiparametric_bayes fit of the same data, "
+                    "prior and settings by draws= more draws per chain, from each "
+                    "chain's last state and generator, no new burn-in; equal to one "
+                    "longer run with the same seed, draw for draw",
+                ),
+                ParamSpec(
+                    "verbose",
+                    "bool",
+                    False,
+                    False,
+                    "Print a line to stdout as each chain starts and ends; warnings "
+                    "are raised either way",
+                ),
+                ParamSpec(
+                    "keep_burnin",
+                    "bool",
+                    False,
+                    False,
+                    "Keep the burn-in iterations in result.burnin_draws; never used "
+                    "in the summaries",
                 ),
             ],
             returns="SemiparametricBayesResult",

@@ -20017,6 +20017,10 @@
           "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_mixed fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome, a regressor or the group column are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -20046,6 +20050,18 @@
           "description": "Group (unit) column",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "inits": {
+          "description": "Starting values: sigma2 and the var()/cov() terms (normal; fixed effects are drawn first) or the fixed effects and var()/cov() terms (logit, poisson), for every chain or one dict per chain. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20119,6 +20135,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`. Proposals of the Metropolis steps are tuned during the burn-in only.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -20282,6 +20303,10 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier stochvol fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Missing or infinite values in the series are refused (``MethodIncompatibility``); a gap in a time series is not a row that can be skipped, so remove or fill them first.",
           "type": "object",
@@ -20296,6 +20321,18 @@
           "default": 10000,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "inits": {
+          "description": "Starting values of mu, phi and sigma for every chain or one dict per chain; the log-variance path starts at mu. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20338,6 +20375,11 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
+        },
         "y": {
           "description": "Returns",
           "type": "string",
@@ -20369,6 +20411,10 @@
           "description": "Default True when d = 0, else False",
           "type": "boolean"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_arima fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; reproducible but not equal to one longer run (model_info['continued']['exact'] is False)",
+          "type": "string"
+        },
         "data": {
           "description": "Missing or infinite values in the series are refused (``MethodIncompatibility``); a gap in a time series is not a row that can be skipped, so remove or fill them first.",
           "type": "object",
@@ -20383,6 +20429,18 @@
           "default": 0,
           "description": "Periods to forecast",
           "type": "integer"
+        },
+        "inits": {
+          "description": "Starting values of every reported parameter, inside the stationary and invertible region, for every chain or one dict per chain. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20436,6 +20494,11 @@
           "description": "Scale of the proposal relative to the curvature at the mode. Default ``2.38 / sqrt(k)``.",
           "type": "number"
         },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
+        },
         "y": {
           "description": "The series, or a column name of ``data``.",
           "type": "string",
@@ -20463,6 +20526,10 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_mvprobit fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in any equation are dropped from all equations before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -20479,6 +20546,18 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "inits": {
+          "description": "Starting values of the reported coefficients and corr() terms for every chain or one dict per chain. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20530,6 +20609,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -20554,6 +20638,10 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_mnprobit fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -20568,6 +20656,18 @@
           "description": "'choice ~ x1 + x2'",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "inits": {
+          "description": "Starting values of the reported coefficients, var() and cov() terms for every chain or one dict per chain. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20619,6 +20719,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -20660,6 +20765,10 @@
           "description": "Integer or 'dp'",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_mixture fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -20679,6 +20788,18 @@
           "default": 200,
           "description": "Points of the density estimate (``\"y ~ 1\"`` only).",
           "type": "integer"
+        },
+        "inits": {
+          "description": "Refused: the collapsed sampler's state is the allocations, not a parameter vector",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -20715,6 +20836,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -21757,10 +21883,26 @@
           "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "method='synthetic': Extend an earlier abc fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw; refused for method='rejection'",
+          "type": "string"
+        },
         "draws": {
           "default": 5000,
           "description": "Synthetic likelihood: length of the Metropolis-Hastings chain.",
           "type": "integer"
+        },
+        "inits": {
+          "description": "method='synthetic': the starting value of the chain, one value per parameter (the pilot still sets the proposal); refused for method='rejection'",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "method='synthetic': Keep the burn-in iterations in result.burnin_draws; never used in the summaries; refused for method='rejection'",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -21843,6 +21985,11 @@
           "default": false,
           "description": "vectorized parameter (bool).",
           "type": "boolean"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -21868,6 +22015,10 @@
           "description": "burnin parameter (int).",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bart fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; reproducible but not equal to one longer run (model_info['continued']['exact'] is False)",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -21892,10 +22043,22 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "inits": {
+          "description": "Refused: the trees start as single leaves",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
         "k": {
           "default": 2.0,
           "description": "The prior puts the regression function within the range of the outcome with probability about ``2 Phi(k) - 1``. Larger values shrink more.",
           "type": "number"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -21945,6 +22108,11 @@
           "default": 1,
           "description": "thin parameter (int).",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -21968,6 +22136,10 @@
           "default": 4,
           "description": "Independent chains (split R-hat)",
           "type": "integer"
+        },
+        "continue_from": {
+          "description": "Extend an earlier bart_causal fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; reproducible but not equal to one longer run (model_info['continued']['exact'] is False)",
+          "type": "string"
         },
         "covariates": {
           "description": "Numeric covariates",
@@ -22006,6 +22178,18 @@
             "ATC"
           ],
           "type": "string"
+        },
+        "inits": {
+          "description": "Refused: the forests start as single leaves",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -22069,6 +22253,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
+        },
         "y": {
           "description": "Continuous outcome",
           "type": "string",
@@ -22099,6 +22288,10 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_sur fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in any equation are dropped from all equations before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -22115,6 +22308,18 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "inits": {
+          "description": "Starting values of the coefficients (<outcome>:<term>) for every chain or one dict per chain; the covariance is drawn first, so its values are accepted and not used. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -22166,6 +22371,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -22184,6 +22394,10 @@
           "default": 2000,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "continue_from": {
+          "description": "Extend an earlier bayes_shrink fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
         },
         "data": {
           "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
@@ -22217,6 +22431,18 @@
           "default": 0.5,
           "description": "SSVS prior inclusion probability",
           "type": "number"
+        },
+        "inits": {
+          "description": "Starting values of the scales the first step uses (sigma2, lam, tau, slab); the coefficients are drawn first, except for family='logit', which needs them. One chain. result.inits records the start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "lam": {
           "description": "Lasso penalty; estimated when omitted",
@@ -22295,6 +22521,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -23612,6 +23843,10 @@
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bayes_ivreg fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome, a regressor or an instrument are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -23641,6 +23876,18 @@
           "description": "'y ~ x1 + (d ~ z1 + z2)'",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "inits": {
+          "description": "Starting values of rho, sigma2_y, sigma2_d and the fs: coefficients for every chain or one dict per chain; the structural coefficients are drawn first. result.inits records each chain's start",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -23692,6 +23939,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [
@@ -24799,6 +25051,10 @@
           "description": "Dirichlet concentration",
           "type": "number"
         },
+        "continue_from": {
+          "description": "Refused: the draws are independent, there is no chain",
+          "type": "string"
+        },
         "data": {
           "description": "With a formula, rows with a missing value in one of its variables are dropped (listwise deletion), with an ``AssumptionWarning`` that counts them. With ``statistic=`` the rows are passed as given, and missing values are the statistic's to handle.",
           "type": "object",
@@ -24814,6 +25070,15 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "inits": {
+          "description": "Refused: the draws are independent, there is no chain",
+          "type": "string"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Refused: the draws are independent, there is no burn-in",
+          "type": "boolean"
+        },
         "level": {
           "default": 0.95,
           "description": "Credible interval mass",
@@ -24826,6 +25091,11 @@
         "statistic": {
           "description": "statistic(data, weights) instead of a formula",
           "type": "string"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout when the weight draws start and end",
+          "type": "boolean"
         }
       },
       "required": [
@@ -40430,6 +40700,10 @@
           "description": "As in :func:`statspai.bayes_regress`. The proposal covariance is tuned during burn-in only.",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier semiparametric_bayes fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; equal to one longer run with the same seed, draw for draw",
+          "type": "string"
+        },
         "data": {
           "description": "Rows with a missing value in the outcome or a regressor are dropped before fitting (listwise deletion), with an ``AssumptionWarning`` that counts them; ``n_obs`` on the result is the number of rows used.",
           "type": "object",
@@ -40454,12 +40728,24 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "inits": {
+          "description": "Starting values on the sampler scale (model_info['sampler_scale'] names and delta:<name>) for every chain or one dict per chain. result.inits records each chain's start on the reported scale",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
         "interest": {
           "description": "Coefficients of interest (names or positions); default all. The rest are nuisance parameters, partialled out while sampling and reported on their original scale",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -40519,6 +40805,11 @@
           "default": 1,
           "description": "As in :func:`statspai.bayes_regress`. The proposal covariance is tuned during burn-in only.",
           "type": "integer"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         }
       },
       "required": [

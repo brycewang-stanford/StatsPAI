@@ -12,6 +12,7 @@ import pandas as pd
 from ..core.utils import create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import check_mcmc_args
 from .regress import BayesRegressResult
 
@@ -35,6 +36,12 @@ class _BootModel:
         return eta
 
 
+REFUSED = (
+    "the Bayesian bootstrap draws independent weight vectors, so there is "
+    "no chain to start, continue or burn in."
+)
+
+
 @records_provenance("sp.bayes_bootstrap", record_defaults=("seed",))
 def bayes_bootstrap(
     formula: Optional[str] = None,
@@ -44,6 +51,10 @@ def bayes_bootstrap(
     concentration: float = 1.0,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian bootstrap of a regression or of any weighted statistic.
 
@@ -77,6 +88,14 @@ def bayes_bootstrap(
     seed : int, optional
     level : float, default 0.95
         Mass of the credible intervals.
+    inits, continue_from, keep_burnin
+        Not available: the Bayesian bootstrap draws independent weight
+        vectors, so there is no chain to start, continue or burn in.
+        Passing any of them raises ``MethodIncompatibility``; raise
+        ``draws`` for more draws.
+    verbose : bool, default False
+        Print a line to standard output when the weight draws start and
+        end. Warnings are not affected.
 
     Returns
     -------
@@ -104,6 +123,14 @@ def bayes_bootstrap(
     rubin1981bayesian
     """
     check_mcmc_args(draws, 0, 1)
+    ctl = ChainRun(
+        "bayes_bootstrap",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+        refuse=REFUSED,
+    )
     if draws < 2:
         raise MethodIncompatibility(
             "draws must be at least 2: one weight draw has no spread to " "summarise."
@@ -122,6 +149,7 @@ def bayes_bootstrap(
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     rng = np.random.default_rng(seed)
+    ctl.progress.say(f"{draws} weight draws")
     model: Any = None
     design_info = None
     if formula is not None:
@@ -196,6 +224,7 @@ def bayes_bootstrap(
         }
     )
     info: Dict[str, Any] = {"concentration": float(concentration)}
+    ctl.progress.say(f"{draws} draws done; the draws are independent")
     return BayesRegressResult(
         model="bayes_bootstrap",
         formula=formula,

@@ -25,6 +25,7 @@ from scipy import stats
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun, as_array
 from ._core import check_mcmc_args, rinvgamma, rmvnorm_prec, spawn_rngs
 from .diagnostics import mcmc_summary
 from .regress import BayesRegressResult
@@ -164,6 +165,10 @@ def bayes_shrink(
     slab_scale: Optional[float] = None,
     slab_df: float = 4.0,
     family: str = "gaussian",
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Linear regression with a shrinkage or a variable-selection prior.
 
@@ -241,6 +246,35 @@ def bayes_shrink(
         maximum-likelihood fit does not exist; the horseshoe keeps the
         fit finite, and with ``slab_scale`` keeps the separated
         coefficients from drifting.
+    inits : dict, list of dicts or array, optional
+        Starting values of the scale parameters the first step uses:
+        ``sigma2`` (Gaussian), ``lam`` (lasso with ``lam`` estimated),
+        ``tau`` and ``slab`` (horseshoe). The first step draws the
+        coefficients given them, so values for ``Intercept`` and the
+        slopes are accepted (``result.params`` can be passed) and not
+        used, except with ``family='logit'``, whose first step
+        conditions on the coefficients: there they are needed and
+        ``sigma2`` does not exist. The latent local scales start at
+        one. One chain. ``result.inits`` records the starting state of
+        each chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_shrink`` fit of the
+        same data, prior and settings by ``draws`` more draws each,
+        from where each chain stopped and with its own generator, with
+        no new burn-in. The sampler draws its random numbers iteration
+        by iteration, so a fit of ``m`` draws continued by ``m'``
+        equals one fit of ``m + m'`` draws with the same seed, draw for
+        draw. The shrinkage factors, inclusion probabilities and
+        ``m_eff`` then average over both runs.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries. The intercept is drawn only at kept iterations, so
+        its burn-in rows hold its conditional mean given the slopes,
+        not a draw: drawing it would change the kept draws.
 
     Returns
     -------
@@ -294,6 +328,13 @@ def bayes_shrink(
             "global_scale, p0 and slab_scale belong to prior='horseshoe'."
         )
     check_mcmc_args(draws, burnin, thin)
+    ctl = ChainRun(
+        "bayes_shrink",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     y_df, X_df = create_design_matrices(formula, data)
@@ -335,8 +376,9 @@ def bayes_shrink(
             draws,
             burnin,
             thin,
-            spawn_rngs(seed, 1)[0],
+            seed,
             level,
+            ctl,
         )
     if family_key not in ("gaussian", "normal"):
         raise MethodIncompatibility("family must be 'gaussian' or 'logit'.")
@@ -356,9 +398,8 @@ def bayes_shrink(
     ZtZ = Z.T @ Z
     Zty = Z.T @ yc
     yty = float(yc @ yc)
-    rng = spawn_rngs(seed, 1)[0]
-    n_iter = burnin + draws * thin
     est_lam = prior == "lasso" and lam is None
+    regularized = False
     if prior == "lasso":
         if lam is not None and not lam > 0:
             raise MethodIncompatibility("lam must be positive.")
@@ -391,8 +432,8 @@ def bayes_shrink(
         # log-scale steps: lam, tau, c^2, joint shift of tau against lam
         steps = np.array([1.0, 0.5, 1.0, 0.5])
         out_c = np.empty(draws)
-        loc2 = np.ones(p)  # lam_j^2
-        nu_aux = np.ones(p)
+        loc2: np.ndarray = np.ones(p)  # lam_j^2
+        nu_aux: np.ndarray = np.ones(p)
         glob2 = min(1.0, tau0**2)  # tau^2
         xi_aux = 1.0
         out_k = np.zeros(p)
@@ -408,10 +449,83 @@ def bayes_shrink(
     s2 = max(float(((yc - Z @ beta) ** 2).sum()) / max(n - 1, 1), 1e-12)
     tau2 = np.ones(p)
     gam = np.ones(p, dtype=bool)
+    out_g = np.zeros(p)
+    scale_names = (
+        ["sigma2"]
+        + (["lam"] if est_lam else [])
+        + (
+            (["tau"] + (["slab"] if regularized else []))
+            if prior == "horseshoe"
+            else []
+        )
+    )
+    ctl.setup(
+        {
+            "y": y,
+            "X": X,
+            "prior": prior,
+            "settings": [lam, lam_prior, spike_sd, slab_sd, inclusion, a0, d0],
+            "horseshoe": [global_scale, p0, slab_scale, slab_df],
+            "standardize": bool(standardize),
+        },
+        chains=1,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, 1),
+        exact=True,
+        init_names=scale_names,
+        drawn_first=["Intercept"] + names,
+        support=lambda row: bool(np.all(row > 0)),
+        support_text="the variance and the scales must be positive",
+    )
+    thin, run_burnin, n_iter = ctl.thin, ctl.burnin, ctl.n_iter
+    rng = ctl.rngs[0]
+    ctl.begin(0)
+    if ctl.continuing:
+        st = ctl.prev_state(0)
+        s2, tau2, lam2, gam, out_g = (
+            float(st["s2"]),
+            as_array(st["tau2"]),
+            float(st["lam2"]),
+            as_array(st["gam"], bool),
+            as_array(st["out_g"]),
+        )
+        if prior == "horseshoe":
+            loc2, nu_aux, steps, out_k = (
+                as_array(st[key]) for key in ("loc2", "nu_aux", "steps", "out_k")
+            )
+            glob2, slab2, xi_aux, m_eff_sum = (
+                float(st[key]) for key in ("glob2", "slab2", "xi_aux", "m_eff_sum")
+            )
+    elif ctl.starts[0] is not None:
+        given = dict(zip(scale_names, ctl.starts[0]))
+        s2 = float(given["sigma2"])
+        if est_lam:
+            lam2 = float(given["lam"]) ** 2
+        if prior == "horseshoe":
+            glob2 = float(given["tau"]) ** 2
+            if regularized:
+                slab2 = float(given["slab"]) ** 2
+
+    def scale_row() -> List[float]:
+        vals = [s2]
+        if est_lam:
+            vals.append(float(np.sqrt(lam2)))
+        if prior == "horseshoe":
+            vals.append(float(np.sqrt(glob2)))
+            if regularized:
+                vals.append(float(np.sqrt(slab2)))
+        return vals
+
+    # the coefficients are drawn first
+    first = np.array([np.nan] * (p + 1) + scale_row())
+    burn = np.empty((run_burnin if ctl.keep_burnin else 0, p + 1 + len(scale_names)))
     out_b = np.empty((draws, p))
     out_s = np.empty(draws)
     out_l = np.empty(draws)
-    out_g = np.zeros(p)
     out_a = np.empty(draws)
     kept = 0
     for it in range(n_iter):
@@ -450,7 +564,7 @@ def bayes_shrink(
                     loc2, glob2, slab2, rates = _regularized_hs_step(
                         rng, b2, s2, loc2, glob2, slab2, tau0, slab_df, slab_s**2, steps
                     )
-                if it < burnin:
+                if it < run_burnin:
                     steps *= np.exp(0.03 * (rates - 0.35))
             else:
                 loc2 = (1.0 / nu_aux + b2 / (2.0 * glob2 * s2)) / rng.gamma(1.0, size=p)
@@ -470,7 +584,12 @@ def bayes_shrink(
             l1 = np.log(inclusion) + stats.norm.logpdf(beta, 0.0, np.sqrt(v1))
             l0 = np.log1p(-inclusion) + stats.norm.logpdf(beta, 0.0, np.sqrt(v0))
             gam = np.log(rng.random(p)) < l1 - np.logaddexp(l0, l1)
-        if it >= burnin and (it - burnin) % thin == 0:
+        if it < len(burn):
+            slopes = beta / sx
+            # the intercept's conditional mean: a draw here would shift
+            # the generator and change the kept draws
+            burn[it] = [ybar - xbar @ slopes, *slopes, *scale_row()]
+        if it >= run_burnin and (it - run_burnin) % thin == 0:
             out_b[kept] = beta / sx
             out_s[kept] = s2
             out_l[kept] = np.sqrt(lam2) if prior == "lasso" else np.nan
@@ -487,6 +606,25 @@ def bayes_shrink(
             if prior == "ssvs":
                 out_g += gam
             kept += 1
+    state: Dict[str, Any] = {
+        "s2": s2,
+        "tau2": tau2.copy(),
+        "lam2": lam2 if prior == "lasso" else 0.0,
+        "gam": gam.copy(),
+        "out_g": out_g.copy(),
+    }
+    if prior == "horseshoe":
+        state.update(
+            loc2=loc2.copy(),
+            nu_aux=nu_aux.copy(),
+            steps=steps.copy(),
+            out_k=out_k.copy(),
+            glob2=glob2,
+            slab2=slab2,
+            xi_aux=xi_aux,
+            m_eff_sum=m_eff_sum,
+        )
+    ctl.end(0, state, start=first, burn=burn)
     cols: Dict[str, np.ndarray] = {"Intercept": out_a}
     for j, nm in enumerate(names):
         cols[nm] = out_b[:, j]
@@ -498,6 +636,12 @@ def bayes_shrink(
         if regularized:
             cols["slab"] = out_c
     d_df = pd.DataFrame(cols)
+    prev = ctl.prev
+    if prev is not None:
+        d_df = pd.DataFrame(
+            ctl.stack([d_df.to_numpy()], prev.draws.to_numpy()), columns=d_df.columns
+        )
+    n_kept = len(d_df)
     summ = mcmc_summary(d_df, quantiles=())
     lo = (1.0 - level) / 2.0
     table = pd.DataFrame(
@@ -515,14 +659,14 @@ def bayes_shrink(
     info: Dict[str, Any] = {"prior": prior, "standardize": bool(standardize)}
     if prior == "ssvs":
         pip = pd.Series(np.nan, index=table.index)
-        pip.loc[names] = out_g / draws
+        pip.loc[names] = out_g / n_kept
         table["pip"] = pip
         info.update({"spike_sd": spike_sd, "slab_sd": slab_sd, "inclusion": inclusion})
     elif prior == "horseshoe":
         shrink = pd.Series(np.nan, index=table.index)
-        shrink.loc[names] = out_k / draws
+        shrink.loc[names] = out_k / n_kept
         table["shrinkage"] = shrink
-        info.update({"global_scale": tau0, "m_eff": m_eff_sum / draws})
+        info.update({"global_scale": tau0, "m_eff": m_eff_sum / n_kept})
         if regularized:
             info.update(
                 {
@@ -541,9 +685,9 @@ def bayes_shrink(
         std_errors=table["sd"].copy(),
         table=table,
         draws=d_df,
-        chain=np.zeros(draws, dtype=int),
+        chain=np.zeros(n_kept, dtype=int),
         n_obs=n,
-        n_draws=draws,
+        n_draws=n_kept,
         burnin=burnin,
         thin=thin,
         chains=1,
@@ -560,6 +704,8 @@ def bayes_shrink(
         _model=_ShrinkShim(np.column_stack([np.ones(n), X]), ["Intercept"] + names, y),
         _design_info=getattr(X_df, "design_info", None),
     )
+    ctl.attach(res, list(d_df.columns), info)
+    ctl.done(diag["min_ess"], float("nan"))
     if diag["min_ess"] < 100:
         text = (
             "The chain mixes slowly: effective sample size "

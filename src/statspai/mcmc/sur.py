@@ -22,6 +22,7 @@ from scipy import linalg
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import (
     check_mcmc_args,
     is_default,
@@ -56,6 +57,10 @@ def bayes_sur(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Optional[BayesRegressResult] = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Bayesian seemingly unrelated regressions.
 
@@ -85,6 +90,25 @@ def bayes_sur(
         scale.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : dict, list of dicts or array, optional
+        Starting values of the coefficients (``<outcome>:<term>``), for
+        every chain or one set per chain. The first step draws the error
+        covariance given them, so values for the covariance terms are
+        accepted (``result.params`` can be passed) and not used.
+        ``result.inits`` records the starting state of each chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``bayes_sur`` fit of the same
+        formulas, data and prior by ``draws`` more draws each, from where
+        each chain stopped and with its own generator, with no new
+        burn-in. The Gibbs sampler draws its random numbers iteration by
+        iteration, so a fit of ``m`` draws continued by ``m'`` equals one
+        fit of ``m + m'`` draws with the same seed, draw for draw.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and ends.
+        Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown by
+        ``plot(kind='trace')``); they are never used in the summaries.
 
     Returns
     -------
@@ -114,6 +138,13 @@ def bayes_sur(
     zellner1962efficient, rossi2005bayesian
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_sur",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if isinstance(formulas, str) or len(formulas) < 2:
@@ -174,17 +205,48 @@ def bayes_sur(
         + [f"corr({ynames[a]},{ynames[b]})" for a in range(M) for b in range(a + 1, M)]
     )
     pairs = [(a, b) for a in range(M) for b in range(a + 1, M)]
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+    ctl.setup(
+        {"Y": Y, "X": Xl, "names": names, "b0": b0, "B0": B0, "nu0": nu0, "V0": V0},
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+        init_names=names,
+        drawn_first=aux,
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
+
+    def row(beta: np.ndarray, Sigma: np.ndarray) -> np.ndarray:
+        sd = np.sqrt(np.diag(Sigma))
+        return np.concatenate(
+            [
+                beta,
+                np.diag(Sigma),
+                [Sigma[a, b] for a, b in pairs],
+                [Sigma[a, b] / (sd[a] * sd[b]) for a, b in pairs],
+            ]
+        )
+
     pieces = []
     for ch in range(chains):
-        rng = rngs[ch]
-        beta = np.concatenate(
-            [np.linalg.lstsq(Xl[m], Y[:, m], rcond=None)[0] for m in range(M)]
-        )
-        if chains > 1:
-            beta = beta + 0.1 * np.abs(beta).max() * rng.standard_normal(K)
+        ctl.begin(ch)
+        rng = ctl.rngs[ch]
+        if ctl.starts[ch] is not None:
+            beta = np.array(ctl.starts[ch], dtype=float)
+        else:
+            beta = np.concatenate(
+                [np.linalg.lstsq(Xl[m], Y[:, m], rcond=None)[0] for m in range(M)]
+            )
+            if chains > 1:
+                beta = beta + 0.1 * np.abs(beta).max() * rng.standard_normal(K)
+        # Sigma is drawn first, so its starting value is not used
+        first = np.concatenate([beta, np.full(len(aux), np.nan)])
         out = np.empty((draws, K + len(aux)))
+        burn = np.empty((run_burnin if ctl.keep_burnin else 0, K + len(aux)))
         kept = 0
         for it in range(n_iter):
             E = np.column_stack(
@@ -199,18 +261,23 @@ def bayes_sur(
                     P[off[m] : off[m + 1], off[q] : off[q + 1]] += Si[m, q] * XX[m][q]
                     rhs[off[m] : off[m + 1]] += Si[m, q] * Xy[m][q]
             beta, _ = rmvnorm_prec(rng, rhs, 0.5 * (P + P.T))
-            if it >= burnin and (it - burnin) % thin == 0:
-                out[kept, :K] = beta
-                sd = np.sqrt(np.diag(Sigma))
-                out[kept, K : K + M] = np.diag(Sigma)
-                out[kept, K + M : K + M + len(pairs)] = [Sigma[a, b] for a, b in pairs]
-                out[kept, K + M + len(pairs) :] = [
-                    Sigma[a, b] / (sd[a] * sd[b]) for a, b in pairs
-                ]
+            if it >= run_burnin and (it - run_burnin) % thin == 0:
+                out[kept] = row(beta, Sigma)
                 kept += 1
+            elif it < len(burn):
+                burn[it] = row(beta, Sigma)
         pieces.append(out)
-    d_df = pd.DataFrame(np.vstack(pieces), columns=names + aux)
-    chain_idx = np.repeat(np.arange(chains), draws)
+        ctl.end(ch, beta.copy(), start=first, burn=burn)
+    prev = ctl.prev
+    d_df = pd.DataFrame(
+        ctl.stack(
+            pieces,
+            None if prev is None else prev.draws.to_numpy(),
+            None if prev is None else prev.chain,
+        ),
+        columns=names + aux,
+    )
+    chain_idx = ctl.chain_index()
     ess = np.zeros(d_df.shape[1])
     for ch in range(chains):
         ess += mcmc_summary(d_df.loc[chain_idx == ch], quantiles=())["ess"].to_numpy()
@@ -247,7 +314,7 @@ def bayes_sur(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -265,6 +332,8 @@ def bayes_sur(
         diagnostics_info=diag,
         _model=None,
     )
+    ctl.attach(res, names + aux, res.model_info)
+    ctl.done(diag["min_ess"], diag["max_split_rhat"])
     rhat = diag["max_split_rhat"]
     if diag["min_ess"] < 100:
         text = (

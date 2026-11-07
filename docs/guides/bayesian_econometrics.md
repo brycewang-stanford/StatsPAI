@@ -157,6 +157,43 @@ default: the result already reports the same numbers, and agents and
 notebooks read standard output. Convergence warnings are raised either
 way.
 
+The other samplers take the same four arguments, with the same rules and
+the same error messages:
+
+| Sampler | `inits=` | `continue_from=` equals one longer run |
+| --- | --- | --- |
+| `bayes_sur` | coefficients (the covariance is drawn first) | yes |
+| `bayes_ivreg` | `rho`, `sigma2_y`, `sigma2_d`, `fs:` terms (the structural coefficients are drawn first) | yes |
+| `bayes_mvprobit`, `bayes_mnprobit` | every reported parameter, on the identified scale | yes |
+| `stochvol` | `mu`, `phi`, `sigma` | yes |
+| `bayes_arima` | every reported parameter | no: block-drawn proposals |
+| `bayes_mixed` | normal: `sigma2` and the `var()` / `cov()` terms; logit and Poisson: the fixed effects too | yes |
+| `bayes_shrink` | the scales (`sigma2`, `lam`, `tau`, `slab`); `family='logit'` also the coefficients | yes |
+| `bayes_mixture` | refused: the state is the allocations | yes |
+| `semiparametric_bayes` | on the sampler scale (`model_info['sampler_scale']`, `delta:` terms) | yes |
+| `abc(method='synthetic')` | the parameters | yes |
+| `bart`, `bart_causal` | refused: the trees start as single leaves | no: numba's generator is seeded again |
+
+A parameter that the first step draws before it uses it can be named in
+`inits=` (so `fit.params` can be passed as it is), is not used, and shows
+as NaN in `fit.inits`. A continued run summarises everything over the draws
+of both runs: the volatility path of `stochvol`, the allocations and the
+density of `bayes_mixture`, the random effects of `bayes_mixed`, the
+inclusion probabilities and shrinkage factors of `bayes_shrink`, the CATEs
+of `bart_causal`. Two exceptions keep the first run's value:
+`semiparametric_bayes` does not sample its baseline posterior again, and
+in burn-in rows `bayes_shrink` records the intercept's conditional mean
+and `bayes_mixture` leaves the component parameters empty, because those
+are drawn only at kept iterations and drawing them in the burn-in would
+change the kept draws.
+
+`sp.bayes_bootstrap` and `sp.abc(method='rejection')` draw independently,
+so `inits=`, `continue_from=` and `keep_burnin=` raise
+`MethodIncompatibility` there; `verbose=` works. `sp.gp_regress` has a
+closed-form posterior and `sp.bma` computes model probabilities exactly
+over the models its search finds, so neither has a chain and neither takes
+these arguments.
+
 ## Priors
 
 Coefficients have a normal prior, `prior_mean` and `prior_var`. The

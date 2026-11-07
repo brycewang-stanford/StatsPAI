@@ -23,6 +23,28 @@ All notable changes to StatsPAI will be documented in this file.
   and the default are unchanged. The schema exports the parameter as a
   string or a dict of strings per role. See `docs/guides/missing_values.md`.
 
+- **Chain controls for every `statspai.mcmc` sampler** (rOpenSci gap #11,
+  BS1.3a, BS2.7, BS2.8, BS2.12, BS5.0, BS6.2). `inits=`, `continue_from=`,
+  `verbose=` and `keep_burnin=`, added to `sp.bayes_regress` in 1.43, now
+  work on `bayes_sur`, `bayes_ivreg`, `bayes_mvprobit`, `bayes_mnprobit`,
+  `stochvol`, `bayes_arima`, `bayes_mixed`, `bayes_shrink`,
+  `bayes_mixture`, `semiparametric_bayes`, `bart`, `bart_causal` and
+  `abc(method='synthetic')`, through one shared path
+  (`statspai.mcmc._chains.ChainRun`). For the samplers that draw their
+  random numbers iteration by iteration a fit of `m` draws continued by
+  `m'` equals one fit of `m + m'` draws with the same seed, draw for draw,
+  and every summary follows (volatility paths, allocations and density,
+  random effects, inclusion probabilities, CATEs). `bayes_arima` draws a
+  run's proposals in one block and the tree samplers draw from numba's
+  generator, so their continuation is reproducible but not the longer
+  run's draws; `model_info['continued']['exact']` says which. `inits=` is
+  refused where the state is not a parameter vector (`bayes_mixture`,
+  `bart`, `bart_causal`), and the three chain arguments are refused by the
+  samplers without a chain (`bayes_bootstrap`, `abc(method='rejection')`).
+  Calls without the new arguments give the same draws as before. See
+  "Starting, continuing and watching a chain" in
+  `docs/guides/bayesian_econometrics.md`.
+
 ### Fixed
 - Wrong citations in docstrings. `sp.vcnet` named five authors and the
   R-learner key `nie2021quasi`; the paper is Nie, Ye, Liu and Nicolae

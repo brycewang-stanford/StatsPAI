@@ -2456,6 +2456,10 @@
           "description": "Independent chains (split R-hat)",
           "type": "integer"
         },
+        "continue_from": {
+          "description": "Extend an earlier bart_causal fit of the same data, prior and settings by draws= more draws per chain, from each chain's last state and generator, no new burn-in; reproducible but not equal to one longer run (model_info['continued']['exact'] is False)",
+          "type": "string"
+        },
         "covariates": {
           "description": "Numeric covariates",
           "items": {
@@ -2488,6 +2492,18 @@
             "ATC"
           ],
           "type": "string"
+        },
+        "inits": {
+          "description": "Refused: the forests start as single leaves",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "keep_burnin": {
+          "default": false,
+          "description": "Keep the burn-in iterations in result.burnin_draws; never used in the summaries",
+          "type": "boolean"
         },
         "level": {
           "default": 0.95,
@@ -2550,6 +2566,11 @@
           "description": "0/1 treatment",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Print a line to stdout as each chain starts and ends; warnings are raised either way",
+          "type": "boolean"
         },
         "y": {
           "description": "Continuous outcome",

@@ -22,6 +22,7 @@ import pandas as pd
 from .._input_validation import check_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from ._core import check_mcmc_args, rtruncnorm, spawn_rngs
 from ._results import posterior_table
 from .regress import BayesRegressResult
@@ -186,6 +187,10 @@ def stochvol(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Stochastic volatility model for a return series.
 
@@ -214,6 +219,26 @@ def stochvol(
         ``+-sigma ~ N(0, sigma_prior)``.
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`.
+    inits : dict, list of dicts or array, optional
+        Starting values of mu, phi and sigma, for every chain or one
+        set per chain; the log-variance path starts flat at mu.
+        ``result.inits`` records the starting state of each chain.
+    continue_from : BayesRegressResult, optional
+        Extend the chains of an earlier ``stochvol`` fit of the same
+        data, prior and settings by ``draws`` more draws each, from
+        where each chain stopped and with its own generator, with no
+        new burn-in. The sampler draws its random numbers iteration by
+        iteration, so a fit of ``m`` draws continued by ``m'`` equals
+        one fit of ``m + m'`` draws with the same seed, draw for draw.
+        model_info['volatility'] then summarises the paths of both
+        runs.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -251,6 +276,13 @@ def stochvol(
     kastner2014ancillarity, ramirezhassan2026introduction
     """
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "stochvol",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if isinstance(y, str):
@@ -305,29 +337,60 @@ def stochvol(
         )
     ystar = np.log(r * r + offset)
     prior = (b_mu, B_mu, a0, b0, B_sig)
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+    ctl.setup(
+        {"ystar": ystar, "prior": prior},
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+        init_names=["mu", "phi", "sigma"],
+        support=lambda row: bool(abs(row[1]) < 1 and row[2] > 0),
+        support_text="phi must lie in (-1, 1) and sigma be positive",
+        to_state=lambda row: (
+            np.full(n, row[0]),
+            np.array([row[0], row[1], row[2] ** 2]),
+        ),
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
     pieces = []
     store = []
     for ch in range(chains):
-        rng = rngs[ch]
-        theta = np.array([float(ystar.mean() + 1.27), 0.9, 0.05])
-        if chains > 1:
-            theta[0] += rng.normal()
-            theta[1] = rng.uniform(0.5, 0.97)
-        h = np.full(n, theta[0])
+        ctl.begin(ch)
+        rng = ctl.rngs[ch]
+        if ctl.starts[ch] is not None:
+            h, theta = (np.array(a, dtype=float) for a in ctl.starts[ch])
+        else:
+            theta = np.array([float(ystar.mean() + 1.27), 0.9, 0.05])
+            if chains > 1:
+                theta[0] += rng.normal()
+                theta[1] = rng.uniform(0.5, 0.97)
+            h = np.full(n, theta[0])
+        first = np.array([theta[0], theta[1], np.sqrt(theta[2])])
         out = np.empty((draws, 3))
+        burn = np.empty((run_burnin if ctl.keep_burnin else 0, 3))
         hs = np.empty((draws, n), dtype=np.float32)
         kept = 0
         for it in range(n_iter):
             h, theta, _ = _sv_sweep(rng, ystar, h, theta, prior)
-            if it >= burnin and (it - burnin) % thin == 0:
+            if it >= run_burnin and (it - run_burnin) % thin == 0:
                 out[kept] = (theta[0], theta[1], np.sqrt(theta[2]))
                 hs[kept] = h
                 kept += 1
+            elif it < len(burn):
+                burn[it] = (theta[0], theta[1], np.sqrt(theta[2]))
         pieces.append(out)
         store.append(hs)
-    hs_all = np.vstack(store)
+        ctl.end(ch, (h.copy(), theta.copy()), start=first, burn=burn)
+    prev = ctl.prev
+    hs_all = ctl.stack(
+        store,
+        None if prev is None else prev._extras["log_vol"],
+        None if prev is None else prev.chain,
+    )
     sd_path = np.exp(0.5 * hs_all)
     lo = (1.0 - level) / 2.0
     vol = pd.DataFrame(
@@ -338,8 +401,15 @@ def stochvol(
         },
         index=index,
     )
-    d_df = pd.DataFrame(np.vstack(pieces), columns=["mu", "phi", "sigma"])
-    chain_idx = np.repeat(np.arange(chains), draws)
+    d_df = pd.DataFrame(
+        ctl.stack(
+            pieces,
+            None if prev is None else prev.draws.to_numpy(),
+            None if prev is None else prev.chain,
+        ),
+        columns=["mu", "phi", "sigma"],
+    )
+    chain_idx = ctl.chain_index()
     table, diag = posterior_table(d_df, chain_idx, chains, level)
     diag["warnings"].extend(notes)
     res = BayesRegressResult(
@@ -351,7 +421,7 @@ def stochvol(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -366,7 +436,12 @@ def stochvol(
         model_info={"volatility": vol, "offset": offset, "demean": bool(demean)},
         diagnostics_info=diag,
         _model=None,
+        # the log-variance paths, kept so that a continued run summarises
+        # the volatility over all its draws
+        _extras={"log_vol": hs_all},
     )
+    ctl.attach(res, ["mu", "phi", "sigma"], res.model_info)
+    ctl.done(diag["min_ess"], diag["max_split_rhat"])
     if diag["min_ess"] < 100:
         text = (
             "The chain mixes slowly: effective sample size "

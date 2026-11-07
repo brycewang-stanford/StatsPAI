@@ -46,6 +46,7 @@ from ..core._validate import treatment_as_float
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ..exceptions import warn as _sp_warn
 from ..output._lineage import records_provenance
+from ._chains import ChainRun
 from .trees import _cutpoints, _Forest
 
 _Q_HALF_NORMAL_MEDIAN = 0.6744897501960817  # median of |N(0, 1)|
@@ -114,6 +115,12 @@ class BayesCausalResult(ResultProtocolMixin):
         self.diagnostics = diagnostics
         self.model_info = {"diagnostics": diagnostics, "method": method}
         self._tau_draws = tau_draws
+        #: with ``keep_burnin=True``, the estimand at every burn-in sweep
+        self.burnin_draws: Optional[pd.Series] = None
+        self.burnin_chain: Optional[np.ndarray] = None
+        self._chain_state: Optional[List[Dict[str, Any]]] = None
+        self._chain_key: Optional[str] = None
+        self._seed: Any = None
 
     @property
     def tau_draws(self) -> np.ndarray:
@@ -260,6 +267,10 @@ def bart_causal(
     seed: Optional[int] = None,
     level: float = 0.95,
     cut_grid: str = "auto",
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesCausalResult:
     """Bayesian tree models for a binary treatment: BCF or BART.
 
@@ -315,6 +326,28 @@ def bart_causal(
         ``useQuantiles = FALSE``). The grid is part of the prior: with
         quantile cuts and 200 trees the BART posterior mean of the ATE sat
         0.21 posterior SDs from ``bartCause``'s, with its own prior 0.02.
+    inits : None
+        Not available: the forests start as single leaves; there is no
+        parameter vector to start them from. Passing it raises
+        ``MethodIncompatibility``.
+    continue_from : BayesCausalResult, optional
+        Extend the chains of an earlier ``bart_causal`` fit of the same
+        data, prior and settings by ``draws`` more draws each, from
+        where each chain stopped and with its own generator, with no
+        new burn-in. Every chain's forests and scale parameters
+        continue from where it stopped, but the tree moves draw from
+        numba's own generator, which a result cannot store; it is
+        seeded again from the chain's generator, so the continued draws
+        are a valid continuation of the same chains, reproducible from
+        the earlier result, but not the draws of one longer run
+        (``model_info['continued']['exact']`` is False).
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the estimand of every burn-in sweep in
+        ``result.burnin_draws`` (``result.burnin_chain`` labels the
+        chains); it is never used in the summaries.
 
     Returns
     -------
@@ -384,6 +417,17 @@ def bart_causal(
         raise MethodIncompatibility(
             "bart_causal: sd_control and sd_moderate must be positive."
         )
+    ctl = ChainRun(
+        "bart_causal",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+        no_inits=(
+            "the forests start as single leaves; there is no parameter "
+            "vector to start them from."
+        ),
+    )
     covariates = list(covariates)
     missing = [c for c in [y, treat] + covariates if c not in data.columns]
     if missing:
@@ -412,22 +456,57 @@ def bart_causal(
     uniform = cut_grid == "uniform" or (cut_grid == "auto" and method == "bart")
     target = {"ATE": np.ones(n, bool), "ATT": z == 1, "ATC": z == 0}[estimand]
 
-    rng = np.random.default_rng(seed)
-    chain_seeds = rng.integers(0, 2**31 - 1, size=int(chains))
+    def make_rngs(c: int) -> List[np.random.Generator]:
+        # one seed per chain, drawn from the seed of the call
+        seeds = np.random.default_rng(seed).integers(0, 2**31 - 1, size=c)
+        return [np.random.default_rng(int(cs)) for cs in seeds]
+
+    ctl.setup(
+        {
+            "y": yv,
+            "z": z,
+            "X": X,
+            "ps": ps,
+            "method": method,
+            "estimand": estimand,
+            "settings": [
+                n_trees_control,
+                n_trees_moderate,
+                sd_control,
+                sd_moderate,
+                numcut,
+                min_leaf,
+                uniform,
+            ],
+        },
+        chains=int(chains),
+        thin=int(thin),
+        burnin=int(burnin),
+        draws=int(draws),
+        seed=seed,
+        default_burnin=1000,
+        default_chains=4,
+        make_rngs=make_rngs,
+        exact=False,
+    )
+    chains, thin, run_burnin = ctl.chains, ctl.thin, ctl.burnin
     tau_all: List[np.ndarray] = []
     est_chains = np.empty((int(chains), int(draws)))
     leaves: List[float] = []
-    for c, cs in enumerate(chain_seeds):
-        crng = np.random.default_rng(int(cs))
+    burn_est: List[np.ndarray] = []
+    for c in range(chains):
+        ctl.begin(c)
+        crng = ctl.rngs[c]
+        common = dict(state=ctl.prev_state(c), keep_burn=ctl.keep_burnin, target=target)
         if method == "bcf":
-            tau, nl = _bcf_chain(
+            tau, nl, end, burn = _bcf_chain(
                 yv,
                 z,
                 X,
                 ps,
                 crng,
                 int(draws),
-                int(burnin),
+                int(run_burnin),
                 int(thin),
                 int(n_trees_control),
                 int(n_trees_moderate),
@@ -436,25 +515,45 @@ def bart_causal(
                 int(numcut),
                 int(min_leaf),
                 uniform,
+                **common,
             )
         else:
-            tau, nl = _bart_chain(
+            tau, nl, end, burn = _bart_chain(
                 yv,
                 z,
                 X,
                 ps,
                 crng,
                 int(draws),
-                int(burnin),
+                int(run_burnin),
                 int(thin),
                 int(n_trees_control),
                 int(numcut),
                 int(min_leaf),
                 uniform,
+                **common,
             )
         tau_all.append(tau)
         est_chains[c] = tau[:, target].mean(axis=1)
         leaves.append(nl)
+        burn_est.append(burn)
+        ctl.end(c, end)
+    prev = ctl.prev
+    if prev is not None:
+        # the earlier run's draws first, chain by chain
+        before = int(prev.diagnostics["draws"])
+        est_chains = np.hstack(
+            [prev.draws.to_numpy().reshape(chains, before), est_chains]
+        )
+        tau_all = [
+            np.vstack([prev.tau_draws[c * before : (c + 1) * before], tau_all[c]])
+            for c in range(chains)
+        ]
+        # leaves per tree, averaged over the draws of both runs
+        leaves = [
+            (before * lp + int(draws) * ln) / (before + int(draws))
+            for lp, ln in zip(prev.diagnostics["leaves_by_chain"], leaves)
+        ]
     tau_draws = np.vstack(tau_all)
     # split R-hat (a single chain is split in halves)
     rhat, ess = _rhat_ess(est_chains)
@@ -472,10 +571,11 @@ def bart_causal(
         "rhat": rhat,
         "ess": ess,
         "chains": int(chains),
-        "draws": int(draws),
-        "burnin": int(burnin),
+        "draws": int(est_chains.shape[1]),
+        "burnin": int(burnin) if prev is None else prev.diagnostics["burnin"],
         "thin": int(thin),
         "leaves_per_tree": float(np.mean(leaves)),
+        "leaves_by_chain": [float(v) for v in leaves],
         "propensity": ps_src,
         "n_dropped": int((~rows).sum()),
         "n_trees_control": int(n_trees_control),
@@ -488,7 +588,7 @@ def bart_causal(
             recovery_hint="Increase burnin and draws.",
             stacklevel=2,
         )
-    return BayesCausalResult(
+    res = BayesCausalResult(
         method=method,
         estimand=estimand,
         draws=pd.Series(est_chains.ravel(), name=estimand),
@@ -498,6 +598,14 @@ def bart_causal(
         diagnostics=diag,
         tau_draws=tau_draws,
     )
+    ctl.attach(res, [], res.model_info, frame_fields=False)
+    if run_burnin and ctl.keep_burnin:
+        res.burnin_draws = pd.Series(np.concatenate(burn_est), name=estimand)
+        res.burnin_chain = np.repeat(np.arange(chains), run_burnin)
+    elif prev is not None:
+        res.burnin_draws, res.burnin_chain = prev.burnin_draws, prev.burnin_chain
+    ctl.done(ess, rhat)
+    return res
 
 
 def _bcf_chain(
@@ -516,7 +624,10 @@ def _bcf_chain(
     numcut,
     min_leaf,
     uniform=False,
-) -> Tuple[np.ndarray, float]:
+    state=None,
+    keep_burn=False,
+    target=None,
+) -> Tuple[np.ndarray, float, Dict[str, Any], np.ndarray]:
     n = len(yv)
     ybar, sy = float(yv.mean()), float(yv.std(ddof=1))
     ys = (yv - ybar) / sy
@@ -532,8 +643,14 @@ def _bcf_chain(
     sigma2 = s2_hat
     eta, v = 1.0, sd_control**2
     b = np.array([-0.5, 0.5])
+    if state is not None:
+        f_mu.restore(state["mu"])
+        f_tau.restore(state["tau"])
+        sigma2, eta, v = (float(state[key]) for key in ("sigma2", "eta", "v"))
+        b = np.array(state["b"], dtype=float)
     zi = z.astype(int)
     out = np.empty((draws, n))
+    burn = np.empty(burnin if keep_burn else 0)
     nl = 0.0
     kept = 0
     for it in range(burnin + draws * thin):
@@ -557,16 +674,40 @@ def _bcf_chain(
             )
         resid = ys - eta * fm - b[zi] * t
         sigma2 = (nu * lam + float(resid @ resid)) / rng.chisquare(nu + n)
+        if it < len(burn):
+            burn[it] = float(((b[1] - b[0]) * t * sy)[target].mean())
         if it >= burnin and (it - burnin) % thin == 0:
             out[kept] = (b[1] - b[0]) * t * sy
             nl += float(f_mu.nleaf.mean() + f_tau.nleaf.mean()) / 2.0
             kept += 1
-    return out, nl / max(kept, 1)
+    end = {
+        "mu": f_mu.snapshot(),
+        "tau": f_tau.snapshot(),
+        "sigma2": sigma2,
+        "eta": eta,
+        "v": v,
+        "b": b.copy(),
+    }
+    return out, nl / max(kept, 1), end, burn
 
 
 def _bart_chain(
-    yv, z, X, ps, rng, draws, burnin, thin, m, numcut, min_leaf, uniform=False
-) -> Tuple[np.ndarray, float]:
+    yv,
+    z,
+    X,
+    ps,
+    rng,
+    draws,
+    burnin,
+    thin,
+    m,
+    numcut,
+    min_leaf,
+    uniform=False,
+    state=None,
+    keep_burn=False,
+    target=None,
+) -> Tuple[np.ndarray, float, Dict[str, Any], np.ndarray]:
     n = len(yv)
     cols = [X, z[:, None]] + ([] if ps is None else [ps[:, None]])
     Xf = np.column_stack(cols)
@@ -589,14 +730,24 @@ def _bart_chain(
     nu, q = 3.0, 0.9
     s2_hat, lam = _sigma_prior(ys, np.column_stack([np.ones(n), Xf]), nu, q)
     sigma2 = s2_hat
+    if state is not None:
+        forest.restore(state["forest"])
+        sigma2 = float(state["sigma2"])
     pred = forest.k["predict"]
     out = np.empty((draws, n))
+    burn = np.empty(burnin if keep_burn else 0)
     nl = 0.0
     kept = 0
     for it in range(burnin + draws * thin):
         forest.sweep(ys, sigma2)
         resid = ys - forest.total
         sigma2 = (nu * lam + float(resid @ resid)) / rng.chisquare(nu + n)
+        if it < len(burn):
+            eff = scale * (
+                pred(xc1, forest.var, forest.cut, forest.val)
+                - pred(xc0, forest.var, forest.cut, forest.val)
+            )
+            burn[it] = float(eff[target].mean())
         if it >= burnin and (it - burnin) % thin == 0:
             out[kept] = scale * (
                 pred(xc1, forest.var, forest.cut, forest.val)
@@ -604,4 +755,4 @@ def _bart_chain(
             )
             nl += float(forest.nleaf.mean())
             kept += 1
-    return out, nl / max(kept, 1)
+    return out, nl / max(kept, 1), {"forest": forest.snapshot(), "sigma2": sigma2}, burn

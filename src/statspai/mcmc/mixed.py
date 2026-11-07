@@ -28,6 +28,7 @@ from ..exceptions import (
     StatsPAIWarning,
 )
 from ..output._lineage import records_provenance
+from ._chains import ChainRun, as_array
 from ._core import (
     check_mcmc_args,
     find_mode,
@@ -228,7 +229,9 @@ def _sample_normal(
     burnin: int,
     thin: int,
     jitter: bool,
-) -> Tuple[np.ndarray, _Running, Optional[float]]:
+    start: Any = None,
+    keep_burn: bool = False,
+) -> Dict[str, Any]:
     n, k = X.shape
     q = W.shape[1]
     b0, B0inv = prior["b0"], prior["B0inv"]
@@ -248,18 +251,32 @@ def _sample_normal(
     Xty = X.T @ y
     B0inv_b0 = B0inv @ b0
 
-    beta = np.linalg.lstsq(X, y, rcond=None)[0]
-    e = y - X @ beta
-    s2 = float(e @ e / max(n - k, 1))
-    D = np.eye(q) * max(s2, 1e-8)
-    if jitter:
-        s2 *= float(np.exp(rng.normal(scale=0.5)))
-        D = D * float(np.exp(rng.normal(scale=0.5)))
+    running = _Running((n_groups, q))
+    if start is not None:
+        # the state the first step uses: sigma2, D and, when continuing,
+        # the running moments of the random effects
+        s2, D = float(start[0]), as_array(start[1])
+        if len(start) > 2:
+            running.n, running.s1, running.s2 = (
+                int(start[2]),
+                as_array(start[3]),
+                as_array(start[4]),
+            )
+    else:
+        beta = np.linalg.lstsq(X, y, rcond=None)[0]
+        e = y - X @ beta
+        s2 = float(e @ e / max(n - k, 1))
+        D = np.eye(q) * max(s2, 1e-8)
+        if jitter:
+            s2 *= float(np.exp(rng.normal(scale=0.5)))
+            D = D * float(np.exp(rng.normal(scale=0.5)))
     n_keep = (n_iter - burnin) // thin
     npar = k + 1 + q * (q + 1) // 2
     out = np.empty((n_keep, npar))
-    running = _Running((n_groups, q))
+    burn = np.empty((burnin if keep_burn else 0, npar))
     _, pos = _re_names([""] * q)
+    # beta is drawn first, with the random effects integrated out
+    first = np.concatenate([np.full(k, np.nan), [s2], [D[i, j] for i, j in pos]])
     kept = 0
     for it in range(n_iter):
         Dinv = linalg.inv(D)
@@ -288,7 +305,18 @@ def _sample_normal(
             out[kept, k + 1 :] = [D[i, j] for i, j in pos]
             running.add(b)
             kept += 1
-    return out, running, None
+        elif it < len(burn):
+            burn[it, :k] = beta
+            burn[it, k] = s2
+            burn[it, k + 1 :] = [D[i, j] for i, j in pos]
+    return {
+        "out": out,
+        "running": running,
+        "accept": None,
+        "first": first,
+        "burn": burn,
+        "state": (s2, D.copy(), running.n, running.s1.copy(), running.s2.copy()),
+    }
 
 
 def _glm_loglik_obs(y: np.ndarray, eta: np.ndarray, family: str) -> np.ndarray:
@@ -312,7 +340,9 @@ def _sample_glmm(
     burnin: int,
     thin: int,
     jitter: bool,
-) -> Tuple[np.ndarray, _Running, Optional[float]]:
+    start: Any = None,
+    keep_burn: bool = False,
+) -> Dict[str, Any]:
     n, k = X.shape
     q = W.shape[1]
     b0, B0inv = prior["b0"], prior["B0inv"]
@@ -323,12 +353,13 @@ def _sample_glmm(
         val = _glm_loglik_obs(y, X @ bv, family).sum() - 0.5 * dev @ B0inv @ dev
         return float(-val) if np.isfinite(val) else np.inf
 
-    start = np.zeros(k)
+    beta0 = np.zeros(k)
     const = np.where(np.ptp(X, axis=0) == 0)[0]
     if family == "poisson" and const.size:
-        start[const[0]] = np.log(max(y.mean(), 1e-8)) / X[0, const[0]]
-    beta, cov_beta = find_mode(neg_pooled, start, what=f"pooled {family} model")
-    if jitter:
+        beta0[const[0]] = np.log(max(y.mean(), 1e-8)) / X[0, const[0]]
+    state0 = start
+    beta, cov_beta = find_mode(neg_pooled, beta0, what=f"pooled {family} model")
+    if state0 is None and jitter:
         beta = rng.multivariate_normal(beta, 4.0 * cov_beta, method="svd")
     chol_beta = linalg.cholesky(cov_beta, lower=True)
     scale_beta = 2.38 / np.sqrt(k)
@@ -338,14 +369,39 @@ def _sample_glmm(
     acc_b = np.zeros(n_groups)
     acc_beta = 0
     acc_beta_kept = 0
+    n_post = 0  # iterations after the burn-in, for the acceptance rate
+    running = _Running((n_groups, q))
+    if state0 is not None and len(state0) == 2:
+        # starting values: beta and D; the random effects start at zero
+        beta, D = np.array(state0[0], dtype=float), np.array(state0[1], dtype=float)
+    elif state0 is not None:
+        # a continued chain: everything the next iteration conditions on,
+        # with the proposal scales tuned in the first run's burn-in
+        beta, b, D, scale_b, scale_beta, acc_beta_kept, n_post = state0[:7]
+        beta, b, D, scale_b = (as_array(a) for a in (beta, b, D, scale_b))
+        scale_beta, acc_beta_kept, n_post = (
+            float(scale_beta),
+            int(acc_beta_kept),
+            int(n_post),
+        )
+        running.n, running.s1, running.s2 = (
+            int(state0[7]),
+            as_array(state0[8]),
+            as_array(state0[9]),
+        )
     n_keep = (n_iter - burnin) // thin
     npar = k + q * (q + 1) // 2
     out = np.empty((n_keep, npar))
-    running = _Running((n_groups, q))
+    burn = np.empty((burnin if keep_burn else 0, npar))
     _, pos = _re_names([""] * q)
+    first = np.concatenate([beta, [D[i, j] for i, j in pos]])
     kept = 0
     wb = np.einsum("nq,nq->n", W, b[gidx])
     eta_fix = X @ beta
+    if state0 is not None and len(state0) > 10:
+        wb, eta_fix = np.array(state0[10], dtype=float), np.array(
+            state0[11], dtype=float
+        )
     # columns of X that carry the same variable as a random-effect column
     E = np.zeros((k, q))
     for xi, wi in match:
@@ -411,12 +467,36 @@ def _sample_glmm(
             acc_beta = 0
         if it >= burnin:
             acc_beta_kept += took
+            n_post += 1
             if (it - burnin) % thin == 0:
                 out[kept, :k] = beta
                 out[kept, k:] = [D[i, j] for i, j in pos]
                 running.add(b)
                 kept += 1
-    return out, running, acc_beta_kept / max(n_iter - burnin, 1)
+        elif it < len(burn):
+            burn[it, :k] = beta
+            burn[it, k:] = [D[i, j] for i, j in pos]
+    return {
+        "out": out,
+        "running": running,
+        "accept": acc_beta_kept / max(n_post, 1),
+        "first": first,
+        "burn": burn,
+        "state": (
+            beta.copy(),
+            b.copy(),
+            D.copy(),
+            scale_b.copy(),
+            float(scale_beta),
+            int(acc_beta_kept),
+            int(n_post),
+            running.n,
+            running.s1.copy(),
+            running.s2.copy(),
+            wb.copy(),
+            eta_fix.copy(),
+        ),
+    }
 
 
 @records_provenance("sp.bayes_mixed", record_defaults=("seed",))
@@ -437,6 +517,10 @@ def bayes_mixed(
     chains: int = 1,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesMixedResult:
     """Bayesian hierarchical model for longitudinal / panel data.
 
@@ -486,6 +570,30 @@ def bayes_mixed(
     draws, burnin, thin, chains, seed, level
         As in :func:`statspai.bayes_regress`. Proposals of the Metropolis
         steps are tuned during the burn-in only.
+    inits : dict, list of dicts or array, optional
+        Starting values for every chain or one set per chain.
+        family='normal': sigma2 and the var(...) / cov(...) terms of
+        the random effects (the first step draws the fixed effects with
+        the random effects integrated out, so values for those are
+        accepted and not used). Logit and Poisson: the fixed effects
+        and the covariance terms; the random effects start at zero.
+        ``result.inits`` records the starting state of each chain.
+    continue_from : BayesMixedResult, optional
+        Extend the chains of an earlier ``bayes_mixed`` fit of the same
+        data, prior and settings by ``draws`` more draws each, from
+        where each chain stopped and with its own generator, with no
+        new burn-in. The sampler draws its random numbers iteration by
+        iteration, so a fit of ``m`` draws continued by ``m'`` equals
+        one fit of ``m + m'`` draws with the same seed, draw for draw.
+        A continued logit or Poisson chain keeps the proposal scales
+        tuned in the first run's burn-in.
+    verbose : bool, default False
+        Print a line to standard output when each chain starts and
+        ends. Warnings are not affected.
+    keep_burnin : bool, default False
+        Keep the burn-in iterations in ``result.burnin_draws`` (shown
+        by ``plot(kind='trace')``); they are never used in the
+        summaries.
 
     Returns
     -------
@@ -535,6 +643,13 @@ def bayes_mixed(
             f"Unknown family {family!r}. Available: {', '.join(_FAMILIES)}."
         )
     check_mcmc_args(draws, burnin, thin, chains)
+    ctl = ChainRun(
+        "bayes_mixed",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+    )
     if not 0.0 < level < 1.0:
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not isinstance(data, pd.DataFrame):
@@ -656,16 +771,65 @@ def bayes_mixed(
             ) from exc
     prior = {"b0": b0, "B0inv": B0inv, "a0": a0, "d0": d0, "r0": r0, "R0": R0}
 
-    n_iter = burnin + draws * thin
-    rngs = spawn_rngs(seed, chains)
+    re_names, pos = _re_names(wnames)
+    names = xnames + (["sigma2"] if fam == "normal" else []) + re_names
+
+    def cov_from(vals: np.ndarray) -> np.ndarray:
+        Dm = np.zeros((q, q))
+        for (i, j), v in zip(pos, vals):
+            Dm[i, j] = Dm[j, i] = v
+        return Dm
+
+    # the state a chain starts from: (sigma2, D) for the normal model,
+    # (beta, D) for logit and Poisson
+    n_lead = 1 if fam == "normal" else k
+    init_names = (["sigma2"] if fam == "normal" else xnames) + re_names
+
+    def to_state(row: np.ndarray) -> Tuple[Any, np.ndarray]:
+        lead = float(row[0]) if fam == "normal" else np.array(row[:k], dtype=float)
+        return lead, cov_from(row[n_lead:])
+
+    def support(row: np.ndarray) -> bool:
+        positive = fam != "normal" or row[0] > 0
+        return bool(positive and np.linalg.eigvalsh(cov_from(row[n_lead:])).min() > 0)
+
+    ctl.setup(
+        {
+            "y": y,
+            "X": X,
+            "W": W,
+            "groups": codes,
+            "family": fam,
+            "names": names,
+            "prior": prior,
+        },
+        chains=chains,
+        thin=thin,
+        burnin=burnin,
+        draws=draws,
+        seed=seed,
+        default_burnin=2000,
+        make_rngs=lambda c: spawn_rngs(seed, c),
+        exact=True,
+        init_names=init_names,
+        drawn_first=xnames if fam == "normal" else (),
+        support=support,
+        support_text=(
+            "the variances must be positive and the covariance of the "
+            "random effects positive definite"
+        ),
+        to_state=to_state,
+    )
+    chains, thin, run_burnin, n_iter = ctl.chains, ctl.thin, ctl.burnin, ctl.n_iter
     pieces = []
     running = _Running((n_groups, q))
     accepts: List[float] = []
     match = [(xnames.index(w), j) for j, w in enumerate(wnames) if w in xnames]
     for ch in range(chains):
+        ctl.begin(ch)
         if fam == "normal":
-            arr, run, acc = _sample_normal(
-                rngs[ch],
+            got = _sample_normal(
+                ctl.rngs[ch],
                 y,
                 X,
                 W,
@@ -673,13 +837,15 @@ def bayes_mixed(
                 n_groups,
                 prior,
                 n_iter,
-                burnin,
+                run_burnin,
                 thin,
                 chains > 1,
+                start=ctl.starts[ch],
+                keep_burn=ctl.keep_burnin,
             )
         else:
-            arr, run, acc = _sample_glmm(
-                rngs[ch],
+            got = _sample_glmm(
+                ctl.rngs[ch],
                 y,
                 X,
                 W,
@@ -689,19 +855,27 @@ def bayes_mixed(
                 fam,
                 match,
                 n_iter,
-                burnin,
+                run_burnin,
                 thin,
                 chains > 1,
+                start=ctl.starts[ch],
+                keep_burn=ctl.keep_burnin,
             )
-        pieces.append(arr)
-        running.merge(run)
-        if acc is not None:
-            accepts.append(acc)
-    arr = np.vstack(pieces)
-    re_names, pos = _re_names(wnames)
-    names = xnames + (["sigma2"] if fam == "normal" else []) + re_names
+        pieces.append(got["out"])
+        running.merge(got["running"])
+        if got["accept"] is not None:
+            accepts.append(got["accept"])
+        ctl.end(
+            ch, got["state"], start=got["first"], burn=got["burn"], accept=got["accept"]
+        )
+    prev = ctl.prev
+    arr = ctl.stack(
+        pieces,
+        None if prev is None else prev.draws.to_numpy(),
+        None if prev is None else prev.chain,
+    )
     d_df = pd.DataFrame(arr, columns=names)
-    chain_idx = np.repeat(np.arange(chains), draws)
+    chain_idx = ctl.chain_index()
 
     ess = np.zeros(len(names))
     for ch in range(chains):
@@ -776,7 +950,7 @@ def bayes_mixed(
         draws=d_df,
         chain=chain_idx,
         n_obs=n,
-        n_draws=draws * chains,
+        n_draws=len(d_df),
         burnin=burnin,
         thin=thin,
         chains=chains,
@@ -803,6 +977,8 @@ def bayes_mixed(
         re_cov=re_cov,
         n_groups=n_groups,
     )
+    ctl.attach(res, names, info)
+    ctl.done(diag_info["min_ess"], diag_info["max_split_rhat"])
     msgs = []
     if diag_info["min_ess"] < 100:
         worst = str(table["ess"].idxmin())

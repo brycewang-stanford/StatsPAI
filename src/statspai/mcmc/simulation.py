@@ -24,6 +24,7 @@ import pandas as pd
 from scipy import linalg
 
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ._chains import ChainRun
 from ._results import posterior_table
 from .regress import BayesRegressResult
 
@@ -119,6 +120,10 @@ def abc(
     vectorized: bool = False,
     seed: Optional[int] = None,
     level: float = 0.95,
+    inits: Any = None,
+    continue_from: Any = None,
+    verbose: bool = False,
+    keep_burnin: bool = False,
 ) -> BayesRegressResult:
     """Approximate Bayesian computation and Bayesian synthetic likelihood.
 
@@ -164,6 +169,31 @@ def abc(
     vectorized : bool, default False
     seed : int, optional
     level : float, default 0.95
+    inits : dict, list of one dict, or array, optional
+        Synthetic likelihood: the starting value of the chain (one
+        value per parameter, named as in ``names``), where the prior
+        density and the synthetic likelihood must be finite; the pilot
+        run still sets the proposal. ``result.inits`` records the
+        starting state.
+    continue_from : BayesRegressResult, optional
+        Synthetic likelihood: extend the chain of an earlier ``abc``
+        fit with the same ``simulate`` function object, observed
+        summaries, prior and settings by ``draws`` more draws, from
+        where it stopped, with its own generator, the proposal of the
+        first run and the stored synthetic likelihood of the current
+        point (the chain is pseudo-marginal), with no new burn-in or
+        pilot. The sampler draws its random numbers iteration by
+        iteration, so a fit of ``m`` draws continued by ``m'`` equals
+        one fit of ``m + m'`` draws with the same seed, draw for draw.
+    verbose : bool, default False
+        Print a line to standard output when the chain starts and ends.
+        Warnings are not affected.
+    keep_burnin : bool, default False
+        Synthetic likelihood: keep the burn-in iterations in
+        ``result.burnin_draws``; they are never used in the summaries.
+        The rejection sampler draws independently from the prior, so
+        ``inits=``, ``continue_from=`` and ``keep_burnin=`` raise
+        ``MethodIncompatibility`` with ``method='rejection'``.
 
     Returns
     -------
@@ -220,6 +250,19 @@ def abc(
         raise MethodIncompatibility(f"level must be in (0, 1); got {level}.")
     if not callable(simulate):
         raise MethodIncompatibility("simulate must be a function simulate(theta, rng).")
+    ctl = ChainRun(
+        "abc",
+        inits=inits,
+        continue_from=continue_from,
+        verbose=verbose,
+        keep_burnin=keep_burnin,
+        refuse=(
+            "method='rejection' draws independently from the prior, so there "
+            "is no chain to start, continue or burn in."
+            if meth == "rejection"
+            else None
+        ),
+    )
     s_obs = np.atleast_1d(np.asarray(observed, dtype=float))
     if s_obs.ndim != 1 or not np.isfinite(s_obs).all():
         raise MethodIncompatibility("observed must be a finite vector of summaries.")
@@ -240,6 +283,7 @@ def abc(
     notes: List[str] = []
 
     if meth == "rejection":
+        ctl.progress.say(f"{int(n_sim)} draws from the prior")
         if n_sim < 100:
             raise DataInsufficient("n_sim must be at least 100.")
         if tol is None and not 0.0 < quantile <= 1.0:
@@ -345,43 +389,88 @@ def abc(
             zz = linalg.solve_triangular(chol, s_obs - mu, lower=True)
             return float(-np.log(np.diag(chol)).sum() - 0.5 * zz @ zz)
 
+        ctl.setup(
+            {
+                "simulate": simulate,
+                "observed": s_obs,
+                "prior": prior,
+                "n_synthetic": m,
+                "vectorized": bool(vectorized),
+                "names": pnames,
+            },
+            chains=1,
+            thin=1,
+            burnin=int(burnin),
+            draws=int(draws),
+            seed=seed,
+            default_burnin=1000,
+            # the generator of the call: the probe draws above came from it
+            make_rngs=lambda c: [rng],
+            exact=True,
+            init_names=pnames,
+            support=lambda row: bool(np.isfinite(pr.logpdf(row))),
+            support_text="the prior density is zero there",
+        )
+        if ctl.continuing:
+            rng = ctl.rngs[0]
+        ctl.begin(0)
         # pilot: where the prior predictive comes closest to the data, and
         # how the parameters covary there
         n_pilot = max(2000, 200 * d)
-        tp = pr.sample(rng, n_pilot)
-        Sp = _simulate_many(simulate, tp, rng, vectorized, s_obs.size)
-        okp = np.isfinite(Sp).all(axis=1)
-        if not okp.any():
-            raise DataInsufficient(
-                "Every simulation returned missing or infinite summaries, so "
-                "none can be compared with the data. Check simulate() at "
-                "parameter values drawn from the prior."
-            )
-        tp, Sp = tp[okp], Sp[okp]
-        scp = np.median(np.abs(Sp - np.median(Sp, axis=0)), axis=0)
-        scp = np.where(scp > 0, scp, 1.0)
-        dp = np.sqrt((((Sp - s_obs) / scp) ** 2).sum(axis=1))
-        near = np.argsort(dp)[: max(10 * d, n_pilot // 50)]
-        cur = tp[near].mean(axis=0)
-        prop = np.atleast_2d(np.cov(tp[near], rowvar=False)) * (2.38**2 / d)
-        prop += 1e-12 * np.eye(d) * max(np.trace(prop), 1e-12)
-        chol_p = linalg.cholesky(prop, lower=True)
-        lp = pr.logpdf(cur) + synth_loglik(cur)
-        tries = 0
-        while not np.isfinite(lp) and tries < 50:
-            cur = tp[near[tries % len(near)]]
+        if ctl.continuing:
+            st = ctl.prev_state(0)
+            cur, lp = np.array(st["cur"], dtype=float), float(st["lp"])
+            chol_p = np.array(st["chol_p"], dtype=float)
+            accepted_before, iters_before = int(st["accepted"]), int(st["iterations"])
+        else:
+            accepted_before = iters_before = 0
+            tp = pr.sample(rng, n_pilot)
+            Sp = _simulate_many(simulate, tp, rng, vectorized, s_obs.size)
+            okp = np.isfinite(Sp).all(axis=1)
+            if not okp.any():
+                raise DataInsufficient(
+                    "Every simulation returned missing or infinite summaries, so "
+                    "none can be compared with the data. Check simulate() at "
+                    "parameter values drawn from the prior."
+                )
+            tp, Sp = tp[okp], Sp[okp]
+            scp = np.median(np.abs(Sp - np.median(Sp, axis=0)), axis=0)
+            scp = np.where(scp > 0, scp, 1.0)
+            dp = np.sqrt((((Sp - s_obs) / scp) ** 2).sum(axis=1))
+            near = np.argsort(dp)[: max(10 * d, n_pilot // 50)]
+            cur = tp[near].mean(axis=0)
+            prop = np.atleast_2d(np.cov(tp[near], rowvar=False)) * (2.38**2 / d)
+            prop += 1e-12 * np.eye(d) * max(np.trace(prop), 1e-12)
+            chol_p = linalg.cholesky(prop, lower=True)
             lp = pr.logpdf(cur) + synth_loglik(cur)
-            tries += 1
-        if not np.isfinite(lp):
-            raise MethodIncompatibility(
-                "The synthetic likelihood is not finite near the data. The "
-                "summaries may be degenerate (zero variance) at these "
-                "parameter values."
-            )
-        n_iter = int(burnin) + int(draws)
+            tries = 0
+            while not np.isfinite(lp) and tries < 50:
+                cur = tp[near[tries % len(near)]]
+                lp = pr.logpdf(cur) + synth_loglik(cur)
+                tries += 1
+            if not np.isfinite(lp):
+                raise MethodIncompatibility(
+                    "The synthetic likelihood is not finite near the data. The "
+                    "summaries may be degenerate (zero variance) at these "
+                    "parameter values."
+                )
+            if ctl.starts[0] is not None:
+                cur = np.array(ctl.starts[0], dtype=float)
+                lp = pr.logpdf(cur) + synth_loglik(cur)
+                if not np.isfinite(lp):
+                    raise MethodIncompatibility(
+                        "inits: the synthetic likelihood is not finite at the "
+                        "starting value.",
+                        recovery_hint="Start where simulate() gives summaries "
+                        "with a nonsingular covariance.",
+                        diagnostics={"inits": dict(zip(pnames, cur.tolist()))},
+                    )
+        first = cur.copy()
+        n_iter = ctl.n_iter
+        run_burnin = ctl.burnin
         chain = np.empty((n_iter, d))
         accepted = 0
-        adapt_until = int(burnin) // 2
+        adapt_until = run_burnin // 2
         for it in range(n_iter):
             cand = cur + chol_p @ rng.standard_normal(d)
             lpri = pr.logpdf(cand)
@@ -395,12 +484,31 @@ def abc(
                 emp = np.atleast_2d(np.cov(chain[: it + 1], rowvar=False))
                 if np.all(np.linalg.eigvalsh(emp) > 0):
                     chol_p = linalg.cholesky(emp * (2.38**2 / d), lower=True)
-        d_df = pd.DataFrame(chain[int(burnin) :], columns=pnames)
-        chain_idx = np.zeros(int(draws), dtype=int)
-        rate = accepted / n_iter
+        ctl.end(
+            0,
+            {
+                "cur": cur.copy(),
+                "lp": float(lp),
+                "chol_p": chol_p.copy(),
+                "accepted": accepted_before + accepted,
+                "iterations": iters_before + n_iter,
+            },
+            start=first,
+            burn=chain[:run_burnin],
+            accept=accepted / n_iter,
+        )
+        prev = ctl.prev
+        d_df = pd.DataFrame(
+            ctl.stack(
+                [chain[run_burnin:]], None if prev is None else prev.draws.to_numpy()
+            ),
+            columns=pnames,
+        )
+        chain_idx = np.zeros(len(d_df), dtype=int)
+        rate = (accepted_before + accepted) / (iters_before + n_iter)
         info.update(n_synthetic=m, n_pilot=int(n_pilot))
         sampler = "Metropolis-Hastings on a Gaussian synthetic likelihood"
-        n_draws, burn = int(draws), int(burnin)
+        n_draws, burn = len(d_df), int(burnin)
 
     table, diag = posterior_table(d_df, chain_idx, 1, level)
     if meth == "rejection":
@@ -434,6 +542,11 @@ def abc(
         diagnostics_info=diag,
         _model=None,
     )
+    if meth == "synthetic":
+        ctl.attach(res, pnames, info)
+        ctl.done(diag["min_ess"], float("nan"))
+    else:
+        ctl.progress.say(f"{len(d_df)} draws accepted")
     if meth == "synthetic" and (rate < 0.05 or diag["min_ess"] < 100):
         text = (
             f"The chain mixes slowly (acceptance {rate:.2f}, smallest "
