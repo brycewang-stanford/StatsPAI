@@ -6163,3 +6163,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-07 — traces re-recorded after `missing=` per role (RE2.2)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `c2843aa0d`. The commit that adds this entry re-records
+  the traces of the 63 Track A modules and the 11 original-data modules
+  whose traced path includes a changed file.
+- **Reason.** `src/statspai/_input_validation.py` (the `checks_input`
+  decorator) and the signatures and docstrings of the 25 estimators it
+  wraps changed so that `missing=` also takes a rule per role. The
+  decorator runs on every traced path of those estimators.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  reproduced all 63 Track A modules within its 1e-9 floor (fixtures
+  byte-identical or embedded, worst relative difference 1.7e-10). Five original-data results moved by at most
+  1.6e-11 (BLAS jitter, restored); the other six were byte-identical. No
+  committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
