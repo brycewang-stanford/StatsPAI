@@ -6183,3 +6183,18 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-07 — both trace ledgers re-recorded (missing weights drop their rows)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `40ef57352`.
+- **Reason.** `src/statspai/_input_validation.py` (the shared
+  `checks_input` wrapper) is on the traced path of most modules.
+  `verify_reproduce_py.py` reports 91 reproduce, 0 drift; re-running the
+  twelve original-data modules moved five result files by at most 1.6e-11
+  (last-digit jitter, restored).
+- **Effect on the paper.** None. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
