@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.brycewang-stanford/statspai",
   "title": "StatsPAI",
-  "description": "Causal inference and econometrics: DiD, IV, RD, synthetic control, DML, panel, time series.",
+  "description": "Econometrics and causal inference (DiD, IV, RD, synthetic control, DML) with Stata/R parity grades",
   "repository": {
     "url": "https://github.com/brycewang-stanford/StatsPAI",
     "source": "github"
