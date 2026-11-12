@@ -4091,7 +4091,7 @@
     ],
     "pre_conditions": [
       "panel data with unit x time x outcome",
-      "g column is integer: first-treated period or 0 for never-treated",
+      "g column: first-treated period; 0, NaN or inf for never-treated",
       "at least one never-treated or late-treated control group",
       ">= 2 pre-treatment periods per cohort",
       "data is panel or repeated cross-section with a time column",
@@ -4249,7 +4249,7 @@
             ]
           },
           "g": {
-            "description": "First-treatment-period column (0 = never-treated)",
+            "description": "First-treatment-period column (0, NaN or inf = never treated)",
             "type": "string",
             "x-aliases": [
               "cohort",
@@ -71758,7 +71758,7 @@
             "type": "array"
           },
           "g": {
-            "description": "First-treatment period (0 = never-treated)",
+            "description": "First-treatment period (0, NaN or inf = never treated)",
             "type": "string",
             "x-aliases": [
               "cohort",
@@ -72731,7 +72731,7 @@
             "x-statspai-role": "dataframe"
           },
           "first_treat": {
-            "description": "First-treatment period; 0 = never-treated",
+            "description": "First-treatment period; 0, NaN or inf = never treated",
             "type": "string",
             "x-aliases": [
               "cohort",
@@ -73024,7 +73024,7 @@
             "type": "array"
           },
           "first_treat": {
-            "description": "First-treatment period; 0 = never-treated",
+            "description": "First-treatment period; 0, NaN or inf = never treated",
             "type": "string",
             "x-aliases": [
               "cohort",
@@ -73147,7 +73147,7 @@
     ],
     "pre_conditions": [
       "panel with unit x time x outcome",
-      "first_treat cohort column (first period treated, 0 = never)"
+      "first_treat cohort column (first period treated; 0 or NaN = never)"
     ],
     "provenance": {
       "alternatives": "curated",
@@ -73212,7 +73212,7 @@
             "x-statspai-role": "dataframe"
           },
           "first_treat": {
-            "description": "First-treatment period; 0 = never-treated",
+            "description": "First-treatment period; 0, NaN or inf = never treated",
             "type": "string",
             "x-aliases": [
               "cohort",
@@ -81608,7 +81608,7 @@
             "x-statspai-role": "dataframe"
           },
           "g": {
-            "description": "First-treatment period (0 = never treated)",
+            "description": "First-treatment period (0, NaN or inf = never treated)",
             "type": "string",
             "x-aliases": [
               "cohort",

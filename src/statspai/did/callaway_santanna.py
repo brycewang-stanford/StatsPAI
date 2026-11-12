@@ -306,7 +306,8 @@ def callaway_santanna(
     y : str
         Outcome variable name.
     g : str
-        Group variable: first period of treatment (0 = never treated).
+        Group variable: first period of treatment. Never-treated units
+        may be coded 0, NaN or inf; all three are read as never treated.
     t : str
         Time period variable.
     i : str

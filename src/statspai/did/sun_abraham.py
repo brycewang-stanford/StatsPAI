@@ -338,7 +338,8 @@ def sun_abraham(
     y : str
         Outcome variable.
     g : str
-        Cohort variable: first treatment period (0 or inf = never treated).
+        Cohort variable: first treatment period (0, NaN or inf = never
+        treated).
     t : str
         Time period variable.
     i : str, optional

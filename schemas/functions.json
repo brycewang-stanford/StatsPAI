@@ -2145,7 +2145,7 @@
           ]
         },
         "g": {
-          "description": "First-treatment-period column (0 = never-treated)",
+          "description": "First-treatment-period column (0, NaN or inf = never treated)",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -32701,7 +32701,7 @@
           "type": "array"
         },
         "g": {
-          "description": "First-treatment period (0 = never-treated)",
+          "description": "First-treatment period (0, NaN or inf = never treated)",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -33328,7 +33328,7 @@
           "x-statspai-role": "dataframe"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -33413,7 +33413,7 @@
           "type": "array"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -33504,7 +33504,7 @@
           "x-statspai-role": "dataframe"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -37563,7 +37563,7 @@
           "x-statspai-role": "dataframe"
         },
         "g": {
-          "description": "First-treatment period (0 = never treated)",
+          "description": "First-treatment period (0, NaN or inf = never treated)",
           "type": "string",
           "x-aliases": [
             "cohort",

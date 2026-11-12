@@ -1005,8 +1005,9 @@ def castle_doctrine(
     event_time : bool, default False
         Append ``time_til`` (``year - effyear``, NaN for never-treated)
         and ``gvar`` (adoption cohort with never-treated coded ``0``,
-        the encoding ``sp.callaway_santanna`` and Stata's ``csdid``
-        expect).
+        the encoding Stata's ``csdid`` requires). StatsPAI's staggered
+        estimators also accept ``effyear`` as is: a NaN cohort is read
+        as never treated, so no recoding is needed.
 
     Returns
     -------

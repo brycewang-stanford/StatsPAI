@@ -6980,7 +6980,7 @@
           "type": "array"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -8357,7 +8357,7 @@
           "x-statspai-role": "column"
         },
         "g": {
-          "description": "First-treatment period (0 = never treated)",
+          "description": "First-treatment period (0, NaN or inf = never treated)",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -10229,7 +10229,7 @@
           "x-statspai-role": "column"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",
@@ -48092,7 +48092,7 @@
     "name": "wild_cluster_ci_inv"
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated; 0 or NaN = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -48118,7 +48118,7 @@
           "x-statspai-role": "columns"
         },
         "first_treat": {
-          "description": "First-treatment period; 0 = never-treated",
+          "description": "First-treatment period; 0, NaN or inf = never treated",
           "type": "string",
           "x-aliases": [
             "cohort",

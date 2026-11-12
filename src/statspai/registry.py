@@ -3109,7 +3109,7 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment-period column (0 = never-treated)",
+                    description="First-treatment-period column (0, NaN or inf = never treated)",
                 ),
                 ParamSpec("t", "str", True, description="Time period column"),
                 ParamSpec("i", "str", True, description="Unit identifier"),
@@ -3293,7 +3293,7 @@ def _build_registry() -> None:
             reference="Callaway & Sant'Anna (2021) J. Econometrics",
             pre_conditions=[
                 "panel data with unit × time × outcome",
-                "g column is integer: first-treated period or 0 for never-treated",
+                "g column: first-treated period; 0, NaN or inf for never-treated",
                 "at least one never-treated or late-treated control group",
                 "≥ 2 pre-treatment periods per cohort",
             ],
@@ -31591,7 +31591,7 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment period (0 = never-treated)",
+                    description="First-treatment period (0, NaN or inf = never treated)",
                 ),
                 ParamSpec("t", "str", True, description="Time period column"),
                 ParamSpec(
@@ -32310,7 +32310,7 @@ def _build_registry() -> None:
                     "first_treat",
                     "str",
                     True,
-                    description="First-treatment period; 0 = never-treated",
+                    description="First-treatment period; 0, NaN or inf = never treated",
                 ),
                 ParamSpec(
                     "cluster",
@@ -32492,7 +32492,7 @@ def _build_registry() -> None:
                     "first_treat",
                     "str",
                     True,
-                    description="First-treatment period; 0 = never-treated",
+                    description="First-treatment period; 0, NaN or inf = never treated",
                 ),
                 ParamSpec(
                     "estimators",
@@ -32587,7 +32587,7 @@ def _build_registry() -> None:
                     "first_treat",
                     "str",
                     True,
-                    description="First-treatment period; 0 = never-treated",
+                    description="First-treatment period; 0, NaN or inf = never treated",
                 ),
                 ParamSpec("controls", "list", False, None),
                 ParamSpec("cluster", "str", False, None),
@@ -32602,7 +32602,7 @@ def _build_registry() -> None:
             "[@wooldridge2021two]; McDermott (2023) R etwfe package",
             pre_conditions=[
                 "panel with unit × time × outcome",
-                "first_treat cohort column (first period treated, 0 = never)",
+                "first_treat cohort column (first period treated; 0 or NaN = never)",
             ],
             assumptions=[
                 "Parallel trends per cohort",
@@ -36844,7 +36844,7 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment period (0 = never treated)",
+                    description="First-treatment period (0, NaN or inf = never treated)",
                 ),
                 ParamSpec("time", "str", True, description="Time column"),
                 ParamSpec("id", "str", True, description="Unit column"),
