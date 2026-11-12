@@ -28,6 +28,7 @@ import importlib.util
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -300,11 +301,26 @@ def _probe_interpreter(
     return {"error": f"exit status {proc.returncode}: {last}"}
 
 
+_SH_TRAMPOLINE = re.compile(r"""^'''exec' (?:'([^']+)'|"([^"]+)"|(\S+))""")
+
+
 def _script_interpreter(script: str) -> Optional[str]:
-    """Interpreter in a console script's shebang (``None`` if not readable)."""
+    """Interpreter in a console script's shebang (``None`` if not readable).
+
+    pip and uv replace the shebang with a ``#!/bin/sh`` trampoline when the
+    interpreter path is too long for the kernel or contains a space::
+
+        #!/bin/sh
+        '''exec' '/path/to/python3' "$0" "$@"
+        ' '''
+
+    The interpreter is then the one ``exec`` names on the second line. Any
+    other shell script names no interpreter we can probe.
+    """
     try:
         with open(script, "rb") as fh:
             first = fh.readline(4096).decode("utf-8", "replace").strip()
+            second = fh.readline(4096).decode("utf-8", "replace").strip()
     except OSError:
         return None
     if not first.startswith("#!"):
@@ -314,6 +330,9 @@ def _script_interpreter(script: str) -> Optional[str]:
         return None
     if Path(parts[0]).name == "env" and len(parts) > 1:
         return shutil.which(parts[1])
+    if Path(parts[0]).name in {"sh", "bash", "dash", "zsh"}:
+        match = _SH_TRAMPOLINE.match(second)
+        return next((g for g in match.groups() if g), None) if match else None
     return parts[0]
 
 

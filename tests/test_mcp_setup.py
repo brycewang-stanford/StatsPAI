@@ -172,6 +172,29 @@ def test_entry_interpreter_from_console_script_shebang(tmp_path):
 
 
 @POSIX
+def test_entry_interpreter_behind_the_sh_trampoline(tmp_path):
+    # pip and uv write this header instead of a plain shebang when the
+    # interpreter path is too long for the kernel or contains a space. The
+    # interpreter is the one `exec` names, not /bin/sh.
+    (tmp_path / "dir with space").mkdir()
+    py = _fake_python(tmp_path / "dir with space" / "python3.99", "0.0.1")
+    script = tmp_path / "statspai-mcp"
+    script.write_text(
+        f"#!/bin/sh\n'''exec' '{py}' \"$0\" \"$@\"\n' '''\nimport sys\n",
+        encoding="utf-8",
+    )
+    python, how = ms.resolve_entry_interpreter({"command": str(script)})
+    assert python == str(py) and "shebang" in how
+    assert ms._probe_interpreter(python)["version"] == "0.0.1"
+    # A shell script that is not the trampoline names no interpreter.
+    other = tmp_path / "statspai-wrapper"
+    other.write_text(
+        "#!/bin/sh\nexec python3 -m statspai.agent.mcp_server\n", encoding="utf-8"
+    )
+    assert ms.resolve_entry_interpreter({"command": str(other)})[0] is None
+
+
+@POSIX
 def test_doctor_flags_a_client_running_an_old_version(home):
     old = _fake_python(home / "python-old", "0.0.1")
     (home / ".cursor").mkdir()

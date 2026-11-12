@@ -18,6 +18,12 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   docstring citations are corrected.
 
 ### Fixed
+- **`statspai mcp doctor` misread console scripts installed under a long or
+  spaced path.** pip and uv write those with a `#!/bin/sh` header and an
+  `exec` line naming the real interpreter. `doctor` took `/bin/sh` for the
+  Python, so it reported every such client entry, and the `statspai-mcp`
+  script itself, as unable to import StatsPAI. It now reads the interpreter
+  from the `exec` line. Only the diagnosis changes; the server never did.
 - **A missing weight, offset or exposure drops its row under the default
   `missing="drop"`.** The guide counts those columns as used, so their
   missing values should be deleted listwise like the others. Seven
