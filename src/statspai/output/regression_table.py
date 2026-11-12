@@ -2424,7 +2424,11 @@ class RegtableResult:
         if self._has_any_eform():
             lines.append(f"*{self._eform_note()}*")
         if self.show_stars:
-            lines.append(f"*{self._star_note()}*")
+            # Escape the legend's asterisks: inside the italic wrapper an
+            # unescaped "***" opens bold-italic and the line renders as
+            # "**** p<0.01 ...".
+            star_note = self._star_note().replace("*", "\\*")
+            lines.append(f"*{star_note}*")
         for note in self.notes:
             lines.append(f"*{note}*")
 

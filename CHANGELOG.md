@@ -24,6 +24,12 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   Python, so it reported every such client entry, and the `statspai-mcp`
   script itself, as unable to import StatsPAI. It now reads the interpreter
   from the `exec` line. Only the diagnosis changes; the server never did.
+- **`sp.regtable(...).to_markdown()` printed the star legend as
+  `**** p<0.01, ** p<0.05, * p<0.10`.** The legend sits inside an italic
+  wrapper, and its unescaped `***` opened bold-italic, so rendered Markdown
+  ate the stars. The asterisks are now escaped and the line renders as
+  `*** p<0.01, ** p<0.05, * p<0.10`. Table cells and every other format are
+  unchanged.
 - **A missing weight, offset or exposure drops its row under the default
   `missing="drop"`.** The guide counts those columns as used, so their
   missing values should be deleted listwise like the others. Seven

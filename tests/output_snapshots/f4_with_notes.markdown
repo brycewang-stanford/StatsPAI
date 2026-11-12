@@ -16,5 +16,5 @@
 | F | 302.955 | 227.960 |
 
 *Standard errors in parentheses*
-**** p<0.01, ** p<0.05, * p<0.10*
+*\*\*\* p<0.01, \*\* p<0.05, \* p<0.10*
 *Robust standard errors in parentheses.*

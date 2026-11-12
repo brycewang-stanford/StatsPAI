@@ -11,4 +11,4 @@
 | Log-Lik. | -176.655 |
 
 *Standard errors in parentheses*
-**** p<0.01, ** p<0.05, * p<0.10*
+*\*\*\* p<0.01, \*\* p<0.05, \* p<0.10*

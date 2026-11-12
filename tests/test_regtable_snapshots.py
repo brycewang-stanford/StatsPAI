@@ -45,3 +45,16 @@ def test_regtable_snapshot(fixture_name: str, fmt: str) -> None:
     result = FIXTURES[fixture_name]()
     rendered = getattr(result, f"to_{fmt}")()
     assert_snapshot(fixture_name, fmt, rendered)
+
+
+def test_markdown_star_legend_renders_literally() -> None:
+    """The italic star legend must render as "*** p<0.01 ..." in HTML.
+
+    An unescaped "***" inside the ``*...*`` wrapper opens bold-italic, so
+    a Markdown renderer showed "**** p<0.01" with the stars eaten.
+    """
+    markdown = pytest.importorskip("markdown")
+    md = FIXTURES["f1_simple_ols"]().to_markdown()
+    legend = md.strip().splitlines()[-1]
+    html = markdown.markdown(legend)
+    assert html == "<p><em>*** p&lt;0.01, ** p&lt;0.05, * p&lt;0.10</em></p>"
