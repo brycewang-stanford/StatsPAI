@@ -33,6 +33,17 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   call, matched to 1e-12). Unweighted fits, coefficients, standard errors
   and R-squared are unchanged. Found by a blind agent run of the docs smoke
   tasks.
+- **`sp.ivreg` is not deprecated.** Its docstring carried a
+  `.. deprecated::` note from 0.4.0 that never had a warning or a
+  MIGRATION entry. `sp.ivreg` stays supported and returns the same fit as
+  `sp.iv(..., method='2sls')`; the docstring now says so.
+- **Never-treated coding in the DiD docs.** The `g` / `first_treat`
+  descriptions of `sp.callaway_santanna`, `sp.sun_abraham`,
+  `sp.wooldridge_did`, `sp.cs_jackknife`, `sp.did_cluster_diagnostics`
+  and `sp.compare_event_study_conventions` said only "0 = never treated".
+  They have always read 0, NaN and inf alike, so `castle_doctrine`'s
+  `effyear` (NaN for never-treated states) works without recoding. The
+  docs now say so.
 - **`sp.regtable(...).to_markdown()` printed the star legend as
   `**** p<0.01, ** p<0.05, * p<0.10`.** The legend sits inside an italic
   wrapper, and its unescaped `***` opened bold-italic, so rendered Markdown

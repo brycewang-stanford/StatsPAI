@@ -3505,9 +3505,10 @@ def ivreg(
     """
     Instrumental variables regression (2SLS).
 
-    .. deprecated::
-        Use ``sp.iv(formula, data, method='2sls')`` instead.
-        ``ivreg`` is kept for backward compatibility.
+    ``sp.ivreg`` is the Stata-style name for 2SLS and is fully supported.
+    It returns the same fit as ``sp.iv(formula, data, method='2sls')``;
+    use ``sp.iv`` when you want to switch to LIML, GMM or another
+    estimator through ``method=``.
 
     Parameters
     ----------
@@ -3568,7 +3569,7 @@ def ivreg(
     >>> bool(abs(result.params['x'] - 1.5) < 0.2)  # 2SLS recovers the true effect
     True
 
-    >>> # Preferred modern entry point:
+    >>> # The same fit through the IV dispatcher:
     >>> result = sp.iv("y ~ (x ~ z)", data=df, method='2sls')
     """
     # --- vcov= (pyfixest spelling) -> native robust=/cluster=/vce= ---
