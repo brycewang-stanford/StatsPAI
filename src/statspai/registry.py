@@ -3109,7 +3109,9 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment-period column (0, NaN or inf = never treated)",
+                    description=(
+                        "First-treatment-period column (0, NaN or inf = never treated)"
+                    ),
                 ),
                 ParamSpec("t", "str", True, description="Time period column"),
                 ParamSpec("i", "str", True, description="Unit identifier"),
@@ -31591,7 +31593,9 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment period (0, NaN or inf = never treated)",
+                    description=(
+                        "First-treatment period (0, NaN or inf = never treated)"
+                    ),
                 ),
                 ParamSpec("t", "str", True, description="Time period column"),
                 ParamSpec(
@@ -36844,7 +36848,9 @@ def _build_registry() -> None:
                     "g",
                     "str",
                     True,
-                    description="First-treatment period (0, NaN or inf = never treated)",
+                    description=(
+                        "First-treatment period (0, NaN or inf = never treated)"
+                    ),
                 ),
                 ParamSpec("time", "str", True, description="Time column"),
                 ParamSpec("id", "str", True, description="Unit column"),
