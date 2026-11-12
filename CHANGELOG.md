@@ -24,6 +24,15 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   Python, so it reported every such client entry, and the `statspai-mcp`
   script itself, as unable to import StatsPAI. It now reads the interpreter
   from the `exec` line. Only the diagnosis changes; the server never did.
+- **⚠️ correctness fix: weighted `sp.feols` reported an RMSE on the scale
+  of the weights.** The native backend divided the weighted sum of squared
+  residuals by N, so the RMSE grew with the weights (255.6 instead of
+  0.1061 for `l_homicide ~ post | sid + year` on `castle_doctrine` with
+  population weights) and changed when they were rescaled. It now divides
+  by the weight total, as R fixest 0.14 does (0.106147430320781 on that
+  call, matched to 1e-12). Unweighted fits, coefficients, standard errors
+  and R-squared are unchanged. Found by a blind agent run of the docs smoke
+  tasks.
 - **`sp.regtable(...).to_markdown()` printed the star legend as
   `**** p<0.01, ** p<0.05, * p<0.10`.** The legend sits inside an italic
   wrapper, and its unescaped `***` opened bold-italic, so rendered Markdown

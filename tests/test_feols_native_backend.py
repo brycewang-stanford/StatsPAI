@@ -71,3 +71,29 @@ def test_eligibility_and_validation(data):
     assert not _native_eligible("y ~ x1 | f1", "hetero", None, {}, "w")
     with pytest.raises(sp.MethodIncompatibility, match="backend"):
         sp.feols("y ~ x1 | f1", data=data, backend="fast")
+
+
+def test_weighted_rmse_is_normalised_by_the_weight_total():
+    """Weighted RMSE = sqrt(sum w u^2 / sum w), as fixest reports it.
+
+    Reference: R fixest 0.14.0,
+    ``fitstat(feols(l_homicide ~ post | sid + year, castle, weights = ~popwt,
+    cluster = ~sid), ~rmse)`` = 0.106147430320781 (unweighted: 0.176735).
+    The old divisor was N, so the value carried the scale of the weights
+    (255.6 with population weights) and changed when they were rescaled.
+    """
+    castle = sp.load_dataset("castle_doctrine")
+    rmse = {}
+    for scale in (1.0, 10.0):
+        df = castle.assign(w=castle["popwt"] * scale)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fit = sp.feols(
+                "l_homicide ~ post | sid + year",
+                data=df,
+                weights="w",
+                vcov={"CL1": "sid"},
+            )
+        rmse[scale] = fit.diagnostics["RMSE"]
+    assert rmse[1.0] == pytest.approx(0.106147430320781, rel=1e-12)
+    assert rmse[10.0] == pytest.approx(rmse[1.0], rel=1e-12)

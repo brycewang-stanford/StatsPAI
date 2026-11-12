@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.43 → 1.43.1: missing weights drop their rows
+## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
 `sp.callaway_santanna` no longer raise when the weights (or `offset=` /
@@ -13,6 +13,12 @@ Internal version-to-version migrations are at the top; the long-form
 `missing="drop"` the row is deleted with an `AssumptionWarning`, as for any
 other used column. Code that relied on the error to catch incomplete
 weights should pass `missing="raise"`.
+
+⚠️ correctness fix: weighted `sp.feols` (native backend) now reports
+`diagnostics["RMSE"]` as `sqrt(sum(w * u**2) / sum(w))`, the fixest value.
+Before it divided by N, so the number carried the scale of the weights.
+Unweighted fits are unchanged. A stored weighted RMSE from 1.43.0 equals
+the new value times `sqrt(sum(w) / N)`.
 
 ---
 

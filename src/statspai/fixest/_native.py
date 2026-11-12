@@ -576,7 +576,9 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     diagnostics["Adj. R-squared"] = 1.0 - ssu / ssy * adj
     diagnostics["R-squared (within)"] = r2_within
     diagnostics["Adj. R-squared (within)"] = adj_r2_within
-    diagnostics["RMSE"] = float(np.sqrt(ssu / N))
+    # Weighted: normalise by the weight total (fixest), so rescaling the
+    # weights leaves RMSE unchanged. Unweighted, w is all ones and this is N.
+    diagnostics["RMSE"] = float(np.sqrt(ssu / float(np.sum(w))))
 
     model_info = _model_info(p, "OLS", res.fe_kernel, fml)
     if p.fe:
