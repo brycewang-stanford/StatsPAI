@@ -83,20 +83,33 @@ def test_result_card_on_a_fit_without_standard_errors():
     json.dumps(dict(card), default=str)
 
 
-def test_rddensity_says_which_scale_each_field_is_on():
-    # estimate / pvalue are the CJM t-test; se / ci belong to the density
-    # difference. The identity ties them together.
+def test_rddensity_headline_is_the_t_test_alone():
+    # estimate / pvalue are the CJM t-test (what R / Stata print). A
+    # t-statistic has no SE or interval, so se / ci are NaN; the density
+    # difference carries its own, under density_diff*. Until 1.43.0 se / ci
+    # held the density difference's, so estimate +/- z * se mixed scales.
     r = sp.rddensity(sp.datasets.lee_2008_senate(), x="x", c=0)
-    assert r.model_info["scale"] == {
-        "estimate": "t_statistic",
-        "pvalue": "t_statistic",
-        "se": "density_diff",
-        "ci": "density_diff",
-    }
-    diff = r.model_info["density_diff"]
-    assert diff / r.se == pytest.approx(r.estimate, rel=1e-12)
-    assert r.ci[0] < diff < r.ci[1]
-    assert "density-difference scale" in r.estimand
+    assert np.isnan(r.se) and all(np.isnan(v) for v in r.ci)
+    assert r.model_info["scale"]["estimate"] == "t_statistic"
+    assert r.model_info["scale"]["se"] == "not_applicable"
+    mi = r.model_info
+    # The identity that ties the two quantities: T = diff / se(diff).
+    assert mi["density_diff"] / mi["density_diff_se"] == pytest.approx(
+        r.estimate, rel=1e-12
+    )
+    z = stats.norm.ppf(0.975)
+    assert mi["density_diff_ci_lower"] == pytest.approx(
+        mi["density_diff"] - z * mi["density_diff_se"], rel=1e-12
+    )
+    # The bare agent answer carries both, on their own scales.
+    d = r.to_dict(detail="minimal")
+    assert d["se"] is None and d["ci"] == [None, None]
+    assert d["density_diff_se"] == mi["density_diff_se"]
+    assert d["density_diff_ci"] == [
+        mi["density_diff_ci_lower"],
+        mi["density_diff_ci_upper"],
+    ]
+    assert "Std. Error" not in str(r.summary())
 
 
 def test_rate_split_says_a_repeated_warning_once():

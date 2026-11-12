@@ -175,16 +175,18 @@ def rse():
 @pytest.mark.parametrize("p", _ORDERS)
 @pytest.mark.parametrize("design", _DESIGNS)
 def test_standard_errors_match_r(rse, designs, design, p):
-    """``se`` is the jackknife SE of the density difference (R ``sd_jk$diff``).
+    """``density_diff_se`` is the jackknife SE of the density difference
+    (R ``sd_jk$diff``).
 
     The statistic is the bias-corrected difference over this SE, so the
     statistic agreeing with R does not by itself pin the SE: a common
-    factor in numerator and denominator would cancel.
+    factor in numerator and denominator would cancel. Since 1.43.1 it is
+    in ``model_info``; the headline ``se`` is NaN (T has no SE).
     """
     ref = rse[f"{design}_p{p}"]
     res = sp.rddensity(designs[design], x="x", c=0, p=p)
     assert float(res.estimate) == pytest.approx(ref["T_jk"], rel=RTOL)
-    assert float(res.se) == pytest.approx(ref["se_diff"], rel=RTOL)
+    assert res.model_info["density_diff_se"] == pytest.approx(ref["se_diff"], rel=RTOL)
     assert res.model_info["se_left"] == pytest.approx(ref["se_left"], rel=RTOL)
     assert res.model_info["se_right"] == pytest.approx(ref["se_right"], rel=RTOL)
 

@@ -62,9 +62,10 @@ unidentified side, zero or NaN SE), StatsPAI reports `T = 0`, `se = 0`,
 `p = 1` and NaN densities (kept from the previous implementation; R
 returns NA; see "Open items").
 
-`CausalResult`: `estimate`/`pvalue` = T and its p-value; `se`/`ci` on the
-density-difference scale; `n_eff_*` = observations with `|x - c| <= h`
-on the side.
+`CausalResult`: `estimate`/`pvalue` = T and its p-value; `se`/`ci` are NaN
+(since 1.43.1; before, they were the density difference's); the density
+difference, its SE and interval are `model_info['density_diff*']`;
+`n_eff_*` = observations with `|x - c| <= h` on the side.
 
 ## Default bandwidths (`bwselect = comb`)
 

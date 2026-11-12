@@ -33,6 +33,19 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   call, matched to 1e-12). Unweighted fits, coefficients, standard errors
   and R-squared are unchanged. Found by a blind agent run of the docs smoke
   tasks.
+- **`sp.rddensity`: the headline is the T test alone.** `estimate` and
+  `pvalue` are the Cattaneo-Jansson-Ma T statistic and its p-value, as
+  before and as R / Stata print. `se` and `ci` used to hold the standard
+  error and interval of a different quantity, the density difference
+  f(c+) - f(c-), so `estimate +/- z * se` mixed two scales (on the Lee
+  senate data: T = -0.875 next to SE 0.0041 and an interval that did not
+  contain it). `se` and `ci` are now NaN. The density difference, its SE
+  and interval are `model_info['density_diff']`, `['density_diff_se']`,
+  `['density_diff_ci_lower']` / `['density_diff_ci_upper']`, and appear in
+  `to_dict(detail='minimal')`. T, p and the density estimates are unchanged;
+  see MIGRATION.
+  `CausalResult.summary()` no longer prints empty SE / CI lines when both
+  are missing.
 - **`sp.ivreg` is not deprecated.** Its docstring carried a
   `.. deprecated::` note from 0.4.0 that never had a warning or a
   MIGRATION entry. `sp.ivreg` stays supported and returns the same fit as

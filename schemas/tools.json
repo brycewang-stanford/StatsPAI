@@ -35693,7 +35693,7 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Level of ``ci`` (on the density-difference scale).",
+          "description": "Level of ``model_info['density_diff_ci']``, the interval for the density difference f(c+) - f(c-).",
           "type": "number"
         },
         "backend": {

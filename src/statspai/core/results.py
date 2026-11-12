@@ -2536,6 +2536,19 @@ def _unbounded_label(value: Any, text: str) -> str:
     return text
 
 
+def _all_nan(*values: Any) -> bool:
+    """True when every value is missing (None or NaN)."""
+    for value in values:
+        if value is None:
+            continue
+        try:
+            if not np.isnan(float(value)):
+                return False
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
 def _latex_escape(value: Any) -> str:
     """Escape LaTeX specials in a data cell (lazy import)."""
     from ..output._format import latex_escape
@@ -4219,9 +4232,12 @@ class CausalResult(DiDAccessorsMixin):
         # Keep the sign column that " .6f" used to provide.
         signed = point if point.startswith("-") else f" {point}"
         lines.append(f"  {self.estimand}:      {signed} {stars}")
-        lines.append(f"  Std. Error:  ({se})")
+        # A headline with no standard error (a test statistic, e.g. the
+        # rddensity T) prints no empty "Std. Error: ()" / "[, ]" lines.
         pct = int(100 * (1 - alpha))
-        lines.append(f"  [{pct}% CI]:    [{lo},  {hi}]")
+        if not _all_nan(self.se, ci_lo, ci_hi):
+            lines.append(f"  Std. Error:  ({se})")
+            lines.append(f"  [{pct}% CI]:    [{lo},  {hi}]")
         if level_note is not None:
             lines.append(level_note)
         lines.append(f"  P-value:     {_format_pvalue(self.pvalue)}")
@@ -4933,10 +4949,10 @@ class CausalResult(DiDAccessorsMixin):
     ) -> Any:
         """Boundary densities of a manipulation test, each with its interval.
 
-        The headline of ``sp.rddensity`` is a T statistic while its ``ci`` is
-        on the density-difference scale, so the generic coefplot drew an
-        error bar from a point outside its own interval and matplotlib
-        raised "'yerr' must not contain negative values".
+        The headline of ``sp.rddensity`` is a T statistic with no SE or
+        interval of its own (before 1.43.1 its ``ci`` was on the density-
+        difference scale, and the generic coefplot drew an error bar from a
+        point outside its own interval). Plot the two boundary densities.
         """
         if not self._is_density_test():
             raise MethodIncompatibility(
@@ -5899,6 +5915,14 @@ class CausalResult(DiDAccessorsMixin):
             "n_obs": _to_jsonable(self.n_obs),
             "citation_key": _to_jsonable(self._citation_key),
         }
+        # A result whose headline needs a companion quantity to be read
+        # (rddensity: T, and the density difference with its SE / CI)
+        # names it in model_info['minimal_fields']; it never overrides
+        # the envelope keys above.
+        extra = self.model_info.get("minimal_fields")
+        if isinstance(extra, dict):
+            for key, value in extra.items():
+                out.setdefault(str(key), _to_jsonable(value))
 
         if detail == "minimal":
             return out

@@ -51,20 +51,48 @@ from ..rd._lpdensity import (
     normal_reference_bandwidth,
 )
 
-#: ``estimate`` / ``pvalue`` are the CJM t-test (what rddensity and Stata
-#: report); ``se`` / ``ci`` are for the density difference f(c+) - f(c-),
-#: whose value is ``model_info['density_diff']``. Read together,
-#: ``estimate +/- z * se`` is not the interval, so both say so.
-_ESTIMAND = (
-    "T-statistic (density discontinuity); se and ci are on the density-"
-    "difference scale (model_info['density_diff'])"
-)
+#: The headline is the CJM t-test, what R / Stata ``rddensity`` print:
+#: ``estimate`` is T and ``pvalue`` its p-value. A t-statistic has no
+#: standard error or interval of its own, so ``se`` and ``ci`` are NaN.
+#: The density difference f(c+) - f(c-) is a separate quantity with its own
+#: SE and interval, reported under ``density_diff*`` (``model_info`` and the
+#: ``to_dict`` payload). Until 1.43.0 ``se`` / ``ci`` held those, so
+#: ``estimate +/- z * se`` mixed two scales.
+_ESTIMAND = "CJM density test T-statistic (H0: no density discontinuity at c)"
 _SCALE = {
     "estimate": "t_statistic",
     "pvalue": "t_statistic",
-    "se": "density_diff",
-    "ci": "density_diff",
+    "se": "not_applicable",
+    "ci": "not_applicable",
+    "density_diff": "density_diff",
+    "density_diff_se": "density_diff",
+    "density_diff_ci_lower": "density_diff",
+    "density_diff_ci_upper": "density_diff",
 }
+_NAN_CI = (float("nan"), float("nan"))
+
+
+def _density_diff_fields(
+    diff: float, se_diff: float, ci: Tuple[float, float]
+) -> Dict[str, Any]:
+    """The density difference, its SE and interval, as named fields.
+
+    ``minimal_fields`` puts them in ``to_dict(detail='minimal')`` too, so a
+    reader of the bare answer sees them next to T instead of in ``se``.
+    """
+    lo, hi = float(ci[0]), float(ci[1])
+    return {
+        "density_diff": float(diff),
+        "density_diff_se": float(se_diff),
+        # Scalars, so summary() and the scalar diagnostics carry them.
+        "density_diff_ci_lower": lo,
+        "density_diff_ci_upper": hi,
+        "minimal_fields": {
+            "density_diff": float(diff),
+            "density_diff_se": float(se_diff),
+            "density_diff_ci": [lo, hi],
+        },
+    }
 
 
 def _validate_inputs(
@@ -195,7 +223,8 @@ def rddensity(
         data-driven bandwidths (median of the per-side, difference and sum
         MSE-optimal choices on each side).
     alpha : float, default 0.05
-        Level of ``ci`` (on the density-difference scale).
+        Level of ``model_info['density_diff_ci']``, the interval for the
+        density difference f(c+) - f(c-).
     backend : {'native', 'r'}, default 'native'
         ``'r'`` runs ``rddensity::rddensity`` through ``Rscript``.
     bino_w : float or (float, float), optional
@@ -329,6 +358,7 @@ def rddensity(
         "n_eff_right": robust["n_right"],
         "cutoff": c,
         "scale": dict(_SCALE),
+        **_density_diff_fields(diff, se_diff, ci),
     }
     if not_computable is not None:
         model_info["diagnostics"] = {"not_computable": not_computable}
@@ -336,9 +366,9 @@ def rddensity(
         method="CJM (2020) Density Test",
         estimand=_ESTIMAND,
         estimate=float(t_stat),
-        se=float(se_diff),
+        se=float("nan"),
         pvalue=pvalue,
-        ci=ci,
+        ci=_NAN_CI,
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
@@ -547,12 +577,16 @@ cat(jsonlite::toJSON(out, auto_unbox = TRUE, digits = 16, null = "null"))
         method="CJM (2020) Density Test [rddensity::rddensity]",
         estimand=_ESTIMAND,
         estimate=zstat,
-        se=float(se_diff),
+        se=float("nan"),
         pvalue=pvalue,
-        ci=ci,
+        ci=_NAN_CI,
         alpha=alpha,
         n_obs=n,
-        model_info={**model_info, "scale": dict(_SCALE)},
+        model_info={
+            **model_info,
+            "scale": dict(_SCALE),
+            **_density_diff_fields(diff, se_diff, ci),
+        },
         _citation_key="rddensity",
     )
     try:

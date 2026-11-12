@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE
+## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE; rddensity se / ci
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
 `sp.callaway_santanna` no longer raise when the weights (or `offset=` /
@@ -19,6 +19,19 @@ weights should pass `missing="raise"`.
 Before it divided by N, so the number carried the scale of the weights.
 Unweighted fits are unchanged. A stored weighted RMSE from 1.43.0 equals
 the new value times `sqrt(sum(w) / N)`.
+
+`sp.rddensity`: `.se` and `.ci` are NaN. They held the density
+difference's standard error and interval, not the T statistic's. Read
+them from `model_info` instead:
+
+```python
+r = sp.rddensity(df, x="x", c=0)
+r.estimate, r.pvalue                        # T and p, unchanged
+r.model_info["density_diff"]                # was implied by r.estimate * r.se
+r.model_info["density_diff_se"]             # was r.se
+(r.model_info["density_diff_ci_lower"],
+ r.model_info["density_diff_ci_upper"])     # was r.ci
+```
 
 ---
 
