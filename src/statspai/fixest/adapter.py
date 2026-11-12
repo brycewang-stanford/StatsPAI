@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
+from ._pyfixest_compat import pf_get
 
 
 def _pyfixest_version() -> Any:
@@ -67,7 +68,7 @@ def _pyfixest_to_econometric_results(
     # ``_df_k`` = regressors + FE parameters), as R fixest's t(N - K). Using
     # N - k (regressors only) made every feols interval slightly too narrow
     # and handed downstream users (sp.test, mi_estimate) the wrong df.
-    k_total = getattr(fit, "_df_k", None)
+    k_total = pf_get(fit, "_df_k")
     try:
         k_total = int(k_total) if k_total is not None else k
     except (TypeError, ValueError):
@@ -155,7 +156,7 @@ def _pyfixest_to_econometric_results(
     # multi-coefficient postestimation (sp.test, lincom, margins) refused a
     # feols fit for want of the off-diagonal terms. Stored only when its
     # diagonal reproduces the reported SEs.
-    V = getattr(fit, "_vcov", None)
+    V = pf_get(fit, "_vcov")
     if V is not None:
         V = np.asarray(V, dtype=float)
         se_arr = np.asarray(std_errors, dtype=float)
@@ -208,8 +209,8 @@ def _pyfixest_to_econometric_results(
     # adds ``data_info`` keys and changes no reported feols numerics. Wrapped
     # defensively because these are pyfixest internals that can shift by version.
     try:
-        within_x = getattr(fit, "_X", None)
-        within_y = getattr(fit, "_Y", None)
+        within_x = pf_get(fit, "_X")
+        within_y = pf_get(fit, "_Y")
         coefnames = getattr(fit, "_coefnames", None)
         if (
             within_x is not None

@@ -24,6 +24,19 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
   Python, so it reported every such client entry, and the `statspai-mcp`
   script itself, as unable to import StatsPAI. It now reads the interpreter
   from the `exec` line. Only the diagnosis changes; the server never did.
+- **`sp.feols` / `sp.fepois` / `sp.feglm` work with pyfixest 0.70.** pyfixest
+  0.70.0 (2026-11-08; pip installs it on Python 3.11 and later) removed the
+  private fit attributes StatsPAI read. Fits on the pyfixest backend then
+  lost their IV first-stage F, Sargan and Wu-Hausman statistics without a
+  word, counted the residual df without the absorbed fixed effects, and
+  dropped the within design the SE menu uses. A two-way clustered fit whose
+  covariance needed the PSD repair raised `AttributeError`, every
+  `sp.ssc()` preset raised `TypeError`, and an unknown `vcov` string gave
+  pyfixest's bare `ValueError`. All of these now behave as they do with
+  pyfixest 0.60, which stays supported; the numbers agree with 0.60 to
+  pyfixest's demeaning tolerance. One thing 0.70 refuses outright is a
+  fixed-effect column whose name is not a Python identifier, such as
+  `g id`. That now raises `MethodIncompatibility` with the rename to make.
 - **⚠️ correctness fix: weighted `sp.feols` reported an RMSE on the scale
   of the weights.** The native backend divided the weighted sum of squared
   residuals by N, so the RMSE grew with the weights (255.6 instead of

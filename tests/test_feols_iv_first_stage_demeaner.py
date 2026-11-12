@@ -23,6 +23,21 @@ import statspai as sp
 pf = pytest.importorskip("pyfixest")
 
 
+def _vcov(fit):
+    # pyfixest 0.70 moved the covariance to ``fit.variance_covariance``.
+    cov = getattr(fit, "variance_covariance", None)
+    return fit._vcov if cov is None else cov.vcov
+
+
+def _first_stage_f(fit):
+    # 0.60: ``first_stage()`` is a method that stores the F; 0.70 fits the
+    # first stage with the model and keeps it in ``fit.first_stage``.
+    if callable(fit.first_stage):
+        fit.first_stage()
+        return float(fit._f_stat_1st_stage)
+    return float(fit.first_stage.diagnostics.f_stat)
+
+
 def _data(seed: int, n: int = 1500) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     w = rng.integers(0, 120, n)
@@ -83,13 +98,12 @@ def test_first_stage_matches_the_old_numba_refit(fml, vcov, seed):
     if "Multiway VCOV negative eigenvalues" not in out.diagnostics:
         # (sp.feols repairs an indefinite two-way covariance; pyfixest not)
         np.testing.assert_allclose(
-            out.std_errors.to_numpy(), np.sqrt(np.diag(model._vcov)), **tol
+            out.std_errors.to_numpy(), np.sqrt(np.diag(_vcov(model))), **tol
         )
 
     # Old first stage: pyfixest's default demeaner, refitted.
     old = pf.feols(fml, data=df, vcov=vcov)
-    old.first_stage()
-    f_old = float(old._f_stat_1st_stage)
+    f_old = _first_stage_f(old)
     f_new = float(out.model_info["first_stage_f"])
     # Same sweep-order effect with two fixed effects (observed 3e-8 to 9e-8
     # under other hash seeds); one effect agrees to rounding.
@@ -109,13 +123,16 @@ def test_pyfixest_feols_is_restored_after_the_fit():
 def test_first_stage_is_fitted_once():
     calls = {"n": 0}
     Feiv = importlib.import_module("pyfixest.estimation.models.feiv_").Feiv
-    real = Feiv.first_stage
+    # 0.60 fits the first stage in ``first_stage()``, 0.70 in
+    # ``_fit_first_stage()`` (and ``first_stage`` is then the result).
+    attr = "_fit_first_stage" if hasattr(Feiv, "_fit_first_stage") else "first_stage"
+    real = getattr(Feiv, attr)
 
     def counted(self):
         calls["n"] += 1
         return real(self)
 
-    Feiv.first_stage = counted
+    setattr(Feiv, attr, counted)
     try:
         sp.feols(
             "y ~ x1 | w + f | d ~ z",
@@ -124,5 +141,5 @@ def test_first_stage_is_fitted_once():
             backend="pyfixest",
         )
     finally:
-        Feiv.first_stage = real
+        setattr(Feiv, attr, real)
     assert calls["n"] == 1

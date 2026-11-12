@@ -153,10 +153,15 @@ def test_unrecognised_spellings_raise_a_statspai_error(panel, fn, spec):
 
 
 def test_backend_assertion_is_reraised(panel):
-    """A string pyfixest rejects with an AssertionError is re-raised here."""
+    """A string pyfixest rejects is re-raised here as a StatsPAI error.
+
+    pyfixest up to 0.60 rejects it with an AssertionError, 0.70 with a
+    ValueError ("vcov must be one of ...").
+    """
     with pytest.raises(MethodIncompatibility, match="rejected") as info:
         _fit("feols", panel, vcov="not-a-vcov", backend="pyfixest")
-    assert isinstance(info.value.__cause__, AssertionError)
+    assert isinstance(info.value.__cause__, (AssertionError, ValueError))
+    assert "not a recognised variance" in str(info.value)
 
 
 @pytest.mark.parametrize(

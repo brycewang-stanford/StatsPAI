@@ -21,8 +21,9 @@ CRV1 or CRV3 clustering onto the one form the estimation paths read,
 The kind names come from the shared synonym table in ``_vcov_spec`` so
 there is one vocabulary. Anything that names an unknown kind raises
 :class:`~statspai.exceptions.MethodIncompatibility` with a recovery hint,
-and :func:`backend_rejection` turns an ``AssertionError`` raised by
-pyfixest into the same exception at the call boundary.
+and :func:`backend_rejection` turns pyfixest's own rejection of a
+``vcov`` (an ``AssertionError`` up to 0.60, a ``ValueError`` "vcov must be
+one of ..." from 0.70) into the same exception at the call boundary.
 """
 
 from __future__ import annotations
@@ -186,10 +187,17 @@ def normalises_fixest_vcov(function: str) -> Callable[[_F], _F]:
     return decorator
 
 
+def is_backend_vcov_rejection(exc: BaseException) -> bool:
+    """pyfixest 0.70's ``ValueError`` for a ``vcov`` it does not know."""
+    return isinstance(exc, ValueError) and bool(
+        re.match(r"vcov\b", str(exc).strip(), flags=re.IGNORECASE)
+    )
+
+
 def backend_rejection(
-    exc: AssertionError, vcov: Optional[Any], *, entry: str
+    exc: BaseException, vcov: Optional[Any], *, entry: str
 ) -> MethodIncompatibility:
-    """A StatsPAI exception for an ``AssertionError`` raised by pyfixest."""
+    """A StatsPAI exception for pyfixest's rejection of a call."""
     text = (str(exc) or type(exc).__name__).rstrip(".")
     about_vcov = "vcov" in text.lower()
     return MethodIncompatibility(

@@ -117,12 +117,20 @@ def test_well_connected_design_keeps_the_projections():
 
 
 def test_pyfixest_demeaning_failure_is_typed(chain):
+    """pyfixest's alternating projections stall on the chain (up to 0.60)
+    and the failure is typed; 0.70's LSMR demeaner converges, and must then
+    give R's numbers."""
     pytest.importorskip("pyfixest")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        with pytest.raises(NumericalInstability) as info:
-            sp.feols("y ~ x | id + firm", chain, backend="pyfixest")
-    assert "native engine" in info.value.recovery_hint
+        try:
+            r = sp.feols("y ~ x | id + firm", chain, backend="pyfixest")
+        except NumericalInstability as info:
+            assert "native engine" in info.recovery_hint
+            return
+    # R lm on the same bytes (seed=1), as in the native test above
+    np.testing.assert_allclose(r.params["x"], 0.519831177253658, rtol=1e-10)
+    np.testing.assert_allclose(r.std_errors["x"], 0.0365711824320098, rtol=1e-9)
 
 
 @pytest.mark.parametrize("weighted", [False, True])

@@ -17,6 +17,18 @@ import statspai as sp
 from statspai.fixest import _native
 
 
+def _pyfixest_weighted_rmse_divides_by_n() -> bool:
+    """pyfixest up to 0.60 reports a weighted RMSE as sqrt(sum w u^2 / N).
+
+    fixest, pyfixest 0.70 and the native engine divide by sum(w); the
+    native value is pinned to fixest in test_feols_native_backend.py.
+    """
+    from importlib.metadata import version
+
+    major, minor = (int(p) for p in version("pyfixest").split(".")[:2])
+    return (major, minor) < (0, 70)
+
+
 @pytest.fixture(scope="module")
 def panel():
     rng = np.random.default_rng(11)
@@ -69,6 +81,8 @@ def test_feols_native_reproduces_the_delegate(panel, fml, vcov, weights, fixef_r
     assert a.data_info["df_resid"] == b.data_info["df_resid"]
     assert a.data_info.get("df_inference") == b.data_info.get("df_inference")
     for key, value in b.diagnostics.items():
+        if key == "RMSE" and weights and _pyfixest_weighted_rmse_divides_by_n():
+            continue
         if np.isnan(value):
             assert np.isnan(a.diagnostics[key])
         else:

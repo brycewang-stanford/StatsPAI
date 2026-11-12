@@ -44,6 +44,8 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
 
     # ------------------------------------------------------------------ feols
     def x_feols(r: Any) -> Dict[str, Optional[str]]:
+        from .fixest._pyfixest_compat import pf_get
+
         mi = _mi(r)
         pf = getattr(r, "_pyfixest_fit", None)
         fe_text = str(mi.get("fixed_effects") or "None")
@@ -57,7 +59,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
         vtype = _lower(mi.get("vcov_type")) or ""
         # The native engine records what pyfixest keeps on its fit object.
         detail = str(
-            getattr(pf, "_vcov_type_detail", "") or mi.get("vcov_type_detail") or ""
+            pf_get(pf, "_vcov_type_detail", "") or mi.get("vcov_type_detail") or ""
         )
         clusters = getattr(pf, "_clustervar", None) or mi.get("clustervar") or []
         vcov: Optional[str]
@@ -74,7 +76,7 @@ def register(add: Callable[[Any], None], vs: Any) -> None:
         else:
             vcov = "other" if detail else None
         weighted = (
-            getattr(pf, "_weights_name", None)
+            pf_get(pf, "_weights_name")
             or mi.get("weights_name")
             or mi.get("n_effective_weights")
         )

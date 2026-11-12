@@ -12,6 +12,7 @@ reproduces the command's standard error to 1e-12.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any, Dict
 
 from ..exceptions import MethodIncompatibility
@@ -79,4 +80,9 @@ def ssc(preset: str = "fixest", **overrides: Any) -> Dict[str, Any]:
 
     cfg = dict(_PRESETS[key])
     cfg.update(overrides)
-    return dict(pf.ssc(**cfg))
+    resolved = pf.ssc(**cfg)
+    # pyfixest 0.70 returns an ``Ssc`` dataclass (it still accepts the dict
+    # form as ``ssc=``); 0.60 returned a dict.
+    if dataclasses.is_dataclass(resolved):
+        return dataclasses.asdict(resolved)
+    return dict(resolved)

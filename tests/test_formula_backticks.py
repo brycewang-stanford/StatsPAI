@@ -19,6 +19,18 @@ import pytest
 
 import statspai as sp
 from statspai.core.utils import backticks_to_q, unquote_name
+from statspai.exceptions import MethodIncompatibility
+
+
+def _pyfixest_takes_only_identifier_fe() -> bool:
+    """pyfixest 0.70 refuses a fixed-effect column like ``g id``."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        major, minor = (int(p) for p in version("pyfixest").split(".")[:2])
+    except PackageNotFoundError:
+        return False
+    return (major, minor) >= (0, 70)
 
 
 @pytest.fixture(scope="module")
@@ -73,12 +85,18 @@ STYLES = {
 def test_quoted_names_give_the_same_fit(frames, entry, style):
     plain, odd = frames
     template, fit = CALLS[entry]
+    quoted_fml = template.format(**{k: STYLES[style](v) for k, v in NAMES.items()})
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         base = fit(template.format(**{k: k for k in NAMES}), plain)
-        quoted = fit(
-            template.format(**{k: STYLES[style](v) for k, v in NAMES.items()}), odd
-        )
+        if entry == "feols" and _pyfixest_takes_only_identifier_fe():
+            # the quoted fixed effect sends the fit to pyfixest, which since
+            # 0.70 takes only identifier names there: a typed refusal
+            with pytest.raises(MethodIncompatibility) as info:
+                fit(quoted_fml, odd)
+            assert "Rename the fixed-effect column" in info.value.recovery_hint
+            return
+        quoted = fit(quoted_fml, odd)
     assert np.allclose(
         np.asarray(quoted.params, dtype=float),
         np.asarray(base.params, dtype=float),

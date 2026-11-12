@@ -24,7 +24,11 @@ from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._design_guardrails import check_design as _check_design
 from ..core._vcov_spec import markout_clusters, stata_vce_to_fixest
-from ..core._vcov_spellings import backend_rejection, normalises_fixest_vcov
+from ..core._vcov_spellings import (
+    backend_rejection,
+    is_backend_vcov_rejection,
+    normalises_fixest_vcov,
+)
 from ..core.results import EconometricResults
 from ..core.utils import (
     _widen_narrow_integers,
@@ -132,6 +136,37 @@ def _name_lookup_errors() -> Tuple[Type[BaseException], ...]:
     except ImportError:  # pragma: no cover - formulaic ships with pyfixest
         return (LookupError, ValueError)
     return (LookupError, ValueError, FormulaicError)
+
+
+def _formula_syntax_errors() -> Tuple[Type[BaseException], ...]:
+    """pyfixest's own formula-syntax exception (0.70 and later)."""
+    try:
+        from pyfixest.errors import FormulaSyntaxError
+    except ImportError:
+        return ()
+    return (FormulaSyntaxError,)
+
+
+def _formula_rejection(exc: BaseException, entry: str) -> MethodIncompatibility:
+    """A StatsPAI exception for a formula pyfixest refuses to parse.
+
+    pyfixest 0.70 requires every fixed-effect column name to be a Python
+    identifier: ``| `g id``` and ``| Q("g id")``, which 0.60 accepted, are
+    refused.
+    """
+    text = str(exc).rstrip(".")
+    about_fe = "fixed-effect" in text.lower() or "fixed effect" in text.lower()
+    return MethodIncompatibility(
+        f"{entry}: pyfixest rejected the formula ({text}).",
+        recovery_hint=(
+            "Rename the fixed-effect column to a Python identifier, e.g. "
+            "data.rename(columns={'g id': 'g_id'}); pyfixest 0.70 and later "
+            "take no other fixed-effect names."
+            if about_fe
+            else "Check the formula syntax; the backend message is above."
+        ),
+        diagnostics={"backend_message": text},
+    )
 
 
 def _raise_if_names_missing(
@@ -2165,10 +2200,16 @@ def feols(
             fit = pf.feols(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feols") from exc
+    except _formula_syntax_errors() as exc:
+        raise _formula_rejection(exc, "sp.feols") from exc
     except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
         translate_backend_failure(exc, "sp.feols")
         raise
     except _name_lookup_errors() as exc:
+        if is_backend_vcov_rejection(exc):
+            raise backend_rejection(
+                exc, pf_kwargs.get("vcov"), entry="sp.feols"
+            ) from exc
         _raise_if_names_missing(pf_kwargs, exc, "sp.feols")
         translate_backend_failure(exc, "sp.feols")
         raise
@@ -2204,7 +2245,9 @@ def _note_iv_diagnostics(fit: Any, out: Any) -> None:
     has already projected the fixed effects out of. They are stored under
     the names ``sp.ivreg`` uses, which is where ``sp.estat`` looks.
     """
-    if not getattr(fit, "_is_iv", False):
+    from ._pyfixest_compat import pf_get
+
+    if not pf_get(fit, "_is_iv", False):
         return
     try:
         names = [str(c) for c in fit._coefnames]
@@ -2214,20 +2257,23 @@ def _note_iv_diagnostics(fit: Any, out: Any) -> None:
         if len(endo) == 1:
             # pyfixest fits the first stage while it estimates an IV model;
             # refitting it here recomputed the same numbers (bit for bit)
-            # at the cost of a second fixed-effects regression.
-            if getattr(fit, "_f_stat_1st_stage", None) is None:
+            # at the cost of a second fixed-effects regression. (0.60 only
+            # fills it in on request; 0.70 always fits it.)
+            f1 = pf_get(fit, "_f_stat_1st_stage")
+            if f1 is None and callable(getattr(fit, "first_stage", None)):
                 fit.first_stage()
-            p1 = getattr(fit, "_p_value_1st_stage", None)
-            first = (float(fit._f_stat_1st_stage), None if p1 is None else float(p1))
+                f1 = pf_get(fit, "_f_stat_1st_stage")
+            p1 = pf_get(fit, "_p_value_1st_stage")
+            first = (float(f1), None if p1 is None else float(p1))
         _iv_diagnostics_core(
             out,
-            Y=np.asarray(fit._Y, dtype=float).ravel(),
-            X=np.asarray(fit._X, dtype=float),
-            Z=np.asarray(fit._Z, dtype=float),
+            Y=np.asarray(pf_get(fit, "_Y"), dtype=float).ravel(),
+            X=np.asarray(pf_get(fit, "_X"), dtype=float),
+            Z=np.asarray(pf_get(fit, "_Z"), dtype=float),
             u=np.asarray(fit._u_hat, dtype=float).ravel(),
             names=names,
             endo=endo,
-            k_total=int(getattr(fit, "_df_k", len(names)) or len(names)),
+            k_total=int(pf_get(fit, "_df_k", len(names)) or len(names)),
             first=first,
         )
     except (
@@ -2312,7 +2358,9 @@ def _adjust_multiway_vcov(fit: Any, vcov: Any) -> int:
     if not isinstance(vcov, dict):
         return 0
     spec = str(next(iter(vcov.values()), ""))
-    V = getattr(fit, "_vcov", None)
+    from ._pyfixest_compat import pf_get, pf_set_vcov
+
+    V = pf_get(fit, "_vcov")
     if "+" not in spec or V is None or not hasattr(fit, "get_inference"):
         return 0
     V = np.asarray(V, dtype=float)
@@ -2322,8 +2370,7 @@ def _adjust_multiway_vcov(fit: Any, vcov: Any) -> int:
 
     fixed, n_negative = psd_adjust(V)
     if n_negative:
-        fit._vcov = fixed
-        fit.get_inference()
+        pf_set_vcov(fit, fixed)
     return n_negative
 
 
@@ -2616,10 +2663,16 @@ def fepois(
             fit = pf.fepois(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.fepois") from exc
+    except _formula_syntax_errors() as exc:
+        raise _formula_rejection(exc, "sp.fepois") from exc
     except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
         translate_backend_failure(exc, "sp.fepois")
         raise
     except _name_lookup_errors() as exc:
+        if is_backend_vcov_rejection(exc):
+            raise backend_rejection(
+                exc, pf_kwargs.get("vcov"), entry="sp.fepois"
+            ) from exc
         _raise_if_names_missing(pf_kwargs, exc, "sp.fepois")
         translate_backend_failure(exc, "sp.fepois")
         if not isinstance(exc, ValueError) or "Demeaning failed" not in str(exc):
@@ -2876,10 +2929,16 @@ def feglm(
             fit = pf.feglm(**pf_kwargs)
     except AssertionError as exc:
         raise backend_rejection(exc, pf_kwargs.get("vcov"), entry="sp.feglm") from exc
+    except _formula_syntax_errors() as exc:
+        raise _formula_rejection(exc, "sp.feglm") from exc
     except (ZeroDivisionError, np.linalg.LinAlgError) as exc:
         translate_backend_failure(exc, "sp.feglm")
         raise
     except _name_lookup_errors() as exc:
+        if is_backend_vcov_rejection(exc):
+            raise backend_rejection(
+                exc, pf_kwargs.get("vcov"), entry="sp.feglm"
+            ) from exc
         _raise_if_names_missing(pf_kwargs, exc, "sp.feglm")
         translate_backend_failure(exc, "sp.feglm")
         raise
