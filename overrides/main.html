@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{#- Structured data for search engines and AI retrievers. Every field is a
+    fact checked in docs/claims-and-evidence.md; the version comes from
+    pyproject.toml via scripts/mkdocs_seo_hooks.py. No ratings, review counts
+    or download figures belong here. -#}
+{% block extrahead %}
+  {{ super() }}
+  {% if page and page.is_homepage %}
+  {% set ld = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": "StatsPAI",
+    "description": config.site_description,
+    "url": config.site_url,
+    "codeRepository": "https://github.com/brycewang-stanford/StatsPAI",
+    "programmingLanguage": "Python",
+    "runtimePlatform": "Python 3.10-3.13",
+    "license": "https://github.com/brycewang-stanford/StatsPAI/blob/main/LICENSE",
+    "version": config.extra.statspai_version,
+    "keywords": ["econometrics", "causal inference", "difference-in-differences", "instrumental variables", "regression discontinuity", "synthetic control", "fixed effects", "double machine learning", "AI agents", "MCP"],
+    "author": [
+      {"@type": "Person", "name": "Biaoyue Wang", "identifier": "https://orcid.org/0000-0002-1828-2208"},
+      {"@type": "Person", "name": "Scott Rozelle", "identifier": "https://orcid.org/0000-0001-5053-0243"}
+    ],
+    "citation": "https://doi.org/10.21105/joss.10604",
+    "sameAs": ["https://pypi.org/project/StatsPAI/", "https://doi.org/10.5281/zenodo.19933900"]
+  } %}
+  <script type="application/ld+json">{{ ld | tojson }}</script>
+  {% endif %}
+{% endblock %}

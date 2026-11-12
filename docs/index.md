@@ -1,40 +1,66 @@
+---
+title: Python econometrics and causal inference for researchers and AI agents
+description: Open-source, agent-native Python toolkit for econometrics and causal inference - DiD, IV, RD, synthetic control, fixed effects, DML - validation-tiered against Stata and R.
+---
+
 # StatsPAI
 
-**Validation-tiered Python workflows for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **1,680 registered
-functions** across 92 submodules (live count: `python
-scripts/registry_stats.py`) spanning classical regression, staggered
-DiD, regression discontinuity,
-synthetic control, decomposition, stochastic frontier, multilevel /
-mixed-effects, modern ML causal inference, the full three-school
-(Econometrics / Epidemiology / ML) toolkit, 2025-2026 research-frontier
-modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
-etc.), and manuscript/reporting output in Word / Excel / LaTeX / HTML.
+**StatsPAI is an open-source Python toolkit for econometrics and causal
+inference, built so that researchers and AI agents use the same API.** One
+`import statspai as sp` covers regression with robust and clustered standard
+errors, high-dimensional fixed effects, instrumental variables, staggered
+difference-in-differences, regression discontinuity, synthetic control,
+matching, double machine learning and more, with tables exported to Word,
+Excel and LaTeX. Every function is registered with a machine-readable schema,
+and a bundled MCP server exposes the estimators to agent clients such as
+Claude Code and Cursor. Each function also carries an evidence grade saying
+whether its numbers have been checked against Stata or R on identical data,
+against a known truth, or not yet.
 
-> **Current release: v1.21.0 (2026-08-03)** — a batch of ⚠️ inference
-> correctness fixes (`sp.did_multiplegt` dynamics + placebos matched to
-> the archived 0.1.4 reference; `sp.did_multiplegt_dyn` now handles
-> switch-off events; `sp.rdrobust` rebuilt CCT bandwidth + bias
-> correction so it reports 7.51 where R reports 7.51; `sp.rd_honest`
-> intervals were ~1.7× too wide; `sp.pretrends_power` was running a
-> different test than the paper it cites; `sp.rdrandinf` asymptotic
-> p-value and ranksum), plus new features
-> (`sp.spillover_did`, `sp.cgs_continuous_did`, `sp.functional_form_test`,
-> `sp.did_misclassified`, `sp.did_bcf`, `sp.cohort_anchored_event_study`,
-> `sp.design_robust_event_study`, `sp.rdmc(cutoff_var=)`,
-> `sp.rdrobust(vce=)`), one deprecation
-> (`sp.continuous_did(method="cgs")` → `sp.cgs_continuous_did`), and 11
-> new Track A parity modules. See the [changelog](changelog.md) for
-> detail.
+```bash
+pip install statspai
+```
 
 ```python
 import statspai as sp
 
-# One-call DiD pipeline with sensitivity + export
-rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
-                   n_boot=500, random_state=0,
-                   save_to='~/study/cs_v1')
+card = sp.datasets.card_1995()            # Card (1995) NLSYM extract, real data
+iv = sp.ivreg("lwage ~ (educ ~ nearc4) + exper + expersq + black + south + smsa",
+              data=card)
+print(iv.summary())                       # educ 0.1323 (0.0492), first-stage F 16.7
+sp.parity_status("ivreg")                 # matches R AER::ivreg within 1e-6
 ```
+
+## Start from your task
+
+| I want to… | Start here |
+| --- | --- |
+| run a staggered difference-in-differences and event study | [Difference-in-differences](tasks/difference-in-differences.md) |
+| absorb fixed effects with clustered SEs (`reghdfe`, `fixest`) | [Fixed effects](tasks/fixed-effects.md) |
+| run 2SLS and check instrument strength | [IV / 2SLS](tasks/iv-2sls.md) |
+| estimate a regression discontinuity | [Regression discontinuity](tasks/regression-discontinuity.md) |
+| export regression tables (`esttab`, `outreg2`) | [Regression tables](tasks/regression-tables.md) |
+| move from Stata | [From Stata to Python](tasks/stata-to-python.md) · [from R](guides/migration-from-r.md) |
+| let an AI agent run the analysis | [AI agents and MCP](tasks/ai-agents-mcp.md) |
+| compare Python libraries | [Choosing a library](tasks/python-econometrics-libraries.md) |
+
+## When to use something else
+
+At a glance: 1,680 registered functions across 92 submodules (live count:
+`python scripts/registry_stats.py`). StatsPAI is broad, and its evidence is
+uneven across that breadth: 576
+functions have been compared with R or Stata, 452 checked against known
+truths or published results, and 652 have no numerical evidence attached
+yet (`sp.parity_summary()`). If you need one method only, a focused library
+with a longer track record may suit you better; the
+[library comparison](tasks/python-econometrics-libraries.md) says which. What
+StatsPAI claims about itself, and how to check each claim, is in
+[claims and evidence](claims-and-evidence.md).
+
+**Cite**: Wang and Rozelle (2026), *Journal of Open Source Software* 11(125),
+10604, [doi:10.21105/joss.10604](https://doi.org/10.21105/joss.10604)
+(`sp.citation()`). The current release and what changed are in the
+[changelog](changelog.md).
 
 ## What's inside
 

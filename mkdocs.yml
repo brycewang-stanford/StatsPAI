@@ -1,5 +1,5 @@
 site_name: StatsPAI
-site_description: Python causal inference toolkit — econometrics, DiD, SDID, RD, IV, ML causal inference
+site_description: Open-source, agent-native Python toolkit for econometrics and causal inference (DiD, IV, RD, synthetic control, fixed effects, DML), validation-tiered against Stata and R.
 site_author: Biaoyue Wang and Scott Rozelle
 site_url: https://brycewang-stanford.github.io/StatsPAI/
 repo_url: https://github.com/brycewang-stanford/StatsPAI
@@ -8,6 +8,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  custom_dir: overrides
   palette:
     - scheme: default
       primary: indigo
@@ -45,6 +46,9 @@ markdown_extensions:
   - tables
   - toc:
       permalink: true
+
+hooks:
+  - scripts/mkdocs_seo_hooks.py
 
 plugins:
   - search
@@ -84,12 +88,22 @@ validation:
     unrecognized_links: warn
 
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Start from a task:
+      - tasks/index.md
+      - "Difference-in-differences in Python": tasks/difference-in-differences.md
+      - "Fixed effects and HDFE in Python": tasks/fixed-effects.md
+      - "Instrumental variables and 2SLS in Python": tasks/iv-2sls.md
+      - "Regression discontinuity in Python": tasks/regression-discontinuity.md
+      - "Regression tables (Word / Excel / LaTeX)": tasks/regression-tables.md
+      - "From Stata to Python": tasks/stata-to-python.md
+      - "Choosing a Python econometrics library": tasks/python-econometrics-libraries.md
+      - "AI agents and MCP": tasks/ai-agents-mcp.md
+  - Claims and evidence: claims-and-evidence.md
   - Cookbook: cookbook.md
   - FAQ & troubleshooting: faq.md
   - Ecosystem stats: stats.md

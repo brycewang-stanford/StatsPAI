@@ -11,6 +11,18 @@ Install: `pip install statspai` (`pip install "statspai[fixest,plotting]"` for h
 - [MCP workflow for economists](docs/guides/economist_mcp_workflow.md): data handoff (`data_path` / `data_id` / inline), result handles, the detect → estimate → audit loop, Stata / R migration
 - [README](README.md): overview, install, quick start (English; `README_CN.md` is the Chinese edition)
 
+## Start from a task (tested code on real data, Stata / R equivalents)
+
+- [Difference-in-differences in Python](docs/tasks/difference-in-differences.md): TWFE, Goodman-Bacon decomposition, Callaway-Sant'Anna, event study
+- [Fixed effects and HDFE](docs/tasks/fixed-effects.md): `reghdfe` / `fixest` equivalent with clustered SEs
+- [Instrumental variables and 2SLS](docs/tasks/iv-2sls.md): first-stage F, Anderson-Rubin interval
+- [Regression discontinuity](docs/tasks/regression-discontinuity.md): rdrobust-style bias-corrected inference, density test
+- [Regression tables](docs/tasks/regression-tables.md): Word / Excel / LaTeX export (`esttab` / `outreg2` equivalent)
+- [From Stata to Python](docs/tasks/stata-to-python.md): command map, `sp.stata`, `sp.from_stata`
+- [Choosing a Python econometrics library](docs/tasks/python-econometrics-libraries.md): capability matrix checked against each library's docs
+- [AI agents and MCP](docs/tasks/ai-agents-mcp.md): Claude Code / Cursor setup, `statspai mcp doctor`, compatibility table
+- [Claims and evidence](docs/claims-and-evidence.md): every public claim and the command that re-checks it
+
 ## Choosing an estimator (also `sp.route` / `sp.decision_guide` / MCP `route_estimator`)
 
 - [DiD](docs/guides/choosing_did_estimator.md)
