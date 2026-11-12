@@ -96,8 +96,9 @@ def mpdta(
 
     - 500 counties × 5 years = 2500 rows
     - Three treatment cohorts: 2004, 2006, 2007 + never-treated
-    - Negative homogeneous ATT ≈ -0.04 log points (matches the published
-      R ``did::att_gt`` aggregated ATT of roughly -0.045 on the original)
+    - Negative homogeneous ATT ≈ -0.04 log points (close to the simple
+      aggregated ATT of R ``did::att_gt`` on the original, -0.03995; see
+      below)
     - County-level clustering in residuals
 
     ``df.attrs['expected_simple_att']`` = -0.040  (R ``did::att_gt`` +
