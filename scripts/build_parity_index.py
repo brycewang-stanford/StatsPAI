@@ -9418,6 +9418,351 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# 2026-11-13 parity-graph line: the six families the scorecard listed with
+# the fewest matched estimators (dag, causal_discovery, tmle, iv,
+# nonparametric, metalearners). The first group had committed same-data
+# comparisons in tests/reference_parity that no entry here pointed at.
+_PG_R = "R version 4.5.2 (2025-10-31)"
+_LPR_CLEAN = [
+    "tests/reference_parity/test_lprobust_cleanroom.py",
+    "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
+    "tests/reference_parity/test_lprobust_parity.py",
+]
+_LPR_VERSIONS = {"R": _PG_R, "nprobust": "1.0.0", "Stata": "18 MP"}
+
+
+def _lpbw_entry(selector: str, rows: str, tolerance: str) -> Dict[str, Any]:
+    return {
+        "status": "bit-exact",
+        "reference": f"R nprobust::lpbwselect(bwselect = '{selector}') "
+        "(black box); Stata nprobust lpbwselect as a cross-check",
+        "reference_versions": _LPR_VERSIONS,
+        "tolerance": tolerance,
+        "sides": ["py", "R", "Stata"],
+        "test": _LPR_CLEAN,
+        "note": (
+            f"Frozen-R fixture: {rows} over two designs, interior "
+            "evaluation points, polynomial orders 1 to 3, four kernels and "
+            "two bwcheck / bwregul settings. nprobust is GPL-3 and was run, "
+            "not read. Stata's lpbwselect integrates the kernel constants "
+            "numerically, so its bandwidth is the looser cross-check (1e-9 "
+            "absolute on the boundary fixture)."
+        ),
+    }
+
+
+_FROZEN_PROMOTIONS.update(
+    {
+        "ges": {
+            "status": "bit-exact",
+            "reference": "pcalg::ges(GaussL0penObsScore, phase = "
+            "c('forward', 'backward'), iterate = FALSE)",
+            "reference_versions": {"R": _PG_R, "pcalg": "2.7.12"},
+            "tolerance": "essential graphs compared for equality, every "
+            "edge with its orientation, on 30 data sets",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_ges_pcalg_parity.py",
+                "tests/reference_parity/_fixtures/ges_pcalg_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: 30 random linear-Gaussian DAGs on 4 to 7 "
+                "nodes, n in {300, 1000, 3000}. The CPDAG after the forward "
+                "and backward phases equals pcalg's on all 30. pcalg's "
+                "default also runs a turning phase, which sp.ges does not "
+                "have; the reference is run without it. pcalg is GPL and "
+                "was run, not read."
+            ),
+        },
+        "ida": {
+            "status": "bit-exact",
+            "reference": "pcalg::ida(method = 'local' / 'global')",
+            "reference_versions": {"R": _PG_R, "pcalg": "2.7.12"},
+            "tolerance": "1e-10 on the sorted multiset of possible effects",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_ida_pcalg_parity.py",
+                "tests/reference_parity/_fixtures/ida_pcalg.json",
+            ],
+            "note": (
+                "Frozen-R fixture: 40 random linear-Gaussian DAGs, their "
+                "CPDAGs and sample covariances; both the local and the "
+                "global method return pcalg's multiset of possible effects. "
+                "pcalg is GPL and was run, not read."
+            ),
+        },
+        "lprobust_at_point": {
+            "status": "bit-exact",
+            "reference": "R nprobust::lprobust and Stata nprobust lprobust "
+            "at supplied bandwidths (vce nn)",
+            "reference_versions": _LPR_VERSIONS,
+            "tolerance": "1e-9 relative on tau_us, tau_bc, se_us, se_rb "
+            "against R (192 cases); 1e-9 absolute against Stata (10 "
+            "boundary cases); effective sample size exact",
+            "sides": ["py", "R", "Stata"],
+            "test": _LPR_CLEAN
+            + [
+                "tests/stata_parity/option_parity/results/86_lprobust_Stata.json",
+            ],
+            "note": (
+                "Frozen fixtures: the estimator at supplied h and b, so a "
+                "difference cannot come from bandwidth selection. R covers "
+                "interior points, orders 0 to 3, derivatives, four kernels "
+                "and several nearest-neighbour counts; Stata covers the "
+                "boundary point with three kernels and one case with b != "
+                "h. nprobust is GPL-3 and was run, not read."
+            ),
+        },
+        "lpbwselect_mse_dpi": _lpbw_entry(
+            "mse-dpi", "144 selector rows", "1e-9 relative on h and b"
+        ),
+        "lpbwselect_ce_rot": _lpbw_entry(
+            "ce-rot", "144 selector rows", "1e-9 relative on h and b"
+        ),
+        "lpbwselect_mse_rot": _lpbw_entry(
+            "mse-rot",
+            "54 selector rows",
+            "1e-9 relative on h (1e-8 at p = 3, where the reference's own "
+            "degree-6 global fit rounds at 4e-9)",
+        ),
+        "lpbwselect_imse_dpi": _lpbw_entry(
+            "imse-dpi", "48 selector rows", "1e-9 relative on h and b"
+        ),
+        "lpbwselect_imse_rot": _lpbw_entry(
+            "imse-rot",
+            "18 selector rows",
+            "1e-9 relative on h (1e-8 at p = 3, where the reference's own "
+            "degree-6 global fit rounds at 4e-9)",
+        ),
+        "recentered_iv": {
+            "status": "bit-exact",
+            "reference": "Stata ivreghdfe on the recentred instrument "
+            "(method 'recenter' and 'control') and ritest on 200 fixed "
+            "permutations",
+            "reference_versions": {
+                "Stata": "18 MP",
+                "ivreghdfe": "1.1.4",
+                "ivreg2": "4.1.12",
+                "reghdfe": "6.13.1",
+                "ritest": "1.1.7",
+            },
+            "tolerance": "1e-8 relative on coefficient and SE (observed "
+            "<= 3e-15); randomisation-inference count exact and observed "
+            "statistic 1e-9 relative",
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_recentered_iv_stata.py",
+                "tests/reference_parity/_fixtures/_generate_recentered_iv_Stata.do",
+            ],
+            "note": (
+                "Frozen-Stata fixture: 2SLS with the expected instrument "
+                "known in closed form, one absorbed fixed effect, clustered "
+                "and HC1 standard errors. The permutations are shared by "
+                "both sides, so the randomisation test is deterministic. "
+                "Without expected= StatsPAI centres at the mean of the "
+                "supplied draws, a different exact test; that row is "
+                "documented in the test, not compared."
+            ),
+        },
+        "ltmle_msm": {
+            "status": "bit-exact",
+            "reference": "ltmle::ltmleMSM (glm nuisance fits, "
+            "variance.method = 'ic')",
+            "reference_versions": {"R": _PG_R, "ltmle": "1.3.0"},
+            "tolerance": "1e-8 absolute on TMLE coefficients, 1e-8 relative "
+            "on their SEs; IPTW coefficients 1e-11",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_ltmle_msm_parity.py",
+                "tests/reference_parity/_fixtures/ltmle_msm_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: two periods, static and dynamic regimes, "
+                "working model Y ~ cumA, with a baseline term, censoring, a "
+                "continuous outcome, observation weights and user MSM "
+                "weights. The residual is R's glm deviance tolerance. ltmle "
+                "is GPL-2 and was run, not read."
+            ),
+        },
+        "lmtp": {
+            "status": "bit-exact",
+            "reference": "lmtp::lmtp_tmle and lmtp_sdr (SL.glm, folds = 1)",
+            "reference_versions": {"R": _PG_R, "lmtp": "1.5.4"},
+            "tolerance": "3e-7 relative on estimate and SE (observed <= "
+            "1.9e-7 on the binary TMLE rows); density ratios 1e-11",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_lmtp_parity.py",
+                "tests/reference_parity/_fixtures/lmtp_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: a point treatment and a two-period "
+                "design, also with right censoring, continuous and binary "
+                "outcomes, shift policy A + 0.5, glm learners without "
+                "cross-fitting. The residual is R's glm deviance tolerance. "
+                "lmtp is AGPL and was run, not read."
+            ),
+        },
+    }
+)
+
+# dag: dagitty on 120 random graphs; do-calculus through d-separation on
+# graphs mutilated in R.
+_DAGITTY_TEST = [
+    "tests/reference_parity/test_dag_dagitty_parity.py",
+    "tests/reference_parity/_fixtures/dag_dagitty_R.json",
+]
+_DAGITTY_VERSIONS = {"R": _PG_R, "dagitty": "0.3.4"}
+
+
+def _do_rule_entry(rule: str, graph: str) -> Dict[str, Any]:
+    return {
+        "status": "bit-exact",
+        "reference": f"dagitty::dseparated on {graph}, built in R from "
+        "the definition",
+        "reference_versions": _DAGITTY_VERSIONS,
+        "tolerance": "exact: a truth value, on 720 queries (Y, X, Z, W)",
+        "sides": ["py", "R"],
+        "test": _DAGITTY_TEST,
+        "note": (
+            f"Frozen-R fixture: {rule} holds when Y and Z are d-separated "
+            f"given X and W in {graph}. dagitty has no function for the "
+            "rules of do-calculus; the reference removes the edges in R "
+            "(bidirected edges written as latent common parents) and asks "
+            "dagitty for the d-separation statement. 120 random graphs, a "
+            "third with latent nodes and a third with bidirected edges, "
+            "six queries each with disjoint sets, W empty in some."
+        ),
+    }
+
+
+_FROZEN_PROMOTIONS.update(
+    {
+        "dag": {
+            "status": "bit-exact",
+            "reference": "dagitty::adjustmentSets(type = 'minimal'), "
+            "impliedConditionalIndependencies, dseparated, "
+            "instrumentalVariables, paths",
+            "reference_versions": _DAGITTY_VERSIONS,
+            "tolerance": "exact: sets and truth values, on 120 random "
+            "graphs (1,440 d-separation statements)",
+            "sides": ["py", "R"],
+            "test": _DAGITTY_TEST
+            + [
+                "tests/reference_parity/test_ness_causal_ai_parity.py",
+                "tests/reference_parity/_fixtures/ness_causal_ai_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: random acyclic graphs on 4 to 9 nodes, "
+                "a third with declared latent nodes and a third with "
+                "bidirected edges. Minimal adjustment sets, implied "
+                "conditional independencies, d-separation and the set of "
+                "instruments equal dagitty's on every graph; paths and "
+                "their open / closed status on the 80 graphs without "
+                "bidirected edges. The conditioning set reported with an "
+                "instrument is the smallest one here and the nearest "
+                "separator in dagitty, so it is not compared. Front-door "
+                "sets, bad controls and the estimator recommendation have "
+                "no dagitty counterpart and are outside this grade. "
+                "dagitty is GPL and was run, not read."
+            ),
+        },
+        "do_rule1": _do_rule_entry(
+            "Rule 1 (insertion or deletion of observations)",
+            "the graph without the edges into X",
+        ),
+        "do_rule2": _do_rule_entry(
+            "Rule 2 (exchange of action and observation)",
+            "the graph without the edges into X and out of Z",
+        ),
+        "do_rule3": _do_rule_entry(
+            "Rule 3 (insertion or deletion of actions)",
+            "the graph without the edges into X and into the members of "
+            "Z that are not ancestors of W",
+        ),
+        "do_calculus_apply": _do_rule_entry(
+            "Each of the three rules",
+            "the corresponding mutilated graph",
+        ),
+        "partial_corr_pvalue": {
+            "status": "bit-exact",
+            "reference": "pcalg::gaussCItest (Fisher z test of a zero "
+            "partial correlation)",
+            "reference_versions": {"R": _PG_R, "pcalg": "2.7.12"},
+            "tolerance": "1e-9 relative on the p-value (observed 1.5e-12), "
+            "224 tests with p from 3e-144 to 1",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_partial_corr_pcalg_parity.py",
+                "tests/reference_parity/_fixtures/partial_corr_pcalg_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: every pair of eight Gaussian columns "
+                "with conditioning sets of size 0 to 3, at n = 500 and n = "
+                "60. pcalg is GPL and was run, not read."
+            ),
+        },
+        "lingam": {
+            "status": "bit-exact",
+            "reference": "lingam.DirectLiNGAM (Python, measure 'pwling'): "
+            "causal order",
+            "reference_versions": {
+                "python": "3.11.15",
+                "lingam": "1.13.0",
+                "numpy": "2.2.6",
+            },
+            "tolerance": "exact: the causal order is a permutation, equal "
+            "on 40 data sets",
+            "sides": ["py"],
+            "test": [
+                "tests/reference_parity/test_lingam_package_parity.py",
+                "tests/reference_parity/_fixtures/lingam_package.json",
+            ],
+            "note": (
+                "Frozen fixture from the MIT-licensed lingam package: 40 "
+                "linear non-Gaussian structural equation models on 3 to 7 "
+                "variables with uniform, Laplace and exponential "
+                "disturbances. Scope: the causal order only. The "
+                "coefficient matrix is not compared: sp.lingam regresses "
+                "each variable on all predecessors by least squares, the "
+                "package prunes that regression with an adaptive Lasso. "
+                "Through 1.43.1 the search used another independence "
+                "score and matched 17 of the 40 orders."
+            ),
+        },
+        "pcmci": {
+            "status": "bit-exact",
+            "reference": "tigramite PCMCI.run_pcmci(tau_min = 1) with "
+            "ParCorr(significance = 'analytic')",
+            "reference_versions": {
+                "python": "3.11.15",
+                "tigramite": "5.2.10.1",
+                "numpy": "2.2.6",
+            },
+            "tolerance": "1e-10 absolute on the MCI p-values and partial "
+            "correlations of every lagged link (observed 1e-15); link "
+            "decisions exact",
+            "sides": ["py"],
+            "test": [
+                "tests/reference_parity/test_pcmci_tigramite_parity.py",
+                "tests/reference_parity/_fixtures/pcmci_tigramite.json",
+            ],
+            "note": (
+                "Frozen fixture from tigramite (GPL-3, run as a black "
+                "box): 24 simulated vector autoregressions, 3 to 5 "
+                "variables, 150 to 600 time points, tau_max 2 or 3, "
+                "pc_alpha 0.05 or 0.2. Non-default option: ParCorr refers "
+                "the partial correlation to a t distribution and sp.pcmci "
+                "defaults to the Fisher z test, so the comparison passes "
+                "the t test as ci_test=. Lagged links only; tigramite's "
+                "contemporaneous PCMCI+ is not implemented. Through 1.43.1 "
+                "the PC stage and the MCI conditioning sets were not the "
+                "published ones and 86 of 1,188 link decisions differed."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

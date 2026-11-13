@@ -5091,33 +5091,41 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_barrett_causal_inference_in_r.py",
+        "tests/external_parity/test_ness_causal_ai.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_dag_implications_dagitty_parity.py",
         "tests/reference_parity/test_dag_instruments_dagitty_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
-        "tests/reference_parity/test_ness_causal_ai_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "dag",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Frozen-R fixture: random acyclic graphs on 4 to 9 nodes, a third with declared latent nodes and a third with bidirected edges. Minimal adjustment sets, implied conditional independencies, d-separation and the set of instruments equal dagitty's on every graph; paths and their open / closed status on the 80 graphs without bidirected edges. The conditioning set reported with an instrument is the smallest one here and the nearest separator in dagitty, so it is not compared. Front-door sets, bad controls and the estimator recommendation have no dagitty counterpart and are outside this grade. dagitty is GPL and was run, not read."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "dagitty::adjustmentSets(type = 'minimal'), impliedConditionalIndependencies, dseparated, instrumentalVariables, paths",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py",
-        "tests/external_parity/test_ness_causal_ai.py"
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json",
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: sets and truth values, on 120 random graphs (1,440 d-separation statements)"
     },
     {
       "additional_tests": [
@@ -6750,72 +6758,116 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "do_calculus_apply",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: Each of the three rules holds when Y and Z are d-separated given X and W in the corresponding mutilated graph. dagitty has no function for the rules of do-calculus; the reference removes the edges in R (bidirected edges written as latent common parents) and asks dagitty for the d-separation statement. 120 random graphs, a third with latent nodes and a third with bidirected edges, six queries each with disjoint sets, W empty in some."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "dagitty::dseparated on the corresponding mutilated graph, built in R from the definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: a truth value, on 720 queries (Y, X, Z, W)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "do_rule1",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: Rule 1 (insertion or deletion of observations) holds when Y and Z are d-separated given X and W in the graph without the edges into X. dagitty has no function for the rules of do-calculus; the reference removes the edges in R (bidirected edges written as latent common parents) and asks dagitty for the d-separation statement. 120 random graphs, a third with latent nodes and a third with bidirected edges, six queries each with disjoint sets, W empty in some."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "dagitty::dseparated on the graph without the edges into X, built in R from the definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: a truth value, on 720 queries (Y, X, Z, W)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "do_rule2",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: Rule 2 (exchange of action and observation) holds when Y and Z are d-separated given X and W in the graph without the edges into X and out of Z. dagitty has no function for the rules of do-calculus; the reference removes the edges in R (bidirected edges written as latent common parents) and asks dagitty for the d-separation statement. 120 random graphs, a third with latent nodes and a third with bidirected edges, six queries each with disjoint sets, W empty in some."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "dagitty::dseparated on the graph without the edges into X and out of Z, built in R from the definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_oct2026_second_pass.py"
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: a truth value, on 720 queries (Y, X, Z, W)"
     },
     {
-      "function": "do_rule3",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_oct2026_second_pass.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "do_rule3",
+      "notes": [
+        "Frozen-R fixture: Rule 3 (insertion or deletion of actions) holds when Y and Z are d-separated given X and W in the graph without the edges into X and into the members of Z that are not ancestors of W. dagitty has no function for the rules of do-calculus; the reference removes the edges in R (bidirected edges written as latent common parents) and asks dagitty for the d-separation statement. 120 random graphs, a third with latent nodes and a third with bidirected edges, six queries each with disjoint sets, W empty in some."
+      ],
+      "reference": "dagitty::dseparated on the graph without the edges into X and into the members of Z that are not ancestors of W, built in R from the definition",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json"
+      ],
+      "tolerance": "exact: a truth value, on 720 queries (Y, X, Z, W)"
     },
     {
       "also_verified_by": [
@@ -9443,22 +9495,32 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_ges_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ges",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 30 random linear-Gaussian DAGs on 4 to 7 nodes, n in {300, 1000, 3000}. The CPDAG after the forward and backward phases equals pcalg's on all 30. pcalg's default also runs a turning phase, which sp.ges does not have; the reference is run without it. pcalg is GPL and was run, not read."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::ges(GaussL0penObsScore, phase = c('forward', 'backward'), iterate = FALSE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_ges_parity.py",
-        "tests/reference_parity/test_ges_pcalg_parity.py"
+        "tests/reference_parity/test_ges_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/ges_pcalg_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "essential graphs compared for equality, every edge with its orientation, on 30 data sets"
     },
     {
       "also_verified_by": [
@@ -10725,21 +10787,29 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ida",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 40 random linear-Gaussian DAGs, their CPDAGs and sample covariances; both the local and the global method return pcalg's multiset of possible effects. pcalg is GPL and was run, not read."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::ida(method = 'local' / 'global')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_ida_pcalg_parity.py"
+        "tests/reference_parity/test_ida_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/ida_pcalg.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 on the sorted multiset of possible effects"
     },
     {
       "additional_tests": [
@@ -12722,21 +12792,32 @@
       "tolerance": "calibrated weights 1e-12 rel (observed 5.5e-15)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lingam",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen fixture from the MIT-licensed lingam package: 40 linear non-Gaussian structural equation models on 3 to 7 variables with uniform, Laplace and exponential disturbances. Scope: the causal order only. The coefficient matrix is not compared: sp.lingam regresses each variable on all predecessors by least squares, the package prunes that regression with an adaptive Lasso. Through 1.43.1 the search used another independence score and matched 17 of the 40 orders."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "lingam.DirectLiNGAM (Python, measure 'pwling'): causal order",
+      "reference_versions": {
+        "lingam": "1.13.0",
+        "numpy": "2.2.6",
+        "python": "3.11.15"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_causal_discovery_parity.py"
+        "tests/reference_parity/test_lingam_package_parity.py",
+        "tests/reference_parity/_fixtures/lingam_package.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: the causal order is a permutation, equal on 40 data sets"
     },
     {
       "function": "lisa_cluster_map",
@@ -12881,21 +12962,29 @@
       "tolerance": "All five statistics and their p-values at 1e-9. Before the fix: LM_err 39.47 against 19.58, and Robust_LM_err 20.49 (p=6e-6) against 0.0397 (p=0.84) -- the Anselin lag-vs-error decision rule, reversed."
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lmtp",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: a point treatment and a two-period design, also with right censoring, continuous and binary outcomes, shift policy A + 0.5, glm learners without cross-fitting. The residual is R's glm deviance tolerance. lmtp is AGPL and was run, not read."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "lmtp::lmtp_tmle and lmtp_sdr (SL.glm, folds = 1)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lmtp": "1.5.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_lmtp_parity.py"
+        "tests/reference_parity/test_lmtp_parity.py",
+        "tests/reference_parity/_fixtures/lmtp_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "3e-7 relative on estimate and SE (observed <= 1.9e-7 on the binary TMLE rows); density ratios 1e-11"
     },
     {
       "additional_tests": [
@@ -13356,96 +13445,150 @@
       "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lpbwselect_ce_rot",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 144 selector rows over two designs, interior evaluation points, polynomial orders 1 to 3, four kernels and two bwcheck / bwregul settings. nprobust is GPL-3 and was run, not read. Stata's lpbwselect integrates the kernel constants numerically, so its bandwidth is the looser cross-check (1e-9 absolute on the boundary fixture)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'ce-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lpbwselect_imse_dpi",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 48 selector rows over two designs, interior evaluation points, polynomial orders 1 to 3, four kernels and two bwcheck / bwregul settings. nprobust is GPL-3 and was run, not read. Stata's lpbwselect integrates the kernel constants numerically, so its bandwidth is the looser cross-check (1e-9 absolute on the boundary fixture)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'imse-dpi') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lpbwselect_imse_rot",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 18 selector rows over two designs, interior evaluation points, polynomial orders 1 to 3, four kernels and two bwcheck / bwregul settings. nprobust is GPL-3 and was run, not read. Stata's lpbwselect integrates the kernel constants numerically, so its bandwidth is the looser cross-check (1e-9 absolute on the boundary fixture)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'imse-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_did_had_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lpbwselect_mse_dpi",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 144 selector rows over two designs, interior evaluation points, polynomial orders 1 to 3, four kernels and two bwcheck / bwregul settings. nprobust is GPL-3 and was run, not read. Stata's lpbwselect integrates the kernel constants numerically, so its bandwidth is the looser cross-check (1e-9 absolute on the boundary fixture)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'mse-dpi') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_did_had_parity.py",
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_did_had_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lpbwselect_mse_rot",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: 54 selector rows over two designs, interior evaluation points, polynomial orders 1 to 3, four kernels and two bwcheck / bwregul settings. nprobust is GPL-3 and was run, not read. Stata's lpbwselect integrates the kernel constants numerically, so its bandwidth is the looser cross-check (1e-9 absolute on the boundary fixture)."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'mse-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_did_had_parity.py",
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9)"
     },
     {
       "function": "lpcmci",
@@ -13494,22 +13637,33 @@
       "tolerance": "1e-10 rel (observed 1.6e-12)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "lprobust_at_point",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen fixtures: the estimator at supplied h and b, so a difference cannot come from bandwidth selection. R covers interior points, orders 0 to 3, derivatives, four kernels and several nearest-neighbour counts; Stata covers the boundary point with three kernels and one case with b != h. nprobust is GPL-3 and was run, not read."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lprobust and Stata nprobust lprobust at supplied bandwidths (vce nn)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
-        "tests/reference_parity/test_lprobust_parity.py"
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
+        "tests/reference_parity/test_lprobust_parity.py",
+        "tests/stata_parity/option_parity/results/86_lprobust_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on tau_us, tau_bc, se_us, se_rb against R (192 cases); 1e-9 absolute against Stata (10 boundary cases); effective sample size exact"
     },
     {
       "additional_tests": [
@@ -13595,21 +13749,29 @@
       "tolerance": "psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ltmle_msm",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture: two periods, static and dynamic regimes, working model Y ~ cumA, with a baseline term, censoring, a continuous outcome, observation weights and user MSM weights. The residual is R's glm deviance tolerance. ltmle is GPL-2 and was run, not read."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ltmle::ltmleMSM (glm nuisance fits, variance.method = 'ic')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ltmle": "1.3.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_ltmle_msm_parity.py"
+        "tests/reference_parity/test_ltmle_msm_parity.py",
+        "tests/reference_parity/_fixtures/ltmle_msm_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 absolute on TMLE coefficients, 1e-8 relative on their SEs; IPTW coefficients 1e-11"
     },
     {
       "function": "ltmle_survival",
@@ -17391,21 +17553,32 @@
       "tolerance": ""
     },
     {
-      "function": "partial_corr_pvalue",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_closed_form_identities.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "partial_corr_pvalue",
+      "notes": [
+        "Frozen-R fixture: every pair of eight Gaussian columns with conditioning sets of size 0 to 3, at n = 500 and n = 60. pcalg is GPL and was run, not read."
+      ],
+      "reference": "pcalg::gaussCItest (Fisher z test of a zero partial correlation)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_partial_corr_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/partial_corr_pcalg_R.json"
+      ],
+      "tolerance": "1e-9 relative on the p-value (observed 1.5e-12), 224 tests with p from 3e-144 to 1"
     },
     {
       "function": "partial_identification",
@@ -17555,21 +17728,32 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "pcmci",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen fixture from tigramite (GPL-3, run as a black box): 24 simulated vector autoregressions, 3 to 5 variables, 150 to 600 time points, tau_max 2 or 3, pc_alpha 0.05 or 0.2. Non-default option: ParCorr refers the partial correlation to a t distribution and sp.pcmci defaults to the Fisher z test, so the comparison passes the t test as ci_test=. Lagged links only; tigramite's contemporaneous PCMCI+ is not implemented. Through 1.43.1 the PC stage and the MCI conditioning sets were not the published ones and 86 of 1,188 link decisions differed."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "tigramite PCMCI.run_pcmci(tau_min = 1) with ParCorr(significance = 'analytic')",
+      "reference_versions": {
+        "numpy": "2.2.6",
+        "python": "3.11.15",
+        "tigramite": "5.2.10.1"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_pcmci_tigramite_parity.py",
+        "tests/reference_parity/_fixtures/pcmci_tigramite.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on the MCI p-values and partial correlations of every lagged link (observed 1e-15); link decisions exact"
     },
     {
       "additional_tests": [
@@ -20657,21 +20841,32 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "recentered_iv",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-Stata fixture: 2SLS with the expected instrument known in closed form, one absorbed fixed effect, clustered and HC1 standard errors. The permutations are shared by both sides, so the randomisation test is deterministic. Without expected= StatsPAI centres at the mean of the supplied draws, a different exact test; that row is documented in the test, not compared."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata ivreghdfe on the recentred instrument (method 'recenter' and 'control') and ritest on 200 fixed permutations",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "ivreg2": "4.1.12",
+        "ivreghdfe": "1.1.4",
+        "reghdfe": "6.13.1",
+        "ritest": "1.1.7"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_recentered_iv_stata.py"
+        "tests/reference_parity/test_recentered_iv_stata.py",
+        "tests/reference_parity/_fixtures/_generate_recentered_iv_Stata.do"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 relative on coefficient and SE (observed <= 3e-15); randomisation-inference count exact and observed statistic 1e-9 relative"
     },
     {
       "also_verified_by": [
