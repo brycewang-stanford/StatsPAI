@@ -109,6 +109,81 @@ in `tests/reference_parity/test_probe_epi_parity.py` and
   can be several times too small with imprecise instruments (0.37 against
   1.00 on the LDL-C / CHD example).
 
+### Reference parity for the graph, discovery, TMLE, IV, nonparametric and meta-learner families (2026-11-13)
+
+#### Added
+- `sp.icp(test="normal")`: the invariance test of R
+  `InvariantCausalPrediction::ICP` (each environment against the rest, a
+  t test and an F test on the residuals of the pooled fit). With it the
+  accepted sets and the intervals of the parents equal the R function's
+  on 32 reference fits. The default, `test="anova"`, is unchanged.
+
+#### Fixed
+- **⚠️ correctness fix: `sp.lingam` searched the causal order with a score
+  that is not DirectLiNGAM's.** The order is now found with the pairwise
+  likelihood-ratio measure of Hyvarinen and Smith (2013) that Shimizu et
+  al. (2011) prescribe, and it equals the order the `lingam` package
+  returns on 40 of 40 reference data sets (17 of 40 before). On 300
+  simulated linear non-Gaussian models with 3 to 7 variables, 98.3% of
+  the orders respect the true graph, against 87.3% before (96.2% against
+  74.3% at n = 300). The coefficient matrix is still the least-squares
+  fit on the predecessors, so it changes only where the order does. A
+  constant column or an exactly collinear one now raises
+  `DataInsufficient`.
+- **⚠️ correctness fix: `sp.pcmci` did not run the PC1 and MCI stages of
+  Runge et al. (2019).** The first stage tested each candidate parent
+  given all the other candidates at once; the published algorithm
+  conditions on the `p` strongest others for `p = 0, 1, ...`. The second
+  stage dropped the parents of the lagged variable that lie beyond
+  `tau_max`, which is the conditioning that removes autocorrelation, and
+  the two stages used different samples. Both stages now follow the
+  paper on the `T - 2 * tau_max` time points that have every lag
+  available. With a t-reference partial correlation test the p-values and
+  partial correlations equal `tigramite`'s to 1e-15 on 24 simulated
+  series; before, p-values differed by up to 0.93 and 86 of 1,188 link
+  decisions were different. `n_effective` is `T - 2 * tau_max`. A series
+  with no more than `2 * tau_max + 2` time points raises
+  `DataInsufficient`.
+
+- **⚠️ correctness fix: `sp.notears` did not follow the dual-update
+  schedule of Zheng et al. (2018).** Algorithm 1 raises the penalty and
+  solves again until the acyclicity constraint has fallen to a quarter of
+  its last accepted value, and only then updates the multiplier. Every
+  inner solution used to be accepted and the multiplier updated with the
+  raised penalty. The loop now follows the paper and carries the split
+  variables from one solve to the next, as the authors' code does. On 12
+  simulated designs the thresholded graph equals the reference
+  implementation's in all 12 (8 before), and the fit is about fifty times
+  faster. Weights change in the third decimal on the same graph: the
+  three-variable chain in the test suite gives 0.6295 / 0.3847 (the
+  reference's numbers) where it gave 0.6310 / 0.3866.
+- **⚠️ correctness fix: `sp.zero_first_stage` reported a standard error
+  for the uncorrected IV estimate that left out the reduced form.**
+  `beta_iv_se` was `|beta_iv| * se(pi) / |pi|`, the first-stage part of
+  the delta method only. It is now the standard error of the 2SLS fit on
+  the main sample, under the same variance estimator as the component
+  regressions, and equals `ivregress 2sls` / `ivreghdfe` to 1e-14. Over
+  300 simulated samples the old number averaged 0.029 where the estimate
+  had a standard deviation of 0.064; the new one averages 0.062. The
+  point estimates, the component regressions and the corrected estimate
+  with its bootstrap interval are unchanged.
+
+#### Evidence
+- Same-data reference comparisons for the six families the scorecard
+  listed with the fewest matched estimators. New fixtures: R `dagitty` on
+  120 random graphs (`sp.dag` queries and the three do-calculus rules),
+  `pcalg::gaussCItest` (`sp.partial_corr_pvalue`), the `lingam` package
+  (`sp.lingam`), `tigramite` (`sp.pcmci`), the authors' NOTEARS code (`sp.notears`,
+  graph exact, weights to the optimiser's reproducibility). Comparisons that were already
+  in `tests/reference_parity` but not in the parity index are now
+  credited: `sp.ges`, `sp.ida`, `sp.lprobust_at_point`, the five
+  `sp.lpbwselect_*` selectors, `sp.recentered_iv`, `sp.ltmle_msm`,
+  `sp.lmtp`. Further fixtures: R `SuperLearner` on supplied folds
+  (`sp.super_learner`), `ltmle` with a survival outcome
+  (`sp.ltmle_survival`), `ivmodel` and Stata `ivregress` / `ivreg2` /
+  `jive` (`sp.iv_compare`), and the component fits of
+  `sp.zero_first_stage` in Stata.
+
 ## [1.43.1] — 2026-11-13
 
 Follow-up to 1.43.0 from the same rOpenSci standards round, plus the

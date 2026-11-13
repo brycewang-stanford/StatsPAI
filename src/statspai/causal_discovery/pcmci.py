@@ -4,15 +4,28 @@ PCMCI: causal discovery for time-series (Runge et al. 2019).
 A two-stage algorithm specialised for stationary multivariate time-series
 with auto-correlation and cross-correlation:
 
-1. **PC1 stage (parent selection)** — for each variable ``X_j^t``, iteratively
-   select a parent set ``\\hat{P}(X_j^t)`` from the lagged predictors
-   ``{X_k^{t-τ} : k, τ ∈ 1..τ_max}`` using conditional-independence tests.
-2. **MCI stage (momentary conditional independence)** — for each candidate
-   causal link ``X_i^{t-τ} → X_j^t``, test conditional independence while
-   conditioning on **both** parent sets. This controls false positives
-   driven by autocorrelation that PC alone can't suppress.
+1. **PC1 stage (parent selection)**. For each variable ``X_j^t`` start from
+   every lagged predictor ``{X_k^{t-τ} : k, τ ∈ 1..τ_max}``. For
+   ``p = 0, 1, 2, ...`` test each remaining candidate given the ``p``
+   strongest *other* candidates (one conditioning set per candidate, hence
+   PC1), drop the candidates that are not significant at ``pc_alpha`` once
+   the pass is over, and re-sort the survivors by the smallest absolute
+   partial correlation seen so far. Stop when fewer than ``p`` other
+   candidates are left.
+2. **MCI stage (momentary conditional independence)**. For each candidate
+   link ``X_i^{t-τ} → X_j^t``, test conditional independence given the
+   parents of ``X_j^t`` and the parents of ``X_i^{t-τ}``, that is the
+   parents of ``X_i`` shifted by ``τ``, which reach back to lag
+   ``2 τ_max``. This controls false positives driven by autocorrelation
+   that PC alone cannot suppress.
 
-The output is a lag-specific adjacency tensor ``A[lag, i, j]`` of
+Every test of both stages uses the same ``T - 2 τ_max`` time points, so
+p-values are comparable across links. With a t-reference partial
+correlation test the parents, p-values and partial correlations are those
+of ``tigramite`` (``PCMCI.run_pcmci`` with ``ParCorr``;
+``tests/reference_parity/test_pcmci_tigramite_parity.py``).
+
+The output is a lag-specific tensor ``p_matrix[lag, i, j]`` of
 p-values for the ``X_i^{t-lag} → X_j^t`` edge, plus a binary decision
 matrix at the user-specified significance level.
 
@@ -138,6 +151,21 @@ def _make_lagged(X: np.ndarray, tau_max: int) -> Tuple[np.ndarray, np.ndarray]:
         blocks.append(X[tau_max - lag : T - lag])
     lagged = np.hstack(blocks)  # (T - tau_max, d * tau_max)
     return Y, lagged
+
+
+def _partial_corr(x: np.ndarray, y: np.ndarray, Z: Optional[np.ndarray]) -> float:
+    """Correlation of ``x`` and ``y`` after a least-squares fit on ``Z``."""
+    if Z is None:
+        rx, ry = x - x.mean(), y - y.mean()
+    else:
+        Z_aug = np.column_stack([np.ones(len(x)), Z])
+        rx = x - Z_aug @ np.linalg.lstsq(Z_aug, x, rcond=None)[0]
+        ry = y - Z_aug @ np.linalg.lstsq(Z_aug, y, rcond=None)[0]
+    sx, sy = float(np.sqrt(rx @ rx)), float(np.sqrt(ry @ ry))
+    scale = max(float(np.sqrt(x @ x)), float(np.sqrt(y @ y)), 1e-300)
+    if sx <= 1e-12 * scale or sy <= 1e-12 * scale:
+        return 0.0
+    return float((rx @ ry) / (sx * sy))
 
 
 def _coord(var: int, lag: int, d: int) -> int:
@@ -275,11 +303,15 @@ def pcmci(
         to ``pc_alpha``.
     ci_test : callable, optional
         Custom CI test ``(x, y, Z) -> p_value``. Defaults to
-        :func:`partial_corr_pvalue`.
+        :func:`partial_corr_pvalue`, the Fisher z test. ``tigramite``'s
+        ``ParCorr`` refers the same partial correlation to a t
+        distribution with ``n - dim(Z) - 2`` degrees of freedom; pass
+        that test here to reproduce its p-values. Candidates are ranked
+        by absolute partial correlation whatever the test.
     max_conds_dim : int, optional
         Hard cap on the conditioning-set size during PC1. ``None``
-        means no cap (the algorithm stops automatically when no
-        predictors remain).
+        means no cap (the algorithm stops automatically when fewer
+        candidates than conditions remain).
     verbose : bool, default False
 
     Returns
@@ -313,105 +345,79 @@ def pcmci(
     check_alpha(pc_alpha, "pcmci", "pc_alpha")
     check_alpha(mci_alpha, "pcmci", "mci_alpha")
     ci = ci_test or partial_corr_pvalue
+    if T <= 2 * tau_max + 2:
+        from ..exceptions import DataInsufficient
 
-    Y, L = _make_lagged(X, tau_max)
+        raise DataInsufficient(
+            f"pcmci: {T} time points are too few for tau_max={tau_max}. The "
+            "parents of a lagged variable reach back to lag 2 * tau_max, so "
+            f"more than {2 * tau_max + 2} time points are needed.",
+            recovery_hint="Lower tau_max or use a longer series.",
+            diagnostics={"n_time": int(T), "tau_max": int(tau_max)},
+        )
+    # One sample for every test: the time points with 2 * tau_max lags
+    # behind them. A link at lag tau is tested given the parents of the
+    # lagged variable, which reach back to lag tau + tau_max.
+    Y, L = _make_lagged(X, 2 * tau_max)
     n_eff = len(Y)
 
+    def col(i: int, tau: int) -> np.ndarray:
+        return L[:, _coord(i, tau, d)]
+
+    def stack(coords: List[Tuple[int, int]]) -> Optional[np.ndarray]:
+        if not coords:
+            return None
+        return np.column_stack([col(k, s) for (k, s) in coords])
+
     # -----------------------------------------------------------
-    # PC1 stage: for each target variable j at lag 0, iteratively
-    # prune candidate parents (i, τ) whose CI test with j becomes
-    # non-significant conditional on the currently retained parents.
+    # PC1 stage (Runge et al. 2019, Algorithm S1). For p = 0, 1, ...
+    # each remaining candidate is tested given the p strongest other
+    # candidates; non-significant ones leave after the pass, and the
+    # rest are re-sorted by the smallest |partial correlation| seen.
     # -----------------------------------------------------------
     parents: List[List[Tuple[int, int]]] = [[] for _ in range(d)]
     for j in range(d):
-        # Initial candidate set = all (i, τ) with τ ∈ 1..tau_max
-        cand = [(i, tau) for tau in range(1, tau_max + 1) for i in range(d)]
-
-        # Marginal test to seed ordering
-        marg_pvals = {}
-        for i, tau in cand:
-            p = ci(L[:, _coord(i, tau, d)], Y[:, j], None)
-            marg_pvals[(i, tau)] = p
-        cand = [c for c in cand if marg_pvals[c] < pc_alpha]
-        cand.sort(key=lambda c: marg_pvals[c])
-
-        if verbose:  # pragma: no cover
-            print(f"[PC1] j={j} initial candidates: {len(cand)}")
-
-        # Iteratively test conditional on a growing conditioning set
-        # (topological discovery: at each iteration, use the s-strongest
-        # currently retained parents as conditioning set for the next
-        # candidate). We stop when no candidate can be dropped.
-        changed = True
-        pass_num = 0
-        while changed:
-            changed = False
-            pass_num += 1
-            for c in list(cand):
-                cond = [cc for cc in cand if cc != c]
-                if max_conds_dim is not None:
-                    cond = cond[:max_conds_dim]
-                if not cond:
-                    break
-                Z = np.column_stack([L[:, _coord(i, t, d)] for (i, t) in cond])
-                p = ci(L[:, _coord(c[0], c[1], d)], Y[:, j], Z)
-                if p >= pc_alpha:
-                    cand.remove(c)
-                    changed = True
-                    if verbose:  # pragma: no cover
-                        print(f"[PC1] pass {pass_num}: drop {c} (p={p:.3g})")
-            # Refresh candidate ordering periodically — not strictly
-            # necessary but improves the practical convergence rate.
+        cand = [(i, tau) for i in range(d) for tau in range(1, tau_max + 1)]
+        val_min = {c: np.inf for c in cand}
+        p_dim = 0
+        while len(cand) - 1 >= p_dim:
+            if max_conds_dim is not None and p_dim > max_conds_dim:
+                break
+            dropped = []
+            for c in cand:
+                cond = [o for o in cand if o != c][:p_dim]
+                Z = stack(cond)
+                x_arr = col(c[0], c[1])
+                val_min[c] = min(val_min[c], abs(_partial_corr(x_arr, Y[:, j], Z)))
+                if ci(x_arr, Y[:, j], Z) > pc_alpha:
+                    dropped.append(c)
+            if verbose and dropped:  # pragma: no cover
+                print(f"[PC1] j={j} p={p_dim}: drop {dropped}")
+            cand = [c for c in cand if c not in dropped]
+            cand.sort(key=lambda c: -val_min[c])
+            p_dim += 1
         parents[j] = cand
 
     # -----------------------------------------------------------
     # MCI stage: for each candidate link X_i^{t-τ} → X_j^t, test
-    # conditional on parents(j) ∪ parents(i at lag τ).
-    # Parents(i at lag τ) in lagged form are the PC1 parents of i
-    # shifted by τ — i.e. (k, σ + τ) for each (k, σ) ∈ parents(i).
+    # conditional on parents(j) and on parents(i) shifted by τ, that
+    # is (k, σ + τ) for each (k, σ) ∈ parents(i).
     # -----------------------------------------------------------
     p_matrix = np.ones((tau_max + 1, d, d))
     val_matrix = np.zeros((tau_max + 1, d, d))
-
     for j in range(d):
         for i in range(d):
             for tau in range(1, tau_max + 1):
-                # Conditioning: parents(j) ∪ shifted parents(i by τ)
-                cond_coords: List[Tuple[int, int]] = list(parents[j])
+                cond_coords = [c for c in parents[j] if c != (i, tau)]
                 for k, sigma in parents[i]:
-                    new_lag = sigma + tau
-                    if 1 <= new_lag <= tau_max and (k, new_lag) not in cond_coords:
-                        cond_coords.append((k, new_lag))
-                # Remove the candidate itself if it slipped in
-                cond_coords = [c for c in cond_coords if c != (i, tau)]
-
-                x_arr = L[:, _coord(i, tau, d)]
+                    shifted = (k, sigma + tau)
+                    if shifted not in cond_coords:
+                        cond_coords.append(shifted)
+                x_arr = col(i, tau)
                 y_arr = Y[:, j]
-                Z_cond: Optional[np.ndarray]
-                if cond_coords:
-                    Z_cond = np.column_stack(
-                        [L[:, _coord(k, s, d)] for (k, s) in cond_coords]
-                    )
-                else:
-                    Z_cond = None
-
-                p = ci(x_arr, y_arr, Z_cond)
-                p_matrix[tau, i, j] = p
-
-                # Also store the residual correlation magnitude
-                if Z_cond is None:
-                    r, _ = stats.pearsonr(x_arr, y_arr)
-                else:
-                    Z_aug = np.column_stack([np.ones(len(x_arr)), Z_cond])
-                    bx, *_ = np.linalg.lstsq(Z_aug, x_arr, rcond=None)
-                    by, *_ = np.linalg.lstsq(Z_aug, y_arr, rcond=None)
-                    rx = x_arr - Z_aug @ bx
-                    ry = y_arr - Z_aug @ by
-                    if np.std(rx) < 1e-12 or np.std(ry) < 1e-12:
-                        r = 0.0
-                    else:
-                        r, _ = stats.pearsonr(rx, ry)
-                val_matrix[tau, i, j] = r
+                Z_cond = stack(cond_coords)
+                p_matrix[tau, i, j] = ci(x_arr, y_arr, Z_cond)
+                val_matrix[tau, i, j] = _partial_corr(x_arr, y_arr, Z_cond)
 
     adjacency = p_matrix < mci_alpha
     adjacency[0] = False  # lag-0 is not a causal link here

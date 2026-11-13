@@ -65,6 +65,50 @@ key.
 
 ---
 
+## 1.43 → next: lingam order, pcmci stages, notears schedule, zero_first_stage IV SE
+
+⚠️ correctness fix: `sp.lingam` finds the causal order with the pairwise
+likelihood-ratio measure of DirectLiNGAM. The order, and with it the
+coefficient matrix, can differ from 1.43.1 on the same data; the new
+order is the one the `lingam` package returns. Nothing in the call
+changes. Data with a constant or exactly collinear column now raise
+`DataInsufficient` and need that column removed.
+
+⚠️ correctness fix: `sp.pcmci` runs the PC1 and MCI stages as published.
+`p_matrix`, `val_matrix`, `adjacency` and `discovered_links()` can differ
+from 1.43.1, and `n_effective` is `T - 2 * tau_max` (it was
+`T - tau_max`). The default test is still the Fisher z test of
+`sp.partial_corr_pvalue`. To reproduce `tigramite`'s `ParCorr` p-values
+pass a t-reference test:
+
+```python
+from scipy import stats
+import numpy as np
+
+def parcorr_t(x, y, Z):
+    A = np.ones((len(x), 1)) if Z is None else np.column_stack([np.ones(len(x)), Z])
+    rx = x - A @ np.linalg.lstsq(A, x, rcond=None)[0]
+    ry = y - A @ np.linalg.lstsq(A, y, rcond=None)[0]
+    r = rx @ ry / np.sqrt((rx @ rx) * (ry @ ry))
+    df = len(x) - A.shape[1] - 1
+    return 2 * stats.t.sf(abs(r) * np.sqrt(df / (1 - r * r)), df)
+
+sp.pcmci(df, tau_max=3, ci_test=parcorr_t)
+```
+
+⚠️ correctness fix: `sp.notears` follows the published dual-update
+schedule. On most data the thresholded graph is unchanged and the weights
+move in the third decimal; where the old schedule ended at another local
+solution an edge can change direction. The arguments are unchanged.
+
+⚠️ correctness fix: `sp.zero_first_stage(...).beta_iv_se` is the 2SLS
+standard error on the main sample. It used to be
+`abs(beta_iv) * first_stage_main_se / abs(first_stage_main)`; compute that
+from the result if an old number has to be reproduced. No other field
+changes.
+
+---
+
 ## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE; rddensity se / ci
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and

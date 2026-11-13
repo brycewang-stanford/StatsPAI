@@ -10,14 +10,24 @@ Under these assumptions the causal order is **uniquely identifiable**
 from purely observational data (in contrast with constraint-based
 methods like PC which only identify a Markov-equivalence class).
 
-This implementation uses the DirectLiNGAM algorithm (Shimizu 2011):
+This implementation uses the DirectLiNGAM algorithm (Shimizu et al. 2011):
 
-    1. Pick the variable most independent of the others' residuals
-       (Hilbert-Schmidt Independence Criterion) → declare it a source.
+    1. Find the variable that is most independent of the residuals of the
+       others regressed on it. Independence is measured pair by pair with
+       the likelihood-ratio statistic of Hyvarinen and Smith (2013), a
+       difference of differential entropies under the maximum-entropy
+       approximation of Hyvarinen (1998). Declare that variable a source.
     2. Regress the remaining variables on the source, take residuals.
     3. Recurse on the residuals until all variables are ordered.
     4. The adjacency matrix B[i, j] of direct effects is then recovered
        by regressing each variable on its predecessors in the ordering.
+
+The causal order is the one the ``lingam`` Python package
+(``DirectLiNGAM(measure='pwling')``) returns on the same data
+(``tests/reference_parity/test_lingam_package_parity.py``). Step 4 is a
+plain least-squares fit on all predecessors; the package prunes with an
+adaptive Lasso there, so the two coefficient matrices are different
+estimates of the same quantity.
 """
 
 from __future__ import annotations
@@ -35,46 +45,42 @@ from .._result_serialize import ResultProtocolMixin
 # --------------------------------------------------------------------- #
 
 
-def _negentropy_hyvarinen(x: np.ndarray) -> float:
-    """Hyvärinen's approximation of differential entropy / negentropy.
+def _entropy_maxent(u: np.ndarray) -> float:
+    """Differential entropy of a standardised variable.
 
-    Uses the two non-polynomial non-linearities recommended in Hyvärinen
-    (1998, *Neural Networks*) eq. (7). Larger values indicate stronger
-    departure from Gaussianity (which DirectLiNGAM exploits to
-    identify direction).
+    Maximum-entropy approximation of Hyvarinen (1998) with the constants
+    of Hyvarinen and Smith (2013, eq. 4): the entropy of a unit-variance
+    Gaussian minus two non-negative terms that grow with non-Gaussianity.
     """
-    z = (x - x.mean()) / (x.std() + 1e-12)
-    k1 = 36.0 / (8.0 * np.sqrt(3.0) - 9.0)
-    k2a = 1.0 / (2.0 - 6.0 / np.pi)
+    k1 = 79.047
+    k2 = 7.4129
     gamma = 0.37457
-    t1 = k1 * (float(np.mean(np.log(np.cosh(z)))) - gamma) ** 2
-    t2 = k2a * (float(np.mean(z * np.exp(-(z**2) / 2.0)))) ** 2
-    return float(t1 + t2)
+    return float(
+        (1.0 + np.log(2.0 * np.pi)) / 2.0
+        - k1 * (np.mean(np.log(np.cosh(u))) - gamma) ** 2
+        - k2 * (np.mean(u * np.exp(-(u**2) / 2.0))) ** 2
+    )
 
 
-def _mi_quadratic(x: np.ndarray, y: np.ndarray) -> float:
-    """Approximation of mutual information via Hyvärinen's negentropy.
+def _residual(xi: np.ndarray, xj: np.ndarray) -> np.ndarray:
+    """Residual of the least-squares regression of ``xi`` on ``xj``."""
+    return xi - (np.cov(xi, xj, bias=True)[0, 1] / np.var(xj)) * xj
 
-    Follows Shimizu (2011) eq. (5):
 
-        M(x, y) ≈ H(x) + H(y) - H(x, y)
-               ≈ -J(x) - J(y) + J((x+y)/√2)
+def _diff_mutual_info(xi_std: np.ndarray, xj_std: np.ndarray) -> float:
+    """Likelihood ratio for ``x_i -> x_j`` against ``x_j -> x_i``.
 
-    but because J is non-negative and we only use this score for
-    *ordering* candidates, we use the simpler pairwise form:
-
-        dep(x, y)  =  J(x_std) + J(y_std) - J_joint_proxy
-
-    Concretely, we return a non-negative score that is 0 for
-    independent x, y and grows with non-Gaussian dependence.
+    The difference of the mutual informations ``I(x_j, r_i^(j))`` and
+    ``I(x_i, r_j^(i))`` (Hyvarinen and Smith 2013, eq. 3), with ``r_i^(j)``
+    the residual of ``x_i`` regressed on ``x_j``. It is positive when
+    ``x_i`` is the cause: the residual of the effect on the cause is then
+    independent of the cause.
     """
-    x = x - x.mean()
-    y = y - y.mean()
-    nx = _negentropy_hyvarinen(x)
-    ny = _negentropy_hyvarinen(y)
-    # Proxy: non-Gaussianity of the projection (x+y)/√2
-    nxy = _negentropy_hyvarinen((x + y) / np.sqrt(2.0))
-    return max(nx + ny - nxy, 0.0)
+    ri_j = _residual(xi_std, xj_std)
+    rj_i = _residual(xj_std, xi_std)
+    return (_entropy_maxent(xj_std) + _entropy_maxent(ri_j / np.std(ri_j))) - (
+        _entropy_maxent(xi_std) + _entropy_maxent(rj_i / np.std(rj_i))
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -160,43 +166,36 @@ class LiNGAMResult(ResultProtocolMixin):
 
 
 def _pick_exogenous(X: np.ndarray, remaining: List[int]) -> int:
-    """DirectLiNGAM exogeneity test.
+    """DirectLiNGAM search for the next variable in the causal order.
 
-    For candidate ``i``, compute
+    For candidate ``i`` the statistic is
 
-        T(i) = Σ_{j≠i} min(0, mi(r_{j|i}, x_i) - mi(r_{i|j}, x_j))²
+        T(i) = sum over j != i of min(0, m(i, j)) ** 2,
 
-    where r_{j|i} are the residuals of regressing ``x_j`` on ``x_i``.
-    Under LiNGAM the true source has the smallest ``T`` (Shimizu 2011
-    Lemma 2). We pick the candidate minimising ``T``.
+    with ``m(i, j)`` the likelihood ratio of :func:`_diff_mutual_info` on
+    the standardised pair. ``m(i, j) < 0`` is evidence that ``j`` comes
+    before ``i``, so the candidate with the smallest ``T`` is taken
+    (Shimizu et al. 2011, Algorithm 1 with the measure of Hyvarinen and
+    Smith 2013). Ties go to the first candidate.
     """
     if len(remaining) == 1:
         return remaining[0]
+    std = {i: (X[:, i] - np.mean(X[:, i])) / np.std(X[:, i]) for i in remaining}
     scores = []
     for i in remaining:
-        x_i = X[:, i]
-        others = [j for j in remaining if j != i]
         total = 0.0
-        for j in others:
-            x_j = X[:, j]
-            b_ji = np.cov(x_j, x_i)[0, 1] / max(np.var(x_i), 1e-12)
-            r_j_given_i = x_j - b_ji * x_i
-            b_ij = np.cov(x_i, x_j)[0, 1] / max(np.var(x_j), 1e-12)
-            r_i_given_j = x_i - b_ij * x_j
-            # If i is exogenous, residual r_{j|i} should be independent of x_i
-            # so mi(r_{j|i}, x_i) small; mi(r_{i|j}, x_j) large.
-            # Diff = mi(r_{j|i}, x_i) - mi(r_{i|j}, x_j) should be ≤ 0.
-            diff = _mi_quadratic(r_j_given_i, x_i) - _mi_quadratic(r_i_given_j, x_j)
-            total += min(0.0, diff) ** 2
-        scores.append((i, total))
-    return min(scores, key=lambda t: t[1])[0]
+        for j in remaining:
+            if j != i:
+                total += min(0.0, _diff_mutual_info(std[i], std[j])) ** 2
+        scores.append(total)
+    return remaining[int(np.argmin(scores))]
 
 
 def lingam(
     data: Union[pd.DataFrame, np.ndarray],
     standardize: bool = True,
 ) -> LiNGAMResult:
-    """Fit DirectLiNGAM (Shimizu 2011).
+    """Fit DirectLiNGAM (Shimizu et al. 2011).
 
     Parameters
     ----------
@@ -252,6 +251,11 @@ def lingam(
     # Listwise deletion, as in the other structure learners; a NaN used to
     # reach np.linalg.lstsq and stop with "SVD did not converge".
     X = X[~np.isnan(X).any(axis=1)]
+    # A constant column has no standardised version and an exactly collinear
+    # one has a zero residual; neither has a place in a causal order.
+    from ._data import check_gaussian_columns
+
+    check_gaussian_columns(X, names, "lingam")
     # Keep original scales so we can de-standardise B at the end.
     scales = X.std(axis=0)
     means = X.mean(axis=0)
@@ -273,8 +277,7 @@ def lingam(
         for j in remaining:
             if j == pick:
                 continue
-            b = np.cov(current[:, j], src)[0, 1] / max(np.var(src), 1e-12)
-            current[:, j] = current[:, j] - b * src
+            current[:, j] = _residual(current[:, j], src)
         remaining.remove(pick)
 
     # Now estimate B by regressing each variable on its predecessors
