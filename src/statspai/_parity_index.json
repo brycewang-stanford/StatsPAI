@@ -6597,6 +6597,7 @@
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
         "tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
+        "tests/reference_parity/test_ml_probe_nov2026.py",
         "tests/reference_parity/test_rlasso_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
@@ -6759,7 +6760,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
-        "tests/reference_parity/test_dml_sensitivity_bound_scores.py"
+        "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
+        "tests/reference_parity/test_ml_probe_nov2026.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -6937,7 +6939,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_dose_response_parity.py"
+        "tests/reference_parity/test_dose_response_parity.py",
+        "tests/reference_parity/test_ml_probe_nov2026.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -11378,6 +11381,9 @@
       "tolerance": "1e-9 rel on every weight (observed 2.0e-11)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_ml_probe_nov2026.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

@@ -4,6 +4,88 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ML-causal probe (2026-11-13)
+
+A blind replication probe ran twenty ML-causal tasks (double machine
+learning, meta-learners, causal forests, policy learning, off-policy
+evaluation, conformal intervals, uplift curves, A/B-testing tools, bandits,
+dose response) in StatsPAI and again in DoubleML, econml, causalml, grf and
+policytree on the same bytes, and compared every printed number. With shared
+folds and deterministic learners the DML models, the S / T / X learners, the
+forest operators, the policy tree, IPS / SNIPS / DR and CUPED agreed with the
+references to rounding. The defects are below. Evidence for each item is in
+`tests/reference_parity/test_ml_probe_nov2026.py`.
+
+#### Fixed
+- **⚠️ correctness fix: `sp.dml_sensitivity(benchmark_covariates=)` reported
+  benchmarks that were zero by construction.** The benchmark strength of a
+  covariate was its squared correlation with the cross-fitted residuals, and
+  the covariate is one of the regressors behind those residuals. On the
+  401(k) data income had `cf_y_bench = cf_d_bench = 0.0000` and a bias bound
+  of 0.0011 on an estimate of 5,894. The benchmark now leaves the covariate
+  out, refits the same model on the same rows and splits, and reports the
+  gain statistics of DoubleML's `sensitivity_benchmark`: `cf_y = 0.0951`,
+  `cf_d = 0.0302`, `delta_theta = 6637.3` for income, bias bound 6,782
+  (DoubleML 0.11.4 to 1e-13). The table gains `rho` and `delta_theta`
+  columns, and an entry may be a list of covariates left out together. A
+  name that is not a covariate of the fit now raises
+  `MethodIncompatibility` (it was skipped), and so does a fit that cannot
+  be refitted (sample weights, survey design, two-way clustering, supplied
+  predictions). Robustness values and scenario bounds are unchanged.
+- **⚠️ correctness fix: `sp.dose_response(method="dr")` could select a
+  bandwidth whose leave-one-out risk was NaN.** With an isolated dose the
+  leave-one-out residual of that point is 0/0 at small bandwidths, and
+  `argmin` over a grid that holds a NaN returns the NaN. NHEFS, smoking
+  intensity: the selected bandwidth was 2.80 (risk NaN) where the smallest
+  risk is at 17.66; the headline contrast moves from 0.466 (SE 1.425) to
+  4.264 (SE 3.828), and `bandwidth_at_grid_edge` is now set. Bandwidths at
+  which some point is fitted by itself alone count as infinite risk. Data
+  without an isolated dose are unchanged.
+- **⚠️ correctness fix: `sp.dml(model="iivm")` under one-sided
+  non-compliance.** The first-stage probabilities were clipped to
+  [1e-4, 1 - 1e-4] although they never enter a denominator. When nobody
+  takes the treatment without the instrument the probability is exactly
+  zero, and the clip moved the estimate (401(k), participation instrumented
+  by eligibility: 2560.151 → 2560.162, SE 5508.833 → 5508.857, now equal to
+  `DoubleMLIIVM(subgroups={'always_takers': False})`). Fits whose
+  first-stage probabilities stay inside (1e-4, 1 - 1e-4) are unchanged.
+- **`sp.dml(model="irm", score="ATTE")` labelled its estimate `ATE`** in
+  `summary()`, `tidy()` and `result.estimand`. It is `ATT`. The numbers are
+  unchanged.
+- **`sp.dml` options.** `ml_g`, `ml_m`, `ml_r`, `alpha` and `random_state`
+  were missing from `sp.help("dml")` and the schema, so the instrument
+  learner and the seed could only be found in the source. `seed=` is
+  accepted as an alias of `random_state=`. An unknown option still raises
+  `TypeError`, now naming the closest valid option and listing all of them
+  (`model_z` → "did you mean 'ml_r'?").
+- **Conformal summaries with unbounded intervals.**
+  `sp.conformal_counterfactual` and `sp.conformal_ite_interval` printed
+  `mean width: inf` as soon as one test point had an unbounded interval.
+  The summary now gives the mean over the bounded intervals and the count
+  of unbounded ones (Lalonde: 213 of 614 for Y(1)). The intervals are
+  unchanged.
+- **`sp.ips` / `sp.snips` / `sp.doubly_robust` with an `(n, K)`
+  `pi_behavior`** raised "must have length n; got nK". The error now says
+  that one propensity per row is expected and how to select it.
+
+#### Changed
+- The weighted conformal quantile behind `sp.conformal_counterfactual`,
+  `sp.conformal_ite_interval` and `sp.weighted_conformal_prediction` does
+  one cumulative sum and a binary search per distinct test weight where it
+  made a full pass per test point. Results are bit-identical; n = 1e5 took
+  34 s and now takes under a second.
+
+#### Documentation
+- `sp.dose_response`: the headline contrast is between two grid doses, a
+  quarter and three quarters of the way through the dose grid, not between
+  the 25th and 75th percentiles of the treatment; the docstring says so.
+- `sp.cate_by_group`: the `se` column describes the spread of the
+  predictions inside a group, not the sampling error of the group's
+  average effect; the docstring points to `sp.gate_test`.
+- `sp.cate_eval`: the example used argument names that do not exist.
+- `docs/guides/sp_dml_vs_doubleml.md`: sensitivity benchmarks and
+  one-sided non-compliance.
+
 ### Applied-economics probe (2026-11-13)
 
 A blind replication probe ran twenty applied-microeconomics tasks in

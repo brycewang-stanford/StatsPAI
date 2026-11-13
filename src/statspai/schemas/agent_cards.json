@@ -5568,6 +5568,11 @@
       "name": "dml",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level of the confidence interval.",
+            "type": "number"
+          },
           "cluster": {
             "anyOf": [
               {
@@ -5646,6 +5651,18 @@
             "default": "drop",
             "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
+          "ml_g": {
+            "description": "Outcome learner (model_y= is the same option): a scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', 'ridge', 'linear', 'xgb', 'lgbm').",
+            "type": "string"
+          },
+          "ml_m": {
+            "description": "Treatment learner for plr / irm / pliv, instrument propensity learner for iivm (model_d= is the same option). A classifier where the target is binary.",
+            "type": "string"
+          },
+          "ml_r": {
+            "description": "Third learner of the instrumental models: E[Z | X] for pliv (a regressor), P(D = 1 | Z, X) for iivm (a classifier). Ignored by plr / irm.",
+            "type": "string"
+          },
           "model": {
             "default": "plr",
             "description": "DML model family",
@@ -5681,6 +5698,11 @@
             "default": false,
             "description": "Self-normalize the inverse-propensity weights for the IPW models (irm/iivm); matches DoubleML's normalize_ipw. Rejected for plr/pliv.",
             "type": "boolean"
+          },
+          "random_state": {
+            "default": 42,
+            "description": "Seed of the cross-fitting splits (seed= is accepted as an alias); repetition r of n_rep uses random_state + r. The default is fixed, so repeated calls agree.",
+            "type": "integer"
           },
           "sample_weight": {
             "description": "Observation weights (column or array); weights= is an alias.",
@@ -66768,7 +66790,7 @@
             "type": "integer"
           },
           "outcome_model": {
-            "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the 25th-75th percentile effect (bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
+            "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the headline dose contrast (see Returns; bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -66812,6 +66834,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata doseresponse / gpscore (Hirano-Imbens normal GPS, quadratic T and GPS with interaction) [Stata 18, doseresponse SSC]; tolerance 1e-9 rel on the dose-response function at 5 doses (observed 5.1e-10) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_dose_response_parity.py",
+      "tests/reference_parity/test_ml_probe_nov2026.py",
       "API/unit contract evidence: tests/test_phase9to14.py"
     ],
     "validation_status": "certified"
@@ -101278,7 +101301,7 @@
       "parameters": {
         "properties": {
           "benchmark_covariates": {
-            "description": "Subset of the original covariates to benchmark against. For each ``X_k``, the benchmark sets ``cf_y_bench, cf_d_bench`` to the partial R2 that ``X_k`` itself contributes (multiplied by ``k_y, k_d`` to express \"what if a confounder were kx as strong as ``X_k``?\").",
+            "description": "Covariates of the fit to benchmark against. For each entry (a name, or a list of names left out together) the same model is refitted on the same rows and splits without it, and ``cf_y_bench`` / ``cf_d_bench`` are the gains in outcome and Riesz-representer variation the entry brings (``doubleml``'s ``sensitivity_benchmark``), multiplied by ``k_y`` / ``k_d`` to express \"what if a confounder were k times as strong as ``X_k``?\". The table also reports ``delta_theta`` (short minus long estimate) and ``rho``, the degree of adversity. A name that is not a covariate of the fit raises, and so does a fit that cannot be refitted (sample weights, survey design, two-way clustering, external predictions). Up to 1.43.1 the benchmark was the squared correlation of ``X_k`` with the cross-fitted residuals, which is zero by construction because ``X_k`` is among the regressors behind them, and unknown names were skipped silently.",
             "items": {
               "type": "string"
             },
@@ -101323,7 +101346,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs doubleml (Python) DoubleML.sensitivity_analysis; tolerance bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario -- tests/external_parity/test_dml_sensitivity_parity.py",
       "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
-      "tests/reference_parity/test_dml_sensitivity_bound_scores.py"
+      "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
+      "tests/reference_parity/test_ml_probe_nov2026.py"
     ],
     "validation_status": "certified"
   },
@@ -170428,7 +170452,8 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Open Bandit Pipeline (obp) 0.5.7 InverseProbabilityWeighting (lambda_ inf and 2) [obp 0.5.7]; tolerance value 1e-12 rel (observed 0.0); SE identity 1e-10 -- tests/reference_parity/test_ml_causal_obp_parity.py"
+      "Cross-language parity (bit-exact) vs Open Bandit Pipeline (obp) 0.5.7 InverseProbabilityWeighting (lambda_ inf and 2) [obp 0.5.7]; tolerance value 1e-12 rel (observed 0.0); SE identity 1e-10 -- tests/reference_parity/test_ml_causal_obp_parity.py",
+      "tests/reference_parity/test_ml_probe_nov2026.py"
     ],
     "validation_status": "certified"
   },

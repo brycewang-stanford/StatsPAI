@@ -6222,3 +6222,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — traces 08 / 11 / 36 / 70 / 71 and orig 04 / 04b re-recorded (ML-causal probe)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `fix(ml): blind ML-causal probe vs DoubleML / econml / grf;
+  three wrong numbers`. The commit that adds this entry re-records the
+  traces.
+- **Reason.** `src/statspai/dml/_base.py` (a `score='ATTE'` fit is
+  labelled `ATT`; the fit keeps what `sp.dml_sensitivity` needs to refit
+  it without a covariate), `src/statspai/dml/iivm.py` (first-stage
+  probabilities are no longer clipped inside (0, 1)) and
+  `src/statspai/_article_aliases.py` (`sp.dml` accepts `seed=` and names
+  the valid options when one is unknown; the file is on the traced path of
+  every module that calls an article-facing alias) changed.
+- **Effect on the paper.** None. Modules 08, 11, 36, 70 and 71 were re-run
+  without Rust and compared with the committed `*_py.json`: worst relative
+  difference 6.0e-15 (module 11), restored. Module 71 fits IIVM, and none
+  of its first-stage probabilities is within 1e-4 of 0 or 1, so the clip
+  change does not move it. Original-data modules 04 and 04b reproduced
+  byte for byte. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

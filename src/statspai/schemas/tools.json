@@ -12785,7 +12785,7 @@
     "input_schema": {
       "properties": {
         "benchmark_covariates": {
-          "description": "Subset of the original covariates to benchmark against. For each ``X_k``, the benchmark sets ``cf_y_bench, cf_d_bench`` to the partial R2 that ``X_k`` itself contributes (multiplied by ``k_y, k_d`` to express \"what if a confounder were kx as strong as ``X_k``?\").",
+          "description": "Covariates of the fit to benchmark against. For each entry (a name, or a list of names left out together) the same model is refitted on the same rows and splits without it, and ``cf_y_bench`` / ``cf_d_bench`` are the gains in outcome and Riesz-representer variation the entry brings (``doubleml``'s ``sensitivity_benchmark``), multiplied by ``k_y`` / ``k_d`` to express \"what if a confounder were k times as strong as ``X_k``?\". The table also reports ``delta_theta`` (short minus long estimate) and ``rho``, the degree of adversity. A name that is not a covariate of the fit raises, and so does a fit that cannot be refitted (sample weights, survey design, two-way clustering, external predictions). Up to 1.43.1 the benchmark was the squared correlation of ``X_k`` with the cross-fitted residuals, which is zero by construction because ``X_k`` is among the regressors behind them, and unknown names were skipped silently.",
           "items": {
             "type": "string"
           },
@@ -12880,7 +12880,7 @@
           "type": "integer"
         },
         "outcome_model": {
-          "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the 25th-75th percentile effect (bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
+          "description": "Model for E[Y|T, GPS]. Default: GBM. The outcome model sees the two columns ``[T, GPS]``, so ``make_pipeline(PolynomialFeatures(2), LinearRegression())`` with ``treatment_model=LinearRegression()`` is the quadratic specification of Hirano and Imbens (2004). Neither choice is reliable in general. On a linear confounded design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``, n = 1000, 30 draws) the default GBM pair is nearly unbiased for the headline dose contrast (see Returns; bias -0.13 against a truth of about 1.9) but noisy (SD 0.43) and its curve was never monotone, while the Hirano-Imbens quadratic is precise (SD 0.07) and badly biased (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is not quadratic there. The default is therefore kept, and a call with both default models warns. For an average slope with valid inference use ``sp.dml(model='plr')``.",
           "type": "string",
           "x-statspai-source": "signature"
         },

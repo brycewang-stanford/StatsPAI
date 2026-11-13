@@ -5,6 +5,37 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: DML sensitivity benchmarks, IIVM one-sided non-compliance, DR dose-response bandwidth
+
+⚠️ correctness fix: `sp.dml_sensitivity(fit, benchmark_covariates=[...])`
+refits the model without each benchmark covariate and reports DoubleML's
+gain statistics. The old numbers (a squared correlation with residuals the
+covariate had been partialled out of) were zero by construction and cannot
+be recovered. The `benchmarks` table keeps its columns and gains `rho` and
+`delta_theta`. Two calls that used to return quietly now raise
+`MethodIncompatibility`: a name that is not a covariate of the fit, and a
+fit that cannot be refitted (sample weights, `design=`, two-way `cluster=`,
+`external_predictions=`). For those, pass `cf_y=` and `cf_d=` directly:
+
+```python
+sens = sp.dml_sensitivity(fit, benchmark_covariates=["inc", ["inc", "pira"]])
+sens.benchmarks[["variable", "cf_y_bench", "cf_d_bench", "rho", "delta_theta"]]
+```
+
+⚠️ correctness fix: `sp.dose_response(method="dr")` no longer selects a
+bandwidth whose leave-one-out risk is NaN. Results change only when the
+data have a dose far from all others; pass `bandwidth=` (the old value is
+in the stored `model_info["bandwidth"]`) to reproduce an earlier curve.
+
+⚠️ correctness fix: `sp.dml(model="iivm")` no longer clips the first-stage
+probabilities to [1e-4, 1 - 1e-4]. Estimates change (in the sixth digit on
+the 401(k) data) only when a first-stage probability is closer than 1e-4
+to 0 or 1, as under one-sided non-compliance.
+
+`sp.dml(model="irm", score="ATTE").estimand` is `"ATT"` (it was `"ATE"`).
+Code that selects results by `estimand == "ATE"` should include `"ATT"`
+for ATTE fits.
+
 ## 1.43 → next: Cox concordance with strata, Efron baseline hazard, RMST default tau, overlap-weight ESS
 
 ⚠️ correctness fix: `sp.cox(strata=...)` (unweighted, right-censored)
