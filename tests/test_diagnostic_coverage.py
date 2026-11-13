@@ -173,13 +173,17 @@ def _confounded(strength: float, n: int = 800, seed: int = 0) -> pd.DataFrame:
 
 @pytest.mark.parametrize("method", ["psm", "nearest", "mahalanobis", "cem"])
 def test_match_method_records_balance_and_flags_imbalance(method):
-    """The flag is about the matched sample.
+    """The flag is about the matched sample, at one threshold.
 
     Until 2026-11-13 this test asked for a ``balance`` violation at
-    selection strength 1.5, where every method balances the covariates
-    (largest matched |SMD| 0.07 to 0.13): the violation it saw was the
-    *pre*-matching table read as the post-matching one. Strength 8 leaves
-    real residual imbalance (0.29 to 0.66); strength 1.5 does not.
+    selection strength 1.5, where the violation it saw was the
+    *pre*-matching table read as the post-matching one. It then required
+    no flag at strength 1.5, which held only because ``violations()``
+    warned above 0.25 while ``sp.audit`` failed the same fit at 0.10
+    (owner decision 6 of the agent probe). There is one threshold now:
+    a matched sample is flagged exactly when its largest |SMD| exceeds
+    0.10 (0.07 to 0.13 at strength 1.5, depending on the method), and
+    the flag is ``severe`` above 0.25 (0.29 to 0.66 at strength 8).
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -194,14 +198,20 @@ def test_match_method_records_balance_and_flags_imbalance(method):
         assert isinstance(
             after, pd.DataFrame
         ), f"match({method}) does not record a post-match balance table"
-        assert r.model_info["max_abs_smd_after"] == pytest.approx(
-            float(after["smd"].abs().max())
-        )
-    (flag,) = [v for v in bad.violations() if v["test"] == "balance"]
-    assert flag["value"] == pytest.approx(bad.model_info["max_abs_smd_after"])
-    assert flag["value"] > flag["threshold"]
-    assert good.model_info["max_abs_smd_after"] < flag["threshold"]
-    assert "balance" not in {v["test"] for v in good.violations()}
+        worst = r.model_info["max_abs_smd_after"]
+        assert worst == pytest.approx(float(after["smd"].abs().max()))
+        flags = [v for v in r.violations() if v["test"] == "balance"]
+        assert bool(flags) == (worst > 0.10)
+        (audited,) = [c for c in sp.audit(r)["checks"] if c["name"] == "balance_after"]
+        # violations() and sp.audit judge the same number at the same line
+        assert (audited["status"] == "failed") == bool(flags)
+        assert audited["threshold"] == 0.10
+        for flag in flags:
+            assert flag["value"] == pytest.approx(worst)
+            assert flag["threshold"] == 0.10
+            assert flag["level"] == ("severe" if worst > 0.25 else "moderate")
+    assert bad.model_info["max_abs_smd_after"] > 0.25
+    assert good.model_info["max_abs_smd_after"] < 0.25
 
 
 def test_cbps_reports_residual_imbalance():
@@ -211,8 +221,8 @@ def test_cbps_reports_residual_imbalance():
     Selection strength 2.5 (not 1.5): the over-identified CBPS objective
     trades covariate balance off against the logit score equation, and since
     the solver was aligned with ``CBPS::CBPS`` it balances well enough at
-    strength 1.5 (max |SMD| 0.17) to sit below the 0.25 warning threshold.
-    Stronger selection is what leaves genuine residual imbalance to detect."""
+    strength 1.5 (max |SMD| 0.17) to sit below the level now marked severe
+    (0.25). Stronger selection leaves severe residual imbalance to detect."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         r = sp.cbps(_confounded(2.5), y="y", treat="d", covariates=["x1", "x2"])

@@ -459,3 +459,40 @@ def test_synth_sensitivity_reply_is_capped_and_readable_in_full(files):
         "synth_sensitivity", data_path=paths["synth"], detail="standard", **_SYNTH
     )
     assert len(whole["donor_sensitivity"]) == 100
+
+
+# --------------------------------------------------------------------------- #
+#  One balance threshold (owner decision 6 of the probe)
+# --------------------------------------------------------------------------- #
+def _confounded(strength: float, n: int = 800, seed: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    x1, x2 = rng.normal(size=n), rng.normal(size=n)
+    ps = 1 / (1 + np.exp(-(strength * x1 + 0.6 * strength * x2)))
+    d = (rng.uniform(size=n) < ps).astype(int)
+    y = 1 + 2 * d + x1 + x2 + rng.normal(size=n)
+    return pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+
+
+def test_violations_and_audit_share_one_balance_threshold():
+    from statspai.core import _agent_summary
+    from statspai.smart import audit as audit_module
+
+    assert audit_module._SMD_MAX is _agent_summary._SMD_MAX
+    assert (_agent_summary._SMD_MAX, _agent_summary._SMD_SEVERE) == (0.10, 0.25)
+    levels = {}
+    for strength in (1.5, 8.0):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fit = sp.match(
+                _confounded(strength), y="y", treat="d", covariates=["x1", "x2"]
+            )
+        worst = fit.model_info["max_abs_smd_after"]
+        (flag,) = [v for v in fit.violations() if v["test"] == "balance"]
+        (check,) = [c for c in sp.audit(fit)["checks"] if c["name"] == "balance_after"]
+        # the same number against the same line, in both reports
+        assert flag["value"] == pytest.approx(worst) == pytest.approx(check["value"])
+        assert flag["threshold"] == check["threshold"] == 0.10
+        assert check["status"] == "failed"
+        levels[strength] = (flag["level"], worst > 0.25)
+    # between 0.10 and 0.25 violations() used to say nothing
+    assert levels == {1.5: ("moderate", False), 8.0: ("severe", True)}

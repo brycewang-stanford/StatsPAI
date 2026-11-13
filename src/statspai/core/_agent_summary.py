@@ -47,15 +47,17 @@ _RHAT_MAX = 1.01
 _ESS_MIN = 400
 _DIVERGENCES_MAX = 0
 
-#: Maximum tolerable standardized mean difference after matching (SMD). 0.10 is
-#: the conventional "well balanced" target (Rosenbaum-Rubin); a match leaving
-#: more than this on a covariate is not ideal but often acceptable.
+#: The one balance threshold: a covariate is balanced after matching or
+#: weighting when its absolute standardized mean difference is below 0.10
+#: (the conventional target). ``violations()`` and ``sp.audit`` both read
+#: this constant; before 2026-11-13 ``violations()`` stayed silent up to
+#: 0.25 while ``sp.audit`` failed the same fit at 0.10.
 _SMD_MAX = 0.10
 
-#: Standardized mean difference above which residual imbalance is a *concern*
-#: worth flagging loudly (Stuart 2010; What Works Clearinghouse). Set above
-#: _SMD_MAX so the warning fires on genuinely poor matches, not borderline ones.
-_SMD_IMBALANCE_MAX = 0.25
+#: Above this the ``balance`` violation is marked ``level='severe'``: the
+#: adjusted comparison is still visibly confounded. It is a level of the
+#: same violation, not a second threshold.
+_SMD_SEVERE = 0.25
 
 #: Propensity score overlap: treated weight share below this → bad
 #: common support.
@@ -821,18 +823,29 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
     # matching / weighting estimators do), not on family detection — CBPS and
     # entropy balancing report balance but are not tagged "matching".
     smd_max = _max_covariate_smd(mi)
-    if smd_max is not None and smd_max > _SMD_IMBALANCE_MAX:
+    if smd_max is not None and smd_max > _SMD_MAX:
+        severe = smd_max > _SMD_SEVERE
         out.append(
             {
                 "kind": "assumption",
                 "severity": "warning",
                 "test": "balance",
+                "level": "severe" if severe else "moderate",
                 "value": smd_max,
-                "threshold": _SMD_IMBALANCE_MAX,
+                "threshold": _SMD_MAX,
+                "severe_above": _SMD_SEVERE,
                 "message": (
                     f"Max standardized mean difference after matching = "
-                    f"{smd_max:.3f} > {_SMD_IMBALANCE_MAX} — notable residual "
-                    "imbalance, so the matched comparison is still confounded."
+                    f"{smd_max:.3f} > {_SMD_MAX}"
+                    + (
+                        f" (and above {_SMD_SEVERE}) — notable residual "
+                        "imbalance, so the matched comparison is still "
+                        "confounded."
+                        if severe
+                        else " — residual imbalance on at least one "
+                        "covariate; the adjusted comparison is not balanced "
+                        "to the conventional 0.1 target."
+                    )
                 ),
                 "recovery_hint": (
                     "Tighten the caliper, add interactions/polynomials to the "
