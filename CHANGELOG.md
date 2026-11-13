@@ -4,6 +4,64 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Features a referee asks for by name: meta-analysis, experiments, ML (2026-11-13)
+
+Same round as the econometrics block below, for the epidemiology and
+ML-causal probes. Everything is additive: defaults and the numbers of
+existing calls are unchanged.
+
+#### Added
+- **`sp.meta_regression(effects, se, moderators)`** (new). Mixed-effects
+  meta-regression of study effects on study-level moderators, R
+  `metafor::rma(mods=)` and Stata `meta regress`. `method` is `"REML"`
+  (default), `"DL"`, `"ML"`, `"PM"` or `"fixed"`; `hksj=True` gives
+  Knapp-Hartung t and F tests. Reports the coefficient table, `tau2`, `i2`,
+  `h2`, `r2`, the residual-heterogeneity test `qe`, the omnibus moderator
+  test `qm`, and `.predict()`. Equal to `metafor` 5.0.1 and Stata 18 at 1e-8
+  with their tolerances tightened (observed 1e-12). Also
+  `result.meta_regression(moderators)` on a `sp.meta_analysis` result.
+  Without an intercept the residual heterogeneity is the weighted residual
+  sum of squares, as in Stata; `metafor` centres the effects first and gets
+  another number in that case only (shown in the test).
+- **`sp.trim_and_fill(effects, se)`** (new), also
+  `result.trim_and_fill()`. Duval-Tweedie adjustment with the `L0`, `R0`
+  and `Q0` estimators, side chosen from the asymmetry regression or given.
+  Number of imputed studies, side and imputed studies equal
+  `metafor::trimfill` exactly in 80 configurations; the pooled effect equals
+  it to 1e-10 for `"DL"` and `"fixed"`, and equals `rma` on the augmented
+  studies to 1e-8 for the iterative estimators (`trimfill` itself always
+  stops at `metafor`'s default tolerance, about 1e-4).
+- **`sp.meta_analysis(method="PM" | "ML")`.** Paule-Mandel and
+  maximum-likelihood estimates of the between-study variance (`metafor` to
+  1e-8, with and without `hksj=True`).
+- **`sp.srm_test(data, treat, expected=None)`** (new). Sample-ratio-mismatch
+  check: chi-square goodness-of-fit test of the arm counts against the
+  designed allocation, any number of arms, from row-level data or a mapping
+  of counts. Equal to R `chisq.test(x, p=)` at 1e-12 (statistic, expected
+  counts, residuals, standardised residuals) and 1e-10 (p-value). Typed
+  errors for one arm, no units, fractional counts, an arm with units and a
+  designed share of zero. `sp.search_functions("sample ratio mismatch")`
+  finds it.
+- **`sp.dml_sensitivity(rho=, level=)`.** Degree of adversity and coverage
+  of the interval, as `doubleml`'s `sensitivity_analysis(rho=, level=)`.
+  Bounds and their standard errors equal `doubleml` 0.11.4 at 1e-10 for PLR
+  and IRM (standard errors crosswise, the documented exchange); robustness
+  values within its root finder's tolerance. Defaults `rho=1.0` and the
+  level of the fit reproduce the previous output bit for bit.
+
+#### Changed (no numbers)
+- **Search.** `sp.search_functions` now returns `msprt` /
+  `group_sequential` for "sequential test", `ips` / `snips` /
+  `policy_value` for "off-policy evaluation", `gate_test` / `blp_test` for
+  "GATES BLP CLAN", `cate_gain_curve` for "uplift qini auuc",
+  `meta_regression` for "meta-regression" and `trim_and_fill` for "trim and
+  fill" (`tests/test_gaps_ml_usability.py`).
+- **`sp.metalearner`** no longer stores or prints `n_bootstrap`, an
+  argument that has been ignored since 1.11.4.
+- **Docstrings.** `sp.rate` names `sp.get_scores` and `sp.rate_split`
+  instead of two functions that are not exported; the `sp.ope` estimators
+  state what `reward_model(X, a)` must accept and return.
+
 ### Features a referee asks for by name: econometrics (2026-11-13)
 
 The applied-economics probe ended with a list of things an economist

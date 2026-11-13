@@ -114,8 +114,8 @@ class TestMetaAnalysis:
             ([0.1, 0.2], [0.1, -0.1], {}),
             ([0.1, 0.2], [0.1], {}),
             ([[0.1, 0.2]], [[0.1, 0.1]], {}),
-            # REML is a method since the 2026-11 probe; "ML" is not
-            ([0.1, 0.2], [0.1, 0.1], {"method": "ML"}),
+            # REML, ML and PM are methods since 2026-11; "HS" is not
+            ([0.1, 0.2], [0.1, 0.1], {"method": "HS"}),
         ],
     )
     def test_invalid_inputs_are_refused(self, effects, ses, kwargs):

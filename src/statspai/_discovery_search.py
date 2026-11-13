@@ -154,6 +154,9 @@ SYNONYMS: Dict[str, Tuple[str, ...]] = {
     "mr": ("mendelian", "mr"),
     "oaxaca": ("oaxaca", "blinder", "decomposition"),
     "power": ("power", "sample size", "mde"),
+    "seqtest": ("sequential test", "sequential", "always valid"),
+    "offpolicy": ("off-policy", "ope", "policy evaluation"),
+    "srm": ("sample ratio mismatch", "srm"),
 }
 
 #: Multi-word vocabulary, longest first, collapsed to one concept token.
@@ -254,6 +257,20 @@ PHRASES: Tuple[Tuple[str, str], ...] = (
     ("funnel plot", "metaanalysis"),
     ("forest plot", "metaanalysis"),
     ("small-study effects", "metaanalysis"),
+    ("meta-regression", "metaregression"),
+    ("meta regression", "metaregression"),
+    ("trim-and-fill", "trimfill"),
+    ("trim and fill", "trimfill"),
+    ("sample ratio mismatch", "srm"),
+    ("sample-ratio mismatch", "srm"),
+    ("sample ratio", "srm"),
+    ("offline policy evaluation", "offpolicy"),
+    ("off-policy evaluation", "offpolicy"),
+    ("off policy evaluation", "offpolicy"),
+    ("off-policy", "offpolicy"),
+    ("sequential testing", "seqtest"),
+    ("sequential tests", "seqtest"),
+    ("sequential test", "seqtest"),
 )
 
 #: Paraphrases an applied researcher types instead of the design name
@@ -299,7 +316,9 @@ PATTERNS: Tuple[Tuple["re.Pattern[str]", str], ...] = tuple(
 #: boost" rather than an error. Only estimand / design vocabulary lives here;
 #: every target must be an entry point that actually estimates the concept.
 CONCEPT_TARGETS: Dict[str, Tuple[str, ...]] = {
-    "metaanalysis": ("meta_analysis",),
+    "metaanalysis": ("meta_analysis", "trim_and_fill", "meta_regression"),
+    "metaregression": ("meta_regression",),
+    "trimfill": ("trim_and_fill",),
     "weibull": ("aft", "survreg"),
     "did": ("did", "callaway_santanna", "event_study"),
     "staggered": ("callaway_santanna", "sun_abraham", "did_imputation"),
@@ -352,6 +371,14 @@ CONCEPT_TARGETS: Dict[str, Tuple[str, ...]] = {
     "weakiv": ("iv_diag", "effective_f_test", "weakrobust", "anderson_rubin_ci"),
     "ebal": ("ebalance",),
     "cutoff": ("rdrobust", "rd"),
+    "srm": ("srm_test",),
+    "offpolicy": ("ips", "snips", "policy_value"),
+    "seqtest": ("msprt", "group_sequential"),
+    "gates": ("gate_test", "blp_test"),
+    "clan": ("gate_test", "blp_test"),
+    "uplift": ("cate_gain_curve", "cate_eval"),
+    "qini": ("cate_gain_curve", "rate"),
+    "auuc": ("cate_gain_curve", "cate_eval"),
 }
 
 #: Down-weight for concept words that are ambiguous on their own (a bare

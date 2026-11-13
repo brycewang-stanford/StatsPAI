@@ -3,7 +3,8 @@ Experimental design and analysis tools.
 
 Provides randomization, balance checking, attrition analysis,
 pre-analysis plan generation, group sequential designs, always-valid
-(mixture SPRT) inference and CUPED variance reduction for RCTs and A/B tests.
+(mixture SPRT) inference, CUPED variance reduction and the sample-ratio-mismatch
+check for RCTs and A/B tests.
 """
 
 from .adaptive import (
@@ -20,6 +21,7 @@ from .design import BalanceResult, RandomizationResult, balance_check, randomize
 from .group_sequential import GroupSequentialResult, group_sequential
 from .msprt import MSPRTResult, msprt, msprt_lambda
 from .optimal import OptimalDesignResult, optimal_design
+from .srm import SRMResult, srm_test
 from .switchback import switchback, switchback_design
 
 __all__ = [
@@ -46,4 +48,6 @@ __all__ = [
     "msprt_lambda",
     "MSPRTResult",
     "cuped",
+    "srm_test",
+    "SRMResult",
 ]

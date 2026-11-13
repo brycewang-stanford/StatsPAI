@@ -130,6 +130,10 @@ class DMLSensitivityResult(ResultProtocolMixin):
         module notes.
     q : float
     alpha : float
+        One minus the ``level`` of the interval for the range.
+    rho : float
+        Degree of adversity the bounds were computed under (1 is the
+        worst case).
     method : str
         Always ``"DML-OVB (Chernozhukov-Cinelli-Newey 2022)"``.
 
@@ -171,6 +175,7 @@ class DMLSensitivityResult(ResultProtocolMixin):
     se_high: float = float("nan")
     ci_low: float = float("nan")
     ci_high: float = float("nan")
+    rho: float = 1.0
     method: str = "DML-OVB (Chernozhukov-Cinelli-Newey 2022)"
 
     def summary(self) -> str:
@@ -186,6 +191,11 @@ class DMLSensitivityResult(ResultProtocolMixin):
             f"{self.rv_qa:.4f}   "
             "(strength to lose significance)",
         ]
+        if self.rho != 1.0:
+            lines.append(
+                f"  Degree of adversity rho          : {self.rho:.4f}   "
+                "(1 is the worst case)"
+            )
         if self.cf_y is not None and self.cf_d is not None:
             lines += [
                 f"  Bias bound (cf_y={self.cf_y:.3f}, cf_d={self.cf_d:.3f}) : "
@@ -336,14 +346,16 @@ class _ScoreBounds:
             "ci_high": float(np.median(hi + z * shi)),
         }
 
-    def robustness_value(self, null: float, what: str, upper_side: bool) -> float:
-        """Smallest ``cf_y = cf_d`` at which the bound, or its interval, hits ``null``."""
+    def robustness_value(
+        self, null: float, what: str, upper_side: bool, rho: float = 1.0
+    ) -> float:
+        """Smallest ``cf_y = cf_d`` at which the bound or its interval hits ``null``."""
         side = "high" if upper_side else "low"
         key = f"theta_{side}" if what == "theta" else f"ci_{side}"
         sign = -1.0 if upper_side else 1.0
 
         def gap(cf: float) -> float:
-            return sign * (self.scenario(cf / np.sqrt(1.0 - cf))[key] - null)
+            return sign * (self.scenario(rho * cf / np.sqrt(1.0 - cf))[key] - null)
 
         if gap(0.0) <= 0:
             return 0.0
@@ -374,6 +386,9 @@ def dml_sensitivity(
     benchmark_covariates: Optional[Sequence[str]] = None,
     k_y: float = 1.0,
     k_d: float = 1.0,
+    *,
+    rho: float = 1.0,
+    level: Optional[float] = None,
 ) -> DMLSensitivityResult:
     """Compute DML-OVB sensitivity for a fitted DML CausalResult.
 
@@ -412,6 +427,19 @@ def dml_sensitivity(
         them, and unknown names were skipped silently.
     k_y, k_d : float
         Multipliers for the benchmark strengths.
+    rho : float, default 1.0
+        Degree of adversity, between -1 and 1: the correlation between the
+        confounding the omitted variable creates in the outcome regression
+        and in the Riesz representer. The bias bound is ``|rho|`` times the
+        worst-case one, and the robustness values are the strengths needed
+        at that ``rho``. The default 1 is the worst case (``doubleml``'s
+        ``sensitivity_analysis(rho=)`` has the same default). The ``rho``
+        column of the benchmark table is an estimate one can plug in here.
+    level : float, optional
+        Coverage of the interval for the adjusted-estimate range, and the
+        level behind ``rv_qa``. Default ``1 - alpha`` of the fit, 0.95
+        unless the fit asked for something else (``doubleml``'s
+        ``sensitivity_analysis(level=)`` defaults to 0.95 as well).
 
     Returns
     -------
@@ -452,6 +480,23 @@ def dml_sensitivity(
     se = float(result.se)
     alpha = getattr(result, "alpha", None)
     alpha = 0.05 if alpha is None else float(alpha)
+    if level is not None:
+        if not (isinstance(level, (int, float)) and 0.0 < float(level) < 1.0):
+            raise MethodIncompatibility(
+                f"dml_sensitivity: level must lie strictly between 0 and 1, "
+                f"got {level!r}.",
+                recovery_hint="Pass a coverage such as level=0.95 or level=0.90.",
+            )
+        alpha = 1.0 - float(level)
+    if not (isinstance(rho, (int, float)) and -1.0 <= float(rho) <= 1.0):
+        raise MethodIncompatibility(
+            f"dml_sensitivity: rho must lie in [-1, 1], got {rho!r}.",
+            recovery_hint=(
+                "rho is a correlation. Use rho=1.0 for the worst case, or the "
+                "rho column of the benchmark table."
+            ),
+        )
+    rho_abs = abs(float(rho))
     y_resid = info.get("_y_resid")
     d_resid = info.get("_d_resid")
     reps = info.get("_sens")
@@ -489,12 +534,27 @@ def dml_sensitivity(
     null = (1.0 - q) * theta
     upper_side = null > theta
     if bounds is not None:
-        rv_q = bounds.robustness_value(null, "theta", upper_side)
-        rv_qa = bounds.robustness_value(null, "ci", upper_side)
+        if rho_abs > 0:
+            rv_q = bounds.robustness_value(null, "theta", upper_side, rho_abs)
+            rv_qa = bounds.robustness_value(null, "ci", upper_side, rho_abs)
+        else:
+            # No strength of a confounder that is uncorrelated across the
+            # two regressions moves the bound: the value is 1 unless the
+            # estimate (or its interval) is already at the null.
+            flat = bounds.scenario(0.0)
+            side = "high" if upper_side else "low"
+            sign = -1.0 if upper_side else 1.0
+            rv_q = 1.0 if sign * (flat[f"theta_{side}"] - null) > 0 else 0.0
+            rv_qa = 1.0 if sign * (flat[f"ci_{side}"] - null) > 0 else 0.0
     else:
         crit = float(_stats.norm.ppf(1 - alpha / 2))
-        rv_q = _robustness_value(q * abs(theta), s)
-        rv_qa = _robustness_value(max(abs(theta) - crit * se, 0.0), s)
+        s_rho = s * rho_abs
+        if rho_abs > 0:
+            rv_q = _robustness_value(q * abs(theta), s_rho)
+            rv_qa = _robustness_value(max(abs(theta) - crit * se, 0.0), s_rho)
+        else:
+            rv_q = 1.0 if q * abs(theta) > 0 else 0.0
+            rv_qa = 1.0 if abs(theta) - crit * se > 0 else 0.0
 
     # User-specified scenario (cf_y, cf_d): bias bound, adjusted range and,
     # when the score elements are available, its sampling error.
@@ -503,7 +563,7 @@ def dml_sensitivity(
     if cf_y is not None and cf_d is not None:
         cf_d = float(np.clip(cf_d, 0.0, 0.999))
         cf_y = float(np.clip(cf_y, 0.0, 0.999))
-        strength = float(np.sqrt(cf_y * cf_d / (1 - cf_d)))
+        strength = rho_abs * float(np.sqrt(cf_y * cf_d / (1 - cf_d)))
         bias_bound = strength * s
         if bounds is not None:
             sc = bounds.scenario(strength)
@@ -540,4 +600,5 @@ def dml_sensitivity(
         se_high=se_high,
         ci_low=ci_low,
         ci_high=ci_high,
+        rho=float(rho),
     )

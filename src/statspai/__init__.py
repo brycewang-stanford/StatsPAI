@@ -283,10 +283,12 @@ from .inference import (
     FisherResult,
     IbragimovMuellerResult,
     MetaAnalysisResult,
+    MetaRegressionResult,
     PATEEstimator,
     RITestResult,
     SDTestResult,
     SuestResult,
+    TrimFillResult,
     TTestResult,
     aipw,
     bitest,
@@ -314,6 +316,7 @@ from .inference import (
     loneway,
     median_test,
     meta_analysis,
+    meta_regression,
     multiway_cluster_vcov,
     oneway,
     pate,
@@ -330,6 +333,7 @@ from .inference import (
     subcluster_wild_bootstrap,
     suest,
     swilk,
+    trim_and_fill,
     ttest,
     twoway_cluster,
     vcov,
@@ -1960,6 +1964,10 @@ __all__ = [
     # Meta-analysis (evidence synthesis)
     "meta_analysis",
     "MetaAnalysisResult",
+    "meta_regression",
+    "MetaRegressionResult",
+    "trim_and_fill",
+    "TrimFillResult",
     # Prediction-powered inference (AI/ML-labeled data)
     "ppi_mean",
     "ppi_ols",
@@ -2380,6 +2388,8 @@ __all__ = [
     "msprt_lambda",
     "MSPRTResult",
     "cuped",
+    "srm_test",
+    "SRMResult",
     # Design of experiments (factorial, optimal, space-filling, sensitivity)
     "space_filling",
     "design_augment",
@@ -3976,6 +3986,8 @@ _register_lazy(
     "msprt_lambda",
     "MSPRTResult",
     "cuped",
+    "srm_test",
+    "SRMResult",
 )
 _register_lazy(
     "doe",

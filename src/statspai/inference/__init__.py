@@ -23,6 +23,12 @@ from .jackknife import cr2_se, jackknife_se, wild_cluster_boot
 from .lm_lin import lm_lin
 from .loneway import loneway
 from .meta_analysis import MetaAnalysisResult, meta_analysis
+from .meta_regression import (
+    MetaRegressionResult,
+    TrimFillResult,
+    meta_regression,
+    trim_and_fill,
+)
 from .multiway_cluster import (
     cluster_robust_se,
     cr3_jackknife_vcov,
@@ -86,6 +92,10 @@ __all__ = [
     "cr3_jackknife_vcov",
     "meta_analysis",
     "MetaAnalysisResult",
+    "meta_regression",
+    "MetaRegressionResult",
+    "trim_and_fill",
+    "TrimFillResult",
     "ppi_mean",
     "ppi_ols",
     "ttest",

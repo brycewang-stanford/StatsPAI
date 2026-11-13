@@ -41,6 +41,14 @@ __all__ = [
     "meta_analysis",
 ]
 
+#: Printed name of each between-study variance estimator.
+_TAU2_NAMES = {
+    "DL": "DerSimonian-Laird",
+    "REML": "REML",
+    "ML": "maximum likelihood",
+    "PM": "Paule-Mandel",
+}
+
 
 @dataclass
 class MetaAnalysisResult(ResultProtocolMixin):
@@ -55,8 +63,10 @@ class MetaAnalysisResult(ResultProtocolMixin):
     p_value : float
         Two-sided p-value for the pooled effect being zero.
     method : str
-        ``"fixed"``, ``"DL"`` (DerSimonian-Laird random effects) or
-        ``"REML"`` (restricted maximum likelihood random effects).
+        ``"fixed"``, or random effects with the between-study variance
+        estimated by ``"DL"`` (DerSimonian-Laird), ``"REML"`` (restricted
+        maximum likelihood), ``"ML"`` (maximum likelihood) or ``"PM"``
+        (Paule-Mandel).
     fixed_estimate, fixed_se : float
         Fixed-effect pooled estimate and SE (always reported).
     random_estimate, random_se : float
@@ -162,7 +172,7 @@ class MetaAnalysisResult(ResultProtocolMixin):
         k = len(self.effects)
         out = ["=" * 72, "Meta-analysis (summary data)", "=" * 72]
         out.append(f"Studies (k)          : {k}")
-        tau_name = "REML" if self.method == "REML" else "DerSimonian-Laird"
+        tau_name = _TAU2_NAMES.get(self.method, "DerSimonian-Laird")
         model = (
             "fixed-effect (inverse-variance)"
             if self.method == "fixed"
@@ -207,6 +217,31 @@ class MetaAnalysisResult(ResultProtocolMixin):
             )
         out.append("=" * 72)
         return "\n".join(out)
+
+    def trim_and_fill(self, **kwargs: Any) -> Any:
+        """Duval-Tweedie trim-and-fill adjustment of this meta-analysis.
+
+        Keyword arguments (``side=``, ``estimator=``, ``maxiter=``) are
+        those of :func:`statspai.trim_and_fill`; the model, the Knapp-Hartung
+        choice and ``alpha`` are those of this fit.
+        """
+        from .meta_regression import trim_and_fill
+
+        return trim_and_fill(self, **kwargs)
+
+    def meta_regression(self, moderators: Any, **kwargs: Any) -> Any:
+        """Meta-regression of these studies on study-level ``moderators``.
+
+        The between-study variance estimator, the Knapp-Hartung choice and
+        ``alpha`` default to those of this fit; other keyword arguments are
+        those of :func:`statspai.meta_regression`.
+        """
+        from .meta_regression import meta_regression
+
+        kwargs.setdefault("method", self.method)
+        kwargs.setdefault("hksj", self.hksj)
+        kwargs.setdefault("alpha", self.alpha)
+        return meta_regression(self.effects, self.se_studies, moderators, **kwargs)
 
     def forest_plot(self, ax: Any = None, **kwargs: Any) -> Any:
         """Forest plot: per-study effects + CIs with the pooled diamond."""
@@ -276,8 +311,9 @@ def meta_analysis(
     """Summary-data meta-analysis with fixed- and random-effects pooling.
 
     Pools study-level effect sizes by inverse variance (fixed effect) and
-    under a random-effects model with the DerSimonian-Laird or the REML
-    estimate of the between-study variance, with the heterogeneity
+    under a random-effects model with the DerSimonian-Laird, REML, maximum
+    likelihood or Paule-Mandel estimate of the between-study variance, with
+    the heterogeneity
     statistics (Cochran's Q, I-squared, tau-squared, H-squared), a
     prediction interval, the optional Knapp-Hartung (HKSJ) adjustment,
     Egger's regression test for funnel-plot asymmetry (small-study effects,
@@ -290,13 +326,16 @@ def meta_analysis(
         Per-study effect sizes (e.g. log odds ratios, mean differences).
     se : sequence of float
         Per-study standard errors (must be positive).
-    method : {"DL", "REML", "fixed"}
+    method : {"DL", "REML", "ML", "PM", "fixed"}
         Which model the headline ``estimate`` reports: random effects with
         the DerSimonian-Laird moment estimate of the between-study
-        variance (default) or with its restricted-maximum-likelihood
+        variance (default), with its restricted-maximum-likelihood
         estimate (``"REML"``, the default of R ``metafor::rma`` and Stata
-        ``meta``), or fixed-effect inverse-variance. The fixed-effect and
-        a random-effects result are always both available on the result.
+        ``meta``), its maximum-likelihood estimate (``"ML"``) or the
+        Paule-Mandel estimate (``"PM"``, the between-study variance at
+        which the generalised Q statistic equals its degrees of freedom),
+        or fixed-effect inverse-variance. The fixed-effect and a
+        random-effects result are always both available on the result.
     labels : sequence of str, optional
         Study labels for the forest plot.
     alpha : float
@@ -319,7 +358,14 @@ def meta_analysis(
     differ slightly. The prediction interval is
     ``mu +/- t(k - 2) sqrt(se^2 + tau^2)`` (Higgins, Thompson and
     Spiegelhalter 2009), with the model-based ``se``; ``metafor``'s
-    default uses the normal quantile.
+    default uses the normal quantile. The iterative estimators (``"REML"``,
+    ``"ML"``, ``"PM"``) are run to machine precision; ``metafor`` stops at
+    a relative change of 1e-5 by default, so its printed ``tau^2`` agrees to
+    about five digits unless its ``control`` tolerances are tightened.
+
+    For moderators see :func:`statspai.meta_regression`; for the
+    Duval-Tweedie adjustment see :func:`statspai.trim_and_fill` (also
+    available as ``result.trim_and_fill()``).
 
     Returns
     -------
@@ -356,8 +402,8 @@ def meta_analysis(
     k = len(y)
     if k < 2:
         raise ValueError("meta-analysis needs at least 2 studies.")
-    if method not in ("DL", "REML", "fixed"):
-        raise ValueError("method must be 'DL', 'REML' or 'fixed'.")
+    if method not in ("DL", "REML", "ML", "PM", "fixed"):
+        raise ValueError("method must be 'DL', 'REML', 'ML', 'PM' or 'fixed'.")
     if hksj and method == "fixed":
         raise MethodIncompatibility(
             "meta_analysis: the Knapp-Hartung adjustment (hksj=True) belongs "
@@ -387,6 +433,10 @@ def meta_analysis(
     tau2 = max(0.0, (q - df) / c) if c > 0 else 0.0
     if method == "REML":
         tau2 = _reml_tau2(y, s**2, tau2)
+    elif method in ("ML", "PM"):
+        from ._meta_core import estimate_tau2
+
+        tau2 = estimate_tau2(y, s**2, np.ones((k, 1)), method)
     q_pvalue = float(stats.chi2.sf(q, df)) if df > 0 else float("nan")
     i2 = max(0.0, (q - df) / q) if q > 0 else 0.0
     h2 = q / df if df > 0 else float("nan")

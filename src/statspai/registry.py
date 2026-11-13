@@ -30477,6 +30477,68 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="srm_test",
+            category="experimental",
+            description=(
+                "Sample-ratio-mismatch check for an A/B test or RCT: Pearson "
+                "chi-square goodness-of-fit test of the observed arm counts "
+                "against the designed allocation, for any number of arms "
+                "(R chisq.test(x, p=))."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame",
+                    True,
+                    None,
+                    "Row-level data, or a mapping / Series of arm -> count",
+                ),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    None,
+                    "Assignment column (required with a DataFrame)",
+                ),
+                ParamSpec(
+                    "expected",
+                    "list",
+                    False,
+                    None,
+                    "Designed shares or ratios per arm in sorted arm order, or "
+                    "a mapping arm -> share; rescaled to sum to one (default "
+                    "equal shares)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.001,
+                    "Level below which the result flags a mismatch",
+                ),
+            ],
+            returns="SRMResult (.statistic, .df, .p_value, .mismatch, .table)",
+            example='sp.srm_test({"control": 5000, "treated": 5300})',
+            tags=[
+                "experiment",
+                "a/b test",
+                "sample ratio mismatch",
+                "srm",
+                "randomization check",
+                "goodness of fit",
+                "chi-square",
+            ],
+            assumptions=[
+                "Units are assigned independently with the designed " "probabilities",
+                "Expected counts are large enough for the chi-square "
+                "approximation (at least 5 per arm)",
+            ],
+            alternatives=["balance_check", "attrition_test"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="contextual_bandit",
             category="experimental",
             description=(

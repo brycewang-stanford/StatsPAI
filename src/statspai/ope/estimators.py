@@ -23,8 +23,10 @@ counterfactual learning. NeurIPS.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Callable, TypeVar
+
 import numpy as np
 
 from .._result_serialize import ResultProtocolMixin
@@ -132,10 +134,24 @@ def direct_method(
     Parameters
     ----------
     reward_model : callable
-        ``reward_model(X, a)`` → vector of length n predicting E[R | X, a].
-    X : (n, d) array
-    pi_e : (n, K) array
-        Evaluation policy probabilities over K actions at each X_i.
+        ``reward_model(X, a)`` returns the predicted reward
+        :math:`E[R \\mid X, A = a]` for every row of ``X`` as a length-``n``
+        array. ``a`` is either one action index (an ``int``; the same
+        action for every row) or a length-``n`` integer array giving a
+        different action per row, and the callable must accept both. A
+        fitted regressor is not a ``reward_model``; wrap it, for example
+        ``lambda X, a: model.predict(np.column_stack([X, np.broadcast_to(a,
+        len(X))]))``. For a valid standard error fit it on data other than
+        the rows being evaluated.
+    X : array, shape (n, d)
+        Contexts, passed to ``reward_model`` unchanged.
+    pi_e : array, shape (n, K)
+        Evaluation policy: probability of each action at each row.
+
+    Returns
+    -------
+    OPEResult
+        ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
     """
     n, K = pi_e.shape
     V = np.zeros(n)
@@ -172,7 +188,29 @@ def ips(
     pi_e: np.ndarray,
     clip: float | None = 1000.0,
 ) -> OPEResult:
-    """Inverse Propensity Scoring (aka IPS / Horvitz-Thompson)."""
+    """Inverse Propensity Scoring (aka IPS / Horvitz-Thompson).
+
+    Needs no ``reward_model``.
+
+    Parameters
+    ----------
+    actions : array of int, shape (n,)
+        Logged action of each row, coded ``0, ..., K - 1``.
+    rewards : array of float, shape (n,)
+        Observed reward of each row.
+    pi_b : array, shape (n, K)
+        Behaviour (logging) policy: probability of each action at each row.
+    pi_e : array, shape (n, K)
+        Evaluation policy: probability of each action at each row.
+    clip : float or None, default 1000.0
+        Upper bound on the importance ratio ``pi_e / pi_b``; ``None`` for
+        no clipping.
+
+    Returns
+    -------
+    OPEResult
+        ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
+    """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
     pe_at_a = pi_e[np.arange(len(a)), a]
@@ -202,7 +240,29 @@ def snips(
     pi_e: np.ndarray,
     clip: float | None = 1000.0,
 ) -> OPEResult:
-    """Self-Normalized IPS -- reduces variance at small bias cost."""
+    """Self-Normalized IPS -- reduces variance at small bias cost.
+
+    Needs no ``reward_model``.
+
+    Parameters
+    ----------
+    actions : array of int, shape (n,)
+        Logged action of each row, coded ``0, ..., K - 1``.
+    rewards : array of float, shape (n,)
+        Observed reward of each row.
+    pi_b : array, shape (n, K)
+        Behaviour (logging) policy: probability of each action at each row.
+    pi_e : array, shape (n, K)
+        Evaluation policy: probability of each action at each row.
+    clip : float or None, default 1000.0
+        Upper bound on the importance ratio ``pi_e / pi_b``; ``None`` for
+        no clipping.
+
+    Returns
+    -------
+    OPEResult
+        ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
+    """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
     rho = pi_e[np.arange(len(a)), a] / np.clip(pi_b[np.arange(len(a)), a], 1e-6, None)
@@ -232,7 +292,44 @@ def doubly_robust(
     reward_model: RewardModel,
     clip: float | None = 1000.0,
 ) -> OPEResult:
-    """Doubly Robust estimator (Dudik, Langford, Li 2011)."""
+    """Doubly Robust estimator (Dudik, Langford, Li 2011).
+
+    The direct-method value of ``reward_model`` plus an importance-weighted
+    correction on its residuals at the logged actions.
+
+    Parameters
+    ----------
+    X : array, shape (n, d)
+        Contexts, passed to ``reward_model`` unchanged.
+    actions : array of int, shape (n,)
+        Logged action of each row, coded ``0, ..., K - 1``.
+    rewards : array of float, shape (n,)
+        Observed reward of each row.
+    pi_b : array, shape (n, K)
+        Behaviour (logging) policy: probability of each action at each row.
+    pi_e : array, shape (n, K)
+        Evaluation policy: probability of each action at each row.
+    reward_model : callable
+        ``reward_model(X, a)`` returns the predicted reward
+        :math:`E[R \\mid X, A = a]` for every row of ``X`` as a length-``n``
+        array. ``a`` is either one action index (an ``int``; the same
+        action for every row) or a length-``n`` integer array giving a
+        different action per row, and the callable must accept both. A
+        fitted regressor is not a ``reward_model``; wrap it, for example
+        ``lambda X, a: model.predict(np.column_stack([X, np.broadcast_to(a,
+        len(X))]))``. For a valid standard error fit it on data other than
+        the rows being evaluated.
+        It is called once per action with an ``int`` and once with the
+        array of logged ``actions``.
+    clip : float or None, default 1000.0
+        Upper bound on the importance ratio ``pi_e / pi_b``; ``None`` for
+        no clipping.
+
+    Returns
+    -------
+    OPEResult
+        ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
+    """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
     n, K = pi_e.shape
@@ -272,8 +369,43 @@ def switch_dr(
     reward_model: RewardModel,
     tau: float = 10.0,
 ) -> OPEResult:
-    """Switch-DR (Wang, Agarwal, Dudík 2017): fall back to the DM
-    whenever the importance ratio exceeds ``tau``."""
+    """Switch-DR (Wang, Agarwal, Dudík 2017).
+
+    Falls back to the direct method whenever the importance ratio exceeds
+    ``tau``.
+
+    Parameters
+    ----------
+    X : array, shape (n, d)
+        Contexts, passed to ``reward_model`` unchanged.
+    actions : array of int, shape (n,)
+        Logged action of each row, coded ``0, ..., K - 1``.
+    rewards : array of float, shape (n,)
+        Observed reward of each row.
+    pi_b : array, shape (n, K)
+        Behaviour (logging) policy: probability of each action at each row.
+    pi_e : array, shape (n, K)
+        Evaluation policy: probability of each action at each row.
+    reward_model : callable
+        ``reward_model(X, a)`` returns the predicted reward
+        :math:`E[R \\mid X, A = a]` for every row of ``X`` as a length-``n``
+        array. ``a`` is either one action index (an ``int``; the same
+        action for every row) or a length-``n`` integer array giving a
+        different action per row, and the callable must accept both. A
+        fitted regressor is not a ``reward_model``; wrap it, for example
+        ``lambda X, a: model.predict(np.column_stack([X, np.broadcast_to(a,
+        len(X))]))``. For a valid standard error fit it on data other than
+        the rows being evaluated.
+        It is called once per action with an ``int`` and once with the
+        array of logged ``actions``.
+    tau : float, default 10.0
+        Importance ratios above this value drop the correction term.
+
+    Returns
+    -------
+    OPEResult
+        ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
+    """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
     n, K = pi_e.shape
@@ -310,7 +442,23 @@ def evaluate(
 ) -> OPEResult:
     """Dispatch-by-name for OPE methods.
 
+    Parameters
+    ----------
     method : {"DM", "IPS", "SNIPS", "DR", "Switch-DR"}
+        Estimator. ``DM``, ``DR`` and ``Switch-DR`` need ``reward_model``
+        and ``X``; ``IPS`` and ``SNIPS`` do not.
+    X, actions, rewards, pi_b, pi_e : array, optional
+        As in the estimator named by ``method``.
+    reward_model : callable, optional
+        ``reward_model(X, a)`` returning the predicted reward for every
+        row, with ``a`` an action index or a per-row array of actions. See
+        :func:`doubly_robust`.
+    **kw
+        Passed to the estimator (``clip=``, ``tau=``).
+
+    Returns
+    -------
+    OPEResult
     """
     if not isinstance(method, str) or not method:
         raise _ope_error(

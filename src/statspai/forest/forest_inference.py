@@ -1057,7 +1057,7 @@ def rate(
     rule -- by default the forest's own CATE predictions (out-of-bag for
     GRF-engine forests), or any ``priorities`` vector (e.g. from a model
     trained on another sample) -- on the forest's doubly-robust scores
-    (:func:`aipw_scores`, ``grf::get_scores``).  Units are sorted by
+    (``sp.get_scores(forest)``, ``grf::get_scores``).  Units are sorted by
     decreasing priority, scores are averaged within tied priorities, and
 
     - **AUTOC** = mean over ``k`` of ``TOC_k``,
@@ -1065,7 +1065,10 @@ def rate(
 
     with ``TOC_k`` the mean score of the top ``k`` units minus the overall
     mean -- ``grf``'s estimator, reproduced exactly given the same scores
-    and priorities (the pure operator :func:`rate_from_scores`).
+    and priorities.  To evaluate a rule on scores computed elsewhere, use
+    ``sp.rate_split`` for a train / evaluation split, or the operator
+    ``statspai.forest.forest_inference.rate_from_scores(scores,
+    priorities)``, which is not exported at the top level.
 
     Standard error: ``se_method='influence'`` (default) is the analytic
     influence-function SE including the term from estimating the priority

@@ -1455,7 +1455,6 @@ def metalearner(
         "learner": learner_names[learner],
         "n_covariates": len(covariates),
         "n_folds": n_folds if learner in ("r", "dr") else None,
-        "n_bootstrap": n_bootstrap,
         "cross_fit_partition": (
             "fold_indices"
             if folds is not None
