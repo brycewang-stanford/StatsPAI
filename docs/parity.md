@@ -932,7 +932,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `fourier_terms` | [`test_forecasting_r_parity.py`](../tests/reference_parity/test_forecasting_r_parity.py) |
 | `from_r` | [`test_accounting_research_parity.py`](../tests/reference_parity/test_accounting_research_parity.py) |
-| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+16) |
+| `from_stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+17) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `fuzzy_did` | [`test_fuzzy_did_stata_parity.py`](../tests/reference_parity/test_fuzzy_did_stata_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -1102,7 +1102,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `srm_test` | [`test_gaps_ml_parity.py`](../tests/reference_parity/test_gaps_ml_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+12) |
+| `stata` | [`test_bitest_stata_parity.py`](../tests/reference_parity/test_bitest_stata_parity.py) (+13) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `stochvol` | [`test_bayes_timeseries_exact_posterior.py`](../tests/reference_parity/test_bayes_timeseries_exact_posterior.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |

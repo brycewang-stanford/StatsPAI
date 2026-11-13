@@ -30659,7 +30659,7 @@
           "type": "array"
         },
         "kind": {
-          "description": "Override the auto-detected plot kind. Common values: 'event_study', 'rdplot', 'synth_gap', 'love_plot', 'coef_plot'.",
+          "description": "Plot kind, e.g. 'event_study', 'rdplot', 'synth_gap', 'love_plot', 'coef_plot'; the reply lists valid_kinds for the result.",
           "type": "string"
         },
         "result_id": {

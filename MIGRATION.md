@@ -42,6 +42,7 @@ independent check.
 `sp.iv_mediate` gains `equations="joint"`. The default is unchanged.
 
 ---
+
 ## 1.43 → next: next steps by family, balance threshold 0.10, `sp.audit` `robust_se`, private keys out of `to_dict()`, MCP reply fields
 
 No estimate, standard error or interval changes in this entry.
@@ -107,6 +108,8 @@ MCP:
 - At `detail='agent'`, a table nested in a dict result is cut to 20 rows
   once it passes 4 KB (`arrays_capped`, full table at the listed
   resource). Pass `detail='standard'` for every row.
+
+---
 
 ## 1.43 → next: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
 
