@@ -53,3 +53,14 @@ def test_every_relative_link_in_llms_txt_resolves_in_the_repo():
     for target in re.findall(r"\]\(([^)\s#]+)", text):
         if "://" not in target:
             assert (ROOT / target).exists(), target
+
+
+def test_site_version_is_the_package_version():
+    # read without tomllib, which Python 3.10 lacks
+    import types
+
+    import statspai as sp
+
+    config = types.SimpleNamespace(extra={})
+    seo.on_config(config)
+    assert config.extra["statspai_version"] == sp.__version__

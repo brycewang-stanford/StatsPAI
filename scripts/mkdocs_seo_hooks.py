@@ -17,7 +17,6 @@ Registered under ``hooks:`` in ``mkdocs.yml``.
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -97,8 +96,12 @@ def describe(markdown: str) -> str:
 
 
 def on_config(config, **kwargs):
-    with open(ROOT / "pyproject.toml", "rb") as fh:
-        config.extra["statspai_version"] = tomllib.load(fh)["project"]["version"]
+    # A regex, not tomllib: tomllib is 3.11+ and the package supports 3.10.
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, flags=re.MULTILINE)
+    if match is None:
+        raise ValueError("pyproject.toml has no top-level version line")
+    config.extra["statspai_version"] = match.group(1)
     return config
 
 
