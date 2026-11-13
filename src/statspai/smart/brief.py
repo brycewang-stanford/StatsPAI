@@ -103,6 +103,10 @@ def _violation_flag(result: Any) -> str:
     return ""
 
 
+#: Coefficients listed when a regression designates no focal term.
+_BRIEF_TERMS = 3
+
+
 def brief(result: Any) -> str:
     """Render a one-line status summary of a fitted result.
 
@@ -211,33 +215,52 @@ def brief(result: Any) -> str:
 
     if params is not None and hasattr(params, "index"):
         n_terms = len(params)
-        # Surface the most-significant non-intercept coefficient.
+        # The coefficient the fit designates (its treatment, the single
+        # endogenous regressor, the only regressor), else the leading
+        # coefficients in model order. Until 2026-11-13 this line showed
+        # the term with the smallest p-value under the label "best":
+        # a focal term chosen by significance.
+        focal = None
+        focal_fn = getattr(result, "_focal_term", None)
+        if callable(focal_fn):
+            try:
+                focal = focal_fn()[0]
+            except Exception as exc:
+                record_degradation(
+                    None,
+                    section="brief: focal term",
+                    exc=exc,
+                    detail=f"result_type={type(result).__name__}",
+                )
+        shown: list = []
         try:
             pvals = getattr(result, "pvalues", None)
-            best_term = None
-            best_p = None
             for i, name in enumerate(params.index):
-                if str(name).lower() in ("intercept", "const"):
+                label = str(name)
+                if label.lower() in ("intercept", "const", "_cons"):
                     continue
-                if pvals is None:
+                if focal is not None and label != focal:
                     continue
-                try:
-                    pv = float(pvals.iloc[i] if hasattr(pvals, "iloc") else pvals[i])
-                except (TypeError, ValueError, IndexError, KeyError):
-                    continue
-                if not np.isfinite(pv):
-                    continue
-                if best_p is None or pv < best_p:
-                    best_p = pv
-                    best_term = (str(name), float(params.iloc[i]), pv)
+                coef = float(params.iloc[i])
+                pv = None
+                if pvals is not None:
+                    try:
+                        pv = float(
+                            pvals.iloc[i] if hasattr(pvals, "iloc") else pvals[i]
+                        )
+                    except (TypeError, ValueError, IndexError, KeyError):
+                        pv = None
+                    if pv is not None and not np.isfinite(pv):
+                        pv = None
+                shown.append((label, coef, pv))
         except Exception as exc:
             record_degradation(
                 None,
-                section="brief: best-coefficient extraction",
+                section="brief: coefficient extraction",
                 exc=exc,
                 detail=f"result_type={type(result).__name__}",
             )
-            best_term = None
+            shown = []
 
         n_str = (
             f"  N={int(n_obs):,}"
@@ -246,17 +269,27 @@ def brief(result: Any) -> str:
             and np.isfinite(n_obs)
             else ""
         )
-        if best_term is not None:
-            term_name, coef, pv = best_term
-            stars = _stars(pv)
+
+        def _term(label: str, coef: float, pv: Any) -> str:
+            text = f"{label}={_fmt(coef)}"
+            if pv is not None:
+                text += f" (p={_fmt(pv, '{:.3g}')})"
+            return text
+
+        if shown and (focal is not None or len(shown) == 1):
+            # a designated term, or the only regressor
+            label, coef, pv = shown[0]
+            stars = _stars(pv) if pv is not None else ""
             stars_str = f"  {stars}" if stars else ""
             return (
-                f"[{method}]"
-                f"  k={n_terms}  best: {term_name}={_fmt(coef)} "
-                f"(p={_fmt(pv, '{:.3g}')})"
-                f"{stars_str}"
-                f"{n_str}"
+                f"[{method}]  k={n_terms}  {_term(label, coef, pv)}"
+                f"{stars_str}{n_str}"
             )
+        if shown:
+            head = ", ".join(_term(*t) for t in shown[:_BRIEF_TERMS])
+            more = len(shown) - _BRIEF_TERMS
+            more_str = f", +{more} more" if more > 0 else ""
+            return f"[{method}]  k={n_terms}  {head}{more_str}  (no focal term){n_str}"
         return f"[{method}]  k={n_terms}{n_str}"
 
     # Last resort

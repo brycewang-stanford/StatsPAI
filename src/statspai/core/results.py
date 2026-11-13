@@ -301,6 +301,33 @@ def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+#: Labels estimators give the constant (``sp.liml`` uses Stata's ``_cons``).
+_INTERCEPT_NAMES = frozenset({"Intercept", "_cons", "const"})
+
+
+def _no_focal_term_note(params: Any) -> Optional[str]:
+    """One line for a regression payload whose headline is ``None``.
+
+    With several regressors and no recorded treatment the envelope names
+    no coefficient (picking one would be a guess). The note says so and
+    where the estimates are, so a reader of ``estimate: null`` does not
+    take the fit for a failed one.
+    """
+    try:
+        slopes = [str(t) for t in params.index if str(t) not in _INTERCEPT_NAMES]
+    except (AttributeError, TypeError):
+        return None
+    if len(slopes) < 2:
+        return None
+    shown = ", ".join(slopes[:4]) + (", ..." if len(slopes) > 4 else "")
+    return (
+        f"No focal coefficient: the fit has {len(slopes)} regressors "
+        f"({shown}) and records no treatment, so estimate / se / pvalue / ci "
+        "are null. Read the term you report from `coefficients` "
+        "(`coef_head` at detail='minimal')."
+    )
+
+
 def _validate_probability(value: Any, *, name: str) -> float:
     """Validate probabilities such as alpha or confidence level."""
     try:
@@ -1960,13 +1987,18 @@ class EconometricResults:
         endog = (
             list((iv or {}).get("endog_names") or []) if isinstance(iv, dict) else []
         )
+        if not endog:
+            # sp.liml records its endogenous regressors in model_info
+            recorded = self.model_info.get("endog_vars")
+            if isinstance(recorded, (list, tuple)):
+                endog = list(recorded)
         if len(endog) == 1 and str(endog[0]) in terms:
             return str(endog[0]), "endogenous regressor"
         for key in ("focal_term", "treatment", "treat"):
             value = self.model_info.get(key)
             if isinstance(value, str) and value in terms:
                 return value, f"model_info[{key!r}]"
-        slopes = [t for t in terms if t != "Intercept"]
+        slopes = [t for t in terms if t not in _INTERCEPT_NAMES]
         if len(slopes) == 1:
             return slopes[0], "only regressor"
         return None, None
@@ -1986,6 +2018,9 @@ class EconometricResults:
         }
         term, rule = self._focal_term()
         if term is None:
+            note = _no_focal_term_note(getattr(self, "params", None))
+            if note:
+                out["headline_note"] = note
             return out
         try:
             pos = [str(t) for t in self.params.index].index(term)
@@ -2088,7 +2123,7 @@ class EconometricResults:
             if base.get("focal_term") is None:
                 # No designated coefficient: carry a few so the numbers an
                 # agent asked for are not dropped at this level.
-                terms = [t for t in self.params.index if str(t) != "Intercept"]
+                terms = [t for t in self.params.index if str(t) not in _INTERCEPT_NAMES]
                 se = self.std_errors
                 base["coef_head"] = {
                     str(t): [

@@ -195,7 +195,7 @@ def minimal_envelope(
             )
     keys = citation_keys(obj)
     alpha = reader.get("alpha")
-    return {
+    env: Dict[str, Any] = {
         "method": str(method) if method is not None else type(obj).__name__,
         "estimand": _to_jsonable(reader.first(_ESTIMAND_ATTRS, _is_str)),
         "estimate": _to_jsonable(reader.first(_ESTIMATE_ATTRS, _is_number)),
@@ -210,6 +210,81 @@ def minimal_envelope(
         "n_obs": _to_jsonable(reader.first(_NOBS_ATTRS, _is_count)),
         "citation_key": keys[0] if keys else None,
     }
+    _coefficient_headline(obj, env)
+    return env
+
+
+def _coefficient_table(obj: Any) -> Optional[Dict[str, Dict[str, Any]]]:
+    """``{term: {estimate, std_error, ...}}`` for a result that stores a
+    labelled coefficient vector (``FEOLSResult``); ``None`` otherwise."""
+    from .core.results import _to_jsonable
+
+    params = getattr(obj, "params", None)
+    se = getattr(obj, "std_errors", None)
+    if not (hasattr(params, "index") and hasattr(params, "iloc")):
+        return None
+    if not (hasattr(se, "iloc") and len(se) == len(params)):
+        return None
+    columns = {
+        "t_statistic": getattr(obj, "tvalues", None),
+        "p_value": getattr(obj, "pvalues", None),
+        "conf_low": getattr(obj, "conf_int_lower", None),
+        "conf_high": getattr(obj, "conf_int_upper", None),
+    }
+    table: Dict[str, Dict[str, Any]] = {}
+    for i, term in enumerate(params.index):
+        row: Dict[str, Any] = {
+            "estimate": _to_jsonable(params.iloc[i]),
+            "std_error": _to_jsonable(se.iloc[i]),
+        }
+        for name, col in columns.items():
+            if hasattr(col, "iloc") and len(col) == len(params):
+                row[name] = _to_jsonable(col.iloc[i])
+        table[str(term)] = row
+    return table
+
+
+def _coefficient_headline(obj: Any, env: Dict[str, Any]) -> None:
+    """Fill the envelope of a coefficient-vector result, without guessing.
+
+    Same rule as ``EconometricResults``: the only regressor is the
+    headline; with several and nothing recorded, ``estimate`` stays
+    ``None``, ``focal_term`` says so and ``headline_note`` points at the
+    coefficient table (``coef_head`` holds the first four).
+    """
+    if env.get("estimate") is not None:
+        return
+    table = _coefficient_table(obj)
+    if not table:
+        return
+    slopes = [t for t in table if t not in ("Intercept", "_cons", "const")]
+    env["focal_term"] = None
+    if len(slopes) == 1:
+        row = table[slopes[0]]
+        env.update(
+            {
+                "estimand": f"coefficient on {slopes[0]}",
+                "estimate": row["estimate"],
+                "se": row["std_error"],
+                "pvalue": row.get("p_value"),
+                "focal_term": slopes[0],
+                "focal_term_rule": "only regressor",
+            }
+        )
+        if row.get("conf_low") is not None and row.get("conf_high") is not None:
+            env["ci"] = [row["conf_low"], row["conf_high"]]
+        return
+    if len(slopes) >= 2:
+        from .core.results import _no_focal_term_note
+
+        note = _no_focal_term_note(getattr(obj, "params", None))
+        if note:
+            env["headline_note"] = note
+        env["coef_head"] = {
+            t: [table[t]["estimate"], table[t]["std_error"]] for t in slopes[:4]
+        }
+        if len(slopes) > 4:
+            env["n_terms"] = len(slopes)
 
 
 # ---------------------------------------------------------------------- #
@@ -655,6 +730,11 @@ def build_payload(obj: Any, detail: str, base: Any = None) -> Dict[str, Any]:
         if "diagnostics" in out and out["diagnostics"] is not None:
             out["diagnostics_field"] = out["diagnostics"]
         out["diagnostics"] = _diagnostics(_Reader(obj, degradations))
+    if "coefficients" not in out:
+        table = _coefficient_table(obj)
+        if table:
+            out["coefficients"] = table
+            out.pop("coef_head", None)  # the full table is here
     contract = {
         "violations": viols,
         "warnings": warns,

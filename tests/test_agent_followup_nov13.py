@@ -474,8 +474,12 @@ def _confounded(strength: float, n: int = 800, seed: int = 0) -> pd.DataFrame:
 
 
 def test_violations_and_audit_share_one_balance_threshold():
+    import importlib
+
     from statspai.core import _agent_summary
-    from statspai.smart import audit as audit_module
+
+    # ``statspai.smart.audit`` the attribute is the function; get the module
+    audit_module = importlib.import_module("statspai.smart.audit")
 
     assert audit_module._SMD_MAX is _agent_summary._SMD_MAX
     assert (_agent_summary._SMD_MAX, _agent_summary._SMD_SEVERE) == (0.10, 0.25)
@@ -496,3 +500,129 @@ def test_violations_and_audit_share_one_balance_threshold():
         levels[strength] = (flag["level"], worst > 0.25)
     # between 0.10 and 0.25 violations() used to say nothing
     assert levels == {1.5: ("moderate", False), 8.0: ("severe", True)}
+
+
+# --------------------------------------------------------------------------- #
+#  #34 no invented focal term: a null headline that explains itself
+# --------------------------------------------------------------------------- #
+def _multi_regressor_fits(frames):
+    mp, card = frames["mp"], frames["card"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mp = mp.assign(z=np.random.default_rng(3).normal(size=len(mp)))
+        return {
+            "feols": sp.feols("lemp ~ treated + z | countyreal + year", data=mp),
+            "panel": sp.panel(
+                mp, "lemp ~ treated + z", entity="countyreal", time="year"
+            ),
+            # two endogenous regressors: no single one to name
+            "liml": sp.liml(
+                data=card,
+                y="lwage",
+                x_endog=["educ", "exper"],
+                z=["nearc4", "nearc2", "expersq"],
+                x_exog=["black"],
+            ),
+            "hdfe_ols": sp.hdfe_ols("lemp ~ treated + z | countyreal + year", data=mp),
+        }
+
+
+@pytest.mark.parametrize("name", ["feols", "panel", "liml", "hdfe_ols"])
+def test_null_headline_carries_the_table_and_says_why(files, name):
+    _, frames = files
+    fit = _multi_regressor_fits(frames)[name]
+    slopes = [str(t) for t in fit.params.index if str(t) not in ("Intercept", "_cons")]
+    assert len(slopes) >= 2
+    for detail in ("minimal", "agent"):
+        payload = fit.to_dict(detail=detail)
+        assert payload["estimate"] is None and payload["se"] is None
+        assert payload["focal_term"] is None
+        note = payload["headline_note"]
+        assert "No focal coefficient" in note and "\n" not in note
+        assert all(t in note for t in slopes[:4])
+    table = fit.to_dict(detail="agent")["coefficients"]
+    for term in slopes:
+        assert table[term]["estimate"] == pytest.approx(
+            float(fit.params[term]), rel=1e-12
+        )
+        assert table[term]["std_error"] == pytest.approx(
+            float(fit.std_errors[term]), rel=1e-12
+        )
+    head = fit.to_dict(detail="minimal")["coef_head"]
+    assert list(head) == slopes[:4]
+    line = sp.brief(fit)
+    assert "best" not in line and "(no focal term)" in line
+    assert [line.index(f"{t}=") for t in slopes[:3]] == sorted(
+        line.index(f"{t}=") for t in slopes[:3]
+    )
+
+
+def test_liml_names_its_single_endogenous_regressor(files):
+    """The rule ``sp.ivreg`` follows (the one endogenous regressor is the
+    point of an IV fit), read from the record ``sp.liml`` keeps."""
+    _, frames = files
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.liml(
+            data=frames["card"],
+            y="lwage",
+            x_endog=["educ"],
+            z=["nearc4", "nearc2"],
+            x_exog=["exper", "black"],
+        )
+    payload = fit.to_dict(detail="minimal")
+    assert payload["focal_term"] == "educ"
+    assert payload["focal_term_rule"] == "endogenous regressor"
+    assert payload["estimate"] == pytest.approx(float(fit.params["educ"]), rel=1e-12)
+    assert payload["se"] == pytest.approx(float(fit.std_errors["educ"]), rel=1e-12)
+
+
+def test_single_regressor_is_still_the_headline(files):
+    _, frames = files
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fits = [
+            sp.feols("lemp ~ treated | countyreal + year", data=frames["mp"]),
+            sp.hdfe_ols("lemp ~ treated | countyreal + year", data=frames["mp"]),
+        ]
+    for fit in fits:
+        payload = fit.to_dict(detail="minimal")
+        assert payload["focal_term"] == "treated"
+        assert payload["estimate"] == pytest.approx(
+            float(fit.params["treated"]), rel=1e-12
+        )
+        assert payload["se"] == pytest.approx(
+            float(fit.std_errors["treated"]), rel=1e-12
+        )
+        assert "headline_note" not in payload
+        assert "(no focal term)" not in sp.brief(fit)
+
+
+def test_mcp_summaries_read_the_coefficient_table(files):
+    paths, frames = files
+    out = _call(
+        "feols",
+        data_path=paths["nsw"],
+        fml="re78 ~ treat + age + education | black",
+        as_handle=True,
+    )
+    assert "error" not in out, out.get("error")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.feols("re78 ~ treat + age + education | black", data=frames["nsw"])
+    assert out["estimate"] is None and out["focal_term"] is None
+    assert "No focal coefficient" in out["headline_note"]
+    expected = ", ".join(
+        f"{t} = {float(fit.params[t]):.4g} (SE {float(fit.std_errors[t]):.3g})"
+        for t in ("treat", "age", "education")
+    )
+    assert f"Coefficients (no focal term): {expected}" in out["narrative"]
+    brief = _call("brief_result", result_id=out["result_id"])["brief"]
+    interp = _call("interpret_result", result_id=out["result_id"])
+    for text in (brief, interp["summary"]["brief"]):
+        assert "(no focal term)" in text and "best" not in text
+        for term in ("treat", "age", "education"):
+            assert f"{term}=" in text
+    assert interp["summary"]["fields"]["coefficients"]["age"]["estimate"] == (
+        pytest.approx(float(fit.params["age"]), rel=1e-9)
+    )

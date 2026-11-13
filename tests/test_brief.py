@@ -161,12 +161,18 @@ class TestEconometricContent:
         s = regress_result.brief()
         assert "N=300" in s
 
-    def test_best_term_surfaced(self, regress_result):
-        # treat or x1 — the most-significant non-intercept coefficient.
+    def test_coefficients_surfaced_without_picking_one(self, regress_result):
+        """Rewritten 2026-11-13 (agent probe #34): the line used to show
+        the coefficient with the smallest p-value under the label
+        ``best:``, a focal term chosen by significance. A fit with several
+        regressors and no recorded treatment lists its leading
+        coefficients in model order and says it names none."""
         s = regress_result.brief()
-        assert "best:" in s
-        # Surfaced term must be one of the model's covariates.
-        assert "treat" in s or "x1" in s
+        assert "best:" not in s
+        assert "(no focal term)" in s
+        slopes = [t for t in regress_result.params.index if t != "Intercept"]
+        positions = [s.index(f"{t}=") for t in slopes[:3]]
+        assert positions == sorted(positions)
 
 
 # ---------------------------------------------------------------------------

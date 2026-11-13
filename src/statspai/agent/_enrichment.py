@@ -759,6 +759,44 @@ def fetch_bibtex(keys: Iterable[str]) -> Dict[str, str]:
 # ----------------------------------------------------------------------
 
 
+def _coefficient_line(payload: Dict[str, Any], limit: int = 3) -> str:
+    """``Coefficients (no focal term): x = 1.2 (SE 0.3), ...`` or ``""``."""
+    table = payload.get("coefficients")
+    rows: List[str] = []
+    total = 0
+    if isinstance(table, dict) and table:
+        terms = [t for t in table if t not in ("Intercept", "_cons", "const")]
+        total = len(terms)
+        for term in terms[:limit]:
+            row = table[term]
+            if not isinstance(row, dict):
+                continue
+            est, se = row.get("estimate"), row.get("std_error")
+            if isinstance(est, (int, float)):
+                text = f"{term} = {est:.4g}"
+                if isinstance(se, (int, float)):
+                    text += f" (SE {se:.3g})"
+                rows.append(text)
+    else:
+        head = payload.get("coef_head")
+        if isinstance(head, dict):
+            total = int(payload.get("n_terms") or len(head))
+            for term, pair in list(head.items())[:limit]:
+                if (
+                    isinstance(pair, (list, tuple))
+                    and len(pair) == 2
+                    and isinstance(pair[0], (int, float))
+                ):
+                    text = f"{term} = {pair[0]:.4g}"
+                    if isinstance(pair[1], (int, float)):
+                        text += f" (SE {pair[1]:.3g})"
+                    rows.append(text)
+    if not rows:
+        return ""
+    more = f", +{total - len(rows)} more" if total > len(rows) else ""
+    return "Coefficients (no focal term): " + ", ".join(rows) + more
+
+
 def build_narrative(
     tool_name: str,
     payload: Dict[str, Any],
@@ -811,6 +849,13 @@ def build_narrative(
         if isinstance(p, (int, float)):
             line += f"; p={p:.3g}"
         parts.append(line)
+
+    elif est is None:
+        # A regression with several regressors names no focal term: quote
+        # the leading coefficients, not nothing.
+        coef_line = _coefficient_line(payload)
+        if coef_line:
+            parts.append(coef_line)
 
     if n_obs:
         parts.append(f"N = {n_obs:,}")
