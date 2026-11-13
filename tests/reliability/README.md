@@ -501,3 +501,126 @@ The own-ranking test rejects a true null seven times as often as it
 should, and its estimate is pulled below zero. The split version holds
 its size (conservatively, as VEIN aggregation does). `sp.rate` now warns
 on this path, as it already did for forests with fixed effects.
+
+## Standard-error calibration screen (`se_screen/`)
+
+Parity work cannot see a wrong standard error where no reference exists.
+This screen asks one question of every estimator call it lists: on data
+that satisfy the call's stated assumptions, with a known true parameter,
+does the reported 95% interval cover 95% of the time and does the
+reported standard error match the sampling spread of the estimate?
+
+One script per family (`se_screen/<family>.py`) on a shared harness
+(`se_screen/_harness.py`). Designs are fixed in the script before the
+first run. Each row is 400 independent draws (seeds
+`SeedSequence(base).spawn(B)`, `base` derived from the row name) unless
+the row says otherwise. Three numbers per row:
+
+- coverage of the interval the estimator reports;
+- SE/SD, the mean reported standard error over the Monte Carlo standard
+  deviation of the estimate;
+- bias/SD, the mean error of the estimate in the same units.
+
+A row is flagged when coverage is outside [0.918, 0.985], SE/SD is
+outside [0.88, 1.12] or |bias/SD| is above 0.25. Flagged rows are rerun
+at 1,000 draws and every confirmed flag carries a mechanism note in the
+results file. Rows screened on 200 draws (slow estimators) use the Wilson
+99% band for coverage, [0.894, 0.985], and [0.83, 1.17] for SE/SD.
+Weak-instrument robust sets and randomization intervals report no
+standard error; those rows are coverage only.
+
+    python tests/reliability/se_screen/regression.py              # all rows
+    python tests/reliability/se_screen/regression.py --only tobit # some rows
+    python tests/reliability/se_screen/regression.py --confirm    # flagged rows, B = 1000
+    python tests/reliability/se_screen/regression.py --table      # the table below
+
+`tests/test_reliability_se_screen.py` reads the committed
+`<family>_results.json` files. It asserts that every unflagged row is in
+band, that every flagged row has a mechanism note, and that one row per
+family reproduces its stored first 20 draws.
+
+### Regression family (`se_screen/regression.py`)
+
+Correctly specified likelihood and moment models, n = 1,000 unless the
+row's design says otherwise, target the slope on `x1` (0.5). Robust rows
+use heteroskedastic or overdispersed data, cluster rows 100 clusters of 10.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `regress/default` | `regress("y ~ x1 + x2")` | 1000 | 400 | 0.950 | 1.00 | +0.04 |  |
+| `regress/hc1` | `regress(..., robust="hc1")` | 1000 | 400 | 0.940 | 1.02 | +0.08 |  |
+| `regress/hc3` | `regress(..., robust="hc3")` | 1000 | 400 | 0.950 | 0.99 | -0.00 |  |
+| `regress/cluster` | `regress(..., cluster="g")` | 1000 | 400 | 0.945 | 0.98 | -0.05 |  |
+| `logit/default` | `logit("y ~ x1 + x2")` | 1000 | 400 | 0.940 | 0.98 | +0.09 |  |
+| `logit/robust` | `logit(..., robust="robust")` | 1000 | 400 | 0.950 | 0.99 | -0.03 |  |
+| `logit/cluster` | `logit(..., cluster="g")` | 1000 | 400 | 0.963 | 1.01 | +0.07 |  |
+| `probit/default` | `probit("y ~ x1 + x2")` | 1000 | 400 | 0.935 | 0.98 | +0.06 |  |
+| `probit/robust` | `probit(..., robust="robust")` | 1000 | 400 | 0.953 | 1.04 | -0.01 |  |
+| `cloglog/default` | `cloglog("y ~ x1 + x2")` | 1000 | 400 | 0.920 | 0.94 | +0.02 |  |
+| `poisson/default` | `poisson("y ~ x1 + x2")` | 1000 | 400 | 0.930 | 0.96 | +0.03 |  |
+| `poisson/robust` | `poisson(..., robust="robust")` | 1000 | 400 | 0.935 | 0.96 | -0.01 |  |
+| `nbreg/default` | `nbreg("y ~ x1 + x2")` | 1000 | 400 | 0.963 | 1.00 | -0.03 |  |
+| `nbreg/robust` | `nbreg(..., robust="robust")` | 1000 | 400 | 0.948 | 0.99 | +0.00 |  |
+| `glm/gamma-log` | `glm(..., family="gamma", link="log")` | 1000 | 400 | 0.940 | 0.95 | +0.05 |  |
+| `glm/gamma-log-robust` | `glm(..., family="gamma", link="log", robust="robust")` | 1000 | 400 | 0.960 | 1.03 | -0.05 |  |
+| `glm/binomial` | `glm(..., family="binomial")` | 1000 | 400 | 0.943 | 0.98 | +0.03 |  |
+| `glm/poisson-overdispersed` | `glm(..., family="poisson", robust="robust")` | 1000 | 400 | 0.948 | 1.01 | -0.08 |  |
+| `tobit/default` | `tobit(formula="y ~ x1 + x2", ll=0)` | 1000 | 400 | 0.943 | 0.98 | -0.01 |  |
+| `tobit/robust` | `tobit(..., vce="robust")` | 1000 | 400 | 0.940 | 0.92 | -0.04 |  |
+| `truncreg/default` | `truncreg(formula="y ~ x1 + x2", ll=0)` | 1000 | 400 | 0.950 | 0.97 | +0.03 |  |
+| `intreg/default` | `intreg(y_lower=, y_upper=, x=)` | 1000 | 400 | 0.940 | 0.97 | +0.09 |  |
+| `heckman/twostep` | `heckman(..., method="twostep")` | 1000 | 400 | 0.940 | 0.99 | +0.04 |  |
+| `heckman/mle` | `heckman(..., method="mle")` | 1000 | 400 | 0.958 | 1.07 | -0.10 |  |
+| `heckprobit/default` | `heckprobit(y, x, select, z)` | 2000 | 400 | 0.940 | 0.97 | +0.13 |  |
+| `ologit/default` | `ologit("y ~ x1 + x2")` | 1000 | 400 | 0.950 | 1.01 | +0.02 |  |
+| `oprobit/default` | `oprobit("y ~ x1 + x2")` | 1000 | 400 | 0.925 | 0.93 | +0.01 |  |
+| `gologit/parallel` | `gologit(y, x, pl=True)` | 1000 | 400 | 0.958 | 1.01 | +0.06 |  |
+| `mlogit/default` | `mlogit("y ~ x1 + x2")` | 1000 | 400 | 0.932 | 0.95 | -0.01 |  |
+| `clogit/default` | `clogit("y ~ x1 + x2", group="g")` | 1000 | 400 | 0.932 | 0.94 | -0.01 |  |
+| `qreg/default` | `qreg(formula="y ~ x1 + x2")` | 1000 | 400 | 0.938 | 1.01 | -0.01 |  |
+| `qreg/robust-het` | `qreg(..., vce="robust")` | 1000 | 400 | 0.945 | 1.00 | +0.06 |  |
+| `qreg/q75` | `qreg(..., quantile=0.75)` | 1000 | 400 | 0.958 | 1.06 | -0.02 |  |
+| `sqreg/median` | `sqreg(quantiles=[.25,.5,.75], reps=100)` | 1000 | 200 | 0.940 | 1.01 | -0.00 |  |
+| `zip_model/default` | `zip_model("y ~ x1", inflate=["x2"])` | 1000 | 400 | 0.958 | 1.05 | +0.02 |  |
+| `zinb/default` | `zinb("y ~ x1", inflate=["x2"])` | 2000 | 400 | 0.938 | 0.96 | +0.05 |  |
+| `hurdle/default` | `hurdle("y ~ x1 + x2")` | 1000 | 400 | 0.953 | 1.02 | -0.05 |  |
+| `fracreg/default` | `fracreg(y, x)` | 1000 | 400 | 0.943 | 0.95 | +0.09 |  |
+| `betareg/default` | `betareg(y, x)` | 1000 | 400 | 0.955 | 1.03 | -0.02 |  |
+| `biprobit/default` | `biprobit(y1, y2, x1, x2)` | 1000 | 400 | 0.938 | 0.92 | +0.05 |  |
+| `etregress/mle` | `etregress(..., method="mle")` | 1000 | 400 | 0.958 | 0.99 | -0.05 |  |
+| `etregress/twostep` | `etregress(..., method="twostep")` | 1000 | 400 | 0.950 | 1.01 | -0.01 |  |
+| `etpoisson/default` | `etpoisson(y, x, treat, z)` | 2000 | 200 | 0.955 | 0.99 | -0.07 |  |
+| `ivprobit/mle` | `ivprobit(..., method="mle")` | 1000 | 400 | 0.940 | 0.99 | +0.06 |  |
+| `ivprobit/twostep` | `ivprobit(..., method="twostep")` | 1000 | 400 | 0.945 | 0.99 | +0.07 |  |
+| `ivtobit/mle` | `ivtobit(..., method="mle")` | 1000 | 400 | 0.945 | 0.95 | -0.06 |  |
+| `ivtobit/twostep` | `ivtobit(..., method="twostep")` | 1000 | 400 | 0.950 | 0.98 | -0.02 |  |
+| `ivpoisson/additive` | `ivpoisson(..., errors="additive")` | 2000 | 400 | 0.945 | 0.97 | -0.07 |  |
+| `ivpoisson/multiplicative` | `ivpoisson(..., errors="multiplicative")` | 2000 | 400 | 0.953 | 0.99 | +0.08 |  |
+| `gee/gaussian-exchangeable` | `gee(..., corstr="exchangeable")` | 1000 | 400 | 0.960 | 0.99 | -0.11 |  |
+| `gee/binomial-exchangeable` | `gee(..., family="binomial", corstr="exchangeable")` | 1000 | 400 | 0.950 | 0.95 | +0.09 |  |
+| `gee/binomial-independence` | `gee(..., family="binomial")` | 1000 | 400 | 0.960 | 1.00 | +0.09 |  |
+| `prais/prais` | `prais("y ~ x1", time="t")` | 500 | 400 | 0.955 | 0.98 | -0.01 |  |
+| `prais/corc` | `prais(..., method="corc")` | 500 | 400 | 0.943 | 0.97 | -0.11 |  |
+| `cnsreg/default` | `cnsreg("y ~ x1 + x2", "x1 = x2")` | 1000 | 400 | 0.968 | 1.01 | +0.00 |  |
+| `nls/default` | `nls("y = {b0}*exp({b1}*x1)")` | 1000 | 400 | 0.940 | 0.98 | +0.01 |  |
+| `robreg/mm` | `robreg("y ~ x1 + x2")` | 1000 | 400 | 0.950 | 0.98 | -0.07 |  |
+| `eivreg/default` | `eivreg(..., reliability={"x1": 0.8})` | 1000 | 400 | 0.945 | 1.00 | +0.04 |  |
+| `sureg/fgls` | `sureg({eq1, eq2})` | 1000 | 400 | 0.963 | 1.05 | -0.01 |  |
+| `three_sls/default` | `three_sls({eq1, eq2})` | 1000 | 400 | 0.945 | 0.97 | +0.05 |  |
+| `ppmlhdfe/default` | `ppmlhdfe("y ~ x1", absorb="g")` | 1000 | 400 | 0.920 | 0.91 | +0.06 |  |
+| `gam/parametric-term` | `gam("y ~ x1 + s(x2)")` | 1000 | 400 | 0.950 | 1.04 | +0.00 |  |
+| `fmm/gaussian-2` | `fmm("y ~ x1", k=2)` | 1000 | 200 | 0.945 | 1.07 | +0.02 |  |
+
+What the table says:
+
+- All 64 rows are inside the band. That covers the default variance of
+  every likelihood model in the family and the robust and cluster
+  variants of the common ones.
+- The closest rows to the edge are `ppmlhdfe` with 100 absorbed groups
+  (coverage 0.920, SE/SD 0.91), `tobit(vce="robust")` (SE/SD 0.92),
+  `biprobit` (0.92), `oprobit` (0.93) and `cloglog` (0.94). None is
+  flagged, and with 400 draws the SE/SD ratio itself has a standard
+  error of about 0.035.
+- `sureg`, `three_sls` and `gam` report standard errors but no interval
+  for the screened coefficient, so those rows use a normal interval
+  built from the reported SE.
