@@ -283,7 +283,10 @@ def _tilt_derivative(e: np.ndarray, estimand: str) -> np.ndarray:
         return np.asarray(1.0 - 2.0 * e, dtype=float)
     if estimand == "ENTROPY":
         return np.asarray(np.log((1.0 - e) / e), dtype=float)
-    raise ValueError(estimand)
+    raise MethodIncompatibility(
+        f"overlap_weights: no derivative of the tilting function for {estimand!r}.",
+        recovery_hint="Use se_method='bootstrap' for this estimand.",
+    )
 
 
 def _sandwich_se(

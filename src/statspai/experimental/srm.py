@@ -58,6 +58,15 @@ class SRMResult(ResultProtocolMixin):
         Rows whose arm was missing and that were left out.
     alpha : float
         Level of the alarm.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> r = sp.srm_test({"control": 5000, "treated": 5300})
+    >>> type(r).__name__, r.df, r.n
+    ('SRMResult', 1, 10300)
+    >>> [round(float(v), 1) for v in r.table["expected"]]
+    [5150.0, 5150.0]
     """
 
     statistic: float

@@ -16,7 +16,7 @@ Both are pinned to ``metafor`` on the same data in
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -109,6 +109,18 @@ class MetaRegressionResult(ResultProtocolMixin):
         Knapp-Hartung inference.
     k : int
         Number of studies.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> y = [-0.89, -1.59, -1.35, -1.44, -0.22, -0.79, -1.62, 0.01, -0.47]
+    >>> s = [0.57, 0.44, 0.64, 0.14, 0.23, 0.08, 0.47, 0.06, 0.24]
+    >>> lat = [44, 55, 42, 52, 13, 44, 19, 13, 27]
+    >>> r = sp.meta_regression(y, s, {"latitude": lat}, method="DL")
+    >>> type(r).__name__, r.k, list(r.params.index)
+    ('MetaRegressionResult', 9, ['intercept', 'latitude'])
+    >>> list(r.tidy().columns)[:3]
+    ['term', 'estimate', 'std_error']
     """
 
     _citation_keys = ("dersimonian1986meta", "higgins2002quantifying")
@@ -138,9 +150,24 @@ class MetaRegressionResult(ResultProtocolMixin):
     residuals: np.ndarray = field(default_factory=lambda: np.empty(0), repr=False)
     intercept: bool = True
 
-    def tidy(self) -> pd.DataFrame:
-        """Coefficient table as a DataFrame."""
+    def tidy(self, conf_level: Optional[float] = None) -> pd.DataFrame:
+        """Coefficient table as a DataFrame.
+
+        ``conf_level`` overrides the confidence level of the fit for the
+        interval columns.
+        """
         stat = "t" if self.hksj else "z"
+        low = self.conf_int["lower"].to_numpy()
+        high = self.conf_int["upper"].to_numpy()
+        if conf_level is not None:
+            tail = (1.0 - float(conf_level)) / 2.0
+            crit = (
+                float(stats.t.ppf(1 - tail, df=self.qe_df))
+                if self.hksj
+                else float(stats.norm.ppf(1 - tail))
+            )
+            est, se = self.params.to_numpy(), self.std_errors.to_numpy()
+            low, high = est - crit * se, est + crit * se
         return pd.DataFrame(
             {
                 "term": list(self.params.index),
@@ -148,8 +175,8 @@ class MetaRegressionResult(ResultProtocolMixin):
                 "std_error": self.std_errors.to_numpy(),
                 stat: self.statistics.to_numpy(),
                 "p_value": self.p_values.to_numpy(),
-                "conf_low": self.conf_int["lower"].to_numpy(),
-                "conf_high": self.conf_int["upper"].to_numpy(),
+                "conf_low": low,
+                "conf_high": high,
             }
         )
 
@@ -568,6 +595,15 @@ class TrimFillResult(ResultProtocolMixin):
         The estimator's value before rounding, at the last iteration.
     n_iter : int
         Iterations until ``k0`` stopped changing.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> y = [0.10, 0.22, 0.31, 0.38, 0.45, 0.62, 0.75, 0.95, 1.20]
+    >>> s = [0.05, 0.08, 0.10, 0.12, 0.15, 0.20, 0.24, 0.30, 0.38]
+    >>> tf = sp.trim_and_fill(y, s)
+    >>> type(tf).__name__, tf.k0, len(tf.filled.effects)
+    ('TrimFillResult', 4, 13)
     """
 
     k0: int
@@ -634,9 +670,16 @@ class TrimFillResult(ResultProtocolMixin):
         return ax
 
 
+def _pool(y: np.ndarray, s: np.ndarray, **kwargs: Any) -> MetaAnalysisResult:
+    """``meta_analysis`` on arrays (its signature names sequences)."""
+    return meta_analysis(cast(Sequence[float], y), cast(Sequence[float], s), **kwargs)
+
+
 def _egger_slope_sign(y: np.ndarray, s: np.ndarray, method: str) -> float:
     """Slope of the effect on its standard error in a meta-regression."""
-    fit = meta_regression(y, s, s, method=method)
+    fit = meta_regression(
+        cast(Sequence[float], y), cast(Sequence[float], s), s, method=method
+    )
     return float(fit.params.iloc[1])
 
 
@@ -731,16 +774,19 @@ def trim_and_fill(
                 "sp.trim_and_fill(effects, se).",
             )
         res0 = effects
-        effects, se = res0.effects, res0.se_studies
+        raw_effects: Any = res0.effects
+        raw_se: Any = res0.se_studies
         method, hksj, alpha = res0.method, res0.hksj, res0.alpha
         labels = list(res0.labels)
-    if se is None:
+    else:
+        raw_effects, raw_se = effects, se
+    if raw_se is None:
         raise MethodIncompatibility(
             f"{who}: pass the standard errors of the studies as se=.",
             recovery_hint="sp.trim_and_fill(effects, se)",
         )
     _check_alpha(alpha, who)
-    y, s = _study_inputs(effects, se, who)
+    y, s = _study_inputs(raw_effects, raw_se, who)
     if estimator not in ("L0", "R0", "Q0"):
         raise MethodIncompatibility(
             f"{who}: estimator must be 'L0', 'R0' or 'Q0', got {estimator!r}.",
@@ -771,7 +817,7 @@ def trim_and_fill(
             f"{who}: {len(labels)} labels for {k} studies.",
             recovery_hint="Pass one label per study, or labels=None.",
         )
-    original = meta_analysis(y, s, method=method, labels=labels, alpha=alpha, hksj=hksj)
+    original = _pool(y, s, method=method, labels=labels, alpha=alpha, hksj=hksj)
     if side is None:
         if np.ptp(s) <= 1e-12 * float(np.max(s)):
             raise MethodIncompatibility(
@@ -788,7 +834,7 @@ def trim_and_fill(
     def pooled(yy: np.ndarray, ss: np.ndarray) -> float:
         if len(yy) < 2:
             return float(yy[0])
-        return float(meta_analysis(yy, ss, method=method).estimate)
+        return float(_pool(yy, ss, method=method).estimate)
 
     k0 = 0
     k0_raw = 0.0
@@ -828,9 +874,7 @@ def trim_and_fill(
     y_all = np.concatenate([y, fill_y])
     s_all = np.concatenate([s, fill_s])
     lab_all = labels + [f"Filled {i + 1}" for i in range(k0)]
-    filled = meta_analysis(
-        y_all, s_all, method=method, labels=lab_all, alpha=alpha, hksj=hksj
-    )
+    filled = _pool(y_all, s_all, method=method, labels=lab_all, alpha=alpha, hksj=hksj)
     return TrimFillResult(
         k0=int(k0),
         side=str(side),

@@ -1550,7 +1550,17 @@ def cox(
     x : list of str, optional
         Covariate column names (overrides formula RHS).
     ties : str, default ``'efron'``
-        Tie-handling method: ``'efron'`` or ``'breslow'``.
+        Tie-handling method: ``'efron'``, ``'breslow'`` or ``'exact'``.
+        ``'exact'`` maximises the exact partial likelihood, the
+        conditional probability that the subjects who failed at a tied
+        time are the ones that failed (R ``coxph(ties = "exact")``, Stata
+        ``stcox, exactp``). It is the rule to use when time is recorded
+        coarsely and many failures share a time; Efron and Breslow
+        approximate it and all three coincide without ties. It accepts
+        ``strata=`` and ``start=`` and is refused with ``weights=``,
+        ``robust=``, ``cluster=``, ``design=`` and ``tvc=``; ``ph_test()`` is not
+        available after it, and the baseline hazard uses Breslow
+        increments at the exact estimates (R ``basehaz``).
     strata : str, optional
         Column name for stratification variable.
     robust : str, default ``'nonrobust'``
@@ -1840,7 +1850,11 @@ def cox(
         from ._cox_exact import ExactCoxKernel, check_exact_options
 
         check_exact_options(
-            weights=weights, robust=robust, cluster=cluster, design=design
+            weights=weights,
+            robust=robust,
+            cluster=cluster,
+            design=design,
+            tvc=tvc_cols,
         )
         fit_kern = ExactCoxKernel(X, T, E, strata_arr, start=start_arr)
     neg_logpl = fit_kern.neg_loglik

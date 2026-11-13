@@ -27,7 +27,7 @@ meta-analysis detected by a simple, graphical test." *BMJ*, 315(7109),
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, cast
 
 import numpy as np
 from scipy import stats
@@ -241,7 +241,12 @@ class MetaAnalysisResult(ResultProtocolMixin):
         kwargs.setdefault("method", self.method)
         kwargs.setdefault("hksj", self.hksj)
         kwargs.setdefault("alpha", self.alpha)
-        return meta_regression(self.effects, self.se_studies, moderators, **kwargs)
+        return meta_regression(
+            cast(Sequence[float], self.effects),
+            cast(Sequence[float], self.se_studies),
+            moderators,
+            **kwargs,
+        )
 
     def forest_plot(self, ax: Any = None, **kwargs: Any) -> Any:
         """Forest plot: per-study effects + CIs with the pooled diamond."""

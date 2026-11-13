@@ -2065,12 +2065,16 @@ def meglm(
     if cov_full is not None:
         from ._core import variance_component_se
 
+        def _dispersion_tail(tail: np.ndarray) -> List[float]:
+            value = fam.parse_dispersion(tail) if n_disp else None
+            return [] if value is None else [float(value)]
+
         vc_se_arr = variance_component_se(
             theta_hat[p_fixed:],
             cov_full[p_fixed:, p_fixed:],
             q_random,
             cov_type,
-            lambda tail: [float(fam.parse_dispersion(tail))] if n_disp else [],
+            _dispersion_tail,
         )
         if vc_se_arr is not None:
             vc_se = dict(zip(vc, (float(v) for v in vc_se_arr)))

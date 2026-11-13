@@ -46,9 +46,15 @@ MAX_EXACT_WORK = 4e9
 
 
 def check_exact_options(
-    *, weights: Any, robust: Any, cluster: Any, design: Any
+    *, weights: Any, robust: Any, cluster: Any, design: Any, tvc: Any = None
 ) -> None:
     """Refuse the options the exact partial likelihood does not define."""
+    if tvc is not None:
+        raise MethodIncompatibility(
+            "sp.cox: ties='exact' is not combined with tvc= (Stata stcox "
+            "refuses exactp with time-varying covariates as well).",
+            recovery_hint="Use ties='efron' with tvc=.",
+        )
     asked = []
     if weights is not None:
         asked.append("weights=")
@@ -155,11 +161,11 @@ class ExactCoxKernel:
         scale = float(r.sum()) / d
         r = r / scale
         m = len(r)
-        e_prev = np.ones(m + 1)
+        e_prev: np.ndarray = np.ones(m + 1)
+        p = self.p
+        d_prev: np.ndarray = np.zeros((m + 1, p))
+        h_prev: np.ndarray = np.zeros((m + 1, p, p) if deriv else (1, 1, 1))
         if deriv:
-            p = self.p
-            d_prev = np.zeros((m + 1, p))
-            h_prev = np.zeros((m + 1, p, p))
             xx = Xr[:, :, None] * Xr[:, None, :]
         for _ in range(d):
             a = r * e_prev[:-1]
@@ -208,6 +214,7 @@ class ExactCoxKernel:
             score, hess = np.zeros(self.p), np.zeros((self.p, self.p))
         for risk_idx, dead_idx in self.tied:
             _, s_g, h_g = self._tied_group(beta, risk_idx, dead_idx, deriv=True)
+            assert s_g is not None and h_g is not None
             score += s_g
             hess += h_g
         return score, hess

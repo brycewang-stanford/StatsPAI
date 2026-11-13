@@ -208,6 +208,7 @@ def test_cox_exact_refuses_what_the_likelihood_does_not_define(surv):
         {"weights": "age"},
         {"robust": "hc0"},
         {"cluster": "clinic"},
+        {"tvc": "age"},
     ):
         with pytest.raises(MethodIncompatibility, match="ties='exact'"):
             sp.cox("time ~ age + ecog + arm", **base, **kw)
