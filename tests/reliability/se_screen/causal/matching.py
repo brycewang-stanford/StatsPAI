@@ -2,7 +2,7 @@
 
 Design constants (fixed before the first run, 2026-11-13):
 
-* ``N = 1000``, design ``_dgp.obs`` (two continuous covariates, logit
+* ``N = 1000``, design ``_causal_dgp.obs`` (two continuous covariates, logit
   propensity, effect ``1 + 0.5 x1``). Rows that match without replacement
   or in pairs use ``intercept = -1.2`` (about 26% treated) so that every
   treated unit has a comparison unit.
@@ -12,7 +12,7 @@ Design constants (fixed before the first run, 2026-11-13):
   scored against each draw's own conditional ATT / ATE
   (``sample_target=True``): the average of ``tau(X_i)`` when matching on
   the covariates, and of ``E[tau(X) | score_i]`` when matching on the
-  propensity score (``_dgp.score_truth``; with the true score). Rows whose
+  propensity score (``_causal_dgp.score_truth``; with the true score). Rows whose
   documentation claims a population variance are scored against the
   population value.
 
@@ -26,8 +26,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _dgp import OBS_TRUTH, obs, obs_truths, sample_truth, score_truth  # noqa: E402
-from _harness import Row, ci_from, main  # noqa: E402
+from _causal_dgp import (  # noqa: E402
+    OBS_TRUTH,
+    obs,
+    obs_truths,
+    sample_truth,
+    score_truth,
+)
+from _causal_harness import Row, ci_from, main  # noqa: E402
 from scipy import stats  # noqa: E402
 
 import statspai as sp  # noqa: E402
@@ -43,7 +49,7 @@ Z = stats.norm.ppf(0.975)
 def _match(target="ATT", intercept=0.0, n=N, seeded=False, **kw):
     """``truth_s`` is the draw's own target for a conditional variance:
     given the covariates when matching on them, given the propensity
-    scores when matching on the score (see ``_dgp.score_truth``)."""
+    scores when matching on the score (see ``_causal_dgp.score_truth``)."""
     on_score = kw.get("distance", "propensity") == "propensity" and kw.get(
         "method", "nearest"
     ) in ("nearest", "kernel", "radius", "llr", "stratify")
@@ -151,8 +157,8 @@ def _cardinality(rng):
     return {"est": est, "se": se, "lo": est - Z * se, "hi": est + Z * se}
 
 
-D = "_dgp.obs"
-DL = "_dgp.obs(intercept=-1.2)"
+D = "_causal_dgp.obs"
+DL = "_causal_dgp.obs(intercept=-1.2)"
 ROWS = [
     Row(
         "match.att.ps",
@@ -502,9 +508,12 @@ MECHANISMS: dict = {
         "here), and a bootstrap resample, which repeats controls, makes "
         "that more likely. A handful of replications then land far from "
         "the rest and dominate the standard deviation of the bootstrap "
-        "distribution: the mean reported SE is several times the sampling "
-        "SD while the median SE over the interquartile scale of the "
-        "estimate (median_se_over_iqr_sd) is near one. The estimator now "
+        "distribution: the mean reported SE is five times the sampling "
+        "SD. On one sample, 60 resamples had a standard deviation of 0.18 "
+        "and an interquartile scale of 0.12, against a sampling SD of "
+        "0.16; the gap to a mean SE of 0.80 is a few draws with extreme "
+        "replications. Not rerun at a larger B (13 minutes per 200 draws; "
+        "a ratio of 5 is not a Monte Carlo accident). The estimator now "
         "warns when the bootstrap standard deviation is more than twice "
         "the scale its interquartile range implies and reports that scale "
         "in model_info['bootstrap_se_iqr']. A wider bandwidth removes the "

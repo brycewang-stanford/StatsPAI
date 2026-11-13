@@ -2,7 +2,7 @@
 
 Design constants (fixed before the first run, 2026-11-13):
 
-* ``N = 1000``, design ``_dgp.obs`` (effect ``1 + 0.5 x1``), 2,000 trees
+* ``N = 1000``, design ``_causal_dgp.obs`` (effect ``1 + 0.5 x1``), 2,000 trees
   (the default), ``n_jobs = 1``. Forest seed and data seed are both drawn
   from the row's ``SeedSequence`` child, so neighbouring replications
   share nothing.
@@ -25,8 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from _dgp import OBS_TRUTH, obs, obs_clustered  # noqa: E402
-from _harness import Row, main  # noqa: E402
+from _causal_dgp import OBS_TRUTH, obs, obs_clustered  # noqa: E402
+from _causal_harness import Row, main  # noqa: E402
 from scipy import stats  # noqa: E402
 
 import statspai as sp  # noqa: E402
@@ -154,7 +154,7 @@ ROWS = [
         N,
         ATE,
         _ate("all"),
-        design="_dgp.obs",
+        design="_causal_dgp.obs",
     ),
     Row(
         "causal_forest.att",
@@ -163,7 +163,7 @@ ROWS = [
         N,
         ATT,
         _ate("treated"),
-        design="_dgp.obs",
+        design="_causal_dgp.obs",
     ),
     Row(
         "causal_forest.atc",
@@ -172,7 +172,7 @@ ROWS = [
         N,
         ATC,
         _ate("control"),
-        design="_dgp.obs",
+        design="_causal_dgp.obs",
     ),
     Row(
         "causal_forest.overlap",
@@ -181,7 +181,7 @@ ROWS = [
         N,
         ATO,
         _ate("overlap"),
-        design="_dgp.obs",
+        design="_causal_dgp.obs",
     ),
     Row(
         "causal_forest.ate.clusters",
@@ -190,7 +190,7 @@ ROWS = [
         N,
         ATE,
         _ate("all", clustered=True),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "best_linear_projection.slope",
@@ -199,7 +199,7 @@ ROWS = [
         N,
         0.5,
         _blp("x1"),
-        design="_dgp.obs (the projection of 1 + 0.5 x1 on x1 is exact)",
+        design="_causal_dgp.obs (the projection of 1 + 0.5 x1 on x1 is exact)",
     ),
     Row(
         "best_linear_projection.intercept",
@@ -208,7 +208,7 @@ ROWS = [
         N,
         1.0,
         _blp("Intercept"),
-        design="_dgp.obs",
+        design="_causal_dgp.obs",
     ),
     Row(
         "calibration_test.mean",
@@ -217,7 +217,7 @@ ROWS = [
         N,
         1.0,
         _calibration,
-        design="_dgp.obs (a coefficient of 1 means the mean "
+        design="_causal_dgp.obs (a coefficient of 1 means the mean "
         "forest prediction is right)",
     ),
     Row(
@@ -227,7 +227,7 @@ ROWS = [
         N,
         1 + 0.5 * HALF_MEAN,
         _group,
-        design="_dgp.obs; group = rows with x1 > 0",
+        design="_causal_dgp.obs; group = rows with x1 > 0",
     ),
     Row(
         "causal_forest.pointwise.centre",
@@ -236,7 +236,7 @@ ROWS = [
         N,
         1.0,
         _pointwise([0.0, 0.0]),
-        design="_dgp.obs; tau(0, 0) = 1",
+        design="_causal_dgp.obs; tau(0, 0) = 1",
     ),
     Row(
         "causal_forest.pointwise.off_centre",
@@ -245,7 +245,7 @@ ROWS = [
         N,
         1.5,
         _pointwise([1.0, 0.0]),
-        design="_dgp.obs; tau(1, 0) = 1.5",
+        design="_causal_dgp.obs; tau(1, 0) = 1.5",
     ),
     Row(
         "iv_forest.late",
@@ -270,7 +270,20 @@ ROWS = [
     ),
 ]
 
-MECHANISMS: dict = {}
+MECHANISMS: dict = {
+    "calibration_test.mean": (
+        "By construction, and the reference does the same (equal to grf "
+        "test_calibration to 1e-15). The coefficient is the ratio of the "
+        "doubly robust average effect to the mean forest prediction, both "
+        "computed on the same sample, so it is almost exactly 1 in every "
+        "draw (SD about 0.004). Its standard error treats the forest "
+        "predictions as fixed regressors and is the relative standard "
+        "error of the average effect (about 0.07). A test of this "
+        "coefficient against 1 therefore almost never rejects; the "
+        "informative coefficient is the differential one, and "
+        "sp.rate_split is the test of heterogeneity."
+    ),
+}
 
 if __name__ == "__main__":
     main(__file__, ROWS, MECHANISMS)

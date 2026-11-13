@@ -481,7 +481,7 @@
    "truth": 0.9,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 5.1,
+   "seconds": 2.3,
    "bands": {
     "coverage": [
      0.8614,
@@ -506,11 +506,9 @@
    "bias_over_sd": null,
    "mean_width": 8.208,
    "coverage_secondary": 1.0,
-   "conservative_by_construction": false,
-   "flag_reasons": [
-    "coverage_high"
-   ],
-   "flagged": true,
+   "conservative_by_construction": true,
+   "flag_reasons": [],
+   "flagged": false,
    "statspai_version": "1.43.1",
    "mechanism": ""
   },

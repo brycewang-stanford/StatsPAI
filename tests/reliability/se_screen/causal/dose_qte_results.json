@@ -8,7 +8,7 @@
    "estimator": "qte",
    "call": "sp.qte(df, y, d, controls=X), tau = 0.75",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -54,7 +54,7 @@
    "estimator": "qte",
    "call": "sp.qte(df, y, d, controls=X), tau = 0.5",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -100,14 +100,14 @@
    "estimator": "qte",
    "call": "sp.qte(..., controls=X, se='analytic'), tau = 0.75",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
-   "B": 400,
+   "B": 1000,
    "nominal": 0.95,
    "truth": 1.2501201527681172,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 4.2,
+   "seconds": 12.5,
    "bands": {
     "coverage": [
      0.918,
@@ -129,19 +129,20 @@
    },
    "n_nonfinite": 0,
    "target": "population",
-   "mean_estimate": 1.25448,
-   "sd_estimate": 0.11842,
-   "coverage": 0.985,
-   "mean_se": 0.15571,
-   "se_over_sd": 1.315,
-   "median_se_over_iqr_sd": 1.332,
-   "bias_over_sd": 0.037,
+   "mean_estimate": 1.25319,
+   "sd_estimate": 0.12167,
+   "coverage": 0.989,
+   "mean_se": 0.15581,
+   "se_over_sd": 1.281,
+   "median_se_over_iqr_sd": 1.292,
+   "bias_over_sd": 0.025,
    "flag_reasons": [
+    "coverage_high",
     "se_large"
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": ""
+   "mechanism": "Documented option. With covariates the analytic influence-function standard error treats the propensity score as known, which is conservative when it is estimated; the docstring says so, and se='auto' therefore switches to the bootstrap when controls are given (qte.firpo.q75, in band). Without covariates the analytic form is exact and in band (qte.firpo.no_covariates)."
   },
   {
    "id": "qte.firpo.no_covariates",
@@ -194,7 +195,7 @@
    "estimator": "qte",
    "call": "sp.qte(..., method='firpo_qtt', controls=X), tau = 0.75",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -240,7 +241,7 @@
    "estimator": "qte",
    "call": "sp.qte(..., method='distribution', controls=X), tau = 0.75",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -286,7 +287,7 @@
    "estimator": "qte",
    "call": "sp.qte(..., method='conditional_qr', controls=X, n_boot=200), tau = 0.75",
    "kind": "ci",
-   "design": "_dgp.obs with a constant effect (location shift, so the conditional quantile effect is 1 at every tau; 200 bootstrap draws, B = 200)",
+   "design": "_causal_dgp.obs with a constant effect (location shift, so the conditional quantile effect is 1 at every tau; 200 bootstrap draws, B = 200)",
    "n": 1000,
    "B": 200,
    "nominal": 0.95,
@@ -332,7 +333,7 @@
    "estimator": "distributional_te",
    "call": "sp.distributional_te(df, y, d, x=X, n_boot=200).qte_effects[0.5] +/- 1.96 se",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -608,7 +609,7 @@
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": ""
+   "mechanism": "Known property of the method, documented in sp.dose_response. The Hirano-Imbens estimator regresses the outcome on the dose and the generalized propensity score and is consistent only if that regression is right. Here the outcome model is linear in (T, GPS). The GPS is a normal density of the treatment residual, an even function of it, so it is uncorrelated with a covariate that enters the outcome linearly and the fitted curve keeps the unadjusted slope 0.7 + 0.5 / 1.25 = 1.1 instead of 0.7. The standard error is right for that estimate (SE / SD 0.94); the interval is centred in the wrong place. The docstring reports the same bias for the Hirano-Imbens quadratic and the function warns on its default models; method='dr' is unbiased on this design (dose_response.dr). When the covariates move the dose only, the GPS path is in band (dose_response.gps)."
   },
   {
    "id": "dose_response.dr",
@@ -622,7 +623,7 @@
    "truth": 1.0557434520957034,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 220.2,
+   "seconds": 81.4,
    "bands": {
     "coverage": [
      0.9103,
@@ -640,25 +641,34 @@
    "prefix": {
     "draws": 20,
     "ok": 20,
-    "sum": 49.434180346051065
+    "sum": 54.001028957321566
    },
    "n_nonfinite": 0,
    "target": "sample",
-   "coverage_population_truth": 0.59,
-   "se_over_sd_population": 0.698,
-   "mean_estimate": 0.00819,
-   "sd_estimate": 0.33206,
+   "coverage_population_truth": 0.39,
+   "se_over_sd_population": 0.601,
+   "mean_estimate": -0.00166,
+   "sd_estimate": 0.25487,
    "coverage": 0.94,
-   "mean_se": 0.23347,
-   "se_over_sd": 0.703,
-   "median_se_over_iqr_sd": 0.925,
-   "bias_over_sd": 0.025,
+   "mean_se": 0.15635,
+   "se_over_sd": 0.613,
+   "median_se_over_iqr_sd": 0.889,
+   "bias_over_sd": -0.006,
    "flag_reasons": [
     "se_small"
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": ""
+   "mechanism": "Heavy tails from the conditional-variance model, an open item. The pseudo-outcome divides by the normal density of the dose given the covariates, whose variance is a linear regression of squared residuals on the covariates. On this homoskedastic design that regression predicts a variance near zero for a few extreme covariate values; the density of those units' doses collapses, their weights reach the hundreds or thousands (model_info['max_density_ratio']), and the contrast between two doses swings in those draws. The reported SE is honest for the typical draw (median SE over the interquartile scale is in the stored record, coverage 94%) but the SD over draws is dominated by the rare ones. Replacing the variance model by a constant cut the SD of the contrast from 5.0 to 0.15 over 120 draws at n = 500. The estimator now warns when a density weight exceeds 100. Changing the variance model or truncating the weights changes the estimator and is left as an owner decision. The bandwidth bug recorded in before_fix was a second, smaller cause.",
+   "before_fix": {
+    "statspai_version": "1.43.1",
+    "B": 200,
+    "coverage": 0.94,
+    "se_over_sd": 0.703,
+    "median_se_over_iqr_sd": 0.925,
+    "bias_over_sd": 0.025,
+    "mechanism": "The bandwidth minimises a leave-one-out risk over a grid. A dose with no neighbour inside a narrow bandwidth gave a risk of NaN (0 / 0), and np.argmin returns the first NaN, so the narrowest bandwidth of the grid was selected in those draws and the curve was undersmoothed. The 25th-to-75th percentile contrast then swung widely: the SD over draws was dominated by them while the median SE over the interquartile scale was 0.93. The risk of such a bandwidth is now infinite (fixed on main by the ML probe line the same day, commit 5eaa11f3e; this screen found it independently)."
+   }
   }
  ]
 }

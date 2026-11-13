@@ -354,7 +354,7 @@
    ],
    "n_failed": 0,
    "first_error": "",
-   "seconds": 200.9,
+   "seconds": 138.8,
    "bands": {
     "coverage": [
      0.9103,
@@ -372,22 +372,29 @@
    "prefix": {
     "draws": 20,
     "ok": 20,
-    "sum": 3.8649087601972005
+    "sum": 3.9651499999999995
    },
-   "coverage_lower_endpoint": 0.685,
-   "coverage_upper_endpoint": 0.695,
-   "coverage_whole_set": 0.38,
-   "coverage": 0.685,
+   "coverage_lower_endpoint": 0.975,
+   "coverage_upper_endpoint": 0.95,
+   "coverage_whole_set": 0.925,
+   "coverage": 0.95,
    "se_over_sd": null,
    "bias_over_sd_lower_bound": -0.015,
    "bias_over_sd_upper_bound": -0.015,
    "bias_over_sd": 0.015,
-   "flag_reasons": [
-    "coverage_low"
-   ],
-   "flagged": true,
+   "flag_reasons": [],
+   "flagged": false,
    "statspai_version": "1.43.1",
-   "mechanism": ""
+   "mechanism": "",
+   "before_fix": {
+    "statspai_version": "1.43.1",
+    "B": 200,
+    "coverage": 0.685,
+    "coverage_lower_endpoint": 0.685,
+    "coverage_upper_endpoint": 0.695,
+    "coverage_whole_set": 0.38,
+    "mechanism": "The bootstrap resampled the cross-fitted pointwise bounds L(x_i), U(x_i) with the nuisance fits held fixed. Those are predictions; their spread across units is the spread of the covariates' influence and holds none of the sampling noise of Y and A. With a covariate that is pure noise the band was about a quarter of the width it needed. The band now resamples each unit's own contribution to the bound, whose mean is the plain-means Manski bound."
+   }
   },
   {
    "id": "iv_bounds.nevo_rosen",

@@ -505,12 +505,12 @@
    "kind": "ci",
    "design": "one instrument; the treatment error moves the mediator, the mediator error moves the outcome",
    "n": 1000,
-   "B": 400,
+   "B": 1000,
    "nominal": 0.95,
    "truth": 0.84,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 2.1,
+   "seconds": 1.8,
    "bands": {
     "coverage": [
      0.918,
@@ -532,19 +532,20 @@
    },
    "n_nonfinite": 0,
    "target": "population",
-   "mean_estimate": 0.83425,
-   "sd_estimate": 0.06515,
-   "coverage": 0.9875,
-   "mean_se": 0.0808,
-   "se_over_sd": 1.24,
-   "bias_over_sd": -0.088,
+   "mean_estimate": 0.83707,
+   "sd_estimate": 0.06455,
+   "coverage": 0.987,
+   "mean_se": 0.08077,
+   "se_over_sd": 1.251,
+   "median_se_over_iqr_sd": 1.234,
+   "bias_over_sd": -0.045,
    "flag_reasons": [
     "coverage_high",
     "se_large"
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": ""
+   "mechanism": "Reference convention, wrong in this design. ivmediate (and the default here, which equals it to 1e-11) sets the covariance between coefficients of different equations to zero, so Var(a d) = d^2 V(a) + a^2 V(d). The mediator equation's error and the outcome equation's error share the component v, so cov(a, d) is not zero: it is negative when v enters the outcome with a positive loading (the SE is too large) and positive when the loading is negative (the SE is too small). equations='joint' keeps the covariance (rows iv_mediate.indirect.joint*; equal to Stata gmm + nlcom to 2e-12). The default is unchanged because it is the documented ivmediate number; changing it is an owner decision."
   },
   {
    "id": "iv_mediate.direct",
@@ -553,12 +554,12 @@
    "kind": "ci",
    "design": "as iv_mediate.indirect",
    "n": 1000,
-   "B": 400,
+   "B": 1000,
    "nominal": 0.95,
    "truth": 0.3,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 2.3,
+   "seconds": 1.7,
    "bands": {
     "coverage": [
      0.918,
@@ -580,12 +581,13 @@
    },
    "n_nonfinite": 0,
    "target": "population",
-   "mean_estimate": 0.31091,
-   "sd_estimate": 0.09423,
-   "coverage": 0.9625,
-   "mean_se": 0.09353,
-   "se_over_sd": 0.993,
-   "bias_over_sd": 0.116,
+   "mean_estimate": 0.30933,
+   "sd_estimate": 0.09366,
+   "coverage": 0.959,
+   "mean_se": 0.09326,
+   "se_over_sd": 0.996,
+   "median_se_over_iqr_sd": 0.951,
+   "bias_over_sd": 0.1,
    "flag_reasons": [],
    "flagged": false,
    "statspai_version": "1.43.1",
@@ -598,12 +600,12 @@
    "kind": "ci",
    "design": "as iv_mediate.indirect",
    "n": 1000,
-   "B": 400,
+   "B": 1000,
    "nominal": 0.95,
    "truth": 0.84,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 2.4,
+   "seconds": 1.8,
    "bands": {
     "coverage": [
      0.918,
@@ -625,16 +627,203 @@
    },
    "n_nonfinite": 0,
    "target": "population",
-   "mean_estimate": 0.83617,
-   "sd_estimate": 0.07024,
-   "coverage": 0.9725,
-   "mean_se": 0.0807,
-   "se_over_sd": 1.149,
-   "bias_over_sd": -0.055,
+   "mean_estimate": 0.83547,
+   "sd_estimate": 0.06824,
+   "coverage": 0.977,
+   "mean_se": 0.08049,
+   "se_over_sd": 1.179,
+   "median_se_over_iqr_sd": 1.167,
+   "bias_over_sd": -0.066,
    "flag_reasons": [
     "se_large"
    ],
    "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": "Reference convention, wrong in this design. ivmediate (and the default here, which equals it to 1e-11) sets the covariance between coefficients of different equations to zero, so Var(a d) = d^2 V(a) + a^2 V(d). The mediator equation's error and the outcome equation's error share the component v, so cov(a, d) is not zero: it is negative when v enters the outcome with a positive loading (the SE is too large) and positive when the loading is negative (the SE is too small). equations='joint' keeps the covariance (rows iv_mediate.indirect.joint*; equal to Stata gmm + nlcom to 2e-12). The default is unchanged because it is the documented ivmediate number; changing it is an owner decision."
+  },
+  {
+   "id": "iv_mediate.indirect.negative_link",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(df, y, d, m, 'z'), indirect effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect, with the mediator error entering the outcome with the opposite sign (-0.6)",
+   "n": 1000,
+   "B": 1000,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 34.72088988844857
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.83547,
+   "sd_estimate": 0.09193,
+   "coverage": 0.922,
+   "mean_se": 0.08033,
+   "se_over_sd": 0.874,
+   "median_se_over_iqr_sd": 0.871,
+   "bias_over_sd": -0.049,
+   "flag_reasons": [
+    "se_small"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": "Reference convention, wrong in this design. ivmediate (and the default here, which equals it to 1e-11) sets the covariance between coefficients of different equations to zero, so Var(a d) = d^2 V(a) + a^2 V(d). The mediator equation's error and the outcome equation's error share the component v, so cov(a, d) is not zero: it is negative when v enters the outcome with a positive loading (the SE is too large) and positive when the loading is negative (the SE is too small). equations='joint' keeps the covariance (rows iv_mediate.indirect.joint*; equal to Stata gmm + nlcom to 2e-12). The default is unchanged because it is the documented ivmediate number; changing it is an owner decision."
+  },
+  {
+   "id": "iv_mediate.indirect.joint",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(..., equations='joint'), indirect effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect",
+   "n": 1000,
+   "B": 1000,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 34.44452644619346
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.83468,
+   "sd_estimate": 0.06342,
+   "coverage": 0.961,
+   "mean_se": 0.06735,
+   "se_over_sd": 1.062,
+   "median_se_over_iqr_sd": 1.062,
+   "bias_over_sd": -0.084,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_mediate.indirect.joint.negative_link",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(..., equations='joint'), indirect effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect.negative_link",
+   "n": 1000,
+   "B": 1000,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 32.9394768946501
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.84148,
+   "sd_estimate": 0.09131,
+   "coverage": 0.955,
+   "mean_se": 0.09206,
+   "se_over_sd": 1.008,
+   "median_se_over_iqr_sd": 1.009,
+   "bias_over_sd": 0.016,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_mediate.indirect.joint.robust",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(..., equations='joint', robust=True), indirect effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect.negative_link",
+   "n": 1000,
+   "B": 1000,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 32.64603870554169
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.84188,
+   "sd_estimate": 0.09291,
+   "coverage": 0.946,
+   "mean_se": 0.09195,
+   "se_over_sd": 0.99,
+   "median_se_over_iqr_sd": 1.043,
+   "bias_over_sd": 0.02,
+   "flag_reasons": [],
+   "flagged": false,
    "statspai_version": "1.43.1",
    "mechanism": ""
   },

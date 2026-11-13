@@ -5,12 +5,12 @@ draw from the population, not a standard error.
 
 Design constants (fixed before the first run, 2026-11-13):
 
-* Training sample ``N = 1000`` from ``_dgp.obs``; 500 fresh test rows per
+* Training sample ``N = 1000`` from ``_causal_dgp.obs``; 500 fresh test rows per
   replication; nominal coverage 0.90 (the functions' default
   ``alpha = 0.1``).
 * Potential outcomes carry **independent** noise: ``Y(0) = 1 + x1 +
   0.5 x2 + e0`` and ``Y(1) = 1 + x1 + 0.5 x2 + tau(x) + e1``. The
-  observed outcome has the same law as in ``_dgp.obs``, and the
+  observed outcome has the same law as in ``_causal_dgp.obs``, and the
   individual effect ``Y(1) - Y(0) = tau(x) + e1 - e0`` is not a function
   of ``x``. An interval that claims to cover the individual effect has
   to cover that; ``coverage_secondary`` records coverage of ``tau(x)``.
@@ -33,8 +33,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from _dgp import PS_B1, PS_B2, TAU0, TAU1  # noqa: E402
-from _harness import Row, main  # noqa: E402
+from _causal_dgp import PS_B1, PS_B2, TAU0, TAU1  # noqa: E402
+from _causal_harness import Row, main  # noqa: E402
 from scipy.special import expit  # noqa: E402
 
 import statspai as sp  # noqa: E402

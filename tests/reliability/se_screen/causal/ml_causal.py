@@ -2,7 +2,7 @@
 
 Design constants (fixed before the first run, 2026-11-13):
 
-* ``N = 1000`` (``_dgp.obs`` / ``_dgp.rct``). Rows with parametric
+* ``N = 1000`` (``_causal_dgp.obs`` / ``_causal_dgp.rct``). Rows with parametric
   learners (OLS, unpenalised logit) put the estimator in the regime its
   theory covers exactly, so a miss there is a formula problem. Rows with
   the default learners show what the default call delivers at this ``n``.
@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from _dgp import OBS_TRUTH, obs, obs_clustered, rct  # noqa: E402
-from _harness import Row, ci_from, main  # noqa: E402
+from _causal_dgp import OBS_TRUTH, obs, obs_clustered, rct  # noqa: E402
+from _causal_harness import Row, ci_from, main  # noqa: E402
 from scipy import stats  # noqa: E402
 from scipy.special import expit  # noqa: E402
 
@@ -300,7 +300,7 @@ def _dml_avg(rng):
     return ci_from(r)
 
 
-D = "_dgp.obs"
+D = "_causal_dgp.obs"
 ROWS = [
     Row(
         "metalearner.ate",
@@ -329,7 +329,7 @@ ROWS = [
         N,
         ATE,
         _metalearner(linear=True, cluster=True),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "blp_test.beta1",
@@ -338,7 +338,7 @@ ROWS = [
         N,
         ATE,
         _cddf("blp"),
-        design="_dgp.rct with the known propensity 0.5",
+        design="_causal_dgp.rct with the known propensity 0.5",
     ),
     Row(
         "gate_test.top_group",
@@ -347,7 +347,7 @@ ROWS = [
         N,
         GATE_TOP,
         _cddf("gate_top"),
-        design="_dgp.rct; groups are quartiles of x1, effect 1 + 0.5 x1",
+        design="_causal_dgp.rct; groups are quartiles of x1, effect 1 + 0.5 x1",
     ),
     Row(
         "gate_test.top_vs_bottom",
@@ -410,7 +410,7 @@ ROWS = [
         N,
         ATE,
         _dml("irm", cluster=True),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "dml.plr.cluster",

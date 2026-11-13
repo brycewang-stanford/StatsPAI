@@ -417,6 +417,448 @@ What the table says:
 No fit was refused in any cell. Rerun with
 `python tests/reliability/unbalanced_panel.py` (about ten minutes).
 
+## SE calibration screen, causal families (`se_screen/causal/`)
+
+One row per estimator call that reports a standard error or an interval,
+in the families of treatment effects, matching, weighting, meta-learners
+and DML, forests, conformal prediction, mediation, partial identification,
+and quantile and dose-response effects. Each row fixes a design that
+satisfies the estimator's assumptions and has a known truth, draws it
+`B` times (400 unless the row is slow), and records the coverage of the
+reported 95% interval, the mean reported SE over the Monte Carlo SD of
+the estimate, and the bias in SD units. A row is flagged when coverage is
+outside [0.918, 0.985], SE / SD outside [0.88, 1.12] or |bias| / SD above
+0.25; below 400 draws the bands widen (Wilson 99% band for the coverage,
+`sqrt(400 / B)` for the other two). Every flagged row carries its
+mechanism in `<family>_results.json`, and
+`tests/test_reliability_se_screen_causal.py` refuses a flagged row
+without one. The regression, panel, IV, DiD and RD families are screened
+by the sibling scripts one directory up.
+
+Rerun one row with
+`python tests/reliability/se_screen/causal/<family>.py --only <row>`;
+`--table` prints the table below from the stored file.
+
+The screen led to five changes in the package, each recorded with the
+number the row had before (`before_fix` in the results file):
+
+| function | row before | after | what was wrong |
+| --- | --- | --- | --- |
+| `sp.sbw` | SE / SD 1.47 (ATT), coverage 99.8% | SE / SD 0.95 | variance around the arm's weighted mean counted variation that balancing removes; now the linearized variance, old one as `vce='naive'` |
+| `sp.match(method='cem')` | SE / SD 1.42 | SE / SD 0.99 | ATT variance taken around each arm's overall mean instead of within cells |
+| `sp.ml_bounds` | endpoint coverage 68.5% | endpoint coverage 95.0% | bootstrap resampled fitted values, which hold no sampling noise of Y and A |
+| `sp.lee_bounds`, `sp.manski_bounds` | p-value of the midpoint against zero | p-value implied by the interval | `p < 0.001` could sit beside an interval containing zero |
+| `sp.iv_mediate` | indirect effect SE / SD 1.25 or 0.87 | 1.06 and 1.01 with `equations='joint'` | the `ivmediate` variance drops the covariance between equations; default unchanged |
+
+### Treatment effects (`treatment_effects.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `ipw.ate.bootstrap` | 1000 | 400 | 0.948 | 0.97 | -0.00 |  |
+| `ipw.ate.sandwich` | 1000 | 400 | 0.958 | 1.08 | 0.05 |  |
+| `ipw.att.sandwich` | 1000 | 400 | 0.958 | 1.02 | 0.05 |  |
+| `ipw.atc.sandwich` | 1000 | 400 | 0.948 | 1.01 | -0.02 |  |
+| `ipw.ate.ht.sandwich` | 1000 | 400 | 0.958 | 1.02 | 0.04 |  |
+| `ipw.ate.weights.sandwich` | 1000 | 400 | 0.955 | 1.01 | -0.02 |  |
+| `ipw.ate.cluster.sandwich` | 1000 | 400 | 0.953 | 0.95 | 0.02 |  |
+| `ipw.ate.cluster.bootstrap` | 1000 | 400 | 0.927 | 0.96 | -0.10 |  |
+| `ipw.ate.ps_learner` | 600 | 200 | 0.960 | 1.03 | 0.01 |  |
+| `aipw.ate` | 1000 | 400 | 0.925 | 0.93 | 0.06 |  |
+| `aipw.att` | 1000 | 400 | 0.948 | 1.00 | 0.00 |  |
+| `aipw.ate.no_cross_fit` | 1000 | 400 | 0.965 | 1.04 | -0.03 |  |
+| `aipw.ate.sandwich` | 1000 | 400 | 0.932 | 1.00 | 0.07 |  |
+| `aipw.ate.weights` | 1000 | 400 | 0.948 | 0.99 | -0.03 |  |
+| `aipw.ate.cluster` | 1000 | 400 | 0.948 | 1.01 | -0.02 |  |
+| `g_computation.ate` | 1000 | 400 | 0.927 | 0.99 | -0.06 |  |
+| `g_computation.ate.by_arm` | 1000 | 400 | 0.965 | 1.05 | 0.06 |  |
+| `g_computation.att.by_arm` | 1000 | 400 | 0.948 | 1.00 | -0.02 |  |
+| `tmle.ate` | 1000 | 400 | 0.943 | 0.97 | -0.19 |  |
+| `tmle.att` | 1000 | 400 | 0.922 | 0.93 | -0.18 |  |
+| `tmle.atc.glm` | 1000 | 400 | 0.945 | 0.99 | 0.04 |  |
+| `tmle.ate.per_arm.glm` | 1000 | 400 | 0.945 | 0.99 | 0.09 |  |
+| `tmle.ey1.glm` | 1000 | 400 | 0.950 | 1.01 | 0.06 |  |
+| `tmle.ate.cluster.glm` | 1000 | 400 | 0.940 | 1.01 | -0.00 |  |
+| `ctmle.ate` | 500 | 200 | 0.915 | 0.90 | -0.20 |  |
+| `hal_tmle.ate` | 1000 | 400 | 0.948 | 0.98 | 0.05 |  |
+| `difference_in_means` | 1000 | 400 | 0.970 | 1.06 | 0.04 |  |
+| `difference_in_means.blocks` | 1000 | 400 | 0.950 | 0.97 | 0.01 |  |
+| `difference_in_means.cluster` | 1000 | 400 | 0.955 | 0.99 | 0.02 |  |
+| `lm_lin` | 1000 | 400 | 0.935 | 0.96 | 0.03 |  |
+| `lm_lin.superpopulation` | 1000 | 400 | 0.932 | 0.99 | -0.04 |  |
+| `lm_lin.cluster` | 1000 | 400 | 0.940 | 0.97 | 0.02 |  |
+| `ltmle.ate` | 1000 | 400 | 0.953 | 1.03 | -0.01 |  |
+| `lmtp.mean` | 1000 | 400 | 0.963 | 1.08 | 0.04 |  |
+| `lmtp.effect` | 1000 | 400 | 0.955 | 1.06 | -0.11 |  |
+| `lmtp.mean.sdr.folds` | 1000 | 400 | 0.955 | 0.99 | 0.00 |  |
+| `bcf.ate` | 500 | 200 | 0.915 | 0.90 | -0.11 |  |
+
+What the table says:
+
+- No row is flagged. The bootstrap, the stacked sandwich and the
+  influence-function standard errors of `sp.ipw`, `sp.aipw`,
+  `sp.g_computation` and `sp.tmle` are within 8% of the sampling SD for
+  the ATE, ATT and ATC, with sampling weights and with clusters.
+- The default `sp.tmle` (Super Learner nuisances) is the one place with a
+  visible finite-sample cost: its estimate sits 0.18 to 0.19 SD below the
+  truth and the ATT interval covers 92%. With parametric nuisances the
+  same estimator is unbiased, so the gap is the learners' regularisation
+  at n = 1,000, not the targeting step. `sp.ctmle` at n = 500 shows the
+  same sign (bias -0.20 SD, SE / SD 0.90, coverage 0.915 on 200 draws).
+- `sp.bcf` is scored against the sample average effect, which is what
+  its posterior describes: the posterior SD is 0.90 of the sampling SD
+  and the credible interval covers 91.5% on 200 draws, at the edge of
+  the band for that number of draws.
+- `sp.lm_lin` with its default variance covers the population ATE 93.5%
+  of the time and with `superpopulation=True` 93.3%: at this effect
+  heterogeneity the extra term is small.
+
+### Matching (`matching.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `match.att.ps` | 1000 | 1000 | 0.983 | 1.21 | 0.00 | se_large |
+| `match.att.ps.ai2016` | 1000 | 400 | 0.938 | 1.00 | -0.09 |  |
+| `match.ate.ps` | 1000 | 1000 | 0.987 | 1.31 | 0.04 | coverage_high, se_large |
+| `match.ate.ps.ai2016` | 1000 | 400 | 0.935 | 0.94 | 0.06 |  |
+| `match.att.mahalanobis` | 1000 | 400 | 0.925 | 0.92 | 0.04 |  |
+| `match.att.mahalanobis.m3` | 1000 | 400 | 0.927 | 0.95 | 0.07 |  |
+| `match.ate.mahalanobis` | 1000 | 400 | 0.943 | 0.99 | 0.04 |  |
+| `match.ate.mahalanobis.pop` | 1000 | 400 | 0.975 | 1.05 | -0.01 |  |
+| `match.att.ps.no_replace` | 1000 | 1000 | 0.991 | 1.36 | 0.16 | coverage_high, se_large |
+| `match.att.ps.caliper` | 1000 | 1000 | 0.990 | 1.28 | -0.08 | coverage_high, se_large |
+| `match.att.ps.true_score` | 1000 | 400 | 0.955 | 1.01 | 0.02 |  |
+| `match.ate.ps.true_score` | 1000 | 400 | 0.950 | 1.00 | -0.00 |  |
+| `match.att.kernel.true_score` | 1000 | 400 | 0.958 | 1.01 | 0.06 |  |
+| `match.att.stratify.true_score` | 1000 | 400 | 0.980 | 1.08 | 0.12 |  |
+| `match.att.kernel` | 1000 | 1000 | 0.996 | 1.47 | 0.10 | coverage_high, se_large |
+| `match.att.kernel.bootstrap` | 1000 | 200 | 0.935 | 0.97 | 0.13 |  |
+| `match.att.radius` | 1000 | 1000 | 0.998 | 1.49 | 0.07 | coverage_high, se_large |
+| `match.att.llr` | 1000 | 200 | 0.990 | 5.08 | -0.05 | coverage_high, se_large |
+| `match.att.llr.wide` | 1000 | 200 | 0.975 | 1.08 | -0.06 |  |
+| `match.att.stratify` | 1000 | 1000 | 0.995 | 1.39 | 0.03 | coverage_high, se_large |
+| `match.ate.stratify` | 1000 | 1000 | 0.998 | 1.50 | 0.21 | coverage_high, se_large |
+| `match.att.cem` | 1000 | 1000 | 0.944 | 0.99 | -0.23 |  |
+| `match.ate.nnmatch` | 1000 | 400 | 0.960 | 1.02 | -0.01 |  |
+| `match.att.nnmatch` | 1000 | 400 | 0.963 | 0.99 | -0.02 |  |
+| `psmatch2.att` | 1000 | 1000 | 0.980 | 1.21 | 0.04 | se_large |
+| `psmatch2.att.ai` | 1000 | 1000 | 0.981 | 1.21 | 0.03 | se_large |
+| `full_match.att` | 600 | 1000 | 0.989 | 1.28 | 0.04 | coverage_high, se_large |
+| `full_match.ate` | 600 | 1000 | 0.991 | 1.34 | 0.02 | coverage_high, se_large |
+| `optimal_match.att` | 600 | 400 | 0.938 | 0.97 | 0.20 |  |
+| `genmatch.att` | 500 | 500 | 0.862 | 0.76 | 0.07 | coverage_low, se_small |
+| `cardinality_match.ate` | 600 | 400 | 0.925 | 0.97 | 0.04 |  |
+
+What the table says:
+
+- Matching on the covariates is in band: Mahalanobis nearest-neighbour
+  matching with the Abadie-Imbens variance (ATT and ATE, one and three
+  matches, the population variance), `method='nnmatch'`, optimal pair
+  matching and cardinality matching.
+- Every analytic standard error of a method that uses an *estimated*
+  propensity score is conservative, by 21% to 51%: nearest-neighbour
+  matching on the score (with replacement, without, with a caliper),
+  stratification, kernel and radius matching, full matching and
+  `sp.psmatch2`. The mechanism is the same in all of them. The formula
+  takes the score as given, and a logit fitted on the sample balances the
+  covariates better than the true score does, which lowers the sampling
+  variance of the contrast. The four `*.true_score` rows run the same
+  formulas on the true score and are in band (1.00 to 1.08), and the two
+  options that account for the estimated score are in band:
+  `se_method='abadie_imbens_2016'` (1.00 for the ATT, 0.94 for the ATE)
+  and the bootstrap for kernel matching (0.97).
+- `sp.match(method='cem')` was a finding. Its ATT standard error was
+  taken around each arm's overall mean, so it counted the variation
+  between cells that exact matching removes: 1.42 times the sampling SD.
+  With the within-cell variance it is 0.99 (1,000 draws). A bias of 0.23
+  SD remains, inside the band, and it is the method: CEM estimates the
+  effect on the treated units that found a cell with a control.
+- Local linear matching at the default bandwidth of 0.06 has a
+  heavy-tailed bootstrap distribution: the mean reported SE is five times
+  the sampling SD, because a few resamples leave a treated unit with too
+  few distinct controls in its window and the local linear weights
+  explode. The estimator now warns when this happens and reports the
+  interquartile scale of the bootstrap distribution. With `bwidth=0.2`
+  the row is in band (SE / SD 1.08).
+- `sp.genmatch` reports the matched-pair standard error, which is too
+  small when controls are reused (0.76 of the sampling SD,
+  coverage 86.2%). It already warns about this.
+
+### Weighting and balancing (`weighting.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `ebalance.att` | 1000 | 400 | 0.970 | 1.05 | -0.07 |  |
+| `ebalance.att.naive` | 1000 | 1000 | 0.991 | 1.42 | 0.01 | coverage_high, se_large |
+| `ebalance.att.moments2` | 1000 | 400 | 0.948 | 1.02 | 0.01 |  |
+| `ebalance.ate` | 1000 | 400 | 0.955 | 1.04 | -0.09 |  |
+| `ebalance.atc` | 1000 | 400 | 0.963 | 1.04 | -0.00 |  |
+| `ebalance.att.weights` | 1000 | 400 | 0.943 | 0.95 | 0.09 |  |
+| `cbps.ate.over` | 500 | 200 | 0.965 | 1.15 | 0.33 |  |
+| `cbps.ate.exact` | 1000 | 400 | 0.953 | 1.02 | -0.03 |  |
+| `cbps.att.exact` | 1000 | 400 | 0.948 | 0.99 | 0.02 |  |
+| `overlap_weights.ato` | 1000 | 400 | 0.932 | 0.93 | 0.02 |  |
+| `overlap_weights.att` | 1000 | 400 | 0.968 | 1.06 | -0.05 |  |
+| `overlap_weights.matching` | 1000 | 400 | 0.945 | 0.97 | 0.07 |  |
+| `overlap_weights.entropy` | 1000 | 400 | 0.963 | 1.05 | -0.01 |  |
+| `sbw.att` | 1000 | 1000 | 0.939 | 0.95 | 0.15 |  |
+| `sbw.ate` | 1000 | 1000 | 0.936 | 0.97 | 0.40 | bias |
+| `sbw.atc` | 1000 | 1000 | 0.938 | 1.01 | 0.31 | bias |
+| `sbw.att.naive` | 1000 | 1000 | 0.997 | 1.52 | 0.18 | coverage_high, se_large |
+| `sbw.att.tight` | 1000 | 400 | 0.920 | 0.95 | -0.02 |  |
+| `residual_balance.ate` | 1000 | 400 | 0.955 | 1.00 | 0.05 |  |
+| `residual_balance.att` | 1000 | 400 | 0.940 | 0.98 | 0.01 |  |
+| `pate.ipw` | 800 | 400 | 0.938 | 0.98 | -0.00 |  |
+| `pate.aipw` | 800 | 400 | 0.950 | 1.00 | -0.02 |  |
+| `pate.calibration` | 800 | 400 | 0.925 | 0.95 | 0.06 |  |
+| `front_door` | 1000 | 200 | 0.960 | 1.01 | -0.04 |  |
+
+What the table says:
+
+- Entropy balancing with its M-estimation variance (ATT, ATE, ATC, second
+  moments, sampling weights), CBPS (just- and over-identified), the
+  overlap-weight family (ATO, ATT, matching and entropy weights), residual
+  balancing, the three `sp.pate` transport estimators and `sp.front_door`
+  are in band.
+- `sp.sbw` was a finding. Its standard error measured each arm around its
+  weighted mean and was 1.47 to 1.50 times the sampling SD. The
+  linearized variance is 0.95 to 1.01 (1,000 draws). What is left on the
+  ATE and ATC rows is the bias of approximate balance: at the default
+  `delta=0.02` the estimate keeps 0.15 (ATT) to 0.40 (ATE) standard
+  errors of imbalance and the intervals cover about 94%. At
+  `delta=0.001` the bias is gone. The old standard error hid this.
+- The two `naive` rows (`sp.ebalance(vce='naive')`,
+  `sp.sbw(vce='naive')`) are documented options that take the weights as
+  fixed; they run 1.4 to 1.5 times the sampling SD.
+
+### Meta-learners and double machine learning (`ml_causal.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `metalearner.ate` | 1000 | 200 | 0.970 | 1.04 | -0.12 |  |
+| `metalearner.ate.linear` | 1000 | 400 | 0.963 | 1.05 | -0.04 |  |
+| `metalearner.ate.cluster` | 1000 | 400 | 0.958 | 1.00 | 0.04 |  |
+| `blp_test.beta1` | 1000 | 400 | 0.955 | 1.01 | -0.01 |  |
+| `gate_test.top_group` | 1000 | 400 | 0.960 | 1.05 | 0.03 |  |
+| `gate_test.top_vs_bottom` | 1000 | 400 | 0.958 | 1.02 | 0.00 |  |
+| `dml.irm.ate.linear` | 1000 | 400 | 0.932 | 0.97 | 0.04 |  |
+| `dml.irm.atte.linear` | 1000 | 400 | 0.948 | 0.97 | -0.03 |  |
+| `dml.irm.ate.normalize_ipw` | 1000 | 400 | 0.940 | 0.97 | -0.09 |  |
+| `dml.irm.ate.n_rep` | 1000 | 400 | 0.958 | 1.03 | -0.02 |  |
+| `dml.irm.ate.default` | 1000 | 400 | 0.958 | 1.00 | -0.01 |  |
+| `dml.irm.ate.cluster` | 1000 | 400 | 0.965 | 1.05 | 0.05 |  |
+| `dml.plr.cluster` | 1000 | 400 | 0.930 | 0.94 | -0.04 |  |
+| `dml.pliv` | 1000 | 400 | 0.948 | 1.00 | 0.04 |  |
+| `dml.iivm` | 2000 | 200 | 0.965 | 1.10 | -0.01 |  |
+| `dml_panel` | 1000 | 400 | 0.958 | 1.05 | 0.01 |  |
+| `dml_did` | 1000 | 400 | 0.953 | 0.99 | 0.01 |  |
+| `dml_model_averaging` | 600 | 200 | 0.950 | 1.00 | 0.06 |  |
+| `dynamic_dml.total` | 500 | 400 | 0.970 | 1.05 | 0.00 |  |
+| `dynamic_dml.first_period` | 500 | 400 | 0.953 | 1.06 | 0.07 |  |
+
+What the table says:
+
+- No row is flagged. `sp.metalearner` (default and linear learners,
+  clusters), the GATES and BLP regressions of `sp.gate_test` and
+  `sp.blp_test` in an experiment with a known propensity, `sp.dml` for
+  the IRM (ATE, ATTE, normalised weights, repeated splits, clusters,
+  default learners), PLR with clusters, PLIV and IIVM, `sp.dml_panel`,
+  `sp.dml_did`, `sp.dml_model_averaging` and `sp.dynamic_dml` (total and
+  first-period effect) all have SE / SD between 0.94 and 1.10.
+- The screen did find a label: `sp.dml(model='irm', score='ATTE')`
+  called its estimate `'ATE'`. It is now `'ATT'`.
+
+### Forests (`forest.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `causal_forest.ate` | 1000 | 400 | 0.948 | 1.02 | 0.03 |  |
+| `causal_forest.att` | 1000 | 400 | 0.935 | 0.93 | 0.01 |  |
+| `causal_forest.atc` | 1000 | 400 | 0.960 | 1.03 | 0.03 |  |
+| `causal_forest.overlap` | 1000 | 400 | 0.953 | 0.96 | -0.06 |  |
+| `causal_forest.ate.clusters` | 1000 | 400 | 0.938 | 0.99 | 0.05 |  |
+| `best_linear_projection.slope` | 1000 | 400 | 0.963 | 1.04 | -0.06 |  |
+| `best_linear_projection.intercept` | 1000 | 400 | 0.945 | 1.00 | -0.03 |  |
+| `calibration_test.mean` | 1000 | 1000 | 1.000 | 16.13 | -0.08 | coverage_high, se_large |
+| `forest_group_effects.by` | 1000 | 400 | 0.955 | 1.05 | -0.04 |  |
+| `causal_forest.pointwise.centre` | 1000 | 1000 | 0.944 | 1.00 | 0.01 |  |
+| `causal_forest.pointwise.off_centre` | 1000 | 400 | 0.958 | 1.06 | -0.11 |  |
+| `iv_forest.late` | 1000 | 200 | 0.960 | 1.02 | 0.01 |  |
+| `multi_arm_forest.ate` | 1000 | 200 | 0.945 | 0.98 | -0.11 |  |
+
+What the table says:
+
+- Everything that averages the forest's doubly robust scores is in band:
+  the ATE, ATT, ATC and overlap-weighted effect of
+  `sp.average_treatment_effect` (also with clusters), both coefficients
+  of `sp.best_linear_projection`, `sp.forest_group_effects` on a
+  pre-specified split, and the average effects of `sp.iv_forest` and
+  `sp.multi_arm_forest`.
+- The pointwise interval for a single `tau(x)` covers 94.4%
+  at the centre of the covariate distribution and 95.8% one standard
+  deviation away: close to nominal at this sample size, and a different
+  kind of claim from the averages.
+- The `mean_forest_prediction` coefficient of `sp.calibration_test` is 1
+  in every sample almost exactly, because the mean forest prediction and
+  the average effect it is compared with come from the same data. Its
+  standard error is 16 times its sampling SD, so a test of it
+  against 1 cannot reject. grf's `test_calibration` reports the same
+  number.
+
+### Conformal intervals (`conformal.py`)
+
+Coverage here is of a prediction interval at fresh draws, nominal 0.90.
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `conformal_counterfactual.y1` | 1000 | 400 | 0.903 |  |  |  |
+| `conformal_counterfactual.y0` | 1000 | 400 | 0.905 |  |  |  |
+| `conformal_ite_interval` | 1000 | 400 | 0.996 |  |  |  |
+| `conformal_cate` | 1000 | 400 | 0.999 |  |  |  |
+| `conformal_regression.jackknife_plus` | 300 | 400 | 0.902 |  |  |  |
+| `conformal_regression.split` | 1000 | 400 | 0.901 |  |  |  |
+| `conformal_regression.full` | 300 | 200 | 0.901 |  |  |  |
+| `weighted_conformal_prediction` | 1000 | 400 | 0.900 |  |  |  |
+| `weighted_conformal_prediction.shift` | 1000 | 400 | 0.902 |  |  |  |
+| `conformal_debiased_ml` | 1000 | 400 | 0.985 |  |  |  |
+| `conformal_density_ite` | 1000 | 400 | 0.904 |  |  |  |
+| `conformal_fair_ite` | 1000 | 400 | 0.995 |  |  |  |
+| `conformal_continuous` | 1000 | 400 | 0.901 |  |  |  |
+
+What the table says:
+
+- Every interval for an observable outcome is at its nominal 90%:
+  `sp.conformal_counterfactual` for Y(1) and Y(0), `sp.conformal_regression`
+  (jackknife+, split, full), `sp.weighted_conformal_prediction` with and
+  without covariate shift, `sp.conformal_continuous`.
+- Intervals for the individual effect Y(1) - Y(0), which is never
+  observed, come in two kinds. `sp.conformal_ite_interval`,
+  `sp.conformal_cate`, `sp.conformal_debiased_ml` and
+  `sp.conformal_fair_ite` use a union bound over the two potential
+  outcomes and cover 98.5% to 99.9% with intervals 7 to 9 wide (infinite
+  for some rows of `conformal_ite_interval`, where overlap fails): valid,
+  and conservative by construction. `sp.conformal_density_ite` assumes
+  the two potential outcomes are independent given the covariates, which
+  holds in this design, and covers 90.4% with intervals 4.7 wide.
+
+### Mediation (`mediation.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `mediate.acme` | 1000 | 400 | 0.935 | 0.96 | 0.11 |  |
+| `mediate.ade` | 1000 | 400 | 0.973 | 1.03 | 0.02 |  |
+| `mediate.total` | 1000 | 400 | 0.948 | 0.97 | 0.04 |  |
+| `mediate.acme.delta` | 1000 | 400 | 0.943 | 0.99 | -0.03 |  |
+| `mediate.acme.interaction` | 1000 | 400 | 0.927 | 0.93 | 0.01 |  |
+| `mediate_interventional.iie` | 1000 | 400 | 0.953 | 1.04 | -0.02 |  |
+| `mediate_interventional.ide` | 1000 | 400 | 0.958 | 1.05 | 0.04 |  |
+| `four_way.cde` | 1000 | 400 | 0.948 | 1.07 | 0.02 |  |
+| `four_way.int_ref` | 1000 | 400 | 0.945 | 1.02 | -0.00 |  |
+| `four_way.int_med` | 1000 | 400 | 0.950 | 1.00 | 0.03 |  |
+| `four_way.pie` | 1000 | 400 | 0.932 | 0.96 | -0.01 |  |
+| `iv_mediate.indirect` | 1000 | 1000 | 0.987 | 1.25 | -0.04 | coverage_high, se_large |
+| `iv_mediate.direct` | 1000 | 1000 | 0.959 | 1.00 | 0.10 |  |
+| `iv_mediate.indirect.robust` | 1000 | 1000 | 0.977 | 1.18 | -0.07 | se_large |
+| `iv_mediate.indirect.negative_link` | 1000 | 1000 | 0.922 | 0.87 | -0.05 | se_small |
+| `iv_mediate.indirect.joint` | 1000 | 1000 | 0.961 | 1.06 | -0.08 |  |
+| `iv_mediate.indirect.joint.negative_link` | 1000 | 1000 | 0.955 | 1.01 | 0.02 |  |
+| `iv_mediate.indirect.joint.robust` | 1000 | 1000 | 0.946 | 0.99 | 0.02 |  |
+| `mediate_paths.via_m1` | 1000 | 400 | 0.945 | 1.02 | 0.10 |  |
+| `mediate_paths.via_m2` | 1000 | 400 | 0.945 | 1.03 | -0.15 |  |
+
+What the table says:
+
+- `sp.mediate` (bootstrap and delta method), `sp.mediate_interventional`,
+  `sp.four_way_decomposition` and `sp.mediate_paths` are in band on every
+  effect screened.
+- `sp.iv_mediate` is the exception, and the cause is the reference's
+  variance, not the estimates. `ivmediate` treats the three IV equations
+  as independent, so the variance of the indirect effect `a d` leaves out
+  `2 a d cov(a, d)`. With the mediator's error entering the outcome
+  equation with a positive loading the default SE is 1.25 times
+  the sampling SD; with a negative loading it is 0.87 times and
+  the 95% interval covers 92.2%. `equations="joint"` keeps the
+  covariance (1.06 and 1.01 times the SD) and
+  equals Stata's `gmm` + `nlcom` to 2e-12. The default is unchanged so
+  that it still equals `ivmediate`; switching it is an owner decision.
+- The direct effect's SE does not involve the cross-equation term and is
+  in band under the default.
+
+### Partial identification (`bounds.py`)
+
+Coverage is the smaller of the two endpoint coverages of the identified
+set.
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `lee_bounds.bootstrap` | 2000 | 400 | 0.945 |  | 0.03 |  |
+| `lee_bounds.analytic` | 2000 | 400 | 0.938 |  | 0.05 |  |
+| `lee_bounds.covariates` | 2000 | 400 | 0.932 |  | 0.10 |  |
+| `selection_bounds` | 2000 | 400 | 0.945 |  | 0.04 |  |
+| `manski_bounds` | 2000 | 400 | 0.975 |  | 0.03 |  |
+| `manski_bounds.mts` | 2000 | 400 | 0.960 |  | 0.03 |  |
+| `horowitz_manski` | 2000 | 400 | 0.943 |  | 0.08 |  |
+| `ml_bounds` | 1000 | 200 | 0.950 |  | 0.01 |  |
+| `iv_bounds.nevo_rosen` | 2000 | 400 | 0.943 |  | 0.03 |  |
+
+What the table says:
+
+- The Imbens-Manski intervals of `sp.lee_bounds` (bootstrap, analytic,
+  with a covariate), `sp.selection_bounds`, `sp.horowitz_manski` and
+  `sp.iv_bounds` cover the less-covered endpoint of the identified set
+  93% to 95% of the time, as they should for a wide set.
+- `sp.manski_bounds` puts the two-sided critical value on both bounds, so
+  its interval covers the whole set and an endpoint 96% to 97.5% of the
+  time. That is a valid interval for the effect, a little wider than the
+  Imbens-Manski one the other functions report.
+- `sp.ml_bounds` was the finding: its band covered an endpoint 68.5% of
+  the time (38% for the whole set). It resampled fitted values, which
+  hold no sampling noise of the outcome or the treatment. It now
+  resamples each unit's own contribution to the bound and covers
+  95.0%.
+
+### Quantile, distributional and dose-response effects (`dose_qte.py`)
+
+| row | n | B | coverage | SE / SD | bias / SD | flag |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `qte.firpo.q75` | 1000 | 400 | 0.960 | 1.06 | -0.07 |  |
+| `qte.firpo.q50` | 1000 | 400 | 0.963 | 1.01 | 0.10 |  |
+| `qte.firpo.q75.analytic` | 1000 | 1000 | 0.989 | 1.28 | 0.03 | coverage_high, se_large |
+| `qte.firpo.no_covariates` | 1000 | 400 | 0.940 | 0.97 | -0.03 |  |
+| `qte.firpo_qtt.q75` | 1000 | 400 | 0.958 | 1.03 | 0.00 |  |
+| `qte.distribution.q75` | 1000 | 400 | 0.955 | 1.02 | -0.04 |  |
+| `qte.conditional_qr.q75` | 1000 | 200 | 0.955 | 1.03 | -0.00 |  |
+| `distributional_te.q50` | 1000 | 400 | 0.938 | 0.95 | 0.03 |  |
+| `dist_iv.q75` | 2000 | 400 | 0.973 | 1.08 | 0.07 |  |
+| `beyond_average_late.q75` | 2000 | 400 | 0.958 | 1.03 | 0.03 |  |
+| `qdid.q75` | 1000 | 400 | 0.953 | 1.04 | -0.03 |  |
+| `dose_response.gps` | 1000 | 400 | 0.940 | 0.97 | -0.03 |  |
+| `dose_response.gps.confounded` | 1000 | 400 | 0.000 | 0.94 | 9.71 | coverage_low, bias |
+| `dose_response.dr` | 500 | 200 | 0.940 | 0.61 | -0.01 | se_small |
+
+What the table says:
+
+- Firpo's quantile effects (QTE and QTT, bootstrap), the conditional
+  quantile regression, `sp.distributional_te`, the complier quantile
+  effects of `sp.dist_iv` and `sp.beyond_average_late`, and `sp.qdid`
+  are in band.
+- With covariates the analytic standard error of the Firpo QTE treats the
+  propensity score as known and is 1.3 times the sampling SD; that is why
+  `se='auto'` uses the bootstrap there, and the docstring says so.
+- `sp.dose_response` with the Hirano-Imbens GPS regression is in band
+  when the covariates move the dose only. When a covariate also moves the
+  outcome and the outcome model is linear in the dose and the GPS, the
+  curve keeps the unadjusted slope (bias of 9.7 standard errors, coverage
+  zero). The docstring reports this and the function warns on its default
+  models.
+- `method='dr'` is unbiased on the same design and its interval covers
+  94%, but the mean SE is 0.61 of the sampling SD: the estimate
+  has heavy tails. The conditional variance of the dose is a linear
+  regression of squared residuals, which falls towards zero for a few
+  covariate values, and the density weight of those units explodes.
+  With a constant variance the SD of the contrast dropped from 5.0 to
+  0.15 (120 draws). The function now warns when a density weight exceeds
+  100; changing the variance model is an open decision.
+
 ## DML as the learner changes (`dml_learners.py`)
 
 Bias and coverage of the 95% interval of `sp.dml(model='plr')` for a

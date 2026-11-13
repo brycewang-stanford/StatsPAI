@@ -2,14 +2,14 @@
 
 Design constants (fixed before the first run, 2026-11-13):
 
-* ``N = 1000``, design ``_dgp.obs`` (logit propensity, linear outcome with
+* ``N = 1000``, design ``_causal_dgp.obs`` (logit propensity, linear outcome with
   effect ``1 + 0.5 x1``). Entropy balancing, CBPS, stable balancing
   weights and overlap weights are all consistent here: the propensity is
   logit-linear and the outcome is linear in the balanced covariates.
 * ``B = 400``; rows whose standard error is a bootstrap that refits a
   slow optimiser (CBPS over-identified) use fewer bootstrap draws and
   ``B = 200``, and say so.
-* Truths by quadrature (``_dgp.OBS_TRUTH``); transport rows have a target
+* Truths by quadrature (``_causal_dgp.OBS_TRUTH``); transport rows have a target
   population with ``x1 ~ N(0, 1)`` so the target ATE is 1.
 
 Run: ``PYTHONPATH=src python tests/reliability/se_screen/causal/weighting.py``.
@@ -24,8 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from _dgp import OBS_TRUTH, obs, sample_truth  # noqa: E402
-from _harness import Row, ci_from, main  # noqa: E402
+from _causal_dgp import OBS_TRUTH, obs, sample_truth  # noqa: E402
+from _causal_harness import Row, ci_from, main  # noqa: E402
 
 import statspai as sp  # noqa: E402
 
@@ -91,7 +91,7 @@ def _front_door(rng):
     return ci_from(r)
 
 
-D = "_dgp.obs"
+D = "_causal_dgp.obs"
 ROWS = [
     Row(
         "ebalance.att",
@@ -316,14 +316,18 @@ ROWS = [
 ]
 
 _SBW_TOLERANCE = (
-    "Bias only, a property of approximate balance. With delta = 0.02 the "
-    "minimum-dispersion weights stop on the tolerance boundary, so each "
-    "covariate keeps an imbalance of 0.02 standard deviations in the "
-    "direction of the raw imbalance, and the estimate keeps that imbalance "
-    "times the outcome slopes (about 0.02 to 0.03 here, a quarter to "
-    "four tenths of a standard error at n = 1000). The bias shrinks with "
-    "delta (sbw.att.tight) and, for a fixed delta, grows relative to the "
-    "standard error as n grows. The standard error is in band."
+    "Bias, a property of approximate balance; the standard error is in "
+    "band. With delta = 0.02 the minimum-dispersion weights stop on the "
+    "tolerance boundary, so each covariate keeps an imbalance of 0.02 "
+    "standard deviations in the direction of the raw imbalance, and the "
+    "estimate keeps that imbalance times the outcome slopes (about 0.02 "
+    "to 0.03 here, a quarter to four tenths of a standard error at n = "
+    "1000). Where the row is also flagged for coverage, that bias is the "
+    "reason: the interval has the right width and sits off centre. The "
+    "bias is gone at delta = 0.001 (sbw.att.tight) and, for a fixed "
+    "delta, grows relative to the standard error with n. Before this "
+    "screen the standard error was 1.5 times too large and hid it (see "
+    "before_fix). The docstring of delta now states the bias."
 )
 MECHANISMS: dict = {
     "ebalance.att.naive": (
@@ -337,7 +341,8 @@ MECHANISMS: dict = {
         "Documented option since this screen. vce='naive' is the "
         "fixed-weights variance sp.sbw reported through 1.43.1; it counts "
         "outcome variation that balancing removes. The default is now the "
-        "linearized variance (sbw.att, sbw.ate, sbw.atc)."
+        "linearized variance (sbw.att, sbw.ate, sbw.atc). The bias flag is "
+        "the tolerance bias described for those rows."
     ),
     "sbw.att": _SBW_TOLERANCE,
     "sbw.ate": _SBW_TOLERANCE,

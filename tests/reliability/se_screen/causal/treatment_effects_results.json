@@ -1,5 +1,5 @@
 {
- "study": "se_screen/treatment_effects",
+ "study": "se_screen/causal/treatment_effects",
  "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
  "statspai_version": "1.43.1",
  "rows": [
@@ -8,7 +8,7 @@
    "estimator": "ipw",
    "call": "sp.ipw(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -39,14 +39,15 @@
    "bias_over_sd": -0.0,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -78,14 +79,15 @@
    "coverage_sample_truth": 0.9625,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.att.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., estimand='ATT', se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -117,14 +119,15 @@
    "coverage_sample_truth": 0.955,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.atc.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., estimand='ATC', se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -156,14 +159,15 @@
    "coverage_sample_truth": 0.96,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.ht.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., normalize=False, se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -195,14 +199,15 @@
    "coverage_sample_truth": 0.9625,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.weights.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., weights='w', se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs + independent sampling weights U(0.5, 1.5)",
+   "design": "_causal_dgp.obs + independent sampling weights U(0.5, 1.5)",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -233,14 +238,15 @@
    "bias_over_sd": -0.016,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.cluster.sandwich",
    "estimator": "ipw",
    "call": "sp.ipw(..., cluster='g', se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "design": "_causal_dgp.obs_clustered, 100 clusters of 10",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -271,14 +277,15 @@
    "bias_over_sd": 0.019,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.cluster.bootstrap",
    "estimator": "ipw",
    "call": "sp.ipw(..., cluster='g')",
    "kind": "ci",
-   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "design": "_causal_dgp.obs_clustered, 100 clusters of 10",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -309,14 +316,15 @@
    "bias_over_sd": -0.097,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ipw.ate.ps_learner",
    "estimator": "ipw",
    "call": "sp.ipw(..., ps_learner=LogisticRegression(C=1e6), n_bootstrap=200)",
    "kind": "ci",
-   "design": "_dgp.obs (n = 600, 200 bootstrap draws, B = 200: each draw refits)",
+   "design": "_causal_dgp.obs (n = 600, 200 bootstrap draws, B = 200: each draw refits)",
    "n": 600,
    "B": 200,
    "nominal": 0.95,
@@ -347,14 +355,15 @@
    "bias_over_sd": 0.011,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.ate",
    "estimator": "aipw",
    "call": "sp.aipw(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -386,14 +395,15 @@
    "coverage_sample_truth": 0.93,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.att",
    "estimator": "aipw",
    "call": "sp.aipw(..., estimand='ATT')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -425,50 +435,15 @@
    "coverage_sample_truth": 0.96,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
-  },
-  {
-   "id": "aipw.atc",
-   "estimator": "aipw",
-   "call": "sp.aipw(..., estimand='ATC')",
-   "kind": "ci",
-   "design": "_dgp.obs",
-   "n": 1000,
-   "B": 400,
-   "nominal": 0.95,
-   "truth": 0.8876883160031803,
-   "n_failed": 400,
-   "first_error": "ValueError: estimand must be 'ATE' or 'ATT', got 'ATC'",
-   "seconds": 40.0,
-   "bands": {
-    "coverage": [
-     0.918,
-     0.985
-    ],
-    "se_over_sd": [
-     0.88,
-     1.12
-    ],
-    "bias_over_sd": [
-     -0.25,
-     0.25
-    ]
-   },
-   "coverage": null,
-   "se_over_sd": null,
-   "bias_over_sd": null,
-   "flag_reasons": [
-    "failures"
-   ],
-   "flagged": true,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.ate.no_cross_fit",
    "estimator": "aipw",
    "call": "sp.aipw(..., cross_fit=False)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -500,14 +475,15 @@
    "coverage_sample_truth": 0.96,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.ate.sandwich",
    "estimator": "aipw",
    "call": "sp.aipw(..., cross_fit=False, se_method='sandwich')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -539,14 +515,15 @@
    "coverage_sample_truth": 0.955,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.ate.weights",
    "estimator": "aipw",
    "call": "sp.aipw(..., weights='w')",
    "kind": "ci",
-   "design": "_dgp.obs + independent sampling weights U(0.5, 1.5)",
+   "design": "_causal_dgp.obs + independent sampling weights U(0.5, 1.5)",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -577,14 +554,15 @@
    "bias_over_sd": -0.03,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "aipw.ate.cluster",
    "estimator": "aipw",
    "call": "sp.aipw(..., cluster='g')",
    "kind": "ci",
-   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "design": "_causal_dgp.obs_clustered, 100 clusters of 10",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -615,14 +593,15 @@
    "bias_over_sd": -0.017,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "g_computation.ate",
    "estimator": "g_computation",
    "call": "sp.g_computation(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs with a constant effect (the default single regression has no treatment-covariate interaction)",
+   "design": "_causal_dgp.obs with a constant effect (the default single regression has no treatment-covariate interaction)",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -653,14 +632,15 @@
    "bias_over_sd": -0.063,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "g_computation.ate.by_arm",
    "estimator": "g_computation",
    "call": "sp.g_computation(..., by_arm=True)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -691,14 +671,15 @@
    "bias_over_sd": 0.061,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "g_computation.att.by_arm",
    "estimator": "g_computation",
    "call": "sp.g_computation(..., estimand='ATT', by_arm=True)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -729,14 +710,15 @@
    "bias_over_sd": -0.023,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.ate",
    "estimator": "tmle",
    "call": "sp.tmle(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -767,14 +749,15 @@
    "bias_over_sd": -0.192,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.att",
    "estimator": "tmle",
    "call": "sp.tmle(..., estimand='ATT')",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -805,14 +788,15 @@
    "bias_over_sd": -0.179,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.atc.glm",
    "estimator": "tmle",
    "call": "sp.tmle(..., estimand='ATC', outcome_library=[OLS], propensity_library=[logit])",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -843,14 +827,15 @@
    "bias_over_sd": 0.037,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.ate.per_arm.glm",
    "estimator": "tmle",
    "call": "sp.tmle(..., fluctuation='per_arm', GLM libraries)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -881,14 +866,15 @@
    "bias_over_sd": 0.087,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.ey1.glm",
    "estimator": "tmle",
    "call": "sp.tmle(..., estimand='EY1', GLM libraries)",
    "kind": "ci",
-   "design": "_dgp.obs (E[Y(1)] = 1 + TAU0 = 2)",
+   "design": "_causal_dgp.obs (E[Y(1)] = 1 + TAU0 = 2)",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -919,14 +905,15 @@
    "bias_over_sd": 0.057,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "tmle.ate.cluster.glm",
    "estimator": "tmle",
    "call": "sp.tmle(..., cluster='g', GLM libraries)",
    "kind": "ci",
-   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "design": "_causal_dgp.obs_clustered, 100 clusters of 10",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -957,14 +944,15 @@
    "bias_over_sd": -0.003,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "ctmle.ate",
    "estimator": "ctmle",
    "call": "sp.ctmle(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs (n = 500, B = 200: 15 s per fit at n = 1000)",
+   "design": "_causal_dgp.obs (n = 500, B = 200: 15 s per fit at n = 1000)",
    "n": 500,
    "B": 200,
    "nominal": 0.95,
@@ -995,14 +983,15 @@
    "bias_over_sd": -0.2,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "hal_tmle.ate",
    "estimator": "hal_tmle",
    "call": "sp.hal_tmle(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.obs",
+   "design": "_causal_dgp.obs",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -1033,21 +1022,22 @@
    "bias_over_sd": 0.052,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "difference_in_means",
    "estimator": "difference_in_means",
    "call": "sp.difference_in_means(df, y, d)",
    "kind": "ci",
-   "design": "_dgp.rct (Bernoulli(0.5) assignment)",
+   "design": "_causal_dgp.rct (Bernoulli(0.5) assignment)",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
    "truth": 1.0,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 1.6,
+   "seconds": 1.3,
    "bands": {
     "coverage": [
      0.918,
@@ -1062,16 +1052,24 @@
      0.25
     ]
    },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.90601323040945
+   },
    "n_nonfinite": 0,
+   "target": "population",
    "mean_estimate": 1.0041,
    "sd_estimate": 0.10104,
    "coverage": 0.97,
    "mean_se": 0.10704,
    "se_over_sd": 1.059,
+   "median_se_over_iqr_sd": 1.055,
    "bias_over_sd": 0.041,
    "coverage_sample_truth": 0.9675,
    "flag_reasons": [],
    "flagged": false,
+   "statspai_version": "1.43.1",
    "mechanism": ""
   },
   {
@@ -1110,7 +1108,8 @@
    "bias_over_sd": 0.009,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "difference_in_means.cluster",
@@ -1148,14 +1147,15 @@
    "bias_over_sd": 0.024,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "lm_lin",
    "estimator": "lm_lin",
    "call": "sp.lm_lin(df, y, d, X)",
    "kind": "ci",
-   "design": "_dgp.rct",
+   "design": "_causal_dgp.rct",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -1187,14 +1187,15 @@
    "coverage_sample_truth": 0.95,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "lm_lin.superpopulation",
    "estimator": "lm_lin",
    "call": "sp.lm_lin(..., superpopulation=True)",
    "kind": "ci",
-   "design": "_dgp.rct",
+   "design": "_causal_dgp.rct",
    "n": 1000,
    "B": 400,
    "nominal": 0.95,
@@ -1226,7 +1227,8 @@
    "coverage_sample_truth": 0.9425,
    "flag_reasons": [],
    "flagged": false,
-   "mechanism": ""
+   "mechanism": "",
+   "statspai_version": "1.43.1"
   },
   {
    "id": "lm_lin.cluster",
@@ -1264,6 +1266,239 @@
    "bias_over_sd": 0.018,
    "flag_reasons": [],
    "flagged": false,
+   "mechanism": "",
+   "statspai_version": "1.43.1"
+  },
+  {
+   "id": "ltmle.ate",
+   "estimator": "ltmle",
+   "call": "sp.ltmle(df, y, ['a1', 'a2'], [['l1'], ['l2']])",
+   "kind": "ci",
+   "design": "two decision points, time-varying confounder affected by the first treatment, logit treatment models",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 2.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 101.44477928375447
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 2.49922,
+   "sd_estimate": 0.10737,
+   "coverage": 0.9525,
+   "mean_se": 0.11104,
+   "se_over_sd": 1.034,
+   "median_se_over_iqr_sd": 1.162,
+   "bias_over_sd": -0.007,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "lmtp.mean",
+   "estimator": "lmtp",
+   "call": "sp.lmtp(df, Y, ['A'], shift=1.0, baseline=['W'])",
+   "kind": "ci",
+   "design": "A = W + v, Y = A + W + e; E[Y(A + 1)] = 1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 41.377544755404415
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00357,
+   "sd_estimate": 0.08061,
+   "coverage": 0.9625,
+   "mean_se": 0.08679,
+   "se_over_sd": 1.077,
+   "median_se_over_iqr_sd": 1.131,
+   "bias_over_sd": 0.044,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "lmtp.effect",
+   "estimator": "lmtp",
+   "call": "sp.lmtp(...).model_info['effect'] +/- 1.96 effect_se",
+   "kind": "ci",
+   "design": "as lmtp.mean; shift effect against the natural course = 1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.46291299262702
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99604,
+   "sd_estimate": 0.03676,
+   "coverage": 0.955,
+   "mean_se": 0.0389,
+   "se_over_sd": 1.058,
+   "median_se_over_iqr_sd": 1.058,
+   "bias_over_sd": -0.108,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "lmtp.mean.sdr.folds",
+   "estimator": "lmtp",
+   "call": "sp.lmtp(..., estimator='sdr', folds=5)",
+   "kind": "ci",
+   "design": "as lmtp.mean",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.806558238323795
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00036,
+   "sd_estimate": 0.08829,
+   "coverage": 0.955,
+   "mean_se": 0.08705,
+   "se_over_sd": 0.986,
+   "median_se_over_iqr_sd": 0.891,
+   "bias_over_sd": 0.004,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "bcf.ate",
+   "estimator": "bcf",
+   "call": "sp.bcf(df, y, d, X)",
+   "kind": "ci",
+   "design": "_causal_dgp.obs (n = 500, B = 200: 12 s per fit); scored against the sample average effect, which is what the posterior describes",
+   "n": 500,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1079.6,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.49386203415457
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9,
+   "se_over_sd_population": 0.879,
+   "mean_estimate": -0.01222,
+   "sd_estimate": 0.10869,
+   "coverage": 0.915,
+   "mean_se": 0.09736,
+   "se_over_sd": 0.896,
+   "median_se_over_iqr_sd": 0.835,
+   "bias_over_sd": -0.112,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
    "mechanism": ""
   }
  ]

@@ -3,7 +3,7 @@
 Design constants (fixed before the first run, 2026-11-13):
 
 * ``N = 1000``, ``B = 400`` unless a row says otherwise.
-* Quantile effects use ``_dgp.obs``. There ``Y(0) ~ N(1, 1.5^2)`` and
+* Quantile effects use ``_causal_dgp.obs``. There ``Y(0) ~ N(1, 1.5^2)`` and
   ``Y(1) ~ N(2, 3.5)``, so the unconditional QTE at ``tau`` is
   ``1 + z_tau (sqrt(3.5) - 1.5)``. The quantile effect on the treated has
   no closed form (the covariates of the treated are tilted); it is
@@ -30,8 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from _dgp import PS_B1, PS_B2, obs  # noqa: E402
-from _harness import Row, main  # noqa: E402
+from _causal_dgp import PS_B1, PS_B2, obs  # noqa: E402
+from _causal_harness import Row, main  # noqa: E402
 from scipy import optimize, stats  # noqa: E402
 from scipy.special import expit  # noqa: E402
 
@@ -46,7 +46,7 @@ def qte_truth(tau: float) -> float:
 
 
 def qtt_truth(tau: float) -> float:
-    """Quantile effect on the treated in ``_dgp.obs``, by quadrature."""
+    """Quantile effect on the treated in ``_causal_dgp.obs``, by quadrature."""
     nodes, weights = np.polynomial.hermite_e.hermegauss(80)
     weights = weights / weights.sum()
     a, b = np.meshgrid(nodes, nodes, indexing="ij")
@@ -201,7 +201,7 @@ def _dose(method, confounded, n=N, **kw):
 
 
 IQR_T = 0.7 * 2 * stats.norm.ppf(0.75) * np.sqrt(1.25)
-D = "_dgp.obs"
+D = "_causal_dgp.obs"
 ROWS = [
     Row(
         "qte.firpo.q75",
@@ -349,6 +349,26 @@ MECHANISMS: dict = {
         "given (qte.firpo.q75, in band). Without covariates the analytic "
         "form is exact and in band (qte.firpo.no_covariates)."
     ),
+    "dose_response.dr": (
+        "Heavy tails from the conditional-variance model, an open item. "
+        "The pseudo-outcome divides by the normal density of the dose given "
+        "the covariates, whose variance is a linear regression of squared "
+        "residuals on the covariates. On this homoskedastic design that "
+        "regression predicts a variance near zero for a few extreme "
+        "covariate values; the density of those units' doses collapses, "
+        "their weights reach the hundreds or thousands "
+        "(model_info['max_density_ratio']), and the contrast between two "
+        "doses swings in those draws. The reported SE is honest for the "
+        "typical draw (median SE over the interquartile scale is in the "
+        "stored record, coverage 94%) but the SD over draws is dominated "
+        "by the rare ones. Replacing the variance model by a constant "
+        "cut the SD of the contrast from 5.0 to 0.15 over 120 draws at n "
+        "= 500. The estimator now warns when a density weight exceeds "
+        "100. Changing the variance model or truncating the weights "
+        "changes the estimator and is left as an owner decision. The "
+        "bandwidth bug recorded in before_fix was a second, smaller "
+        "cause."
+    ),
     "dose_response.gps.confounded": (
         "Known property of the method, documented in sp.dose_response. The "
         "Hirano-Imbens estimator regresses the outcome on the dose and the "
@@ -361,7 +381,7 @@ MECHANISMS: dict = {
         "standard error is right for that estimate (SE / SD 0.94); the "
         "interval is centred in the wrong place. The docstring reports "
         "the same bias for the Hirano-Imbens quadratic and the function "
-        "warns on its default models; method='dr' is in band on this "
+        "warns on its default models; method='dr' is unbiased on this "
         "design (dose_response.dr). When the covariates move the dose "
         "only, the GPS path is in band (dose_response.gps)."
     ),

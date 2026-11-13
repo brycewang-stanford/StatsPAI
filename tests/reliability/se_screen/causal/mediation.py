@@ -25,7 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd  # noqa: E402
-from _harness import Row, main  # noqa: E402
+from _causal_harness import Row, main  # noqa: E402
 from scipy import stats  # noqa: E402
 
 import statspai as sp  # noqa: E402

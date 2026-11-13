@@ -66,7 +66,7 @@ REPRODUCE = {
 def _harness():
     sys.path.insert(0, str(DIR))
     spec = importlib.util.spec_from_file_location(
-        "se_screen_causal_harness", DIR / "_harness.py"
+        "se_screen_causal_harness", DIR / "_causal_harness.py"
     )
     module = importlib.util.module_from_spec(spec)
     sys.modules["se_screen_causal_harness"] = module

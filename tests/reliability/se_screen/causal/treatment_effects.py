@@ -3,12 +3,12 @@
 Design constants (fixed before the first run, 2026-11-13):
 
 * ``N = 1000`` for every row unless the row says otherwise. The design in
-  ``_dgp.obs`` has two covariates and propensities within about
+  ``_causal_dgp.obs`` has two covariates and propensities within about
   [0.1, 0.9], so first-order asymptotics should hold comfortably.
 * ``B = 400`` draws per row; the slow rows (collaborative TMLE, learner
   propensities) use ``B = 200`` and say so.
 * Truths: population ATE / ATT / ATC by Gauss-Hermite quadrature
-  (``_dgp.OBS_TRUTH``).
+  (``_causal_dgp.OBS_TRUTH``).
 
 Run: ``PYTHONPATH=src python tests/reliability/se_screen/causal/treatment_effects.py``
 (``--only <row id or prefix>``, ``--confirm`` to rerun flagged rows at
@@ -23,8 +23,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
-from _dgp import OBS_TRUTH, obs, obs_clustered, rct, sample_truth  # noqa: E402
-from _harness import Row, ci_from, main  # noqa: E402
+from _causal_dgp import OBS_TRUTH, obs, obs_clustered, rct, sample_truth  # noqa: E402
+from _causal_harness import Row, ci_from, main  # noqa: E402
 
 import statspai as sp  # noqa: E402
 
@@ -242,11 +242,14 @@ def _lmtp(which, **kw):
 
 
 def _bcf(rng):
+    """The posterior is of the average of tau(x_i) over the sample."""
     df = obs(rng, 500)
-    return ci_from(sp.bcf(df, "y", "d", X, random_state=int(rng.integers(2**31))))
+    out = ci_from(sp.bcf(df, "y", "d", X, random_state=int(rng.integers(2**31))))
+    out["truth_s"] = sample_truth(df, "ATE")
+    return out
 
 
-D = "_dgp.obs"
+D = "_causal_dgp.obs"
 ROWS = [
     Row("ipw.ate.bootstrap", "ipw", "sp.ipw(df, y, d, X)", N, ATE, _ipw_boot, design=D),
     Row(
@@ -301,7 +304,7 @@ ROWS = [
         N,
         ATE,
         _cluster_fit(sp.ipw, se_method="sandwich"),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "ipw.ate.cluster.bootstrap",
@@ -310,7 +313,7 @@ ROWS = [
         N,
         ATE,
         _cluster_fit(sp.ipw, seed=1),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "ipw.ate.ps_learner",
@@ -368,7 +371,7 @@ ROWS = [
         N,
         ATE,
         _cluster_fit(sp.aipw),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "g_computation.ate",
@@ -443,7 +446,7 @@ ROWS = [
         N,
         ATE,
         _tmle_glm(cluster=True),
-        design="_dgp.obs_clustered, 100 clusters of 10",
+        design="_causal_dgp.obs_clustered, 100 clusters of 10",
     ),
     Row(
         "ctmle.ate",
@@ -463,7 +466,7 @@ ROWS = [
         N,
         ATE,
         _rct_fit(lambda df: sp.difference_in_means(df, "y", "d")),
-        design="_dgp.rct (Bernoulli(0.5) assignment)",
+        design="_causal_dgp.rct (Bernoulli(0.5) assignment)",
     ),
     Row(
         "difference_in_means.blocks",
@@ -491,7 +494,7 @@ ROWS = [
         N,
         ATE,
         _rct_fit(lambda df: sp.lm_lin(df, "y", "d", X)),
-        design="_dgp.rct",
+        design="_causal_dgp.rct",
     ),
     Row(
         "lm_lin.superpopulation",
@@ -500,7 +503,7 @@ ROWS = [
         N,
         ATE,
         _rct_fit(lambda df: sp.lm_lin(df, "y", "d", X, superpopulation=True)),
-        design="_dgp.rct",
+        design="_causal_dgp.rct",
     ),
     Row(
         "lm_lin.cluster",
@@ -556,7 +559,9 @@ ROWS = [
         ATE,
         _bcf,
         B=200,
-        design=D + " (n = 500, B = 200: 12 s per fit)",
+        design=D + " (n = 500, B = 200: 12 s per fit); scored against the "
+        "sample average effect, which is what the posterior describes",
+        sample_target=True,
     ),
 ]
 
