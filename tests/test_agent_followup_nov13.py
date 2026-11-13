@@ -732,3 +732,25 @@ def test_mcp_stata_reply_names_the_results_it_dropped(files):
     )
     assert one["n_estimation_commands"] == 1
     assert "earlier_commands_not_returned" not in one
+
+
+# --------------------------------------------------------------------------- #
+#  House style: sp.aft takes vce= like every other estimator with robust=
+# --------------------------------------------------------------------------- #
+def test_aft_accepts_the_house_spelling_of_its_variance_option():
+    """``sp.aft`` gained ``robust=`` on 2026-11-13 without the ``vce=``
+    alias, which the CI-only signature ratchet counts as a regression."""
+    rng = np.random.default_rng(0)
+    n = 300
+    df = pd.DataFrame({"x": rng.normal(size=n)})
+    df["t"] = rng.weibull(1.5, size=n) * np.exp(0.4 * df["x"])
+    df["d"] = (rng.uniform(size=n) < 0.8).astype(int)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        by_name = sp.aft("t + d ~ x", df, robust="robust")
+        by_alias = sp.aft("t + d ~ x", df, vce="robust")
+        classical = sp.aft("t + d ~ x", df)
+    assert by_alias.to_dict() == by_name.to_dict()
+    assert by_alias.vcov_type == "robust" and classical.vcov_type == "nonrobust"
+    # a variance option: the coefficients are those of the classical fit
+    np.testing.assert_allclose(by_alias.beta, classical.beta, rtol=1e-12)

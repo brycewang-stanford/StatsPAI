@@ -183,6 +183,7 @@ References are run on the same bytes
   the user's terms.** `C(sid)` next to `| sid` was reported as
   `['__i0__', '__i1__', ...]`; the message, hint and diagnostics now say
   `C(sid)[T.2]`, `year::2001`.
+
 ### Agent probe, open items closed (2026-11-13)
 
 The probe of the same day left seventeen agent-layer defects open
@@ -266,6 +267,10 @@ Evidence: `tests/test_agent_followup_nov13.py`,
   `sp.audit` failed the same matched sample at 0.10. Both read 0.10; the
   `balance` violation has `level: "moderate"` up to 0.25 and `"severe"`
   above.
+
+- **`sp.aft` takes `vce=`** as the house spelling of its new `robust=`
+  option (the signature ratchet in CI counted the missing alias as a
+  regression on main).
 
 #### Added
 - **`sp.feols` fits `C(factor, Treatment(ref))`, `C(factor):x` and

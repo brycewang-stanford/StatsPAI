@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 from .models import _parse_formula
@@ -132,6 +133,7 @@ class AFTResult(ResultProtocolMixin):
         return self.summary()
 
 
+@accepts_aliases(vce="robust")
 def aft(
     formula: str,
     data: pd.DataFrame,

@@ -6370,8 +6370,10 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   dataclass fields),
   `src/statspai/synth/sdid.py` (module 12: the fit stores its pre-period
   gap ratio and the resampling behind its standard error in `model_info`)
-  and `src/statspai/fixest/_native.py` (module 67: `C(factor,
-  Treatment(ref))` and factor-by-continuous terms).
+  `src/statspai/fixest/_native.py` (module 67: `C(factor,
+  Treatment(ref))` and factor-by-continuous terms) and
+  `src/statspai/survival/aft.py` (module 24 imports it: `sp.aft` accepts
+  `vce=` for `robust=`).
   Track A modules 01 to 19, 21, 24 to 29, 35 to 38, 40 to 59, 61 to 67,
   71 to 79, 81 to 87, 89, 90, 91.
 - **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`

@@ -313,6 +313,9 @@
             "cluster"
           ],
           "type": "string",
+          "x-aliases": [
+            "vce"
+          ],
           "x-canonical": "vce"
         }
       },
