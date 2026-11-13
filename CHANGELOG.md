@@ -4,6 +4,77 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Features a referee asks for by name: econometrics (2026-11-13)
+
+The applied-economics probe ended with a list of things an economist
+expected and did not find. Each is now an option of the function that
+should have it. Defaults and the numbers of existing calls are unchanged.
+References are run on the same bytes
+(`tests/reference_parity/test_gaps_econ_parity.py`: Stata 18 `oaxaca`
+4.1.1, `ivreg2` 4.1.12, `weakivtest`; R fixest 0.14.0, marginaleffects
+0.32.0); messages are tested in `tests/test_gaps_econ_usability.py`.
+
+#### Added
+- **`sp.oaxaca(means="stochastic")`.** Standard errors that count the
+  sampling variance of the covariate means, the default of Stata `oaxaca`
+  (`vce(robust)` without `fixed`). Card (1995) black-white wage gap,
+  explained part: 0.0080 with fixed means, 0.0115 with stochastic means.
+  Twofold (group 0, group 1, Reimers, Cotton), threefold and variable-level
+  SEs equal Stata to 1e-9. For the pooled reference the added term equals
+  Stata's; the fixed-means part keeps the documented `suest` scaling
+  difference. `overall["gap_se"]` is new under both rules. The default stays
+  `"fixed"`.
+- **`sp.regtable(stats=["rmse", "aic", "bic"])` for `sp.feols` / `sp.fepois`
+  columns.** The native fits now record `AIC`, `BIC` (fixed effects counted
+  as parameters, as fixest's `nparams`), `Log-likelihood` for the linear
+  model and `RMSE` for Poisson, equal to `fitstat(~ rmse + ll + aic + bic)`
+  (1e-9 for OLS, 1e-7 behind the Poisson IRLS). A weighted `sp.feols` fit
+  reports RMSE and no AIC / BIC: fixest's log-likelihood there ignores the
+  weights, and `lm` and Stata each use another weighted likelihood.
+- **`sp.ivreg` attaches the weak-identification statistics of `sp.iv`.**
+  `diagnostics["KP rk LM"]`, `["KP rk Wald F"]` and, with one endogenous
+  regressor, `["Olea-Pflueger effective F"]`, following the variance of the
+  fit. Card (1995), i.i.d. / robust / clustered: equal to `ivreg2`'s
+  `idstat`, `idp`, `cdf` / `rkf` and to `weakivtest`'s `F_eff` (1e-9).
+  `augmented_diagnostics=False` skips them. Coefficients and standard
+  errors are the same either way.
+- **`sp.avg_predictions(variables=, data=)` and `sp.predictions(...)`.**
+  `variables={"d": [0, 1]}` predicts every row under each value and
+  averages (the standardised means of g-computation), as
+  `marginaleffects::avg_predictions(variables = list(d = c(0, 1)))`; an
+  explicit `by=` replaces the grouping, as in R. `data=` is accepted as
+  another name for `newdata=` (the spelling of `sp.margins`). Estimates
+  equal marginaleffects to 1e-8 and standard errors to 1e-7 against its
+  Richardson derivatives (its default forward difference is 2e-6 from the
+  analytic delta method).
+- **`sp.spec_curve(collinear="omit")`.** A specification with a control
+  that is constant in its subsample is estimated without that control, as
+  Stata `regress` and fixest do (`results_df["omitted_controls"]` names
+  it; equal to fixest to 1e-9). The default `"drop"` still leaves the
+  specification off the curve.
+
+#### Changed (messages only)
+- **`sp.spec_curve` gives a reason for every specification it leaves
+  out.** Subsets with fewer than 10 rows, or with too few complete rows,
+  used to vanish without a word. They are now in
+  `model_info["dropped_specs"]` next to the collinear ones, the warning
+  counts them, and `summary()` prints a "Left out" block.
+- **`sp.callaway_santanna` warns about fitted propensities numerically 0
+  or 1.** R `did` passes on `glm`'s warning when a small cohort is
+  separated by the covariates; StatsPAI was silent when the logit still
+  converged. One `AssumptionWarning` per call now names the cells, which
+  are listed in `model_info["pscore_boundary_cells"]`. Castle doctrine
+  with four covariates: 23 of 50 cells. Estimates are unchanged.
+- **`sp.event_study(window=)` says that the end points are binned.**
+  `summary()` prints how many observations beyond the window each end
+  coefficient pools, and `model_info["binned_endpoints"]` holds the counts.
+- **Regression-format summaries print the z column** when the result has
+  one (`sp.xtabond`, `sp.xtdpdsys`).
+- **Native `sp.feols` / `sp.fepois` / `sp.feglm` collinearity errors name
+  the user's terms.** `C(sid)` next to `| sid` was reported as
+  `['__i0__', '__i1__', ...]`; the message, hint and diagnostics now say
+  `C(sid)[T.2]`, `year::2001`.
+
 ### Agent probe (2026-11-13)
 
 An agent with no knowledge of the source ran sixteen analyses through the
