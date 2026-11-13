@@ -61,6 +61,20 @@ ols <- lm(lwage ~ educ + exper + black * south + smsa, data = card)
 dump_ap("ap_ols_cf", avg_predictions(ols, numderiv = "richardson", variables = list(black = c(0, 1))), "black")
 put("ap_cf", "s", "n_unit_rows", nrow(predictions(m, variables = list(black = c(0, 1)))))
 
+# ---- a control that is constant in a subsample: fixest leaves it out -------
+for (grp in c("south", "black")) {
+  sub <- card[card[[grp]] == 1, ]
+  ctrl <- if (grp == "south") "exper + south" else "black + exper"
+  fml <- as.formula(paste("lwage ~ educ +", ctrl))
+  for (vc in c("iid", "hetero")) {
+    fit <- suppressMessages(feols(fml, sub, vcov = vc))
+    tag <- paste0("spec_omit_", grp, "_", vc)
+    put(tag, "b", "educ", coef(fit)[["educ"]])
+    put(tag, "se", "educ", se(fit)[["educ"]])
+    put(tag, "s", "n_removed", length(fit$collin.var))
+  }
+}
+
 out <- do.call(rbind, rows)
 write.csv(out, "tests/reference_parity/_fixtures/gaps_econ_R.csv",
           row.names = FALSE, quote = FALSE)

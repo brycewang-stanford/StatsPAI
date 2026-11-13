@@ -19,14 +19,17 @@ the native fit refuses them), goes to pyfixest; :func:`plan` says why.
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union, cast
 
 import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 _NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 # fixest's i(factor, ref=v) / i(factor, var, ref=v), with an explicit
@@ -464,6 +467,46 @@ def _refused(exc: Exception) -> bool:
     return False
 
 
+_INTERNAL_NAME = re.compile(r"__i\d+__")
+
+
+def _user_names(value: Any, renames: Dict[str, str]) -> Any:
+    """``value`` with the internal dummy names replaced by the user's terms."""
+    if isinstance(value, str):
+        return _INTERNAL_NAME.sub(lambda m: renames.get(m.group(0), m.group(0)), value)
+    if isinstance(value, dict):
+        return {k: _user_names(v, renames) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return type(value)(_user_names(v, renames) for v in value)
+    return value
+
+
+def _names_user_columns(fit: _F) -> _F:
+    """Report a refused design in the user's terms.
+
+    ``i()`` and ``C()`` terms are expanded into dummy columns with internal
+    names (``__i0__``, ...). The fitted coefficients are renamed on the way
+    out; an error raised on the way has to be renamed too, or it tells the
+    user to drop columns that are not in their data.
+    """
+
+    @functools.wraps(fit)
+    def wrapped(p: "Plan", *args: Any, **kwargs: Any) -> Any:
+        from ..exceptions import StatsPAIError
+
+        try:
+            return fit(p, *args, **kwargs)
+        except StatsPAIError as exc:
+            if p.renames:
+                exc.message = _user_names(exc.message, p.renames)
+                exc.recovery_hint = _user_names(exc.recovery_hint, p.renames)
+                exc.diagnostics = _user_names(exc.diagnostics, p.renames)
+                exc.args = (exc.message,) + tuple(exc.args[1:])
+            raise
+
+    return cast(_F, wrapped)
+
+
 def _singleton_obs(codes: List[np.ndarray], cards: List[int]) -> int:
     """Rows in a level of any fixed effect that has one row."""
     if not codes:
@@ -554,6 +597,7 @@ def _attach_fe(
     attach(out, p.data, keep, p.fe, np.asarray(eta, dtype=float), X, beta)
 
 
+@_names_user_columns
 def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     """Fit a planned ``sp.feols`` call natively, in the delegate's layout."""
     from ..fast.feols import _feols_fit
@@ -691,6 +735,7 @@ def _crv(
     return meat
 
 
+@_names_user_columns
 def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     """2SLS with absorbed effects, reported as ``sp.feols`` reports an IV fit.
 
@@ -902,6 +947,7 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
     return out
 
 
+@_names_user_columns
 def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricResults:
     """Fit a planned ``sp.fepois`` call natively, in the delegate's layout."""
     from ..fast.fepois import _fepois_fit
@@ -1024,6 +1070,7 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
     return out
 
 
+@_names_user_columns
 def fit_feglm(
     p: Plan, fml: str, *, family: str, bias_correction: bool = False
 ) -> EconometricResults:

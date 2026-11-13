@@ -18,9 +18,17 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
-from ._native import Plan, _attach_fe, _inference, _model_info, _psd_two_way
+from ._native import (
+    Plan,
+    _attach_fe,
+    _inference,
+    _model_info,
+    _names_user_columns,
+    _psd_two_way,
+)
 
 
+@_names_user_columns
 def fit_fenegbin(p: Plan, fml: str) -> EconometricResults:
     """Fit a planned ``sp.feglm(family='negbin')`` call natively."""
     from ..fast._fenegbin import fenegbin_fit

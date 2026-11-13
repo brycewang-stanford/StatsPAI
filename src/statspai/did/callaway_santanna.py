@@ -420,7 +420,10 @@ def callaway_santanna(
         p(X) → 1 carries an exploding odds weight p/(1−p) and can dominate
         the control arm on its own. Pass ``1.0`` to disable. When trimming
         actually binds it is recorded in ``diagnostics['n_pscore_trimmed']``
-        rather than applied silently.
+        rather than applied silently. A cell whose propensity logit has
+        fitted probabilities numerically 0 or 1 (R ``glm``'s rule, the
+        warning R ``did`` passes on) raises an ``AssumptionWarning`` and
+        is listed in ``model_info['pscore_boundary_cells']``.
     base_period : str, default 'universal'
         Base period: 'universal' (always g-1) or 'varying'.
 
@@ -1222,7 +1225,9 @@ def callaway_santanna(
     _TRIM_TALLY.reset()
     x_wide = _covariates_by_period(data, i, t, x, unit_info.index)
 
+    boundary_cells: List[Tuple[Any, Any]] = []
     for g_val, t_val, base_val in gt_pairs:
+        _boundary_before = _TRIM_TALLY.n_boundary_fits
         att, se, inf_func = _estimate_single_att(
             y_wide,
             unit_info,
@@ -1240,6 +1245,10 @@ def callaway_santanna(
             anticipation=anticipation,
             x_wide=x_wide,
         )
+        if _TRIM_TALLY.n_boundary_fits > _boundary_before:
+            boundary_cells.append(
+                tuple(getattr(v, "item", lambda v=v: v)() for v in (g_val, t_val))
+            )
 
         pval = 2 * stats.norm.sf(abs(att / se)) if se > 0 else 1.0
 
@@ -1404,6 +1413,27 @@ def callaway_santanna(
             stacklevel=2,
         )
 
+    # A propensity logit with fitted probabilities at 0 or 1 is (quasi-)
+    # separated: its coefficients are not determined by the data, and the
+    # odds weights of that cell rest on where the iteration happened to
+    # stop. R ``did`` passes on glm's warning for the same cells.
+    if boundary_cells:
+        _shown = ", ".join(f"(g={c[0]}, t={c[1]})" for c in boundary_cells[:5])
+        _more = len(boundary_cells) - 5
+        warnings.warn(
+            "callaway_santanna: fitted propensity scores numerically 0 or 1 "
+            f"in {len(boundary_cells)} of {len(gt_pairs)} ATT(g,t) cells "
+            f"[{_shown}{f', and {_more} more' if _more > 0 else ''}]. The "
+            "covariates separate the cohort from its comparison group "
+            "there (typically a cohort with very few units), so the "
+            "propensity model is not identified and these cells' "
+            "estimates depend on where the logit iteration stopped. Use "
+            "fewer covariates, estimator='reg', or drop the cohort. The "
+            "cells are listed in model_info['pscore_boundary_cells'].",
+            AssumptionWarning,
+            stacklevel=2,
+        )
+
     # Few *treated* clusters: the cluster-robust / multiplier-bootstrap
     # variance estimates the treated side's contribution from as many draws
     # as there are treated clusters, so it over-rejects whatever the total
@@ -1436,6 +1466,8 @@ def callaway_santanna(
         "notyet_cutoff": notyet_cutoff,
         "pscore_trim": pscore_trim,
         "n_pscore_trimmed": _TRIM_TALLY.n_trimmed,
+        "pscore_boundary_cells": boundary_cells,
+        "n_pscore_boundary_cells": len(boundary_cells),
         "base_period": base_period,
         "anticipation": anticipation,
         # Which parallel-trends assumption this fit actually imposes.
@@ -2727,16 +2759,32 @@ class _PscoreTrimTally:
     def __init__(self) -> None:
         self.n_trimmed = 0
         self.n_controls = 0
+        self.n_boundary_fits = 0
 
     def reset(self) -> None:
         self.n_trimmed = 0
         self.n_controls = 0
+        self.n_boundary_fits = 0
+
+    def record_fit(self, pscore: np.ndarray) -> None:
+        """Count a logit whose fitted probabilities are numerically 0 or 1.
+
+        The rule of R ``glm`` (which ``did`` reports as "fitted
+        probabilities numerically 0 or 1 occurred"): some fitted value
+        is within ``10 * eps`` of a bound. It marks (quasi-)separation.
+        """
+        p = np.asarray(pscore, dtype=float)
+        if p.size and (p.min() < _BOUNDARY_EPS or p.max() > 1.0 - _BOUNDARY_EPS):
+            self.n_boundary_fits += 1
 
     def record(self, keep: np.ndarray, d: np.ndarray) -> None:
         is_control = d == 0
         self.n_controls += int(is_control.sum())
         self.n_trimmed += int((is_control & (keep == 0.0)).sum())
 
+
+#: R ``glm.fit``'s threshold for "fitted probabilities numerically 0 or 1".
+_BOUNDARY_EPS = 10.0 * float(np.finfo(float).eps)
 
 _TRIM_TALLY = _PscoreTrimTally()
 
@@ -2906,6 +2954,7 @@ def _estimate_pscore(
             stacklevel=2,
         )
 
+    _TRIM_TALLY.record_fit(pscore)
     return np.clip(pscore, 1e-6, 1 - 1e-6)
 
 

@@ -13,6 +13,8 @@ not find. These are the ones with a number behind them:
   ``ivreg2`` and ``weakivtest``.
 * ``sp.avg_predictions(data=, variables=)``: predictions on new data and
   on counterfactual copies, ``marginaleffects::avg_predictions``.
+* ``sp.spec_curve(collinear='omit')``: a control that is constant in a
+  subsample is left out and the cell estimated, as fixest does.
 
 Frozen references, on the data files shipped with the package
 (``card_1995.csv``, ``castle_2013.csv``):
@@ -442,3 +444,39 @@ def test_avg_predictions_argument_errors(logit_fit):
         sp.avg_predictions(fit, variables={"lwage": [0, 1]})
     with pytest.raises(MethodIncompatibility, match="needs the values"):
         sp.avg_predictions(fit, variables="educ")
+
+
+# ---------------------------------------------------------------------------
+# sp.spec_curve(collinear='omit')
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "group, controls", [("south", ["exper", "south"]), ("black", ["black", "exper"])]
+)
+def test_spec_curve_omit_matches_fixest_after_it_removes_the_variable(
+    card, group, controls
+):
+    """``feols(lwage ~ educ + exper + south, subset = south == 1)``: fixest
+    removes ``south`` for collinearity and reports the fit on the rest
+    (iid and heteroskedasticity-robust standard errors, closed form)."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.spec_curve(
+            card,
+            y="lwage",
+            x="educ",
+            controls=[controls],
+            se_types=["nonrobust", "hc1"],
+            subsets={group: card[group] == 1},
+            collinear="omit",
+        )
+    df = res.results_df.set_index("se_type")
+    for se_type, vc in (("nonrobust", "iid"), ("hc1", "hetero")):
+        tag = f"spec_omit_{group}_{vc}"
+        assert R[(tag, "s", "n_removed")] == 1
+        assert df.loc[se_type, "omitted_controls"] == group
+        assert df.loc[se_type, "estimate"] == pytest.approx(
+            R[(tag, "b", "educ")], rel=1e-9
+        )
+        assert df.loc[se_type, "se"] == pytest.approx(R[(tag, "se", "educ")], rel=1e-9)

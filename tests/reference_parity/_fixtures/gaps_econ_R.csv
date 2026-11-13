@@ -62,3 +62,15 @@ ap_ols_cf,se,black=0,8.05052751416274713e-03
 ap_ols_cf,b,black=1,6.14651534715416936e+00
 ap_ols_cf,se,black=1,1.74066101484073622e-02
 ap_cf,s,n_unit_rows,6.02000000000000000e+03
+spec_omit_south_iid,b,educ,9.71618262418780104e-02
+spec_omit_south_iid,se,educ,5.60994133939948705e-03
+spec_omit_south_iid,s,n_removed,1.00000000000000000e+00
+spec_omit_south_hetero,b,educ,9.71618262418780104e-02
+spec_omit_south_hetero,se,educ,6.06423230853410725e-03
+spec_omit_south_hetero,s,n_removed,1.00000000000000000e+00
+spec_omit_black_iid,b,educ,8.38400520395733567e-02
+spec_omit_black_iid,se,educ,7.78162005471473139e-03
+spec_omit_black_iid,s,n_removed,1.00000000000000000e+00
+spec_omit_black_hetero,b,educ,8.38400520395733567e-02
+spec_omit_black_hetero,se,educ,8.12511389824292427e-03
+spec_omit_black_hetero,s,n_removed,1.00000000000000000e+00

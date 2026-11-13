@@ -43,7 +43,7 @@ from __future__ import annotations
 import warnings
 from dataclasses import dataclass, field
 from itertools import product
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -114,9 +114,10 @@ class SpecCurveResult(ResultProtocolMixin):
     model_info: Dict[str, Any] = field(default_factory=dict)
     """``multiplicity``: the session count of specifications of ``y``
     (this curve's included), see ``core/_spec_counter.py``.
-    ``dropped_specs``: the specifications left out because their regressors
-    are linearly dependent, one dict per specification with its choices and
-    the redundant columns (``collinear``, ``reason``)."""
+    ``dropped_specs``: the specifications that could not be estimated
+    (linearly dependent regressors, too few observations), one dict per
+    specification with its choices, the redundant columns (``collinear``)
+    and the ``reason``."""
 
     # ---- pretty-print --------------------------------------------------
 
@@ -144,6 +145,18 @@ class SpecCurveResult(ResultProtocolMixin):
             f"  Share positive:      {self.share_positive:.1%}",
             "",
         ]
+        left_out = self.model_info.get("dropped_specs") or []
+        if left_out:
+            lines.append(f"  Left out (not estimable): {len(left_out)}")
+            reasons: Dict[str, int] = {}
+            for d in left_out:
+                key = f"[{d['subset']}; controls: {d['controls']}] {d['reason']}"
+                reasons[key] = reasons.get(key, 0) + 1
+            for key, count in list(reasons.items())[:8]:
+                lines.append(f"    {count} x {key}")
+            if len(reasons) > 8:
+                lines.append(f"    ... and {len(reasons) - 8} more reasons")
+            lines.append("")
 
         # Per-dimension breakdown
         lines.append("-" * 72)
@@ -426,22 +439,39 @@ def _run_one_spec(
     fe: Optional[List[str]] = None,
     alpha: float = 0.05,
     dropped: Optional[List[Dict[str, Any]]] = None,
+    collinear: str = "drop",
 ) -> Optional[Dict[str, Any]]:
     """Run a single specification and return results dict.
 
-    ``None`` when the specification cannot be estimated. A specification
-    whose regressors are linearly dependent is one of them; it is recorded
-    in ``dropped`` (when given) with the columns that are redundant.
+    ``None`` when the specification cannot be estimated; the reason is
+    recorded in ``dropped`` (when given). A specification whose regressors
+    are linearly dependent is one of them unless ``collinear='omit'``,
+    which leaves the redundant controls out and estimates the rest.
     """
     fe = list(fe or [])
     df = data.copy()
+
+    def _left_out(reason: str, redundant: Sequence[str] = ()) -> None:
+        if dropped is not None:
+            dropped.append(
+                {
+                    "controls": ", ".join(controls) if controls else "(none)",
+                    "fe": ", ".join(fe) if fe else "(none)",
+                    "se_type": se_type,
+                    "subset": subset_label,
+                    "y_transform": transform_label,
+                    "collinear": list(redundant),
+                    "reason": reason,
+                }
+            )
 
     # Apply subset
     if subset_mask is not None:
         df = df.loc[subset_mask].copy()
 
     if len(df) < 10:
-        return None  # too few observations
+        _left_out(f"too few observations (n = {len(df)}, at least 10 needed)")
+        return None
 
     # Apply y-transform
     y_col = y
@@ -453,6 +483,10 @@ def _run_one_spec(
         df = df.loc[valid]
 
     if len(df) < 10:
+        _left_out(
+            f"too few observations with a finite {transform_label} outcome "
+            f"(n = {len(df)}, at least 10 needed)"
+        )
         return None
 
     all_vars = [y_col, x] + controls
@@ -464,6 +498,10 @@ def _run_one_spec(
     df_clean = df[all_vars].dropna()
 
     if len(df_clean) < len(controls) + 3:
+        _left_out(
+            f"too few complete observations (n = {len(df_clean)}) for "
+            f"{len(controls) + 2} coefficients"
+        )
         return None
 
     if fe:
@@ -480,6 +518,7 @@ def _run_one_spec(
             transform_label,
             alpha=alpha,
             dropped=dropped,
+            collinear=collinear,
         )
 
     Y = df_clean[y_col].values.astype(float)
@@ -498,28 +537,25 @@ def _run_one_spec(
     # floating point) used to be inverted into meaningless numbers.
     from ..core._collinear import independent_columns
 
-    _, omitted = independent_columns(X_mat, ["Intercept", x] + list(controls))
+    kept, omitted = independent_columns(X_mat, ["Intercept", x] + list(controls))
+    omitted_controls: List[str] = []
     if omitted:
-        if dropped is not None:
-            dropped.append(
-                {
-                    "controls": ", ".join(controls) if controls else "(none)",
-                    "fe": "(none)",
-                    "se_type": se_type,
-                    "subset": subset_label,
-                    "y_transform": transform_label,
-                    "collinear": [o["variable"] for o in omitted],
-                    "reason": "; ".join(
-                        f"{o['variable']}: {o['reason']}" for o in omitted
-                    ),
-                }
-            )
-        return None
+        redundant = [o["variable"] for o in omitted]
+        reason = "; ".join(f"{o['variable']}: {o['reason']}" for o in omitted)
+        if collinear != "omit" or x in redundant:
+            _left_out(reason, redundant)
+            return None
+        # Stata regress / fixest: leave the redundant controls out and
+        # estimate the coefficient of x on the rest.
+        omitted_controls = redundant
+        X_mat = X_mat[:, kept]
+        k = X_mat.shape[1]
 
     # Estimate OLS
     try:
         XtX_inv = np.linalg.inv(X_mat.T @ X_mat)
     except np.linalg.LinAlgError:
+        _left_out("singular cross-product matrix")
         return None
 
     params = XtX_inv @ X_mat.T @ Y
@@ -570,7 +606,7 @@ def _run_one_spec(
     ss_tot = np.sum((Y - Y.mean()) ** 2)
     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
 
-    return {
+    row = {
         "estimate": beta_x,
         "se": se_x,
         "ci_lower": beta_x - t_crit * se_x,
@@ -586,6 +622,9 @@ def _run_one_spec(
         "y_transform": transform_label,
         "fe": "(none)",
     }
+    if collinear == "omit":
+        row["omitted_controls"] = ", ".join(omitted_controls)
+    return row
 
 
 def _run_one_fe_spec(
@@ -601,6 +640,7 @@ def _run_one_fe_spec(
     transform_label: str,
     alpha: float = 0.05,
     dropped: Optional[List[Dict[str, Any]]] = None,
+    collinear: str = "drop",
 ) -> Optional[Dict[str, Any]]:
     """One specification with absorbed fixed effects, as Stata ``reghdfe``.
 
@@ -621,7 +661,19 @@ def _run_one_fe_spec(
     )
     try:
         out = absorb_ols(Y, X, fe_frame, cluster=cl, return_absorber=True)
-    except (ValueError, np.linalg.LinAlgError):
+    except (ValueError, np.linalg.LinAlgError) as exc:
+        if dropped is not None:
+            dropped.append(
+                {
+                    "controls": ", ".join(controls) if controls else "(none)",
+                    "fe": ", ".join(fe),
+                    "se_type": se_type,
+                    "subset": subset_label,
+                    "y_transform": transform_label,
+                    "collinear": [],
+                    "reason": f"the absorbed regression failed ({exc})",
+                }
+            )
         return None
     if 0 in out["omitted"]:
         # x is collinear with the fixed effects
@@ -663,7 +715,7 @@ def _run_one_fe_spec(
     Yk = Y[keep]
     ss_tot = float(np.sum((Yk - Yk.mean()) ** 2))
     r2 = 1 - float(np.sum(resid**2)) / ss_tot if ss_tot > 0 else np.nan
-    return {
+    row = {
         "estimate": beta_x,
         "se": se_x,
         "ci_lower": beta_x - t_crit * se_x,
@@ -679,6 +731,13 @@ def _run_one_fe_spec(
         "y_transform": transform_label,
         "fe": ", ".join(fe),
     }
+    if collinear == "omit":
+        # Controls the fixed effects absorb are always left out here (as
+        # reghdfe does); this column names them.
+        row["omitted_controls"] = ", ".join(
+            controls[j - 1] for j in sorted(out["omitted"]) if j >= 1
+        )
+    return row
 
 
 # ---------------------------------------------------------------------------
@@ -703,6 +762,7 @@ def spec_curve(
     y_transforms: Optional[Dict[str, Optional[Callable[[pd.Series], Any]]]] = None,
     alpha: float = 0.05,
     fe: Optional[List[List[str]]] = None,
+    collinear: str = "drop",
 ) -> SpecCurveResult:
     """
     Run a specification curve analysis.
@@ -754,6 +814,16 @@ def spec_curve(
         effects are estimated as Stata ``reghdfe`` (singletons dropped,
         absorbed levels charged to the degrees of freedom, those nested in
         the cluster not). Default: ``[[]]``.
+    collinear : {'drop', 'omit'}, default 'drop'
+        What to do with a specification whose controls are linearly
+        dependent in its sample, for instance a dummy that is constant in
+        a subset. ``'drop'`` leaves the specification off the curve.
+        ``'omit'`` leaves the redundant controls out and estimates the
+        coefficient of ``x`` on the rest, as Stata ``regress`` and R
+        ``fixest`` do; ``results_df['omitted_controls']`` names them.
+        Either way a specification that cannot be estimated is listed in
+        ``model_info['dropped_specs']`` with its reason, and a warning
+        says so.
 
     Returns
     -------
@@ -858,6 +928,12 @@ def spec_curve(
                 "Use 'nonrobust' (or 'classical'), 'hc1' (or 'robust') or " "'cluster'."
             ),
         )
+    if collinear not in ("drop", "omit"):
+        raise MethodIncompatibility(
+            f"spec_curve: collinear={collinear!r} is not recognised.",
+            recovery_hint="Use collinear='drop' or collinear='omit'.",
+            diagnostics={"collinear": collinear},
+        )
     if "cluster" in se_types and not cluster_var:
         # It used to be dropped without a word.
         raise MethodIncompatibility(
@@ -902,6 +978,7 @@ def spec_curve(
             fe=fe_set,
             alpha=alpha,
             dropped=dropped_specs,
+            collinear=collinear,
         )
         if res is not None:
             res["spec_id"] = spec_id
@@ -917,13 +994,20 @@ def spec_curve(
             for d in dropped_specs[:5]
         )
         more = f" (and {len(dropped_specs) - 5} more)" if len(dropped_specs) > 5 else ""
+        only_dependence = all(d["collinear"] for d in dropped_specs)
+        why = (
+            " because their regressors are linearly dependent"
+            if only_dependence
+            else ""
+        )
         warnings.warn(
             AssumptionWarning(
-                f"spec_curve: {len(dropped_specs)} specification(s) left out "
-                f"because their regressors are linearly dependent: {shown}{more}.",
+                f"spec_curve: {len(dropped_specs)} specification(s) left out"
+                f"{why}: {shown}{more}.",
                 recovery_hint=(
-                    "Remove the redundant control from that control set, or "
-                    "see result.model_info['dropped_specs']."
+                    "Remove the redundant control from that control set, "
+                    "pass collinear='omit' to estimate the specification "
+                    "without it, or see result.model_info['dropped_specs']."
                 ),
                 diagnostics={"n_dropped": len(dropped_specs)},
             ),

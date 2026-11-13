@@ -280,7 +280,9 @@ def event_study(
         Unit identifier column.
     window : (int, int), default (-4, 4)
         Relative time window (min_lag, max_lag). Periods outside this
-        window are binned into the endpoints.
+        window are binned into the endpoints. ``summary()`` says so when
+        that happens, and ``model_info['binned_endpoints']`` counts the
+        pooled observations at each end.
     ref_period : int, (str, int) or sequence of int, default -1
         The omitted reference. Three forms are accepted:
 
@@ -549,6 +551,30 @@ def event_study(
         lower=min_lag,
         upper=max_lag,
     )
+    # How many observations each end point pools from beyond the window:
+    # the end coefficients are then averages over those periods too, and a
+    # reader of the table cannot tell without being told.
+    _rel_treated = df.loc[~never_treated, "__rel_time__"]
+    n_binned_lower = int((_rel_treated < min_lag).sum())
+    n_binned_upper = int((_rel_treated > max_lag).sum())
+    endpoint_notes = []
+    if n_binned_lower or n_binned_upper:
+        parts = []
+        if n_binned_lower:
+            parts.append(
+                f"e = {min_lag} also pools {n_binned_lower} observations "
+                f"at e < {min_lag}"
+            )
+        if n_binned_upper:
+            parts.append(
+                f"e = {max_lag} also pools {n_binned_upper} observations "
+                f"at e > {max_lag}"
+            )
+        endpoint_notes.append(
+            f"End points are binned (window=({min_lag}, {max_lag})): "
+            + "; ".join(parts)
+            + ". Widen the window to estimate those periods separately."
+        )
 
     # --- Create dummies (one per estimated bin) ---
     # ``rel_periods`` keeps its historical meaning -- the ordered list of
@@ -809,6 +835,13 @@ def event_study(
             "bin_width": bin_width,
             "bins": [list(b) for b in est_bins],
             "window": window,
+            # Observations beyond the window that the end coefficients
+            # absorb; summary() prints the note.
+            "binned_endpoints": {
+                "lower": n_binned_lower,
+                "upper": n_binned_upper,
+            },
+            "convention_notes": endpoint_notes,
             "n_clusters": n_clusters,
             "cluster_var": cluster_var,
             "weights": weights,

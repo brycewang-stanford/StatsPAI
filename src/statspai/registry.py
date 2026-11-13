@@ -16441,6 +16441,19 @@ def _build_registry() -> None:
                     "outcome Series (None = untransformed)",
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "Significance threshold"),
+                ParamSpec(
+                    "collinear",
+                    "str",
+                    False,
+                    "drop",
+                    "A specification whose controls are linearly dependent in "
+                    "its sample (a dummy constant in a subset): 'drop' leaves "
+                    "it off the curve, 'omit' leaves the redundant controls "
+                    "out and estimates x on the rest (Stata regress, fixest). "
+                    "Either way model_info['dropped_specs'] lists every "
+                    "specification that could not be estimated, with a reason",
+                    enum=["drop", "omit"],
+                ),
             ],
             returns="SpecCurveResult",
             example='sp.spec_curve(df, y="outcome", x="treat", controls=[[], ["x1"], ["x1", "x2"]])',

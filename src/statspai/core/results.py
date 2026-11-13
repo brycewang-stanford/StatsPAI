@@ -4413,7 +4413,7 @@ class CausalResult(DiDAccessorsMixin):
                 # Regression format (variable / coefficient / se)
                 cols = [
                     c
-                    for c in ["variable", "coefficient", "se", "tstat", "pvalue"]
+                    for c in ["variable", "coefficient", "se", "tstat", "z", "pvalue"]
                     if c in self.detail.columns
                 ]
                 title_str = "Regression Coefficients"
