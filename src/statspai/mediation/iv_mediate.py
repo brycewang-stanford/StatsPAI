@@ -249,6 +249,64 @@ def _iv(
     return b, V
 
 
+def _cross_meat(
+    Zj: np.ndarray,
+    ej: np.ndarray,
+    Zk: np.ndarray,
+    ek: np.ndarray,
+    codes: Optional[np.ndarray],
+) -> np.ndarray:
+    """Middle matrix between the moments of two equations.
+
+    The cross-equation counterpart of :func:`_meat`, with the same
+    conventions: ``(e_j'e_k / n) Z_j'Z_k`` for iid errors, the sum over
+    clusters of the outer product of the two score sums otherwise.
+    """
+    n = Zj.shape[0]
+    if codes is None:
+        out: np.ndarray = (ej @ ek / n) * (Zj.T @ Zk)
+        return out
+    G = int(codes.max()) + 1
+    sj = np.zeros((G, Zj.shape[1]))
+    sk = np.zeros((G, Zk.shape[1]))
+    np.add.at(sj, codes, Zj * ej[:, None])
+    np.add.at(sk, codes, Zk * ek[:, None])
+    out = sj.T @ sk
+    return out
+
+
+def _joint_vcov(
+    yr: np.ndarray,
+    tr: np.ndarray,
+    mr: np.ndarray,
+    zr: np.ndarray,
+    b1: np.ndarray,
+    b2: np.ndarray,
+    b3: np.ndarray,
+    codes: Optional[np.ndarray],
+) -> np.ndarray:
+    """Covariance of ``(total, a, direct, d)`` from the stacked system.
+
+    The three just-identified IV equations are one GMM system with moments
+    ``z e_1``, ``z e_2`` and ``(z, t) e_3``. Its sandwich is
+    ``A^{-1} S A^{-T}`` with a block-diagonal ``A`` and a full ``S``: the
+    off-diagonal blocks of ``S`` carry the correlation between the errors
+    of different equations, which ``ivmediate`` sets to zero.
+    """
+    z1 = zr[:, None]
+    X = [tr[:, None], tr[:, None], np.column_stack([tr, mr])]
+    Z = [z1, z1, np.column_stack([zr, tr])]
+    e = [yr - X[0] @ b1, mr - X[1] @ b2, yr - X[2] @ b3]
+    Ainv = [np.linalg.inv(Z[j].T @ X[j]) for j in range(3)]
+    start = [0, 1, 2, 4]
+    V = np.zeros((4, 4))
+    for j in range(3):
+        for k in range(3):
+            block = Ainv[j] @ _cross_meat(Z[j], e[j], Z[k], e[k], codes) @ Ainv[k].T
+            V[start[j] : start[j + 1], start[k] : start[k + 1]] = block
+    return V
+
+
 def _wald_first_stage(
     x: np.ndarray, z: np.ndarray, codes: Optional[np.ndarray]
 ) -> float:
@@ -278,6 +336,7 @@ def iv_mediate(
     cluster: Optional[str] = None,
     robust: bool = False,
     level: float = 0.95,
+    equations: str = "independent",
 ) -> IVMediateResult:
     """Total, direct and indirect effects with one instrument (``ivmediate``).
 
@@ -295,7 +354,8 @@ def iv_mediate(
 
     The indirect effect is the product of the second coefficient and the
     ``M`` coefficient of the third; its standard error is the delta method
-    with the equations treated as independent, as ``ivmediate`` does.
+    with the equations treated as independent, as ``ivmediate`` does
+    (``equations="joint"`` keeps the covariance between equations).
 
     Parameters
     ----------
@@ -325,6 +385,23 @@ def iv_mediate(
         variances assume homoskedastic errors with ``e'e / n``.
     level : float, default 0.95
         Confidence level for the intervals.
+    equations : {"independent", "joint"}, default "independent"
+        How the three equations enter the variance of the indirect effect.
+        ``"independent"`` sets every covariance between coefficients of
+        different equations to zero, which is what ``ivmediate`` reports.
+        ``"joint"`` keeps them: the sandwich of the three equations
+        stacked as one system (same ``robust`` / ``cluster`` convention),
+        then the delta method. The two differ whenever the error of the
+        mediator equation is correlated with the error of the outcome
+        equation, which is the case the estimator is built for (an
+        endogenous mediator). In a simulation with 1,000 observations the
+        ``"independent"`` standard error of the indirect effect was 1.26
+        times the sampling standard deviation when that correlation was
+        positive and 0.86 times (95% intervals covering 91%) when it was
+        negative; ``"joint"`` was within 3% in both
+        (``tests/reliability/se_screen/causal/mediation.py``). Point
+        estimates, and the standard errors of the total and direct
+        effects, do not depend on it.
 
     Returns
     -------
@@ -389,6 +466,11 @@ def iv_mediate(
         raise MethodIncompatibility(
             f"level must be in (0, 1), got {level!r}.",
             recovery_hint="Use e.g. level=0.95.",
+        )
+    if equations not in ("independent", "joint"):
+        raise MethodIncompatibility(
+            f"equations must be 'independent' or 'joint', got {equations!r}.",
+            recovery_hint="Use equations='independent' (ivmediate) or 'joint'.",
         )
     if cluster is not None and robust:
         robust = False  # cluster-robust already covers heteroskedasticity
@@ -487,17 +569,24 @@ def iv_mediate(
     total, direct = float(b1[0]), float(b3[0])
     a, d = float(b2[0]), float(b3[1])
     indirect = a * d
-    # Equations independent: cov(b2, b3) = 0 and eq. 1 is uncorrelated with
-    # the others; delta method on a * d.
-    v_ind = d**2 * float(V2[0, 0]) + a**2 * float(V3[1, 1])
-    c_di = a * float(V3[0, 1])
-    vc = np.array(
-        [
-            [float(V1[0, 0]), 0.0, 0.0],
-            [0.0, float(V3[0, 0]), c_di],
-            [0.0, c_di, v_ind],
-        ]
-    )
+    if equations == "joint":
+        # Full sandwich of the stacked system, then the delta method for
+        # (total, direct, a * d) on (total, a, direct, d).
+        V4 = _joint_vcov(yr, tr, mr, zr, b1, b2, b3, codes)
+        J = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, d, 0.0, a]])
+        vc = J @ V4 @ J.T
+    else:
+        # Equations independent: cov(b2, b3) = 0 and eq. 1 is uncorrelated
+        # with the others; delta method on a * d.
+        v_ind = d**2 * float(V2[0, 0]) + a**2 * float(V3[1, 1])
+        c_di = a * float(V3[0, 1])
+        vc = np.array(
+            [
+                [float(V1[0, 0]), 0.0, 0.0],
+                [0.0, float(V3[0, 0]), c_di],
+                [0.0, c_di, v_ind],
+            ]
+        )
 
     # First-stage F statistics (ivmediate's ranktest-based formulas).
     L = 1
@@ -566,6 +655,7 @@ def iv_mediate(
             "covariates": covs,
             "absorb": absorb,
             "n_partialled": k_partial,
+            "equations": equations,
         },
         diagnostics={"n_dropped": n_dropped, "weak_instrument": sorted(weak)},
     )

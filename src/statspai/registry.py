@@ -17613,6 +17613,20 @@ def _build_registry() -> None:
                 ParamSpec(
                     "level", "float", False, 0.95, "Confidence level for intervals"
                 ),
+                ParamSpec(
+                    "equations",
+                    "str",
+                    False,
+                    "independent",
+                    "Covariance between the three equations in the variance "
+                    "of the indirect effect: 'independent' sets it to zero "
+                    "(ivmediate); 'joint' keeps it (sandwich of the stacked "
+                    "system, equal to Stata gmm + nlcom). They differ when "
+                    "the mediator and outcome errors are correlated, where "
+                    "'independent' was 26% too large or 14% too small in "
+                    "simulation",
+                    enum=["independent", "joint"],
+                ),
             ],
             returns=(
                 "IVMediateResult with .estimates (total / direct / indirect), "
