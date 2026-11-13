@@ -31,7 +31,11 @@ def _paper(df: pd.DataFrame):
 
 
 def test_robustness_section_surfaces_a_flagged_diagnostic():
-    draft = _paper(_obs_design(confounding=1.5))  # strong → poor post-match balance
+    # Selection strong enough that the matched sample is still unbalanced.
+    # At confounding=1.5 (used here until 2026-11-13) matching balances the
+    # covariates (largest matched |SMD| 0.13); the "imbalance" the paper then
+    # reported was the pre-matching table read as the post-matching one.
+    draft = _paper(_obs_design(confounding=8.0))
     rob = draft.sections.get("Robustness", "")
     assert "Automatic diagnostic checks" in rob
     # the flagged imbalance and its recommended remedy both make the paper

@@ -116,7 +116,9 @@ class TestReturnShape:
                 "rationale",
             ):
                 assert k in c, f"check missing {k!r}: {c}"
-            assert c["status"] in ("passed", "failed", "missing")
+            # the four documented statuses; a two-period DiD has no
+            # Goodman-Bacon decomposition (not_applicable)
+            assert c["status"] in ("passed", "failed", "missing", "not_applicable")
             # severity uses violations-style observed-state vocabulary.
             assert c["severity"] in ("info", "warning", "error")
             # importance is constant per check, independent of status.

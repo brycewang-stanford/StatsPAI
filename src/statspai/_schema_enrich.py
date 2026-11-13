@@ -851,13 +851,54 @@ def result_fields(cls: Any) -> Tuple[Tuple[str, str], ...]:
             except (TypeError, ValueError):
                 sig = None
         if sig is not None:
+            # A constructor parameter is a field only if the constructor
+            # stores it under that name. ``PowerResult(power_val=...)``
+            # keeps ``self.power`` and ``KMResult(tables=...)`` keeps a
+            # private table behind the ``survival_table`` property: their
+            # cards named attributes the result does not have. The check is
+            # made only where it can be made from the class's own source: a
+            # constructor that delegates to ``super().__init__`` (or whose
+            # source cannot be read, or that assigns nothing by name) keeps
+            # its parameters as before.
+            stored = _init_assigned_names(cls)
             for pname, p in sig.parameters.items():
                 if pname == "self" or pname.startswith("_"):
                     continue
                 if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
                     continue
+                if stored and pname not in stored and not hasattr(cls, pname):
+                    continue
                 out.setdefault(pname, _type_text(p.annotation))
+            if stored:
+                for attr in stored:
+                    if not attr.startswith("_"):
+                        out.setdefault(attr, "Any")
+                for attr, member in vars(cls).items():
+                    if isinstance(member, property) and not attr.startswith("_"):
+                        out.setdefault(attr, "Any")
     return tuple(out.items())
+
+
+def _init_assigned_names(cls: Any) -> Tuple[str, ...]:
+    """Names ``cls.__init__`` assigns on ``self``, in source order.
+
+    Empty when the source is unavailable or the constructor hands its
+    arguments to ``super().__init__`` (the parent stores them).
+    """
+    import re
+
+    try:
+        source = inspect.getsource(cls.__init__)
+    except (OSError, TypeError):
+        return ()
+    if "super()" in source or "__init__(self" in source.split(":", 1)[-1]:
+        return ()
+    seen: Dict[str, None] = {}
+    for name in re.findall(
+        r"^\s*self\.([A-Za-z_]\w*)\s*(?::[^=\n]+)?=(?!=)", source, flags=re.M
+    ):
+        seen.setdefault(name, None)
+    return tuple(seen)
 
 
 def _has_agent_payload(cls: Any) -> bool:

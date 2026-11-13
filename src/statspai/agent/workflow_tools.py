@@ -426,11 +426,11 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "bibtex",
         "description": (
-            "Return verified BibTeX entries from paper.bib (StatsPAI's "
-            "single source of truth for citations). Pass one or more "
-            "bib keys (e.g. 'callaway2021difference'). NEVER invent "
-            "citations — call this tool instead. Unknown keys return "
-            "an empty entry plus a list of close matches."
+            "Verified BibTeX entries from paper.bib, the only source "
+            "for citations: NEVER invent one. Pass bib keys, or a "
+            "result's citation_key (an estimator name), which resolves "
+            "to that estimator's verified keys. Unknown keys return an "
+            "empty entry and close matches."
         ),
         "input_schema": {
             "type": "object",
@@ -1015,8 +1015,14 @@ def _tool_audit(rid: Optional[str], *, detail: str) -> Dict[str, Any]:
     audit_fn = getattr(sp, "audit", None)
     if audit_fn is None:
         return {"error": "sp.audit is not available in this build"}
+    from ._followup_evidence import checks_run
+
+    # Checks this session already ran on the fit (honest_did_from_result,
+    # rdplacebo, ...): the audit reads only the result object, so without
+    # them it lists a check as missing after the agent has run it.
+    ran = checks_run(rid)
     try:
-        report = audit_fn(obj)
+        report = audit_fn(obj, evidence=ran) if ran else audit_fn(obj)
     except Exception as e:
         from .remediation import remediate
 
@@ -2155,6 +2161,18 @@ def _tool_from_r(arguments: Dict[str, Any]) -> Dict[str, Any]:
     out = from_r(expr)
     out["source"] = "r"
     out["input"] = expr
+    if out.get("error") and not out.get("error_kind"):
+        # Same keys as every other tool failure, so a client that branches
+        # on error_kind / hint handles a refused translation too.
+        out["error_kind"] = "untranslated"
+        out.setdefault(
+            "hint",
+            "from_r takes one call, fn(...): split a script into its calls, "
+            "drop the `name <-` assignment, and translate the estimation "
+            "call itself (not summary() / coeftest() around it). "
+            "search_functions(query=<R function name>) finds the StatsPAI "
+            "counterpart when a call is not translated.",
+        )
     return out
 
 
@@ -2804,6 +2822,31 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
         )
     kwargs = dict(step.get("arguments") or {})
     kwargs.pop("data", None)
+    import inspect
+    from difflib import get_close_matches
+
+    params: Dict[str, Any] = {}
+    try:
+        params = dict(inspect.signature(fn).parameters)
+    except (TypeError, ValueError):
+        pass
+    takes_any = any(p.kind is p.VAR_KEYWORD for p in params.values())
+    unknown = [k for k in kwargs if k not in params]
+    if params and unknown and not takes_any:
+        # Named before the call: the bare TypeError ("unexpected keyword
+        # argument") gave neither the accepted names nor the near miss.
+        accepted = [k for k in params if k != "data"]
+        near = {k: get_close_matches(k, accepted, n=2, cutoff=0.7) for k in unknown}
+        raise MethodIncompatibility(
+            f"sp.{name} does not accept argument(s) {unknown}.",
+            recovery_hint=(
+                f"sp.{name} accepts: {', '.join(accepted)}."
+                + "".join(
+                    f" Did you mean {v[0]!r} for {k!r}?" for k, v in near.items() if v
+                )
+            ),
+            diagnostics={"unknown_arguments": unknown, "accepted_parameters": accepted},
+        )
     out = fn(data=df, **kwargs)
     if not isinstance(out, pd.DataFrame):
         raise MethodIncompatibility(
@@ -2914,6 +2957,11 @@ def _tool_transform_data(
             if isinstance(exc, StatsPAIError):
                 envelope["error_kind"] = exc.code
                 envelope["recovery_hint"] = getattr(exc, "recovery_hint", None)
+            else:
+                envelope.update(_transform_error_hint(exc, df))
+            # ``hint`` is the key every other tool failure uses.
+            if envelope.get("recovery_hint"):
+                envelope["hint"] = envelope["recovery_hint"]
             return envelope
         applied.append(
             {
@@ -2944,6 +2992,44 @@ def _tool_transform_data(
     }
     out.update(describe_frame(df))
     return out
+
+
+def _transform_error_hint(exc: BaseException, df: pd.DataFrame) -> Dict[str, Any]:
+    """``error_kind`` / ``recovery_hint`` for a pandas failure in a step.
+
+    A misspelt column in ``query`` / ``assign`` surfaces as pandas'
+    ``UndefinedVariableError`` (a ``NameError``) or a ``KeyError``, with no
+    list of the columns that do exist.
+    """
+    import re
+    from difflib import get_close_matches
+
+    missing: Optional[str] = None
+    if isinstance(exc, NameError):
+        m = re.search(r"name '([^']+)' is not defined", str(exc))
+        missing = m.group(1) if m else None
+    elif isinstance(exc, KeyError) and exc.args:
+        key = exc.args[0]
+        if isinstance(key, str):
+            m = re.search(r"\['?([^'\]]+)'?\]", key)
+            missing = m.group(1) if m and "not in" in key else key
+    if missing is None:
+        return {}
+    columns = [str(c) for c in df.columns]
+    if missing in columns:
+        return {}
+    near = get_close_matches(missing, columns, n=3, cutoff=0.5)
+    shown = ", ".join(columns[:40]) + (", ..." if len(columns) > 40 else "")
+    return {
+        "error_kind": "missing_column",
+        "missing_column": missing,
+        "did_you_mean": near,
+        "recovery_hint": (
+            f"No column {missing!r} at this step."
+            + (f" Did you mean {near[0]!r}?" if near else "")
+            + f" Columns: {shown}."
+        ),
+    }
 
 
 def _tool_route_estimator(arguments: Dict[str, Any]) -> Dict[str, Any]:
@@ -3138,17 +3224,34 @@ def _tool_bibtex(arguments: Dict[str, Any]) -> Dict[str, Any]:
     index = _load_bibtex_index()
     out_entries: Dict[str, Any] = {}
     suggestions: Dict[str, list] = {}
+    resolved: Dict[str, list] = {}
+    uncited: list = []
     for k in keys:
         k_str = str(k)
         if k_str in index:
             out_entries[k_str] = index[k_str]
-        else:
-            out_entries[k_str] = ""
-            close = get_close_matches(k_str, list(index.keys()), n=5, cutoff=0.55)
-            if close:
-                suggestions[k_str] = close
+            continue
+        # A fitted result's ``citation_key`` is the estimator's name
+        # ("callaway_santanna", "rdrobust"), not a bib key. Looked up as a
+        # bib key it was "unknown" and the nearest spelling in paper.bib
+        # (another paper by the same authors) was suggested. An estimator
+        # name resolves to the verified keys that estimator carries.
+        fn_keys = _function_bib_keys(k_str)
+        if fn_keys is not None:
+            found = [fk for fk in fn_keys if fk in index]
+            if found:
+                resolved[k_str] = found
+                for fk in found:
+                    out_entries[fk] = index[fk]
+            else:
+                uncited.append(k_str)
+            continue
+        out_entries[k_str] = ""
+        close = get_close_matches(k_str, list(index.keys()), n=5, cutoff=0.55)
+        if close:
+            suggestions[k_str] = close
 
-    return {
+    out: Dict[str, Any] = {
         "keys": list(out_entries.keys()),
         "bibtex": out_entries,
         "unknown_keys": [k for k, v in out_entries.items() if not v],
@@ -3159,6 +3262,37 @@ def _tool_bibtex(arguments: Dict[str, Any]) -> Dict[str, Any]:
             "Do NOT fabricate — see CLAUDE.md §10."
         ),
     }
+    if resolved:
+        out["resolved_from_function"] = resolved
+    if uncited:
+        out["no_verified_citation"] = uncited
+        out["note"] += (
+            " no_verified_citation lists estimator names that carry no "
+            "verified reference in paper.bib; cite none rather than guess."
+        )
+    return out
+
+
+#: ``citation_key`` values that are not the producing function's own name.
+_CITATION_KEY_FUNCTION = {"matching": "match", "did_2x2": "did"}
+
+
+def _function_bib_keys(name: str) -> Optional[list]:
+    """Verified bib keys of the estimator called ``name``; ``None`` if no
+    registered function (or result ``citation_key``) has that name."""
+    from ._enrichment import build_citations
+
+    fn = _CITATION_KEY_FUNCTION.get(name, name)
+    try:
+        from ..registry import _REGISTRY, _ensure_full_registry
+
+        _ensure_full_registry()
+        known = fn in _REGISTRY
+    except (AttributeError, ImportError, RuntimeError):
+        known = False
+    if not known:
+        return None
+    return list(build_citations(fn))
 
 
 __all__ = [

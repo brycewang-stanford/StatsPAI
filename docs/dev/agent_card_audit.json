@@ -1,10 +1,10 @@
 {
   "schema": 1,
   "generated_by": "scripts/agent_card_audit.py",
-  "n_functions": 70,
+  "n_functions": 93,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 633,
+    "ok": 715,
     "precondition": 63,
     "rejected": 0
   },
@@ -5912,6 +5912,1333 @@
       ],
       "provenance": {
         "family": 5,
+        "curated": 3
+      }
+    },
+    {
+      "function": "sqreg",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "DataFrame",
+        "actual": "DataFrame",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "feols",
+          "exists": true
+        },
+        {
+          "name": "iv",
+          "exists": true
+        },
+        {
+          "name": "heckman",
+          "exists": true
+        },
+        {
+          "name": "qreg",
+          "exists": true
+        },
+        {
+          "name": "tobit",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "qte",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treatment"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treatment"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "QTEResult",
+        "actual": "QTEResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "firpo_qte": {
+            "status": "ok"
+          },
+          "firpo_qtt": {
+            "status": "ok"
+          },
+          "conditional_qr": {
+            "status": "ok"
+          },
+          "distribution": {
+            "status": "ok"
+          }
+        },
+        "se": {
+          "auto": {
+            "status": "ok"
+          },
+          "analytic": {
+            "status": "ok"
+          },
+          "bootstrap": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "qdid",
+          "exists": true
+        },
+        {
+          "name": "rifreg",
+          "exists": true
+        },
+        {
+          "name": "cic",
+          "exists": true
+        },
+        {
+          "name": "metalearner",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "kaplan_meier",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "duration",
+          "event"
+        ],
+        "schema": [
+          "data",
+          "duration",
+          "event"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "KMResult",
+        "actual": "KMResult",
+        "matches": true
+      },
+      "enums": {
+        "conf_type": {
+          "log-log": {
+            "status": "ok"
+          },
+          "log": {
+            "status": "ok"
+          },
+          "plain": {
+            "status": "ok"
+          }
+        },
+        "se_method": {
+          "greenwood": {
+            "status": "ok"
+          },
+          "ij": {
+            "status": "ok"
+          },
+          "xie_liu": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "aft",
+          "exists": true
+        },
+        {
+          "name": "finegray",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "cox",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CoxResult",
+        "actual": "CoxResult",
+        "matches": true
+      },
+      "enums": {
+        "ties": {
+          "efron": {
+            "status": "ok"
+          },
+          "breslow": {
+            "status": "ok"
+          }
+        },
+        "ssc": {
+          "r": {
+            "status": "ok"
+          },
+          "stata": {
+            "status": "ok"
+          }
+        },
+        "weights_as": {
+          "frequency": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          },
+          "sampling": {
+            "status": "ok",
+            "with": {
+              "weights": "wt"
+            }
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "kaplan_meier",
+          "exists": true
+        },
+        {
+          "name": "aft",
+          "exists": true
+        },
+        {
+          "name": "finegray",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "var",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data"
+        ],
+        "schema": [
+          "data"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "VARResult",
+        "actual": "VARResult",
+        "matches": true
+      },
+      "enums": {
+        "se_df": {
+          "stata": {
+            "status": "ok"
+          },
+          "ml": {
+            "status": "ok"
+          },
+          "r": {
+            "status": "ok"
+          },
+          "unbiased": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "local_projections",
+          "exists": true
+        },
+        {
+          "name": "arima",
+          "exists": true
+        },
+        {
+          "name": "iv",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 6,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "arima",
+      "defects": [],
+      "required": {
+        "signature": [
+          "y"
+        ],
+        "schema": [
+          "y"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "ARIMAResult",
+        "actual": "ARIMAResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "statespace": {
+            "status": "ok"
+          },
+          "css_ml": {
+            "status": "ok"
+          },
+          "innovations_mle": {
+            "status": "ok"
+          }
+        },
+        "trend": {
+          "c": {
+            "status": "ok"
+          },
+          "n": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "its",
+          "exists": true
+        },
+        {
+          "name": "causal_impact",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 3
+      }
+    },
+    {
+      "function": "its",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y"
+        ],
+        "schema": [
+          "data",
+          "y"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "ITSResult",
+        "actual": "ITSResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "arima",
+          "exists": true
+        },
+        {
+          "name": "causal_impact",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "kitagawa_decompose",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "rate",
+          "group",
+          "by"
+        ],
+        "schema": [
+          "data",
+          "rate",
+          "group",
+          "by"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "KitagawaResult",
+        "actual": "KitagawaResult",
+        "matches": true
+      },
+      "enums": {
+        "normalize": {
+          "symmetric": {
+            "status": "ok"
+          },
+          "a": {
+            "status": "ok"
+          },
+          "b": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "decompose",
+          "exists": true
+        },
+        {
+          "name": "oaxaca",
+          "exists": true
+        },
+        {
+          "name": "gelbach",
+          "exists": true
+        },
+        {
+          "name": "dfl_decompose",
+          "exists": true
+        },
+        {
+          "name": "ffl_decompose",
+          "exists": true
+        },
+        {
+          "name": "rif_decomposition",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "cic",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "group",
+          "time"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "group",
+          "time"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CICResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "qte",
+          "exists": true
+        },
+        {
+          "name": "drdid",
+          "exists": true
+        },
+        {
+          "name": "did_2x2",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "hausman_test",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x",
+          "id",
+          "time"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x",
+          "id",
+          "time"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "dict",
+        "actual": "dict",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "margins",
+          "exists": true
+        },
+        {
+          "name": "test",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 4,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "power",
+      "defects": [],
+      "required": {
+        "signature": [
+          "design"
+        ],
+        "schema": [
+          "design"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "PowerResult",
+        "actual": "PowerResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "mde",
+          "exists": true
+        },
+        {
+          "name": "optimal_design",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 4,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "rkd",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "RKDResult",
+        "matches": true
+      },
+      "enums": {
+        "kernel": {
+          "triangular": {
+            "status": "ok"
+          },
+          "epanechnikov": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "rdrobust",
+          "exists": true
+        },
+        {
+          "name": "rdrandinf",
+          "exists": true
+        },
+        {
+          "name": "rdbwselect",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 3,
+        "curated": 5,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "rosenbaum_bounds",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "RosenbaumResult",
+        "actual": "RosenbaumResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "wilcoxon": {
+            "status": "ok"
+          },
+          "sign": {
+            "status": "ok"
+          },
+          "t": {
+            "status": "ok"
+          }
+        },
+        "alternative": {
+          "greater": {
+            "status": "ok"
+          },
+          "less": {
+            "status": "ok"
+          },
+          "two-sided": {
+            "status": "ok"
+          }
+        },
+        "zero_method": {
+          "pratt": {
+            "status": "ok"
+          },
+          "wilcox": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "attrition_bounds",
+          "exists": true
+        },
+        {
+          "name": "evalue_rr",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 4,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "front_door",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treat",
+          "mediator"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treat",
+          "mediator"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {
+        "mediator_type": {
+          "auto": {
+            "status": "ok"
+          },
+          "binary": {
+            "status": "ok"
+          },
+          "continuous": {
+            "status": "ok"
+          }
+        },
+        "integrate_by": {
+          "marginal": {
+            "status": "ok"
+          },
+          "conditional": {
+            "status": "ok"
+          }
+        },
+        "outcome_model": {
+          "by_arm": {
+            "status": "ok"
+          },
+          "additive": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "tmle",
+          "exists": true
+        },
+        {
+          "name": "g_computation",
+          "exists": true
+        },
+        {
+          "name": "ipw",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 4,
+        "curated+family": 1,
+        "curated": 3
+      }
+    },
+    {
+      "function": "lasso_select",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "SelectionResult",
+        "actual": "SelectionResult",
+        "matches": true
+      },
+      "enums": {
+        "method": {
+          "cv": {
+            "status": "ok"
+          },
+          "bic": {
+            "status": "ok"
+          },
+          "aic": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "regress",
+          "exists": true
+        },
+        {
+          "name": "feols",
+          "exists": true
+        },
+        {
+          "name": "iv",
+          "exists": true
+        },
+        {
+          "name": "heckman",
+          "exists": true
+        },
+        {
+          "name": "qreg",
+          "exists": true
+        },
+        {
+          "name": "tobit",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "conformal_cate",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "treat",
+          "covariates"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "CausalResult",
+        "actual": "CausalResult",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "causal_forest",
+          "exists": true
+        },
+        {
+          "name": "metalearner",
+          "exists": true
+        },
+        {
+          "name": "dml",
+          "exists": true
+        },
+        {
+          "name": "did_forest",
+          "exists": true
+        },
+        {
+          "name": "multi_arm_forest",
+          "exists": true
+        },
+        {
+          "name": "iv_forest",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "anderson_rubin_ci",
+      "defects": [],
+      "required": {
+        "signature": [
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "schema": [
+          "y",
+          "endog",
+          "instruments"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "WeakIVConfidenceSet",
+        "actual": "WeakIVConfidenceSet",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "iv",
+          "exists": true
+        },
+        {
+          "name": "jive",
+          "exists": true
+        },
+        {
+          "name": "deepiv",
+          "exists": true
+        },
+        {
+          "name": "bartik",
+          "exists": true
+        },
+        {
+          "name": "proximal",
+          "exists": true
+        },
+        {
+          "name": "regress",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 5,
+        "curated+family": 1,
+        "curated": 2,
+        "docstring": 1
+      }
+    },
+    {
+      "function": "rdplacebo",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "DataFrame",
+        "actual": "DataFrame",
+        "matches": true
+      },
+      "enums": {
+        "side": {
+          "left": {
+            "status": "ok"
+          },
+          "right": {
+            "status": "ok"
+          },
+          "both": {
+            "status": "ok"
+          }
+        },
+        "kernel": {
+          "triangular": {
+            "status": "ok"
+          },
+          "epanechnikov": {
+            "status": "ok"
+          },
+          "uniform": {
+            "status": "ok"
+          }
+        },
+        "vce": {
+          "nn": {
+            "status": "ok"
+          },
+          "hc0": {
+            "status": "ok"
+          },
+          "hc1": {
+            "status": "ok"
+          },
+          "hc2": {
+            "status": "ok"
+          },
+          "hc3": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "rdbwsensitivity",
+          "exists": true
+        },
+        {
+          "name": "rdbalance",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 7,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "evalue",
+      "defects": [],
+      "required": {
+        "signature": [
+          "estimate"
+        ],
+        "schema": [
+          "estimate"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EValueResult",
+        "actual": "EValueResult",
+        "matches": true
+      },
+      "enums": {
+        "measure": {
+          "RR": {
+            "status": "ok"
+          },
+          "OR": {
+            "status": "ok"
+          },
+          "HR": {
+            "status": "ok"
+          },
+          "MD": {
+            "status": "ok"
+          },
+          "SMD": {
+            "status": "ok"
+          },
+          "OLS": {
+            "status": "ok"
+          },
+          "DIFF": {
+            "status": "ok"
+          },
+          "RD": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "sensemakr",
+          "exists": true
+        },
+        {
+          "name": "oster_bounds",
+          "exists": true
+        },
+        {
+          "name": "unified_sensitivity",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 6,
+        "docstring": 2
+      }
+    },
+    {
+      "function": "pretrends_test",
+      "defects": [],
+      "required": {
+        "signature": [
+          "result"
+        ],
+        "schema": [
+          "result"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "dict",
+        "actual": "dict",
+        "matches": true
+      },
+      "enums": {
+        "type": {
+          "auto": {
+            "status": "ok"
+          },
+          "wald": {
+            "status": "ok"
+          },
+          "f": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "sensitivity_rr",
+          "exists": true
+        },
+        {
+          "name": "honest_did",
+          "exists": true
+        },
+        {
+          "name": "event_study",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 8
+      }
+    },
+    {
+      "function": "wild_cluster_bootstrap",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y",
+          "x",
+          "cluster"
+        ],
+        "schema": [
+          "data",
+          "y",
+          "x",
+          "cluster"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "dict",
+        "actual": "dict",
+        "matches": true
+      },
+      "enums": {
+        "weight_type": {
+          "rademacher": {
+            "status": "ok"
+          },
+          "mammen": {
+            "status": "ok"
+          },
+          "webb": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "cr2_se",
+          "exists": true
+        },
+        {
+          "name": "subcluster_wild_bootstrap",
+          "exists": true
+        },
+        {
+          "name": "ri_test",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "curated": 10
+      }
+    },
+    {
+      "function": "zip_model",
+      "defects": [],
+      "required": {
+        "signature": [],
+        "schema": [],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "EconometricResults",
+        "actual": "EconometricResults",
+        "matches": true
+      },
+      "enums": {},
+      "alternatives": [
+        {
+          "name": "nbreg",
+          "exists": true
+        },
+        {
+          "name": "ppmlhdfe",
+          "exists": true
+        },
+        {
+          "name": "glm",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 6,
+        "docstring": 2,
+        "curated": 1
+      }
+    },
+    {
+      "function": "policy_tree",
+      "defects": [],
+      "required": {
+        "signature": [
+          "data",
+          "y"
+        ],
+        "schema": [
+          "data",
+          "y"
+        ],
+        "schema_only": {}
+      },
+      "base_call": "ok",
+      "result_class": {
+        "declared": "PolicyTreeResult",
+        "actual": "PolicyTreeResult",
+        "matches": true
+      },
+      "enums": {
+        "search": {
+          "auto": {
+            "status": "ok"
+          },
+          "exact": {
+            "status": "ok"
+          },
+          "greedy": {
+            "status": "ok"
+          }
+        },
+        "value_evaluation": {
+          "cross_fit": {
+            "status": "ok"
+          },
+          "in_sample": {
+            "status": "ok"
+          }
+        }
+      },
+      "alternatives": [
+        {
+          "name": "policy_value",
+          "exists": true
+        },
+        {
+          "name": "forest_policy_tree",
+          "exists": true
+        },
+        {
+          "name": "policy_targeting",
+          "exists": true
+        },
+        {
+          "name": "causal_forest",
+          "exists": true
+        },
+        {
+          "name": "metalearner",
+          "exists": true
+        },
+        {
+          "name": "dml",
+          "exists": true
+        },
+        {
+          "name": "did_forest",
+          "exists": true
+        },
+        {
+          "name": "multi_arm_forest",
+          "exists": true
+        },
+        {
+          "name": "iv_forest",
+          "exists": true
+        }
+      ],
+      "provenance": {
+        "family": 4,
+        "curated+family": 1,
         "curated": 3
       }
     }

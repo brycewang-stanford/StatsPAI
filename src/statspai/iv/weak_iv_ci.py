@@ -173,6 +173,52 @@ class WeakIVConfidenceSet:
             intervals[-1] = (intervals[-1][0], float(self.upper))
         return intervals
 
+    def to_dict(self, detail: str = "standard") -> dict:
+        """JSON-safe description of the confidence set.
+
+        The set itself (``lower`` / ``upper`` / ``intervals`` and the three
+        shape flags) is what a caller reports; the test-inversion grid is
+        left out. Without this method the agent / MCP serializers found no
+        fields to read and returned only the method name.
+
+        Parameters
+        ----------
+        detail : {"minimal", "standard", "agent"}, default "standard"
+            Accepted for the common result protocol; every level returns
+            the same fields.
+
+        Returns
+        -------
+        dict
+            ``method``, ``level``, ``lower``, ``upper``, ``ci``,
+            ``intervals``, ``is_empty``, ``is_connected``, ``is_unbounded``,
+            ``n_grid``, ``grid_range`` and the scalar entries of ``extra``.
+            A non-finite endpoint is reported as ``None``.
+        """
+
+        def _num(v: float) -> Optional[float]:
+            return float(v) if np.isfinite(v) else None
+
+        out = {
+            "method": self.method,
+            "level": float(self.level),
+            "lower": None if self.is_empty else _num(self.lower),
+            "upper": None if self.is_empty else _num(self.upper),
+            "intervals": [[lo, hi] for lo, hi in self.as_intervals()],
+            "is_empty": bool(self.is_empty),
+            "is_connected": bool(self.is_connected),
+            "is_unbounded": bool(self.is_unbounded),
+            "n_grid": int(len(self.beta_grid)),
+            "grid_range": [float(self.beta_grid[0]), float(self.beta_grid[-1])],
+        }
+        out["ci"] = [out["lower"], out["upper"]]
+        for key, value in (self.extra or {}).items():
+            if isinstance(value, (bool, int, float, str)) or value is None:
+                out[str(key)] = value
+            elif isinstance(value, np.generic):
+                out[str(key)] = value.item()
+        return out
+
     def summary(self) -> str:
         intervals = self.as_intervals()
         lines = [

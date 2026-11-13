@@ -80,6 +80,16 @@ OBS_ARRAY_KEYS = frozenset(
 )
 OBS_ARRAY_KEEP = 20
 
+#: Prefixes that mark a variant of the same per-observation arrays
+#: (``fitted_within`` on the HDFE result: 33 KB of a 76 KB reply).
+_OBS_ARRAY_PREFIXES = ("fitted_", "residuals_", "resid_")
+
+
+def is_obs_array_key(key: str) -> bool:
+    """Whether ``key`` names a per-observation array (capped in payloads)."""
+    return key in OBS_ARRAY_KEYS or key.startswith(_OBS_ARRAY_PREFIXES)
+
+
 #: Rows kept from a table, items kept from a list or mapping, inside a
 #: plain-dict / DataFrame result, per detail level. Above these the output
 #: byte budget of the MCP layer still applies.
@@ -218,7 +228,7 @@ def _scrub_payload(out: Dict[str, Any], detail: str) -> Dict[str, Any]:
                     continue
                 sub = f"{path}/{key}"
                 if (
-                    key in OBS_ARRAY_KEYS
+                    is_obs_array_key(key)
                     and isinstance(x, (list, tuple, np.ndarray))
                     and len(x) > OBS_ARRAY_KEEP
                 ):
@@ -248,7 +258,7 @@ def full_array(obj: Any, path: str) -> List[Any]:
     cached result.
     """
     parts = [p for p in str(path).split("/") if p]
-    if not parts or parts[-1] not in OBS_ARRAY_KEYS:
+    if not parts or not is_obs_array_key(parts[-1]):
         raise KeyError(
             f"{path!r} is not a per-observation array; the paths are the "
             "ones listed under arrays_capped."

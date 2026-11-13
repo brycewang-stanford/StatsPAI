@@ -4,6 +4,127 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Agent probe (2026-11-13)
+
+An agent with no knowledge of the source ran sixteen analyses through the
+MCP server over stdio (2x2 and staggered DiD, event study, IV, sharp and
+fuzzy RD, synthetic control, SDID, matching, DML, panel FE, a Stata do-file,
+R calls, a data-cleaning chain, three broken designs and seven wrong tool
+choices) and twenty-nine functions through `sp.search_functions`,
+`sp.describe_function` and `sp.function_schema`. Every headline number over
+MCP equalled the direct Python call. The defects were in what surrounds the
+numbers. Evidence is in `tests/test_agent_probe_nov13.py` and
+`tests/test_mcp_stdio_followups.py`; the record is
+`docs/dev/2026-11-13-agent-probe.md`.
+
+#### Fixed
+- **⚠️ correctness fix: `result.violations()` after `sp.match` quoted the
+  pre-matching imbalance as residual imbalance.** The check read
+  `model_info["balance"]`, which is the raw-sample table. A fit that brought
+  the largest standardised mean difference from 0.499 to 0.037 carried the
+  warning "Max standardized mean difference after matching = 0.499". It now
+  reads the matched sample (`max_abs_smd_after` / `balance_after`), so a
+  balanced match has no warning and an unbalanced one reports the matched
+  value. Estimates and standard errors are unchanged.
+- **⚠️ correctness fix: `sp.audit` read the wrong evidence.** An OLS
+  `sp.feols` fit was audited against the IV checklist (the method label
+  "OLS (StatsPAI native)" contains the letters "iv"). A Sun-Abraham fit was
+  audited as a generic observational design. A `sp.synth` fit that ran its
+  in-space placebos and a `sp.match` fit with a stored balance table were
+  told both checks were missing. A two-period `sp.did` was told to run
+  `sp.pretrends_test` and `sp.honest_did`, which fail without a pre-period.
+  Each now gets its own family; the synth and matching checks read what the
+  fit holds; on a two-period design the parallel-trends and honest-DiD
+  checks stay `missing` (they are untested) with a `reason` and no function
+  to call, and the Bacon decomposition is `not_applicable`. New `evidence=`
+  argument: checks
+  run after the fit (honest DiD, Bacon decomposition, bandwidth sensitivity,
+  placebo cutoffs, Anderson-Rubin, Oster, E-value) can be passed by name.
+- **⚠️ `sp.recommend` cards that could not run.** A treated-group indicator
+  with two periods was routed to a unit fixed-effects regression of the
+  outcome on the indicator, which the within estimator cannot identify; it
+  is now the 2x2 `sp.did` card. A continuous regressor in a panel was routed
+  to `sp.did_multiplegt` as a treatment that reverts in every unit (291
+  seconds, no estimate, on 1,600 rows); it is now a panel regression. A
+  treatment constant within units over more than two periods no longer gets
+  the fixed-effects card and the reason is stated. The LIML card dropped the
+  covariates the 2SLS card carried. The Anderson-Rubin card wrote `d=` /
+  `z=`, which `sp.anderson_rubin_ci` refuses. The synthetic-control card
+  printed `treatment_time=np.int64(2000)`.
+- **`sp.preflight` passed designs it had not checked.** A method without a
+  check table returned `PASS` on the strength of "the data is a non-empty
+  DataFrame"; the verdict is now `WARN` with a check that says so. `dml`,
+  `synth`, `sdid`, `feols`, `hdfe_ols` and `panel` have check tables. The
+  matching tables test common support: data where the treatment is a
+  function of a covariate returned `PASS` and now return `FAIL`.
+- **MCP `next_calls` that were marked ready and failed, or answered about
+  another model.** `honest_did_from_result` is offered only when the fit has
+  a pre-period event-study coefficient. IV follow-ups are filled from the
+  fit's formula, exogenous controls included (a caller who filled the listed
+  arguments got a first stage without the controls). A fuzzy RD fit is
+  followed by `rdbwsensitivity` and `rdplacebo` with `fuzzy=`; it was
+  followed by `rdsensitivity`, which tabulated the sharp reduced form.
+  Synthetic-control follow-ups reuse the fit's unit and date. `sdid`,
+  `match`, `feols`, `panel`, `ivreg`, `iv`, `rdrobust`, `regress`, `synth`
+  and `ebalance` fits now lead to `audit_result`. A recommendation whose
+  argument was a numpy scalar lost it and was still marked ready.
+- **MCP `audit_result` did not change after the suggested checks ran.** A
+  successful `honest_did_from_result`, `bacon_decomposition`,
+  `rdbwsensitivity`, `rdplacebo`, `anderson_rubin_test` / `_ci`,
+  `oster_delta`, `sensemakr` or `sensitivity_from_result` is recorded on the
+  fit it belongs to (the `result_id` given, or fits on the same dataset and
+  outcome) and the next audit reports it.
+- **MCP plotting functions returned the text "Figure(1000x700)".**
+  `rdplot`, `overlap_plot`, `balanceplot` and any registered function that
+  returns a matplotlib figure now return a PNG image block.
+- **`sp.anderson_rubin_ci` over MCP returned only its method name.**
+  `WeakIVConfidenceSet.to_dict()` reports the endpoints, the intervals of a
+  disconnected set and the three shape flags.
+- **MCP `bibtex` did not resolve a result's `citation_key`.** The key is an
+  estimator name (`callaway_santanna`); the tool reported it unknown and
+  suggested another paper by the same authors. Estimator names resolve to
+  the verified keys the estimator carries, and one with no verified
+  reference is listed under `no_verified_citation`. `robust_synth` was
+  attributed to the augmented synthetic control paper in the follow-up text
+  and the citation map; it now cites the keys on its own card.
+- **Cards that said something untrue.** `sp.wild_cluster_bootstrap` listed
+  `weight_type='normal'`, which it refuses. `sp.cic` listed no default seed
+  (it is 42). `result_schema` listed constructor parameters the result does
+  not keep (`PowerResult.power_val`, `KMResult.tables`); 80 result classes
+  are corrected. `KitagawaResult.next_steps()` returned the failure modes of
+  the IV test of the same name.
+- **`sp.search_functions`.** A hyphenated compound matches a function name
+  and a description as a compound ("Kaplan-Meier" now ranks
+  `sp.kaplan_meier` first, "zero-inflated count model" finds `sp.zinb` and
+  `sp.zip_model`). A query that contains every word of a function name
+  ranks it first however long the query ("Rosenbaum bounds matched pairs
+  sensitivity").
+- **Errors.** `sp.match` on a continuous treatment listed every distinct
+  value; over MCP the error was 105 KB. It names five. Every string of an
+  MCP error is capped at 1,500 characters. `remediation.fix` is the
+  exception's own hint; the category text that used to be appended in
+  brackets is under `category_fix`. `transform_data` names a misspelt
+  column and its nearest spelling, and a `function` step with a wrong
+  argument lists the accepted ones. `sp.stata` given a `use` or
+  `import delimited` line says to remove it and pass the data.
+  `sp.rosenbaum_bounds(data=)` without `pair_id` and an unknown wild
+  bootstrap weight raise `MethodIncompatibility` with a recovery hint.
+  `from_r` failures carry `error_kind` and `hint`.
+- `sp.from_r('matchit(..., distance = "glm")')` returned `distance='glm'`,
+  which `sp.match` refuses; MatchIt's distances are mapped
+  (`glm` to `propensity`, `link = "probit"` to `ps_model='probit'`) and one
+  without a counterpart is reported as untranslated.
+- `sp.result_card` reported `reference_distribution: normal` for a 2x2
+  `sp.did` whose interval uses t(n - 4).
+- The HDFE result's `fitted_within` array is capped in tool payloads like
+  the other per-observation arrays (a two-command do-file returned 76 KB).
+
+#### Added
+- `scripts/agent_card_audit.py` covers 93 functions (70 before): the 23
+  functions the probe reached by search and called, each with every schema
+  enum value tried. `--only NAME ...` re-audits some functions and keeps the
+  committed entries of the others.
+
 ### ML-causal probe (2026-11-13)
 
 A blind replication probe ran twenty ML-causal tasks (double machine

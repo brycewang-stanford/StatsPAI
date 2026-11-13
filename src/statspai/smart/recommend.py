@@ -518,6 +518,10 @@ _SYNTH_MIN_DONORS = 5  # need a donor pool of at least this many controls
 _SYNTH_MIN_PERIODS = 4  # need enough periods to fit donor weights pre/post
 
 
+#: More distinct treatment values than this reads as a continuous regressor.
+_CONTINUOUS_TREATMENT_LEVELS = 10
+
+
 def _detect_design(
     data: pd.DataFrame,
     y: str,
@@ -536,6 +540,24 @@ def _detect_design(
     if id_col and time_col and treatment:
         # Check if treatment varies over time → DID / synthetic control
         treat_varies = data.groupby(id_col)[treatment].nunique().max() > 1
+        levels = data[treatment].dropna().unique()
+        binary = len(levels) <= 2 and set(levels) <= {0, 1, 0.0, 1.0, True, False}
+        if treat_varies and len(levels) > _CONTINUOUS_TREATMENT_LEVELS:
+            # A continuous regressor that moves within units (investment,
+            # a price) is a panel regression, not a treatment switching on
+            # and off: routed to "did" it was handed to did_multiplegt as a
+            # 100%-reverting treatment (minutes of runtime, no estimate).
+            return "panel"
+        if (
+            not treat_varies
+            and binary
+            and len(levels) == 2
+            and data[time_col].nunique() == 2
+        ):
+            # Treated-group indicator x two periods: the classic 2x2. The
+            # indicator is constant within a unit, so the unit-FE card the
+            # "panel" route offers cannot identify its coefficient.
+            return "did"
         if treat_varies:
             # Synthetic control vs staggered DID: a comparative case study has
             # one (or a handful of) treated unit(s) and a donor pool, where a
@@ -1216,6 +1238,11 @@ def recommend(
                     _mask = (data[id] == treated_unit_val) & (data[treatment] > 0)
                     if _mask.any():
                         treat_time_val = data.loc[_mask, time].min()
+                        # a plain value, so the suggested code reads
+                        # treatment_time=2000, not np.int64(2000)
+                        treat_time_val = getattr(
+                            treat_time_val, "item", lambda: treat_time_val
+                        )()
         n_donors = int((data.groupby(id)[treatment].max() <= 0).sum()) if id else 0
         recommendations.append(
             {
@@ -1471,10 +1498,16 @@ def recommend(
             "function": "liml",
             "reason": liml_reason,
             "code": (
-                f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], " f"z=['{z}'])"
+                f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], "
+                + (f"x_exog={exog_controls!r}, " if exog_controls else "")
+                + f"z=['{z}'])"
             ),
             "params": {"data": data, "y": y, "x_endog": [treatment], "z": [z]},
         }
+        if exog_controls:
+            # The same controls the 2SLS card carries in its formula; the
+            # LIML card used to drop them and estimate another model.
+            liml_rec["params"]["x_exog"] = list(exog_controls)
 
         # An Anderson-Rubin confidence interval is robust to weak
         # instruments by construction; surface it as a third row when
@@ -1482,6 +1515,14 @@ def recommend(
         # while LIML provides the point estimate.
         ar_rec = None
         if very_weak_iv or weak_iv:
+            ar_params: Dict[str, Any] = {
+                "data": data,
+                "y": y,
+                "endog": treatment,
+                "instruments": [z],
+            }
+            if exog_controls:
+                ar_params["exog"] = list(exog_controls)
             ar_rec = {
                 "method": (
                     "Anderson-Rubin confidence interval " "(weak-IV robust inference)"
@@ -1492,11 +1533,15 @@ def recommend(
                     "first-stage F is small; recommended whenever "
                     "2SLS HC1 SEs cannot be trusted."
                 ),
+                # sp.anderson_rubin_ci(y, endog, instruments, exog=, data=):
+                # the card used to write d= / z=, which the function refuses.
                 "code": (
                     f"sp.anderson_rubin_ci(data=df, y='{y}', "
-                    f"d='{treatment}', z=['{z}'])"
+                    f"endog='{treatment}', instruments=['{z}']"
+                    + (f", exog={exog_controls!r}" if exog_controls else "")
+                    + ")"
                 ),
-                "params": {"data": data, "y": y, "d": treatment, "z": [z]},
+                "params": ar_params,
             }
 
         # Ranking: under (very) weak IV, lift LIML and AR above 2SLS so
@@ -1661,23 +1706,48 @@ def recommend(
         if panel_controls:
             panel_rhs += " + " + " + ".join(panel_controls)
         panel_formula = f"{y} ~ {panel_rhs}"
-        recommendations.append(
-            {
-                "method": "Panel FE (within estimator)",
-                "function": "panel",
-                "reason": "Controls for time-invariant unobservables.",
-                "assumptions": ["Strict exogeneity", "No time-varying confounders"],
-                "code": f"sp.panel(df, '{panel_formula}', "
-                f"entity='{id}', time='{time}', method='fe')",
-                "params": {
-                    "data": data,
-                    "formula": panel_formula,
-                    "entity": id,
-                    "time": time,
-                    "method": "fe",
-                },
-            }
+        # A treatment that never changes within a unit is absorbed by the
+        # unit fixed effects: the within estimator has no coefficient for
+        # it. The FE card is left out and the reason is said, instead of
+        # recommending a call that fails (or silently drops the treatment).
+        _treat_fixed_within_unit = bool(
+            treatment
+            and id
+            and id in data.columns
+            and treatment in data.columns
+            and data.groupby(id)[treatment].nunique(dropna=True).max() <= 1
         )
+        if _treat_fixed_within_unit:
+            warnings_list.append(
+                f"'{treatment}' never changes within a unit of '{id}', so a "
+                "unit fixed-effects regression cannot estimate its "
+                "coefficient (it is absorbed). If this is a treated-group "
+                "indicator, the design needs a pre-period: pass the 0/1 "
+                "post-period column as time= (2x2 DiD) or treat_time= with "
+                "the adoption date. The cards below use random / correlated "
+                "random effects, which rest on stronger assumptions."
+            )
+        else:
+            recommendations.append(
+                {
+                    "method": "Panel FE (within estimator)",
+                    "function": "panel",
+                    "reason": "Controls for time-invariant unobservables.",
+                    "assumptions": [
+                        "Strict exogeneity",
+                        "No time-varying confounders",
+                    ],
+                    "code": f"sp.panel(df, '{panel_formula}', "
+                    f"entity='{id}', time='{time}', method='fe')",
+                    "params": {
+                        "data": data,
+                        "formula": panel_formula,
+                        "entity": id,
+                        "time": time,
+                        "method": "fe",
+                    },
+                }
+            )
         recommendations.append(
             {
                 "method": "Correlated Random Effects (Mundlak)",

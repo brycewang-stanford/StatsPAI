@@ -247,6 +247,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         name="bacon_decomposition",
         question="Are TWFE weights non-negative across cohort comparisons?",
         applies_to=("did",),
+        applicability="multi_period",
         evidence_paths=_p("bacon_decomposition"),
         threshold=None,
         compare="exists",
@@ -371,7 +372,11 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         name="balance_after",
         question="Is the post-match standardised mean difference acceptable?",
         applies_to=("matching",),
-        evidence_paths=_p("balance", "max_smd_after"),
+        evidence_paths=_pp(
+            ("balance", "max_smd_after"),
+            ("max_abs_smd_after",),
+            ("_audit_max_smd_after",),
+        ),
         threshold=_SMD_MAX,
         compare="less_passes",
         suggest_function="sp.balance_table",
@@ -467,7 +472,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         name="ovb_sensitivity",
         question="Has omitted-variable bias sensitivity been quantified?",
         applies_to=("matching", "dml", "generic"),
-        evidence_paths=_p("oster"),
+        evidence_paths=_pp(("oster",), ("cinelli_hazlett",), ("evalue",)),
         threshold=None,
         compare="exists",
         suggest_function="sp.oster_delta",
@@ -754,8 +759,38 @@ def _forest_rule(name: str) -> Any:
     return rule
 
 
+def _rule_multi_period(model_info: Dict[str, Any]) -> Optional[str]:
+    """A Goodman-Bacon decomposition needs staggered timing.
+
+    A two-period ``sp.did`` has one comparison, so there are no TWFE
+    weights to decompose and the check does not exist for the fit.
+    """
+    if model_info.get("_audit_two_period"):
+        return "two-period design: one 2x2 comparison, nothing to decompose"
+    return None
+
+
+#: Checks whose evidence cannot be produced from a two-period design. They
+#: stay ``missing`` -- parallel trends *is* untested, and that is a property
+#: of the design the reader must know -- but no function is suggested: the
+#: suggestion used to send the caller to ``sp.pretrends_test`` /
+#: ``sp.honest_did``, which fail without a pre-treatment period.
+_UNTESTABLE_ON_TWO_PERIODS = {
+    "parallel_trends": (
+        "cannot be tested on a two-period design: there is no pre-treatment "
+        "period. Parallel trends rests on the argument for the design, or on "
+        "earlier periods of data."
+    ),
+    "honest_did": (
+        "needs pre-treatment event-study coefficients, which a two-period "
+        "design does not have."
+    ),
+}
+
+
 _APPLICABILITY_RULES: Dict[str, Any] = {
     "overidentified": _rule_overidentified,
+    "multi_period": _rule_multi_period,
     "forest_overlap": _forest_rule("overlap"),
     "forest_calibration_mean": _forest_rule("calibration_mean"),
     "forest_heterogeneity": _forest_rule("heterogeneity_detected"),
@@ -1049,7 +1084,61 @@ _OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
 
 
 @accepts_aliases(treat="treatment")
-def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
+def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str, Any]:
+    """Evidence the fit already carries under an estimator's own key names.
+
+    The checklist looks for ``placebo_inference``, ``pretreatment_rmse_ratio``
+    and a post-matching SMD under names no estimator writes, so a
+    ``sp.synth`` fit that ran its in-space placebos and a ``sp.match`` fit
+    that stored its balance table were both told the check was missing.
+    Returns the keys to add; nothing here re-fits or reads data.
+    """
+    import numpy as np
+
+    from ..core._agent_summary import _max_covariate_smd
+
+    extra: Dict[str, Any] = {}
+    # sp.synth: in-space placebo inference ran as part of the fit.
+    n_placebos = _as_int(model_info.get("n_placebos"))
+    placebo_p = _as_float(model_info.get("placebo_pvalue"))
+    if n_placebos and placebo_p is not None and "placebo_inference" not in model_info:
+        extra["placebo_inference"] = {"n_placebos": n_placebos, "pvalue": placebo_p}
+    # sp.synth: pre-period RMSPE over the pre-period SD of the treated unit
+    # (the ratio result.violations() thresholds).
+    pre_rmspe = _as_float(model_info.get("pre_treatment_rmse"))
+    if (
+        pre_rmspe is not None
+        and "pretreatment_rmse_ratio" not in model_info
+        and model_info.get("Y_treated") is not None
+        and model_info.get("times") is not None
+        and model_info.get("treatment_time") is not None
+    ):
+        try:
+            y_treated = np.asarray(model_info["Y_treated"], dtype=float)
+            times = np.asarray(model_info["times"])
+            pre = y_treated[times < model_info["treatment_time"]]
+            pre_sd = float(np.std(pre, ddof=1)) if pre.size >= 2 else 0.0
+        except (TypeError, ValueError):
+            pre_sd = 0.0
+        if pre_sd > 0:
+            extra["pretreatment_rmse_ratio"] = pre_rmspe / pre_sd
+    # Matching / weighting: the post-adjustment SMD, wherever it is stored.
+    smd = _max_covariate_smd(model_info)
+    if smd is not None:
+        extra["_audit_max_smd_after"] = smd
+    # Two-period DiD (sp.did without id, "Difference-in-Differences (2x2)"):
+    # no pre-period exists.
+    if "(2x2)" in method_label.lower():
+        extra["_audit_two_period"] = True
+    return extra
+
+
+def audit(
+    result: Any,
+    *,
+    treatment: Optional[str] = None,
+    evidence: Optional[Dict[str, Any]] = None,
+) -> "AuditReport":
     """Reviewer-checklist audit of a fitted StatsPAI result.
 
     Returns the *missing-evidence* view: which robustness / sensitivity /
@@ -1074,6 +1163,15 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         otherwise escape. Has no effect on designs whose family already carries
         these checks (matching / DML / IV / …). Descriptive regressions (no
         treatment declared) are never flagged.
+    evidence : dict, optional
+        Follow-up checks already run on this fit that the result object does
+        not hold, keyed by the checklist's evidence name (``"honest_did"``,
+        ``"bacon_decomposition"``, ``"bandwidth_sensitivity"``,
+        ``"placebo_cutoff"``, ``"anderson_rubin"``, ``"oster"``,
+        ``"cinelli_hazlett"``, ``"evalue"``), each a non-empty dict such as
+        ``{"has_run": True}``. A key the result already carries is not
+        overridden. The MCP server passes the checks a session ran on the
+        cached fit.
 
     Returns
     -------
@@ -1094,7 +1192,10 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
           / ``rationale``. ``status`` is ``"passed"``, ``"failed"``,
           ``"missing"`` or ``"not_applicable"``; a not-applicable check
           (e.g. an over-identification test on a just-identified IV fit)
-          also carries a ``reason`` and never a ``suggest_function``.
+          also carries a ``reason`` and never a ``suggest_function``. A
+          ``missing`` check that the design cannot supply (a pre-trend test
+          on a two-period DiD) carries a ``reason`` and no
+          ``suggest_function`` either.
         - ``summary`` (dict) — count of ``passed`` / ``failed`` /
           ``missing`` / ``not_applicable``, and ``n_total``, the number
           of *applicable* checks (``passed + failed + missing``)
@@ -1123,8 +1224,12 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     >>> audit_card = sp.audit(r)
     >>> for c in audit_card['checks']:
     ...     if c['status'] == 'missing' and c['importance'] == 'high':
-    ...         print(c['suggest_function'])
-    sp.pretrends_test
+    ...         print(c['name'], c['suggest_function'])
+    parallel_trends None
+
+    Two periods leave parallel trends untested and untestable, so the check
+    is missing and no function is suggested (``c['reason']`` says why). On
+    a design with pre-periods the same entry names ``sp.pretrends_test``.
 
     See Also
     --------
@@ -1151,7 +1256,13 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         # EconometricResults: family determined from model_type.
         mi = getattr(result, "model_info", None) or {}
         model_type = (mi.get("model_type", "") or "").lower()
-        if any(k in model_type for k in ("iv", "2sls", "liml", "gmm")):
+        # Whole-word "iv": "OLS (StatsPAI native)" contains the letters and
+        # an OLS fit was audited against the IV checklist.
+        import re as _re
+
+        if any(k in model_type for k in ("2sls", "liml", "gmm")) or _re.search(
+            r"\biv\b", model_type
+        ):
             family = "iv"
         elif any(k in model_type for k in ("panel", "fixed", "random")):
             family = "regression"
@@ -1173,6 +1284,15 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
         for k, v in diag.items():
             merged.setdefault(k, v)
         model_info = merged
+
+    if not forest:
+        derived = _derived_evidence(model_info, method_label)
+        if derived or evidence:
+            model_info = dict(model_info)
+            for k, v in derived.items():
+                model_info.setdefault(k, v)
+            for k, v in (evidence or {}).items():
+                model_info.setdefault(k, v)
 
     pool: Sequence[_Check] = (
         _FOREST_CHECKS
@@ -1230,23 +1350,29 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
             # here to mark missing-but-important consistently.
             severity_out = "warning" if chk.importance == "high" else "info"
 
-        checks.append(
-            {
-                "name": chk.name,
-                "question": chk.question,
-                "status": status,
-                "severity": severity_out,
-                "importance": chk.importance,
-                "value": (
-                    value
-                    if (isinstance(value, (int, float, str, bool)) or value is None)
-                    else str(value)
-                ),
-                "threshold": chk.threshold,
-                "suggest_function": chk.suggest_function,
-                "rationale": chk.rationale,
-            }
-        )
+        entry: Dict[str, Any] = {
+            "name": chk.name,
+            "question": chk.question,
+            "status": status,
+            "severity": severity_out,
+            "importance": chk.importance,
+            "value": (
+                value
+                if (isinstance(value, (int, float, str, bool)) or value is None)
+                else str(value)
+            ),
+            "threshold": chk.threshold,
+            "suggest_function": chk.suggest_function,
+            "rationale": chk.rationale,
+        }
+        if (
+            status == "missing"
+            and model_info.get("_audit_two_period")
+            and chk.name in _UNTESTABLE_ON_TWO_PERIODS
+        ):
+            entry["suggest_function"] = None
+            entry["reason"] = _UNTESTABLE_ON_TWO_PERIODS[chk.name]
+        checks.append(entry)
 
     # Model-type signature for checks that are specific to one estimator within
     # a family (e.g. Cox / Tobit / Heckman all share a broad family but each

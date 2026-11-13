@@ -567,12 +567,14 @@ def _enrich_with_statspai_error(
     alts = getattr(error, "alternative_functions", []) or []
 
     if hint:
-        # Prepend to the registry 'fix' so the specific hint shows first.
-        result["fix"] = (
-            hint
-            if not result.get("fix")
-            else (f"{hint}  (registry hint: {result['fix']})")
-        )
+        # The exception's own hint is the fix. The category-level text the
+        # registry matched ("Read err.recovery_hint ...", "For DID with thin
+        # cohorts ...") is kept under its own key: appended to ``fix`` it
+        # followed a specific instruction with advice for another design.
+        generic = result.get("fix")
+        result["fix"] = hint
+        if generic and generic != hint:
+            result["category_fix"] = generic
     if diag:
         result["diagnostics"] = {
             str(k): v for k, v in diag.items() if _is_plain_json(v)

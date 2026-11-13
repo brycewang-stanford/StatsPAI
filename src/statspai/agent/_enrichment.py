@@ -77,14 +77,27 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
         {"tool": "honest_did_from_result", "arguments": {"method": "SD"}},
     ],
     "rdrobust": [
+        {"tool": "audit_result"},
         {"tool": "rdplot", "rationale": "Visual sanity-check of the discontinuity."},
         {
             "tool": "rddensity",
             "rationale": "McCrary-style manipulation test on the running variable.",
         },
-        {"tool": "rdsensitivity", "rationale": "Bandwidth + kernel sensitivity."},
+        # ``rdbwsensitivity`` re-estimates the same local polynomial over a
+        # bandwidth grid and takes ``fuzzy=``. ``rdsensitivity`` (listed here
+        # until 2026-11) is the local-randomisation window scan: on a fuzzy
+        # design it tabulated the sharp reduced form under this rationale.
+        {
+            "tool": "rdbwsensitivity",
+            "rationale": "Same estimator over a grid of bandwidths.",
+        },
+        {
+            "tool": "rdplacebo",
+            "rationale": "The effect should vanish at placebo cutoffs.",
+        },
     ],
     "ivreg": [
+        {"tool": "audit_result"},
         {"tool": "effective_f_test", "rationale": "Olea-Pflueger weak-IV diagnostic."},
         {
             "tool": "anderson_rubin_test",
@@ -92,26 +105,44 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
         },
     ],
     "iv": [
+        {"tool": "audit_result"},
         {"tool": "effective_f_test"},
         {"tool": "anderson_rubin_test"},
     ],
     "synth": [
-        {"tool": "synthdid_placebo", "rationale": "In-space placebo for inference."},
+        {"tool": "audit_result"},
+        {
+            "tool": "synth_sensitivity",
+            "rationale": "Leave-one-out, backdating and donor-pool diagnostics.",
+        },
         {
             "tool": "robust_synth",
-            "rationale": "Robust SC variant — Ben-Michael-Feller-Rothstein 2021.",
+            "rationale": (
+                "Unconstrained / regularised weights (Doudchenko-Imbens 2016) "
+                "as a robustness variant."
+            ),
+        },
+    ],
+    "sdid": [
+        {"tool": "audit_result"},
+        {
+            "tool": "synthdid_placebo",
+            "rationale": "Placebo estimates on the control units.",
         },
     ],
     "regress": [
+        {"tool": "audit_result"},
         {"tool": "vif", "rationale": "Multicollinearity diagnostic."},
         {
             "tool": "het_test",
             "rationale": "Heteroskedasticity test (Breusch-Pagan / White).",
         },
     ],
+    "feols": [{"tool": "audit_result"}],
+    "panel": [{"tool": "audit_result"}],
     "dml": [
         {"tool": "audit_result"},
-        {"tool": "spec_curve"},
+        {"tool": "spec_curve", "argument_map": {"x": "treat", "controls": None}},
     ],
     "causal_forest": [
         {"tool": "cate_summary", "rationale": "ATE + heterogeneity quantiles."},
@@ -139,12 +170,20 @@ _FOLLOWUP_BY_TOOL: Dict[str, List[Dict[str, Any]]] = {
         {"tool": "cate_summary"},
         {"tool": "calibration_test"},
     ],
-    "matching": [
-        {"tool": "balance_panel", "rationale": "Post-match SMD balance audit."},
-        {"tool": "love_plot", "rationale": "Visual covariate-balance sanity-check."},
+    # Keyed by the tool name (``match``). The entry used to sit under
+    # "matching", which no tool is called, and named ``balance_panel``
+    # (a panel-rectangularising helper) as the balance audit.
+    "match": [
+        {"tool": "audit_result"},
+        {
+            "tool": "plot_from_result",
+            "arguments": {"kind": "balance"},
+            "rationale": "Love plot of the standardised mean differences.",
+        },
     ],
     "ebalance": [
-        {"tool": "balanceplot"},
+        {"tool": "audit_result"},
+        {"tool": "plot_from_result", "arguments": {"kind": "balance"}},
     ],
     "causal": [
         {"tool": "audit_result"},
@@ -238,11 +277,79 @@ def _followup_base_args(base_args: Dict[str, Any]) -> Dict[str, Any]:
         ("t", "time"),
         ("instrument", "instruments"),
         ("instruments", "instrument"),
+        # sp.synth / robust_synth / synth_sensitivity vs sp.sdid /
+        # synthdid_placebo name the same three things differently.
+        ("outcome", "y"),
+        ("y", "outcome"),
+        ("treated_unit", "treat_unit"),
+        ("treat_unit", "treated_unit"),
+        ("treatment_time", "treat_time"),
+        ("treat_time", "treatment_time"),
     )
+    for name, value in _formula_roles(out).items():
+        out.setdefault(name, value)
     for source, target in aliases:
         if source in out and target not in out:
             out[target] = out[source]
     return out
+
+
+_NAME = r"[A-Za-z_][A-Za-z0-9_.]*"
+
+
+def _plain_terms(text: str) -> Optional[List[str]]:
+    """Column names of ``a + b + c``; ``None`` if any term is not a bare name.
+
+    A follow-up that takes column lists (``vif(x=[...])``) cannot be given
+    ``C(region)`` or ``a:b``; in that case nothing is filled and the
+    follow-up stays ``ready=false`` with its ``missing_arguments``.
+    """
+    import re
+
+    terms = [t.strip() for t in text.split("+")]
+    terms = [t for t in terms if t and t not in ("1", "0", "-1")]
+    if not all(re.fullmatch(_NAME, t) for t in terms):
+        return None
+    return terms
+
+
+def _formula_roles(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Column roles a follow-up needs, read off the fit's own formula.
+
+    ``y ~ x1 + (d ~ z1 + z2)`` gives ``y``, ``endog``, ``instruments`` and
+    ``exog``; ``y ~ a + b`` gives ``y`` and ``x``. An IV fit's follow-ups
+    were ``ready=false`` for want of exactly these names, and a caller who
+    filled only the listed ones dropped the exogenous controls, so the
+    weak-instrument diagnostics described a different first stage.
+    """
+    import re
+
+    formula = args.get("formula") or args.get("fml")
+    if not isinstance(formula, str) or "~" not in formula:
+        return {}
+    lhs, rhs = formula.split("~", 1)
+    lhs = lhs.strip()
+    if not re.fullmatch(_NAME, lhs):
+        return {}
+    if "|" in rhs:  # fixest three-part syntax: fixed effects are not columns of x
+        return {"y": lhs}
+    block = re.search(r"\(([^()~]+)~([^()]+)\)", rhs)
+    if block is None:
+        x = _plain_terms(rhs)
+        return {"y": lhs} if x is None or not x else {"y": lhs, "x": x}
+    endog = _plain_terms(block.group(1))
+    instruments = _plain_terms(block.group(2))
+    exog = _plain_terms(rhs[: block.start()] + " " + rhs[block.end() :])
+    if not endog or not instruments or exog is None:
+        return {"y": lhs}
+    roles: Dict[str, Any] = {
+        "y": lhs,
+        "endog": endog[0] if len(endog) == 1 else endog,
+        "instruments": instruments,
+    }
+    if exog:
+        roles["exog"] = exog
+    return roles
 
 
 def _own_args(tool: str) -> Optional[Set[str]]:
@@ -273,11 +380,24 @@ def _dataless_tools() -> "frozenset[str]":
     return frozenset(_dataless_tool_names())
 
 
+@lru_cache(maxsize=1)
+def _optional_data_tools() -> "frozenset[str]":
+    try:
+        from .mcp_server import _optional_data_tool_names
+    except ImportError:
+        return frozenset()
+    return frozenset(_optional_data_tool_names())
+
+
 def _needs_data(tool: str, own: Optional[Set[str]]) -> bool:
-    """Whether a call to ``tool`` needs a dataset (``data_id`` / ``data_path``)."""
+    """Whether a call to ``tool`` needs a dataset (``data_id`` / ``data_path``).
+
+    A follow-up is built from column names, so a tool whose ``data`` is
+    optional (``sp.liml``: formula-or-arrays) needs the dataset too.
+    """
     if own is None or _reads_result(tool, own):
         return False
-    return tool not in _dataless_tools()
+    return tool not in _dataless_tools() or tool in _optional_data_tools()
 
 
 #: Server arguments that name the dataset a follow-up should run on.
@@ -339,6 +459,12 @@ def _instantiate_followup(
         out["arguments"]["result_id"] = result_id
     if "rationale" in template:
         out["rationale"] = template["rationale"]
+    # ``argument_map`` renames a role for this follow-up (``spec_curve``'s
+    # focal regressor ``x`` is the fit's ``treat``); a ``None`` source keeps
+    # a same-named argument of the fit from being copied (``controls``).
+    blocked = {
+        t for t, src in (template.get("argument_map") or {}).items() if src is None
+    } | set(template.get("argument_map") or {})
     # Pass through the fit's column arguments under the target tool's own
     # parameter names. We never overwrite an explicit value the template
     # carries, and a name the tool does not take is not copied: a client
@@ -363,12 +489,31 @@ def _instantiate_followup(
         "instrument",
         "instruments",
         "endog",
+        "exog",
         "formula",
+        "outcome",
+        "treated_unit",
+        "treatment_time",
+        "treat_unit",
+        "treat_time",
+        "fuzzy",
     ):
         if key in normalized_base_args and key not in out["arguments"]:
             if own is not None and key not in own:
                 continue
+            if key in blocked:
+                continue
             out["arguments"][key] = normalized_base_args[key]
+    for target, source in (template.get("argument_map") or {}).items():
+        if source and source in normalized_base_args:
+            if own is None or target in own:
+                out["arguments"].setdefault(target, normalized_base_args[source])
+    if out["tool"] == "spec_curve" and "controls" not in out["arguments"]:
+        # The multiverse a selection-on-observables fit implies: the focal
+        # coefficient without and with the fit's own covariates.
+        cov = normalized_base_args.get("covariates")
+        if isinstance(cov, (list, tuple)) and cov:
+            out["arguments"]["controls"] = [[], list(cov)]
     if _needs_data(out["tool"], own):
         for key in _DATA_SOURCE_ARGS:
             if base_args.get(key):
@@ -443,18 +588,49 @@ def violation_next_calls(
     return out
 
 
+def _has_pre_period_event_study(result: Any) -> bool:
+    """Whether ``sp.honest_did(result)`` has what it needs.
+
+    A 2x2 fit has no event study, and a staggered fit whose cohorts are all
+    treated in the second period has no lead. ``honest_did_from_result``
+    was offered as ``ready=true`` on both and failed when dispatched.
+    """
+    try:
+        from ..did._honest_common import _extract_event_study
+
+        es = _extract_event_study(result)
+        return bool((es["relative_time"] < 0).any())
+    except Exception:  # noqa: BLE001 - "cannot tell" means "do not offer"
+        return False
+
+
+def _followup_applies(template: Dict[str, Any], result: Any) -> bool:
+    """Drop a follow-up the fitted result cannot support."""
+    if result is None:
+        return True
+    if template.get("tool") == "honest_did_from_result":
+        return _has_pre_period_event_study(result)
+    return True
+
+
 def build_next_calls(
     tool_name: str,
     *,
     result_id: Optional[str] = None,
     base_args: Optional[Dict[str, Any]] = None,
+    result: Any = None,
 ) -> List[Dict[str, Any]]:
-    """Return pre-filled follow-up calls with readiness metadata."""
+    """Return pre-filled follow-up calls with readiness metadata.
+
+    ``result`` (the fitted object, when the caller has it) lets a
+    follow-up that cannot run on this fit be left out.
+    """
     base_args = base_args or {}
     templates = _FOLLOWUP_BY_TOOL.get(tool_name, [])
     return [
         _instantiate_followup(t, result_id=result_id, base_args=base_args)
         for t in templates
+        if _followup_applies(t, result)
     ]
 
 
@@ -484,7 +660,6 @@ _CITATIONS_BY_TOOL: Dict[str, List[str]] = {
     "anderson_rubin_test": ["anderson1949estimation"],
     "synth": ["abadie2003economic", "abadie2010synthetic"],
     "synthdid_estimate": ["arkhangelsky2021synthetic"],
-    "robust_synth": ["benmichael2021augmented"],
     "augsynth": ["benmichael2021augmented"],
     "ebalance": ["hainmueller2012entropy"],
     "sbw": ["zubizarreta2015stable"],
@@ -533,6 +708,15 @@ def _bib_keys_from_reference(tool_name: str) -> List[str]:
     if spec is None or not getattr(spec, "reference", ""):
         return []
     candidates = re.findall(r"\[@([\w:./-]+)\]", spec.reference)
+    if not candidates:
+        # Cards filled from a docstring's References section hold bare bib
+        # keys ("abadie2021penalized, doudchenko2016balancing"). A token is
+        # used only if it has the key shape and resolves in paper.bib below.
+        candidates = [
+            t
+            for t in re.split(r"[\s,;]+", spec.reference)
+            if re.fullmatch(r"[a-z][a-z0-9_]*\d{4}[a-z0-9_]*", t)
+        ]
     if not candidates:
         return []
     present = fetch_bibtex(candidates)
@@ -661,6 +845,7 @@ def enrich_payload(
     result_id: Optional[str] = None,
     base_args: Optional[Dict[str, Any]] = None,
     include_bibtex: bool = True,
+    result: Any = None,
 ) -> Dict[str, Any]:
     """Annotate ``payload`` with next_calls / citations / narrative.
 
@@ -688,7 +873,10 @@ def enrich_payload(
     if "next_calls" not in payload:
         try:
             nc = build_next_calls(
-                tool_name, result_id=result_id, base_args=base_args or {}
+                tool_name,
+                result_id=result_id,
+                base_args=base_args or {},
+                result=result,
             )
         except (
             AttributeError,

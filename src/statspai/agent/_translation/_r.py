@@ -926,8 +926,33 @@ def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, An
                 )
     distance = kw.get("distance")
     if distance:
-        args["distance"] = _strip_quotes(distance)
-        notes.append("sp.match('distance=...') may not apply to all methods.")
+        # MatchIt names the distance by how it is estimated; sp.match takes
+        # 'propensity' / 'mahalanobis' / 'euclidean' / 'exact'. The value
+        # used to be copied through, and MatchIt's default spelled out
+        # (distance = "glm") gave a payload sp.match refuses.
+        r_distance = _strip_quotes(distance).lower()
+        if r_distance in ("glm", "logit", "ps"):
+            args["distance"] = "propensity"
+            link = _strip_quotes(kw.get("link", "logit")).lower()
+            if link in ("logit", "probit"):
+                if "link" in kw:
+                    read.append("link")
+                if link == "probit":
+                    args["ps_model"] = "probit"
+            else:
+                notes.append(
+                    f"link = {link!r} has no sp.match counterpart; the "
+                    "propensity score is a logit here."
+                )
+        elif r_distance in ("mahalanobis", "euclidean"):
+            args["distance"] = r_distance
+        else:
+            read.remove("distance")
+            notes.append(
+                f"distance = {r_distance!r} has no sp.match counterpart "
+                "(sp.match takes 'propensity', 'mahalanobis', 'euclidean' or "
+                "'exact'); it is not passed and the default applies."
+            )
     if negated:
         notes.append(
             f"The formula's treatment is negated: the matched (treated) "

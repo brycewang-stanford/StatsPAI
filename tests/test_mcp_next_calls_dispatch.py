@@ -84,8 +84,10 @@ def test_ready_followups_dispatch_verbatim(tool, tmp_path):
             failures.append((follow, body.get("error"), body.get("_unsupported_args")))
     assert not failures, failures
     if tool == "rdrobust":
+        # every follow-up that reads the data (audit_result reads the fit)
         for follow in ready:
-            assert follow["arguments"].get("c") == 5, follow
+            if "result_id" not in follow["arguments"]:
+                assert follow["arguments"].get("c") == 5, follow
     # Data-reading follow-ups run on the fit's own dataset.
     for follow in ready:
         if "result_id" not in follow["arguments"]:

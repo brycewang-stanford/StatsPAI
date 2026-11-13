@@ -660,6 +660,7 @@ def execute_tool(
         base_args={
             k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
         },
+        result=result,
     )
 
     return out

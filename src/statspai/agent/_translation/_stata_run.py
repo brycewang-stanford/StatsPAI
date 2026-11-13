@@ -139,6 +139,12 @@ _MACRO_EXPRESSION = re.compile(
 )
 
 
+#: Commands that load a dataset from disk; sp.stata is given the data.
+_DATA_LOADING_COMMANDS = frozenset(
+    {"use", "import", "insheet", "sysuse", "webuse", "infile", "infix"}
+)
+
+
 def _r_ranksum(out: Any) -> Dict[str, float]:
     t, e = out.table, out.estimates
     return {"z": out.statistic, "p": out.pvalue, "N": float(out.n_obs),
@@ -1593,6 +1599,20 @@ class StataSession:
                 if SequenceMatcher(None, str(out.get("command") or ""), s).ratio()
                 >= 0.75
             ]
+            if str(out.get("command") or "") in _DATA_LOADING_COMMANDS:
+                # The first line of most do-files. The data are the
+                # ``data=`` argument, so the line is to be removed, not
+                # "done in pandas" (an MCP client has no pandas).
+                raise MethodIncompatibility(
+                    f"sp.stata: cannot run {line!r}: sp.stata does not read "
+                    "files; it runs on the dataset passed as data=.",
+                    recovery_hint=(
+                        "Remove this line and pass the file it names as the "
+                        "data: sp.stata(commands, data=sp.read_data(path)) in "
+                        "Python, or data_path= / data_id= on the tool call."
+                    ),
+                    diagnostics={"command": line, "translation": out},
+                )
             raise MethodIncompatibility(
                 f"sp.stata: cannot run {line!r}: {out.get('error')}",
                 recovery_hint=(

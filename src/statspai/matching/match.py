@@ -1309,7 +1309,10 @@ class MatchEstimator:
         treat_vals = self.data[self.treat].dropna().unique()
         if not set(treat_vals).issubset({0, 1, 0.0, 1.0}):
             raise MethodIncompatibility(
-                f"Treatment must be binary (0/1), got values: {treat_vals}",
+                "Treatment must be binary (0/1), got "
+                f"{len(treat_vals)} distinct values: "
+                + ", ".join(map(str, list(treat_vals[:5])))
+                + (", ..." if len(treat_vals) > 5 else ""),
                 recovery_hint=(
                     "Matching assumes a binary treatment. For multi-valued "
                     "treatments use sp.multi_treatment; for continuous use "

@@ -3397,7 +3397,7 @@
     "name": "bib_for"
   },
   {
-    "description": "Return verified BibTeX entries from paper.bib (StatsPAI's single source of truth for citations). Pass one or more bib keys (e.g. 'callaway2021difference'). NEVER invent citations -- call this tool instead. Unknown keys return an empty entry plus a list of close matches.",
+    "description": "Verified BibTeX entries from paper.bib, the only source for citations: NEVER invent one. Pass bib keys, or a result's citation_key (an estimator name), which resolves to that estimator's verified keys. Unknown keys return an empty entry and close matches.",
     "input_schema": {
       "properties": {
         "keys": {
@@ -6371,7 +6371,8 @@
           "type": "array"
         },
         "seed": {
-          "description": "Random seed for reproducibility.",
+          "default": 42,
+          "description": "Bootstrap seed",
           "type": "integer"
         },
         "time": {
@@ -48085,8 +48086,7 @@
           "enum": [
             "rademacher",
             "mammen",
-            "webb",
-            "normal"
+            "webb"
           ],
           "type": "string"
         },

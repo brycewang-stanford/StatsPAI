@@ -1,4 +1,4 @@
-"""The agent cards of the 70 most-used entry points say true things.
+"""The agent cards of the 93 most-used entry points say true things.
 
 ``scripts/agent_card_audit.py`` checks each card against a real call
 (review item A1). The enum sweep takes about ten minutes, so it runs
@@ -42,7 +42,7 @@ def report():
 
 def test_seventy_functions_each_with_a_call(audit):
     assert len(audit.TOP_30) == len(set(audit.TOP_30)) == 30
-    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 70
+    assert len(audit.AUDITED) == len(set(audit.AUDITED)) == 93
     assert set(audit.AUDITED) <= set(audit.CALLS)
     registered = set(sp.list_functions())
     assert set(audit.AUDITED) <= registered
@@ -68,7 +68,7 @@ def test_fast_layer_finds_no_defect(audit):
 
 
 def test_committed_enum_sweep_has_no_rejected_value(report):
-    assert report["n_functions"] == 70
+    assert report["n_functions"] == 93
     assert report["n_with_defects"] == 0
     assert report["enum_values"]["rejected"] == 0
     assert report["enum_values"]["ok"] > 200

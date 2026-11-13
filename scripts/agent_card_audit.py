@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Semantic audit of the agent cards of the 70 most-used entry points.
+"""Semantic audit of the agent cards of the 93 most-used entry points.
 
 The registry ratchets count *fields that are present*. This audit asks
 whether what the fields say is true, by calling the function:
@@ -21,8 +21,9 @@ whether what the fields say is true, by calling the function:
 * **provenance** -- how many card fields are curated, inherited from a
   family card, or inferred, so the three are not reported as one number.
 
-Seventy functions is a deliberate limit: the ones an agent reaches first
-(the curated MCP tools and the estimators with a validation-scope map),
+Ninety-three functions is a deliberate limit: the ones an agent reaches
+first (the curated MCP tools, the estimators with a validation-scope map,
+and the functions the 2026-11-13 agent probe found by search and called),
 each with a hand-written call on small data that this file owns. It is
 not a sample of the registry and says nothing about the rest.
 
@@ -158,6 +159,51 @@ def _cs_result():
         return sp.callaway_santanna(_data("staggered"), **_CS)
 
 
+def _survival():
+    """Right-censored durations with a binary arm and one covariate."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(20261113)
+    n = 400
+    x1 = rng.normal(size=n)
+    d = (rng.uniform(size=n) < 0.5).astype(int)
+    t = rng.exponential(1.0 / np.exp(0.5 * d + 0.3 * x1))
+    c = rng.exponential(2.0, size=n)
+    return pd.DataFrame(
+        {
+            "time": np.minimum(t, c),
+            "event": (t <= c).astype(int),
+            "d": d,
+            "x1": x1,
+            "wt": 1.0 + (np.arange(n) % 3),
+        }
+    )
+
+
+def _tseries():
+    """A stationary bivariate VAR(1) and a series with a level shift."""
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(20261114)
+    n = 240
+    e = rng.normal(size=(n, 2))
+    z = np.zeros((n, 2))
+    for i in range(1, n):
+        z[i, 0] = 0.5 * z[i - 1, 0] + 0.2 * z[i - 1, 1] + e[i, 0]
+        z[i, 1] = 0.3 * z[i - 1, 1] + e[i, 1]
+    t = np.arange(n)
+    return pd.DataFrame(
+        {
+            "a": z[:, 0],
+            "b": z[:, 1],
+            "t": t,
+            "shift": 10 + 0.05 * t + 3.0 * (t >= 160) + rng.normal(size=n),
+        }
+    )
+
+
 _DATA: Dict[str, Any] = {}
 
 
@@ -170,6 +216,8 @@ def _data(kind: str):
             "twobytwo": _two_by_two,
             "counts": _count_panel,
             "cs_result": _cs_result,
+            "survival": _survival,
+            "tseries": _tseries,
         }[kind]()
     return _DATA[kind]
 
@@ -405,6 +453,75 @@ FIFTH_10_CALLS: Dict[str, Tuple[str, List[Any], Dict[str, Any]]] = {
 CALLS.update(FIFTH_10_CALLS)
 FIFTH_10 = tuple(FIFTH_10_CALLS)
 
+# 2026-11-13: the functions the agent probe reached through
+# ``sp.search_functions`` / ``sp.describe_function`` / ``sp.function_schema``
+# alone and called for real (docs/dev/2026-11-13-agent-probe.md). None of
+# them is a curated MCP tool; they are what an agent finds when the task is
+# not one of the headline designs.
+SIXTH_CALLS: Dict[str, Tuple[str, List[Any], Dict[str, Any]]] = {
+    "sqreg": ("cross", ["@"], dict(y="y", x=["d", "x1"])),
+    "qte": (
+        "cross",
+        ["@"],
+        dict(y="y", treatment="d", controls=_X, quantiles=[0.25, 0.5], n_boot=30),
+    ),
+    "kaplan_meier": ("survival", ["@"], dict(duration="time", event="event")),
+    "cox": ("survival", [], dict(data="@", duration="time", event="event", x=["d"])),
+    "var": ("tseries", ["@"], dict(variables=["a", "b"], lags=1)),
+    "arima": ("tseries", ["a"], dict(data="@", order=(1, 0, 0))),
+    "its": ("tseries", ["@"], dict(y="shift", time="t", intervention=160)),
+    "kitagawa_decompose": ("cross", ["@"], dict(rate="yb", group="g", by="cat")),
+    "cic": (
+        "twobytwo",
+        ["@"],
+        dict(y="lemp", group="treat_grp", time="post", n_boot=30),
+    ),
+    "hausman_test": (
+        "staggered",
+        ["@"],
+        dict(y="lemp", x=["treated"], id="countyreal", time="year"),
+    ),
+    "power": ("cross", ["rct"], dict(n=400, effect_size=0.3)),
+    "rkd": ("cross", ["@"], dict(y="yrd", x="r", c=0)),
+    # matched pairs as two aligned vectors (no draws: a fixed pattern)
+    "rosenbaum_bounds": (
+        "cross",
+        [],
+        dict(
+            treated=[0.5 + 0.1 * ((i * 37) % 17 - 8) for i in range(40)],
+            control=[0.1 * ((i * 53) % 19 - 9) for i in range(40)],
+        ),
+    ),
+    "front_door": (
+        "cross",
+        ["@"],
+        dict(y="y", treat="d", mediator="m", n_boot=30, seed=1),
+    ),
+    "lasso_select": ("cross", ["@"], dict(y="y", x=["d", "x1", "x2"], verbose=False)),
+    "conformal_cate": ("cross", ["@"], dict(y="y", treat="d", covariates=_X)),
+    "anderson_rubin_ci": (
+        "cross",
+        ["y", "dc", ["z"]],
+        dict(exog=["x1"], data="@"),
+    ),
+    "rdplacebo": ("cross", ["@"], dict(y="yrd", x="r", c=0, n_placebo=4)),
+    "evalue": ("cross", [], dict(estimate=0.5, se=0.1, sd=2.0, measure="OLS")),
+    "pretrends_test": ("cs_result", ["@"], {}),
+    "wild_cluster_bootstrap": (
+        "staggered",
+        ["@"],
+        dict(y="lemp", x=["treated"], cluster="countyreal", n_boot=49, seed=1),
+    ),
+    "zip_model": ("cross", [], dict(data="@", y="cnt", x=["x1"], inflate=["x2"])),
+    "policy_tree": (
+        "cross",
+        ["@"],
+        dict(y="y", treat="d", covariates=_X, max_depth=1),
+    ),
+}
+CALLS.update(SIXTH_CALLS)
+SIXTH = tuple(SIXTH_CALLS)
+
 #: The thirty audited. CALLS may hold a few more for convenience; this is
 #: the list the document reports and the gate enforces.
 TOP_30 = (
@@ -441,7 +558,7 @@ TOP_30 = (
 )
 
 #: Everything the sweep covers.
-AUDITED = TOP_30 + NEXT_10 + THIRD_10 + FOURTH_10 + FIFTH_10
+AUDITED = TOP_30 + NEXT_10 + THIRD_10 + FOURTH_10 + FIFTH_10 + SIXTH
 
 
 #: An enum value that is valid only together with another argument, and
@@ -466,7 +583,7 @@ ENUM_CONTEXT: Dict[Tuple[str, str, str], Dict[str, Any]] = {
 
 #: ``weights_as=`` says how to read ``weights=``, so every value of it
 #: needs a weight column: a positive column each frame already has.
-_WEIGHT_COLUMN = {"cross": "ypos", "staggered": "wt"}
+_WEIGHT_COLUMN = {"cross": "ypos", "staggered": "wt", "survival": "wt"}
 for _name, (_kind, _, _) in CALLS.items():
     if _kind not in _WEIGHT_COLUMN:
         continue
@@ -497,8 +614,12 @@ def _invoke(name: str, overrides: Dict[str, Any] = None, drop: str = None) -> An
 
     kind, positional, keywords = CALLS[name]
     frame = _data(kind)
-    args = [frame if a == "@" else a for a in positional]
-    kwargs = dict(keywords)
+    args = [frame if isinstance(a, str) and a == "@" else a for a in positional]
+    # ``data="@"`` for functions whose DataFrame is not the first argument
+    kwargs = {
+        k: (frame if isinstance(v, str) and v == "@" else v)
+        for k, v in keywords.items()
+    }
     kwargs.update(overrides or {})
     if "formula" in kwargs and args and isinstance(args[0], str):
         # a context that needs another outcome replaces the formula
@@ -684,8 +805,34 @@ def audit_function(name: str, enums: bool = True) -> Dict[str, Any]:
     return out
 
 
-def build(enums: bool = True) -> Dict[str, Any]:
-    functions = [audit_function(name, enums=enums) for name in AUDITED]
+def build(enums: bool = True, only: Tuple[str, ...] = ()) -> Dict[str, Any]:
+    """Audit every function, or re-audit ``only`` and keep the rest.
+
+    With ``only``, the entries of the other functions are read from the
+    committed report. That is how the sweep is extended on a machine that
+    lacks an optional backend the earlier entries were swept with: their
+    ``ok`` values would otherwise be rewritten as ``precondition``.
+    """
+    if only:
+        unknown = sorted(set(only) - set(AUDITED))
+        if unknown:
+            raise SystemExit(f"--only: not audited functions: {unknown}")
+        kept = {
+            f["function"]: f
+            for f in json.loads(JSON_OUT.read_text(encoding="utf-8"))["functions"]
+        }
+        absent = sorted(set(AUDITED) - set(only) - set(kept))
+        if absent:
+            raise SystemExit(
+                f"--only: no committed entry for {absent}; include them or "
+                "run the full sweep"
+            )
+        functions = [
+            audit_function(name, enums=enums) if name in only else kept[name]
+            for name in AUDITED
+        ]
+    else:
+        functions = [audit_function(name, enums=enums) for name in AUDITED]
     enum_counts = {"ok": 0, "precondition": 0, "rejected": 0}
     for f in functions:
         for per_value in (f.get("enums") or {}).values():
@@ -703,7 +850,7 @@ def build(enums: bool = True) -> Dict[str, Any]:
 
 def render(report: Dict[str, Any]) -> str:
     lines = [
-        "# Agent card audit: the 70 most-used entry points",
+        f"# Agent card audit: the {report['n_functions']} most-used entry points",
         "",
         "Generated by `python scripts/agent_card_audit.py`; do not edit by hand.",
         "",
@@ -711,7 +858,7 @@ def render(report: Dict[str, Any]) -> str:
         "arguments, the result class, every value of every schema `enum`, and "
         "the functions the card recommends instead. A registry-wide field "
         "count cannot tell whether a field is true; this can, for these "
-        "seventy. It says nothing about the rest of the registry.",
+        "functions. It says nothing about the rest of the registry.",
         "",
         f"- functions audited: **{report['n_functions']}**",
         f"- functions with a card defect: **{report['n_with_defects']}**",
@@ -778,9 +925,17 @@ def main() -> int:
         help="with --check: skip the enum sweep (required arguments, result "
         "class and alternatives only; about a minute instead of a quarter hour)",
     )
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        default=[],
+        metavar="NAME",
+        help="re-audit these functions and keep the committed entries of the "
+        "others (extending the sweep without redoing it)",
+    )
     args = parser.parse_args()
     sys.path.insert(0, str(REPO_ROOT / "src"))
-    report = build(enums=not (args.check and args.fast))
+    report = build(enums=not (args.check and args.fast), only=tuple(args.only))
     if args.check:
         bad = {f["function"]: f["defects"] for f in report["functions"] if f["defects"]}
         if bad:

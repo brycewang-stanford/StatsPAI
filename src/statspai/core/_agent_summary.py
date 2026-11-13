@@ -606,7 +606,16 @@ def _max_covariate_smd(mi: Dict[str, Any]) -> Optional[float]:
     scalar = _as_float(_safe_get(mi, "balance", "max_smd_after"))
     if scalar is not None:
         return scalar
-    bal = mi.get("balance")
+    # ``sp.match`` stores three tables: ``balance`` / ``balance_before`` (the
+    # raw sample) and ``balance_after`` (the matched sample), plus the scalar
+    # ``max_abs_smd_after``. Reading ``balance`` reported the *pre*-matching
+    # gap as residual imbalance on every well-matched fit.
+    after_scalar = _as_float(mi.get("max_abs_smd_after"))
+    if after_scalar is not None:
+        return after_scalar
+    bal = mi.get("balance_after")
+    if bal is None and "balance_before" not in mi:
+        bal = mi.get("balance")
     if isinstance(bal, pd.DataFrame) and {"variable", "smd"}.issubset(bal.columns):
         cov = bal[~bal["variable"].isin(_skip)]
         if not cov.empty:

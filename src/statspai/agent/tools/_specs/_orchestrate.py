@@ -77,6 +77,19 @@ def _json_param(value: Any) -> bool:
     return False
 
 
+def _plain_param(value: Any) -> Any:
+    """numpy / pandas scalars (and lists of them) as plain Python values."""
+    import numpy as np
+
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, (list, tuple)):
+        return [_plain_param(v) for v in value]
+    return value
+
+
 def _recommendation_entry(x: Dict[str, Any], source_columns: Any) -> Dict[str, Any]:
     """One recommendation as the agent sees it, with the derived columns named.
 
@@ -86,7 +99,14 @@ def _recommendation_entry(x: Dict[str, Any], source_columns: Any) -> Dict[str, A
     every entry came back as ``reasoning: null, score: null``.
     """
     raw = dict(x.get("params") or {})
-    params = {k: v for k, v in raw.items() if k != "data" and _json_param(v)}
+    # numpy scalars first: ``treatment_time=np.int64(2000)`` was dropped as
+    # "not JSON", and the synth call built from the rest was marked ready
+    # and failed for want of it.
+    params = {
+        k: _plain_param(v)
+        for k, v in raw.items()
+        if k != "data" and _json_param(_plain_param(v))
+    }
     entry: Dict[str, Any] = {
         "method": x.get("method"),
         "function": x.get("function"),

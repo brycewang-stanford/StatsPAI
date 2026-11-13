@@ -292,7 +292,11 @@ class TestMatchingBalance:
     def _data(self, confounded: bool, n: int = 600, seed: int = 0) -> pd.DataFrame:
         rng = np.random.default_rng(seed)
         x1, x2 = rng.normal(size=n), rng.normal(size=n)
-        ps = 1 / (1 + np.exp(-(0.8 * x1 + 0.5 * x2))) if confounded else np.full(n, 0.5)
+        # Selection strong enough that matching cannot balance the sample
+        # (largest matched |SMD| 1.14). At the earlier strength (0.8, 0.5)
+        # the match balanced it (0.04) and the flag this test asked for was
+        # the pre-matching table misread as post-matching.
+        ps = 1 / (1 + np.exp(-(6.4 * x1 + 4.0 * x2))) if confounded else np.full(n, 0.5)
         d = (rng.uniform(size=n) < ps).astype(int)
         y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
         return pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
@@ -308,6 +312,7 @@ class TestMatchingBalance:
         viols = [v for v in r.violations() if v.get("test") == "balance"]
         assert viols, "notable residual imbalance after matching should be flagged"
         assert viols[0]["value"] > viols[0]["threshold"]
+        assert viols[0]["value"] == pytest.approx(r.model_info["max_abs_smd_after"])
         assert "sp.ebalance" in viols[0]["alternatives"]
 
     def test_good_balance_is_clean(self):

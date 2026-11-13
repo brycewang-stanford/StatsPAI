@@ -161,7 +161,9 @@ def dispatch_registry_tool(
         return envelope
 
     try:
-        out = _default_serializer(result, detail=detail)
+        out = _figure_payload(result, name)
+        if out is None:
+            out = _default_serializer(result, detail=detail)
     except Exception as e:
         return {
             "error": f"serializer_error: {type(e).__name__}: {e}",
@@ -226,9 +228,45 @@ def dispatch_registry_tool(
         base_args={
             k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
         },
+        result=result,
     )
 
     return out
+
+
+def _figure_payload(result: Any, name: str) -> Optional[Dict[str, Any]]:
+    """A plotting function's return value as a PNG payload, else ``None``.
+
+    ``sp.rdplot`` / ``sp.overlap_plot`` / ``sp.balanceplot`` return a
+    matplotlib ``Figure``, ``Axes`` or ``(Figure, Axes)``. Serialised as a
+    value that was ``["Figure(1000x700)", "Axes(...)"]``: a follow-up the
+    server itself listed as ready came back with no picture. The PNG rides
+    under ``_plot_png``, which the MCP layer turns into an image block (the
+    same route ``plot_from_result`` uses).
+    """
+    import sys
+
+    if "matplotlib" not in sys.modules:
+        return None  # nothing in this process has drawn a figure
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
+
+    items = list(result) if isinstance(result, (tuple, list)) else [result]
+    if not items or not all(isinstance(x, (Figure, Axes)) for x in items):
+        return None
+    first = items[0]
+    fig = first if isinstance(first, Figure) else first.figure
+    from .workflow_tools import _figure_png
+
+    size = [float(v) for v in fig.get_size_inches()]
+    png = _figure_png(fig)
+    return {
+        "kind": name,
+        "figsize": size,
+        "mime_type": "image/png",
+        "image_bytes": len(png),
+        "_plot_png": png,
+    }
 
 
 __all__ = ["dispatch_registry_tool"]

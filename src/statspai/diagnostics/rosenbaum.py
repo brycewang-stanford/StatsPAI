@@ -310,7 +310,21 @@ def rosenbaum_bounds(
     # ---- Build paired differences -----------------------------------
     if data is not None:
         if not all([y, treat, pair_id]):
-            raise ValueError("When `data` is given, y/treat/pair_id are required")
+            raise MethodIncompatibility(
+                "When `data` is given, y, treat and pair_id are all required.",
+                recovery_hint=(
+                    "Pass y=<outcome>, treat=<0/1 column> and pair_id=<column "
+                    "naming each matched pair>, or pass the two aligned "
+                    "vectors as treated= and control= without data."
+                ),
+                diagnostics={
+                    "missing": [
+                        k
+                        for k, v in (("y", y), ("treat", treat), ("pair_id", pair_id))
+                        if not v
+                    ]
+                },
+            )
         check_columns(
             data,
             {"y": y, "treat": treat, "pair_id": pair_id},

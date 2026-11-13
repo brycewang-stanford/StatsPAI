@@ -997,6 +997,10 @@ def _detect_family(method: str) -> str:
             "diff",
             "callaway",
             "sun_abraham",
+            # The method label is "Sun and Abraham (2021)"; without these a
+            # Sun-Abraham fit fell through to the generic family.
+            "sun and abraham",
+            "sun-abraham",
             "stagger",
             "imputation",
             "wooldridge",

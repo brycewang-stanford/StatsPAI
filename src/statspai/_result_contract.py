@@ -369,7 +369,20 @@ def resolve_function(obj: Any) -> Optional[str]:
     if isinstance(fn, str) and fn:
         return fn.rsplit(".", 1)[-1]
     candidates = _return_class_index().get(type(obj).__name__, [])
-    return candidates[0] if len(candidates) == 1 else None
+    if len(candidates) != 1:
+        return None
+    # The index is keyed by class *name*. Two packages can each define a
+    # class of that name (``decomposition.KitagawaResult`` and the IV
+    # test's): the decomposition result then carried the IV test's failure
+    # modes as its next steps. Accept the match only when the function
+    # lives in the same subpackage as the result's class.
+    fn_obj = _resolve_callable(candidates[0])
+    fn_mod = getattr(fn_obj, "__module__", "") or ""
+    cls_mod = type(obj).__module__ or ""
+    if fn_mod.startswith("statspai.") and cls_mod.startswith("statspai."):
+        if fn_mod.split(".")[1] != cls_mod.split(".")[1]:
+            return None
+    return candidates[0]
 
 
 # ---------------------------------------------------------------------- #

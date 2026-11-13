@@ -412,7 +412,7 @@ def _check_covariates_exist(data: pd.DataFrame, kwargs: Dict[str, Any]) -> Check
 
 
 def _check_formula_columns(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
-    formula = kwargs.get("formula")
+    formula = kwargs.get("formula") or kwargs.get("fml")
     if not formula:
         return _failed(
             "formula not provided.",
@@ -439,6 +439,13 @@ def _check_formula_columns(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckR
         "exp",
         "sqrt",
         "abs",
+        # fixest syntax (sp.feols): i(year, ref=2000), stepwise sw()/csw()
+        "i",
+        "ref",
+        "sw",
+        "sw0",
+        "csw",
+        "csw0",
     }
     missing = [t for t in tokens if t not in data.columns]
     if missing:
@@ -757,6 +764,61 @@ _IV_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
 )
 
 
+#: Share of the sample with a fitted propensity outside [0.02, 0.98] above
+#: which missing overlap is a failed check rather than a warning: more
+#: than half of the units have no comparable unit in the other arm.
+_OVERLAP_FAIL_SHARE = 0.5
+
+
+def _check_overlap(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
+    """Common support of a binary treatment given the covariates.
+
+    Reuses the quick logistic propensity fit of ``sp.check_identification``.
+    Before this check a matching preflight returned PASS on data where the
+    treatment was a deterministic function of a covariate.
+    """
+    treat = _resolve_arg(kwargs, "treat")
+    covs = kwargs.get("covariates") or []
+    if (
+        treat is None
+        or treat not in data.columns
+        or not isinstance(covs, (list, tuple))
+        or not covs
+    ):
+        return _passed("not checked: needs a treatment column and covariates")
+    levels = set(data[treat].dropna().unique())
+    if not levels <= {0, 1, 0.0, 1.0, True, False} or len(levels) < 2:
+        return _passed("not checked: treatment is not binary 0/1")
+    from .identification import DiagnosticFinding
+    from .identification import _check_overlap as _overlap_findings
+
+    findings: List[DiagnosticFinding] = []
+    _overlap_findings(data, treat, list(covs), findings)
+    flagged = [f for f in findings if f.severity in ("warning", "blocker")]
+    if not flagged:
+        skipped = [f for f in findings if f.severity == "info"]
+        return _passed(skipped[0].message if skipped else "OK")
+    evidence: Dict[str, Any] = {}
+    for f in flagged:
+        evidence.update(f.evidence or {})
+    share = float(evidence.get("frac_extreme_ps", 0.0))
+    message = " ".join(f.message for f in flagged) + (
+        " Restrict the sample to the region of common support, or use "
+        "sp.overlap_weights; sp.check_identification gives the detail."
+    )
+    separated = any(f.severity == "blocker" for f in flagged)
+    if separated and share >= _OVERLAP_FAIL_SHARE:
+        return _failed(message, **evidence)
+    return _warning(message, **evidence)
+
+
+_OVERLAP_CHECK = _Check(
+    "propensity_overlap",
+    "Do treated and control units share common support on the covariates?",
+    _check_overlap,
+)
+
+
 _MATCHING_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
     _Check(
         "y_column_exists",
@@ -776,12 +838,151 @@ _MATCHING_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
         "Are all covariate columns present in the DataFrame?",
         _check_covariates_exist,
     ),
+    _OVERLAP_CHECK,
     _Check(
         "min_n_for_matching",
         "Is n above the typical minimum for matching (50)?",
         _make_check_min_n(50),
     ),
 )
+
+
+def _check_synth_panel(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
+    """Unit / time columns exist, the treated unit is one of the units and
+    it has at least two pre-treatment periods to fit donor weights on."""
+    unit = kwargs.get("unit")
+    time = _resolve_arg(kwargs, "time")
+    for name, col in (("unit", unit), ("time", time)):
+        if col is None:
+            return _failed(f"required argument {name!r} not provided.", arg_name=name)
+        if col not in data.columns:
+            return _failed(
+                f"column {col!r} (passed as {name}) not found in DataFrame.",
+                arg_name=name,
+                column=col,
+                available=list(data.columns)[:20],
+            )
+    treated = kwargs.get("treated_unit", kwargs.get("treat_unit"))
+    when = kwargs.get("treatment_time", kwargs.get("treat_time"))
+    n_units = int(data[unit].nunique())
+    evidence: Dict[str, Any] = {"n_units": n_units}
+    if treated is None or when is None:
+        if kwargs.get("treat") or kwargs.get("treatment"):
+            return _passed(**evidence)  # block / staggered design via a column
+        return _failed(
+            "the treated unit and the first treated period are both needed "
+            "(treated_unit= / treatment_time=, or treat_unit= / treat_time=).",
+            **evidence,
+        )
+    if treated not in set(data[unit].unique()):
+        return _failed(
+            f"treated unit {treated!r} is not a value of {unit!r}.",
+            treated_unit=treated,
+            **evidence,
+        )
+    periods = data.loc[data[unit] == treated, time]
+    try:
+        n_pre = int((periods < when).sum())
+        n_post = int((periods >= when).sum())
+    except TypeError:
+        return _failed(
+            f"the treatment time {when!r} cannot be compared with column "
+            f"{time!r} (dtype {data[time].dtype}).",
+            **evidence,
+        )
+    evidence.update(n_pre_periods=n_pre, n_post_periods=n_post)
+    if n_pre < 2 or n_post < 1:
+        return _failed(
+            f"the treated unit has {n_pre} pre-treatment and {n_post} "
+            "post-treatment period(s); donor weights need at least 2 "
+            "pre-periods and the effect at least 1 post-period.",
+            **evidence,
+        )
+    if n_units < 3:
+        return _failed("fewer than two donor units.", **evidence)
+    if n_pre < 5:
+        return _warning(
+            f"only {n_pre} pre-treatment periods: the pre-period fit says "
+            "little about the counterfactual.",
+            **evidence,
+        )
+    return _passed(**evidence)
+
+
+_SYNTH_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
+    _Check(
+        "y_column_exists",
+        "Outcome column exists?",
+        lambda d, k: _column_exists(d, k, "y"),
+    ),
+    _Check(
+        "treated_unit_and_periods",
+        "Is the treated unit in the panel, with pre- and post-treatment "
+        "periods and a donor pool?",
+        _check_synth_panel,
+    ),
+)
+
+_DML_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
+    _Check(
+        "y_column_exists",
+        "Outcome column exists?",
+        lambda d, k: _column_exists(d, k, "y"),
+    ),
+    _Check(
+        "treat_column_exists",
+        "Treatment column exists?",
+        lambda d, k: _column_exists(d, k, "treat"),
+    ),
+    _Check(
+        "covariates_exist",
+        "Are all covariate columns present in the DataFrame?",
+        _check_covariates_exist,
+    ),
+    _OVERLAP_CHECK,
+    _Check(
+        "min_n_for_dml",
+        "Is n above the typical minimum for cross-fitted ML nuisances (200)?",
+        _make_check_min_n(200),
+    ),
+)
+
+_FE_REGRESSION_CHECKS: Tuple[_Check, ...] = _UNIVERSAL + (
+    _Check(
+        "formula_columns_exist",
+        "Are all formula identifiers present as columns?",
+        _check_formula_columns,
+    ),
+    _Check(
+        "min_n_for_regression",
+        "Is n above the typical minimum for OLS (30)?",
+        _make_check_min_n(30),
+    ),
+)
+
+
+def _check_method_known(method: str) -> _Check:
+    """The one check an unknown method gets beyond the universal ones.
+
+    A PASS built from "the data is a non-empty DataFrame" read as a design
+    check that had been made; the verdict is WARN and says what was not
+    checked.
+    """
+    known = ", ".join(sorted(_METHOD_TABLES))
+
+    def _fn(_data: pd.DataFrame, _kwargs: Dict[str, Any]) -> CheckResult:
+        return _warning(
+            f"no method-specific checks exist for {method!r}: only the "
+            "dataset itself was checked, not the design. Methods with "
+            f"checks: {known}.",
+            method=method,
+        )
+
+    return _Check(
+        "method_specific_checks",
+        "Does preflight have design checks for this method?",
+        _fn,
+    )
 
 
 # Method aliases mapped to their check tables.
@@ -802,6 +1003,12 @@ _METHOD_TABLES: Dict[str, Tuple[_Check, ...]] = {
     "match": _MATCHING_CHECKS,
     "psmatch": _MATCHING_CHECKS,
     "sbw": _MATCHING_CHECKS,
+    "dml": _DML_CHECKS,
+    "synth": _SYNTH_CHECKS,
+    "sdid": _SYNTH_CHECKS,
+    "feols": _FE_REGRESSION_CHECKS,
+    "hdfe_ols": _FE_REGRESSION_CHECKS,
+    "panel": _FE_REGRESSION_CHECKS,
 }
 
 
@@ -848,8 +1055,8 @@ def preflight(data: pd.DataFrame, method: str, **kwargs: Any) -> Dict[str, Any]:
           ``failed``
         - ``n_obs`` (int) — sample size
         - ``known_method`` (bool) — whether the method has a
-          dedicated check table (``False`` falls back to the universal
-          checks only)
+          dedicated check table (``False`` runs the universal checks
+          only and the verdict is ``"WARN"``: the design was not checked)
 
     Examples
     --------
@@ -875,7 +1082,7 @@ def preflight(data: pd.DataFrame, method: str, **kwargs: Any) -> Dict[str, Any]:
     table = _METHOD_TABLES.get(method_key)
     known = table is not None
     if table is None:
-        table = _UNIVERSAL
+        table = _UNIVERSAL + (_check_method_known(method_key),)
 
     # n_obs reported even when the data is not a DataFrame.
     n_obs = len(data) if isinstance(data, pd.DataFrame) else 0

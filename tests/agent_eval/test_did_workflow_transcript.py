@@ -103,11 +103,22 @@ def test_full_did_agent_transcript():
     # check is outstanding — assert that, rather than that the keys exist.
     assert audit["checks"], "audit_result returned no checks"
     assert audit["coverage"] == pytest.approx(0.0)
-    assert all(c["status"] == "missing" for c in audit["checks"])
-    assert any(c["name"] == "parallel_trends" for c in audit["checks"])
-    assert all(
-        c.get("suggest_function") for c in audit["checks"]
-    ), "a missing check must name the function that would satisfy it"
+    status = {c["name"]: c["status"] for c in audit["checks"]}
+    # Two periods: parallel trends is untested (missing) and there is no
+    # staggered timing to decompose (not applicable).
+    assert status == {
+        "parallel_trends": "missing",
+        "honest_did": "missing",
+        "bacon_decomposition": "not_applicable",
+    }
+    # A missing check names the function that would satisfy it, or says why
+    # none can. On a two-period fit sp.pretrends_test / sp.honest_did have
+    # no pre-period to work with, so the audit gives the reason instead of
+    # a call that fails (it named both until 2026-11-13).
+    for c in audit["checks"]:
+        if c["status"] == "missing":
+            assert c.get("suggest_function") or c.get("reason"), c
+            assert c["suggest_function"] is None and "two-period" in c["reason"]
 
     # 5. Design-agnostic sensitivity off the same handle.
     # The E-value of a mean difference needs the outcome SD; without it

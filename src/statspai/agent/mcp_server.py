@@ -1212,6 +1212,40 @@ def _dataless_tool_names() -> "frozenset[str]":
     return frozenset(derived)
 
 
+@lru_cache(maxsize=1)
+def _optional_data_tool_names() -> "frozenset[str]":
+    """Tools whose function takes ``data`` but does not require it.
+
+    ``sp.liml`` / ``sp.cox`` / ``sp.zip_model`` accept a formula-plus-data
+    call and an arrays call, so ``data`` has a default and the tool counts
+    as dataless. A follow-up that names columns still needs the dataset:
+    without it the call was marked ready and failed.
+    """
+    names: "set[str]" = set()
+    snapshot = _load_schema_snapshot()
+    if snapshot is not None:
+        for item in snapshot["functions"]:
+            if not isinstance(item, dict) or not isinstance(item.get("name"), str):
+                continue
+            params = item.get("parameters") or {}
+            if "data" in (params.get("properties") or {}) and "data" not in set(
+                params.get("required") or []
+            ):
+                names.add(item["name"])
+        return frozenset(names - set(_DATALESS_OVERRIDES))
+    try:
+        from ..registry import _REGISTRY, _ensure_full_registry
+
+        _ensure_full_registry()
+        for name, spec in _REGISTRY.items():
+            params = getattr(spec, "params", None) or []
+            if any(p.name == "data" and not p.required for p in params):
+                names.add(name)
+    except (ImportError, AttributeError, TypeError):
+        pass
+    return frozenset(names - set(_DATALESS_OVERRIDES))
+
+
 #: URI of the reference for the arguments the server adds to every tool.
 COMMON_ARGUMENTS_URI = "statspai://arguments"
 
@@ -2147,6 +2181,37 @@ def _needs_data_error(result: Dict[str, Any]) -> bool:
     return bool(re.search(r"requires? (a )?data_path", str(result.get("error") or "")))
 
 
+#: Longest string an error result carries in one field. An estimator that
+#: interpolates the offending values into its message (``sp.match`` on a
+#: continuous treatment listed every distinct value) produced a 105 KB
+#: error: the message is repeated in ``error``, ``remediation`` and
+#: ``error_payload``.
+_ERROR_STRING_MAX = 1500
+
+
+def _cap_error_strings(node: Any, depth: int = 0) -> None:
+    """Shorten over-long strings of an error result, in place."""
+    if depth > 4:
+        return
+    items: Any
+    if isinstance(node, dict):
+        items = list(node.items())
+    elif isinstance(node, list):
+        items = list(enumerate(node))
+    else:
+        return
+    for key, value in items:
+        if isinstance(value, str) and len(value) > _ERROR_STRING_MAX:
+            head = _ERROR_STRING_MAX - 300
+            node[key] = (
+                value[:head]
+                + f" ...[{len(value) - head - 200} characters omitted]... "
+                + value[-200:]
+            )
+        elif isinstance(value, (dict, list)):
+            _cap_error_strings(value, depth + 1)
+
+
 def _phrase_error_for_mcp(
     result: Dict[str, Any], name: str, *, data_given: bool
 ) -> None:
@@ -2160,6 +2225,7 @@ def _phrase_error_for_mcp(
     """
     from .remediation import MCP_DATA_HINT, MCP_DATA_SOURCES, mcp_remediation
 
+    _cap_error_strings(result)
     rem = result.get("remediation")
     if isinstance(rem, dict):
         result["remediation"] = mcp_remediation(rem, tool=name)
@@ -2396,6 +2462,21 @@ def _run_tools_call(
         _phrase_error_for_mcp(result, name, data_given=df is not None)
 
     rid = result.get("result_id")
+    if not result.get("error"):
+        # A robustness check that ran is remembered on the fit it belongs
+        # to, so a later audit_result can see it (``_followup_evidence``).
+        from ._followup_evidence import record_followup
+
+        inner = arguments.get("arguments") if name == "call_function" else None
+        followup_args = dict(inner) if isinstance(inner, dict) else dict(arguments)
+        if isinstance(result_id, str):
+            followup_args["result_id"] = result_id
+        record_followup(
+            str(arguments.get("function")) if name == "call_function" else name,
+            followup_args,
+            result,
+            data_prov,
+        )
     capped = result.get("arrays_capped")
     if isinstance(capped, list):
         # The cut arrays stay readable in full, one at a time, while the

@@ -104,10 +104,15 @@ class TestBuildNextCalls:
         by_tool = {c["tool"]: c for c in out}
         assert by_tool["rdplot"]["arguments"]["x"] == "score"
         assert by_tool["rddensity"]["arguments"]["x"] == "score"
-        assert by_tool["rdsensitivity"]["arguments"]["x"] == "score"
+        # rdbwsensitivity / rdplacebo replaced rdsensitivity on 2026-11-13:
+        # they re-estimate the fitted design (and take fuzzy=); rdsensitivity
+        # is the local-randomisation window scan.
+        assert by_tool["rdbwsensitivity"]["arguments"]["x"] == "score"
+        assert by_tool["rdplacebo"]["arguments"]["x"] == "score"
         assert by_tool["rdplot"]["ready"] is True
         assert by_tool["rddensity"]["ready"] is True
-        assert by_tool["rdsensitivity"]["ready"] is True
+        assert by_tool["rdbwsensitivity"]["ready"] is True
+        assert by_tool["rdplacebo"]["ready"] is True
 
     def test_result_object_followups_expose_missing_argument(self):
         # The server resolves result_id into a ``result`` parameter, so the

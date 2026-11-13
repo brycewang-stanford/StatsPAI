@@ -173,15 +173,35 @@ def _confounded(strength: float, n: int = 800, seed: int = 0) -> pd.DataFrame:
 
 @pytest.mark.parametrize("method", ["psm", "nearest", "mahalanobis", "cem"])
 def test_match_method_records_balance_and_flags_imbalance(method):
+    """The flag is about the matched sample.
+
+    Until 2026-11-13 this test asked for a ``balance`` violation at
+    selection strength 1.5, where every method balances the covariates
+    (largest matched |SMD| 0.07 to 0.13): the violation it saw was the
+    *pre*-matching table read as the post-matching one. Strength 8 leaves
+    real residual imbalance (0.29 to 0.66); strength 1.5 does not.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.match(
+        bad = sp.match(
+            _confounded(8.0), y="y", treat="d", covariates=["x1", "x2"], method=method
+        )
+        good = sp.match(
             _confounded(1.5), y="y", treat="d", covariates=["x1", "x2"], method=method
         )
-    assert isinstance(
-        r.model_info.get("balance"), pd.DataFrame
-    ), f"match({method}) does not record a balance table"
-    assert "balance" in {v["test"] for v in r.violations()}
+    for r in (bad, good):
+        after = r.model_info.get("balance_after")
+        assert isinstance(
+            after, pd.DataFrame
+        ), f"match({method}) does not record a post-match balance table"
+        assert r.model_info["max_abs_smd_after"] == pytest.approx(
+            float(after["smd"].abs().max())
+        )
+    (flag,) = [v for v in bad.violations() if v["test"] == "balance"]
+    assert flag["value"] == pytest.approx(bad.model_info["max_abs_smd_after"])
+    assert flag["value"] > flag["threshold"]
+    assert good.model_info["max_abs_smd_after"] < flag["threshold"]
+    assert "balance" not in {v["test"] for v in good.violations()}
 
 
 def test_cbps_reports_residual_imbalance():

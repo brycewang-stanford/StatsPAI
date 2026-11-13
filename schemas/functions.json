@@ -34097,7 +34097,8 @@
           "type": "array"
         },
         "seed": {
-          "description": "Random seed for reproducibility.",
+          "default": 42,
+          "description": "Bootstrap seed",
           "type": "integer"
         },
         "time": {
@@ -39144,8 +39145,7 @@
           "enum": [
             "rademacher",
             "mammen",
-            "webb",
-            "normal"
+            "webb"
           ],
           "type": "string"
         },
@@ -66633,6 +66633,10 @@
     "name": "audit",
     "parameters": {
       "properties": {
+        "evidence": {
+          "description": "Follow-up checks already run on this fit that the result object does not hold, keyed by the checklist's evidence name (``\"honest_did\"``, ``\"bacon_decomposition\"``, ``\"bandwidth_sensitivity\"``, ``\"placebo_cutoff\"``, ``\"anderson_rubin\"``, ``\"oster\"``, ``\"cinelli_hazlett\"``, ``\"evalue\"``), each a non-empty dict such as ``{\"has_run\": True}``. A key the result already carries is not overridden. The MCP server passes the checks a session ran on the cached fit.",
+          "type": "object"
+        },
         "result": {
           "description": "Any fitted StatsPAI result with ``model_info`` attached.",
           "type": "string"
@@ -66640,9 +66644,6 @@
         "treatment": {
           "description": "Name of the treatment variable when ``result`` is a plain regression used for causal adjustment on a selection-on-observables design. When supplied, the audit additionally asks for overlap / common-support, post-adjustment balance, and omitted-variable sensitivity -- the checks a referee demands on an observational design but that a bare OLS would otherwise escape. Has no effect on designs whose family already carries these checks (matching / DML / IV / ...). Descriptive regressions (no treatment declared) are never flagged.",
           "type": "string",
-          "x-aliases": [
-            "treat"
-          ],
           "x-canonical": "treat",
           "x-statspai-role": "column"
         }

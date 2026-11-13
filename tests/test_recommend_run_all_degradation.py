@@ -43,9 +43,31 @@ def absorbed_panel():
 
 
 def _recommend(df):
+    """The recommendation set, plus one card that cannot be estimated.
+
+    ``sp.recommend`` used to emit the unit fixed-effects card for this
+    design itself; since 2026-11-13 it recognises the 2x2 and no longer
+    does. The failure these tests are about is put back by hand: the within
+    estimator has no coefficient for a treatment that is constant in a unit.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.recommend(df, y="y", treatment="treat", time="post", id="id")
+        rec = sp.recommend(df, y="y", treatment="treat", time="post", id="id")
+    rec.recommendations.append(
+        {
+            "method": "Panel FE (within estimator)",
+            "function": "panel",
+            "reason": "added by the test: absorbed by the unit effects",
+            "params": {
+                "data": df,
+                "formula": "y ~ treat",
+                "entity": "id",
+                "time": "post",
+                "method": "fe",
+            },
+        }
+    )
+    return rec
 
 
 def test_failed_estimator_warns_and_is_recorded(absorbed_panel):

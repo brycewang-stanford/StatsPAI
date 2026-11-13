@@ -516,13 +516,22 @@ def rank(
         card = None
         score = 0.0
         hits = 0
+        covered: set = set()
         for word, alts in terms:
             term_score = 0.0
             for alt in alts:
+                parts = alt.split("-") if "-" in alt else ()
                 if alt == name:
                     term_score = max(term_score, 10.0)
+                    covered |= name_words
                 elif alt in name_words:
                     term_score = max(term_score, 6.0)
+                    covered.add(alt)
+                elif parts and all(p in name_words for p in parts):
+                    # "kaplan-meier" names ``kaplan_meier``: a hyphenated
+                    # compound whose parts are all words of the name.
+                    term_score = max(term_score, 6.0 * len(parts))
+                    covered.update(parts)
                 elif len(alt) >= 2 and any(w.startswith(alt) for w in name_words):
                     term_score = max(term_score, 3.5)
                 elif alt in name and len(alt) >= 4:
@@ -533,6 +542,10 @@ def rank(
                     term_score = max(term_score, 2.0)
                 if alt in desc:
                     term_score = max(term_score, 1.0 + min(desc.count(alt), 3) * 0.25)
+                    if parts:
+                        # A compound ("zero-inflated") in the description is
+                        # the method's own name, not a passing word.
+                        term_score = max(term_score, 5.0)
             if term_score > 0:
                 hits += 1
                 score += term_score
@@ -550,6 +563,12 @@ def rank(
         if name == query_lower:
             score += 20.0
         score += hits * 2.0
+        # Every word of a multi-word function name is in the query
+        # ("rosenbaum bounds matched pairs sensitivity" -> rosenbaum_bounds):
+        # the query names the function, however many other words it has.
+        named = len(name_words) >= 2 and name_words <= covered
+        if named:
+            score += 8.0
         if spec.name in parents:
             score += 3.0
         if spec.validation_status == "certified":
@@ -573,7 +592,7 @@ def rank(
         if cmd_label:
             entry["matched_command"] = cmd_label
         row = (score, -len(spec.name), entry)
-        if hits >= needed or c_bonus > 0.0:
+        if hits >= needed or c_bonus > 0.0 or named:
             entry["match"] = "full"
             full.append(row)
         else:

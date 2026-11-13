@@ -223,8 +223,12 @@ class TestMethodDispatch:
     def test_unknown_method_falls_back_to_universal(self, regress_df):
         out = sp.preflight(regress_df, "totally_made_up_method")
         assert out["known_method"] is False
-        # Universal checks are exactly two: dataframe + non_empty.
-        assert out["summary"]["n_total"] == 2
+        # The two universal checks (dataframe, non-empty) plus the one that
+        # says the design itself was not checked; the verdict is not PASS.
+        assert out["summary"]["n_total"] == 3
+        assert out["checks"][-1]["name"] == "method_specific_checks"
+        assert out["checks"][-1]["status"] == "warning"
+        assert out["verdict"] == "WARN"
 
     def test_method_alias_resolves(self, regress_df):
         # "ols" is an alias for "regress".

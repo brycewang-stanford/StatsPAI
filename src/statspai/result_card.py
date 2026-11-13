@@ -263,6 +263,17 @@ def _inference(result: Any, mi: Dict[str, Any], di: Dict[str, Any]) -> Dict[str,
         if mi.get(k) is not None:
             out[k] = _jsonable(mi[k])
     df = inference_df(result)
+    # Estimators that record the critical-value convention they used
+    # (``model_info['conventions']``: sp.did 2x2, event studies) are read
+    # from that record: the 2x2 card said "normal" over an interval built
+    # from t(n - 4).
+    conv = mi.get("conventions")
+    if not np.isfinite(df) and isinstance(conv, dict):
+        crit_df = conv.get("crit_df")
+        if conv.get("crit_dist") == "t" and isinstance(
+            crit_df, (int, float, np.integer, np.floating)
+        ):
+            df = float(crit_df)
     out["reference_distribution"] = (
         f"t({int(df) if float(df).is_integer() else round(df, 3)})"
         if np.isfinite(df)

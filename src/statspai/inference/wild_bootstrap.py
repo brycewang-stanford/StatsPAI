@@ -562,9 +562,16 @@ def _draw_weights(
         vals = np.array([-(np.sqrt(5) - 1) / 2, (np.sqrt(5) + 1) / 2])
         return rng.choice(vals, size=G, p=[p, 1 - p])
 
-    raise ValueError(
+    from ..exceptions import MethodIncompatibility
+
+    raise MethodIncompatibility(
         f"weight_type must be 'rademacher', 'webb', or 'mammen', "
-        f"got '{weight_type}'"
+        f"got '{weight_type}'",
+        recovery_hint=(
+            "Pass weight_type='rademacher' (default), 'webb' (fewer than 12 "
+            "clusters) or 'mammen'."
+        ),
+        diagnostics={"weight_type": weight_type},
     )
 
 

@@ -33280,7 +33280,7 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("n_boot", "int", False, 500),
                 ParamSpec("alpha", "float", False, 0.05),
-                ParamSpec("seed", "int", False, None),
+                ParamSpec("seed", "int", False, 42, "Bootstrap seed"),
                 ParamSpec(
                     "n_grid", "int", False, 200, "Grid size for inverse-CDF mapping"
                 ),
@@ -38819,7 +38819,7 @@ def _build_registry() -> None:
                     False,
                     "rademacher",
                     "Bootstrap weight distribution",
-                    ["rademacher", "mammen", "webb", "normal"],
+                    ["rademacher", "mammen", "webb"],
                 ),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("alpha", "float", False, 0.05),

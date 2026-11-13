@@ -5,6 +5,87 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
+
+No estimate, standard error or interval changes in this entry. What changes
+is what the agent layer says about a fit.
+
+⚠️ correctness fix: `result.violations()` (and the `violations` /
+`warnings` of a tool payload) after `sp.match` no longer reports the
+pre-matching standardised mean difference as "after matching". Code that
+treated every `sp.match` fit on confounded data as flagged will see no
+`balance` violation when the matched sample is balanced
+(`model_info["max_abs_smd_after"] <= 0.25`).
+
+⚠️ correctness fix: `sp.audit(result)`.
+
+- An OLS `sp.feols` fit has `method_family == "regression"` (was `"iv"`),
+  a Sun-Abraham fit `"did"` (was `"generic"`).
+- `pretreatment_fit` and `placebo_inference` of a `sp.synth` fit and
+  `balance_after` of a `sp.match` fit are evaluated from the fit (were
+  always `missing`).
+- On a two-period `sp.did` (method "Difference-in-Differences (2x2)") the
+  checks `parallel_trends` and `honest_did` are still `missing` but carry
+  `suggest_function: None` and a `reason` (they named `sp.pretrends_test` /
+  `sp.honest_did`, which cannot run on two periods), and
+  `bacon_decomposition` is `not_applicable` (was `missing`), so
+  `summary["n_total"]` is 2 for that fit (was 3).
+- `ovb_sensitivity` is satisfied by a Cinelli-Hazlett or E-value record as
+  well as an Oster one.
+- New keyword `evidence=`: `sp.audit(result, evidence={"honest_did":
+  {"has_run": True}})` marks a check that was run after the fit.
+
+`sp.preflight`:
+
+- A method without a check table returns `verdict == "WARN"` (was `"PASS"`)
+  and one extra check, `method_specific_checks`. Code that gated on
+  `verdict == "PASS"` for such methods should gate on `known_method`.
+- `match`, `ebalance`, `psmatch`, `sbw` and the new `dml` table include
+  `propensity_overlap`. It fails when a quick logistic propensity puts more
+  than half of the sample outside [0.02, 0.98] with fitted values at 0 or 1,
+  and warns when more than 5% is outside.
+- New tables: `dml`, `synth`, `sdid`, `feols`, `hdfe_ols`, `panel`.
+
+`sp.recommend`:
+
+- A 0/1 group indicator that is constant within units, with exactly two
+  periods, gives `design == "did"` and the `sp.did` card (was `"panel"`
+  with a fixed-effects card on the indicator).
+- A treatment with more than ten distinct values that varies within units
+  gives `design == "panel"` (was `"did"` with `sp.did_multiplegt` first).
+  Pass `design="did"` to keep the old routing.
+- A treatment constant within units with more than two periods gets no
+  fixed-effects card; `warnings` says why.
+- The LIML and Anderson-Rubin cards carry the covariates (`x_exog=` /
+  `exog=`); the Anderson-Rubin card uses `endog=` / `instruments=`.
+
+Agent cards and search:
+
+- `result_schema["fields"]` of 80 result classes lists the attributes the
+  constructor stores rather than its parameter names (for example
+  `PowerResult`: `power`, not `power_val`).
+- `sp.function_schema("wild_cluster_bootstrap")` no longer lists
+  `weight_type="normal"`; an unknown weight raises `MethodIncompatibility`
+  (still a `ValueError`).
+- `sp.search_functions` ranks a function first when the query contains
+  every word of its name; result order changes for such queries.
+
+MCP server:
+
+- `next_calls` of a fit: `rdrobust` is followed by `rdbwsensitivity` and
+  `rdplacebo` (was `rdsensitivity`); `synth` by `synth_sensitivity` and
+  `robust_synth` (was `synthdid_placebo`, never ready); most fits start
+  with `audit_result`; `honest_did_from_result` is absent when the fit has
+  no pre-period coefficient.
+- `remediation["fix"]` is the exception's recovery hint alone. The category
+  text formerly appended as "(registry hint: ...)" is
+  `remediation["category_fix"]`.
+- A registered function that returns a matplotlib figure answers with an
+  image block and `{"kind", "figsize", "mime_type", "image_bytes"}` (was
+  `{"value": ["Figure(...)", "Axes(...)"]}`).
+- `bibtex(keys=[<estimator name>])` returns that estimator's entries under
+  their bib keys and maps the name in `resolved_from_function`.
+
 ## 1.43 → next: DML sensitivity benchmarks, IIVM one-sided non-compliance, DR dose-response bandwidth
 
 ⚠️ correctness fix: `sp.dml_sensitivity(fit, benchmark_covariates=[...])`
