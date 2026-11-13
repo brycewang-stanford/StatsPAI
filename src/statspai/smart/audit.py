@@ -402,7 +402,10 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         name="placebo_inference",
         question="Has placebo-permutation inference been run on donor units?",
         applies_to=("synth",),
-        evidence_paths=_p("placebo_inference"),
+        # sp.sdid records the resampling behind its standard error:
+        # ``placebo_inference`` for the placebo variance, and
+        # ``resampling_inference`` for the bootstrap / jackknife.
+        evidence_paths=_pp(("placebo_inference",), ("resampling_inference",)),
         threshold=None,
         compare="exists",
         suggest_function="sp.synth_sensitivity",
@@ -522,7 +525,9 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
         name="robust_se",
         question="Are robust / clustered standard errors used?",
         applies_to=("regression",),
-        evidence_paths=_p("robust"),
+        # ``_audit_se_kind`` is what the fit recorded about its variance,
+        # whatever key the estimator uses (see _derived_evidence).
+        evidence_paths=_pp(("_audit_se_kind",), ("robust",)),
         threshold=None,
         compare="not_nonrobust",
         suggest_function=None,
@@ -1083,6 +1088,36 @@ _OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
 )
 
 
+def _recorded_se(model_info: Dict[str, Any]) -> Optional[str]:
+    """The variance estimator a regression fit recorded, in one vocabulary.
+
+    ``"cluster (<columns>)"`` for a cluster-robust fit, the estimator's own
+    label (``"hc1"``, ``"hetero"``) for a heteroskedasticity-robust one,
+    ``"nonrobust"`` for the classical variance, ``None`` when the fit
+    recorded nothing about it.
+    """
+    from ..core.next_steps import _se_kind
+
+    keys = ("robust", "vcov_type", "clustervar", "cluster", "cluster_var", "se_type")
+    if not any(model_info.get(k) not in (None, "", [], ()) for k in keys):
+        return None
+    view = dict(model_info)
+    if not view.get("vcov_type") and view.get("se_type"):
+        view["vcov_type"] = view["se_type"]  # FEOLSResult (sp.hdfe_ols)
+    kind = _se_kind(view)
+    if kind == "cluster":
+        cols = view.get("clustervar") or view.get("cluster") or view.get("cluster_var")
+        if isinstance(cols, (list, tuple)):
+            cols = " + ".join(str(c) for c in cols)
+        return f"cluster ({cols})" if cols else "cluster"
+    if kind == "robust":
+        robust = str(view.get("robust") or "").strip()
+        if robust and robust.lower() not in ("nonrobust", "none"):
+            return robust
+        return str(view.get("vcov_type") or "robust")
+    return "nonrobust"
+
+
 def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str, Any]:
     """Evidence the fit already carries under an estimator's own key names.
 
@@ -1121,6 +1156,14 @@ def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str
             pre_sd = 0.0
         if pre_sd > 0:
             extra["pretreatment_rmse_ratio"] = pre_rmspe / pre_sd
+    # Regression: the variance estimator. sp.regress keeps ``robust`` and
+    # puts a cluster in ``cluster`` (leaving robust='nonrobust'); sp.feols
+    # uses ``vcov_type`` / ``clustervar``. A clustered fit read through
+    # ``robust`` alone was reported as failed (regress, panel) or missing
+    # (feols).
+    se_kind = _recorded_se(model_info)
+    if se_kind is not None:
+        extra["_audit_se_kind"] = se_kind
     # Matching / weighting: the post-adjustment SMD, wherever it is stored.
     smd = _max_covariate_smd(model_info)
     if smd is not None:
@@ -1279,6 +1322,15 @@ def audit(
     diag = getattr(result, "diagnostics", None) or {}
     if forest:
         model_info, diag = forest_evidence(result), {}
+    if not model_info and not diag:
+        # FEOLSResult (sp.hdfe_ols) has no model_info mapping: its variance
+        # choice is on attributes.
+        se_type = getattr(result, "se_type", None)
+        cluster_info = getattr(result, "cluster_info", None)
+        if isinstance(se_type, str):
+            model_info = {"se_type": se_type}
+            if isinstance(cluster_info, dict) and cluster_info.get("cluster"):
+                model_info["clustervar"] = cluster_info["cluster"]
     if diag:
         merged = dict(model_info)
         for k, v in diag.items():

@@ -305,3 +305,92 @@ def test_source_record_appears_once_per_reply(files):
     assert by_handle["data_provenance"]["root"]["sha256"] == (
         loaded["data_provenance"]["sha256"]
     )
+
+
+# --------------------------------------------------------------------------- #
+#  #46 the audit reads the variance the fit recorded
+# --------------------------------------------------------------------------- #
+def _robust_se(fit):
+    (check,) = [c for c in sp.audit(fit)["checks"] if c["name"] == "robust_se"]
+    return check["status"], check["value"]
+
+
+def test_clustered_or_robust_fit_satisfies_robust_se(files):
+    _, frames = files
+    mp = frames["mp"]
+    fml = "lemp ~ treated | countyreal + year"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fits = {
+            "feols_cluster": sp.feols(fml, data=mp, vcov={"CRV1": "countyreal"}),
+            "feols_hetero": sp.feols(fml, data=mp, vcov="hetero"),
+            "feols_iid": sp.feols(fml, data=mp),
+            "regress_cluster": sp.regress(
+                "lemp ~ treated", data=mp, cluster="countyreal"
+            ),
+            "regress_hc1": sp.regress("lemp ~ treated", data=mp, robust="hc1"),
+            "regress_iid": sp.regress("lemp ~ treated", data=mp),
+            "panel_cluster": sp.panel(
+                mp,
+                "lemp ~ treated",
+                entity="countyreal",
+                time="year",
+                cluster="countyreal",
+            ),
+            "hdfe_cluster": sp.hdfe_ols(fml, data=mp, cluster="countyreal"),
+            "hdfe_iid": sp.hdfe_ols(fml, data=mp),
+        }
+    got = {name: _robust_se(fit) for name, fit in fits.items()}
+    assert got == {
+        "feols_cluster": ("passed", "cluster (countyreal)"),
+        "feols_hetero": ("passed", "hetero"),
+        "feols_iid": ("failed", "nonrobust"),
+        # was "failed": sp.regress keeps robust='nonrobust' beside cluster=
+        "regress_cluster": ("passed", "cluster (countyreal)"),
+        "regress_hc1": ("passed", "hc1"),
+        "regress_iid": ("failed", "nonrobust"),
+        "panel_cluster": ("passed", "cluster (countyreal)"),
+        "hdfe_cluster": ("passed", "cluster (countyreal)"),
+        "hdfe_iid": ("failed", "nonrobust"),
+    }
+
+
+# --------------------------------------------------------------------------- #
+#  #48 SDID stores the evidence the audit reads
+# --------------------------------------------------------------------------- #
+def test_sdid_prefit_and_placebo_evidence_are_recognised(files):
+    _, frames = files
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.sdid(frames["synth"], seed=1, **_SYNTH)
+    mi = fit.model_info
+    pre = mi["pre_times"]
+    gap = (mi["Y_obs"][pre] - mi["Y_synth"][pre]).to_numpy()
+    rmse = float(np.sqrt(np.mean(gap**2)))
+    ratio = rmse / float(np.std(mi["Y_obs"][pre].to_numpy(), ddof=1))
+    assert mi["pre_treatment_rmse"] == pytest.approx(rmse, rel=1e-12)
+    assert mi["pretreatment_rmse_ratio"] == pytest.approx(ratio, rel=1e-12)
+    assert mi["placebo_inference"] == {
+        "se_method": "placebo",
+        "n_reps": 200,
+        "se": float(fit.se),
+    }
+    checks = {c["name"]: c for c in sp.audit(fit)["checks"]}
+    assert checks["pretreatment_fit"]["status"] == "passed"
+    assert checks["pretreatment_fit"]["value"] == pytest.approx(ratio, rel=1e-12)
+    assert ratio < checks["pretreatment_fit"]["threshold"]
+    assert checks["placebo_inference"]["status"] == "passed"
+
+
+def test_sdid_without_a_standard_error_has_no_inference_evidence(files):
+    """One treated unit: the jackknife variance is undefined (as in
+    synthdid), so there is no inferential statement to recognise."""
+    _, frames = files
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.sdid(frames["synth"], se_method="jackknife", **_SYNTH)
+    assert np.isnan(fit.se)
+    assert "placebo_inference" not in fit.model_info
+    assert "resampling_inference" not in fit.model_info
+    checks = {c["name"]: c["status"] for c in sp.audit(fit)["checks"]}
+    assert checks["placebo_inference"] == "missing"

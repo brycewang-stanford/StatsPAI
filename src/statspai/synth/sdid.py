@@ -483,6 +483,23 @@ def sdid(
         "post_times": post_times,
         "all_times": all_times,
     }
+    # The evidence sp.audit asks a synthetic-control fit for, under the
+    # names it reads. Both restate what is computed above: the pre-period
+    # gap between the two stored paths, and the resampling that produced
+    # the standard error.
+    pre_gap = Y_tr_all[:T_pre] - Y_synth_pre
+    pre_rmse = float(np.sqrt(np.mean(pre_gap**2)))
+    pre_sd = float(np.std(Y_tr_all[:T_pre], ddof=1))
+    model_info["pre_treatment_rmse"] = pre_rmse
+    if pre_sd > 0:
+        model_info["pretreatment_rmse_ratio"] = pre_rmse / pre_sd
+    if np.isfinite(se) and se > 0:
+        key = "placebo_inference" if se_method == "placebo" else "resampling_inference"
+        model_info[key] = {
+            "se_method": se_method,
+            "n_reps": model_info["n_reps"],
+            "se": float(se),
+        }
 
     return CausalResult(
         method=f"{method_labels[method]} (Arkhangelsky et al. 2021)",
