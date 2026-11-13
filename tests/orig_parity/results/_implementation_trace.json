@@ -523,14 +523,14 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 3.14,
+   "seconds": 5.45,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "6d9aa3cb2cc96d87adff095d2164b6d1ec17e998d8acaed58c0e9b2853a66a2f",
+    "src/statspai/__init__.py": "e3628553675ebb261d1c2095e01680d86db05a7f5780e6b4c0036eda9e43b9ce",
     "src/statspai/_aliases.py": "d7eb767449b353a1f4af8199f18827a0299c57a383d3e3b22806042bcaf67c16",
     "src/statspai/_result_serialize.py": "a36be5c8336258f9702b133f61ce14250b5dcf4b46dee0c8501714f6f911416a",
     "src/statspai/core/results.py": "eadceb6205c8e9c5fec89daae919d9d5fdd7de914ba4c48514a408256bc7a245",
@@ -544,10 +544,10 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {
-    "numpy": "2.2.6",
-    "scipy": "1.15.3",
-    "pandas": "2.3.3",
-    "scikit-learn": "1.6.1"
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "pandas": "3.1.1",
+    "scikit-learn": "1.9.1"
    },
    "source_sha256": "171ba516636fd6d079c70b39dc17cf340b9b14e63abb46ad4aad2b85736d80f9",
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"

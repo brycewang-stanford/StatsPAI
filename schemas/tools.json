@@ -1098,6 +1098,16 @@
           ],
           "type": "string"
         },
+        "vce": {
+          "default": "opg",
+          "description": "Covariance of the estimates. ``'opg'``: outer product of the scores, the default of Stata's ``arima``. ``'oim'``: inverse of the observed information (the numerical Hessian of the log-likelihood), what R's ``stats::arima`` / ``forecast::Arima`` report and Stata's ``arima, vce(oim)``. ``'robust'``: the sandwich of the two. The two estimates of the information agree in large samples under a correct model; in a short series they can differ by a third (a moving-average coefficient near the invertibility boundary is the usual case), so name the one you report. ``result.model_info['vce']`` records the choice.",
+          "enum": [
+            "opg",
+            "oim",
+            "robust"
+          ],
+          "type": "string"
+        },
         "y": {
           "description": "The series; a column name when ``data`` is given.",
           "type": "string"
@@ -12409,6 +12419,66 @@
     "name": "dlm"
   },
   {
+    "description": "Diebold-Mariano test that two forecasts are equally accurate: t ratio of the mean loss differential |e1|^power - |e2|^power with a long-run variance over the h - 1 autocovariances an h-step forecast error has, and the Harvey-Leybourne-Newbold small-sample correction (t reference with n - 1 degrees of freedom). Compares predictive accuracy of out-of-sample forecast errors, for instance two columns of sp.tscv(...).errors. Equal to R forecast::dm.test. Meant for non-nested forecasts; with nested models the statistic is not asymptotically normal. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The loss differential is covariance stationary; The forecasts come from non-nested methods (or a rolling scheme with a fixed estimation window); The errors are out-of-sample and of one horizon h. Failure modes: dm_test: alternative=<alternative> is not 'two-sided', 'less' or 'greater' -> 'greater' says method 2 is the more accurate one; dm_test: varestimator=<varestimator> is not 'acf' or 'bartlett' -> Use 'bartlett' when 'acf' gives a negative variance; dm_test: h must be a positive integer, got <h> -> h is the forecast horizo...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level used for 'reject'",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "two-sided",
+          "description": "'greater': method 2 is more accurate; 'less': less accurate",
+          "enum": [
+            "two-sided",
+            "less",
+            "greater"
+          ],
+          "type": "string"
+        },
+        "e1": {
+          "description": "Forecast errors of method 1",
+          "type": "string"
+        },
+        "e2": {
+          "description": "Forecast errors of method 2",
+          "type": "string"
+        },
+        "h": {
+          "default": 1,
+          "description": "Forecast horizon of the errors",
+          "type": "integer"
+        },
+        "harvey": {
+          "default": true,
+          "description": "Harvey-Leybourne-Newbold correction and t reference; False is the original statistic with a normal reference",
+          "type": "boolean"
+        },
+        "power": {
+          "default": 2,
+          "description": "Loss is |e|^power: 2 MSE, 1 MAE",
+          "type": "number"
+        },
+        "varestimator": {
+          "default": "acf",
+          "description": "Long-run variance: unweighted autocovariances, or Bartlett weights (never negative)",
+          "enum": [
+            "acf",
+            "bartlett"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "e1",
+        "e2"
+      ],
+      "type": "object"
+    },
+    "name": "dm_test"
+  },
+  {
     "description": "Double/debiased machine learning (Chernozhukov et al. 2018) with cross-fitting: partially linear (plr), interactive (irm, binary treatment), and the IV versions (pliv, iivm). Treatment effect under selection on observables with flexible nuisance models. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat.",
     "input_schema": {
       "properties": {
@@ -20851,11 +20921,11 @@
           "type": "integer"
         },
         "seasonality_period": {
-          "description": "Period P of Fourier seasonal terms (e.g. 12 for monthly data with annual cycle). If None, no seasonality is added.",
+          "description": "Period P of Fourier seasonal terms, in observations (e.g. 12 for monthly data with annual cycle), whatever the unit of ``time``. If None, no seasonality is added.",
           "type": "integer"
         },
         "time": {
-          "description": "Time column. If None, the rows are taken to be in time order and the row index 0..n-1 is the time.",
+          "description": "Time column. If None, the rows are taken to be in time order and the row index 0..n-1 is the time. A numeric column is the clock of the trend and of the slope change, so both are per unit of that column (per year for ``1949.0, 1949.083, ...``). A date, period or other non-numeric column only orders and labels the",
           "type": "string",
           "x-statspai-role": "column"
         },

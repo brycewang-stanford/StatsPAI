@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 529 |
 | | aligned | 77 |
 | | **subtotal** | **606** |
-| **No external software reference** | analytical-only (T1) | 368 |
+| **No external software reference** | analytical-only (T1) | 369 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **422** |
+| | **subtotal** | **423** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 606 | 1009 | 1009 | 60.1% |
+| estimator callables | 606 | 1010 | 1010 | 60.0% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 606 | 1028 | 1680 | 36.1% |
+| **all registered** | 606 | 1029 | 1681 | 36.0% |
 
 ### Coverage by estimator family
 
@@ -55,7 +55,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | causal | 200 | 363 | 363 |
 | regression | 55 | 65 | 65 |
 | inference | 34 | 58 | 58 |
-| timeseries | 24 | 53 | 53 |
+| timeseries | 24 | 54 | 54 |
 | bayes | 13 | 50 | 50 |
 | panel | 38 | 42 | 42 |
 | diagnostics | 24 | 39 | 39 |
@@ -778,7 +778,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 368 functions
+## analytical-only — 369 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -912,6 +912,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `distributional_te` | [`test_distributional_te_inference.py`](../tests/reference_parity/test_distributional_te_inference.py) (+1) |
 | `diversity_index` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `dl_propensity_score` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `dm_test` | [`test_probe_ts_parity.py`](../tests/reference_parity/test_probe_ts_parity.py) |
 | `dml_diagnostics` | [`test_ml_causal_dml_parity.py`](../tests/reference_parity/test_ml_causal_dml_parity.py) |
 | `dnc_gnn_did` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `dragonnet` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |

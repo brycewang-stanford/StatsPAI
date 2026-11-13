@@ -6246,3 +6246,28 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — traces 03 / 13 / 15 / 24 / 25 / 26 / 27 / 33 / 39 / 53 / 65 / 66 / 90 and orig 08 re-recorded (time-series probe)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `fix(timeseries): blind probe vs R / Stata; six wrong numbers
+  or labels`. The commit that adds this entry re-records the traces.
+- **Reason.** `src/statspai/timeseries/var.py` (coefficients by QR instead
+  of the inverse of `X'X`; normal reference for the default standard
+  errors; forecast options), `src/statspai/timeseries/arima.py` (missing
+  residuals at the differenced observations, `vce=`) and
+  `src/statspai/__init__.py` (`sp.dm_test` exported; the file is on the
+  traced path of the modules that reach a name through the package
+  namespace) changed.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  reproduced all thirteen modules within its 1e-9 floor, fixtures byte
+  identical (worst relative difference 1.7e-10, module 25; module 33, the
+  VAR, 5.0e-16: its data are well conditioned, so the QR solve returns the
+  committed coefficients; module 39, the ARIMA, 0: it reports
+  coefficients and outer-product standard errors, which did not change).
+  Re-running original-data module 08 moved four numbers in the 16th digit
+  (jitter, restored). No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

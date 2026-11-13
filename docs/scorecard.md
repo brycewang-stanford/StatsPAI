@@ -22,13 +22,13 @@ never carry a numerical grade (`sp.parity_summary()['denominators']`).
 
 | Measure | Estimators | Share |
 | --- | ---: | ---: |
-| Registered estimators | 1,009 | 100% |
-| With numerical evidence of any kind | 1,009 | 100.0% |
-| Same data, matched to an R / Stata / author reference (T2) | 606 | 60.1% |
+| Registered estimators | 1,010 | 100% |
+| With numerical evidence of any kind | 1,010 | 100.0% |
+| Same data, matched to an R / Stata / author reference (T2) | 606 | 60.0% |
 | `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 529 | 52.4% |
 | `aligned` (documented looser tolerance and mechanism) | 77 | 7.6% |
-| Known truth only (`analytical-only`) | 352 | 34.9% |
-| Published numbers reproduced (`external-replication`) | 51 | 5.1% |
+| Known truth only (`analytical-only`) | 353 | 35.0% |
+| Published numbers reproduced (`external-replication`) | 51 | 5.0% |
 | No evidence (`unverified`, listed in section 4) | 0 | 0.0% |
 
 The Track A harness runs 91 modules on the same CSV bytes

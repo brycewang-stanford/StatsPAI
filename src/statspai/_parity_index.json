@@ -6579,6 +6579,23 @@
       "tolerance": "filtered and smoothed means, filtered variances, one-step forecasts and the log likelihood 1e-9 rel at fixed variances; smoothed variances 1e-5 under the diffuse prior; maximum-likelihood variances 1e-5 with a likelihood at least as high"
     },
     {
+      "function": "dm_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_probe_ts_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/r_parity/71_dml_family.py",
         "tests/r_parity/71_dml_family.R",
@@ -11509,6 +11526,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_probe_ts_parity.py",
         "tests/reference_parity/test_timeseries_parity.py"
       ],
       "also_verified_by": [
@@ -12913,7 +12931,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_forecasting_r_parity.py"
+        "tests/reference_parity/test_forecasting_r_parity.py",
+        "tests/reference_parity/test_probe_ts_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -24151,6 +24170,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_stock_watson_4e_ch15.py",
+        "tests/reference_parity/test_probe_ts_parity.py",
         "tests/reference_parity/test_structural_break_parity.py"
       ],
       "also_verified_by": [
@@ -26375,6 +26395,7 @@
         "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_irf_bands_stata_parity.py",
+        "tests/reference_parity/test_probe_ts_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py",
         "tests/reference_parity/test_timeseries_R_parity.py",
@@ -26555,6 +26576,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_dynamic_modelling_parity.py",
+        "tests/reference_parity/test_probe_ts_parity.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
       ],
       "also_verified_by": [
