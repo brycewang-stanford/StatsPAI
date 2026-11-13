@@ -1,0 +1,7 @@
+family,corstr,alpha
+binomial,exchangeable,0.1802546604530735
+binomial,ar1,0.21180328119625133
+poisson,exchangeable,0.2296490042306542
+poisson,ar1,0.23990533443383177
+gaussian,exchangeable,0.5266095627766868
+gaussian,ar1,0.5387828944422316

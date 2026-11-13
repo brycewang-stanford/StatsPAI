@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import numbers
 import warnings
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -85,6 +85,7 @@ def ipw(
     n_folds: int = 5,
     *,
     missing: MissingPolicy = "drop",
+    truncate: Optional[Tuple[float, float]] = None,
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -127,6 +128,24 @@ def ipw(
         Trim propensity scores to [trim, 1 - trim]. Common choices: 0.01, 0.05, 0.1.
         Crump et al. (2009) recommend dropping units with p outside [0.1, 0.9].
         Must lie in ``[0, 0.5)``.
+    truncate : (float, float), optional
+        Percentile truncation of the weights, as fractions: ``(0.01,
+        0.99)`` sets every weight below the 1st percentile to the 1st
+        percentile and every weight above the 99th to the 99th
+        (winsorising; no unit is dropped). ``(0, 0.99)`` truncates the
+        upper tail only. The percentiles are order statistics of the
+        unnormalised weights (R ``quantile(type = 3)``), taken over both
+        arms for the ATE and over the non-focal arm for the ATT / ATC,
+        whose focal weights are all one. This is R ``WeightIt::trim(w,
+        at = 0.99, lower = TRUE)``. ``trim=`` bounds the propensity score
+        instead; the two can be combined. With ``se_method='sandwich'``
+        the standard error treats the truncated weights as fixed: it is
+        the HC0 standard error of the weighted regression of the outcome
+        on the treatment (clustered when ``cluster=`` is given), not the
+        stacked M-estimation one, which truncation does not have. The
+        bootstrap re-estimates the scores and truncates anew in every
+        resample. Estimands ``'ATE'``, ``'ATT'``, ``'ATC'``; not with
+        ``weights=`` or ``design=``.
     normalize : bool, default True
         If True, use Hajek (normalised) weights. Generally recommended
         for finite-sample stability, and the estimate does not change when
@@ -337,6 +356,7 @@ def ipw(
             recovery_hint="Common choices are 0.01, 0.05 and 0.1; trim=0 "
             "leaves the scores as fitted.",
         )
+    truncate = _check_truncate(truncate, estimand, weights, design)
     # n_bootstrap=0 is an explicit request for the point estimate alone
     point_only = se_method == "bootstrap" and n_bootstrap == 0
     if se_method == "bootstrap" and not point_only and not n_bootstrap >= 2:
@@ -458,7 +478,13 @@ def ipw(
         pscore = np.clip(pscore, trim, 1 - trim)
 
     # --- Compute weights ---
-    weights_1, weights_0 = _compute_weights(T, pscore, estimand, normalize, sw)
+    trunc_info: Optional[dict] = None
+    if truncate is None:
+        weights_1, weights_0 = _compute_weights(T, pscore, estimand, normalize, sw)
+    else:
+        weights_1, weights_0, trunc_info = _truncated_weights(
+            T, pscore, estimand, normalize, truncate
+        )
 
     # --- Point estimate ---
     estimate = float(np.sum(weights_1 * Y) - np.sum(weights_0 * Y))
@@ -521,6 +547,10 @@ def ipw(
         svy_df = design_df(svy, svy_rows.rows)
         boot_estimates = None
         n_boot_failed = 0
+    elif se_method == "sandwich" and truncate is not None:
+        se = _fixed_weight_se(Y, weights_1, weights_0, estimate, normalize, groups)
+        boot_estimates = None
+        n_boot_failed = 0
     elif se_method == "sandwich":
         se = _ipw_sandwich_se(
             X,
@@ -569,7 +599,10 @@ def ipw(
                 ps_b = _estimate_propensity(X_b, T_b, sw_b, ps_model)
             if trim > 0:
                 ps_b = np.clip(ps_b, trim, 1 - trim)
-            w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
+            if truncate is None:
+                w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
+            else:
+                w1, w0, _ = _truncated_weights(T_b, ps_b, estimand, normalize, truncate)
             boot_estimates[b] = np.sum(w1 * Y_b) - np.sum(w0 * Y_b)
 
         # SE = sd of the replicates that have both arms (Stata's bootstrap
@@ -651,6 +684,11 @@ def ipw(
     }
     # Recorded only when they occur, so an ordinary fit's model_info is
     # unchanged.
+    if trunc_info is not None:
+        model_info["truncate"] = tuple(truncate)  # type: ignore[arg-type]
+        model_info.update(trunc_info)
+        if se_method == "sandwich":
+            model_info["se_weights"] = "fixed (HC0 of the weighted regression)"
     if n_boot_failed:
         model_info["n_bootstrap_failed"] = n_boot_failed
     if collinear_omitted:
@@ -1028,6 +1066,108 @@ def _compute_weights(
         w0 = w0 / denom
 
     return w1, w0
+
+
+def _check_truncate(
+    truncate: Any, estimand: str, weights: Any, design: Any
+) -> Optional[Tuple[float, float]]:
+    """Validate ``truncate=`` and return it as a pair of floats."""
+    if truncate is None:
+        return None
+    try:
+        lo, hi = (float(v) for v in truncate)
+    except (TypeError, ValueError):
+        lo = hi = float("nan")
+    if not (0.0 <= lo < hi <= 1.0):
+        raise MethodIncompatibility(
+            f"ipw: truncate must be a pair of fractions 0 <= lower < upper <= 1, "
+            f"got {truncate!r}.",
+            recovery_hint="truncate=(0.01, 0.99) truncates the weights at "
+            "their 1st and 99th percentiles; (0, 0.99) only the upper tail.",
+        )
+    if estimand not in ("ATE", "ATT", "ATC"):
+        raise MethodIncompatibility(
+            f"ipw: truncate= applies to inverse-probability weights; the "
+            f"{estimand} weights are bounded by construction.",
+            recovery_hint="Drop truncate= for estimand='ATO' / 'ATM'.",
+        )
+    if weights is not None or design is not None:
+        raise MethodIncompatibility(
+            "ipw: truncate= is not combined with weights= or design=; which "
+            "of the two weights the percentiles refer to is not settled.",
+            recovery_hint="Use trim= (bounds on the propensity score) with "
+            "sampling weights or a survey design.",
+        )
+    return lo, hi
+
+
+def _order_statistic_quantile(x_sorted: np.ndarray, prob: float) -> float:
+    """R ``quantile(type = 3)``: the nearest order statistic, halves to even."""
+    n = len(x_sorted)
+    fuzz = 4 * np.finfo(float).eps
+    nppm = n * prob - 0.5
+    j = int(np.floor(nppm + fuzz))
+    h = nppm - j
+    if abs(h) < fuzz:
+        h = 0.0
+    take_upper = not (h == 0.0 and j % 2 == 0)
+    idx = j + 1 if take_upper else j  # 1-based order statistic
+    return float(x_sorted[min(max(idx, 1), n) - 1])
+
+
+def _truncated_weights(
+    T: np.ndarray,
+    pscore: np.ndarray,
+    estimand: str,
+    normalize: bool,
+    truncate: Tuple[float, float],
+) -> Tuple[np.ndarray, np.ndarray, dict]:
+    """IPW weights truncated at percentiles of the unnormalised weights."""
+    w1, w0 = _raw_weights(T, pscore, estimand)
+    w = w1 + w0  # each unit's own weight
+    focal = (
+        T == 1
+        if estimand == "ATT"
+        else (T == 0 if estimand == "ATC" else np.zeros(len(T), dtype=bool))
+    )
+    pool = np.sort(w[~focal])
+    lo, hi = truncate
+    lower = _order_statistic_quantile(pool, lo) if lo > 0 else float(pool[0])
+    upper = _order_statistic_quantile(pool, hi) if hi < 1 else float(pool[-1])
+    clipped = np.where(focal, w, np.clip(w, lower, upper))
+    info = {
+        "truncation_bounds": (lower, upper),
+        "n_truncated_low": int(np.sum(~focal & (w < lower))),
+        "n_truncated_high": int(np.sum(~focal & (w > upper))),
+    }
+    w1, w0 = T * clipped, (1 - T) * clipped
+    if normalize:
+        return w1 / w1.sum(), w0 / w0.sum(), info
+    denom = _target_size(T, estimand, None)
+    return w1 / denom, w0 / denom, info
+
+
+def _fixed_weight_se(
+    Y: np.ndarray,
+    w1: np.ndarray,
+    w0: np.ndarray,
+    estimate: float,
+    normalize: bool,
+    groups: Optional[np.ndarray],
+) -> float:
+    """Standard error of ``sum(w1 Y) - sum(w0 Y)`` with the weights fixed.
+
+    Normalised weights: the linearisation of the two weighted means, which
+    is the HC0 standard error of the weighted regression of ``Y`` on the
+    treatment. Unnormalised: the variance of a sum of independent terms.
+    """
+    if normalize:
+        u = w1 * (Y - np.sum(w1 * Y)) - w0 * (Y - np.sum(w0 * Y))
+    else:
+        u = (w1 - w0) * Y - estimate / len(Y)
+    if groups is not None:
+        u = np.bincount(groups, weights=u)
+    return float(np.sqrt(np.sum(u**2)))
 
 
 def _target_size(T: np.ndarray, estimand: str, sw: Optional[np.ndarray]) -> float:

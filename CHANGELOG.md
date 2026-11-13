@@ -4,6 +4,57 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Features a referee asks for by name: survival and epidemiology (2026-11-13)
+
+The epidemiology probe ended with a list of things an analysis plan asks
+for by name. Each is now an option of the function that should have it.
+Defaults and the numbers of existing calls are unchanged. References are
+run on the same bytes (`tests/reference_parity/test_gaps_epi_parity.py`, 64
+tests: R survival 3.8.3, marginaleffects 0.32.0, WeightIt 1.7.0, geepack
+1.3.13, PSweight 2.1.2; Stata 18 `stcox`, `streg`, `teffects ra`, `mixed`,
+`melogit`).
+
+#### Added
+- **`sp.cox(ties="exact")`.** The exact partial likelihood for tied failure
+  times, with strata and delayed entry. Equal to R `coxph(ties = "exact")`
+  and Stata `stcox, exactp` to 1e-11 (coefficients, standard errors,
+  log-likelihood, score and Wald tests). Each event time costs the size of
+  the risk set times the number of ties, not the number of subsets. Weights,
+  robust and clustered variances and `ph_test()` are refused, as in R and
+  Stata. The baseline hazard is R `basehaz`'s.
+- **`sp.aft(robust=, cluster=)`.** Sandwich variances of the AFT model, with
+  Stata's `N/(N-1)` and `G/(G-1)` (`streg, vce(robust | cluster)`); R
+  `survreg(robust = TRUE)` is the same matrix without the factor. Standard
+  errors agree to 7e-7; coefficients to 1e-13.
+- **`sp.g_computation(outcome_model="logit" | "poisson", contrast=)`.**
+  Standardisation with a logistic or Poisson outcome model, and the risk
+  difference, risk (rate) ratio and marginal odds ratio. With `by_arm=True`
+  and `se_method="analytic"` it is Stata `teffects ra (y x, logit)` to 1e-14
+  (ATE, ATET, potential-outcome means; the ratios equal `nlcom` to 1e-10,
+  with log-scale intervals). Without `by_arm` it equals
+  `marginaleffects::avg_comparisons` of the `glm` to 1e-14.
+- **`sp.ipw(truncate=(0.01, 0.99))`.** Percentile truncation of the weights,
+  R `WeightIt::trim(at = 0.99, lower = TRUE)` (order-statistic percentiles,
+  focal arm untouched for ATT / ATC), to 1e-14. With
+  `se_method="sandwich"` the standard error holds the truncated weights
+  fixed and equals the HC0 error of the weighted regression.
+- **`sp.gee`: QIC.** `diagnostics["QIC"]`, `["QICu"]`,
+  `["Quasi-likelihood"]` and `["CIC"]`, the numbers of `geepack::QIC`
+  (1e-12 under independence; 1e-6 for exchangeable and AR(1) fits at the
+  same working correlation).
+- **Variance-component standard errors.** `sp.mixed` and `sp.meglm` results
+  carry `variance_components_se` and print it in `summary()`: the delta
+  method on the inverse observed information, as Stata `mixed` and
+  `melogit` report. Random intercept: 3e-7 from Stata; Laplace `melogit`:
+  4e-9; a balanced one-way layout reproduces the ANOVA formulas.
+- **`sp.overlap_weights(se_method="sandwich")`.** The M-estimation standard
+  error that carries the estimated propensity score, equal to
+  `PSweight::PSweight` to 1e-12 for the overlap, IPW, treated and entropy
+  weights.
+- **`sp.mr("all", ...)` takes the summary statistics as arrays**, like every
+  single method of the family. It used to stop with `data must be
+  provided`.
+
 ### Features a referee asks for by name: meta-analysis, experiments, ML (2026-11-13)
 
 Same round as the econometrics block below, for the epidemiology and

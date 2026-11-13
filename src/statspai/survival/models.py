@@ -381,6 +381,15 @@ class CoxResult(EconometricResults):
                 recovery_hint="Refit with weights=<design weight column> for "
                 "a weighted (non-design) proportional-hazards test.",
             )
+        if str(self.model_info.get("ties", "efron")).lower() == "exact":
+            raise MethodIncompatibility(
+                "ph_test: not available after ties='exact'. The test is built "
+                "from Schoenfeld residuals, which the exact partial "
+                "likelihood does not define (R residuals(type='schoenfeld') "
+                "refuses the fit as well).",
+                recovery_hint="Refit with ties='efron' to test proportional "
+                "hazards; the two fits estimate the same model.",
+            )
         w_arr = getattr(self, "_weights", None)
         start_arr = getattr(self, "_start", None)
         beta = np.asarray(self.params.values, dtype=float)
@@ -1811,22 +1820,36 @@ def cox(
     # ---- Optimization (Newton-Raphson) --------------------------------
     beta0 = np.zeros(p)
 
-    if ties not in ("efron", "breslow"):
-        raise ValueError(f"ties must be 'efron' or 'breslow', got {ties!r}")
+    if ties not in ("efron", "breslow", "exact"):
+        raise ValueError(f"ties must be 'efron', 'breslow' or 'exact', got {ties!r}")
 
-    breslow = ties == "breslow"
+    # After an exact fit the per-subject quantities use Breslow increments
+    # (R basehaz does the same).
+    breslow = ties in ("breslow", "exact")
 
     # The risk sets are sorted once and shared by every evaluation below.
     kern = CoxKernel(
         X, T, E, strata_arr, breslow=breslow, weights=w_arr, start=start_arr
     )
-    neg_logpl = kern.neg_loglik
+    # ``fit_kern`` is the likelihood that is maximised. With ties='exact' it
+    # is the exact partial likelihood; ``kern`` (Breslow increments) then
+    # only serves the quantities that are defined per subject at the
+    # estimate (baseline hazard, Schoenfeld residuals).
+    fit_kern: Any = kern
+    if ties == "exact":
+        from ._cox_exact import ExactCoxKernel, check_exact_options
+
+        check_exact_options(
+            weights=weights, robust=robust, cluster=cluster, design=design
+        )
+        fit_kern = ExactCoxKernel(X, T, E, strata_arr, start=start_arr)
+    neg_logpl = fit_kern.neg_loglik
 
     # Newton-Raphson with fallback to L-BFGS-B
     beta = beta0.copy()
     converged = False
     for iteration in range(50):
-        score, hessian = kern.score_hessian(beta)
+        score, hessian = fit_kern.score_hessian(beta)
         neg_H = -hessian
         # Check if Hessian is positive definite
         try:
@@ -1879,8 +1902,8 @@ def cox(
     # zero (scale-free); a collapse by eight orders of magnitude is not
     # reached by an interior maximum.
     convergence_note: Optional[str] = None
-    _, _hess_hat = kern.score_hessian(beta)
-    _score_zero, _hess_zero = kern.score_hessian(np.zeros(p))
+    _, _hess_hat = fit_kern.score_hessian(beta)
+    _score_zero, _hess_zero = fit_kern.score_hessian(np.zeros(p))
     _info_hat = -np.diag(_hess_hat)
     _info_zero = -np.diag(_hess_zero)
     runaway = [

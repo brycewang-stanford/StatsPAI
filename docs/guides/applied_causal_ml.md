@@ -90,6 +90,10 @@ sens = sp.dml_sensitivity(fit, cf_y=0.04, cf_d=0.03)
 sens.adjusted_estimate_low, sens.adjusted_estimate_high
 sens.se_low, sens.se_high        # the bounds are estimates too
 sens.ci_low, sens.ci_high
+
+# a less adversarial confounder and a 90% interval, as DoubleML's
+# sensitivity_analysis(rho=, level=)
+sp.dml_sensitivity(fit, cf_y=0.04, cf_d=0.03, rho=0.5, level=0.90)
 ```
 
 `sp.sensemakr` covers the regression version. Controls may be strings, and

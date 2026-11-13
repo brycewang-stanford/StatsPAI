@@ -25,7 +25,7 @@ Klein, J.P. & Moeschberger, M.L. (2003). *Survival Analysis:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -55,6 +55,10 @@ class AFTResult(ResultProtocolMixin):
     #: ``survreg`` and ``sp.survreg`` report the likelihood of the
     #: durations, lower by the sum of ``log t`` over the events.
     log_likelihood_scale: str = "log time (Stata streg)"
+    #: ``"nonrobust"`` (observed information), ``"robust"`` or
+    #: ``"cluster(<column>)"``.
+    vcov_type: str = "nonrobust"
+    n_clusters: Optional[int] = None
 
     # ------------------------------------------------------------------
     # Agent-native accessors (consistent with EconometricResults /
@@ -106,6 +110,13 @@ class AFTResult(ResultProtocolMixin):
             f"log σ = {np.log(self.sigma):.4f}  (σ = {self.sigma:.4f})",
             f"Log-Lik = {self.log_likelihood:.4f}",
             f"AIC = {self.aic:.2f}, BIC = {self.bic:.2f}",
+        ]
+        if self.vcov_type != "nonrobust":
+            extra = (
+                f" ({self.n_clusters} clusters)" if self.n_clusters is not None else ""
+            )
+            lines.append(f"Std. errors: {self.vcov_type}{extra}")
+        lines += [
             "",
             "Coefficients (on log-time scale):",
         ]
@@ -125,6 +136,8 @@ def aft(
     formula: str,
     data: pd.DataFrame,
     family: AFTFamily = "weibull",
+    robust: str = "nonrobust",
+    cluster: Optional[str] = None,
 ) -> AFTResult:
     """Fit an Accelerated Failure Time model by MLE.
 
@@ -134,6 +147,16 @@ def aft(
         ``"duration + event ~ x1 + x2"``. Durations must be positive and
         the event coded 0/1.
     family : {"exponential", "weibull", "lognormal", "loglogistic"}
+    robust : {"nonrobust", "robust", "cluster"}, default "nonrobust"
+        Variance estimator. ``"nonrobust"`` is the inverse observed
+        information. ``"robust"`` is the sandwich of the score
+        contributions with Stata's ``N / (N - 1)`` factor (``streg,
+        vce(robust)``); R ``survreg(robust = TRUE)`` is the same sandwich
+        without the factor.
+    cluster : str, optional
+        Cluster column. Gives the clustered sandwich with ``G / (G - 1)``
+        (``streg, vce(cluster c)``; R ``survreg(cluster = )`` has no
+        factor). Implies ``robust="cluster"``.
 
     Returns
     -------
@@ -195,7 +218,13 @@ def aft(
     from .models import survreg
 
     fit = survreg(
-        data=data, duration=dur_col, event=event_col, x=covariates, dist=family
+        data=data,
+        duration=dur_col,
+        event=event_col,
+        x=covariates,
+        dist=family,
+        robust=robust,
+        cluster=cluster,
     )
     fix_sigma = family == "exponential"
     k = len(covariates) + 1
@@ -228,6 +257,8 @@ def aft(
         n=n,
         n_events=n_events,
         se_log_sigma=se_log_sigma,
+        vcov_type=str(fit.model_info.get("robust", "nonrobust")),
+        n_clusters=fit.model_info.get("n_clusters"),
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -235,7 +266,12 @@ def aft(
         _attach_prov(
             _result,
             function="sp.survival.aft",
-            params={"formula": formula, "family": family},
+            params={
+                "formula": formula,
+                "family": family,
+                "robust": robust,
+                "cluster": cluster,
+            },
             data=data,
             overwrite=False,
         )

@@ -62,6 +62,8 @@ def g_computation(
     by_arm: bool = False,
     ps_covariates: Optional[List[str]] = None,
     se_method: str = "bootstrap",
+    outcome_model: str = "linear",
+    contrast: str = "difference",
 ) -> CausalResult:
     """
     G-computation (parametric g-formula) estimator.
@@ -162,6 +164,26 @@ def g_computation(
         is the standard error ``teffects ra`` / ``teffects ipwra`` report,
         and the confidence interval is the normal one. ``'bootstrap'``
         resamples rows ``n_boot`` times.
+    outcome_model : {'linear', 'logit', 'poisson'}, default 'linear'
+        Outcome regression when ``ml_Q`` is not given: least squares, a
+        logistic regression for a 0/1 outcome, or a Poisson regression
+        (log link) for a count or other non-negative outcome. Predictions
+        are on the scale of the mean (a risk, an expected count). With
+        ``by_arm=True`` this is Stata's ``teffects ra (y x, logit)`` /
+        ``(y x, poisson)``, and ``se_method='analytic'`` its standard
+        error; without it, it is the standardisation of one model that has
+        the treatment as a regressor (R
+        ``marginaleffects::avg_comparisons`` of a ``glm``).
+    contrast : {'difference', 'ratio', 'odds_ratio'}, default 'difference'
+        How the two potential-outcome means are compared: ``E[Y(1)] -
+        E[Y(0)]`` (a risk difference for a 0/1 outcome), their ratio (risk
+        ratio, rate ratio) or the ratio of their odds (a marginal odds
+        ratio, for means inside (0, 1)). For the ratio measures the
+        estimate and its standard error are on the natural scale, the
+        analytic interval is built on the log scale and exponentiated, and
+        the p-value tests a ratio of one; ``model_info`` holds
+        ``log_estimate`` and ``log_se``. Not for
+        ``estimand='dose_response'``.
 
     Notes
     -----
@@ -185,6 +207,32 @@ def g_computation(
             f"got {se_method!r}."
         )
     _check_alpha(alpha, "g_computation")
+    from ._glm_adjustment import CONTRASTS, OUTCOME_MODELS
+
+    if outcome_model not in OUTCOME_MODELS:
+        raise MethodIncompatibility(
+            f"g_computation: outcome_model must be one of {list(OUTCOME_MODELS)}; "
+            f"got {outcome_model!r}.",
+            recovery_hint="Use 'linear', 'logit' (0/1 outcome) or 'poisson' "
+            "(counts); pass ml_Q= for any other learner.",
+        )
+    if contrast not in CONTRASTS:
+        raise MethodIncompatibility(
+            f"g_computation: contrast must be one of {list(CONTRASTS)}; "
+            f"got {contrast!r}.",
+            recovery_hint="Use 'difference', 'ratio' or 'odds_ratio'.",
+        )
+    if outcome_model != "linear" and ml_Q is not None:
+        raise MethodIncompatibility(
+            "g_computation: outcome_model= and ml_Q= both name the outcome " "model.",
+            recovery_hint="Pass one of them.",
+        )
+    if contrast != "difference" and estimand == "dose_response":
+        raise MethodIncompatibility(
+            "g_computation: contrast= compares the two arms of a binary "
+            "treatment; a dose-response curve reports E[Y(d)] at each dose.",
+            recovery_hint="Drop contrast=, or use estimand 'ATE' / 'ATT' / 'ATC'.",
+        )
     if by_arm:
         return _by_arm(
             data,
@@ -193,6 +241,8 @@ def g_computation(
             list(covariates),
             estimand=estimand,
             ml_Q=ml_Q,
+            outcome_model=outcome_model,
+            contrast=contrast,
             ps_covariates=ps_covariates,
             se_method=se_method,
             n_boot=n_boot,
@@ -211,6 +261,10 @@ def g_computation(
     D = _treatment_as_float(df[treat], function="g_computation")
     X = df[covariates].values.astype(float)
     n = len(Y)
+    if outcome_model != "linear":
+        from ._glm_adjustment import check_outcome, fit_glm, glm_mean
+
+        check_outcome(Y, outcome_model)
 
     if estimand in ("ATE", "ATT", "ATC"):
         uniq = set(np.unique(D))
@@ -260,6 +314,16 @@ def g_computation(
     ) -> np.ndarray:
         """Fit Q(D,X) on (Y_, D_, X_), return n_obs × len(grid_) predictions."""
         design = np.column_stack([D_.reshape(-1, 1), X_])
+        if outcome_model != "linear":
+            ones = np.ones((X_.shape[0], 1))
+            coef = fit_glm(
+                Y_, np.column_stack([ones, design]), outcome_model, "g_computation"
+            )
+            preds = np.empty((X_.shape[0], len(grid_)))
+            for k, d_val in enumerate(grid_):
+                eta = np.column_stack([ones, np.full_like(ones, d_val), X_]) @ coef
+                preds[:, k] = glm_mean(eta, outcome_model)[0]
+            return preds
         if ml_Q is None:
             import statsmodels.api as sm
 
@@ -292,6 +356,20 @@ def g_computation(
         X_: np.ndarray,
     ) -> np.ndarray:
         preds = _fit_and_predict(Y_, D_, X_, grid)
+        if contrast != "difference":
+            if estimand == "ATE":
+                target = np.ones(len(D_), dtype=bool)
+            else:
+                target = D_ == (1 if estimand == "ATT" else 0)
+            if target.sum() == 0:
+                return np.array([np.nan])
+            m0 = float(np.mean(preds[target, 0]))
+            m1 = float(np.mean(preds[target, 1]))
+            if contrast == "ratio":
+                return np.array([m1 / m0 if m0 > 0 and m1 > 0 else np.nan])
+            if not (0 < m0 < 1 and 0 < m1 < 1):
+                return np.array([np.nan])
+            return np.array([(m1 / (1 - m1)) / (m0 / (1 - m0))])
         if estimand == "ATE":
             return np.array([float(np.mean(preds[:, 1] - preds[:, 0]))])
         if estimand in ("ATT", "ATC"):
@@ -306,6 +384,14 @@ def g_computation(
 
     point = _point_estimates(Y, D, X)
     binary_contrast = estimand in ("ATE", "ATT", "ATC")
+    if contrast != "difference" and not np.isfinite(point[0]):
+        raise MethodIncompatibility(
+            f"g_computation: contrast={contrast!r} is not defined for these "
+            "standardised means (a ratio needs positive means, an odds ratio "
+            "means strictly between 0 and 1).",
+            recovery_hint="Use contrast='difference', or outcome_model='logit' "
+            "/ 'poisson' so that the predictions stay in range.",
+        )
 
     rng = np.random.default_rng(seed)
     boot = np.full((n_boot, len(point)), np.nan)
@@ -363,6 +449,16 @@ def g_computation(
         "ml_Q": type(ml_Q).__name__ if ml_Q is not None else "OLS",
         "grid": grid.tolist(),
     }
+    if outcome_model != "linear":
+        model_info["outcome_model"] = outcome_model
+        model_info["ml_Q"] = {"logit": "Logit", "poisson": "Poisson"}[outcome_model]
+    if contrast != "difference":
+        # a ratio is tested against one, on the log scale
+        with np.errstate(divide="ignore", invalid="ignore"):
+            log_se = float(np.nanstd(np.log(boot[:, 0]), ddof=1))
+        log_est = float(np.log(point[0]))
+        pvalue = np.array([2 * stats.norm.sf(abs(log_est / log_se))])
+        model_info.update(contrast=contrast, log_estimate=log_est, log_se=log_se)
     if n_failed > 0:
         model_info["first_bootstrap_error"] = first_err
 
@@ -390,7 +486,7 @@ def g_computation(
         summary_se = float(se[0])
         summary_pv = float(pvalue[0])
         summary_ci = (float(ci_lo[0]), float(ci_hi[0]))
-        label = estimand
+        label = estimand + _CONTRAST_LABEL[contrast]
 
     _result = CausalResult(
         method="G-computation",
@@ -421,6 +517,8 @@ def g_computation(
                 "n_boot": n_boot,
                 "alpha": alpha,
                 "seed": seed,
+                "outcome_model": outcome_model,
+                "contrast": contrast,
             },
             data=data,
             overwrite=False,
@@ -428,6 +526,102 @@ def g_computation(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+#: Suffix of the estimand label for each contrast.
+_CONTRAST_LABEL = {"difference": "", "ratio": " (ratio)", "odds_ratio": " (odds ratio)"}
+
+
+def _by_arm_glm(
+    Y: np.ndarray,
+    D: np.ndarray,
+    X: np.ndarray,
+    *,
+    estimand: str,
+    outcome_model: str,
+    contrast: str,
+    se_method: str,
+    n_boot: int,
+    alpha: float,
+    seed: Optional[int],
+) -> CausalResult:
+    """Per-arm logistic / Poisson (or linear, for a ratio) outcome models."""
+    from ._glm_adjustment import check_outcome, contrast_of_means, glm_by_arm
+
+    check_outcome(Y, outcome_model)
+    n = len(Y)
+    fit = glm_by_arm(Y, D, X, estimand=estimand, model=outcome_model)
+    pom, psi = fit["pom"], fit["psi"]
+    est, se, log_est, log_se = contrast_of_means(pom, psi, contrast)
+    z_crit = float(stats.norm.ppf(1 - alpha / 2))
+    info: dict = {
+        "estimator": "Regression adjustment (outcome regression per arm)",
+        "estimand": estimand,
+        "by_arm": True,
+        "ps_covariates": None,
+        "se_method": se_method,
+        "outcome_model": outcome_model,
+        "contrast": contrast,
+        "pomean0": float(pom[0]),
+        "pomean1": float(pom[1]),
+        "pomean0_se": float(np.sqrt(np.mean(psi[:, 0] ** 2) / n)),
+        "pomean1_se": float(np.sqrt(np.mean(psi[:, 1] ** 2) / n)),
+        "ml_Q": {"linear": "OLS", "logit": "Logit", "poisson": "Poisson"}[
+            outcome_model
+        ],
+    }
+    ratio = contrast != "difference"
+    if ratio:
+        info.update(log_estimate=log_est, log_se=log_se)
+    if se_method == "bootstrap":
+        rng = np.random.default_rng(seed)
+        draws = np.full(n_boot, np.nan)
+        for b in range(n_boot):
+            idx = rng.integers(0, n, size=n)
+            try:
+                bfit = glm_by_arm(
+                    Y[idx], D[idx], X[idx], estimand=estimand, model=outcome_model
+                )
+                draws[b] = contrast_of_means(bfit["pom"], bfit["psi"], contrast)[0]
+            except (MethodIncompatibility, RuntimeError, np.linalg.LinAlgError):
+                continue  # a resample without support; counted below
+        ok = int(np.isfinite(draws).sum())
+        if ok < 2:
+            raise RuntimeError(
+                "g_computation(by_arm=True): the bootstrap failed on "
+                f"{n_boot - ok} of {n_boot} resamples; use se_method='analytic'."
+            )
+        se = float(np.nanstd(draws, ddof=1))
+        ci = (
+            float(np.nanpercentile(draws, 100 * alpha / 2)),
+            float(np.nanpercentile(draws, 100 * (1 - alpha / 2))),
+        )
+        info.update(n_boot=n_boot, n_boot_success=ok, n_boot_failed=n_boot - ok)
+        info["pomean0_se"] = info["pomean1_se"] = float("nan")
+        if ratio:
+            log_se = float(np.nanstd(np.log(draws), ddof=1))
+            info["log_se"] = log_se
+    elif ratio:
+        ci = (
+            float(np.exp(log_est - z_crit * log_se)),
+            float(np.exp(log_est + z_crit * log_se)),
+        )
+    else:
+        ci = (est - z_crit * se, est + z_crit * se)
+    stat = (log_est / log_se) if ratio else (est / se if se > 0 else np.nan)
+    return CausalResult(
+        method="Regression adjustment",
+        estimand=estimand + _CONTRAST_LABEL[contrast],
+        estimate=est,
+        se=se,
+        pvalue=float(2 * stats.norm.sf(abs(stat))),
+        ci=ci,
+        alpha=alpha,
+        n_obs=n,
+        detail=None,
+        model_info=info,
+        _citation_key="g_computation",
+    )
 
 
 def _by_arm(
@@ -438,6 +632,8 @@ def _by_arm(
     *,
     estimand: str,
     ml_Q: Optional[Any],
+    outcome_model: str = "linear",
+    contrast: str = "difference",
     ps_covariates: Optional[List[str]],
     se_method: str,
     n_boot: int,
@@ -468,6 +664,27 @@ def _by_arm(
     X = np.column_stack([ones, df[covariates].to_numpy(dtype=float)])
     Z = None if ps is None else np.column_stack([ones, df[ps].to_numpy(dtype=float)])
 
+    if outcome_model != "linear" or contrast != "difference":
+        if ps is not None:
+            raise MethodIncompatibility(
+                "g_computation(by_arm=True): ps_covariates= (inverse-"
+                "probability-weighted regression adjustment) is implemented "
+                "for the linear outcome model and the difference of means.",
+                recovery_hint="Drop ps_covariates=, or use sp.aipw for a "
+                "doubly robust estimate with a binary outcome.",
+            )
+        return _by_arm_glm(
+            Y,
+            D,
+            X,
+            estimand=estimand,
+            outcome_model=outcome_model,
+            contrast=contrast,
+            se_method=se_method,
+            n_boot=n_boot,
+            alpha=alpha,
+            seed=seed,
+        )
     tau, se, extra = regression_adjustment(Y, D, X, estimand=estimand, Z=Z)
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     info = {

@@ -80,7 +80,12 @@ add:
 - `robust="hc0"` or `cluster=` for robust / clustered standard errors,
   with `ssc="r"` (no small-sample factor, as `coxph`) or `ssc="stata"`
   (`N/(N-1)` robust, `G/(G-1)` clustered, as `stcox`),
-- `ties="efron"` (default) / `"breslow"` for tie handling,
+- `ties="efron"` (default) / `"breslow"` for tie handling, or
+  `ties="exact"` for the exact partial likelihood (R `coxph(ties =
+  "exact")`, Stata `stcox, exactp`). Use it when time is recorded coarsely
+  and many subjects fail at the same recorded time; with few ties the three
+  rules agree. The exact likelihood takes strata and delayed entry, and
+  not weights or robust variances,
 - `start=` for counting-process rows `(start, stop]`: delayed entry and
   **time-varying covariates** split into intervals (R `Surv(start, stop,
   event)`, Stata `stset, time0()`); pass `cluster=<subject id>` with
@@ -116,6 +121,10 @@ m = sp.survreg(data=df, duration="time", event="event", x=["arm", "age"],
 print(m.summary())
 
 aft = sp.aft("time ~ arm + age", data=df, family="lognormal")
+
+# sandwich variances (Stata: streg, vce(robust) / vce(cluster clinic))
+aft_r = sp.aft("time + event ~ arm + age", data=df, robust="robust")
+aft_c = sp.aft("time + event ~ arm + age", data=df, cluster="clinic")
 ```
 
 For clustered / shared-frailty survival (recurrent events, multi-centre

@@ -511,8 +511,10 @@ def mendelian_randomization(
 
     Parameters
     ----------
-    data : pd.DataFrame
-        Summary statistics with one row per SNP/instrument.
+    data : pd.DataFrame, optional
+        Summary statistics with one row per SNP/instrument. Without it,
+        pass the four statistics below as arrays (one value per SNP)
+        instead of column names.
     beta_exposure : str
         Column name for SNP-exposure association beta.
     beta_outcome : str
@@ -557,8 +559,6 @@ def mendelian_randomization(
     >>> summary_text = result.summary()
     >>> ax = result.plot()
     """
-    if data is None:
-        raise ValueError("data must be provided.")
     if (
         beta_exposure is None
         or beta_outcome is None
@@ -569,6 +569,37 @@ def mendelian_randomization(
             "beta_exposure, beta_outcome, se_exposure, and se_outcome "
             "must all be provided."
         )
+    if data is None:
+        # The four summary statistics as arrays, the way every single
+        # method of the family takes them.
+        given = {
+            "beta_exposure": beta_exposure,
+            "beta_outcome": beta_outcome,
+            "se_exposure": se_exposure,
+            "se_outcome": se_outcome,
+        }
+        names = [k for k, v in given.items() if isinstance(v, str)]
+        if names:
+            raise MethodIncompatibility(
+                "mendelian_randomization: "
+                + ", ".join(f"{k}={given[k]!r}" for k in names)
+                + " name columns, but no data= was passed.",
+                recovery_hint=(
+                    "Pass data=<DataFrame> with those columns, or pass the "
+                    "four summary statistics as arrays."
+                ),
+            )
+        arrays = {k: np.asarray(v, dtype=float) for k, v in given.items()}
+        lengths = {k: a.shape for k, a in arrays.items()}
+        if any(a.ndim != 1 for a in arrays.values()) or len(set(lengths.values())) != 1:
+            raise MethodIncompatibility(
+                "mendelian_randomization: the four summary-statistic arrays "
+                f"must be one-dimensional and of equal length; got {lengths}.",
+                recovery_hint="Pass one value per SNP in each array.",
+            )
+        data = pd.DataFrame(arrays)
+        beta_exposure, beta_outcome = "beta_exposure", "beta_outcome"
+        se_exposure, se_outcome = "se_exposure", "se_outcome"
     if methods is None:
         methods = ["ivw", "egger", "weighted_median"]
     known = ("ivw", "egger", "weighted_median", "penalized_median")

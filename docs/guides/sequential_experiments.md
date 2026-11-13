@@ -8,6 +8,13 @@ Three questions come up whenever an experiment is analysed before it ends.
 | I want to watch the dashboard after every user and stop whenever it is significant | `sp.msprt` | closed form = defining integral; Monte Carlo of the guarantee |
 | Can pre-experiment data shrink the standard error? | `sp.cuped` | formula identities; known-truth Monte Carlo |
 | What power does *my* estimator have on *my* design? | `sp.power("simulation", ...)` | agrees with exact t power within Monte Carlo error |
+| Are the arm sizes what the design implies (sample ratio mismatch)? | `sp.srm_test` | R `chisq.test(x, p=)`, 1e-12 |
+
+Run the last one first. `sp.srm_test(df, "arm")` (or `sp.srm_test({"control":
+5000, "treated": 5300}, expected=[0.5, 0.5])`) is the chi-square
+goodness-of-fit test of the arm counts against the designed allocation. A
+mismatch means assignment, logging or filtering treated the arms
+differently, and no outcome analysis repairs that.
 
 ## 1. Group sequential designs
 

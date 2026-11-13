@@ -123,6 +123,12 @@ class MixedResult(ResultProtocolMixin):
     _converged: bool = field(default=True, repr=False)
     _alpha: float = field(default=0.05, repr=False)
     _n_cov_params: int = field(default=0, repr=False)
+    #: Standard errors of ``variance_components`` (same keys): the delta
+    #: method on the inverse observed information of the (restricted)
+    #: likelihood, as Stata ``mixed`` reports them. Empty when the
+    #: information is not positive definite (a variance on the boundary)
+    #: and for three-level fits.
+    variance_components_se: Dict[str, float] = field(default_factory=dict)
     _lr_test: Optional[Dict[str, Any]] = field(default=None, repr=False)
     _ranef_se: Optional[pd.DataFrame] = field(default=None, repr=False)
     _nakagawa: Optional[Dict[str, float]] = field(default=None, repr=False)
@@ -464,8 +470,14 @@ class MixedResult(ResultProtocolMixin):
 
         lines.append("-" * w)
         lines.append("Variance components:")
+        vc_se = self.variance_components_se or {}
+        if vc_se:
+            lines.append(f"  {'':24s}  {'Estimate':>12s}  {'Std.Err':>12s}")
         for name, val in self.variance_components.items():
-            lines.append(f"  {name:24s}  {val:.6f}")
+            if name in vc_se:
+                lines.append(f"  {name:24s}  {val:12.6f}  {vc_se[name]:12.6f}")
+            else:
+                lines.append(f"  {name:24s}  {val:.6f}")
 
         # Nakagawa R² (lazy compute if blocks retained)
         if len(self._blocks) > 0:
@@ -1353,6 +1365,22 @@ def mixed(
                 vc[f"cov({random_names[j]},{random_names[i]})"] = float(G_hat[i, j])
                 vc[f"corr({random_names[j]},{random_names[i]})"] = float(corr)
     vc["var(Residual)"] = sigma2_hat
+    # Standard errors: the profiled criterion has the same curvature in the
+    # covariance parameters as the full likelihood (the Schur complement of
+    # the fixed-effect block), so its inverse Hessian is their covariance.
+    from ._core import variance_component_se
+    from .glmm import _numerical_oim_cov
+
+    vc_se_arr = variance_component_se(
+        res.x,
+        _numerical_oim_cov(_crit, np.asarray(res.x, dtype=float)),
+        q_random,
+        cov_type,
+        lambda tail: [float(np.exp(tail[0]))],
+    )
+    vc_se: Dict[str, float] = (
+        {} if vc_se_arr is None else dict(zip(vc, (float(v) for v in vc_se_arr)))
+    )
 
     # (Three-level nesting is handled by a dedicated routine; see
     # ``_fit_three_level_intercept`` earlier in the dispatcher.)
@@ -1428,6 +1456,7 @@ def mixed(
         _converged=converged,
         _alpha=alpha,
         _n_cov_params=n_cov_pars + 1,  # + residual variance
+        variance_components_se=vc_se,
         _lr_test=lr_test,
         _ranef_se=ranef_se_df,
         _row_labels=df.index,

@@ -17,7 +17,7 @@ reused from ``lmm.py`` and ``glmm.py`` without creating cycles.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -103,6 +103,67 @@ def _unpack_G(theta: np.ndarray, q: int, cov_type: str) -> np.ndarray:
         return np.asarray(L @ L.T, dtype=float)
 
     raise ValueError(f"unknown cov_type {cov_type!r}")
+
+
+def _vc_values(
+    G: np.ndarray, q: int, cov_type: str, tail: Sequence[float]
+) -> np.ndarray:
+    """Variance components in the order the result dictionaries list them:
+    the variances, then (unstructured) each covariance and correlation,
+    then the trailing scalars (residual variance or dispersion)."""
+    out = [float(G[i, i]) for i in range(q)]
+    if cov_type == "unstructured" and q >= 2:
+        for i in range(q):
+            for j in range(i):
+                denom = np.sqrt(G[i, i] * G[j, j])
+                out.append(float(G[i, j]))
+                out.append(float(G[i, j] / denom) if denom > 0 else np.nan)
+    out.extend(float(t) for t in tail)
+    return np.asarray(out, dtype=float)
+
+
+def variance_component_se(
+    packed: np.ndarray,
+    cov_packed: Optional[np.ndarray],
+    q: int,
+    cov_type: str,
+    tail_of: Callable[[np.ndarray], Sequence[float]],
+) -> Optional[np.ndarray]:
+    """Delta-method standard errors of the variance components.
+
+    ``packed`` holds the unconstrained covariance parameters followed by
+    the trailing ones (log residual variance, packed dispersion);
+    ``cov_packed`` is their covariance matrix, the inverse observed
+    information of the (profiled or marginal) likelihood. The variance
+    components are smooth functions of ``packed``; their Jacobian is taken
+    by central differences, which is exact to rounding for functions this
+    simple. Returns ``None`` when the information is not available.
+    """
+    if cov_packed is None or not np.all(np.isfinite(cov_packed)):
+        return None
+    packed = np.asarray(packed, dtype=float)
+    n_cov = _n_cov_params(q, cov_type)
+
+    def values(theta: np.ndarray) -> np.ndarray:
+        G = _unpack_G(theta[:n_cov], q, cov_type)
+        return _vc_values(G, q, cov_type, tail_of(theta[n_cov:]))
+
+    base = values(packed)
+    jac = np.zeros((len(base), len(packed)))
+    for k in range(len(packed)):
+        h = 1e-5 * max(1.0, abs(packed[k]))
+        up, dn = packed.copy(), packed.copy()
+        up[k] += h
+        dn[k] -= h
+        up2, dn2 = packed.copy(), packed.copy()
+        up2[k] += 2 * h
+        dn2[k] -= 2 * h
+        # five-point stencil: O(h^4)
+        jac[:, k] = (8.0 * (values(up) - values(dn)) - (values(up2) - values(dn2))) / (
+            12.0 * h
+        )
+    var = np.einsum("ij,jk,ik->i", jac, cov_packed, jac)
+    return np.asarray(np.sqrt(np.clip(var, 0.0, None)), dtype=float)
 
 
 def _initial_theta(q: int, cov_type: str, s2_init: float) -> np.ndarray:

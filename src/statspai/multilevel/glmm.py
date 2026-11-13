@@ -709,6 +709,11 @@ class MEGLMResult(ResultProtocolMixin):
     _cov_type: str = field(default="unstructured", repr=False)
     _alpha: float = field(default=0.05, repr=False)
     _n_cov_params: int = field(default=0, repr=False)
+    #: Standard errors of ``variance_components`` (same keys): the delta
+    #: method on the inverse observed information of the marginal
+    #: likelihood, as Stata ``melogit`` / ``meglm`` report them. Empty when
+    #: that information is not positive definite.
+    variance_components_se: Dict[str, float] = field(default_factory=dict)
     _offset_name: Optional[str] = field(default=None, repr=False)
     _dispersion: Optional[float] = field(default=None, repr=False)
     # Ordinal-logit specific — None for non-ordinal models.
@@ -870,8 +875,14 @@ class MEGLMResult(ResultProtocolMixin):
                 lines.append(f"{name:>18s} {val:10.4f}")
         lines.append("-" * w)
         lines.append("Variance components:")
+        vc_se = self.variance_components_se or {}
+        if vc_se:
+            lines.append(f"  {'':24s}  {'Estimate':>12s}  {'Std.Err':>12s}")
         for name, val in self.variance_components.items():
-            lines.append(f"  {name:24s}  {val:.6f}")
+            if name in vc_se:
+                lines.append(f"  {name:24s}  {val:12.6f}  {vc_se[name]:12.6f}")
+            else:
+                lines.append(f"  {name:24s}  {val:.6f}")
         lines.append("=" * w)
         return "\n".join(lines)
 
@@ -2050,6 +2061,20 @@ def meglm(
             disp_label = "phi" if fam_key == "gamma" else "alpha"
             vc[f"dispersion({disp_label})"] = float(dispersion)
 
+    vc_se: Dict[str, float] = {}
+    if cov_full is not None:
+        from ._core import variance_component_se
+
+        vc_se_arr = variance_component_se(
+            theta_hat[p_fixed:],
+            cov_full[p_fixed:, p_fixed:],
+            q_random,
+            cov_type,
+            lambda tail: [float(fam.parse_dispersion(tail))] if n_disp else [],
+        )
+        if vc_se_arr is not None:
+            vc_se = dict(zip(vc, (float(v) for v in vc_se_arr)))
+
     method = "laplace" if nAGQ == 1 else f"AGHQ(nAGQ={nAGQ})"
 
     return MEGLMResult(
@@ -2068,6 +2093,7 @@ def meglm(
         _cov_fixed=cov_beta,
         _cov_fixed_conditional=cov_beta_conditional,
         _cov_full=cov_full,
+        variance_components_se=vc_se,
         _vce_method=vce_method,
         _G=G_hat,
         _x_fixed=x_fixed,

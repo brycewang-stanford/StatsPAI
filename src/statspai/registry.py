@@ -16579,6 +16579,15 @@ def _build_registry() -> None:
                     "trim", "float", False, 0.0, "Propensity score trimming threshold"
                 ),
                 ParamSpec(
+                    "truncate",
+                    "list",
+                    False,
+                    None,
+                    "Percentile truncation of the weights as a pair of "
+                    "fractions, e.g. [0.01, 0.99] (WeightIt::trim(at=0.99, "
+                    "lower=TRUE)); the sandwich SE then holds the weights fixed",
+                ),
+                ParamSpec(
                     "weights",
                     "str",
                     False,
@@ -17000,6 +17009,26 @@ def _build_registry() -> None:
                     None,
                     "Outcome model: any estimator with .fit(X, y) / .predict(X); "
                     "default OLS",
+                ),
+                ParamSpec(
+                    "outcome_model",
+                    "str",
+                    False,
+                    "linear",
+                    "Outcome regression when ml_Q is not given: least squares, "
+                    "logistic (0/1 outcome) or Poisson (counts). With "
+                    "by_arm=True this is Stata teffects ra (y x, logit|poisson)",
+                    ["linear", "logit", "poisson"],
+                ),
+                ParamSpec(
+                    "contrast",
+                    "str",
+                    False,
+                    "difference",
+                    "How E[Y(1)] and E[Y(0)] are compared: difference (risk "
+                    "difference), ratio (risk / rate ratio) or odds_ratio; "
+                    "ratio intervals are built on the log scale",
+                    ["difference", "ratio", "odds_ratio"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "Significance level"),
                 ParamSpec("seed", "int", False, None, "Bootstrap random seed"),

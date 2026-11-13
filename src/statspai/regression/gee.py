@@ -234,7 +234,8 @@ def gee(
         ``n_clusters`` and ``iterations``, and ``omitted``: the regressors
         left out because they are constant or an exact linear combination
         of earlier ones (one ``{"variable", "reason"}`` record each; a
-        warning names them).
+        warning names them). ``diagnostics`` carries ``"QIC"``, ``"QICu"``,
+        ``"Quasi-likelihood"`` and ``"CIC"`` (see Notes).
 
     Notes
     -----
@@ -249,6 +250,19 @@ def gee(
     so its robust standard errors are larger by ``sqrt(G / (G - 1))``.
     With few clusters (under roughly 40) either version is biased
     downward; treat the standard errors as a lower bound there.
+
+    ``diagnostics["QIC"]`` is the quasi-likelihood under the independence
+    model criterion for choosing a working correlation or a mean model
+    (smaller is better): ``-2 Q + 2 CIC``, where ``Q`` is the
+    quasi-likelihood of the fitted means at unit dispersion and ``CIC =
+    trace(Omega_I V_R)`` is the trace of the robust covariance of this fit
+    against the model-based information of the independence fit, with the
+    scale of that fit estimated by the mean squared Pearson residual
+    (divisor ``n``). ``"QICu"`` replaces the trace by the number of
+    coefficients and is for comparing mean models only. These are the
+    numbers R ``geepack::QIC`` prints as ``QIC``, ``QICu``, ``Quasi Lik``
+    and ``CIC``. They are reported whatever ``vce`` is and are not defined
+    for the negative binomial family.
 
     Two moment estimators of the AR(1) correlation are in use and both are
     offered. ``corstr="ar1"`` pools the products of adjacent Pearson
@@ -376,6 +390,7 @@ def gee(
         mu = lnk.inverse(eta)
         if done:
             break
+    beta_glm = beta.copy()  # the independence fit, for the QIC penalty
 
     def moments(b: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, Any]:
         mu_b = lnk.inverse(X @ b)
@@ -528,6 +543,21 @@ def gee(
     }
     if model_info["corr_alpha"] is not None and kind != "independence":
         diagnostics["Working correlation"] = model_info["corr_alpha"]
+    quasi = _quasi_likelihood(fam_key, y, mu_hat)
+    if quasi is not None:
+        # Pan's quasi-likelihood under the independence model criterion, in
+        # geepack's form: the penalty is the trace of the robust covariance
+        # against the model-based information of the independence fit.
+        mu_glm = lnk.inverse(X @ beta_glm)
+        v_glm = fam.variance(mu_glm)
+        w_glm = 1.0 / (v_glm * lnk.deriv(mu_glm) ** 2)
+        phi_glm = float(np.sum((y - mu_glm) ** 2 / v_glm) / n)
+        omega = (X.T * w_glm) @ X / phi_glm
+        cic = float(np.trace(omega @ cov_robust))
+        diagnostics["QIC"] = -2.0 * quasi + 2.0 * cic
+        diagnostics["QICu"] = -2.0 * quasi + 2.0 * p
+        diagnostics["Quasi-likelihood"] = quasi
+        diagnostics["CIC"] = cic
     return EconometricResults(
         params=params,
         std_errors=std_errors,
@@ -535,6 +565,25 @@ def gee(
         data_info=data_info,
         diagnostics=diagnostics,
     )
+
+
+def _quasi_likelihood(family: str, y: np.ndarray, mu: np.ndarray) -> Optional[float]:
+    """Quasi-likelihood of the mean model at unit dispersion, or ``None``."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        if family == "gaussian":
+            q = -0.5 * (y - mu) ** 2
+        elif family == "binomial":
+            q = y * np.log(mu / (1.0 - mu)) + np.log(1.0 - mu)
+        elif family == "poisson":
+            q = y * np.log(mu) - mu
+        elif family == "gamma":
+            q = -y / mu - np.log(mu)
+        elif family == "inverse_gaussian":
+            q = -y / (2.0 * mu**2) + 1.0 / mu
+        else:
+            return None
+    total = float(np.sum(q))
+    return total if np.isfinite(total) else None
 
 
 def _check_alpha(kind: str, a_hat: Any, m_max: int) -> None:

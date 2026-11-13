@@ -37,10 +37,42 @@ print(gc.estimate, ipw.estimate, dr.estimate)   # all target the ATE
 
 - `sp.g_computation` models the **outcome** (trust your outcome model).
 - `sp.ipw` models the **treatment** (trust your propensity model);
-  weights are normalized by default and `trim=` guards extreme weights.
+  weights are normalized by default. `trim=` bounds the propensity score;
+  `truncate=(0.01, 0.99)` truncates the weights themselves at their 1st
+  and 99th percentiles (R `WeightIt::trim`).
 - `sp.aipw` / `sp.tmle` are **doubly robust**: consistent if *either*
   model is right. Prefer these when you are unsure (see
   [Choosing an ML causal estimator](choosing_ml_causal_estimator.md)).
+
+### Binary and count outcomes: risk difference, risk ratio, odds ratio
+
+For a 0/1 or count outcome, fit the outcome model on its own scale and
+choose the contrast of the two standardised means:
+
+```python
+# a logistic model in each arm (Stata: teffects ra (y x, logit) (a))
+rd = sp.g_computation(data, y="died", treat="a", covariates=["x"],
+                      outcome_model="logit", by_arm=True,
+                      se_method="analytic")              # risk difference
+rr = sp.g_computation(data, y="died", treat="a", covariates=["x"],
+                      outcome_model="logit", by_arm=True,
+                      se_method="analytic", contrast="ratio")
+or_ = sp.g_computation(data, y="died", treat="a", covariates=["x"],
+                       outcome_model="logit", by_arm=True,
+                       se_method="analytic", contrast="odds_ratio")
+rr.estimate, rr.ci            # marginal risk ratio, log-scale interval
+rr.model_info["pomean1"], rr.model_info["pomean0"]   # the two risks
+```
+
+`outcome_model="poisson"` does the same for counts and rates. Without
+`by_arm=True` one model with the treatment as a regressor is standardised
+(R `marginaleffects::avg_comparisons`) and the standard error is a
+bootstrap. The odds ratio here is marginal: it compares the odds of the
+two standardised risks and is not the conditional odds ratio of a
+logistic regression coefficient.
+
+`sp.overlap_weights(..., se_method="sandwich")` gives the overlap-weight
+(ATO) estimate with its analytic standard error (R `PSweight`).
 
 ---
 
