@@ -33,7 +33,17 @@ from __future__ import annotations
 import warnings
 from collections.abc import Mapping
 from dataclasses import fields, is_dataclass
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    List,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
 import numpy as np
 
@@ -109,8 +119,10 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
 #: data (a coefficient named ``_cons``).
 _PRIVATE_KEY_CONTAINERS = ("diagnostics", "model_info")
 
+_P = TypeVar("_P")
 
-def drop_private(payload: Any) -> Any:
+
+def drop_private(payload: _P) -> _P:
     """``payload`` without ``_``-prefixed keys at the top level and inside
     its ``diagnostics`` / ``model_info`` mappings.
 
@@ -127,14 +139,16 @@ def drop_private(payload: Any) -> Any:
         for c in _PRIVATE_KEY_CONTAINERS
     ):
         return payload
-    out = {k: v for k, v in payload.items() if not str(k).startswith("_")}
+    out: Dict[Any, Any] = {
+        k: v for k, v in payload.items() if not str(k).startswith("_")
+    }
     for container in _PRIVATE_KEY_CONTAINERS:
         inner = out.get(container)
         if isinstance(inner, dict):
             out[container] = {
                 k: v for k, v in inner.items() if not str(k).startswith("_")
             }
-    return out
+    return cast(_P, out)
 
 
 def _sweep_properties(obj: Any, out: Dict[str, Any]) -> None:

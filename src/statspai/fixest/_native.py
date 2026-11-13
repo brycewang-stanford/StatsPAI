@@ -166,18 +166,24 @@ def _split_formula(
     names = [lhs] + plain + fe
     if len(set(names)) != len(names):
         return None
-    labels = [(t.label, t.var) for t in rhs if isinstance(t, ITerm) and t.categorical]
+    labels = [
+        (item.label, item.var)
+        for item in rhs
+        if isinstance(item, ITerm) and item.categorical
+    ]
     if len(set(labels)) != len(labels):
         return None  # the same factor term twice
-    for t in rhs:
-        if isinstance(t, ITerm) and t.categorical and t.var is not None:
+    for item in rhs:
+        if isinstance(item, ITerm) and item.categorical and item.var is not None:
             # Reduced coding only when the numeric column is a regressor on
             # its own; otherwise every level has its own slope.
-            t.full = t.var not in plain
+            item.full = item.var not in plain
     # Main effects before interactions, each group in the order written:
     # the column order formulaic gives the design matrix.
     rhs.sort(
-        key=lambda t: int(isinstance(t, ITerm) and t.categorical and t.var is not None)
+        key=lambda item: int(
+            isinstance(item, ITerm) and item.categorical and item.var is not None
+        )
     )
     return lhs, rhs, fe
 

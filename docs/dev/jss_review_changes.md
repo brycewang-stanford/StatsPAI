@@ -6350,6 +6350,36 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   kept). The twelve original-data modules were re-run into a scratch
   directory and every number agreed with the committed result within
   1.6e-11. No committed parity result changed.
+
+### 2026-11-13 — 76 Track A traces and all 12 original-data traces re-recorded (agent probe follow-up)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `chore(parity): traces after the agent probe follow-up`
+  (line `agent-2`), which follows the commits that changed the sources.
+- **Reason.** Four files on traced estimation paths changed, none in a
+  number an estimator returns:
+  `src/statspai/core/results.py` (the diagnostics filter of `to_dict()`
+  skips `_`-prefixed keys; a regression payload without a focal term
+  carries `headline_note`; `sp.liml`'s single endogenous regressor is the
+  headline; the file is on the traced path of 70 Track A modules and of
+  every original-data module),
+  `src/statspai/core/_agent_summary.py` (one balance threshold, 0.10, for
+  `violations()`),
+  `src/statspai/_result_serialize.py` (`result_to_dict` skips private
+  dataclass fields),
+  `src/statspai/synth/sdid.py` (module 12: the fit stores its pre-period
+  gap ratio and the resampling behind its standard error in `model_info`)
+  and `src/statspai/fixest/_native.py` (module 67: `C(factor,
+  Treatment(ref))` and factor-by-continuous terms).
+  Track A modules 01 to 19, 21, 24 to 29, 35 to 38, 40 to 59, 61 to 67,
+  71 to 79, 81 to 87, 89, 90, 91.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  reproduced all 76 modules within its 1e-9 floor (71 fixtures byte
+  identical, 5 embedded; worst relative difference 1.7e-10, module 25).
+  The twelve original-data modules were re-run into a scratch directory
+  and every number agreed with the committed result within 1e-9 (worst
+  2.1e-12, module 01). No committed parity result changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`

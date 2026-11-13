@@ -219,13 +219,13 @@ def _coefficient_table(obj: Any) -> Optional[Dict[str, Dict[str, Any]]]:
     labelled coefficient vector (``FEOLSResult``); ``None`` otherwise."""
     from .core.results import _to_jsonable
 
-    params = getattr(obj, "params", None)
-    se = getattr(obj, "std_errors", None)
+    params: Any = getattr(obj, "params", None)
+    se: Any = getattr(obj, "std_errors", None)
     if not (hasattr(params, "index") and hasattr(params, "iloc")):
         return None
     if not (hasattr(se, "iloc") and len(se) == len(params)):
         return None
-    columns = {
+    columns: Dict[str, Any] = {
         "t_statistic": getattr(obj, "tvalues", None),
         "p_value": getattr(obj, "pvalues", None),
         "conf_low": getattr(obj, "conf_int_lower", None),

@@ -2230,7 +2230,9 @@ def _rdplot_figure(
                 "kind='coef_plot', which is drawn from the cached estimate."
             ),
         }
-    fig, _ax = rdplot(frame, y=y, x=x, c=float(c or 0.0), figsize=tuple(figsize))
+    fig, _ax = rdplot(
+        frame, y=str(y), x=str(x), c=float(c or 0.0), figsize=tuple(figsize)
+    )
     return fig
 
 
