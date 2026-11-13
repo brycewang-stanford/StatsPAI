@@ -211,7 +211,8 @@ def _fit_ols(
     cluster: List[str],
 ) -> Any:
     """OLS (optionally absorbing FE) returning a StatsPAI result object."""
-    from .. import hdfe_ols, regress
+    from ..panel.feols import hdfe_ols
+    from ..regression.ols import regress
 
     rhs_str = " + ".join(rhs)
     cl: Optional[Union[str, List[str]]] = cluster if cluster else None
@@ -237,7 +238,7 @@ def _iv_se(
     Same variance estimator as :func:`_fit_ols`: HC1 or cluster-robust
     without absorbed effects, the HDFE estimator's default otherwise.
     """
-    from .. import hdfe_ols
+    from ..panel.feols import hdfe_ols
     from ..regression.iv import ivreg
 
     cl: Optional[Union[str, List[str]]] = cluster if cluster else None

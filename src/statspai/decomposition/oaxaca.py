@@ -719,7 +719,8 @@ def oaxaca(
         def _scores(X_g: np.ndarray, e_g: np.ndarray, c_g: np.ndarray) -> np.ndarray:
             n_g, k_g = X_g.shape
             lin = np.linalg.solve(X_g.T @ X_g, c_g)
-            return (X_g @ lin) * e_g * np.sqrt(n_g / max(n_g - k_g, 1))
+            hc1 = np.sqrt(n_g / max(n_g - k_g, 1))
+            return np.asarray((X_g @ lin) * e_g * hc1)
 
         pos_a = np.flatnonzero(mask_a.to_numpy())
         pos_b = np.flatnonzero(mask_b.to_numpy())

@@ -64,7 +64,8 @@ def _entropy_maxent(u: np.ndarray) -> float:
 
 def _residual(xi: np.ndarray, xj: np.ndarray) -> np.ndarray:
     """Residual of the least-squares regression of ``xi`` on ``xj``."""
-    return xi - (np.cov(xi, xj, bias=True)[0, 1] / np.var(xj)) * xj
+    slope = np.cov(xi, xj, bias=True)[0, 1] / np.var(xj)
+    return np.asarray(xi - slope * xj)
 
 
 def _diff_mutual_info(xi_std: np.ndarray, xj_std: np.ndarray) -> float:

@@ -1153,6 +1153,7 @@ def _feols_wild(
         crit = float(_st.t.ppf(0.975, dfi) if dfi else _st.norm.ppf(0.975))
         ci_lo = base.params - crit * base.std_errors
         ci_hi = base.params + crit * base.std_errors
+    boot_extra: Dict[str, Any] = {} if iv is not None else {"confidence_set": True}
     for var in targets:
         out = wild_cluster_boot(
             base,
@@ -1162,7 +1163,7 @@ def _feols_wild(
             n_boot=reps,
             weight_type=weight_type,
             seed=seed,
-            **({} if iv is not None else {"confidence_set": True}),
+            **boot_extra,
         )
         pvals[var] = out["p_boot"]
         # Least squares: the set of null values the bootstrap test does
