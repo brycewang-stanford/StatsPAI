@@ -70,8 +70,10 @@ class TestLoadAndDescribe:
         assert out["numeric_summary"]["wage"]["mean"] == pytest.approx(
             float(df["wage"].mean()), rel=1e-9
         )
-        assert out["provenance"]["source_type"] == "local"
-        assert out["provenance"]["label"] == "panel"
+        # one source record per reply, under the key every tool uses
+        assert "provenance" not in out
+        assert out["data_provenance"]["source_type"] == "local"
+        assert out["data_provenance"]["label"] == "panel"
         assert DATA_CACHE.get(out["data_id"]) is not None
 
     def test_describe_handle_includes_lineage(self, panel_csv):

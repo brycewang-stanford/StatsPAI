@@ -404,9 +404,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                 "kind": {
                     "type": "string",
                     "description": (
-                        "Override the auto-detected plot kind. "
-                        "Common values: 'event_study', 'rdplot', "
-                        "'synth_gap', 'love_plot', 'coef_plot'."
+                        "Plot kind, e.g. 'event_study', 'rdplot', "
+                        "'synth_gap', 'love_plot', 'coef_plot'; the "
+                        "reply lists valid_kinds for the result."
                     ),
                 },
                 "figsize": {
@@ -887,7 +887,7 @@ def execute_workflow_tool(
         )
 
     if name == "plot_from_result":
-        return _tool_plot_from_result(rid_arg, arguments)
+        return _tool_plot_from_result(rid_arg, arguments, data)
 
     if name == "from_stata":
         return _tool_from_stata(arguments)
@@ -2081,20 +2081,258 @@ def _coerce_to_fig(ret: Any) -> Any:
     return plt.gcf() if plt.get_fignums() else None
 
 
+#: Other spellings of a plot kind (``CausalResult.plot(type=...)`` names).
+_PLOT_KIND_ALIASES: Dict[str, str] = {
+    "coefplot": "coef_plot",
+    "coef": "coef_plot",
+    "gap": "synth_gap",
+    "trajectory": "synth_path",
+    "path": "synth_path",
+    "synth_trajectory": "synth_path",
+    "both": "synth",
+    "weights": "synth_weights",
+    "balance": "love_plot",
+    "balanceplot": "love_plot",
+    "density": "rddensity",
+    "rd_plot": "rdplot",
+    "eventstudy": "event_study",
+}
+
+#: plot kind -> ``result.plot(type=...)`` value.
+_PLOT_TYPE_BY_KIND: Dict[str, str] = {
+    "coef_plot": "coefplot",
+    "fitted": "fitted",
+    "event_study": "event_study",
+    "synth": "both",
+    "synth_gap": "gap",
+    "synth_path": "trajectory",
+    "synth_weights": "weights",
+    "love_plot": "balance",
+    "rddensity": "density",
+    "impact": "all",
+}
+
+
+def _plot_kinds(obj: Any) -> List[str]:
+    """The plot kinds this result can draw, the default first.
+
+    Read from what the result holds, not from its class name: an RD fit
+    can draw ``rdplot`` (binned scatter, needs the dataset) and
+    ``coef_plot``; a synthetic-control fit its paths, gap and weights; a
+    regression its coefficients or fitted values. A kind outside this
+    list is refused, where it used to be echoed back over an unrelated
+    picture.
+    """
+    from ..core.next_steps import _detect_family
+
+    mi = getattr(obj, "model_info", None)
+    mi = mi if isinstance(mi, dict) else {}
+    method = str(getattr(obj, "method", "") or "")
+    kinds: List[str] = []
+    is_causal = callable(getattr(obj, "_is_synth_result", None))
+    if is_causal:
+        if obj._is_density_test():
+            return ["rddensity"]
+        detail = getattr(obj, "detail", None)
+        if "event_study" in mi:
+            kinds.append("event_study")
+        if obj._is_synth_result():
+            kinds += ["synth", "synth_gap", "synth_path", "synth_weights"]
+        elif "causal impact" in method.lower() or "intervention_time" in mi:
+            kinds.append("impact")
+        if detail is not None and "smd" in getattr(detail, "columns", []):
+            kinds.append("love_plot")
+        if _detect_family(method.lower()) == "rd" and "kink" not in method.lower():
+            kinds.append("rdplot")
+        kinds.append("coef_plot")
+        return kinds
+    if hasattr(obj, "params") and hasattr(obj, "data_info"):
+        return ["coef_plot", "fitted"]
+    # Domain results: the class-name table, then the result's own plot().
+    detected = _detect_plot_kind(obj)
+    if detected != "coef_plot":
+        kinds.append(detected)
+    if callable(getattr(obj, "plot", None)):
+        kinds.append("auto")
+    return kinds
+
+
+def _fit_frame(
+    rid: Optional[str], data: Optional[pd.DataFrame]
+) -> Optional[pd.DataFrame]:
+    """The dataset a cached fit was made on, when it can still be reached.
+
+    The frame sent with this call, else the fit's ``data_id`` handle, else
+    its local file if the bytes are unchanged (same SHA-256 as at fit
+    time). ``None`` otherwise: the caller names what to pass.
+    """
+    if data is not None:
+        return data
+    entry = RESULT_CACHE.get_entry(str(rid)) if rid else None
+    prov = (entry.arguments if entry is not None else {}).get("_mcp_data_provenance")
+    if not isinstance(prov, dict):
+        return None
+    handle = prov.get("data_id")
+    if handle:
+        from ._data_cache import DATA_CACHE
+
+        frame: Optional[pd.DataFrame] = DATA_CACHE.get(handle)
+        return frame
+    if (
+        prov.get("source_type") == "local"
+        and prov.get("sha256")
+        and "sample_n" not in prov
+        and "columns_requested" not in prov
+    ):
+        from ._data_loader import data_provenance, load_dataframe
+
+        path = str(prov.get("source"))
+        try:
+            if data_provenance(path).get("sha256") != prov["sha256"]:
+                return None
+            return load_dataframe(path)
+        except (OSError, ValueError):
+            return None
+    return None
+
+
+def _rdplot_figure(
+    obj: Any, rid: Optional[str], data: Optional[pd.DataFrame], figsize: Any
+) -> Any:
+    """``sp.rdplot`` on the fit's own outcome, running variable and cutoff."""
+    from ..core.next_steps import _fit_context
+    from ..rd.rdrobust import rdplot
+
+    ctx = _fit_context(obj)
+    entry = RESULT_CACHE.get_entry(str(rid)) if rid else None
+    fit_args = dict(entry.arguments) if entry is not None else {}
+    y = ctx.get("y") or fit_args.get("y")
+    x = ctx.get("running") or fit_args.get("x")
+    c = ctx.get("cutoff", fit_args.get("c", 0.0))
+    frame = _fit_frame(rid, data)
+    missing = [k for k, v in (("y", y), ("x", x)) if not isinstance(v, str)]
+    if frame is None:
+        missing.append("data_id")
+    if missing:
+        return {
+            "error": (
+                "plot_from_result(kind='rdplot') draws the binned outcome "
+                "against the running variable and needs the dataset the fit "
+                f"was made on; missing {missing}."
+            ),
+            "error_kind": "missing_arguments",
+            "missing_arguments": missing,
+            "hint": (
+                "Pass data_id (or data_path) with this call, or use "
+                "kind='coef_plot', which is drawn from the cached estimate."
+            ),
+        }
+    fig, _ax = rdplot(frame, y=y, x=x, c=float(c or 0.0), figsize=tuple(figsize))
+    return fig
+
+
+def _draw_plot_kind(
+    obj: Any,
+    kind: str,
+    *,
+    rid: Optional[str],
+    data: Optional[pd.DataFrame],
+    figsize: Any,
+) -> Any:
+    """Figure for an applicable ``kind``; a dict is an error payload."""
+    if kind == "rdplot" and callable(getattr(obj, "_is_synth_result", None)):
+        return _rdplot_figure(obj, rid, data, figsize)
+    plot_type = _PLOT_TYPE_BY_KIND.get(kind)
+    plot_fn = getattr(obj, "plot", None)
+    if plot_type is not None and callable(plot_fn):
+        try:
+            import inspect as _inspect
+
+            takes_type = "type" in _inspect.signature(plot_fn).parameters
+        except (TypeError, ValueError):
+            takes_type = False
+        if takes_type:
+            try:
+                ret = plot_fn(type=plot_type, figsize=figsize)
+            except TypeError:
+                # a plot that takes no figsize (three-panel impact plot)
+                ret = plot_fn(type=plot_type)
+            return _coerce_to_fig(ret)
+    return _render_plot_figure(obj, kind, figsize=figsize)
+
+
 def _tool_plot_from_result(
     rid: Optional[str],
     arguments: Dict[str, Any],
+    data: Optional[pd.DataFrame] = None,
 ) -> Dict[str, Any]:
     obj = _need_result(rid)
     if isinstance(obj, dict) and "error" in obj:
         return obj
-    kind = arguments.get("kind") or _detect_plot_kind(obj)
     figsize = arguments.get("figsize") or (8, 5)
     if isinstance(figsize, list):
         figsize = tuple(figsize[:2]) if len(figsize) >= 2 else (8, 5)
 
+    valid = _plot_kinds(obj)
+    requested = arguments.get("kind")
+    note: Optional[str] = None
+    if requested in (None, "", "auto"):
+        kind = valid[0] if valid else "auto"
+    else:
+        kind = _PLOT_KIND_ALIASES.get(str(requested), str(requested))
+        if kind not in valid:
+            return {
+                "error": (
+                    f"plot_from_result: kind={requested!r} is not a plot a "
+                    f"{type(obj).__name__} from "
+                    f"{getattr(obj, 'method', None) or 'this fit'!s} can draw."
+                ),
+                "error_kind": "method_incompatibility",
+                "result_class": type(obj).__name__,
+                "requested_kind": requested,
+                "valid_kinds": valid,
+                "hint": (
+                    "Use one of valid_kinds, or omit kind for the default "
+                    f"({valid[0]!r})."
+                    if valid
+                    else "This result has no plot."
+                ),
+            }
+    # The binned RD scatter needs the data; without it the default is the
+    # estimate, and the reply says how to get the scatter.
+    if (
+        requested in (None, "", "auto")
+        and kind == "rdplot"
+        and _fit_frame(rid, data) is None
+    ):
+        kind = "coef_plot"
+        note = (
+            "The default plot of an RD fit is kind='rdplot' (binned outcome "
+            "against the running variable); it needs the dataset, so pass "
+            "data_id with this call. Drawn instead: the coefficient plot."
+        )
+
     edits = arguments.get("edits")
-    fig = _render_plot_figure(obj, kind, figsize=figsize)
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg", force=False)
+        fig = _draw_plot_kind(obj, kind, rid=rid, data=data, figsize=figsize)
+    except ImportError:
+        fig = None
+    except Exception as exc:  # noqa: BLE001 - returned to the agent as an error
+        from .remediation import remediate
+
+        return {
+            "error": f"plot_from_result(kind={kind!r}): {type(exc).__name__}: {exc}",
+            "result_class": type(obj).__name__,
+            "attempted_kind": kind,
+            "valid_kinds": valid,
+            "remediation": remediate(exc, context={"tool": "plot_from_result"}),
+        }
+    if isinstance(fig, dict):
+        fig.setdefault("valid_kinds", valid)
+        return fig
     edited: Dict[str, Any] = {}
     if fig is not None and edits:
         edited = _apply_figure_edits(fig, edits)
@@ -2113,11 +2351,13 @@ def _tool_plot_from_result(
             ),
             "result_class": type(obj).__name__,
             "attempted_kind": kind,
+            "valid_kinds": valid,
             "fix": "pip install matplotlib  # or pass kind='coef_plot'",
         }
-    return {
+    out: Dict[str, Any] = {
         "result_id": rid,
         "kind": kind,
+        "valid_kinds": valid,
         "figsize": list(figsize),
         "mime_type": "image/png",
         "image_bytes": len(png),
@@ -2127,6 +2367,9 @@ def _tool_plot_from_result(
         # text payload so the agent doesn't see raw base64 in chat.
         "_plot_png": png,
     }
+    if note:
+        out["note"] = note
+    return out
 
 
 # ----------------------------------------------------------------------
@@ -2296,7 +2539,7 @@ def _load_builtin_dataset(name: str, arguments: Dict[str, Any]) -> Dict[str, Any
     data_id = register_frame(frame, provenance=prov, tool="load_data")
     out: Dict[str, Any] = {"data_id": data_id, "data_uri": f"statspai://data/{data_id}"}
     out.update(describe_frame(frame))
-    out["provenance"] = prov
+    out["data_provenance"] = prov
     out["simulated"] = simulated
     if simulated:
         out["warning"] = (
@@ -2337,7 +2580,9 @@ def _tool_load_data(
     data_id = register_frame(frame, provenance=prov, tool="load_data")
     out = {"data_id": data_id, "data_uri": f"statspai://data/{data_id}"}
     out.update(describe_frame(frame))
-    out["provenance"] = prov
+    # One source record per reply, under the key every other tool uses
+    # (the server would otherwise add the same block as data_provenance).
+    out["data_provenance"] = prov
     out["next_step"] = (
         "Pass data_id to any estimator (instead of data_path), or "
         "transform_data(data_id=..., operations=[...]) for a derived handle."
@@ -2365,7 +2610,7 @@ def _tool_describe_data(
         out["lineage"] = lineage(source_id)
     prov = arguments.get("_source_provenance")
     if prov:
-        out["provenance"] = prov
+        out["data_provenance"] = prov
     return out
 
 

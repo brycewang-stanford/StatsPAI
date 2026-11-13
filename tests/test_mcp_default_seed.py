@@ -104,15 +104,24 @@ def test_seed_defaults_other_than_none_are_not_touched():
 
 
 def test_the_fill_does_not_move_a_deterministic_estimate(monkeypatch):
-    """Analytic paths must not depend on whether the seed was filled."""
+    """Analytic paths must not depend on whether the seed was filled.
+
+    Rewritten 2026-11-13 (agent probe #39): this test used to require
+    ``seed_injected`` on the analytic Callaway-Sant'Anna call. The call
+    draws no random number, so nothing was pinned by the fill; the note
+    is now reported only when a generator was seeded with the value.
+    """
     df = sp.datasets.mpdta()
     args = {"y": "lemp", "g": "first_treat", "t": "year", "i": "countyreal"}
     on = execute_tool("callaway_santanna", dict(args), data=df, detail="minimal")
     monkeypatch.setenv(DEFAULT_SEED_ENV, "off")
     off = execute_tool("callaway_santanna", dict(args), data=df, detail="minimal")
-    assert "seed_injected" in on and "seed_injected" not in off
+    assert "seed_injected" not in on and "seed_injected" not in off
     assert on["estimate"] == off["estimate"]
     assert on["se"] == off["se"]
+    # the recorded call is the one the caller made: no seed in the replay
+    assert "random_state" not in str(on["replay"])
+    assert str(on["replay"]) == str(off["replay"])
 
 
 def test_library_default_is_unchanged(frame):

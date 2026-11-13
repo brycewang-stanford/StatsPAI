@@ -454,9 +454,10 @@ def execute_tool(
 
     # A seed argument left unset would make the call unrepeatable; the fill
     # goes into ``arguments`` so the replay and the cached record carry it.
-    from .._default_seed import inject_default_seed
+    from .._default_seed import inject_default_seed, seed_uses, settle_injected_seed
 
     seed_injected = inject_default_seed(fn, arguments)
+    seed_marker = seed_uses()
 
     # Most tools take `data=` as first positional (or kwarg).
     # Formula-based ones (regress, ivreg) also take data.
@@ -536,6 +537,7 @@ def execute_tool(
     except Exception as e:
         from ..remediation import remediate as _remediate
 
+        settle_injected_seed(seed_injected, seed_marker, arguments, kwargs)
         envelope: Dict[str, Any] = {
             "error": f"{type(e).__name__}: {e}",
             "tool": name,
@@ -579,6 +581,12 @@ def execute_tool(
                     "message": str(e),
                 }
         return envelope
+
+    # The filled seed is reported only if the estimator seeded a generator
+    # with it; otherwise it leaves the recorded arguments (and the replay).
+    seed_injected = settle_injected_seed(
+        seed_injected, seed_marker, arguments, kwargs, result=result
+    )
 
     # Result serialization. A failure here is a *serializer* bug, not
     # an estimator failure — attribute it accordingly so agents don't
@@ -639,9 +647,11 @@ def execute_tool(
     ):
         from ...result_card import result_card as _result_card
         from ...workflow._degradation import record_degradation
+        from .._default_seed import reconcile_card_seed
 
         try:
             out["result_card"] = dict(_result_card(result))
+            reconcile_card_seed(out["result_card"], seed_injected)
         except Exception as e:  # noqa: BLE001 — the fit itself succeeded
             degr: List[Dict[str, Any]] = []
             record_degradation(degr, section="result_card", exc=e, detail=name)

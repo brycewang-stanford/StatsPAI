@@ -88,9 +88,10 @@ def dispatch_registry_tool(
     if fn is None or not callable(fn):
         raise KeyError(name)
 
-    from ._default_seed import inject_default_seed
+    from ._default_seed import inject_default_seed, seed_uses, settle_injected_seed
 
     seed_injected = inject_default_seed(fn, arguments)
+    seed_marker = seed_uses()
 
     allowed = _allowed_kwargs(name, fn)
     kwargs = dict(arguments)
@@ -137,6 +138,7 @@ def dispatch_registry_tool(
     try:
         result = fn(**kwargs)
     except Exception as e:
+        settle_injected_seed(seed_injected, seed_marker, arguments, kwargs)
         envelope: Dict[str, Any] = {
             "error": f"{type(e).__name__}: {e}",
             "tool": name,
@@ -159,6 +161,12 @@ def dispatch_registry_tool(
                     "message": str(e),
                 }
         return envelope
+
+    # Reported only if the function seeded a generator with the filled
+    # value; otherwise it leaves the recorded arguments and the replay.
+    seed_injected = settle_injected_seed(
+        seed_injected, seed_marker, arguments, kwargs, result=result
+    )
 
     try:
         out = _figure_payload(result, name)
@@ -211,9 +219,11 @@ def dispatch_registry_tool(
     ):
         from ..result_card import result_card as _result_card
         from ..workflow._degradation import record_degradation
+        from ._default_seed import reconcile_card_seed
 
         try:
             out["result_card"] = dict(_result_card(result))
+            reconcile_card_seed(out["result_card"], seed_injected)
         except Exception as e:  # noqa: BLE001 - the fit itself succeeded
             degr: list = []
             record_degradation(degr, section="result_card", exc=e, detail=name)
