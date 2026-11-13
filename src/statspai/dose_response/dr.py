@@ -166,6 +166,11 @@ def _local_linear_weights(
     return W[0], W[1]
 
 
+# A leave-one-out residual divides by one minus the point's own smoother
+# weight; below this the point is fitted by itself alone.
+_MIN_LEAVE_OUT = 1e-8
+
+
 def loo_risk(T: np.ndarray, xi: np.ndarray, h: float) -> float:
     """Leave-one-out squared error of the local linear smoother; ``inf``
     when the bandwidth leaves some observed dose without neighbours."""
@@ -177,7 +182,13 @@ def loo_risk(T: np.ndarray, xi: np.ndarray, h: float) -> float:
         except NumericalInstability:
             return float("inf")  # the bandwidth cannot fit every point
         fit = float(w0 @ xi)
-        err[i] = (xi[i] - fit) / (1.0 - w0[i])
+        leave = 1.0 - w0[i]
+        if leave <= _MIN_LEAVE_OUT:
+            # The point's own weight is one: its fit is its own value and
+            # there is nothing left to predict it from. The ratio was 0/0,
+            # the risk NaN, and ``argmin`` then returned this bandwidth.
+            return float("inf")
+        err[i] = (xi[i] - fit) / leave
     return float(np.mean(err**2))
 
 
@@ -207,6 +218,12 @@ def dr_curve(
     if bandwidth is None:
         grid = sd_t * np.geomspace(0.05, 1.5, 25)
         risks = np.array([loo_risk(T, xi, h) for h in grid])
+        if not np.isfinite(risks).any():
+            raise NumericalInstability(
+                "dose_response(method='dr'): no bandwidth on the search grid "
+                "can predict every observed dose from the others.",
+                recovery_hint="Pass bandwidth= or narrow dose_range.",
+            )
         h = float(grid[int(np.argmin(risks))])
         bw_risk = {"bandwidth": grid.tolist(), "risk": risks.tolist()}
         if h in (grid[0], grid[-1]):

@@ -1103,6 +1103,72 @@ def policy_tree(
     )
 
 
+# Spellings users reach for (DoubleML / econml / other sp functions) and the
+# option of sp.dml they mean.
+_DML_OPTION_HINTS = {
+    "model_z": "ml_r",
+    "model_r": "ml_r",
+    "ml_z": "ml_r",
+    "ml_l": "ml_g",
+    "model_g": "ml_g",
+    "model_m": "ml_m",
+    "model_t": "ml_m",
+    "cv": "n_folds",
+    "n_splits": "n_folds",
+    "n_reps": "n_rep",
+    "folds": "fold_indices",
+    "smpls": "fold_indices",
+    "z": "instrument",
+    "instruments": "instrument",
+    "clusters": "cluster",
+    "level": "alpha",
+    "trim": "trimming_threshold",
+}
+
+
+def _check_dml_options(kwargs: dict, target: Any) -> None:
+    """``seed=`` is ``random_state=``; an unknown option names the valid ones.
+
+    Options beyond the named parameters of :func:`dml` travel as ``**kwargs``
+    to :func:`statspai.dml.dml`, whose bare ``TypeError`` named neither the
+    option that was meant nor the ones that exist.
+    """
+    import difflib
+    import inspect
+
+    if "seed" in kwargs:
+        seed = kwargs.pop("seed")
+        if "random_state" in kwargs and kwargs["random_state"] != seed:
+            raise MethodIncompatibility(
+                f"dml: conflicting seeds seed={seed!r} vs "
+                f"random_state={kwargs['random_state']!r}. Pass only one.",
+                recovery_hint="Pass only one of seed or random_state.",
+                diagnostics={"function": "dml"},
+            )
+        kwargs["random_state"] = seed
+    valid = [
+        name
+        for name, par in inspect.signature(target).parameters.items()
+        if par.kind is not inspect.Parameter.VAR_KEYWORD
+    ]
+    unknown = [name for name in kwargs if name not in valid]
+    if not unknown:
+        return
+    hints = []
+    for name in unknown:
+        meant = _DML_OPTION_HINTS.get(name)
+        if meant is None:
+            close = difflib.get_close_matches(name, valid, n=1, cutoff=0.6)
+            meant = close[0] if close else None
+        hints.append(f"{name!r} (did you mean {meant!r}?)" if meant else repr(name))
+    options = ", ".join(n for n in valid if n not in ("data", "y"))
+    raise TypeError(
+        f"dml() got an unexpected keyword argument {', '.join(hints)}. "
+        f"Options: {options}, model_y (= ml_g), model_d (= ml_m), "
+        "seed (= random_state)."
+    )
+
+
 @accepts_aliases(_strict=True, controls="covariates", weights="sample_weight")
 @checks_input("dml", outcome=("y",))
 @_expands_categorical("covariates", "X")
@@ -1216,6 +1282,8 @@ def dml(
     ...                 model='plr', ml_g='lasso', ml_m='lasso')
     """
     from .dml import dml as _dml
+
+    _check_dml_options(kwargs, _dml)
 
     # Resolve treatment / covariates from either naming convention.
     # Refuse silent loss when both are given with conflicting values —

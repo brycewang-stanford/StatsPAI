@@ -49,6 +49,26 @@ from .._result_serialize import ResultProtocolMixin
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _width_line(width: np.ndarray) -> str:
+    """Mean interval width; unbounded intervals are counted, not averaged.
+
+    A test point whose own weight exceeds ``alpha`` of the total has an
+    unbounded interval (weak overlap). One such point made the mean ``inf``
+    and the line said nothing about how many there were.
+    """
+    width = np.asarray(width, dtype=float)
+    finite = np.isfinite(width)
+    n_unbounded = int(width.size - finite.sum())
+    if n_unbounded == 0:
+        return f"{np.mean(width):.4f}"
+    if not finite.any():
+        return f"inf  (all {width.size} intervals unbounded: weak overlap)"
+    return (
+        f"{np.mean(width[finite]):.4f} over the bounded intervals; "
+        f"{n_unbounded} of {width.size} unbounded (weak overlap)"
+    )
+
+
 @dataclass
 class ConformalCounterfactualResult(ResultProtocolMixin):
     """Counterfactual prediction intervals under each potential outcome.
@@ -107,9 +127,9 @@ class ConformalCounterfactualResult(ResultProtocolMixin):
             f"{100 * self.marginal_coverage_estimate:.2f}%  (calibration arm)\n"
             f"  n test points       : {len(self.X)}\n"
             f"  mean width Y(1) band: "
-            f"{np.mean(self.upper_Y1 - self.lower_Y1):.4f}\n"
+            f"{_width_line(self.upper_Y1 - self.lower_Y1)}\n"
             f"  mean width Y(0) band: "
-            f"{np.mean(self.upper_Y0 - self.lower_Y0):.4f}"
+            f"{_width_line(self.upper_Y0 - self.lower_Y0)}"
         )
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -160,12 +180,11 @@ class ConformalITEResult(ResultProtocolMixin):
         )
 
     def summary(self) -> str:
-        w = np.mean(self.upper - self.lower)
         return (
             "Conformal prediction intervals for ITE τ(x) = Y(1) - Y(0)\n"
             f"  method              : {self.method}\n"
             f"  coverage target     : {100 * (1 - self.alpha):.0f}%\n"
-            f"  mean interval width : {w:.4f}\n"
+            f"  mean interval width : {_width_line(self.upper - self.lower)}\n"
             f"  n test points       : {len(self.X)}"
         )
 
@@ -335,13 +354,35 @@ def _test_point_quantiles(
     scores = np.append(calib_resid, np.inf)
     order = np.argsort(scores)
     v = scores[order]
+    m = len(calib_resid)
     uniq, inverse = np.unique(w_test, return_inverse=True)
     q_uniq = np.empty(len(uniq))
-    for k, wt in enumerate(uniq):
-        cum = np.cumsum(np.append(w_calib, wt)[order])
-        cum /= cum[-1]
-        idx = min(int(np.searchsorted(cum, level, side="left")), len(v) - 1)
-        q_uniq[k] = v[idx]
+    if m == 0 or order[-1] != m:
+        # the appended point is not last in the order (an infinite
+        # calibration residual): one full pass per distinct weight
+        for k, wt in enumerate(uniq):
+            cum = np.cumsum(np.append(w_calib, wt)[order])
+            cum /= cum[-1]
+            idx = min(int(np.searchsorted(cum, level, side="left")), len(v) - 1)
+            q_uniq[k] = v[idx]
+        return np.asarray(q_uniq[inverse.ravel()], dtype=float)
+    # The test weight sits last, so the running sums of the calibration
+    # weights are the same for every test point and only the total moves.
+    # One cumulative sum and a binary search per distinct weight replace a
+    # full pass each (n_test * n_calib work, 34 s at n = 1e5). The search
+    # runs on ``csum[i] >= level * total`` and is then settled with the
+    # original comparison ``csum[i] / total >= level``, so the index is
+    # the one the full pass returned.
+    csum = np.cumsum(np.asarray(w_calib, dtype=float)[order[:-1]])
+    totals = csum[-1] + uniq
+    guess = np.searchsorted(csum, level * totals, side="left")
+    for k in range(len(uniq)):
+        idx, total = int(guess[k]), totals[k]
+        while idx > 0 and csum[idx - 1] / total >= level:
+            idx -= 1
+        while idx < m and not (csum[idx] / total >= level):
+            idx += 1
+        q_uniq[k] = v[idx]  # idx == m is the point mass at +inf
     return np.asarray(q_uniq[inverse.ravel()], dtype=float)
 
 

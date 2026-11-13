@@ -3902,6 +3902,49 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds"),
                 ParamSpec(
+                    "ml_g",
+                    "str | estimator",
+                    False,
+                    None,
+                    "Outcome learner (model_y= is the same option): a "
+                    "scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', "
+                    "'ridge', 'linear', 'xgb', 'lgbm').",
+                ),
+                ParamSpec(
+                    "ml_m",
+                    "str | estimator",
+                    False,
+                    None,
+                    "Treatment learner for plr / irm / pliv, instrument "
+                    "propensity learner for iivm (model_d= is the same "
+                    "option). A classifier where the target is binary.",
+                ),
+                ParamSpec(
+                    "ml_r",
+                    "str | estimator",
+                    False,
+                    None,
+                    "Third learner of the instrumental models: E[Z | X] for "
+                    "pliv (a regressor), P(D = 1 | Z, X) for iivm (a "
+                    "classifier). Ignored by plr / irm.",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level of the confidence interval.",
+                ),
+                ParamSpec(
+                    "random_state",
+                    "int",
+                    False,
+                    42,
+                    "Seed of the cross-fitting splits (seed= is accepted as "
+                    "an alias); repetition r of n_rep uses random_state + r. "
+                    "The default is fixed, so repeated calls agree.",
+                ),
+                ParamSpec(
                     "fold_indices",
                     "array",
                     False,

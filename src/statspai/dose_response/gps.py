@@ -97,7 +97,7 @@ def dose_response(
         Neither choice is reliable in general. On a linear confounded
         design (``T = 1 + 0.8x + 0.3x2 + e``, ``Y = 0.8T + x + 0.5x2 + u``,
         n = 1000, 30 draws) the default GBM pair is nearly unbiased for the
-        25th-75th percentile effect (bias -0.13 against a truth of about
+        headline dose contrast (see Returns; bias -0.13 against a truth of about
         1.9) but noisy (SD 0.43) and its curve was never monotone, while the
         Hirano-Imbens quadratic is precise (SD 0.07) and badly biased
         (+1.27, close to the unadjusted slope), because ``E[Y | T, GPS]`` is
@@ -137,6 +137,19 @@ def dose_response(
         detail contains the dose-response curve:
         columns 'dose', 'response', 'se', 'ci_lower', 'ci_upper'.
         model_info contains 'avg_marginal_effect' (derivative).
+
+        ``estimate`` (``model_info['effect_25_to_75']``) is the curve at
+        ``model_info['dose_75']`` minus the curve at
+        ``model_info['dose_25']``. Those two doses are grid points, a
+        quarter and three quarters of the way through the dose grid
+        (indices ``int(0.25 k)`` and ``int(0.75 k)`` of ``k =
+        n_dose_points`` equally spaced doses over ``dose_range``). They
+        are not the 25th and 75th percentiles of the treatment, and they
+        move with ``n_dose_points`` and ``dose_range``: with the default
+        range (5th to 95th percentile) and ``k = 20`` they sit 26% and 79%
+        of the way along it. Read both doses from ``model_info`` when
+        reporting the contrast; for a contrast between two chosen doses,
+        difference the ``detail`` curve at a grid that contains them.
 
     Examples
     --------

@@ -146,6 +146,19 @@ def cate_by_group(
     pd.DataFrame
         Columns: group, n, mean_cate, se, ci_lower, ci_upper.
 
+    Notes
+    -----
+    This table describes the model's predictions. ``se`` is the standard
+    deviation of the predicted effects in the group divided by
+    ``sqrt(n)``, so it measures how much the predictions vary inside the
+    group and treats them as data. It is not the sampling error of the
+    group's average effect and is usually far smaller (on the Lalonde
+    data the group intervals are about a tenth as wide as the interval of
+    the average effect itself). For group effects with valid inference
+    use ``sp.gate_test(result, data, by=..., y=..., treat=...,
+    covariates=...)``, which estimates each group's effect from the
+    outcomes (GATES), or ``sp.forest_group_effects`` for a causal forest.
+
     Examples
     --------
     >>> import numpy as np

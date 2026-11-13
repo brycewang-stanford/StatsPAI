@@ -404,9 +404,11 @@ def test_external_result_keeps_legacy_analysis_fields_without_oof_retention():
     assert not _contains_identity(estimator.__dict__, predictions)
 
     diagnostics = sp.dml_diagnostics(result)
-    sensitivity = sp.dml_sensitivity(result, benchmark_covariates=["x"])
     assert diagnostics.n_obs == 4
-    assert not sensitivity.benchmarks.empty
+    # A benchmark refits the model without the covariate; supplied
+    # predictions cannot be refitted, so the request is refused.
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="refit"):
+        sp.dml_sensitivity(result, benchmark_covariates=["x"])
 
 
 def _direct_external_estimator(frame, **kwargs):

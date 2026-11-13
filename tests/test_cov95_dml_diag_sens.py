@@ -155,9 +155,12 @@ def test_sensitivity_benchmarks(plr_result):
     assert "benchmarks" in res.summary()
 
 
-def test_sensitivity_benchmark_unknown_covariate_skipped(plr_result):
-    res = dml_sensitivity(plr_result, benchmark_covariates=["not_a_cov"])
-    assert res.benchmarks.empty
+def test_sensitivity_benchmark_unknown_covariate_raises(plr_result):
+    # A misspelt name used to be skipped, returning an empty table.
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="not_a_cov"):
+        dml_sensitivity(plr_result, benchmark_covariates=["not_a_cov"])
 
 
 def test_sensitivity_missing_residuals_raises():

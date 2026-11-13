@@ -351,8 +351,9 @@ def cate_eval(
     Examples
     --------
     >>> # Meta-learner CATE → RATE evaluation:
-    >>> ml = sp.metalearner(method="dr", ...)        # doctest: +SKIP
-    >>> tau_hat = ml.predict(X)                       # doctest: +SKIP
+    >>> ml = sp.metalearner(df, y="y", treat="d",     # doctest: +SKIP
+    ...                     covariates=covs, learner="dr")
+    >>> tau_hat = ml.model_info["cate"]               # doctest: +SKIP
     >>> sp.cate_eval(tau_hat, Y, T, X=X).summary()    # doctest: +SKIP
     """
     if str(target).upper() not in ("AUTOC", "QINI"):

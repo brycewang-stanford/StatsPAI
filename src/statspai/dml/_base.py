@@ -1190,6 +1190,7 @@ class _DoubleMLBase:
                     observation_ids=observation_ids,
                 )
             clean = work.dropna()
+            self._clean_frame = clean
             if "__svy_row__" in clean.columns:
                 self._design_rows = clean["__svy_row__"].to_numpy()
             Y = clean[self.y].values.astype(float)
@@ -1459,9 +1460,24 @@ class _DoubleMLBase:
         model_info["_T"] = D
         model_info["_Y"] = Y
         model_info["_covariate_names"] = list(self.covariates)
+        clean_frame = self.__dict__.pop("_clean_frame", None)
+        if (
+            sens_reps
+            and clean_frame is not None
+            and sample_weight is None
+            and self._design is None
+        ):
+            # Lets sp.dml_sensitivity(benchmark_covariates=) refit the same
+            # model on the same rows and splits without some covariates.
+            from ._benchmark import ShortRefit
+
+            model_info["_benchmark_refit"] = ShortRefit(self, clean_frame)
+        # score='ATTE' estimates the effect on the treated; the class-level
+        # label alone printed it as "ATE".
+        estimand = "ATT" if self.score == "ATTE" else self._ESTIMAND
         result = CausalResult(
             method=f"Double ML ({self._MODEL_TAG})",
-            estimand=self._ESTIMAND,
+            estimand=estimand,
             estimate=theta,
             se=se,
             pvalue=pvalue,

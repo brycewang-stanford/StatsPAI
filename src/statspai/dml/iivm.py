@@ -91,11 +91,14 @@ class DoubleMLIIVM(_DoubleMLBase):
     # backwards-compatible documentation of the historical clip.
     _PSCORE_CLIP_LO = 0.01
     _PSCORE_CLIP_HI = 0.99
-    # First-stage compliance clip — r1, r0 do NOT appear in denominators
-    # of the AIPW score, so a tighter clip mainly bounds extrapolated
-    # predictions for stability.
-    _COMPLIANCE_CLIP_LO = 1e-4
-    _COMPLIANCE_CLIP_HI = 1 - 1e-4
+    # First-stage compliance probabilities r1, r0 do NOT appear in a
+    # denominator of the score, so they are only kept inside [0, 1]. An
+    # interior clip (1e-4 until 1.43.1) moved an exact 0 or 1 -- one-sided
+    # non-compliance, where nobody without the instrument takes the
+    # treatment, has r0 = 0 -- and with it the estimate (4e-6 relative on
+    # the 401(k) data against DoubleML's subgroups= handling).
+    _COMPLIANCE_CLIP_LO = 0.0
+    _COMPLIANCE_CLIP_HI = 1.0
 
     def _fit_one_rep(
         self,

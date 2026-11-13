@@ -124,7 +124,20 @@ def _behaviour_ratio(pi_t: np.ndarray, pi_b: Any, n: int, clip: float) -> np.nda
     ``1/clip``, which shrank the weight of every unit with
     ``pi_b < 1/clip`` even when its true weight was below the cap.
     """
-    pb = np.asarray(pi_b, dtype=float).ravel()
+    pb_in = np.asarray(pi_b, dtype=float)
+    if pb_in.ndim == 2 and pb_in.shape[0] == n and pb_in.shape[1] > 1:
+        # pi_target may be an (n, K) matrix; pi_behavior is not read that way
+        raise MethodIncompatibility(
+            f"pi_behavior must be one propensity per row, the logging "
+            f"probability of the action that was taken; got an "
+            f"{pb_in.shape} matrix.",
+            recovery_hint=(
+                "Select the logged action's column, e.g. "
+                "pi_b[np.arange(n), A] for actions coded 0..K-1."
+            ),
+            diagnostics={"shape": tuple(pb_in.shape), "n": n},
+        )
+    pb = pb_in.ravel()
     if pb.shape[0] != n:
         raise MethodIncompatibility(
             f"pi_behavior must have length {n}; got {pb.shape[0]}.",

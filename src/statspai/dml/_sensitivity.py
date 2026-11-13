@@ -392,12 +392,24 @@ def dml_sensitivity(
         residualised outcome and treatment. If both are given, the
         report includes a bias bound, the adjusted-estimate range, the
         standard errors of its two ends and an interval for the range.
-    benchmark_covariates : list of str, optional
-        Subset of the original covariates to benchmark against. For each
-        ``X_k``, the benchmark sets ``cf_y_bench, cf_d_bench`` to the
-        partial R² that ``X_k`` itself contributes (multiplied by
-        ``k_y, k_d`` to express "what if a confounder were k× as strong
-        as ``X_k``?").
+    benchmark_covariates : list of str or of lists of str, optional
+        Covariates of the fit to benchmark against. For each entry (a
+        name, or a list of names left out together) the same model is
+        refitted on the same rows and splits without it, and
+        ``cf_y_bench`` / ``cf_d_bench`` are the gains in outcome and
+        Riesz-representer variation the entry brings (``doubleml``'s
+        ``sensitivity_benchmark``), multiplied by ``k_y`` / ``k_d`` to
+        express "what if a confounder were k times as strong as
+        ``X_k``?". The table also reports ``delta_theta`` (short minus
+        long estimate) and ``rho``, the degree of adversity. A name that
+        is not a covariate of the fit raises, and so does a fit that
+        cannot be refitted (sample weights, survey design, two-way
+        clustering, external predictions).
+
+        Up to 1.43.1 the benchmark was the squared correlation of
+        ``X_k`` with the cross-fitted residuals, which is zero by
+        construction because ``X_k`` is among the regressors behind
+        them, and unknown names were skipped silently.
     k_y, k_d : float
         Multipliers for the benchmark strengths.
 
@@ -501,60 +513,14 @@ def dml_sensitivity(
         else:
             adj_low, adj_high = theta - bias_bound, theta + bias_bound
 
-    # Benchmark covariates: compute the partial-R² each contributes to
-    # the residualised regression. For PLR we need the X matrix, which
-    # we recover from result.model_info['_X_design'] if present.
+    # Benchmark covariates: refit without them and compare (see _benchmark).
     benchmarks = pd.DataFrame()
-    X_design = info.get("_X_design")
-    cov_names = info.get("_covariate_names")
-    if (
-        benchmark_covariates
-        and X_design is not None
-        and cov_names is not None
-        and y_resid is not None
-        and d_resid is not None
-    ):
-        y_resid = np.asarray(y_resid, dtype=float).ravel()
-        d_resid = np.asarray(d_resid, dtype=float).ravel()
-        X = np.asarray(X_design, dtype=float)
-        rows: List[Dict[str, Any]] = []
-        for name in benchmark_covariates:
-            if name not in cov_names:
-                continue  # pragma: no cover
-            j = list(cov_names).index(name)
-            xk = X[:, j]
-            # Partial R²(X_k; D | other X) ≈ corr(X_k, d_resid)²
-            # Partial R²(X_k; Y | D, other X) ≈ corr(X_k_resid, y_resid)²
-            try:
-                cov = np.cov(xk, d_resid)
-                r2_d = float(cov[0, 1] ** 2 / max(cov[0, 0] * cov[1, 1], 1e-12))
-                cov_y = np.cov(xk, y_resid)
-                r2_y = float(cov_y[0, 1] ** 2 / max(cov_y[0, 0] * cov_y[1, 1], 1e-12))
-            except Exception as exc:  # pragma: no cover
-                from ..core._fallback import warn_fallback
+    if benchmark_covariates is not None and len(benchmark_covariates) > 0:
+        from ._benchmark import benchmark_table
 
-                warn_fallback(
-                    f"DML sensitivity benchmark for covariate {name!r}",
-                    exc,
-                    "it is left out of the benchmark table",
-                )
-                continue  # pragma: no cover
-            cf_y_b = float(np.clip(k_y * r2_y, 0.0, 0.999))
-            cf_d_b = float(np.clip(k_d * r2_d, 0.0, 0.999))
-            bias_b = float(np.sqrt(cf_y_b * cf_d_b / (1 - cf_d_b)) * s)
-            rows.append(
-                {
-                    "variable": name,
-                    "k_y": k_y,
-                    "k_d": k_d,
-                    "cf_y_bench": cf_y_b,
-                    "cf_d_bench": cf_d_b,
-                    "bias_bound": bias_b,
-                    "adjusted_low": theta - bias_b,
-                    "adjusted_high": theta + bias_b,
-                }
-            )
-        benchmarks = pd.DataFrame(rows)
+        benchmarks = benchmark_table(
+            info, benchmark_covariates, theta=theta, s=s, k_y=k_y, k_d=k_d
+        )
 
     return DMLSensitivityResult(
         estimate=theta,

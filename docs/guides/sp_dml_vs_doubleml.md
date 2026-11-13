@@ -138,6 +138,30 @@ Two implementation notes worth stating for an auditor:
   `weights` object is a GATE construct, not a survey weight, so the two
   are not silently combined.
 
+## Sensitivity benchmarks and one-sided non-compliance
+
+`sp.dml_sensitivity(fit, benchmark_covariates=[...])` is DoubleML's
+`sensitivity_benchmark`: each entry (a covariate, or a list of covariates
+left out together) is dropped, the same model is refitted on the same rows
+and splits, and the table reports the gain statistics `cf_y_bench`,
+`cf_d_bench`, `rho` and `delta_theta`. On the 401(k) data with shared folds
+and linear learners the benchmark for `inc` is `cf_y = 0.0951`,
+`cf_d = 0.0302`, `delta_theta = 6637.3` in both packages. Fits with sample
+weights, a survey design, two-way clustering or supplied predictions cannot
+be refitted and refuse the request. Two documented differences remain: the
+standard errors of the two bounds are exchanged in DoubleML (StatsPAI's
+assignment is checked by finite differences), and DoubleML finds the
+robustness value with a root finder where StatsPAI uses the closed form
+(7e-6 apart on the 401(k) fit).
+
+With one-sided non-compliance (nobody takes the treatment without the
+instrument, as with 401(k) eligibility and participation) the first-stage
+classifier of the `Z = 0` arm sees one class. DoubleML needs
+`subgroups={'always_takers': False, 'never_takers': True}` to be told so;
+`sp.dml(model='iivm')` detects it, uses the arm's treatment share (zero) and
+counts the folds in `model_info['diagnostics']['n_subgroup_fallback_r0']`.
+The two agree to rounding.
+
 ## When to expect divergence
 
 `sp.dml` deviates from `doubleml-for-py` only in implementation
