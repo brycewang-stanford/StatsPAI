@@ -1,0 +1,1255 @@
+{
+ "study": "se_screen/causal/matching",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "match.att.ps",
+   "estimator": "match",
+   "call": "sp.match(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.68271346381534
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9775,
+   "se_over_sd_population": 1.141,
+   "mean_estimate": -0.00413,
+   "sd_estimate": 0.12504,
+   "coverage": 0.97,
+   "mean_se": 0.14244,
+   "se_over_sd": 1.139,
+   "bias_over_sd": -0.033,
+   "flag_reasons": [
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.ps.ai2016",
+   "estimator": "match",
+   "call": "sp.match(..., se_method='abadie_imbens_2016')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 9.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 43.58468626426853
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.10181,
+   "sd_estimate": 0.11569,
+   "coverage": 0.9375,
+   "mean_se": 0.11584,
+   "se_over_sd": 1.001,
+   "bias_over_sd": -0.091,
+   "coverage_sample_truth": 0.9475,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.ps",
+   "estimator": "match",
+   "call": "sp.match(..., estimand='ATE')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 8.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 41.12461766854637
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.99,
+   "se_over_sd_population": 1.298,
+   "mean_estimate": 0.00805,
+   "sd_estimate": 0.09587,
+   "coverage": 0.9975,
+   "mean_se": 0.12703,
+   "se_over_sd": 1.325,
+   "bias_over_sd": 0.084,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.ps.ai2016",
+   "estimator": "match",
+   "call": "sp.match(..., estimand='ATE', se_method='abadie_imbens_2016')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 8.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.6530658619228
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00586,
+   "sd_estimate": 0.10342,
+   "coverage": 0.935,
+   "mean_se": 0.09706,
+   "se_over_sd": 0.939,
+   "bias_over_sd": 0.057,
+   "coverage_sample_truth": 0.94,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.mahalanobis",
+   "estimator": "match",
+   "call": "sp.match(..., distance='mahalanobis', bias_correction=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 10.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.714645415513885
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9225,
+   "se_over_sd_population": 0.891,
+   "mean_estimate": 0.00358,
+   "sd_estimate": 0.09672,
+   "coverage": 0.925,
+   "mean_se": 0.08886,
+   "se_over_sd": 0.919,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.mahalanobis.m3",
+   "estimator": "match",
+   "call": "sp.match(..., distance='mahalanobis', n_matches=3, bias_correction=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 11.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.35517287958514
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.915,
+   "se_over_sd_population": 0.908,
+   "mean_estimate": 0.00556,
+   "sd_estimate": 0.08182,
+   "coverage": 0.9275,
+   "mean_se": 0.07756,
+   "se_over_sd": 0.948,
+   "bias_over_sd": 0.068,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.mahalanobis",
+   "estimator": "match",
+   "call": "sp.match(..., estimand='ATE', distance='mahalanobis', bias_correction=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 14.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.94186036163537
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9375,
+   "se_over_sd_population": 0.985,
+   "mean_estimate": 0.00351,
+   "sd_estimate": 0.0784,
+   "coverage": 0.9425,
+   "mean_se": 0.07778,
+   "se_over_sd": 0.992,
+   "bias_over_sd": 0.045,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.mahalanobis.pop",
+   "estimator": "match",
+   "call": "sp.match(..., estimand='ATE', distance='mahalanobis', bias_correction=True, se_method='abadie_imbens_pop')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 12.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.906603861764154
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99881,
+   "sd_estimate": 0.07814,
+   "coverage": 0.975,
+   "mean_se": 0.08184,
+   "se_over_sd": 1.047,
+   "bias_over_sd": -0.015,
+   "coverage_sample_truth": 0.9775,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.ps.no_replace",
+   "estimator": "match",
+   "call": "sp.match(..., replace=False)",
+   "kind": "ci",
+   "design": "_dgp.obs(intercept=-1.2)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.171383911863719,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 46.67756695828045
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9875,
+   "se_over_sd_population": 1.352,
+   "mean_estimate": 0.01802,
+   "sd_estimate": 0.0996,
+   "coverage": 0.995,
+   "mean_se": 0.14215,
+   "se_over_sd": 1.427,
+   "bias_over_sd": 0.181,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.ps.caliper",
+   "estimator": "match",
+   "call": "sp.match(..., caliper=0.2, caliper_scale='sd')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 45.512677294367094
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.99,
+   "se_over_sd_population": 1.271,
+   "mean_estimate": -0.00904,
+   "sd_estimate": 0.10758,
+   "coverage": 0.99,
+   "mean_se": 0.14019,
+   "se_over_sd": 1.303,
+   "bias_over_sd": -0.084,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.kernel",
+   "estimator": "match",
+   "call": "sp.match(..., method='kernel')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.91482938575373
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.12577,
+   "sd_estimate": 0.0834,
+   "coverage": 0.995,
+   "mean_se": 0.11775,
+   "se_over_sd": 1.412,
+   "bias_over_sd": 0.161,
+   "coverage_sample_truth": 0.995,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.kernel.bootstrap",
+   "estimator": "match",
+   "call": "sp.match(..., method='kernel', se_method='bootstrap')",
+   "kind": "ci",
+   "design": "_dgp.obs (B = 200, 200 bootstrap draws)",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 381.9,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.73855262722586
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.12281,
+   "sd_estimate": 0.08338,
+   "coverage": 0.935,
+   "mean_se": 0.08052,
+   "se_over_sd": 0.966,
+   "bias_over_sd": 0.126,
+   "coverage_sample_truth": 0.945,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.radius",
+   "estimator": "match",
+   "call": "sp.match(..., method='radius', caliper=0.05)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 6.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 46.245163272449325
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11797,
+   "sd_estimate": 0.08255,
+   "coverage": 0.9975,
+   "mean_se": 0.11757,
+   "se_over_sd": 1.424,
+   "bias_over_sd": 0.069,
+   "coverage_sample_truth": 0.995,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.llr",
+   "estimator": "match",
+   "call": "sp.match(..., method='llr', kernel='tricube')",
+   "kind": "ci",
+   "design": "_dgp.obs (B = 200; bootstrap is the only SE for llr)",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 772.1,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.60288653058653
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.10428,
+   "sd_estimate": 0.15687,
+   "coverage": 0.99,
+   "mean_se": 0.79752,
+   "se_over_sd": 5.084,
+   "bias_over_sd": -0.051,
+   "coverage_sample_truth": 0.99,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.stratify",
+   "estimator": "match",
+   "call": "sp.match(..., method='stratify', n_strata=10)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.4487825391946
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11336,
+   "sd_estimate": 0.08636,
+   "coverage": 0.9925,
+   "mean_se": 0.11334,
+   "se_over_sd": 1.312,
+   "bias_over_sd": 0.012,
+   "coverage_sample_truth": 0.99,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.stratify",
+   "estimator": "match",
+   "call": "sp.match(..., method='stratify', n_strata=10, estimand='ATE')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.41542377267731
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.01693,
+   "sd_estimate": 0.07216,
+   "coverage": 0.9975,
+   "mean_se": 0.10819,
+   "se_over_sd": 1.499,
+   "bias_over_sd": 0.235,
+   "coverage_sample_truth": 0.9975,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.cem",
+   "estimator": "match",
+   "call": "sp.match(..., method='cem')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.592454214136986
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.9875,
+   "se_over_sd_population": 1.377,
+   "mean_estimate": -0.01874,
+   "sd_estimate": 0.07428,
+   "coverage": 0.9925,
+   "mean_se": 0.10545,
+   "se_over_sd": 1.42,
+   "bias_over_sd": -0.252,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large",
+    "bias"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.ate.nnmatch",
+   "estimator": "match",
+   "call": "sp.match(..., method='nnmatch', estimand='ATE', bias_adjust=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 14.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 38.80020360218563
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99886,
+   "sd_estimate": 0.07793,
+   "coverage": 0.96,
+   "mean_se": 0.07931,
+   "se_over_sd": 1.018,
+   "bias_over_sd": -0.015,
+   "coverage_sample_truth": 0.9475,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "match.att.nnmatch",
+   "estimator": "match",
+   "call": "sp.match(..., method='nnmatch', estimand='ATT', bias_adjust=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 10.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 45.74150341892813
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11037,
+   "sd_estimate": 0.09316,
+   "coverage": 0.9625,
+   "mean_se": 0.09226,
+   "se_over_sd": 0.99,
+   "bias_over_sd": -0.021,
+   "coverage_sample_truth": 0.9675,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "psmatch2.att",
+   "estimator": "psmatch2",
+   "call": "sp.psmatch2(df, treat=d, covariates=X, y=y)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 43.86164610688603
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11691,
+   "sd_estimate": 0.12399,
+   "coverage": 0.9875,
+   "mean_se": 0.14805,
+   "se_over_sd": 1.194,
+   "bias_over_sd": 0.037,
+   "coverage_sample_truth": 0.99,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "psmatch2.att.ai",
+   "estimator": "psmatch2",
+   "call": "sp.psmatch2(..., ai=1)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 45.83231139687477
+   },
+   "n_nonfinite": 0,
+   "target": "sample",
+   "coverage_population_truth": 0.975,
+   "se_over_sd_population": 1.18,
+   "mean_estimate": 0.00443,
+   "sd_estimate": 0.11932,
+   "coverage": 0.9825,
+   "mean_se": 0.14272,
+   "se_over_sd": 1.196,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "full_match.att",
+   "estimator": "full_match",
+   "call": "sp.full_match(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs (n = 600)",
+   "n": 600,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 46.838558061924175
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11241,
+   "sd_estimate": 0.13477,
+   "coverage": 0.995,
+   "mean_se": 0.17315,
+   "se_over_sd": 1.285,
+   "bias_over_sd": 0.001,
+   "coverage_sample_truth": 0.9925,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "full_match.ate",
+   "estimator": "full_match",
+   "call": "sp.full_match(..., estimand='ATE')",
+   "kind": "ci",
+   "design": "_dgp.obs (n = 600)",
+   "n": 600,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.959028890085676
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.9998,
+   "sd_estimate": 0.11538,
+   "coverage": 0.99,
+   "mean_se": 0.16029,
+   "se_over_sd": 1.389,
+   "bias_over_sd": -0.002,
+   "coverage_sample_truth": 0.9925,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "optimal_match.att",
+   "estimator": "optimal_match",
+   "call": "sp.optimal_match(df, d, y, X); interval = estimate +/- 1.96 se",
+   "kind": "ci",
+   "design": "_dgp.obs(intercept=-1.2) (n = 600)",
+   "n": 600,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.171383911863719,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 46.54742256534783
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.19686,
+   "sd_estimate": 0.12769,
+   "coverage": 0.9375,
+   "mean_se": 0.12367,
+   "se_over_sd": 0.968,
+   "bias_over_sd": 0.2,
+   "coverage_sample_truth": 0.9525,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "genmatch.att",
+   "estimator": "genmatch",
+   "call": "sp.genmatch(df, y, d, X, population_size=20, generations=5)",
+   "kind": "ci",
+   "design": "_dgp.obs (n = 500, B = 200, a short genetic search)",
+   "n": 500,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 37.9,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 44.60742437372673
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11755,
+   "sd_estimate": 0.12393,
+   "coverage": 0.865,
+   "mean_se": 0.0965,
+   "se_over_sd": 0.779,
+   "bias_over_sd": 0.042,
+   "coverage_sample_truth": 0.855,
+   "flag_reasons": [
+    "coverage_low",
+    "se_small"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "cardinality_match.ate",
+   "estimator": "cardinality_match",
+   "call": "sp.cardinality_match(df, d, y, X); interval = estimate +/- 1.96 se",
+   "kind": "ci",
+   "design": "_dgp.obs with a constant effect (the matched subset is chosen for balance, so a heterogeneous effect has no fixed target)",
+   "n": 600,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 10.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.04576847640346
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.0038,
+   "sd_estimate": 0.10316,
+   "coverage": 0.925,
+   "mean_se": 0.09997,
+   "se_over_sd": 0.969,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

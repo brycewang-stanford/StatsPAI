@@ -411,7 +411,8 @@ ROWS = [
     Row(
         "tmle.atc.glm",
         "tmle",
-        "sp.tmle(..., estimand='ATC', outcome_library=[OLS], propensity_library=[logit])",
+        "sp.tmle(..., estimand='ATC', outcome_library=[OLS], "
+        "propensity_library=[logit])",
         N,
         ATC,
         _tmle_glm("ATC"),
@@ -471,7 +472,8 @@ ROWS = [
         N,
         ATE,
         _rct_blocks,
-        design="four blocks with treatment shares 0.3 / 0.5 / 0.5 / 0.7 and a block effect",
+        design="four blocks with treatment shares 0.3 / 0.5 / 0.5 / 0.7 and a "
+        "block effect",
     ),
     Row(
         "difference_in_means.cluster",

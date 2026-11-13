@@ -1,0 +1,732 @@
+{
+ "study": "se_screen/causal/mediation",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "mediate.acme",
+   "estimator": "mediate",
+   "call": "sp.mediate(df, y, d, m, ['x']), ACME",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.2000000000000002,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 28.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 49.269052885409366
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.21138,
+   "sd_estimate": 0.10238,
+   "coverage": 0.935,
+   "mean_se": 0.09833,
+   "se_over_sd": 0.96,
+   "bias_over_sd": 0.111,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate.ade",
+   "estimator": "mediate",
+   "call": "sp.mediate(...), ADE",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 23.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.974612388245205
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.50132,
+   "sd_estimate": 0.06572,
+   "coverage": 0.9725,
+   "mean_se": 0.06804,
+   "se_over_sd": 1.035,
+   "bias_over_sd": 0.02,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate.total",
+   "estimator": "mediate",
+   "call": "sp.mediate(...), total effect",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.7000000000000002,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 24.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 68.5797783062509
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.70412,
+   "sd_estimate": 0.1173,
+   "coverage": 0.9475,
+   "mean_se": 0.11391,
+   "se_over_sd": 0.971,
+   "bias_over_sd": 0.035,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate.acme.delta",
+   "estimator": "mediate",
+   "call": "sp.mediate(..., inference='delta'), ACME",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.2000000000000002,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 49.69487287156815
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.19702,
+   "sd_estimate": 0.09867,
+   "coverage": 0.9425,
+   "mean_se": 0.0981,
+   "se_over_sd": 0.994,
+   "bias_over_sd": -0.03,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate.acme.interaction",
+   "estimator": "mediate",
+   "call": "sp.mediate(..., interaction=True), NIE",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment (no true interaction)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.2000000000000002,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 490.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 48.40231688377594
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.20114,
+   "sd_estimate": 0.10939,
+   "coverage": 0.9275,
+   "mean_se": 0.10125,
+   "se_over_sd": 0.926,
+   "bias_over_sd": 0.01,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate_interventional.iie",
+   "estimator": "mediate_interventional",
+   "call": "sp.mediate_interventional(df, y, d, m, ['x'], n_boot=200), IIE",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.2000000000000002,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 13.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 49.41967128653895
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.19843,
+   "sd_estimate": 0.0944,
+   "coverage": 0.9525,
+   "mean_se": 0.09793,
+   "se_over_sd": 1.037,
+   "bias_over_sd": -0.017,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate_interventional.ide",
+   "estimator": "mediate_interventional",
+   "call": "sp.mediate_interventional(...), IDE",
+   "kind": "ci",
+   "design": "linear mediation model, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 11.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 20.747001898251
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.50238,
+   "sd_estimate": 0.06498,
+   "coverage": 0.9575,
+   "mean_se": 0.06801,
+   "se_over_sd": 1.047,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "four_way.cde",
+   "estimator": "four_way_decomposition",
+   "call": "sp.four_way_decomposition(df, y, d, m, ['x']).cde +/- 1.96 se",
+   "kind": "ci",
+   "design": "linear model with a treatment-mediator interaction of 0.4",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 20.271603373868338
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.5017,
+   "sd_estimate": 0.08175,
+   "coverage": 0.9475,
+   "mean_se": 0.08753,
+   "se_over_sd": 1.071,
+   "bias_over_sd": 0.021,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "four_way.int_ref",
+   "estimator": "four_way_decomposition",
+   "call": "... .int_ref",
+   "kind": "ci",
+   "design": "as four_way.cde",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.2,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 7.756711047441264
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.19986,
+   "sd_estimate": 0.03491,
+   "coverage": 0.945,
+   "mean_se": 0.03548,
+   "se_over_sd": 1.016,
+   "bias_over_sd": -0.004,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "four_way.int_med",
+   "estimator": "four_way_decomposition",
+   "call": "... .int_med",
+   "kind": "ci",
+   "design": "as four_way.cde",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.32,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 13.813032304045858
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.32146,
+   "sd_estimate": 0.05529,
+   "coverage": 0.95,
+   "mean_se": 0.05518,
+   "se_over_sd": 0.998,
+   "bias_over_sd": 0.026,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "four_way.pie",
+   "estimator": "four_way_decomposition",
+   "call": "... .pie",
+   "kind": "ci",
+   "design": "as four_way.cde",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.2,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 47.78540842111264
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.19923,
+   "sd_estimate": 0.10513,
+   "coverage": 0.9325,
+   "mean_se": 0.1012,
+   "se_over_sd": 0.963,
+   "bias_over_sd": -0.007,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_mediate.indirect",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(df, y, d, m, 'z'), indirect effect",
+   "kind": "ci",
+   "design": "one instrument; the treatment error moves the mediator, the mediator error moves the outcome",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 32.82596231342074
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.83425,
+   "sd_estimate": 0.06515,
+   "coverage": 0.9875,
+   "mean_se": 0.0808,
+   "se_over_sd": 1.24,
+   "bias_over_sd": -0.088,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_mediate.direct",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(...), direct effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.3,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 12.490194145021999
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.31091,
+   "sd_estimate": 0.09423,
+   "coverage": 0.9625,
+   "mean_se": 0.09353,
+   "se_over_sd": 0.993,
+   "bias_over_sd": 0.116,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_mediate.indirect.robust",
+   "estimator": "iv_mediate",
+   "call": "sp.iv_mediate(..., robust=True), indirect effect",
+   "kind": "ci",
+   "design": "as iv_mediate.indirect",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.84,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 33.8550907166601
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.83617,
+   "sd_estimate": 0.07024,
+   "coverage": 0.9725,
+   "mean_se": 0.0807,
+   "se_over_sd": 1.149,
+   "bias_over_sd": -0.055,
+   "flag_reasons": [
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate_paths.via_m1",
+   "estimator": "mediate_paths",
+   "call": "sp.mediate_paths(df, y, d, ['m1', 'm2'], n_boot=200), via_M1",
+   "kind": "ci",
+   "design": "two sequential mediators, linear, randomised treatment",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.024,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 34.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 41.45638380945731
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.03301,
+   "sd_estimate": 0.0905,
+   "coverage": 0.945,
+   "mean_se": 0.09243,
+   "se_over_sd": 1.021,
+   "bias_over_sd": 0.1,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "mediate_paths.via_m2",
+   "estimator": "mediate_paths",
+   "call": "sp.mediate_paths(...), via_M2",
+   "kind": "ci",
+   "design": "as mediate_paths.via_m1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.35,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 36.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 13.48331432028464
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.34211,
+   "sd_estimate": 0.05378,
+   "coverage": 0.945,
+   "mean_se": 0.05537,
+   "se_over_sd": 1.03,
+   "bias_over_sd": -0.147,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

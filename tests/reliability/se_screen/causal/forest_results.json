@@ -1,0 +1,610 @@
+{
+ "study": "se_screen/causal/forest",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "causal_forest.ate",
+   "estimator": "average_treatment_effect",
+   "call": "sp.average_treatment_effect(sp.causal_forest(...))",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 177.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.9599115117362
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00179,
+   "sd_estimate": 0.07098,
+   "coverage": 0.9475,
+   "mean_se": 0.07249,
+   "se_over_sd": 1.021,
+   "median_se_over_iqr_sd": 1.119,
+   "bias_over_sd": 0.025,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.att",
+   "estimator": "average_treatment_effect",
+   "call": "sp.average_treatment_effect(cf, target_sample='treated')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 152.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 45.03921787867369
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.11288,
+   "sd_estimate": 0.08306,
+   "coverage": 0.935,
+   "mean_se": 0.07744,
+   "se_over_sd": 0.932,
+   "median_se_over_iqr_sd": 0.887,
+   "bias_over_sd": 0.007,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.atc",
+   "estimator": "average_treatment_effect",
+   "call": "sp.average_treatment_effect(cf, target_sample='control')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.8876883160031803,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 163.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 36.20099018523985
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.88966,
+   "sd_estimate": 0.07399,
+   "coverage": 0.96,
+   "mean_se": 0.07596,
+   "se_over_sd": 1.027,
+   "median_se_over_iqr_sd": 0.953,
+   "bias_over_sd": 0.027,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.overlap",
+   "estimator": "average_treatment_effect",
+   "call": "sp.average_treatment_effect(cf, target_sample='overlap')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.9999999999999999,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 156.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.47112572786104
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99543,
+   "sd_estimate": 0.07338,
+   "coverage": 0.9525,
+   "mean_se": 0.07026,
+   "se_over_sd": 0.958,
+   "median_se_over_iqr_sd": 0.98,
+   "bias_over_sd": -0.062,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.ate.clusters",
+   "estimator": "average_treatment_effect",
+   "call": "sp.average_treatment_effect(sp.causal_forest(..., clusters=g))",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 182.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.12772895902164
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00449,
+   "sd_estimate": 0.09515,
+   "coverage": 0.9375,
+   "mean_se": 0.09434,
+   "se_over_sd": 0.992,
+   "median_se_over_iqr_sd": 0.978,
+   "bias_over_sd": 0.047,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "best_linear_projection.slope",
+   "estimator": "best_linear_projection",
+   "call": "sp.best_linear_projection(cf, df[['x1']]).loc['x1']",
+   "kind": "ci",
+   "design": "_dgp.obs (the projection of 1 + 0.5 x1 on x1 is exact)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 253.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.243496796222928
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.49552,
+   "sd_estimate": 0.07368,
+   "coverage": 0.9625,
+   "mean_se": 0.07637,
+   "se_over_sd": 1.036,
+   "median_se_over_iqr_sd": 1.008,
+   "bias_over_sd": -0.061,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "best_linear_projection.intercept",
+   "estimator": "best_linear_projection",
+   "call": "sp.best_linear_projection(cf, df[['x1']]).loc['Intercept']",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 208.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 38.8448224023938
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.9981,
+   "sd_estimate": 0.07092,
+   "coverage": 0.945,
+   "mean_se": 0.07083,
+   "se_over_sd": 0.999,
+   "median_se_over_iqr_sd": 1.046,
+   "bias_over_sd": -0.027,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "calibration_test.mean",
+   "estimator": "calibration_test",
+   "call": "sp.calibration_test(cf).loc['mean_forest_prediction'] +/- 1.96 se",
+   "kind": "ci",
+   "design": "_dgp.obs (a coefficient of 1 means the mean forest prediction is right)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 190.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.012991983664904
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.9996,
+   "sd_estimate": 0.00409,
+   "coverage": 1.0,
+   "mean_se": 0.06851,
+   "se_over_sd": 16.754,
+   "median_se_over_iqr_sd": 17.339,
+   "bias_over_sd": -0.098,
+   "flag_reasons": [
+    "coverage_high",
+    "se_large"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "forest_group_effects.by",
+   "estimator": "forest_group_effects",
+   "call": "sp.forest_group_effects(cf, by=x1 > 0).loc[True]",
+   "kind": "ci",
+   "design": "_dgp.obs; group = rows with x1 > 0",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.3989422804014326,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 182.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 55.3804677565013
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.39468,
+   "sd_estimate": 0.09614,
+   "coverage": 0.955,
+   "mean_se": 0.10102,
+   "se_over_sd": 1.051,
+   "median_se_over_iqr_sd": 1.118,
+   "bias_over_sd": -0.044,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.pointwise.centre",
+   "estimator": "causal_forest",
+   "call": "cf.effect_interval([[0, 0]])",
+   "kind": "ci",
+   "design": "_dgp.obs; tau(0, 0) = 1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 157.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 41.56113016498957
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00549,
+   "sd_estimate": 0.16947,
+   "coverage": 0.915,
+   "mean_se": 0.16233,
+   "se_over_sd": 0.958,
+   "median_se_over_iqr_sd": 0.907,
+   "bias_over_sd": 0.032,
+   "flag_reasons": [
+    "coverage_low"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "causal_forest.pointwise.off_centre",
+   "estimator": "causal_forest",
+   "call": "cf.effect_interval([[1, 0]])",
+   "kind": "ci",
+   "design": "_dgp.obs; tau(1, 0) = 1.5",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.5,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 158.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 58.493405332090404
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.48285,
+   "sd_estimate": 0.16062,
+   "coverage": 0.9575,
+   "mean_se": 0.17041,
+   "se_over_sd": 1.061,
+   "median_se_over_iqr_sd": 1.062,
+   "bias_over_sd": -0.107,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_forest.late",
+   "estimator": "iv_forest",
+   "call": "sp.iv_forest(df, y, d, z, X).average_treatment_effect()",
+   "kind": "ci",
+   "design": "randomised binary instrument, 60% compliers independent of x (B = 200)",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 192.1,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.389896721347746
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00101,
+   "sd_estimate": 0.11507,
+   "coverage": 0.96,
+   "mean_se": 0.11776,
+   "se_over_sd": 1.023,
+   "median_se_over_iqr_sd": 0.991,
+   "bias_over_sd": 0.009,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "multi_arm_forest.ate",
+   "estimator": "multi_arm_forest",
+   "call": "sp.multi_arm_forest(df, y, a, X).average_treatment_effect(), arm 2 vs 0",
+   "kind": "ci",
+   "design": "three randomised arms, effect of arm 2 is 2 + 0.5 x1 (B = 200)",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 2.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 172.4,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 79.34792139878535
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.99018,
+   "sd_estimate": 0.08823,
+   "coverage": 0.945,
+   "mean_se": 0.08646,
+   "se_over_sd": 0.98,
+   "median_se_over_iqr_sd": 1.059,
+   "bias_over_sd": -0.111,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

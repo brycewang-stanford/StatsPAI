@@ -110,6 +110,25 @@ def sample_truth(df: pd.DataFrame, estimand: str) -> float:
     return float(df["tau"].mean())
 
 
+def score_truth(df: pd.DataFrame, estimand: str, intercept: float = 0.0) -> float:
+    """An estimand of a draw of :func:`obs`, given the propensity scores.
+
+    Matching on the score compares units with equal scores, not equal
+    covariates, so the estimator's conditional variance (Abadie and Imbens
+    2006, with the score as the matching variable) is around the average
+    of ``E[tau(X) | score]`` over the target units. With ``s = PS_B1 x1 +
+    PS_B2 x2`` the regression of ``x1`` on ``s`` has slope ``PS_B1 /
+    (PS_B1^2 + PS_B2^2)``, so ``E[tau | score] = TAU0 + TAU1 * slope * s``.
+    """
+    s = np.log(df["ps"] / (1 - df["ps"])) - intercept
+    tau_s = TAU0 + TAU1 * PS_B1 / (PS_B1**2 + PS_B2**2) * s
+    if estimand == "ATT":
+        return float(tau_s[df["d"] == 1].mean())
+    if estimand == "ATC":
+        return float(tau_s[df["d"] == 0].mean())
+    return float(tau_s.mean())
+
+
 def obs_clustered(
     rng: np.random.Generator, n_clusters: int = 100, size: int = 10
 ) -> pd.DataFrame:

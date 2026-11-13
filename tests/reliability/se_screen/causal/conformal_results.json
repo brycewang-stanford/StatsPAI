@@ -1,0 +1,560 @@
+{
+ "study": "se_screen/causal/conformal",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "conformal_counterfactual.y1",
+   "estimator": "conformal_counterfactual",
+   "call": "sp.conformal_counterfactual(df, y, d, X, X_test=...) band for Y(1)",
+   "kind": "prediction",
+   "design": "_draw; target Y(1) of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 59.5,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.112
+   },
+   "coverage": 0.9035,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.6254,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_counterfactual.y0",
+   "estimator": "conformal_counterfactual",
+   "call": "sp.conformal_counterfactual(...) band for Y(0)",
+   "kind": "prediction",
+   "design": "_draw; target Y(0) of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 71.8,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.152
+   },
+   "coverage": 0.9047,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.5989,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_ite_interval",
+   "estimator": "conformal_ite_interval",
+   "call": "sp.conformal_ite_interval(df, y, d, X, X_test=...)",
+   "kind": "prediction",
+   "design": "_draw; target Y(1) - Y(0) of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 76.5,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.884
+   },
+   "coverage": 0.9958,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": Infinity,
+   "coverage_secondary": 1.0,
+   "conservative_by_construction": true,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_cate",
+   "estimator": "conformal_cate",
+   "call": "sp.conformal_cate(df, y, d, X, alpha=0.1).model_info['cate_lower/upper']",
+   "kind": "prediction",
+   "design": "_draw; target Y(1) - Y(0) of the sample rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 545.6,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.969
+   },
+   "coverage": 0.9986,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 9.043,
+   "coverage_secondary": 1.0,
+   "conservative_by_construction": true,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_regression.jackknife_plus",
+   "estimator": "conformal_regression",
+   "call": "sp.conformal_regression('y ~ x1 + x2 + d', df, newdata=test)",
+   "kind": "prediction",
+   "design": "_draw with n = 300; target y of fresh rows",
+   "n": 300,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.4,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 17.973999999999997
+   },
+   "coverage": 0.9022,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.4462,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_regression.split",
+   "estimator": "conformal_regression",
+   "call": "sp.conformal_regression(..., method='split')",
+   "kind": "prediction",
+   "design": "_draw; target y of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.0,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.034
+   },
+   "coverage": 0.9014,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.4068,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_regression.full",
+   "estimator": "conformal_regression",
+   "call": "sp.conformal_regression(..., method='full')",
+   "kind": "prediction",
+   "design": "_draw with n = 300; target y of fresh rows",
+   "n": 300,
+   "B": 200,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 128.2,
+   "bands": {
+    "coverage": [
+     0.8454,
+     0.9546
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.006
+   },
+   "coverage": 0.9009,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.4319,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "weighted_conformal_prediction",
+   "estimator": "weighted_conformal_prediction",
+   "call": "sp.weighted_conformal_prediction(Xtr, ytr, Xcal, ycal, Xtest)",
+   "kind": "prediction",
+   "design": "500 train, 500 calibration rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 44.1,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 17.998
+   },
+   "coverage": 0.9003,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.5348,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "weighted_conformal_prediction.shift",
+   "estimator": "weighted_conformal_prediction",
+   "call": "sp.weighted_conformal_prediction(..., weights_calib=w, weights_test=w)",
+   "kind": "prediction",
+   "design": "test rows from x1 ~ N(0.5, 1), true density ratio as weights",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 46.0,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.110050420168065
+   },
+   "coverage": 0.9023,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 3.6084,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_debiased_ml",
+   "estimator": "conformal_debiased_ml",
+   "call": "sp.conformal_debiased_ml(df, y, d, X, test_data=test)",
+   "kind": "prediction",
+   "design": "_draw; target Y(1) - Y(0) of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.8,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.66
+   },
+   "coverage": 0.9848,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 6.9371,
+   "coverage_secondary": 1.0,
+   "conservative_by_construction": true,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_density_ite",
+   "estimator": "conformal_density_ite",
+   "call": "sp.conformal_density_ite(df, y, d, X, test_data=test)",
+   "kind": "prediction",
+   "design": "_draw; target Y(1) - Y(0) of fresh rows",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.2,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 18.154000000000003
+   },
+   "coverage": 0.904,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 4.7443,
+   "coverage_secondary": 1.0,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_fair_ite",
+   "estimator": "conformal_fair_ite",
+   "call": "sp.conformal_fair_ite(df, y, d, X, 's', test_data=test)",
+   "kind": "prediction",
+   "design": "_draw; protected group s = 1[x2 > 0]; target Y(1) - Y(0)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.1,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 19.913999999999994
+   },
+   "coverage": 0.9954,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 8.208,
+   "coverage_secondary": 1.0,
+   "conservative_by_construction": false,
+   "flag_reasons": [
+    "coverage_high"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "conformal_continuous",
+   "estimator": "conformal_continuous",
+   "call": "sp.conformal_continuous(train, y=, treatment=, covariates=, test_data=)",
+   "kind": "prediction",
+   "design": "dose t ~ U(0, 5), y = 2 + 0.7 t + 0.5 x + N(0, 0.25)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.9,
+   "truth": 0.9,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 13.4,
+   "bands": {
+    "coverage": [
+     0.8614,
+     0.9386
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 17.956
+   },
+   "coverage": 0.9008,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "mean_width": 1.7761,
+   "conservative_by_construction": false,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

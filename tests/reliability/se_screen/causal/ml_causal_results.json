@@ -1,0 +1,927 @@
+{
+ "study": "se_screen/causal/ml_causal",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "metalearner.ate",
+   "estimator": "metalearner",
+   "call": "sp.metalearner(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs (default learners, B = 200)",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 260.9,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 38.92496972212947
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.98758,
+   "sd_estimate": 0.10677,
+   "coverage": 0.97,
+   "mean_se": 0.11071,
+   "se_over_sd": 1.037,
+   "median_se_over_iqr_sd": 0.983,
+   "bias_over_sd": -0.116,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "metalearner.ate.linear",
+   "estimator": "metalearner",
+   "call": "sp.metalearner(..., outcome_model=OLS, propensity_model=logit, cate_model=OLS)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.884932173508794
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99733,
+   "sd_estimate": 0.06712,
+   "coverage": 0.9625,
+   "mean_se": 0.07023,
+   "se_over_sd": 1.046,
+   "median_se_over_iqr_sd": 1.046,
+   "bias_over_sd": -0.04,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "metalearner.ate.cluster",
+   "estimator": "metalearner",
+   "call": "sp.metalearner(..., cluster='g', linear learners)",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 6.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.183570753140096
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00384,
+   "sd_estimate": 0.09207,
+   "coverage": 0.9575,
+   "mean_se": 0.09212,
+   "se_over_sd": 1.001,
+   "median_se_over_iqr_sd": 0.988,
+   "bias_over_sd": 0.042,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "blp_test.beta1",
+   "estimator": "blp_test",
+   "call": "sp.blp_test(m, df, y, d, X, propensity='p')['beta1']",
+   "kind": "ci",
+   "design": "_dgp.rct with the known propensity 0.5",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 19.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 38.649942022424256
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99841,
+   "sd_estimate": 0.10548,
+   "coverage": 0.955,
+   "mean_se": 0.10619,
+   "se_over_sd": 1.007,
+   "median_se_over_iqr_sd": 0.957,
+   "bias_over_sd": -0.015,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "gate_test.top_group",
+   "estimator": "gate_test",
+   "call": "sp.gate_test(m, df, by='x1', y=, treat=, propensity='p'), top quartile",
+   "kind": "ci",
+   "design": "_dgp.rct; groups are quartiles of x1, effect 1 + 0.5 x1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.635553145368214,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 20.4,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 66.6491319100096
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.64186,
+   "sd_estimate": 0.24659,
+   "coverage": 0.96,
+   "mean_se": 0.25864,
+   "se_over_sd": 1.049,
+   "median_se_over_iqr_sd": 1.061,
+   "bias_over_sd": 0.026,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "gate_test.top_vs_bottom",
+   "estimator": "gate_test",
+   "call": "sp.gate_test(...)['top_vs_bottom_diff'] +/- 1.96 se",
+   "kind": "ci",
+   "design": "as gate_test.top_group",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.271106290736428,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 20.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 51.107915711774936
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.27153,
+   "sd_estimate": 0.35939,
+   "coverage": 0.9575,
+   "mean_se": 0.36637,
+   "se_over_sd": 1.019,
+   "median_se_over_iqr_sd": 1.082,
+   "bias_over_sd": 0.001,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.ate.linear",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='irm', model_y=OLS, model_d=logit)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.24274081736103
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00268,
+   "sd_estimate": 0.07249,
+   "coverage": 0.9325,
+   "mean_se": 0.07027,
+   "se_over_sd": 0.969,
+   "median_se_over_iqr_sd": 0.97,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.atte.linear",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='irm', score='ATTE', model_y=OLS, model_d=logit)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 43.86318651111184
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.10988,
+   "sd_estimate": 0.07867,
+   "coverage": 0.9475,
+   "mean_se": 0.07613,
+   "se_over_sd": 0.968,
+   "median_se_over_iqr_sd": 0.942,
+   "bias_over_sd": -0.031,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.ate.normalize_ipw",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='irm', normalize_ipw=True, linear learners)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.10734923433266
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99328,
+   "sd_estimate": 0.07185,
+   "coverage": 0.94,
+   "mean_se": 0.06994,
+   "se_over_sd": 0.973,
+   "median_se_over_iqr_sd": 1.072,
+   "bias_over_sd": -0.093,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.ate.n_rep",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='irm', n_rep=5, linear learners)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 17.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.156531049213264
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99883,
+   "sd_estimate": 0.06804,
+   "coverage": 0.9575,
+   "mean_se": 0.07034,
+   "se_over_sd": 1.034,
+   "median_se_over_iqr_sd": 1.113,
+   "bias_over_sd": -0.017,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.ate.default",
+   "estimator": "dml",
+   "call": "sp.dml(df, y, d, X, model='irm')",
+   "kind": "ci",
+   "design": "_dgp.obs (default learners)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 240.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.8542109732903
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99953,
+   "sd_estimate": 0.10151,
+   "coverage": 0.9575,
+   "mean_se": 0.10196,
+   "se_over_sd": 1.004,
+   "median_se_over_iqr_sd": 1.028,
+   "bias_over_sd": -0.005,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.irm.ate.cluster",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='irm', cluster='g', linear learners)",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 7.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.905233759302995
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00415,
+   "sd_estimate": 0.0868,
+   "coverage": 0.965,
+   "mean_se": 0.09144,
+   "se_over_sd": 1.054,
+   "median_se_over_iqr_sd": 1.135,
+   "bias_over_sd": 0.048,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.plr.cluster",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='plr', cluster='g', linear learners)",
+   "kind": "ci",
+   "design": "continuous treatment, constant effect, cluster components in treatment and error, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.341029546317806
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.99818,
+   "sd_estimate": 0.04692,
+   "coverage": 0.93,
+   "mean_se": 0.04403,
+   "se_over_sd": 0.938,
+   "median_se_over_iqr_sd": 0.918,
+   "bias_over_sd": -0.039,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.pliv",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='pliv', instrument='z', linear learners)",
+   "kind": "ci",
+   "design": "endogenous continuous treatment, first-stage coefficient 0.8",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 88.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 40.0806864920366
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00215,
+   "sd_estimate": 0.05792,
+   "coverage": 0.9475,
+   "mean_se": 0.05813,
+   "se_over_sd": 1.003,
+   "median_se_over_iqr_sd": 1.048,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml.iivm",
+   "estimator": "dml",
+   "call": "sp.dml(..., model='iivm', instrument='z')",
+   "kind": "ci",
+   "design": "binary instrument, one-sided non-compliance, about 60% compliers, LATE = 1 (n = 2000, default learners, B = 200)",
+   "n": 2000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 189.1,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.39551857728056
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.9993,
+   "sd_estimate": 0.0798,
+   "coverage": 0.965,
+   "mean_se": 0.08759,
+   "se_over_sd": 1.098,
+   "median_se_over_iqr_sd": 1.013,
+   "bias_over_sd": -0.009,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml_panel",
+   "estimator": "dml_panel",
+   "call": "sp.dml_panel(df, y, d, X, unit='id', time='t', OLS learners)",
+   "kind": "ci",
+   "design": "200 units x 5 periods, unit effect in treatment and outcome, AR(1) errors with coefficient 0.5",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.8,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 32.103154771014225
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.80034,
+   "sd_estimate": 0.02806,
+   "coverage": 0.9575,
+   "mean_se": 0.02937,
+   "se_over_sd": 1.046,
+   "median_se_over_iqr_sd": 1.025,
+   "bias_over_sd": 0.012,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml_did",
+   "estimator": "dml_did",
+   "call": "sp.dml_did(df, dy, d, X, ml_g=OLS, ml_m=logit)",
+   "kind": "ci",
+   "design": "two periods in differences, trend linear in x, ATT = 2",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 2.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 79.52721317223163
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 2.00044,
+   "sd_estimate": 0.06865,
+   "coverage": 0.9525,
+   "mean_se": 0.06795,
+   "se_over_sd": 0.99,
+   "median_se_over_iqr_sd": 0.933,
+   "bias_over_sd": 0.006,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dml_model_averaging",
+   "estimator": "dml_model_averaging",
+   "call": "sp.dml_model_averaging(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs with a constant effect (partially linear target; n = 600, B = 200)",
+   "n": 600,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 423.1,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 41.51775970375165
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 1.00479,
+   "sd_estimate": 0.08582,
+   "coverage": 0.95,
+   "mean_se": 0.08592,
+   "se_over_sd": 1.001,
+   "median_se_over_iqr_sd": 1.04,
+   "bias_over_sd": 0.056,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dynamic_dml.total",
+   "estimator": "dynamic_dml",
+   "call": "sp.dynamic_dml(df, y=, treat=, id=, time=, covariates=['w'], OLS learners)",
+   "kind": "ci",
+   "design": "500 units x 3 periods, linear state dynamics (see _dynamic)",
+   "n": 500,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 2.11,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 12.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 84.63308351388297
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 2.11025,
+   "sd_estimate": 0.06224,
+   "coverage": 0.97,
+   "mean_se": 0.06562,
+   "se_over_sd": 1.054,
+   "median_se_over_iqr_sd": 0.972,
+   "bias_over_sd": 0.004,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "dynamic_dml.first_period",
+   "estimator": "dynamic_dml",
+   "call": "sp.dynamic_dml(...).periods.iloc[0]",
+   "kind": "ci",
+   "design": "as dynamic_dml.total",
+   "n": 500,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.96,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 15.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 39.05169550849447
+   },
+   "n_nonfinite": 0,
+   "target": "population",
+   "mean_estimate": 0.9658,
+   "sd_estimate": 0.08025,
+   "coverage": 0.9525,
+   "mean_se": 0.08536,
+   "se_over_sd": 1.064,
+   "median_se_over_iqr_sd": 1.118,
+   "bias_over_sd": 0.072,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

@@ -1,0 +1,441 @@
+{
+ "study": "se_screen/causal/bounds",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "lee_bounds.bootstrap",
+   "estimator": "lee_bounds",
+   "call": "sp.lee_bounds(df, y, d, s)",
+   "kind": "set",
+   "design": "Lee selection design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.04953689765346181,
+    0.7100175760719438
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 31.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 13.71793490743302
+   },
+   "coverage_lower_endpoint": 0.945,
+   "coverage_upper_endpoint": 0.965,
+   "coverage_whole_set": 0.91,
+   "coverage": 0.945,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": 0.025,
+   "bias_over_sd_upper_bound": 0.028,
+   "bias_over_sd": 0.028,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "lee_bounds.analytic",
+   "estimator": "lee_bounds",
+   "call": "sp.lee_bounds(..., se_method='analytic')",
+   "kind": "set",
+   "design": "Lee selection design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.04953689765346181,
+    0.7100175760719438
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 13.043453668955118
+   },
+   "coverage_lower_endpoint": 0.95,
+   "coverage_upper_endpoint": 0.9375,
+   "coverage_whole_set": 0.8875,
+   "coverage": 0.9375,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": 0.006,
+   "bias_over_sd_upper_bound": -0.052,
+   "bias_over_sd": 0.052,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "lee_bounds.covariates",
+   "estimator": "lee_bounds",
+   "call": "sp.lee_bounds(..., covariates=['x'])",
+   "kind": "set",
+   "design": "Lee selection design; x is an independent binary covariate, so the tightened set equals the plain one",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.04953689765346181,
+    0.7100175760719438
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 95.3,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 13.441826673215282
+   },
+   "coverage_lower_endpoint": 0.94,
+   "coverage_upper_endpoint": 0.9325,
+   "coverage_whole_set": 0.875,
+   "coverage": 0.9325,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": 0.05,
+   "bias_over_sd_upper_bound": -0.1,
+   "bias_over_sd": 0.1,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "selection_bounds",
+   "estimator": "selection_bounds",
+   "call": "sp.selection_bounds(df, y, d, s, method='unconditional').parameter_ci()",
+   "kind": "set",
+   "design": "Lee selection design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.04953689765346181,
+    0.7100175760719438
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 40.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 14.055412876652847
+   },
+   "coverage_lower_endpoint": 0.945,
+   "coverage_upper_endpoint": 0.97,
+   "coverage_whole_set": 0.915,
+   "coverage": 0.945,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": 0.003,
+   "bias_over_sd_upper_bound": -0.042,
+   "bias_over_sd": 0.042,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "manski_bounds",
+   "estimator": "manski_bounds",
+   "call": "sp.manski_bounds(df, y, d, y_lower=0, y_upper=1)",
+   "kind": "set",
+   "design": "binary-outcome Manski design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.4,
+    0.6
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 15.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 3.9800000000000004
+   },
+   "coverage_lower_endpoint": 0.975,
+   "coverage_upper_endpoint": 0.98,
+   "coverage_whole_set": 0.955,
+   "coverage": 0.975,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": -0.03,
+   "bias_over_sd_upper_bound": -0.03,
+   "bias_over_sd": 0.03,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "manski_bounds.mts",
+   "estimator": "manski_bounds",
+   "call": "sp.manski_bounds(..., assumption='mts')",
+   "kind": "set",
+   "design": "binary-outcome Manski design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.4,
+    0.2
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 15.9,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": -3.9357866161716006
+   },
+   "coverage_lower_endpoint": 0.985,
+   "coverage_upper_endpoint": 0.96,
+   "coverage_whole_set": 0.945,
+   "coverage": 0.96,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": -0.029,
+   "bias_over_sd_upper_bound": -0.019,
+   "bias_over_sd": 0.029,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "horowitz_manski",
+   "estimator": "horowitz_manski",
+   "call": "sp.horowitz_manski(df, y, d, ['x'], n_boot=200).parameter_ci()",
+   "kind": "set",
+   "design": "binary-outcome Manski design; x is independent noise",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    -0.4,
+    0.6
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 142.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 4.010999999999998
+   },
+   "coverage_lower_endpoint": 0.9425,
+   "coverage_upper_endpoint": 0.96,
+   "coverage_whole_set": 0.9025,
+   "coverage": 0.9425,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": 0.081,
+   "bias_over_sd_upper_bound": 0.081,
+   "bias_over_sd": 0.081,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "ml_bounds",
+   "estimator": "ml_bounds",
+   "call": "sp.ml_bounds(df, y, d, ['x'], y_min=0, y_max=1, n_bootstrap=100), [lower, upper]",
+   "kind": "set",
+   "design": "binary-outcome Manski design, n = 1000, B = 200",
+   "n": 1000,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": [
+    -0.4,
+    0.6
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 200.9,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 3.8649087601972005
+   },
+   "coverage_lower_endpoint": 0.685,
+   "coverage_upper_endpoint": 0.695,
+   "coverage_whole_set": 0.38,
+   "coverage": 0.685,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": -0.015,
+   "bias_over_sd_upper_bound": -0.015,
+   "bias_over_sd": 0.015,
+   "flag_reasons": [
+    "coverage_low"
+   ],
+   "flagged": true,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  },
+  {
+   "id": "iv_bounds.nevo_rosen",
+   "estimator": "iv_bounds",
+   "call": "sp.iv_bounds(df, y, x, z).parameter_ci()",
+   "kind": "set",
+   "design": "Nevo-Rosen design",
+   "n": 2000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": [
+    0.5,
+    1.2142857142857144
+   ],
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 44.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "prefix": {
+    "draws": 20,
+    "ok": 20,
+    "sum": 32.39327174924633
+   },
+   "coverage_lower_endpoint": 0.9425,
+   "coverage_upper_endpoint": 0.9525,
+   "coverage_whole_set": 0.895,
+   "coverage": 0.9425,
+   "se_over_sd": null,
+   "bias_over_sd_lower_bound": -0.031,
+   "bias_over_sd_upper_bound": -0.014,
+   "bias_over_sd": 0.031,
+   "flag_reasons": [],
+   "flagged": false,
+   "statspai_version": "1.43.1",
+   "mechanism": ""
+  }
+ ]
+}

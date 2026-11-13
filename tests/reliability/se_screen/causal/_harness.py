@@ -349,6 +349,10 @@ def summarise(row: Row, reps: Sequence[Dict[str, Any]], seconds: float) -> Dict:
         if np.isfinite(se).all():
             rec["mean_se"] = round(float(se.mean()), 5)
             rec["se_over_sd"] = round(float(se.mean() / sd), 3)
+            # the same ratio on scales a few extreme draws cannot move
+            iqr = float(np.subtract(*np.percentile(est, [75, 25])) / 1.349)
+            if iqr > 0:
+                rec["median_se_over_iqr_sd"] = round(float(np.median(se) / iqr), 3)
         else:
             rec["se_over_sd"] = None
         rec["bias_over_sd"] = round(float((est.mean() - truth) / sd), 3)
@@ -410,6 +414,7 @@ def write_results(
     rows: Sequence[Row],
     records: Dict[str, Dict],
     mechanisms: Dict[str, str],
+    history: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> None:
     import statspai as sp
 
@@ -421,6 +426,9 @@ def write_results(
         rec = dict(rec)
         rec.setdefault("statspai_version", sp.__version__)
         rec["mechanism"] = mechanisms.get(row.id, "")
+        if history and row.id in history:
+            # what the same row measured before a fix made because of it
+            rec["before_fix"] = history[row.id]
         ordered.append(rec)
     out = {
         "study": f"se_screen/causal/{family}",
@@ -436,10 +444,31 @@ def write_results(
     )
 
 
+def markdown_table(results_path: Path) -> str:
+    """The family's table as it appears in ``tests/reliability/README.md``."""
+    rows = load_results(results_path)["rows"]
+    lines = [
+        "| row | n | B | coverage | SE / SD | bias / SD | flag |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
+    ]
+
+    def cell(v: Any, digits: int) -> str:
+        return "" if v is None else f"{v:.{digits}f}"
+
+    for r in rows:
+        lines.append(
+            f"| `{r['id']}` | {r['n']} | {r['B']} | {cell(r['coverage'], 3)} | "
+            f"{cell(r['se_over_sd'], 2)} | {cell(r['bias_over_sd'], 2)} | "
+            f"{', '.join(r['flag_reasons'])} |"
+        )
+    return "\n".join(lines)
+
+
 def main(
     family_file: str,
     rows: Sequence[Row],
     mechanisms: Dict[str, str],
+    history: Optional[Dict[str, Dict[str, Any]]] = None,
     argv: Optional[Sequence[str]] = None,
 ) -> None:
     """Command-line entry point shared by the family scripts."""
@@ -451,6 +480,7 @@ def main(
     ap.add_argument("--B", type=int, default=None, help="replications per row")
     ap.add_argument("--processes", type=int, default=MAX_PROCESSES)
     ap.add_argument("--list", action="store_true")
+    ap.add_argument("--table", action="store_true", help="print the stored table")
     ap.add_argument(
         "--missing", action="store_true", help="only rows with no stored record"
     )
@@ -464,11 +494,19 @@ def main(
     )
     ns = ap.parse_args(argv)
 
+    if ns.table:
+        print(markdown_table(results_path))
+        return
     stored = {r["id"]: r for r in load_results(results_path)["rows"]}
     todo = list(rows)
     if ns.only:
+        # an argument that names a row selects that row only; otherwise it
+        # is a prefix
+        ids = {r.id for r in rows}
         todo = [
-            r for r in todo if any(r.id == o or r.id.startswith(o) for o in ns.only)
+            r
+            for r in todo
+            if any(r.id == o or (o not in ids and r.id.startswith(o)) for o in ns.only)
         ]
     if ns.missing:
         todo = [r for r in todo if r.id not in stored]
@@ -484,7 +522,7 @@ def main(
             print(f"{r.id:45s} n={r.n:<6d} {r.call}")
         return
     if ns.notes:
-        write_results(results_path, family, rows, stored, mechanisms)
+        write_results(results_path, family, rows, stored, mechanisms, history)
         return
     for row in todo:
         B = ns.B or (min(CONFIRM_B, int(2.5 * row.B)) if ns.confirm else row.B)
@@ -493,7 +531,7 @@ def main(
 
         rec["statspai_version"] = sp.__version__
         stored[row.id] = rec
-        write_results(results_path, family, rows, stored, mechanisms)
+        write_results(results_path, family, rows, stored, mechanisms, history)
         print(
             f"{row.id:45s} B={rec['B']:<5d} cov={rec['coverage']} "
             f"se/sd={rec['se_over_sd']} bias/sd={rec['bias_over_sd']} "
