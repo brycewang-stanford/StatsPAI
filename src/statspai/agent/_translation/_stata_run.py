@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import threading
 import warnings
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
@@ -602,7 +603,11 @@ def stata(
         The output of the last command: a fitted result for estimation
         commands, the post-estimation output otherwise. With
         ``return_data=True``, a :class:`StataRun` named tuple ``(output,
-        data)``.
+        data)``. A returned result object carries ``stata_run``: the
+        number of estimation commands the snippet ran
+        (``n_estimation_commands``) and the earlier ones whose results
+        were not returned (``earlier_commands_not_returned``); run those
+        one by one to get their results.
 
     Raises
     ------
@@ -659,6 +664,7 @@ def stata(
         session.run(line)
     # the end of the do-file: its `tempvar` variables go
     drop_temporaries(session)
+    _record_run(session)
     if return_data:
         steps = session._steps
         frame = None
@@ -668,6 +674,58 @@ def stata(
             frame = (steps._stack[0][0] if steps._stack else steps.data).copy()
         return StataRun(session.output, frame)
     return session.output
+
+
+#: What the most recent ``sp.stata`` call of this thread ran, for callers
+#: (the MCP layer) whose output type cannot carry the record itself.
+_LAST_RUN = threading.local()
+
+_MULTIPLE_ESTIMATIONS_HINT = (
+    "sp.stata returns the output of the last command only. To get the "
+    "result of an earlier estimation command, run it in its own sp.stata "
+    "call (with the data steps it needs before it)."
+)
+
+
+def stata_run_record(n_commands: List[str]) -> Dict[str, Any]:
+    """``{n_estimation_commands, returned_command, ...}`` for a snippet."""
+    record: Dict[str, Any] = {
+        "n_estimation_commands": len(n_commands),
+        "returned_command": n_commands[-1] if n_commands else None,
+        "earlier_commands_not_returned": list(n_commands[:-1]),
+    }
+    if len(n_commands) > 1:
+        record["hint"] = _MULTIPLE_ESTIMATIONS_HINT
+    return record
+
+
+def _record_run(session: "StataSession") -> None:
+    """Attach the list of estimation commands to what ``sp.stata`` returns.
+
+    A do-file with several ``regress`` lines returns the last fit; the
+    earlier ones ran and are gone. The return shape stays as it is. The
+    record is set as ``result.stata_run`` on a result object (``.attrs``
+    on a DataFrame) and kept for :func:`last_stata_run`.
+    """
+    record = stata_run_record(session.estimation_commands)
+    _LAST_RUN.record = record
+    output = session.output
+    if isinstance(output, pd.DataFrame):
+        if len(session.estimation_commands) > 1:
+            output.attrs["stata_run"] = record
+        return
+    if output is None or isinstance(output, (int, float, str, bool, dict, list, tuple)):
+        return
+    try:
+        output.stata_run = record
+    except (AttributeError, TypeError):
+        pass  # a frozen or slotted object: last_stata_run() still has it
+
+
+def last_stata_run() -> Optional[Dict[str, Any]]:
+    """The record of this thread's most recent ``sp.stata`` call."""
+    record: Optional[Dict[str, Any]] = getattr(_LAST_RUN, "record", None)
+    return record
 
 
 class StataRun(NamedTuple):
@@ -866,6 +924,8 @@ class StataSession:
         self.last = result
         self.last_data = data
         self.output: Any = result
+        #: every estimation command run, in order, as typed
+        self.estimation_commands: List[str] = []
         self._last_call: Optional[Dict[str, Any]] = None
         self._quiet_blocks = 0
         #: the block being collected (`forvalues ... {` up to its `}`)
@@ -1827,6 +1887,7 @@ class StataSession:
                 self.last = self.output
                 self.last_data = run_data
                 self._last_call = out
+                self.estimation_commands.append(" ".join(typed_line.split()))
                 self._store_estimates(self.output)
                 record_sample(self, run_data)
                 if re.match(r"\s*(?:\w+\s*:\s*)*(?:qui\w*\s+)?xtreg\b", line):

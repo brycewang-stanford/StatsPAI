@@ -181,6 +181,20 @@ def dispatch_registry_tool(
 
     if not isinstance(out, dict):
         out = {"value": out}
+    if name == "stata":
+        # Several estimation commands in one snippet: the reply is the last
+        # one's. Say how many ran and which results were not returned.
+        from ._translation._stata_run import last_stata_run
+
+        run = last_stata_run()
+        if run is not None:
+            out["n_estimation_commands"] = run["n_estimation_commands"]
+            if run["earlier_commands_not_returned"]:
+                out["earlier_commands_not_returned"] = run[
+                    "earlier_commands_not_returned"
+                ]
+                out["returned_command"] = run["returned_command"]
+                out["hint"] = run["hint"]
     if unsupported:
         out["_unsupported_args"] = unsupported
         out.setdefault(

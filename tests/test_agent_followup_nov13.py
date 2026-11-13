@@ -626,3 +626,102 @@ def test_mcp_summaries_read_the_coefficient_table(files):
     assert interp["summary"]["fields"]["coefficients"]["age"]["estimate"] == (
         pytest.approx(float(fit.params["age"]), rel=1e-9)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  #32 sp.stata with several estimation commands says what it did not return
+# --------------------------------------------------------------------------- #
+_SNIPPET = (
+    "regress re78 treat\n"
+    "regress re78 treat age, robust\n"
+    "logit treat age education"
+)
+
+
+def test_stata_snippet_reports_the_estimations_it_did_not_return(files):
+    _, frames = files
+    nsw = frames["nsw"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        last = sp.stata(_SNIPPET, data=nsw)
+        direct = sp.logit("treat ~ age + education", data=nsw)
+        single = sp.stata("regress re78 treat", data=nsw)
+    # the return is still the last result, unchanged
+    np.testing.assert_allclose(
+        last.params.to_numpy(), direct.params.to_numpy(), rtol=1e-12
+    )
+    run = last.stata_run
+    assert run["n_estimation_commands"] == 3
+    assert run["returned_command"] == "logit treat age education"
+    assert run["earlier_commands_not_returned"] == [
+        "regress re78 treat",
+        "regress re78 treat age, robust",
+    ]
+    assert "own sp.stata call" in run["hint"]
+    assert single.stata_run == {
+        "n_estimation_commands": 1,
+        "returned_command": "regress re78 treat",
+        "earlier_commands_not_returned": [],
+    }
+
+
+def test_each_earlier_command_runs_on_its_own_as_the_hint_says(files):
+    _, frames = files
+    nsw = frames["nsw"]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        run = sp.stata(_SNIPPET, data=nsw).stata_run
+        alone = [
+            sp.stata(cmd, data=nsw) for cmd in run["earlier_commands_not_returned"]
+        ]
+        expected = [
+            sp.regress("re78 ~ treat", data=nsw),
+            sp.regress("re78 ~ treat + age", data=nsw, robust="hc1"),
+        ]
+    for got, want in zip(alone, expected):
+        np.testing.assert_allclose(
+            got.params.to_numpy(), want.params.to_numpy(), rtol=1e-12
+        )
+        np.testing.assert_allclose(
+            got.std_errors.to_numpy(), want.std_errors.to_numpy(), rtol=1e-12
+        )
+
+
+def test_a_loop_counts_every_estimation_it_ran(files):
+    _, frames = files
+    loop = "forvalues i = 1/3 {\n regress re78 treat age if education > `i'\n}"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        run = sp.stata(loop, data=frames["nsw"]).stata_run
+    assert run["n_estimation_commands"] == 3
+    assert run["earlier_commands_not_returned"] == [
+        "regress re78 treat age if education > 1",
+        "regress re78 treat age if education > 2",
+    ]
+    assert run["returned_command"] == "regress re78 treat age if education > 3"
+
+
+def test_mcp_stata_reply_names_the_results_it_dropped(files):
+    paths, _ = files
+    several = _call(
+        "call_function",
+        data_path=paths["nsw"],
+        function="stata",
+        arguments={"commands": _SNIPPET},
+    )
+    assert "error" not in several, several.get("error")
+    assert several["n_estimation_commands"] == 3
+    assert several["earlier_commands_not_returned"] == [
+        "regress re78 treat",
+        "regress re78 treat age, robust",
+    ]
+    assert several["returned_command"] == "logit treat age education"
+    assert "own sp.stata call" in several["hint"]
+    one = _call(
+        "call_function",
+        data_path=paths["nsw"],
+        function="stata",
+        arguments={"commands": "regress re78 treat"},
+    )
+    assert one["n_estimation_commands"] == 1
+    assert "earlier_commands_not_returned" not in one
