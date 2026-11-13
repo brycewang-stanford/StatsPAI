@@ -6271,3 +6271,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — traces 01 / 02 / 03 / 11 / 14 / 15 / 24 / 35 / 42 / 48 / 51 / 53 to 58 / 67 / 90 / 91 and orig 01 / 04 / 04b / 09 re-recorded (agent probe)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `fix(agent): blind agent probe over MCP and the
+  self-description layer`. The commit that adds this entry re-records the
+  traces.
+- **Reason.** `src/statspai/core/_agent_summary.py` (the balance entry of
+  `result.violations()` reads the matched sample; the file is on the traced
+  path of every module whose result object evaluates its violations) and
+  `src/statspai/matching/match.py` (the text of the non-binary-treatment
+  error) changed. Neither touches an estimate.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  reproduced all twenty Track A modules within its 1e-9 floor, fixtures
+  byte identical or embedded (worst relative difference 4.1e-14, module
+  35). The four original-data modules were re-run into a scratch directory
+  and every number agreed with the committed result within 1e-9. No
+  committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

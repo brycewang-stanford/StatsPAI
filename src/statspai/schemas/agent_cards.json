@@ -134148,10 +134148,14 @@
         "lags": "int",
         "log_likelihood": "float",
         "n_obs": "int",
+        "params": "Any",
+        "pvalues": "Any",
         "residuals": "DataFrame",
         "se": "Dict[str, numpy.ndarray]",
         "se_df": "str",
         "sigma_u": "DataFrame",
+        "std_errors": "Any",
+        "tvalues": "Any",
         "var_names": "List[str]"
       }
     },
