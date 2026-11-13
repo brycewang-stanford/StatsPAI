@@ -29,7 +29,8 @@ Targeted Maximum Likelihood Learning.
 International Journal of Biostatistics, 2(1). [@vanderlaan2006targeted]
 """
 
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+from functools import partial
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -109,6 +110,15 @@ def tmle(
     propensity_library : list of sklearn estimators, optional
         Candidate learners for propensity model g(A|W).
         If None, uses a default diverse library.
+        The default libraries fit their linear learners (logistic
+        regression, Lasso) on the covariates as given. When one of them
+        does not converge, typically because the covariates are on very
+        different scales, the call reports it once as an
+        ``AssumptionWarning`` naming the learner and the nuisance, and
+        records it in ``model_info['diagnostics']
+        ['super_learner_convergence']``, in place of one sklearn
+        ``ConvergenceWarning`` per internal fit. Rescale the covariates or
+        pass a library. Warnings from a library you pass are not touched.
     n_folds : int, default 5
         Cross-validation folds for Super Learner.
     estimand : str, default 'ATE'
@@ -374,6 +384,104 @@ def tmle(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+#: sklearn module (file stem) -> the default-library learner it implements.
+_CONVERGENCE_SOURCES = {
+    "_logistic": "LogisticRegression",
+    "_coordinate_descent": "Lasso",
+    "_sag": "Ridge",
+    "_ridge": "Ridge",
+}
+
+
+def _guarded_fit(notes: "Optional[dict]", role: str, fit: "Callable[[], Any]") -> Any:
+    """Run a default-library Super Learner fit, collecting the
+    ``ConvergenceWarning`` of its learners instead of printing each.
+
+    The default library fits a logistic regression (and a Lasso) on the
+    covariates as given, once per cross-validation fold and learner
+    refit, so unscaled covariates produce the same sklearn warning
+    hundreds of times. ``notes`` maps ``(role, learner)`` to the count
+    and the first message; :func:`_report_convergence` turns it into one
+    ``AssumptionWarning``. Every other warning is re-issued unchanged
+    (once per distinct message and location). ``notes=None`` (a library
+    the caller passed) leaves warnings alone.
+    """
+    if notes is None:
+        return fit()
+    import os
+    import warnings
+
+    from sklearn.exceptions import ConvergenceWarning
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        out = fit()
+    seen = set()
+    for w in caught:
+        if issubclass(w.category, ConvergenceWarning):
+            stem = os.path.splitext(os.path.basename(w.filename))[0]
+            learner = _CONVERGENCE_SOURCES.get(stem, stem)
+            entry = notes.setdefault(
+                (role, learner), {"count": 0, "message": str(w.message)}
+            )
+            entry["count"] += 1
+            continue
+        key = (w.category, str(w.message), w.filename, w.lineno)
+        if key in seen:
+            continue
+        seen.add(key)
+        warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
+    return out
+
+
+def _report_convergence(notes: dict) -> "Optional[List[dict]]":
+    """One ``AssumptionWarning`` for the collected convergence warnings.
+
+    Returns the diagnostics entry (``None`` when nothing was collected).
+    """
+    if not notes:
+        return None
+    import warnings
+
+    from .._default_change import external_stacklevel
+    from ..exceptions import AssumptionWarning
+
+    entries = [
+        {
+            "nuisance": role,
+            "learner": learner,
+            "n_warnings": int(v["count"]),
+            "message": v["message"].splitlines()[0],
+        }
+        for (role, learner), v in notes.items()
+    ]
+    parts = [
+        f"{e['learner']} in the {e['nuisance']} ({e['n_warnings']} "
+        f"fit{'s' if e['n_warnings'] != 1 else ''})"
+        for e in entries
+    ]
+    warnings.warn(
+        AssumptionWarning(
+            "sp.tmle: a learner of the default Super Learner library did "
+            "not converge: " + "; ".join(parts) + ". The estimate is "
+            "computed from the fits as they stopped; the ensemble weights "
+            "in model_info show how much each learner contributes.",
+            recovery_hint=(
+                "Put the covariates on comparable scales (standardize "
+                "them, or rescale columns such as income or squared terms) "
+                "so the default logistic / Lasso learners converge, or pass "
+                "outcome_library= / propensity_library= with learners "
+                "suited to the data, e.g. "
+                "make_pipeline(StandardScaler(), LogisticRegression())."
+            ),
+            diagnostics={"super_learner_convergence": entries},
+            alternative_functions=["sp.super_learner"],
+        ),
+        stacklevel=external_stacklevel(),
+    )
+    return entries
 
 
 def _fit_in_fold(
@@ -702,6 +810,11 @@ class TMLE:
         AW = np.column_stack([A, W])
         W1 = np.column_stack([np.ones(n), W])
         W0 = np.column_stack([np.zeros(n), W])
+        # Convergence warnings of the built-in library are collected and
+        # reported once; a library the caller passed is left alone.
+        convergence: dict = {}
+        q_notes = convergence if self.outcome_library is None else None
+        g_notes = convergence if self.propensity_library is None else None
 
         if self.Q_init is not None:
             Q_in = self.Q_init
@@ -733,7 +846,18 @@ class TMLE:
                     task="classification" if is_binary_outcome else "regression",
                     random_state=self.random_state,
                 )
-                _fit_in_fold(sl_Q_k, AW[tr], Y_scaled[tr], k, "outcome model Q")
+                _guarded_fit(
+                    q_notes,
+                    "outcome model Q",
+                    partial(
+                        _fit_in_fold,
+                        sl_Q_k,
+                        AW[tr],
+                        Y_scaled[tr],
+                        k,
+                        "outcome model Q",
+                    ),
+                )
                 Q_bar_A[te] = sl_Q_k.predict(AW[te])
                 Q_bar_1[te] = sl_Q_k.predict(W1[te])
                 Q_bar_0[te] = sl_Q_k.predict(W0[te])
@@ -745,7 +869,11 @@ class TMLE:
                 task="classification" if is_binary_outcome else "regression",
                 random_state=self.random_state,
             )
-            sl_Q.fit(AW, Y_scaled, sample_weight=obs_w)
+            _guarded_fit(
+                q_notes,
+                "outcome model Q",
+                lambda: sl_Q.fit(AW, Y_scaled, sample_weight=obs_w),
+            )
             Q_bar_A = sl_Q.predict(AW)  # Q(A_i, W_i) for observed A
             Q_bar_1 = sl_Q.predict(W1)  # Q(1, W_i)
             Q_bar_0 = sl_Q.predict(W0)  # Q(0, W_i)
@@ -794,7 +922,13 @@ class TMLE:
                     task="classification",
                     random_state=self.random_state,
                 )
-                _fit_in_fold(sl_g_k, W[tr], A[tr], k, "propensity model g")
+                _guarded_fit(
+                    g_notes,
+                    "propensity model g",
+                    partial(
+                        _fit_in_fold, sl_g_k, W[tr], A[tr], k, "propensity model g"
+                    ),
+                )
                 g_hat_raw[te] = sl_g_k.predict(W[te])
                 sl_g_folds.append(sl_g_k)
         else:
@@ -804,9 +938,14 @@ class TMLE:
                 task="classification",
                 random_state=self.random_state,
             )
-            sl_g.fit(W, A, sample_weight=obs_w)
+            _guarded_fit(
+                g_notes,
+                "propensity model g",
+                lambda: sl_g.fit(W, A, sample_weight=obs_w),
+            )
             g_hat_raw = sl_g.predict(W)
         g_hat = np.clip(g_hat_raw, self.propensity_bounds[0], self.propensity_bounds[1])
+        sl_convergence = _report_convergence(convergence)
 
         # Overlap diagnostics + loud warning when many propensities hit
         # the truncation bounds — the AIPW score blows up at e≈0 / e≈1,
@@ -1067,6 +1206,11 @@ class TMLE:
             "propensity_std": float(np.std(g_hat)),
             "propensity_bounds": self.propensity_bounds,
             "propensity_diagnostics": self._propensity_diagnostics,
+            **(
+                {"diagnostics": {"super_learner_convergence": sl_convergence}}
+                if sl_convergence
+                else {}
+            ),
             "outcome_type": "binary" if is_binary_outcome else "continuous",
             "n_folds": self.n_folds,
             "Q_star_1_mean": float(np.mean(Q_star_1_orig)),

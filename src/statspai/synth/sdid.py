@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._default_change import external_stacklevel
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -151,7 +152,16 @@ def sdid(
       (draws without a treated or without a control unit are redrawn).
     * *jackknife* — leave one unit out, treated or control, with the unit
       and time weights held fixed; undefined (NaN, with a warning) when
-      there is a single treated unit, as in ``synthdid``.
+      there is a single treated unit, as in ``synthdid``. With
+      ``method='sc'`` it is not a valid standard error: holding the
+      synthetic-control weights fixed leaves out the noise of the weights,
+      and without the intercept and time weights of SDID the leave-one-out
+      estimates spread far more than the estimator does. In the
+      2026-11-13 calibration screen it was 4.2 times the sampling standard
+      deviation, and R ``synthdid`` gives the same number for the same
+      data. The call still returns it, with an ``AssumptionWarning`` and an
+      entry in ``model_info['diagnostics']['sc_jackknife_se']``; use
+      ``se_method='placebo'`` or ``'bootstrap'`` for ``method='sc'``.
 
     Placebo and bootstrap replications re-solve the weights starting from
     the full-sample weights with the full-sample regularisation constants,
@@ -219,6 +229,7 @@ def sdid(
         raise TypeError("sdid: provide `outcome` (or legacy alias `y`)")
     if unit is None or time is None:
         raise TypeError("sdid: `unit` and `time` are required")
+    sc_jackknife = method == "sc" and se_method == "jackknife"
     if treat is not None:
         if treated_unit is not None or treatment_time is not None:
             raise MethodIncompatibility(
@@ -233,19 +244,22 @@ def sdid(
             )
         from ._sdid_staggered import sdid_from_treatment
 
-        return sdid_from_treatment(
-            data,
-            y=outcome,
-            unit=unit,
-            time=time,
-            treatment=treat,
-            method=method,
-            covariates=covariates,
-            covariate_method=covariate_method,
-            se_method=se_method,
-            n_reps=n_reps,
-            seed=seed,
-            alpha=alpha,
+        return _flag_sc_jackknife(
+            sdid_from_treatment(
+                data,
+                y=outcome,
+                unit=unit,
+                time=time,
+                treatment=treat,
+                method=method,
+                covariates=covariates,
+                covariate_method=covariate_method,
+                se_method=se_method,
+                n_reps=n_reps,
+                seed=seed,
+                alpha=alpha,
+            ),
+            sc_jackknife,
         )
     if treated_unit is None:
         raise TypeError("sdid: provide `treated_unit` (or legacy alias `treat_unit`)")
@@ -264,20 +278,23 @@ def sdid(
                 "estimator only.",
                 recovery_hint="Use backend='native'.",
             )
-        return _sdid_block_via_treat(
-            data,
-            outcome=outcome,
-            unit=unit,
-            time=time,
-            treated_unit=treated_unit,
-            treatment_time=treatment_time,
-            method=method,
-            covariates=covariates,
-            covariate_method=covariate_method,
-            se_method=se_method,
-            n_reps=n_reps,
-            seed=seed,
-            alpha=alpha,
+        return _flag_sc_jackknife(
+            _sdid_block_via_treat(
+                data,
+                outcome=outcome,
+                unit=unit,
+                time=time,
+                treated_unit=treated_unit,
+                treatment_time=treatment_time,
+                method=method,
+                covariates=covariates,
+                covariate_method=covariate_method,
+                se_method=se_method,
+                n_reps=n_reps,
+                seed=seed,
+                alpha=alpha,
+            ),
+            sc_jackknife,
         )
 
     # Internal variable names kept short for the math below.
@@ -287,17 +304,20 @@ def sdid(
 
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in ("synthdid", "r", "synthdid_r"):
-        return _sdid_r_backend(
-            data=data,
-            outcome=y,
-            unit=unit,
-            time=time,
-            treated_unit=treat_unit,
-            treatment_time=treat_time,
-            method=method,
-            se_method=se_method,
-            seed=seed,
-            alpha=alpha,
+        return _flag_sc_jackknife(
+            _sdid_r_backend(
+                data=data,
+                outcome=y,
+                unit=unit,
+                time=time,
+                treated_unit=treat_unit,
+                treatment_time=treat_time,
+                method=method,
+                se_method=se_method,
+                seed=seed,
+                alpha=alpha,
+            ),
+            sc_jackknife,
         )
     if backend_norm != "native":
         raise ValueError("Unknown backend. Use 'native', 'synthdid', or 'r'.")
@@ -505,18 +525,69 @@ def sdid(
             "se": float(se),
         }
 
-    return CausalResult(
-        method=f"{method_labels[method]} (Arkhangelsky et al. 2021)",
-        estimand="ATT",
-        estimate=float(tau),
-        se=se,
-        pvalue=pvalue,
-        ci=ci,
-        alpha=alpha,
-        n_obs=len(data),
-        model_info=model_info,
-        _citation_key="sdid",
+    return _flag_sc_jackknife(
+        CausalResult(
+            method=f"{method_labels[method]} (Arkhangelsky et al. 2021)",
+            estimand="ATT",
+            estimate=float(tau),
+            se=se,
+            pvalue=pvalue,
+            ci=ci,
+            alpha=alpha,
+            n_obs=len(data),
+            model_info=model_info,
+            _citation_key="sdid",
+        ),
+        sc_jackknife,
     )
+
+
+def _flag_sc_jackknife(result: CausalResult, flagged: bool) -> CausalResult:
+    """Warn that the jackknife SE is not valid for the SC weights.
+
+    ``sdid(method='sc', se_method='jackknife')`` returns what R
+    ``synthdid`` returns: the leave-one-unit-out jackknife with the
+    weights held fixed. Arkhangelsky et al. (2021) propose it for SDID;
+    for the synthetic-control estimator it is far too large (4.2 times
+    the sampling SD in the 2026-11-13 calibration screen, the same in R).
+    The numbers are returned unchanged.
+    """
+    if not flagged:
+        return result
+    from ..exceptions import AssumptionWarning
+
+    se = result.se
+    detail = {
+        "valid": False,
+        "reason": (
+            "fixed-weight jackknife is not a valid SE for method='sc'; "
+            "about 4.2 times the sampling SD in simulation, as in R synthdid"
+        ),
+        "se": None if se is None or not np.isfinite(se) else float(se),
+        "use_instead": ["placebo", "bootstrap"],
+    }
+    result.model_info.setdefault("diagnostics", {})["sc_jackknife_se"] = detail
+    warnings.warn(
+        AssumptionWarning(
+            "sdid(method='sc', se_method='jackknife'): the jackknife "
+            "standard error is not valid for the synthetic-control weights. "
+            "It holds the weights fixed, and without SDID's intercept and "
+            "time weights the leave-one-out estimates spread much more than "
+            "the estimator does (4.2 times the sampling standard deviation "
+            "in simulation; R synthdid returns the same number). The SE, "
+            "p-value and interval are reported as computed.",
+            recovery_hint=(
+                "Use se_method='placebo' (needs more controls than treated "
+                "units) or se_method='bootstrap' (needs more than one "
+                "treated unit) with method='sc', or method='sdid' if the "
+                "jackknife is wanted."
+            ),
+            diagnostics={"method": "sc", "se_method": "jackknife", **detail},
+            alternative_functions=["sp.sdid", "sp.synth"],
+        ),
+        stacklevel=external_stacklevel(),
+    )
+    return result
 
 
 def _sdid_block_via_treat(
