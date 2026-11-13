@@ -33,6 +33,7 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..exceptions import MethodIncompatibility
 from .models import _parse_formula
 
@@ -133,6 +134,7 @@ class AFTResult(ResultProtocolMixin):
         return self.summary()
 
 
+@records_call("aft")
 @accepts_aliases(vce="robust")
 def aft(
     formula: str,
