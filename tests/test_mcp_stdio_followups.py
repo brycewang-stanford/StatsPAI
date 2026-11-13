@@ -383,7 +383,13 @@ def test_match_fit_reports_balance_once_and_correctly(srv, frames):
         < 0.25
         < sc["diagnostics"]["max_abs_smd_before"]
     )
-    assert [v for v in sc["violations"] if v["test"] == "balance"] == []
+    # One threshold since the probe's owner decision 6: the fit's own
+    # violations() and the audit judge the matched |SMD| at 0.10 (this
+    # test used to require silence below 0.25).
+    after = sc["diagnostics"]["max_abs_smd_after"]
+    flags = [v for v in sc["violations"] if v["test"] == "balance"]
+    assert bool(flags) == (after > 0.10)
+    assert all(v["value"] == after and v["threshold"] == 0.10 for v in flags)
     results = _dispatch_ready(srv, fit)
     assert set(results) == {"audit_result", "plot_from_result"}
     assert not any(r.get("isError") for r in results.values())
@@ -391,12 +397,10 @@ def test_match_fit_reports_balance_once_and_correctly(srv, frames):
         c["name"]: c for c in results["audit_result"]["structuredContent"]["checks"]
     }
     balance = checks["balance_after"]
-    # the audit reads the matched sample's SMD and judges it by its own
-    # (stricter) threshold
-    assert balance["value"] == sc["diagnostics"]["max_abs_smd_after"]
-    assert balance["status"] == (
-        "passed" if balance["value"] < balance["threshold"] else "failed"
-    )
+    # the audit reads the matched sample's SMD and judges it at the same
+    # threshold
+    assert balance["value"] == after and balance["threshold"] == 0.10
+    assert balance["status"] == ("failed" if flags else "passed")
     assert [b["type"] for b in results["plot_from_result"]["content"]] == [
         "text",
         "image",

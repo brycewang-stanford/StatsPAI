@@ -486,11 +486,15 @@ def sdid(
     # The evidence sp.audit asks a synthetic-control fit for, under the
     # names it reads. Both restate what is computed above: the pre-period
     # gap between the two stored paths, and the resampling that produced
-    # the standard error.
+    # the standard error. The gap is taken after the intercept shift, so
+    # it measures how well the pre-period *path* is tracked; it is not the
+    # level fit that ``pre_treatment_rmse`` reports for the other
+    # synthetic-control estimators (SDID reports none, and the comparison
+    # table of sp.synth_compare keeps that cell empty).
     pre_gap = Y_tr_all[:T_pre] - Y_synth_pre
     pre_rmse = float(np.sqrt(np.mean(pre_gap**2)))
     pre_sd = float(np.std(Y_tr_all[:T_pre], ddof=1))
-    model_info["pre_treatment_rmse"] = pre_rmse
+    model_info["pre_treatment_rmse_adjusted"] = pre_rmse
     if pre_sd > 0:
         model_info["pretreatment_rmse_ratio"] = pre_rmse / pre_sd
     if np.isfinite(se) and se > 0:

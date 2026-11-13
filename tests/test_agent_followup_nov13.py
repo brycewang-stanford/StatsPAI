@@ -368,7 +368,9 @@ def test_sdid_prefit_and_placebo_evidence_are_recognised(files):
     gap = (mi["Y_obs"][pre] - mi["Y_synth"][pre]).to_numpy()
     rmse = float(np.sqrt(np.mean(gap**2)))
     ratio = rmse / float(np.std(mi["Y_obs"][pre].to_numpy(), ddof=1))
-    assert mi["pre_treatment_rmse"] == pytest.approx(rmse, rel=1e-12)
+    assert mi["pre_treatment_rmse_adjusted"] == pytest.approx(rmse, rel=1e-12)
+    # the level-fit key of the other synth estimators stays unset
+    assert "pre_treatment_rmse" not in mi
     assert mi["pretreatment_rmse_ratio"] == pytest.approx(ratio, rel=1e-12)
     assert mi["placebo_inference"] == {
         "se_method": "placebo",
@@ -538,8 +540,13 @@ def test_null_headline_carries_the_table_and_says_why(files, name):
         assert payload["estimate"] is None and payload["se"] is None
         assert payload["focal_term"] is None
         note = payload["headline_note"]
-        assert "No focal coefficient" in note and "\n" not in note
-        assert all(t in note for t in slopes[:4])
+        assert "\n" not in note
+        if detail == "minimal":
+            # one clause: the minimal payload has a character budget
+            assert note == f"no focal term ({len(slopes)} regressors): see coef_head"
+        else:
+            assert "No focal coefficient" in note
+            assert all(t in note for t in slopes[:4])
     table = fit.to_dict(detail="agent")["coefficients"]
     for term in slopes:
         assert table[term]["estimate"] == pytest.approx(

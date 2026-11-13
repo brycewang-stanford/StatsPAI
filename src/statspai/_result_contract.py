@@ -671,6 +671,12 @@ def build_payload(obj: Any, detail: str, base: Any = None) -> Dict[str, Any]:
     degradations: List[Dict[str, Any]] = []
     env = minimal_envelope(obj, degradations)
     if detail == "minimal":
+        if "headline_note" in env:
+            from .core.results import _no_focal_term_note
+
+            env["headline_note"] = _no_focal_term_note(
+                getattr(obj, "params", None), short=True
+            )
         return env
 
     if base is None:

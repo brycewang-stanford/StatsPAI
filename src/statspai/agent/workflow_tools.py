@@ -2110,6 +2110,7 @@ _PLOT_TYPE_BY_KIND: Dict[str, str] = {
     "love_plot": "balance",
     "rddensity": "density",
     "impact": "all",
+    "cate_plot": "cate",
 }
 
 
@@ -2142,6 +2143,8 @@ def _plot_kinds(obj: Any) -> List[str]:
             kinds.append("impact")
         if detail is not None and "smd" in getattr(detail, "columns", []):
             kinds.append("love_plot")
+        if mi.get("neural_causal"):
+            kinds.append("cate_plot")
         if _detect_family(method.lower()) == "rd" and "kink" not in method.lower():
             kinds.append("rdplot")
         kinds.append("coef_plot")

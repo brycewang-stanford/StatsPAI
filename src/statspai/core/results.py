@@ -305,7 +305,7 @@ def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
 _INTERCEPT_NAMES = frozenset({"Intercept", "_cons", "const"})
 
 
-def _no_focal_term_note(params: Any) -> Optional[str]:
+def _no_focal_term_note(params: Any, short: bool = False) -> Optional[str]:
     """One line for a regression payload whose headline is ``None``.
 
     With several regressors and no recorded treatment the envelope names
@@ -319,6 +319,9 @@ def _no_focal_term_note(params: Any) -> Optional[str]:
         return None
     if len(slopes) < 2:
         return None
+    if short:
+        # the minimal payload has a character budget
+        return f"no focal term ({len(slopes)} regressors): see coef_head"
     shown = ", ".join(slopes[:4]) + (", ..." if len(slopes) > 4 else "")
     return (
         f"No focal coefficient: the fit has {len(slopes)} regressors "
@@ -2121,6 +2124,8 @@ class EconometricResults:
             if fit_stats:
                 base["fit_stats"] = fit_stats
             if base.get("focal_term") is None:
+                if "headline_note" in base:
+                    base["headline_note"] = _no_focal_term_note(self.params, short=True)
                 # No designated coefficient: carry a few so the numbers an
                 # agent asked for are not dropped at this level.
                 terms = [t for t in self.params.index if str(t) not in _INTERCEPT_NAMES]

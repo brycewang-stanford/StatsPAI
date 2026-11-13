@@ -225,8 +225,9 @@ Evidence: `tests/test_agent_followup_nov13.py`,
   `sp.feols` / `sp.hdfe_ols` fit `missing`. The check reads what the fit
   recorded; an iid `sp.feols` fit is now `failed` (was `missing`).
 - **`sp.audit` on `sp.sdid`: pre-fit and placebo evidence were `missing`.**
-  The fit stores `pre_treatment_rmse`, `pretreatment_rmse_ratio` and the
-  resampling behind its standard error (`placebo_inference`, or
+  The fit stores `pre_treatment_rmse_adjusted` (the pre-period gap of the
+  intercept-shifted path), `pretreatment_rmse_ratio` and the resampling
+  behind its standard error (`placebo_inference`, or
   `resampling_inference` for the bootstrap / jackknife).
 - **MCP `synth_sensitivity` answered with 48 KB.** At the default
   `detail='agent'` a table nested in a dict result keeps 20 rows once its
