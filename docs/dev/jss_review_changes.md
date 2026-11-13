@@ -6198,3 +6198,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — traces 04 / 10 / 21 / 24 / 79 and orig 02 re-recorded (epidemiology probe)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `5f1dbe711`. The commit that adds this entry re-records the
+  traces.
+- **Reason.** `src/statspai/survey/estimators.py` (`sp.svyglm` now reports
+  a design effect per coefficient; the file is on the traced path of the
+  DiD modules through the survey-design helpers) and
+  `src/statspai/survival/_cox_core.py`, `models.py`, `competing_risks.py`
+  (stratified concordance, Efron baseline hazard, Kaplan-Meier quantiles,
+  log-rank options; module 24 fits `sp.cox`) changed.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  reproduced modules 04, 10, 21, 24 and 79 within its 1e-9 floor (worst
+  relative difference 8.8e-11, module 10; fixtures byte-identical or
+  embedded). Module 24 reports coefficients and standard errors, which did
+  not move; the concordance fix applies to stratified fits only and the
+  baseline hazard is not a parity row. Re-running original-data module 02
+  moved two numbers in the 16th digit (jitter, restored). No committed
+  parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
