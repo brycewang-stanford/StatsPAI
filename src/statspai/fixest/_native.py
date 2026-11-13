@@ -9,8 +9,10 @@ the native fit can answer it exactly as the delegate would, runs it, and
 reports it in the delegate's result layout.
 
 A call is native when every part of it is something the native fit
-implements: ``lhs ~ x1 + ... | fe1 + ...`` with numeric regressors and
-plain fixed-effect columns, ``vcov`` in iid / hetero / one-way CRV1, no
+implements: ``lhs ~ x1 + ... | fe1 + ...`` with numeric regressors,
+``i(factor[, var], ref=...)`` dummies, ``C(factor)`` /
+``C(factor, Treatment(ref))`` terms and their interaction with one numeric
+column (``C(factor):x`` / ``x:C(factor)``), and plain fixed-effect columns, ``vcov`` in iid / hetero / one-way CRV1, no
 ``ssc=``, no extra pyfixest keywords. Rows with a missing value in a used
 column are dropped first, as fixest does. Anything else, and a design
 whose regressors are absorbed or collinear (fixest drops those columns;
@@ -40,9 +42,19 @@ _I_TERM = re.compile(
 )
 
 
-#: ``C(factor)``: indicators for every level but the first (formulaic's
-#: treatment coding, what the delegate builds for the same term).
-_C_TERM = re.compile(r"^C\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\Z")
+#: ``C(factor)`` / ``C(factor, Treatment(ref))``: indicators for every level
+#: but the reference (the first level, or ``ref``): formulaic's treatment
+#: coding, what the delegate builds for the same term. Stata's ``i.year``
+#: and ``ib2003.year`` translate to these.
+_C_FACTOR = (
+    r"C\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*"
+    r"(?:,\s*Treatment\(\s*(-?\d+|\"[^\"]*\"|'[^']*')\s*\)\s*)?\)"
+)
+_C_TERM = re.compile(rf"^{_C_FACTOR}\Z")
+#: ``C(factor):x`` / ``x:C(factor)``: the factor interacted with a numeric
+#: column (Stata ``i.year#c.x``, and the interaction of ``c.x##i.year``).
+_C_BY_VAR = re.compile(rf"^(?P<c>{_C_FACTOR})\s*:\s*(?P<v>[A-Za-z_][A-Za-z0-9_]*)\Z")
+_VAR_BY_C = re.compile(rf"^(?P<v>[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(?P<c>{_C_FACTOR})\Z")
 
 
 @dataclass
@@ -55,6 +67,24 @@ class ITerm:
     #: ``C(factor)``: the reference is the first level and a dummy is
     #: reported as ``C(factor)[T.level]``
     categorical: bool = False
+    #: ``C(...)`` as written (``C(year, Treatment(2003))``): the prefix of
+    #: the reported names
+    label: str = ""
+    #: ``x:C(factor)``: the numeric column is written first
+    var_first: bool = False
+    #: an interaction whose numeric column is not itself a regressor keeps
+    #: every level (``C(year)[2000]:w``), as formulaic codes it
+    full: bool = False
+
+
+def _c_term(text: str, factor: str, ref: Optional[str], var: Optional[str]) -> ITerm:
+    return ITerm(
+        factor,
+        var,
+        "" if ref is None else ref.strip("\"'"),
+        categorical=True,
+        label=" ".join(text.split()),
+    )
 
 
 _HETERO = ("hetero", "hc1", "robust")
@@ -114,10 +144,18 @@ def _split_formula(
             continue
         m = _I_TERM.match(t)
         c = _C_TERM.match(t)
+        cv = _C_BY_VAR.match(t) or _VAR_BY_C.match(t)
         if m:
             rhs.append(ITerm(m.group(1), m.group(2), m.group(3).strip("\"'")))
         elif c:
-            rhs.append(ITerm(c.group(1), None, "", categorical=True))
+            rhs.append(_c_term(t, c.group(1), c.group(2), None))
+        elif cv:
+            inner = _C_TERM.match(cv.group("c").strip())
+            if inner is None:
+                return None
+            term = _c_term(cv.group("c"), inner.group(1), inner.group(2), cv.group("v"))
+            term.var_first = t.lstrip().startswith(cv.group("v"))
+            rhs.append(term)
         elif _NAME.match(t):
             rhs.append(t)
         else:
@@ -128,6 +166,19 @@ def _split_formula(
     names = [lhs] + plain + fe
     if len(set(names)) != len(names):
         return None
+    labels = [(t.label, t.var) for t in rhs if isinstance(t, ITerm) and t.categorical]
+    if len(set(labels)) != len(labels):
+        return None  # the same factor term twice
+    for t in rhs:
+        if isinstance(t, ITerm) and t.categorical and t.var is not None:
+            # Reduced coding only when the numeric column is a regressor on
+            # its own; otherwise every level has its own slope.
+            t.full = t.var not in plain
+    # Main effects before interactions, each group in the order written:
+    # the column order formulaic gives the design matrix.
+    rhs.sort(
+        key=lambda t: int(isinstance(t, ITerm) and t.categorical and t.var is not None)
+    )
     return lhs, rhs, fe
 
 
@@ -257,6 +308,10 @@ def _base_columns(rhs: List[Union[str, ITerm]]) -> List[str]:
     return out
 
 
+#: Marks an interaction that keeps every level of its factor.
+_NO_REFERENCE = object()
+
+
 def _expand_i_terms(
     rhs: List[Union[str, ITerm]], work: pd.DataFrame
 ) -> Union[str, Tuple[List[str], Dict[str, np.ndarray], Dict[str, str]]]:
@@ -283,10 +338,22 @@ def _expand_i_terms(
         values = f.to_numpy()
         codes, levels = pd.factorize(values, sort=True)
         level_list = list(levels)
-        if t.categorical:
+        ref: Any
+        if t.categorical and t.full:
             if not level_list:
                 return f"C({t.factor}) on a column with no values"
-            ref: Any = level_list[0]
+            ref = _NO_REFERENCE
+        elif t.categorical and t.ref == "":
+            if not level_list:
+                return f"C({t.factor}) on a column with no values"
+            ref = level_list[0]
+        elif t.categorical:
+            try:
+                ref = int(t.ref) if pd.api.types.is_integer_dtype(f) else t.ref
+            except ValueError:
+                return f"{t.label} on an integer column"
+            if ref not in level_list:
+                return f"{t.label}: reference level {t.ref} not in the data"
         else:
             try:
                 ref = int(t.ref) if pd.api.types.is_integer_dtype(f) else t.ref
@@ -296,13 +363,19 @@ def _expand_i_terms(
                 return f"i({t.factor}): reference level {t.ref} not in the data"
         var = work[t.var].to_numpy(dtype=np.float64) if t.var else None
         for j, lev in enumerate(level_list):
-            if lev == ref:
+            if ref is not _NO_REFERENCE and lev == ref:
                 continue
             internal = f"__i{len(renames)}__"
             col = (codes == j).astype(np.float64)
             cols[internal] = col * var if var is not None else col
             if t.categorical:
-                renames[internal] = f"C({t.factor})[T.{lev}]"
+                level = f"{t.label}[{lev}]" if t.full else f"{t.label}[T.{lev}]"
+                if t.var is None:
+                    renames[internal] = level
+                elif t.var_first:
+                    renames[internal] = f"{t.var}:{level}"
+                else:
+                    renames[internal] = f"{level}:{t.var}"
             else:
                 renames[internal] = f"{t.factor}::{lev}" + (
                     f":{t.var}" if t.var else ""

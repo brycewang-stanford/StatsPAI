@@ -1,0 +1,224 @@
+tag,kind,name,value
+xtreg_iyear_iid,b,post, 6.99043275401962094e-02
+xtreg_iyear_iid,se,post, 3.34141930954016259e-02
+xtreg_iyear_iid,b,unemployrt,-1.24593062733574858e-02
+xtreg_iyear_iid,se,unemployrt, 1.04574839725158405e-02
+xtreg_iyear_iid,b,2000b.year, 0.00000000000000000e+00
+xtreg_iyear_iid,se,2000b.year, 0.00000000000000000e+00
+xtreg_iyear_iid,b,2001.year, 3.12824036647619611e-02
+xtreg_iyear_iid,se,2001.year, 3.80491402165770640e-02
+xtreg_iyear_iid,b,2002.year, 2.07306027096625378e-02
+xtreg_iyear_iid,se,2002.year, 4.05572795400588951e-02
+xtreg_iyear_iid,b,2003.year, 6.91841517929085020e-02
+xtreg_iyear_iid,se,2003.year, 4.16095774790589817e-02
+xtreg_iyear_iid,b,2004.year, 5.89615649831917860e-02
+xtreg_iyear_iid,se,2004.year, 3.99108410776792544e-02
+xtreg_iyear_iid,b,2005.year, 7.37659619764648306e-02
+xtreg_iyear_iid,se,2005.year, 3.89766088541265432e-02
+xtreg_iyear_iid,b,2006.year, 8.28256577877434508e-02
+xtreg_iyear_iid,se,2006.year, 3.79629874748789176e-02
+xtreg_iyear_iid,b,2007.year, 6.73516330525034124e-02
+xtreg_iyear_iid,se,2007.year, 3.89332620197670870e-02
+xtreg_iyear_iid,b,2008.year, 3.03268142717108905e-02
+xtreg_iyear_iid,se,2008.year, 4.20897004068285716e-02
+xtreg_iyear_iid,b,2009.year,-1.24598204946617663e-02
+xtreg_iyear_iid,se,2009.year, 6.19394264770699310e-02
+xtreg_iyear_iid,b,2010.year,-6.64885742627110143e-02
+xtreg_iyear_iid,se,2010.year, 6.47737657908091097e-02
+xtreg_iyear_iid,b,_cons, 1.43244708296223955e+00
+xtreg_iyear_iid,se,_cons, 4.81276643035781354e-02
+xtreg_iyear_iid,s,N, 5.50000000000000000e+02
+xtreg_iyear_cluster,b,post, 6.99043275401962094e-02
+xtreg_iyear_cluster,se,post, 5.55530238512888588e-02
+xtreg_iyear_cluster,b,unemployrt,-1.24593062733574858e-02
+xtreg_iyear_cluster,se,unemployrt, 1.41673530841163256e-02
+xtreg_iyear_cluster,b,2000b.year, 0.00000000000000000e+00
+xtreg_iyear_cluster,se,2000b.year, 0.00000000000000000e+00
+xtreg_iyear_cluster,b,2001.year, 3.12824036647619611e-02
+xtreg_iyear_cluster,se,2001.year, 3.58470927139418125e-02
+xtreg_iyear_cluster,b,2002.year, 2.07306027096625378e-02
+xtreg_iyear_cluster,se,2002.year, 4.60804324480219574e-02
+xtreg_iyear_cluster,b,2003.year, 6.91841517929085020e-02
+xtreg_iyear_cluster,se,2003.year, 4.97209693778371403e-02
+xtreg_iyear_cluster,b,2004.year, 5.89615649831917860e-02
+xtreg_iyear_cluster,se,2004.year, 4.93187386919933871e-02
+xtreg_iyear_cluster,b,2005.year, 7.37659619764648306e-02
+xtreg_iyear_cluster,se,2005.year, 5.23912885724365854e-02
+xtreg_iyear_cluster,b,2006.year, 8.28256577877434508e-02
+xtreg_iyear_cluster,se,2006.year, 5.12731304835599699e-02
+xtreg_iyear_cluster,b,2007.year, 6.73516330525034124e-02
+xtreg_iyear_cluster,se,2007.year, 5.64455976619411270e-02
+xtreg_iyear_cluster,b,2008.year, 3.03268142717108905e-02
+xtreg_iyear_cluster,se,2008.year, 5.40824882543242957e-02
+xtreg_iyear_cluster,b,2009.year,-1.24598204946617663e-02
+xtreg_iyear_cluster,se,2009.year, 9.54762361725886716e-02
+xtreg_iyear_cluster,b,2010.year,-6.64885742627110143e-02
+xtreg_iyear_cluster,se,2010.year, 9.04553267422294333e-02
+xtreg_iyear_cluster,b,_cons, 1.43244708296223955e+00
+xtreg_iyear_cluster,se,_cons, 5.02506111570590747e-02
+xtreg_iyear_cluster,s,N, 5.50000000000000000e+02
+xtreg_ib2005_cluster,b,post, 6.99043275401961678e-02
+xtreg_ib2005_cluster,se,post, 5.55530238512888311e-02
+xtreg_ib2005_cluster,b,unemployrt,-1.24593062733574980e-02
+xtreg_ib2005_cluster,se,unemployrt, 1.41673530841163499e-02
+xtreg_ib2005_cluster,b,2000.year,-7.37659619764645530e-02
+xtreg_ib2005_cluster,se,2000.year, 5.23912885724366617e-02
+xtreg_ib2005_cluster,b,2001.year,-4.24835583117026405e-02
+xtreg_ib2005_cluster,se,2001.year, 4.02697799936258191e-02
+xtreg_ib2005_cluster,b,2002.year,-5.30353592668020360e-02
+xtreg_ib2005_cluster,se,2002.year, 2.95731284103905416e-02
+xtreg_ib2005_cluster,b,2003.year,-4.58181018355608392e-03
+xtreg_ib2005_cluster,se,2003.year, 3.00934985586866280e-02
+xtreg_ib2005_cluster,b,2004.year,-1.48043969932728069e-02
+xtreg_ib2005_cluster,se,2004.year, 2.79877947069362559e-02
+xtreg_ib2005_cluster,b,2005b.year, 0.00000000000000000e+00
+xtreg_ib2005_cluster,se,2005b.year, 0.00000000000000000e+00
+xtreg_ib2005_cluster,b,2006.year, 9.05969581127886135e-03
+xtreg_ib2005_cluster,se,2006.year, 2.88840441240143138e-02
+xtreg_ib2005_cluster,b,2007.year,-6.41432892396117359e-03
+xtreg_ib2005_cluster,se,2007.year, 3.32244236916510449e-02
+xtreg_ib2005_cluster,b,2008.year,-4.34391477047536764e-02
+xtreg_ib2005_cluster,se,2008.year, 4.48019721123577228e-02
+xtreg_ib2005_cluster,b,2009.year,-8.62257824711262916e-02
+xtreg_ib2005_cluster,se,2009.year, 5.94754869767525340e-02
+xtreg_ib2005_cluster,b,2010.year,-1.40254536239175526e-01
+xtreg_ib2005_cluster,se,2010.year, 5.51588848047385449e-02
+xtreg_ib2005_cluster,b,_cons, 1.50621304493870412e+00
+xtreg_ib2005_cluster,se,_cons, 7.74498582023718518e-02
+xtreg_ib2005_cluster,s,N, 5.50000000000000000e+02
+xtreg_year_by_c_cluster,b,post, 8.79328362604404890e-02
+xtreg_year_by_c_cluster,se,post, 6.06877319217208819e-02
+xtreg_year_by_c_cluster,b,2000b.year#c.unemployrt,-9.00232932902097355e-03
+xtreg_year_by_c_cluster,se,2000b.year#c.unemployrt, 2.46838982488235964e-02
+xtreg_year_by_c_cluster,b,2001.year#c.unemployrt,-3.26397595985986608e-04
+xtreg_year_by_c_cluster,se,2001.year#c.unemployrt, 2.09837123056705981e-02
+xtreg_year_by_c_cluster,b,2002.year#c.unemployrt,-4.34358119089975261e-03
+xtreg_year_by_c_cluster,se,2002.year#c.unemployrt, 1.62082300560517471e-02
+xtreg_year_by_c_cluster,b,2003.year#c.unemployrt, 2.04436546724617516e-03
+xtreg_year_by_c_cluster,se,2003.year#c.unemployrt, 1.60551703771787610e-02
+xtreg_year_by_c_cluster,b,2004.year#c.unemployrt, 7.95658856476096944e-04
+xtreg_year_by_c_cluster,se,2004.year#c.unemployrt, 1.72351288202829064e-02
+xtreg_year_by_c_cluster,b,2005.year#c.unemployrt, 3.67552953784090579e-03
+xtreg_year_by_c_cluster,se,2005.year#c.unemployrt, 1.74285351043328603e-02
+xtreg_year_by_c_cluster,b,2006.year#c.unemployrt, 7.71307783370775695e-03
+xtreg_year_by_c_cluster,se,2006.year#c.unemployrt, 1.94665530096073160e-02
+xtreg_year_by_c_cluster,b,2007.year#c.unemployrt,-4.63378647352613498e-05
+xtreg_year_by_c_cluster,se,2007.year#c.unemployrt, 2.06049700507575963e-02
+xtreg_year_by_c_cluster,b,2008.year#c.unemployrt,-7.76692649265907451e-03
+xtreg_year_by_c_cluster,se,2008.year#c.unemployrt, 1.82052432186692523e-02
+xtreg_year_by_c_cluster,b,2009.year#c.unemployrt,-1.39593415924531162e-02
+xtreg_year_by_c_cluster,se,2009.year#c.unemployrt, 1.05631644790832452e-02
+xtreg_year_by_c_cluster,b,2010.year#c.unemployrt,-1.95791074788795871e-02
+xtreg_year_by_c_cluster,se,2010.year#c.unemployrt, 1.10484244443771022e-02
+xtreg_year_by_c_cluster,b,_cons, 1.42311896846398511e+00
+xtreg_year_by_c_cluster,se,_cons, 8.66462823990414993e-02
+xtreg_year_by_c_cluster,s,N, 5.50000000000000000e+02
+xtreg_c_hash_year_cluster,b,post, 9.36893064737725489e-02
+xtreg_c_hash_year_cluster,se,post, 5.57139533035451023e-02
+xtreg_c_hash_year_cluster,b,unemployrt, 2.31353429772103957e-02
+xtreg_c_hash_year_cluster,se,unemployrt, 4.95805962577189618e-02
+xtreg_c_hash_year_cluster,b,2000b.year, 0.00000000000000000e+00
+xtreg_c_hash_year_cluster,se,2000b.year, 0.00000000000000000e+00
+xtreg_c_hash_year_cluster,b,2001.year,-3.18179577665942848e-01
+xtreg_c_hash_year_cluster,se,2001.year, 1.56354050150053603e-01
+xtreg_c_hash_year_cluster,b,2002.year,-3.22364978274991554e-01
+xtreg_c_hash_year_cluster,se,2002.year, 1.75891041203723175e-01
+xtreg_c_hash_year_cluster,b,2003.year, 7.69128756035195819e-03
+xtreg_c_hash_year_cluster,se,2003.year, 2.10316117953512904e-01
+xtreg_c_hash_year_cluster,b,2004.year, 8.80241805990430448e-02
+xtreg_c_hash_year_cluster,se,2004.year, 2.30432631661757981e-01
+xtreg_c_hash_year_cluster,b,2005.year, 2.10967766531254680e-01
+xtreg_c_hash_year_cluster,se,2005.year, 2.42889808198717250e-01
+xtreg_c_hash_year_cluster,b,2006.year, 1.69074369543939201e-01
+xtreg_c_hash_year_cluster,se,2006.year, 2.60210393684598473e-01
+xtreg_c_hash_year_cluster,b,2007.year, 4.85317052091895906e-01
+xtreg_c_hash_year_cluster,se,2007.year, 3.04542911981908027e-01
+xtreg_c_hash_year_cluster,b,2008.year, 2.80579578473907743e-01
+xtreg_c_hash_year_cluster,se,2008.year, 2.93522756057281287e-01
+xtreg_c_hash_year_cluster,b,2009.year, 1.55210650266434908e-01
+xtreg_c_hash_year_cluster,se,2009.year, 3.13683824422350155e-01
+xtreg_c_hash_year_cluster,b,2010.year, 6.17530211000335422e-02
+xtreg_c_hash_year_cluster,se,2010.year, 2.57250518553496788e-01
+xtreg_c_hash_year_cluster,b,2000b.year#co.unemployrt, 0.00000000000000000e+00
+xtreg_c_hash_year_cluster,se,2000b.year#co.unemployrt, 0.00000000000000000e+00
+xtreg_c_hash_year_cluster,b,2001.year#c.unemployrt, 7.30813953965905871e-02
+xtreg_c_hash_year_cluster,se,2001.year#c.unemployrt, 3.57666512717437699e-02
+xtreg_c_hash_year_cluster,b,2002.year#c.unemployrt, 5.45011493610236125e-02
+xtreg_c_hash_year_cluster,se,2002.year#c.unemployrt, 3.98835881452389990e-02
+xtreg_c_hash_year_cluster,b,2003.year#c.unemployrt,-1.54125934898637441e-05
+xtreg_c_hash_year_cluster,se,2003.year#c.unemployrt, 4.35465023116283490e-02
+xtreg_c_hash_year_cluster,b,2004.year#c.unemployrt,-1.47079101495533517e-02
+xtreg_c_hash_year_cluster,se,2004.year#c.unemployrt, 5.15818207288004926e-02
+xtreg_c_hash_year_cluster,b,2005.year#c.unemployrt,-3.56865067144355244e-02
+xtreg_c_hash_year_cluster,se,2005.year#c.unemployrt, 5.31134403378419606e-02
+xtreg_c_hash_year_cluster,b,2006.year#c.unemployrt,-2.42807118725002942e-02
+xtreg_c_hash_year_cluster,se,2006.year#c.unemployrt, 5.81815505433198599e-02
+xtreg_c_hash_year_cluster,b,2007.year#c.unemployrt,-1.02169711859289344e-01
+xtreg_c_hash_year_cluster,se,2007.year#c.unemployrt, 6.91574910814466842e-02
+xtreg_c_hash_year_cluster,b,2008.year#c.unemployrt,-5.86947087126424641e-02
+xtreg_c_hash_year_cluster,se,2008.year#c.unemployrt, 6.21140293735545218e-02
+xtreg_c_hash_year_cluster,b,2009.year#c.unemployrt,-4.04088692927023069e-02
+xtreg_c_hash_year_cluster,se,2009.year#c.unemployrt, 5.85924841951187339e-02
+xtreg_c_hash_year_cluster,b,2010.year#c.unemployrt,-3.57637951949166116e-02
+xtreg_c_hash_year_cluster,se,2010.year#c.unemployrt, 5.30264408869568979e-02
+xtreg_c_hash_year_cluster,b,_cons, 1.29569244054155730e+00
+xtreg_c_hash_year_cluster,se,_cons, 2.06700198406425839e-01
+xtreg_c_hash_year_cluster,s,N, 5.50000000000000000e+02
+reghdfe_iyear_cluster,b,post, 6.99043275401962233e-02
+reghdfe_iyear_cluster,se,post, 5.55530238512887825e-02
+reghdfe_iyear_cluster,b,unemployrt,-1.24593062733575778e-02
+reghdfe_iyear_cluster,se,unemployrt, 1.41673530841163655e-02
+reghdfe_iyear_cluster,b,2000b.year, 0.00000000000000000e+00
+reghdfe_iyear_cluster,se,2000b.year, 0.00000000000000000e+00
+reghdfe_iyear_cluster,b,2001.year, 3.12824036647627243e-02
+reghdfe_iyear_cluster,se,2001.year, 3.58470927139418749e-02
+reghdfe_iyear_cluster,b,2002.year, 2.07306027096631519e-02
+reghdfe_iyear_cluster,se,2002.year, 4.60804324480220059e-02
+reghdfe_iyear_cluster,b,2003.year, 6.91841517929089600e-02
+reghdfe_iyear_cluster,se,2003.year, 4.97209693778371542e-02
+reghdfe_iyear_cluster,b,2004.year, 5.89615649831927505e-02
+reghdfe_iyear_cluster,se,2004.year, 4.93187386919934148e-02
+reghdfe_iyear_cluster,b,2005.year, 7.37659619764661073e-02
+reghdfe_iyear_cluster,se,2005.year, 5.23912885724366270e-02
+reghdfe_iyear_cluster,b,2006.year, 8.28256577877433120e-02
+reghdfe_iyear_cluster,se,2006.year, 5.12731304835600185e-02
+reghdfe_iyear_cluster,b,2007.year, 6.73516330525042034e-02
+reghdfe_iyear_cluster,se,2007.year, 5.64455976619411964e-02
+reghdfe_iyear_cluster,b,2008.year, 3.03268142717114421e-02
+reghdfe_iyear_cluster,se,2008.year, 5.40824882543243166e-02
+reghdfe_iyear_cluster,b,2009.year,-1.24598204946607515e-02
+reghdfe_iyear_cluster,se,2009.year, 9.54762361725887687e-02
+reghdfe_iyear_cluster,b,2010.year,-6.64885742627101539e-02
+reghdfe_iyear_cluster,se,2010.year, 9.04553267422295720e-02
+reghdfe_iyear_cluster,b,_cons, 1.43244708296223933e+00
+reghdfe_iyear_cluster,se,_cons, 5.02506111570594979e-02
+reghdfe_iyear_cluster,s,N, 5.50000000000000000e+02
+reghdfe_iyear_iid,b,post, 6.99043275401962233e-02
+reghdfe_iyear_iid,se,post, 3.34141930954015981e-02
+reghdfe_iyear_iid,b,unemployrt,-1.24593062733575778e-02
+reghdfe_iyear_iid,se,unemployrt, 1.04574839725158336e-02
+reghdfe_iyear_iid,b,2000b.year, 0.00000000000000000e+00
+reghdfe_iyear_iid,se,2000b.year, 0.00000000000000000e+00
+reghdfe_iyear_iid,b,2001.year, 3.12824036647627243e-02
+reghdfe_iyear_iid,se,2001.year, 3.80491402165770640e-02
+reghdfe_iyear_iid,b,2002.year, 2.07306027096631519e-02
+reghdfe_iyear_iid,se,2002.year, 4.05572795400588951e-02
+reghdfe_iyear_iid,b,2003.year, 6.91841517929089600e-02
+reghdfe_iyear_iid,se,2003.year, 4.16095774790589817e-02
+reghdfe_iyear_iid,b,2004.year, 5.89615649831927505e-02
+reghdfe_iyear_iid,se,2004.year, 3.99108410776792544e-02
+reghdfe_iyear_iid,b,2005.year, 7.37659619764661073e-02
+reghdfe_iyear_iid,se,2005.year, 3.89766088541265432e-02
+reghdfe_iyear_iid,b,2006.year, 8.28256577877433120e-02
+reghdfe_iyear_iid,se,2006.year, 3.79629874748789245e-02
+reghdfe_iyear_iid,b,2007.year, 6.73516330525042034e-02
+reghdfe_iyear_iid,se,2007.year, 3.89332620197670939e-02
+reghdfe_iyear_iid,b,2008.year, 3.03268142717114421e-02
+reghdfe_iyear_iid,se,2008.year, 4.20897004068285785e-02
+reghdfe_iyear_iid,b,2009.year,-1.24598204946607515e-02
+reghdfe_iyear_iid,se,2009.year, 6.19394264770698894e-02
+reghdfe_iyear_iid,b,2010.year,-6.64885742627101539e-02
+reghdfe_iyear_iid,se,2010.year, 6.47737657908090819e-02
+reghdfe_iyear_iid,b,_cons, 1.43244708296223933e+00
+reghdfe_iyear_iid,se,_cons, 4.81276643035781215e-02
+reghdfe_iyear_iid,s,N, 5.50000000000000000e+02
