@@ -206,6 +206,17 @@ def mmqreg(
     ``vce='cluster'`` (for panels, clustered on the unit) unless the aim
     is to reproduce ``mmqreg``'s default output.
 
+    With absorbed unit effects the scale equation is fitted on the absolute
+    within residuals, and each unit's effects are estimated from its own
+    few observations. Away from the median that leaves a bias of order
+    ``1 / T`` in the slopes that does not shrink with the number of units,
+    so the interval under-covers in short panels. In a location-scale
+    design with true 0.25-quantile slope 0.298, 1,600 observations and
+    unit effects, the mean error was 0.069 with 4 periods per unit, 0.035
+    with 8, 0.010 with 20 and none with 40 (standard deviation about
+    0.07; ``tests/reliability/se_screen/panel.py``, row ``mmqreg/q25``).
+    The median slope is not affected in a symmetric design.
+
     Examples
     --------
     >>> import numpy as np, pandas as pd

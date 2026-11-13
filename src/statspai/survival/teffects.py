@@ -113,10 +113,30 @@ def stteffects(
         effect and both potential-outcome means (``POmean0``,
         ``POmean1``); ``model_info['coefficients']`` the nuisance models;
         ``model_info['vcov']`` the joint covariance of the effect and the
-        means.
+        means. With a censoring model, ``model_info['censoring_weights']``
+        holds the smallest fitted probability of remaining uncensored among
+        the failures (``min_survivor``), its reciprocal (``max_weight``)
+        and the effective number of failures under those weights.
 
     Notes
     -----
+    The censoring weights ``1 / G`` need the probability of remaining
+    uncensored to stay away from zero over the whole range of failure
+    times, not only over the failures that happen to be observed. When
+    long failure times are almost always censored, the weighted estimators
+    (``'ipw'``, ``'wra'``, ``'ipwra'`` with ``censor_covariates``) have a
+    heavy-tailed sampling distribution: a few draws with a very large
+    weight dominate its spread. With exponential failure times of mean
+    ``exp(0.2 + 0.5 x + 0.4 d)`` and exponential censoring at rate 0.15,
+    the second moment of the weighted failure time does not exist for one
+    unit in nine. The mean reported SE of ``'ipw'`` was then 0.27 to 0.66
+    of the Monte Carlo standard deviation in three runs of 400 to 1,000
+    draws (the ratio does not settle), with coverage of 92% to 96%, while
+    the largest observed weight was typically below 10. At censoring rate
+    0.04 the ratio is 0.98 (``tests/reliability/se_screen/survival.py``).
+    ``'ra'`` and ``'ipwra'`` without ``censor_covariates`` handle
+    censoring through the likelihood and do not have this problem.
+
     Numbers match Stata 18 ``stteffects`` (see
     ``tests/reference_parity/test_stteffects_stata_parity.py``). An
     ancillary (shape) equation with covariates, multi-valued treatments
@@ -411,6 +431,14 @@ def stteffects(
         "n_treated": int(tr.sum()),
         "n_failures": int(d.sum()),
     }
+    if use_cens:
+        g_fail = np.asarray(wts["G"], dtype=float)[d > 0]
+        w_fail = 1.0 / g_fail
+        model_info["censoring_weights"] = {
+            "min_survivor": float(g_fail.min()),
+            "max_weight": float(w_fail.max()),
+            "effective_failures": float(w_fail.sum() ** 2 / (w_fail**2).sum()),
+        }
     return CausalResult(
         method=f"stteffects {method}",
         estimand=estimand,
