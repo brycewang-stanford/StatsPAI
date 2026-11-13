@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 522 |
+| **Compared against R/Stata** (T2) | bit-exact | 524 |
 | | aligned | 76 |
-| | **subtotal** | **598** |
-| **No external software reference** | analytical-only (T1) | 374 |
+| | **subtotal** | **600** |
+| **No external software reference** | analytical-only (T1) | 372 |
 | | external-replication (published numbers) | 56 |
-| | **subtotal** | **430** |
+| | **subtotal** | **428** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 598 | 1009 | 1009 | 59.3% |
+| estimator callables | 600 | 1009 | 1009 | 59.5% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 598 | 1028 | 1680 | 35.6% |
+| **all registered** | 600 | 1028 | 1680 | 35.7% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 194 | 363 | 363 |
+| causal | 196 | 363 | 363 |
 | regression | 55 | 65 | 65 |
 | inference | 34 | 58 | 58 |
 | timeseries | 24 | 53 | 53 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 522 functions
+## bit-exact — 524 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -303,6 +303,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `itcv` | Stata 18 pkonfound (ITCV and RIR); the formula of Frank (2000) evaluated in R | R 4.5.2; Stata 18 | threshold, correlations and benchmark impacts 1e-9 rel (R); 1e-6 rel (pkonfound, fed rounded inputs) | — / — | [`test_accounting_research_parity.py`](../tests/reference_parity/test_accounting_research_parity.py) (+2) |
 | `its` | lm + sandwich::NeweyWest 3.1.1; Stata 18 newey; itsa 1.0.0 (SSC) | R 4.5.2; sandwich 3.1.1; Stata 18; itsa 1.0.0 | coefficients and Newey-West SE 1e-10 rel (observed 7.9e-14); itsa 1e-6 (glm2 IRLS) | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `iv` | AER::ivreg | R 4.5.2; AER 1.2.16 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-11 / 1.1e-11 | [`02_iv.py`](../tests/r_parity/02_iv.py) (+3) |
+| `iv_compare` | R ivmodel KClass(k = 1) / LIML / Fuller(b = 1); Stata ivregress 2sls / liml, ivreg2 fuller(1), jive ujive1, estat firststage, weakivtest | R 4.5.2; ivmodel 1.9.1; Stata 18 MP; ivreg2 4.1.12; jive 1.0.2 | 1e-9 relative on every estimate, standard error and F statistic (observed <= 1e-11) | — / — | [`test_iv_compare_parity.py`](../tests/reference_parity/test_iv_compare_parity.py) (+3) |
 | `iv_diag` | R ivDiag::ivDiag 1.0.6 (analytic block) | R 4.5.2; ivDiag 1.0.6; lfe 3.1.1 | 2SLS / OLS coefficients and SEs, classical first-stage F, effective F, tF critical value and interval: rel 1e-9 on 6 designs (observed <= 6e-12) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+1) |
 | `iv_mediate` | Stata ivmediate 1.0.4 (Dippel, Ferrara and Heblich), SSC | Stata 18.0 MP; ivmediate 1.0.4 | 1e-9 rel (coefficients and F 1e-14, 3x3 V 1.6e-11) | — / — | [`test_iv_mediate_stata_parity.py`](../tests/reference_parity/test_iv_mediate_stata_parity.py) (+1) |
 | `ivpoisson` | Stata 18 MP official `ivpoisson gmm` | Stata 18 MP | Every block at 1e-6 on coefficients, standard errors and Hansen's J. Observed 5e-15 to 2e-7 across additive and multiplicative errors, one-step, two-step and iterated GMM, exact and over-identification, and robust, cluster and unadjusted weight matrices, including wmatrix() set apart from vce(). The residual is Stata's stopping rule for the GMM criterion. | — / — | [`test_ivpoisson_stata_parity.py`](../tests/reference_parity/test_ivpoisson_stata_parity.py) |
@@ -623,6 +624,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `xtsum` | Stata 18 MP xtsum, every stored result (N, n, Tbar, mean, overall / between / within sd, min, max) for an outcome, a regressor, a time-invariant variable and one with missing values, on a panel with gaps | Stata 18 MP (born 07 Jun 2023) | 1e-9 relative (observed <= 1.8e-14); counts exact | — / — | [`test_panel_xt_tools_stata_parity.py`](../tests/reference_parity/test_panel_xt_tools_stata_parity.py) (+2) |
 | `xttobit` | Stata 18 MP xttobit (random effects): ll() and ul(), ll() only, ul() only, the 12-node default and 40 nodes, a collinear regressor | Stata 18 MP (born 07 Jun 2023) | 1e-6 relative on coefficients, standard errors (sigma_u and sigma_e included), rho, the log-likelihood and the LR test against the pooled tobit (observed <= 4.2e-8 on 5 fits) | — / — | [`test_xttobit_stata.py`](../tests/test_xttobit_stata.py) (+1) |
 | `yu_elwert_decompose` | R cdgd::cdgd0_manual on independently fitted within-cell lm / within-group glm nuisances | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | method='efficient': disparity, baseline, prevalence, effect, selection and their EIF standard errors at 1e-9. method='plugin' has no reference implementation and is covered by its exact additivity identity. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
+| `zero_first_stage` | Stata regress / ivregress 2sls and reghdfe / ivreghdfe: the component fits, combined in the do-file | Stata 18 MP; reghdfe 6.13.1; ivreghdfe 1.1.4; ivreg2 4.1.12 | 1e-9 relative on the four component coefficients, their SEs, the IV estimate and SE, and the corrected estimate (observed <= 1e-14) | — / — | [`test_zero_first_stage_stata.py`](../tests/reference_parity/test_zero_first_stage_stata.py) (+1) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-07 / 2.8e-08 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 | `zivot_andrews` | urca::ur.za | R 4.5.2; urca 1.3.4 | minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal | — / — | [`test_zivot_andrews_parity.py`](../tests/reference_parity/test_zivot_andrews_parity.py) (+1) |
 
@@ -772,7 +774,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 374 functions
+## analytical-only — 372 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -951,7 +953,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `interference_test` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
 | `invlogit` | [`test_oct2026_reanchor_known_truth.py`](../tests/reference_parity/test_oct2026_reanchor_known_truth.py) |
 | `iv_bounds` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
-| `iv_compare` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `iv_forest` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) (+1) |
 | `ivqreg` | [`test_ivqreg_parity.py`](../tests/reference_parity/test_ivqreg_parity.py) (+1) |
 | `jackknife` | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) |
@@ -1150,7 +1151,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtevent_smpath` | [`test_xtevent_smpath_Stata_screen.py`](../tests/reference_parity/test_xtevent_smpath_Stata_screen.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 | `yun_nonlinear` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
-| `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `ztest` | [`test_textbook_syllabus_stata_parity.py`](../tests/reference_parity/test_textbook_syllabus_stata_parity.py) |
 
 ## unverified — 652 functions

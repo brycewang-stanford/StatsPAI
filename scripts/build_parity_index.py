@@ -9849,6 +9849,73 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# iv family (parity-graph line, 2026-11-13).
+_FROZEN_PROMOTIONS.update(
+    {
+        "iv_compare": {
+            "status": "bit-exact",
+            "reference": "R ivmodel KClass(k = 1) / LIML / Fuller(b = 1); "
+            "Stata ivregress 2sls / liml, ivreg2 fuller(1), jive ujive1, "
+            "estat firststage, weakivtest",
+            "reference_versions": {
+                "R": _PG_R,
+                "ivmodel": "1.9.1",
+                "Stata": "18 MP",
+                "ivreg2": "4.1.12",
+                "jive": "1.0.2",
+            },
+            "tolerance": "1e-9 relative on every estimate, standard error "
+            "and F statistic (observed <= 1e-11)",
+            "sides": ["py", "R", "Stata"],
+            "test": [
+                "tests/reference_parity/test_iv_compare_parity.py",
+                "tests/reference_parity/_fixtures/iv_compare_R.json",
+                "tests/reference_parity/_fixtures/iv_compare_Stata.json",
+                "tests/reference_parity/_fixtures/rd_iv_Stata.json",
+            ],
+            "note": (
+                "Frozen fixtures on one file with a weak first stage (F = "
+                "2.8), where the four estimators are far apart. "
+                "Conventional rows equal ivmodel and Stata; robust rows "
+                "equal Stata's robust VCE with small. Reference "
+                "divergence, not copied: ivmodel's heteroSE for LIML and "
+                "Fuller is another sandwich form (0.5482 against Stata's "
+                "0.5498 for LIML); for 2SLS it is HC0 and equals "
+                "robust='hc0'. ivmodel is GPL-2 and was run, not read."
+            ),
+        },
+        "zero_first_stage": {
+            "status": "bit-exact",
+            "reference": "Stata regress / ivregress 2sls and reghdfe / "
+            "ivreghdfe: the component fits, combined in the do-file",
+            "reference_versions": {
+                "Stata": "18 MP",
+                "reghdfe": "6.13.1",
+                "ivreghdfe": "1.1.4",
+                "ivreg2": "4.1.12",
+            },
+            "tolerance": "1e-9 relative on the four component "
+            "coefficients, their SEs, the IV estimate and SE, and the "
+            "corrected estimate (observed <= 1e-14)",
+            "sides": ["py", "Stata"],
+            "test": [
+                "tests/reference_parity/test_zero_first_stage_stata.py",
+                "tests/reference_parity/_fixtures/zero_first_stage_Stata.json",
+            ],
+            "note": (
+                "Frozen-Stata fixture: the estimator has no command of its "
+                "own, so the reference is its definition evaluated in "
+                "Stata, (rho_main - gamma_zfs) / pi_main, under robust, "
+                "clustered and absorbed-effect designs. Scope: the "
+                "bootstrap standard error and interval of the corrected "
+                "estimate have no counterpart and are outside this grade. "
+                "Through 1.43.1 the standard error of the uncorrected IV "
+                "estimate left out the reduced form's sampling error."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

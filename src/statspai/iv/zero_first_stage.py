@@ -72,7 +72,8 @@ class ZeroFirstStageResult(ResultProtocolMixin):
         First stage in the estimation sample.
     beta_iv, beta_iv_se : float
         Naive IV estimate on the estimation sample (ratio of reduced form
-        to first stage).
+        to first stage) and its standard error from the 2SLS fit on that
+        sample, with the variance estimator of the component regressions.
     beta_zfs_corrected, beta_zfs_corrected_se, beta_zfs_corrected_ci : float
         van Kippersluis-Rietveld corrected estimate
         ``(rho_main - gamma_zfs) / pi_main`` with bootstrap SE and
@@ -220,6 +221,44 @@ def _fit_ols(
     if cl is not None and not isinstance(cl, str):
         cl = cl[0] if len(cl) == 1 else cl
     return regress(f"{lhs} ~ {rhs_str}", data=data, cluster=cl, robust="hc1")
+
+
+def _iv_se(
+    data: pd.DataFrame,
+    y: str,
+    endog: str,
+    instrument: str,
+    exog: List[str],
+    absorb: List[str],
+    cluster: List[str],
+) -> float:
+    """Standard error of ``endog`` in the 2SLS fit of ``y`` on the sample.
+
+    Same variance estimator as :func:`_fit_ols`: HC1 or cluster-robust
+    without absorbed effects, the HDFE estimator's default otherwise.
+    """
+    from .. import hdfe_ols
+    from ..regression.iv import ivreg
+
+    cl: Optional[Union[str, List[str]]] = cluster if cluster else None
+    with warnings.catch_warnings():
+        # the weak-instrument warning belongs to the first-stage report
+        warnings.simplefilter("ignore")
+        if absorb:
+            rhs = " + ".join(exog) if exog else "1"
+            formula = f"{y} ~ {rhs} | {' + '.join(absorb)} | {endog} ~ {instrument}"
+            res = hdfe_ols(formula, data=data, cluster=cl)
+        else:
+            if cl is not None and not isinstance(cl, str):
+                cl = cl[0] if len(cl) == 1 else cl
+            rhs = "".join(f" + {x}" for x in exog)
+            res = ivreg(
+                f"{y} ~ ({endog} ~ {instrument}){rhs}",
+                data=data,
+                cluster=cl,
+                robust="hc1",
+            )
+    return float(res.std_errors[endog])
 
 
 @records_call("zero_first_stage")
@@ -427,9 +466,11 @@ def zero_first_stage(
         corr_se = np.nan
         corr_ci = (np.nan, np.nan)
 
-    beta_iv_se = abs(beta_iv) * np.sqrt(
-        (pi_main_se / pi_main) ** 2 if pi_main != 0 else np.nan
-    )
+    # Standard error of the just-identified IV estimate: the 2SLS fit on
+    # the main sample under the same variance estimator as the component
+    # regressions. Through 1.43.1 this was |beta| * se(pi) / |pi|, which
+    # leaves out the sampling error of the reduced form.
+    beta_iv_se = _iv_se(main, y, endog, instrument, exog_l, absorb_l, cluster_l)
 
     return ZeroFirstStageResult(
         first_stage_zfs=pi_zfs,
