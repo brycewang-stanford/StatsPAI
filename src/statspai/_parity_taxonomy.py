@@ -524,11 +524,11 @@ NON_NUMERIC_CALLABLES: Dict[str, str] = {
 #: recovering a known truth with no second implementation in the loop.
 CROSS_LANGUAGE_STATUSES: Tuple[str, ...] = ("bit-exact", "aligned")
 
-#: The two T2 rows whose canonical reference implementation is Python, not
-#: R or Stata.
+#: The T2 rows whose canonical reference implementation is Python, not
+#: R or Stata (two when this was written; the list has grown since).
 #:
 #: CLAUDE.md §5.1 says to follow the implementation the method's own authors
-#: maintain, and for these two that implementation is a Python package --
+#: maintain, and for these rows that implementation is a Python package --
 #: comparing against an R port instead would be comparing against a bridge.
 #: The evidence is therefore cross-*package* but not cross-*language*, and
 #: any prose claiming "every certified symbol links to an R or Stata module"
@@ -546,6 +546,11 @@ PYTHON_REFERENCE_ROWS: Dict[str, str] = {
     "direct_method": "obp (Python; Open Bandit Pipeline) 0.5.7 DirectMethod",
     "doubly_robust": "obp (Python; Open Bandit Pipeline) 0.5.7 DoublyRobust",
     "dml_did": "doubleml (Python) 0.11.3 DoubleMLDID / DoubleMLDIDCS",
+    "lingam": "lingam (Python) 1.13.0 DirectLiNGAM: causal order",
+    "pcmci": "tigramite (Python) 5.2.10.1 PCMCI.run_pcmci with ParCorr",
+    "notears": "notears (Python; Zheng et al.) notears_linear",
+    "predict_cate": "econml.metalearners 0.16.0 SLearner / TLearner / XLearner",
+    "cate_gain_curve": "fklearn (Python) 4.3.0 effect_curves / effect_by_segment",
 }
 
 #: Parity grades backed by an artifact that is *not* an external software

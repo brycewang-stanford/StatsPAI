@@ -43,7 +43,7 @@ the new R output still matches the old before overwriting the fixture.
 ### Fixtures added 2026-11-13 (`parity-graph` line)
 
 R 4.5.2 on macOS arm64. Packages marked private were installed into a
-gitignored library under `_fixtures/_rlib_pg/` and are not part of the
+gitignored library outside the tests tree and are not part of the
 `renv.lock` environment.
 
 | package | version |
@@ -59,7 +59,7 @@ gitignored library under `_fixtures/_rlib_pg/` and are not part of the
 
 Python reference packages, each run outside the repository environment:
 `lingam` 1.13.0, `tigramite` 5.2.10.1 and `fklearn` 4.3.0 (Python 3.11.15,
-numpy 2.2.6, pandas 3.1.1, in `_fixtures/_rlib_pg/pyenv`); `econml` 0.16.0
+numpy 2.2.6, pandas 3.1.1, in a private virtual environment); `econml` 0.16.0
 (Python 3.11.0, scikit-learn 1.6.1). Stata 18 MP with `ivreg2` 4.1.12,
 `reghdfe` 6.13.1, `ivreghdfe` 1.1.4, `jive` 1.0.2.
 

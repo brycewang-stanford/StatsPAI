@@ -117361,23 +117361,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: certified parity evidence.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "notears.linear.notears_linear (authors' implementation, lambda1 = 0.1, least-squares loss)",
+      "reference_versions": {
+        "notears": "3.0 (github.com/xunzheng/notears 4a9ab19)",
+        "python": "3.11.15",
+        "scipy": "1.13.1"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_causal_discovery_parity.py",
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_notears_reference_parity.py",
+        "tests/reference_parity/_fixtures/notears_reference.json"
       ],
-      "tolerance": ""
+      "tolerance": "thresholded graph exact on 16 designs (44 edges); edge weights 5e-2 absolute (observed <= 1.2e-2)"
     },
     "example": "result = sp.notears(df, variables=['X', 'Z', 'M', 'Y'])",
     "failure_modes": [
@@ -117413,7 +117417,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: certified parity evidence.",
       "name": "notears",
       "parameters": {
         "properties": {
@@ -117473,9 +117477,11 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_causal_discovery_parity.py"
+      "Cross-language parity (aligned) vs notears.linear.notears_linear (authors' implementation, lambda1 = 0.1, least-squares loss) [notears 3.0 (github.com/xunzheng/notears 4a9ab19), python 3.11.15, scipy 1.13.1]; tolerance thresholded graph exact on 16 designs (44 edges); edge weights 5e-2 absolute (observed <= 1.2e-2) -- tests/reference_parity/test_notears_reference_parity.py",
+      "tests/reference_parity/test_causal_discovery_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,

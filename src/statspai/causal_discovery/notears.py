@@ -335,7 +335,6 @@ class NOTEARS:
     ) -> np.ndarray:
         """Minimise the augmented Lagrangian over the split variables
         ``[W+, W-]`` for fixed ``rho`` and ``alpha`` (L-BFGS-B)."""
-        d2 = d * d
         lam = self.lambda1
         # No self-loops: the diagonal of both parts is held at zero.
         off_diag = ~np.eye(d, dtype=bool).ravel()

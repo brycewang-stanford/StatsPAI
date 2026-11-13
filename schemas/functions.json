@@ -56516,7 +56516,7 @@
     }
   },
   {
-    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Learn a DAG from data using NOTEARS (Zheng et al. 2018). Validation: certified parity evidence.",
     "name": "notears",
     "parameters": {
       "properties": {

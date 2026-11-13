@@ -776,8 +776,8 @@ release; `sp.list_functions(validation_status=...)` gives the live numbers):
 
 | `validation_status` | Meaning | Functions |
 | --- | --- | ---: |
-| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 575 |
-| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 450 |
+| `certified` | compared with a named external reference implementation (R, Stata, or the method authors' Python package) on identical inputs, within a pre-registered tolerance | 605 |
+| `validated` | known-truth simulation, published-number, coverage, or documented-convention evidence, but not in the main R/Stata harness | 420 |
 | `api_stable` | stable public interface; unit tests exist, but **no numerical-validation claim** | 651 |
 | `experimental` | method or API may still change | 4 |
 

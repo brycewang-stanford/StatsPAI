@@ -597,8 +597,8 @@ print(sp.list_functions(validation_status="certified")[:5])
 
 | `validation_status` | 含义 | 函数数 |
 | --- | --- | ---: |
-| `certified` | 在相同输入上与指定的外部参考实现（R、Stata，或方法作者维护的 Python 包）对照，落在预注册容差之内 | 575 |
-| `validated` | 有已知真值模拟、已发表数字、覆盖率或有文档的约定差异等证据，但不在 R/Stata 主对齐 harness 中 | 450 |
+| `certified` | 在相同输入上与指定的外部参考实现（R、Stata，或方法作者维护的 Python 包）对照，落在预注册容差之内 | 605 |
+| `validated` | 有已知真值模拟、已发表数字、覆盖率或有文档的约定差异等证据，但不在 R/Stata 主对齐 harness 中 | 420 |
 | `api_stable` | 公开接口稳定；有单元测试，但**不声明数值验证** | 651 |
 | `experimental` | 方法或 API 仍可能变化 | 4 |
 
