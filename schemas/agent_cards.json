@@ -34882,7 +34882,7 @@
       ],
       "tolerance": "1e-9 rel (coefficients and F 1e-14, 3x3 V 1.6e-11)"
     },
-    "example": "sp.iv_mediate(df, y=\"y\", treat=\"t\", mediator=\"m\", instrument=\"z\", covariates=[\"w1\"], absorb=\"g\", cluster=\"g\")",
+    "example": "sp.iv_mediate(df, y=\"y\", treat=\"t\", mediator=\"m\", instrument=\"z\", covariates=[\"w1\"], absorb=\"g\", cluster=\"g\", equations=\"joint\")",
     "failure_modes": [
       {
         "alternative": "sp.iv",
@@ -34968,8 +34968,7 @@
             "x-statspai-role": "dataframe"
           },
           "equations": {
-            "default": "independent",
-            "description": "Covariance between the three equations in the variance of the indirect effect: 'independent' sets it to zero (ivmediate); 'joint' keeps it (sandwich of the stacked system, equal to Stata gmm + nlcom). They differ when the mediator and outcome errors are correlated, where 'independent' was 25% too large or 13% too small in simulation",
+            "description": "Covariance between the three equations in the variance of the indirect effect: 'independent' sets it to zero (ivmediate); 'joint' keeps it (sandwich of the stacked system, equal to Stata gmm + nlcom). They differ when the mediator and outcome errors are correlated, where 'independent' was 25% too large or 13% too small in simulation. Not given: 'independent' with a FutureWarning ('joint' becomes the default in a later release)",
             "enum": [
               "independent",
               "joint"
@@ -41293,14 +41292,12 @@
             "type": "integer"
           },
           "stderror": {
-            "default": "simple",
-            "description": "Standard error of each ratio estimate, which sets the weights of the weighted mode and the spread of the bootstrap draws. ``\"simple\"`` is the first-order ``se_outcome / |beta_exposure|``, which treats the exposure associations as known (the NOME assumption; the default of ``mr_mbe``). ``\"delta\"`` adds the second-order term for their sampling error, ``sqrt(se_y^2 / bx^2 + by^2 se_x^2 / bx^4)`` (``mr_mbe(stderror = \"delta\")``; ``TwoSampleMR``'s weighted mode relaxes NOME in the same way). With weak or imprecise instruments the ``\"simple\"`` standard error can be several times too small.",
+            "description": "Ratio standard errors behind the weights and the bootstrap: 'simple' assumes the exposure associations are known (NOME, the mr_mbe default); 'delta' adds their sampling error (TwoSampleMR). Not given: 'simple' with a FutureWarning ('delta' becomes the default in a later release)",
             "enum": [
               "simple",
               "delta"
             ],
-            "type": "string",
-            "x-statspai-source": "signature"
+            "type": "string"
           }
         },
         "required": [
@@ -95921,7 +95918,7 @@
       ],
       "tolerance": "conventional and robust estimate / SE, bandwidth: rel 1e-9 (observed 5.2e-12 vs R, 6.0e-11 vs Stata)"
     },
-    "example": "result = sp.rkd(df, y='y', x='x', c=0)",
+    "example": "result = sp.rkd(df, y='y', x='x', c=0, headline='robust')",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -96011,6 +96008,14 @@
           "h": {
             "description": "Bandwidth. If None, the CCT MSE-optimal bandwidth for the first derivative (``rdrobust(deriv=1, bwselect='mserd', vce='hc1')``) is selected.",
             "type": "number"
+          },
+          "headline": {
+            "description": "Which estimate fills ``estimate`` / ``se`` / ``pvalue`` / ``ci``. ``'conventional'`` is the local polynomial kink estimate with its HC1 (or cluster) standard error. ``'robust'`` is the bias-corrected estimate with the robust standard error and interval, the headline of ``sp.rdrobust`` and of R / Stata ``rdrobust``. At the MSE-optimal bandwidth the conventional interval ignores the smoothing bias and under-covers (bias 0.23 sampling SDs and SE / SD 0.79 in the 2026-11-13 calibration screen); the robust one is built for that bandwidth. Both sets of numbers are always in ``model_info['conventional']`` and ``model_info['robust']``. Not given, the call reports ``'conventional'`` and warns (``FutureWarning``): a later release makes ``'robust'`` the default (owner decision 2026-11-13). Passing either value is silent.",
+            "enum": [
+              "conventional",
+              "robust"
+            ],
+            "type": "string"
           },
           "kernel": {
             "default": "triangular",
