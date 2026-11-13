@@ -9763,6 +9763,92 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# tmle family (parity-graph line, 2026-11-13).
+_FROZEN_PROMOTIONS.update(
+    {
+        "super_learner": {
+            "status": "bit-exact",
+            "reference": "SuperLearner::SuperLearner(method = "
+            "'method.CC_LS') with validRows supplied",
+            "reference_versions": {"R": _PG_R, "SuperLearner": "2.0.40"},
+            "tolerance": "cross-validated predictions 1e-9 absolute, "
+            "cross-validated risks 1e-9 relative, weights and ensemble "
+            "predictions 1e-6 absolute",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_super_learner_R_parity.py",
+                "tests/reference_parity/_fixtures/super_learner_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: the same five validation folds on both "
+                "sides and deterministic learners (mean, least squares on "
+                "three designs, unpenalised logistic regression), for "
+                "regression, regression with observation weights and "
+                "classification. The reference is the convex-combination "
+                "meta-learner; R's default method.NNLS is a different "
+                "estimator and is not compared. Convention: with "
+                "observation weights R reports the risk as mean(w * loss), "
+                "StatsPAI as the weighted mean; the test rescales by the "
+                "mean weight. The default library (forests, boosting) is "
+                "random on both sides and outside this grade. "
+                "SuperLearner is GPL-3 and was run, not read."
+            ),
+        },
+        "ltmle_survival": {
+            "status": "bit-exact",
+            "reference": "ltmle::ltmle(survivalOutcome = TRUE, "
+            "variance.method = 'ic'), one call per horizon",
+            "reference_versions": {"R": _PG_R, "ltmle": "1.3.0"},
+            "tolerance": "1e-8 absolute on the counterfactual risks "
+            "(observed 1.6e-9), 1e-8 relative on their SEs and on the SE "
+            "of the risk difference",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_ltmle_survival_R_parity.py",
+                "tests/reference_parity/_fixtures/ltmle_survival_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: 1,200 subjects, three intervals, "
+                "time-varying covariate and treatment, with and without "
+                "right censoring, always-treat against never-treat, "
+                "main-terms glm fits. Survival at every horizon and the "
+                "terminal risk difference equal the reference; the RMST "
+                "point estimate is their sum. The RMST standard error has "
+                "no counterpart in ltmle and is outside this grade. The "
+                "residual is R's glm deviance tolerance. ltmle is GPL-2 "
+                "and was run, not read."
+            ),
+        },
+        "ctmle": {
+            "status": "aligned",
+            "reference": "ctmle::ctmleDiscrete: the greedy and the "
+            "pre-ordered sequence of candidate estimators",
+            "reference_versions": {"R": _PG_R, "ctmle": "0.1.2"},
+            "tolerance": "1e-7 relative on the estimate at every step of "
+            "the sequence (observed 5e-9), order of entry exact, 12 cases",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_ctmle_R_parity.py",
+                "tests/reference_parity/_fixtures/ctmle_R.json",
+            ],
+            "note": (
+                "Scope: the construction, not the cross-validated choice. "
+                "The order in which covariates enter the propensity model "
+                "and the targeted estimate at every step equal the "
+                "reference in six greedy and six pre-ordered cases. The "
+                "step that cross-validation selects is not compared: "
+                "ctmleDiscrete ignores its folds argument, so the two "
+                "sides never score the same partition. Over random "
+                "partitions the cross-validated criteria agree in "
+                "distribution, which is a screen, not parity. The "
+                "reported estimate equals the reference's candidate at "
+                "the step StatsPAI selects. ctmle is GPL and was run, not "
+                "read."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers
