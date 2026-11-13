@@ -51640,6 +51640,15 @@
           ],
           "type": "string"
         },
+        "plug_in": {
+          "default": "bruno",
+          "description": "How the deterministic part of the lagged outcome enters the bias expression. ``'bruno'`` is Stata's ``xtlsdvc``: the within-demeaned residuals of the preliminary fit stand in for the errors, so the deterministic part keeps each unit's mean error and the correction is too small by a share that does not vanish as ``N`` grows (7% of the Nickell bias at ``T = 7``, ``rho = 0.5``; see Notes). ``'consistent'`` removes the expected contribution of that mean error, ``sigma^2 / T_i`` times a known quadratic form, and the first-order term is then the exact inconsistency of LSDV.",
+          "enum": [
+            "bruno",
+            "consistent"
+          ],
+          "type": "string"
+        },
         "seed": {
           "description": "Seed for the bootstrap.",
           "type": "integer"
