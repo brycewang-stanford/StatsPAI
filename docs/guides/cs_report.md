@@ -107,7 +107,7 @@ rpt = sp.cs_report(cs, n_boot=500, random_state=0)
 
 **Pre-conditions**
 - panel data with unit × time × outcome
-- g column is integer: first-treated period or 0 for never-treated
+- g column: first-treated period; 0, NaN or inf for never-treated
 - at least one never-treated or late-treated control group
 - ≥ 2 pre-treatment periods per cohort
 - data is panel or repeated cross-section with a time column
