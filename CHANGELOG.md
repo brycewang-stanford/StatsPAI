@@ -178,6 +178,105 @@ Fixed:
   is not implemented. `beta_grid=` still inverts on a grid and now says in
   `detail["touches_grid_end"]` when the set reaches an end of it.
 
+### SE calibration screen: treatment effects, matching, weighting, ML, forests, conformal, mediation, bounds (2026-11-13)
+
+Added:
+
+- **SE calibration screen for the causal families**
+  (`tests/reliability/se_screen/causal/`). 181 estimator calls across
+  IPW / AIPW / TMLE, matching, weighting and balancing, meta-learners and
+  DML, forests, conformal intervals, mediation, partial identification,
+  quantile and dose-response effects. Each is simulated 400 times (200
+  where a fit is slow) on a design with a known truth; the record is the
+  coverage of the reported interval, the reported SE over the sampling SD
+  and the bias. 25 rows are outside their band and each carries its
+  mechanism; `tests/test_reliability_se_screen_causal.py` keeps it so.
+  Tables are in `tests/reliability/README.md`.
+- **`sp.iv_mediate(equations="joint")`.** `ivmediate`, and `sp.iv_mediate`
+  by default, treat the three IV equations as independent when forming
+  the variance of the indirect effect. That is wrong whenever the errors
+  of the mediator and outcome equations are correlated, which is the case
+  the estimator exists for: over 1,000 draws the default standard error
+  was 1.25 times the sampling standard deviation when that correlation
+  was positive and 0.87 times when it was negative (95% intervals
+  covering 92.2%). `equations="joint"` keeps the cross-equation
+  covariances (1.06 and 1.01 times). It is the sandwich of the three
+  equations stacked as one GMM system, equal to Stata's `gmm` + `nlcom`
+  to 2e-12 under `robust` and `cluster`. The default stays
+  `"independent"` so that the numbers still equal `ivmediate`.
+- **`sp.match(se_method='bootstrap')` reports a robust scale and warns on
+  heavy tails.** `model_info['bootstrap_se_iqr']` is the interquartile
+  range of the bootstrap distribution over 1.349. When the reported
+  standard deviation is more than twice that, a few replications dominate
+  it and a warning says so. This happens with `method='llr'` at a narrow
+  bandwidth, where local linear weights are unbounded (mean reported SE 5
+  times the sampling SD in the screen). The standard error itself is
+  unchanged.
+- **`sp.dose_response(method='dr')` warns when a density weight exceeds
+  100.** The conditional variance of the dose is a linear regression of
+  squared residuals and can fall towards zero for some covariate values;
+  the density weight of those units then explodes and the curve near
+  their dose rests on them. On a homoskedastic design the sampling SD of
+  a contrast between two doses was 5.0 with this variance model and 0.15
+  with a constant variance. Estimates are unchanged.
+
+Fixed:
+
+- **⚠️ correctness fix: `sp.lee_bounds` and `sp.manski_bounds` reported a
+  p-value that tested nothing.** `pvalue` was a two-sided test of the
+  midpoint of the bounds against zero. The midpoint is not the effect, so
+  a result could print `p < 0.001` and three stars next to a 95% interval
+  that contained zero (Lee bounds [0.049, 0.767], interval [-0.075,
+  0.896], old p-value 1.2e-07). `pvalue` is now the one the reported
+  interval implies: 1 when zero lies between the estimated bounds, and
+  below `alpha` exactly when the `1 - alpha` interval excludes zero
+  (0.257 on that result). Bounds, standard errors and intervals are
+  unchanged.
+- **⚠️ correctness fix: the `sp.ml_bounds` band was too narrow.** Its
+  bootstrap resampled the cross-fitted pointwise bounds with the nuisance
+  fits held fixed. Those are predictions and carry none of the sampling
+  noise in the outcome and the treatment, so with a covariate that does
+  not matter the band covered an endpoint of the identified set in 68.5%
+  of 200 simulated samples (nominal 97.5%). The bootstrap now resamples
+  each unit's own contribution to the bound and the band brackets the
+  plain-means Manski bounds (coverage 95.0% on the same seeds). The
+  plug-in bounds (`adaptive_lower`, `adaptive_upper`) are unchanged;
+  `lower`, `upper`, `lower_ci` and `upper_ci` change.
+- **⚠️ correctness fix: `sp.sbw` standard errors were about 1.5 times too
+  large.** The variance took the weights as fixed and measured each arm
+  around its weighted mean, which counts outcome variation that balancing
+  has already removed. With two covariates explaining half of the outcome
+  variance the standard error averaged 1.47 (ATT) to 1.50 (ATE, ATC)
+  times its sampling standard deviation. The default is now the
+  linearized variance of a calibration estimator (`vce='linearized'`):
+  residuals of a weighted regression of the outcome on the balanced
+  covariates in the reweighted arm, plus the spread of the target arm's
+  contributions (0.95 to 1.01 times in the same design, 1,000 draws). `vce='naive'`
+  returns the old number. Weights and point estimates are unchanged. The
+  correct standard error exposes what the old one hid: at the default
+  `delta=0.02` the remaining imbalance biases the estimate by 0.15 to
+  0.40 standard errors at n = 1,000 and 95% intervals cover about 94%;
+  the `delta` documentation now says so, and `delta=0.001` removes it.
+- **⚠️ correctness fix: the standard error of the CEM ATT counted
+  variation between cells.** `sp.match(method='cem')` built the ATT's
+  standard error from each arm's variance around its overall mean over
+  the matched sample. Exact matching on the coarsened cells removes the
+  outcome variation between cells from the estimate, so that variance was
+  too large whenever the cells predict the outcome (1.42 times the
+  sampling standard deviation in the screen, 0.99 after). It is now the
+  within-cell variance the documentation described, with each arm's
+  variance pooled over the cells. The ATE branch already used a
+  within-cell variance and is unchanged, as are all point estimates.
+- **`sp.match` documentation: which standard errors are sized.** The
+  docstring said the `'auto'` choice was "measured to be correctly sized"
+  for every scheme. For kernel and radius matching `'auto'` is the Stata
+  `psmatch2` formula, which ran 1.5 times the sampling SD in the screen,
+  and every analytic option takes the estimated propensity score as
+  given, which makes it conservative for score-based matching,
+  stratification and full matching (1.2 to 1.5 times; in band when the
+  true score is supplied). The docstring and the matching guide now say
+  so and name the options that account for the estimated score.
+
 ### ML-causal probe (2026-11-13)
 
 A blind replication probe ran twenty ML-causal tasks (double machine

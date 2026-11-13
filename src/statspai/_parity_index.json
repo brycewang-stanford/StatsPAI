@@ -11744,6 +11744,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_iv_mediate_joint_stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

@@ -6293,3 +6293,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — trace 11 and orig 04 / 04b re-recorded (SE calibration screen, causal families)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `fix(matching): sbw linearized variance; CEM ATT within-cell
+  SE` changed the file; the commit that adds this entry re-records the
+  traces.
+- **Reason.** `src/statspai/matching/match.py` changed in three places
+  that the traced modules do not reach: the standard error of the CEM ATT
+  (`method='cem'`), a heavy-tail diagnostic in the matching bootstrap
+  (`se_method='bootstrap'`), and docstring text on which analytic
+  standard errors are sized. Nearest-neighbour matching, which modules
+  11, orig 04 and orig 04b run, is untouched.
+- **Effect on the paper.** None. `tests/r_parity/11_psm.py`,
+  `tests/orig_parity/04_lalonde_original.py` and
+  `tests/orig_parity/04b_nsw_psid_original.py` were re-run on the changed
+  tree: module 11 agreed with its committed result within 1e-15 relative
+  (rounding under a single BLAS thread; the committed file was kept) and
+  the two original-data results were byte identical.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

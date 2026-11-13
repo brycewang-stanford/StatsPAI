@@ -86,7 +86,7 @@ same sample balances the covariates better than the true one, so those
 standard errors are conservative, more so the better the covariates
 predict the outcome. In the calibration screen
 (`tests/reliability/se_screen/causal/matching.py`: two covariates that
-explain half of the outcome variance, n = 1,000) they ran 1.1 to 1.5
+explain half of the outcome variance, n = 1,000) they ran 1.2 to 1.5
 times the sampling standard deviation, and were on target when the true
 score was supplied through `pscore=`. Two options account for the
 estimated score: `se_method='abadie_imbens_2016'` for nearest-neighbour

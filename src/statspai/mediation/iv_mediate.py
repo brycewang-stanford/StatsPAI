@@ -395,10 +395,10 @@ def iv_mediate(
         mediator equation is correlated with the error of the outcome
         equation, which is the case the estimator is built for (an
         endogenous mediator). In a simulation with 1,000 observations the
-        ``"independent"`` standard error of the indirect effect was 1.26
+        ``"independent"`` standard error of the indirect effect was 1.25
         times the sampling standard deviation when that correlation was
-        positive and 0.86 times (95% intervals covering 91%) when it was
-        negative; ``"joint"`` was within 3% in both
+        positive and 0.87 times (95% intervals covering 92%) when it was
+        negative; ``"joint"`` was 1.06 and 1.01 times
         (``tests/reliability/se_screen/causal/mediation.py``). Point
         estimates, and the standard errors of the total and direct
         effects, do not depend on it.

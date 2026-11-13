@@ -5,6 +5,44 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: ⚠️ bounds p-values, the `sp.ml_bounds` band, `sp.sbw` and CEM standard errors
+
+Found by the SE calibration screen (`tests/reliability/se_screen/causal/`).
+
+⚠️ correctness fix: `sp.lee_bounds(...).pvalue` and
+`sp.manski_bounds(...).pvalue` are now the p-value of a zero effect that
+the reported interval implies. It is 1 when zero lies between the
+estimated bounds, and below `alpha` exactly when `ci` excludes zero. The
+old value tested the midpoint of the bounds against zero and could be
+far below 0.05 while the interval contained zero. Code that read
+`pvalue < 0.05` as "the effect is not zero" was wrong before and is right
+now. Bounds, `se` and `ci` are unchanged. To recover the old number:
+`2 * scipy.stats.norm.sf(abs(r.estimate / r.se))`.
+
+⚠️ correctness fix: `sp.ml_bounds(...).lower` / `.upper` / `.lower_ci` /
+`.upper_ci` are wider. The band now reflects the sampling error of the
+bounds; before it reflected only how much the fitted values vary across
+covariate values. The band is centred on `manski_lower` / `manski_upper`.
+`adaptive_lower` / `adaptive_upper` are unchanged. There is no option to
+recover the old band: it did not have the coverage it stated.
+
+⚠️ correctness fix: `sp.sbw(...).se`, `.ci` and `.pvalue` change, usually
+to smaller standard errors. The default is `vce='linearized'`; pass
+`vce='naive'` for the 1.43.1 numbers. Weights and estimates are
+unchanged. With the default `delta=0.02` the estimate keeps a bias from
+the allowed imbalance that the old, wider interval used to cover; tighten
+`delta` if the interval matters.
+
+⚠️ correctness fix: `sp.match(method='cem')` with the default
+`estimand='ATT'` reports a smaller standard error whenever the cells
+predict the outcome (the within-cell variance). Estimates are unchanged.
+There is no option for the old value; `se_method='bootstrap'` is the
+independent check.
+
+`sp.iv_mediate` gains `equations="joint"`. The default is unchanged.
+
+---
+
 ## 1.43 → next: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
 
 No estimate, standard error or interval changes in this entry. What changes

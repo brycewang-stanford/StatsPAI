@@ -159,6 +159,16 @@ def sbw(
     delta : float or sequence, default 0.02
         Balance tolerance. With ``tolerance_scale='sd'`` the constraint
         is ``|mean_T(X_j) - weighted mean_C(X_j)| ≤ δ_j · sd(X_j)``.
+        The minimum-dispersion weights stop on that boundary, so an
+        imbalance of ``δ_j`` standard deviations remains in each covariate
+        that was imbalanced, and the estimate keeps it times the outcome's
+        slope on that covariate. The standard error does not include this
+        bias. In a simulation with 1,000 observations the default left a
+        bias of 0.15 (ATT) to 0.40 (ATE) standard errors and 95% intervals
+        covered about 94%; with ``delta=0.001`` the bias was gone
+        (``tests/reliability/se_screen/causal/weighting.py``). For a fixed
+        ``delta`` the bias does not shrink as the sample grows, so tighten
+        it with ``n``.
     objective : {'variance', 'entropy'}, default 'variance'
         Dispersion objective. ``'variance'`` minimises Σ w_i²;
         ``'entropy'`` minimises Σ w_i log(n · w_i) (KL from uniform).

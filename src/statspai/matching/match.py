@@ -491,14 +491,14 @@ def match(
         ``'bootstrap'`` for ``'llr'``. For kernel and radius matching the
         ``'psmatch2'`` default is the number Stata reports, not a sized
         one: in a design where the covariates explain half of the outcome
-        variance it averaged 1.4 times the sampling standard deviation
-        (95% intervals covered 99.5%), while ``se_method='bootstrap'`` was
+        variance it averaged 1.5 times the sampling standard deviation
+        (95% intervals covered 99.6%), while ``se_method='bootstrap'`` was
         within 4% (``tests/reliability/se_screen/causal/matching.py``).
 
         Every analytic option takes the propensity score as given. A score
         estimated on the same sample balances the covariates better than
         the true one, so these standard errors are conservative for
-        score-based matching, stratification and full matching (1.1 to 1.5
+        score-based matching, stratification and full matching (1.2 to 1.5
         times the sampling standard deviation in the same design; in band
         when the true score is supplied through ``pscore=``).
         ``'abadie_imbens_2016'`` and ``'bootstrap'`` account for the

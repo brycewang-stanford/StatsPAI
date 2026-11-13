@@ -34873,6 +34873,15 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "equations": {
+            "default": "independent",
+            "description": "Covariance between the three equations in the variance of the indirect effect: 'independent' sets it to zero (ivmediate); 'joint' keeps it (sandwich of the stacked system, equal to Stata gmm + nlcom). They differ when the mediator and outcome errors are correlated, where 'independent' was 25% too large or 13% too small in simulation",
+            "enum": [
+              "independent",
+              "joint"
+            ],
+            "type": "string"
+          },
           "instrument": {
             "description": "The single excluded instrument for the treatment",
             "type": "string",
@@ -34927,7 +34936,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata ivmediate 1.0.4 (Dippel, Ferrara and Heblich), SSC [Stata 18.0 MP, ivmediate 1.0.4]; tolerance 1e-9 rel (coefficients and F 1e-14, 3x3 V 1.6e-11) -- tests/reference_parity/test_iv_mediate_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata ivmediate 1.0.4 (Dippel, Ferrara and Heblich), SSC [Stata 18.0 MP, ivmediate 1.0.4]; tolerance 1e-9 rel (coefficients and F 1e-14, 3x3 V 1.6e-11) -- tests/reference_parity/test_iv_mediate_stata_parity.py",
+      "tests/reference_parity/test_iv_mediate_joint_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -106326,7 +106336,7 @@
               }
             ],
             "default": 0.02,
-            "description": "Balance tolerance. With ``tolerance_scale='sd'`` the constraint is ``|mean_T(X_j) - weighted mean_C(X_j)| <= delta_j * sd(X_j)``."
+            "description": "Balance tolerance. With ``tolerance_scale='sd'`` the constraint is ``|mean_T(X_j) - weighted mean_C(X_j)| <= delta_j * sd(X_j)``. The minimum-dispersion weights stop on that boundary, so an imbalance of ``delta_j`` standard deviations remains in each covariate that was imbalanced, and the estimate keeps it times the outcome's slope on that covariate. The standard error does not include this bias. In a simulation with 1,000 observations the default left a bias of 0.26 (ATT) to 0.43 (ATE) standard errors and 95% intervals covered 90% to 93%; with ``delta=0.001`` the bias was gone (``tests/reliability/se_screen/causal/weighting.py``). For a fixed ``delta`` the bias does not shrink as the sample grows, so tighten it with ``n``."
           },
           "estimand": {
             "default": "att",
@@ -106371,6 +106381,15 @@
             "description": "Binary 0/1 treatment indicator column.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "vce": {
+            "default": "linearized",
+            "description": "Standard error of the effect. - ``'linearized'``: the variance of a calibration estimator. Weights that balance the covariates make the weighted mean insensitive to the part of the outcome that is linear in them, so the sampling error comes from the residuals of a weighted regression of the outcome on the balanced covariates in the reweighted arm, plus the spread of the target group's own",
+            "enum": [
+              "linearized",
+              "naive"
+            ],
+            "type": "string"
           },
           "y": {
             "description": "Outcome column. If provided, a weighted ATT/ATE estimate with HC-robust SE is attached to the returned :class:`SBWResult`.",
@@ -122054,7 +122073,7 @@
     "reference": "lee2009training",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: estimate = midpoint of bounds. ci = Imbens-Manski confidence interval for the identified set. model_info contains 'lower_bound' and 'upper_bound'.",
+      "description": "CausalResult: estimate is the midpoint of the bounds and se the average of the two endpoint standard errors; neither is an estimate of the effect.",
       "fields": {
         "alpha": "float",
         "cate": "Any",
@@ -122241,7 +122260,7 @@
     "reference": "manski1990nonparametric",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult",
+      "description": "CausalResult: estimate is the midpoint of the bounds and se the average of the two endpoint standard errors; neither is an estimate of the effect.",
       "fields": {
         "alpha": "float",
         "cate": "Any",
@@ -164529,7 +164548,7 @@
           },
           "n_bootstrap": {
             "default": 200,
-            "description": "Non-parametric bootstrap replicates for the 2-sided frequentist band. Set to 0 to return the raw plug-in bounds only.",
+            "description": "Non-parametric bootstrap replicates for the 2-sided frequentist band, which brackets the plain-means bounds (``manski_lower``, ``manski_upper``): each replicate resamples the units and recomputes those bounds. Set to 0 to return the raw plug-in bounds only.",
             "type": "integer"
           },
           "n_splits": {

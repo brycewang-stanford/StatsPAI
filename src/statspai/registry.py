@@ -17623,7 +17623,7 @@ def _build_registry() -> None:
                     "(ivmediate); 'joint' keeps it (sandwich of the stacked "
                     "system, equal to Stata gmm + nlcom). They differ when "
                     "the mediator and outcome errors are correlated, where "
-                    "'independent' was 26% too large or 14% too small in "
+                    "'independent' was 25% too large or 13% too small in "
                     "simulation",
                     enum=["independent", "joint"],
                 ),
