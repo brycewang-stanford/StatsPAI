@@ -80,6 +80,45 @@ def _imbens_manski_cn(delta: float, sigma_max: float, alpha: float = 0.05) -> fl
     return float(brentq(_eq, z_one, z_two, xtol=1e-10))
 
 
+def _bounds_pvalue(
+    lb: float,
+    ub: float,
+    se_lb: float,
+    se_ub: float,
+    interval: str = "imbens_manski",
+) -> float:
+    """p-value of ``H0: effect = 0`` for a partially identified effect.
+
+    It is the level at which the reported interval's nearer end reaches
+    zero, so ``p < alpha`` exactly when the ``1 - alpha`` interval excludes
+    zero. With zero inside the estimated identified set the data cannot
+    reject it at any level and the p-value is 1.
+
+    ``interval='imbens_manski'`` inverts the Imbens-Manski interval:
+    ``p = 1 - Phi(c + width / sigma_max) + Phi(-c)`` with ``c`` the distance
+    from zero to the nearer bound in units of that bound's standard error.
+    ``interval='set'`` inverts the interval that puts ``z_{1-alpha/2}`` on
+    each bound: ``p = 2 Phi(-c)``.
+    """
+    if lb <= 0.0 <= ub:
+        return 1.0
+    if lb > 0.0:
+        dist, se = lb, se_lb
+    else:
+        dist, se = -ub, se_ub
+    if not np.isfinite(se):
+        return float("nan")
+    if se <= 0.0:
+        return 0.0
+    c = dist / se
+    if interval == "set":
+        return float(min(1.0, 2.0 * sp_stats.norm.sf(c)))
+    sigma_max = max(se_lb, se_ub)
+    ratio = (ub - lb) / sigma_max
+    p = 1.0 - sp_stats.norm.cdf(c + ratio) + sp_stats.norm.cdf(-c)
+    return float(min(1.0, max(0.0, p)))
+
+
 # ======================================================================
 # Lee Bounds
 # ======================================================================
@@ -188,9 +227,14 @@ def lee_bounds(
     Returns
     -------
     CausalResult
-        estimate = midpoint of bounds.
-        ci = Imbens-Manski confidence interval for the identified set.
-        model_info contains 'lower_bound' and 'upper_bound'.
+        ``estimate`` is the midpoint of the bounds and ``se`` the average
+        of the two endpoint standard errors; neither is an estimate of
+        the effect. ``ci`` is the Imbens-Manski confidence interval for
+        the effect (not for the whole identified set). ``pvalue`` is the
+        p-value of a zero effect that this interval implies: 1 when zero
+        lies between the estimated bounds, and below ``alpha`` exactly
+        when ``ci`` excludes zero. ``model_info`` contains
+        ``'lower_bound'`` and ``'upper_bound'``.
 
     Examples
     --------
@@ -434,11 +478,9 @@ def lee_bounds(
     midpoint = float((lb + ub) / 2)
     se_mid = float((se_lb + se_ub) / 2)
 
-    if se_mid > 0:
-        z_stat = midpoint / se_mid
-        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
-    else:
-        pvalue = 0.0
+    # A test of the midpoint against zero tests nothing: the midpoint is not
+    # the effect. The p-value is the one the reported interval implies.
+    pvalue = _bounds_pvalue(lb, ub, se_lb, se_ub, "imbens_manski")
 
     model_info = {
         "lower_bound": float(lb),
@@ -898,6 +940,15 @@ def manski_bounds(
     Returns
     -------
     CausalResult
+        ``estimate`` is the midpoint of the bounds and ``se`` the average
+        of the two endpoint standard errors; neither is an estimate of
+        the effect. ``ci`` puts ``z_{1 - alpha/2}`` bootstrap standard
+        errors outside each bound, so it covers the whole identified set
+        (and therefore the effect) with probability at least
+        ``1 - alpha``. ``pvalue`` is the p-value of a zero effect that
+        this interval implies: 1 when zero lies between the estimated
+        bounds, and below ``alpha`` exactly when ``ci`` excludes zero.
+        ``model_info`` contains ``'lower_bound'`` and ``'upper_bound'``.
 
     Examples
     --------
@@ -993,10 +1044,9 @@ def manski_bounds(
     midpoint = float((lb + ub) / 2)
     se_mid = float((se_lb + se_ub) / 2)
 
-    if se_mid > 0:
-        pvalue = float(2 * sp_stats.norm.sf(abs(midpoint / se_mid)))
-    else:
-        pvalue = 0.0
+    # The p-value the reported interval implies (see _bounds_pvalue); a test
+    # of the midpoint against zero tests nothing.
+    pvalue = _bounds_pvalue(lb, ub, float(se_lb), float(se_ub), "set")
 
     model_info = {
         "lower_bound": float(lb),

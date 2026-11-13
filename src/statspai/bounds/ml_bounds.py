@@ -32,8 +32,22 @@ papers that do not support that claim; none of it was true of the
 computation.
 
 The reported band takes the ``alpha/2`` quantile of the bootstrapped lower
-bound and the ``1 - alpha/2`` quantile of the upper one, resampling the
-cross-fitted pointwise bounds with the nuisance fits held fixed.
+bound and the ``1 - alpha/2`` quantile of the upper one. What is resampled
+is each unit's own contribution to the bound,
+``A Y + (1 - A) y_min - A y_max - (1 - A) Y`` for the lower one, whose
+mean is the plain-means Manski bound: the bound is a mean of observed
+quantities, so this is its whole sampling error and no nuisance function
+enters it. The band therefore brackets the plain-means bounds, not the
+plug-in ones.
+
+Through 1.43.1 the bootstrap resampled the cross-fitted pointwise bounds
+``L(x_i)``, ``U(x_i)`` with the nuisance fits held fixed. Those are
+predictions: they vary across units only as far as the covariates move
+them, and carry none of the noise in the outcome and the treatment. The
+band was too narrow, by a factor that grows as the covariates matter
+less; with a covariate that is pure noise it covered an endpoint of the
+identified set in 68% of 200 simulated samples at a nominal 97.5%
+(``tests/reliability/se_screen/causal/bounds.py``).
 
 References
 ----------
@@ -110,7 +124,8 @@ class MLBoundsResult(ResultProtocolMixin):
             f"  Cross-fit plug-in: [{self.adaptive_lower:.4f}, "
             f"{self.adaptive_upper:.4f}]   width="
             f"{self.adaptive_upper - self.adaptive_lower:.4f}\n"
-            f"  Bootstrap-inflated {100 * (1 - self.alpha):.0f}% band :\n"
+            f"  Bootstrap {100 * (1 - self.alpha):.0f}% band around the "
+            f"classical bounds :\n"
             f"      [{self.lower:.4f}, {self.upper:.4f}]\n"
             f"  Midpoint difference (plug-in - plain means, estimation "
             f"noise) : {self.center_shift():+.4f}\n"
@@ -249,7 +264,10 @@ def ml_bounds(
         Number of cross-fitting folds.
     n_bootstrap : int, default 200
         Non-parametric bootstrap replicates for the 2-sided frequentist
-        band. Set to 0 to return the raw plug-in bounds only.
+        band, which brackets the plain-means bounds (``manski_lower``,
+        ``manski_upper``): each replicate resamples the units and
+        recomputes those bounds. Set to 0 to return the raw plug-in
+        bounds only.
     alpha : float, default 0.05
         Significance level of the band.
     random_state : int, optional
@@ -345,14 +363,21 @@ def ml_bounds(
         - (p_treated * y_lo + (1 - p_treated) * mu0_marg)
     )
 
-    # ── Bootstrap inflation for finite-sample coverage ────────────────
+    # ── Bootstrap band ────────────────────────────────────────────────
+    # Resample each unit's own contribution to the bound. Its mean is the
+    # plain-means Manski bound exactly (E[pi(X) mu_1(X)] = E[A Y]), and it
+    # carries the sampling noise of Y and A. Resampling the fitted
+    # L(x_i), U(x_i) instead -- the code through 1.43.1 -- sees only the
+    # spread of predictions across covariate values.
+    psi_L = T * Y + (1 - T) * y_lo - T * y_hi - (1 - T) * Y
+    psi_U = T * Y + (1 - T) * y_hi - T * y_lo - (1 - T) * Y
     if n_bootstrap > 0:
         L_boot = np.empty(n_bootstrap)
         U_boot = np.empty(n_bootstrap)
         for b in range(n_bootstrap):
             idx = rng.integers(0, n, size=n)
-            L_boot[b] = float(np.mean(L_x[idx]))
-            U_boot[b] = float(np.mean(U_x[idx]))
+            L_boot[b] = float(np.mean(psi_L[idx]))
+            U_boot[b] = float(np.mean(psi_U[idx]))
         # Two-sided band: lower endpoint uses the α/2 quantile of L,
         # upper uses the 1-α/2 quantile of U.
         lower_ci_lo = float(np.quantile(L_boot, alpha / 2))
