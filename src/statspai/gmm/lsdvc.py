@@ -82,6 +82,8 @@ def xtlsdvc(
     alpha: float = 0.05,
     bootstrap: int = 0,
     seed: Optional[int] = None,
+    *,
+    plug_in: str = "bruno",
 ) -> CausalResult:
     """
     Bias-corrected LSDV (LSDVC) estimator for dynamic panels.
@@ -120,6 +122,16 @@ def xtlsdvc(
         warns.
     seed : int, optional
         Seed for the bootstrap.
+    plug_in : {'bruno', 'consistent'}, default 'bruno'
+        How the deterministic part of the lagged outcome enters the bias
+        expression. ``'bruno'`` is Stata's ``xtlsdvc``: the within-demeaned
+        residuals of the preliminary fit stand in for the errors, so the
+        deterministic part keeps each unit's mean error and the correction
+        is too small by a share that does not vanish as ``N`` grows (7% of
+        the Nickell bias at ``T = 7``, ``rho = 0.5``; see Notes).
+        ``'consistent'`` removes the expected contribution of that mean
+        error, ``sigma^2 / T_i`` times a known quadratic form, and the
+        first-order term is then the exact inconsistency of LSDV.
 
     Returns
     -------
@@ -135,6 +147,20 @@ def xtlsdvc(
     rows (so unbalanced panels are handled as in Bruno 2005). Validated
     against Stata's ``xtlsdvc`` at all three bias orders and all three
     initial estimators.
+
+    **The plug-in.** The first-order term is ``sigma^2 tr(P) q_1`` with
+    ``Q = [E(W)' M E(W) + sigma^2 tr(P'P) e_1 e_1']^{-1}``, where ``E(W)``
+    holds the deterministic part of the lagged outcome, ``y_{-1} - C e``.
+    The errors ``e`` are not observed. Stata uses the within-demeaned
+    residuals ``M u`` of the preliminary fit, which equal ``e - ebar_i``, so
+    the feasible deterministic part is ``E(y_{-1}) + ebar_i C iota`` and
+    ``E(W)' M E(W)`` is too large by ``(sigma^2 / T_i) iota' C' M C iota``
+    per unit in expectation. The correction is therefore too small. With
+    no regressors, ``rho = 0.5`` and seven usable periods the exact
+    inconsistency of LSDV is -0.2353 and the ``'bruno'`` first-order term
+    converges to -0.2195, leaving a bias of -0.016 at any ``N``;
+    ``plug_in='consistent'`` subtracts the expected excess and converges to
+    -0.2353. The default stays ``'bruno'`` because it reproduces Stata.
 
     **When to prefer this over GMM.** Small ``N`` with small ``T`` — the
     regime where the GMM instrument count rivals the number of units and
@@ -160,6 +186,11 @@ def xtlsdvc(
         raise ValueError(
             f"initial must be one of {_INITIAL_CHOICES} "
             f"(Arellano-Bond, Anderson-Hsiao, Blundell-Bond), got {initial!r}."
+        )
+    if plug_in not in ("bruno", "consistent"):
+        raise ValueError(
+            "plug_in must be 'bruno' (Stata's xtlsdvc) or 'consistent', "
+            f"got {plug_in!r}."
         )
     if bias_order not in (1, 2, 3):
         raise ValueError(
@@ -255,6 +286,7 @@ def xtlsdvc(
     WPMW = np.zeros((k, k))
     WPPW = np.zeros((k, k))
     uMu = 0.0
+    mean_error_excess = 0.0  # sum_i (1 / T_i) iota' S C' M C S iota
     tr = dict(P=0.0, PP=0.0, PtP=0.0, PtPP=0.0, PtPPtP=0.0)
     dof_sum = 0.0
 
@@ -279,8 +311,14 @@ def xtlsdvc(
         WPMW += Wi.T @ (P @ M) @ Wi
         WPPW += Wi.T @ (P @ P.T) @ Wi
         uMu += float((ei.T @ M @ ei).item())
+        c_iota = C @ sel[i][:, None]
+        mean_error_excess += float((c_iota.T @ M @ c_iota).item()) / Ti
 
     sigma2 = uMu / max(dof_sum - k, 1.0)
+    if plug_in == "consistent":
+        # The demeaned residuals leave ebar_i C iota in the deterministic part
+        # of the lagged outcome; its expected square is removed here.
+        WMW[0, 0] -= sigma2 * mean_error_excess
     Q = np.linalg.inv(WMW + sigma2 * tr["PtP"] * (e1 @ e1.T))
     q11 = float((e1.T @ Q @ e1).item())
     Qe1 = Q @ e1
@@ -347,6 +385,7 @@ def xtlsdvc(
             X_grids=X_grids,
             usable=usable,
             eta=eta,
+            plug_in=plug_in,
         )
         se_source = f"parametric bootstrap ({bootstrap} replications)"
     else:
@@ -390,6 +429,8 @@ def xtlsdvc(
             "initial": initial,
             "initial_names": prelim_names,
             "bias_order": bias_order,
+            "plug_in": plug_in,
+            "initial_rho": gamma,
             "n_units": n_used,
             "n_obs": int(ui.size),
             "n_periods": int(T),
@@ -420,6 +461,7 @@ def _bootstrap_se(
     X_grids: List[np.ndarray],
     usable: np.ndarray,
     eta: np.ndarray,
+    plug_in: str = "bruno",
 ) -> Tuple[np.ndarray, int]:
     """Parametric bootstrap over the fitted dynamic process.
 
@@ -479,6 +521,7 @@ def _bootstrap_se(
                     initial=initial,
                     bias_order=bias_order,
                     bootstrap=0,
+                    plug_in=plug_in,
                 )
             draws.append(fit.detail["coefficient"].to_numpy(float))
         except (ValueError, RuntimeError, np.linalg.LinAlgError):
