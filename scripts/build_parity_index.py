@@ -9916,6 +9916,38 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# nonparametric family (parity-graph line, 2026-11-13).
+_FROZEN_PROMOTIONS.update(
+    {
+        "series": {
+            "status": "bit-exact",
+            "reference": "R lm on poly(raw = TRUE) and splines::bs with "
+            "sandwich::vcovHC / vcovCL",
+            "reference_versions": {"R": _PG_R, "sandwich": "3.1.1"},
+            "tolerance": "1e-8 relative on the cross-validation criterion, "
+            "the fitted function, its standard errors and the linear "
+            "coefficient (observed <= 4e-9); 1e-7 on the derivative",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_series_R_parity.py",
+                "tests/reference_parity/_fixtures/series_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: the fitted function and its standard "
+                "error do not depend on how the basis is written, so "
+                "least squares on R's raw polynomial and B-spline columns "
+                "is a reference for a fit on powers and truncated-power "
+                "pieces. Leave-one-out criterion for degrees 1 to 8 and 0 "
+                "to 6 quantile knots with the selected order; function, "
+                "classical / HC1 / HC2 / HC3 / clustered standard errors "
+                "at degree 5 and at 3 knots; polynomial derivative. "
+                "Uniform knots and the spline derivative are not in the "
+                "fixture."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

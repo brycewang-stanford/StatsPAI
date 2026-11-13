@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 524 |
+| **Compared against R/Stata** (T2) | bit-exact | 525 |
 | | aligned | 76 |
-| | **subtotal** | **600** |
+| | **subtotal** | **601** |
 | **No external software reference** | analytical-only (T1) | 372 |
-| | external-replication (published numbers) | 56 |
-| | **subtotal** | **428** |
+| | external-replication (published numbers) | 55 |
+| | **subtotal** | **427** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 600 | 1009 | 1009 | 59.5% |
+| estimator callables | 601 | 1009 | 1009 | 59.6% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 600 | 1028 | 1680 | 35.7% |
+| **all registered** | 601 | 1028 | 1680 | 35.8% |
 
 ### Coverage by estimator family
 
@@ -69,7 +69,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | postestimation | 14 | 15 | 15 |
 | power | 8 | 13 | 13 |
 | survival | 8 | 11 | 11 |
-| nonparametric | 9 | 10 | 10 |
+| nonparametric | 10 | 10 | 10 |
 | survey | 6 | 9 | 9 |
 | robustness | 4 | 9 | 9 |
 | dag | 6 | 9 | 9 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 524 functions
+## bit-exact — 525 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -539,6 +539,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `sem_gmm` | spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 4.6e-08 / 7.3e-16 | [`66_spatial_gmm.py`](../tests/r_parity/66_spatial_gmm.py) (+2) |
 | `sensemakr` | sensemakr::sensemakr | R 4.5.2; sensemakr 0.1.6 | rel_est<=1e-06, rel_se<=1e-06 | 5.8e-13 / 6.6e-13 | [`22_sensemakr.py`](../tests/r_parity/22_sensemakr.py) (+2) |
 | `sensitivity_specificity` | R epiR::epi.tests (method wilson / exact); Stata diagti | R 4.5.2; epiR 2.0.94; Stata 18 MP; diagt 2.032 (diagti 2.053) | 1e-12 rel on intervals, 1e-10 on ratios (observed 2e-15) | — / — | [`test_survival_epi_R_parity.py`](../tests/reference_parity/test_survival_epi_R_parity.py) (+2) |
+| `series` | R lm on poly(raw = TRUE) and splines::bs with sandwich::vcovHC / vcovCL | R 4.5.2; sandwich 3.1.1 | 1e-8 relative on the cross-validation criterion, the fitted function, its standard errors and the linear coefficient (observed <= 4e-9); 1e-7 on the derivative | — / — | [`test_series_R_parity.py`](../tests/reference_parity/test_series_R_parity.py) (+1) |
 | `sharpened_qvalues` | Anderson (2008) fdr_sharpened_qvalues.do (last modified 11/20/07; Wayback copy, sha256 in the .do header), run unchanged | Stata 18.0 MP | exact equality after float rounding (16 p-vectors, 2,474 p-values, M = 1 to 2,000) | — / — | [`test_sharpened_qvalues_stata_parity.py`](../tests/reference_parity/test_sharpened_qvalues_stata_parity.py) (+1) |
 | `shift_share_political` | AER::ivreg + sandwich HC1; ShiftShareSE::ivreg_ss (EHW / AKM / AKM0); bartik.weight::bw; anova(lm) share balance | R 4.5.2; AER 1.2.16; sandwich 3.1.1; ShiftShareSE 1.1.0; bartik.weight 0.1.0 | estimate / SEs / Rotemberg / F 1e-9 rel (observed <= 5e-15); AKM p-value 1e-7 rel (ShiftShareSE uses 2*(1-pnorm), cancellation at p ~ 1e-9) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `shift_share_political_panel` | fixest::feols 0.14.0 (ssc adj=FALSE, cluster.adj=FALSE; unit / time / two-way clusters; unit, time, two-way FE; unbalanced panel); ShiftShareSE::ivreg_ss with FE dummies (AKM); bartik.weight::bw with FE dummies; AER + HC0 per period | R 4.5.2; fixest 0.14.0; ShiftShareSE 1.1.0; bartik.weight 0.1.0; AER 1.2.16; sandwich 3.1.1 | estimate / SEs / Rotemberg / first-stage F 1e-9 rel (observed <= 1.1e-14) | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
@@ -711,7 +712,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=3e-06, rel_se<=1e-06 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 56 functions
+## external-replication — 55 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -757,7 +758,6 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `reconcile` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `refute` | [`test_ness_causal_ai.py`](../tests/external_parity/test_ness_causal_ai.py) |
 | `rolling` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
-| `series` | [`test_hansen_econometrics_logs.py`](../tests/external_parity/test_hansen_econometrics_logs.py) |
 | `shrinkage` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) |
 | `simple_forecast` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
 | `stepwise` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) |
