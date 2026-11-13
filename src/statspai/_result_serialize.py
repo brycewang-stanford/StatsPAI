@@ -60,12 +60,21 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
     empty .xlsx / .docx exports instead of failing loudly (CLAUDE.md §7).
     """
     if is_dataclass(obj):
-        return {f.name: _to_jsonable(getattr(obj, f.name)) for f in fields(obj)}
+        # ``_``-prefixed fields are internal working state (``MixedResult``
+        # keeps its data blocks in ``_blocks``, ``MEGLMResult`` its full
+        # covariance in ``_cov_full``): never part of the export.
+        return drop_private(
+            {
+                f.name: _to_jsonable(getattr(obj, f.name))
+                for f in fields(obj)
+                if not f.name.startswith("_")
+            }
+        )
     if isinstance(obj, tuple) and hasattr(obj, "_asdict"):
         # NamedTuple results: the declared fields, then any properties.
         out_nt: Dict[str, Any] = {k: _to_jsonable(v) for k, v in obj._asdict().items()}
         _sweep_properties(obj, out_nt)
-        return out_nt
+        return drop_private(out_nt)
     if isinstance(obj, Mapping) and type(obj) is not dict:
         # Dict-subclass results (``PolicyTreeResult``) keep their fields as
         # items, not attributes: ``__dict__`` is empty and the export used
@@ -79,7 +88,7 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
             if not k.startswith("_") and not callable(v) and k not in out_map:
                 out_map[k] = _to_jsonable(v)
         _sweep_properties(obj, out_map)
-        return out_map
+        return drop_private(out_map)
     attrs = getattr(obj, "__dict__", None)
     if attrs is None:
         raise TypeError(
@@ -92,6 +101,39 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
         if not k.startswith("_") and not callable(v)
     }
     _sweep_properties(obj, out)
+    return drop_private(out)
+
+
+#: Containers whose ``_``-prefixed keys are internal bookkeeping
+#: (``_cluster_ids``, ``_y_resid``); deeper, a leading underscore can be
+#: data (a coefficient named ``_cons``).
+_PRIVATE_KEY_CONTAINERS = ("diagnostics", "model_info")
+
+
+def drop_private(payload: Any) -> Any:
+    """``payload`` without ``_``-prefixed keys at the top level and inside
+    its ``diagnostics`` / ``model_info`` mappings.
+
+    The rule ``to_dict()`` follows at every detail level, for every result
+    class: a leading underscore marks working state of the estimator, not
+    a reported quantity. The MCP serializer applied it; a direct Python
+    ``to_dict()`` did not.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    if not any(str(k).startswith("_") for k in payload) and not any(
+        isinstance(payload.get(c), dict)
+        and any(str(k).startswith("_") for k in payload[c])
+        for c in _PRIVATE_KEY_CONTAINERS
+    ):
+        return payload
+    out = {k: v for k, v in payload.items() if not str(k).startswith("_")}
+    for container in _PRIVATE_KEY_CONTAINERS:
+        inner = out.get(container)
+        if isinstance(inner, dict):
+            out[container] = {
+                k: v for k, v in inner.items() if not str(k).startswith("_")
+            }
     return out
 
 
@@ -384,7 +426,7 @@ class ResultProtocolMixin:
             if detail == "standard":
                 return result_to_dict(self)
             base = result_to_dict(self) if detail == "agent" else None
-            return build_payload(self, detail, base)
+            return drop_private(build_payload(self, detail, base))
 
         def violations(self) -> List[Dict[str, Any]]:
             """Structured assumption / diagnostic issues this result recorded.
@@ -637,9 +679,9 @@ def _wrap_legacy_to_dict(cls: type) -> None:
         if detail == "standard":
             # A hand-written to_dict may hold DataFrames or NaN; the
             # documented contract is JSON-safe at every level.
-            return _to_jsonable(legacy(self, *args, **kwargs))
+            return drop_private(_to_jsonable(legacy(self, *args, **kwargs)))
         base = legacy(self, *args, **kwargs) if detail == "agent" else None
-        return build_payload(self, detail, base)
+        return drop_private(build_payload(self, detail, base))
 
     params = list(sig.parameters.values())
     detail_param = inspect.Parameter(

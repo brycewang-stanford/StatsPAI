@@ -277,9 +277,16 @@ def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
     ``model_info['pretrend_test'] = {'statistic': ..., 'pvalue': ...}``
     are the tests an agent needs to see, and dropping them made a test
     that *ran* indistinguishable from one that never did.
+
+    Keys starting with ``_`` are the estimator's working state
+    (``_cluster_ids``, ``_y_resid``, ``_benchmark_refit``) and are left
+    out: an unset one is ``None`` and an object's repr is a string, so
+    both used to pass as scalars.
     """
     out: Dict[str, Any] = {}
     for k, v in (d or {}).items():
+        if str(k).startswith("_"):
+            continue
         j = _to_jsonable(v)
         if isinstance(j, (int, float, str, bool)) or j is None:
             out[str(k)] = j

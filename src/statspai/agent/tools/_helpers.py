@@ -16,6 +16,7 @@ Public surface
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -96,6 +97,16 @@ def is_obs_array_key(key: str) -> bool:
 _TABLE_ROWS = {"minimal": 5, "standard": 200, "agent": 200}
 _LIST_ITEMS = {"minimal": 10, "standard": 1000, "agent": 1000}
 
+#: At the default ``detail='agent'`` a table nested in a dict result keeps
+#: :data:`AGENT_TABLE_ROWS` rows once its JSON passes
+#: :data:`AGENT_TABLE_BYTES` (``sp.synth_sensitivity`` answered with 46 KB,
+#: 36 KB of it the 100 donor-pool draws). The cut is listed under
+#: ``arrays_capped`` and the table is readable in full through the
+#: ``statspai://result/<id>/arrays/<path>`` resource; ``detail='standard'``
+#: keeps the rows.
+AGENT_TABLE_ROWS = 20
+AGENT_TABLE_BYTES = 4096
+
 #: Containers whose ``_``-prefixed keys are internal bookkeeping
 #: (``_cluster_ids``); elsewhere a leading underscore can be data (a
 #: coefficient named ``_cons``), so only these and the top level are
@@ -154,13 +165,26 @@ def _sanitize(
         if len(v) > rows:
             capped.append({"path": path, "total": int(len(v)), "shown": rows})
         records = frame.to_dict(orient="records")
-        return [
+        table = [
             {
                 _json_key(c): _sanitize(x, detail, path, capped, depth + 1)
                 for c, x in r.items()
             }
             for r in records
         ]
+        if (
+            detail == "agent"
+            and depth > 0
+            and len(table) > AGENT_TABLE_ROWS
+            and len(json.dumps(table, default=str)) > AGENT_TABLE_BYTES
+        ):
+            # replaces a row-cap entry for the same table, if any
+            capped[:] = [c for c in capped if c.get("path") != path]
+            capped.append(
+                {"path": path, "total": int(len(v)), "shown": AGENT_TABLE_ROWS}
+            )
+            table = table[:AGENT_TABLE_ROWS]
+        return table
     if isinstance(v, pd.Series):
         v = v.to_dict()
     if isinstance(v, np.ndarray):
@@ -258,13 +282,24 @@ def full_array(obj: Any, path: str) -> List[Any]:
     cached result.
     """
     parts = [p for p in str(path).split("/") if p]
+    if parts and not is_obs_array_key(parts[-1]):
+        # A table the default detail cut (see AGENT_TABLE_ROWS): served
+        # from the standard-detail payload, and only when the agent-detail
+        # payload lists this very path as cut.
+        listed = _serialize_value(obj, detail="agent").get("arrays_capped") or []
+        if any(isinstance(c, dict) and c.get("path") == str(path) for c in listed):
+            node: Any = _default_serializer(obj, detail="standard")
+            for part in parts:
+                node = node.get(part) if isinstance(node, dict) else None
+            if isinstance(node, list):
+                return node
     if not parts or not is_obs_array_key(parts[-1]):
         raise KeyError(
             f"{path!r} is not a per-observation array; the paths are the "
             "ones listed under arrays_capped."
         )
     for detail in ("agent", "standard"):
-        node: Any = _serialize_value(obj, detail=detail)
+        node = _serialize_value(obj, detail=detail)
         for part in parts:
             if isinstance(node, dict) and part in node:
                 node = node[part]

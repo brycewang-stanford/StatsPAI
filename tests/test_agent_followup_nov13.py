@@ -394,3 +394,68 @@ def test_sdid_without_a_standard_error_has_no_inference_evidence(files):
     assert "resampling_inference" not in fit.model_info
     checks = {c["name"]: c["status"] for c in sp.audit(fit)["checks"]}
     assert checks["placebo_inference"] == "missing"
+
+
+# --------------------------------------------------------------------------- #
+#  #47 synth_sensitivity stays small; the cut tables are readable in full
+# --------------------------------------------------------------------------- #
+def test_synth_sensitivity_reply_is_capped_and_readable_in_full(files):
+    from statspai.agent.mcp_server import handle_request
+    from statspai.agent.tools._helpers import AGENT_TABLE_ROWS
+
+    paths, frames = files
+    out = _call("synth_sensitivity", data_path=paths["synth"], as_handle=True, **_SYNTH)
+    assert "error" not in out, out.get("error")
+    # 47.8 KB before the cap (36 KB of it the 100 donor-pool draws)
+    assert len(json.dumps(out)) < 20_000
+    capped = {c["path"]: c for c in out["arrays_capped"]}
+    assert capped["/donor_sensitivity"]["total"] == 100
+    assert capped["/donor_sensitivity"]["shown"] == AGENT_TABLE_ROWS
+    assert len(out["donor_sensitivity"]) == AGENT_TABLE_ROWS
+    # small tables are left whole
+    assert len(out["time_placebo"]) == 17 and "/time_placebo" not in capped
+
+    def read(uri):
+        reply = json.loads(
+            handle_request(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 2,
+                        "method": "resources/read",
+                        "params": {"uri": uri},
+                    }
+                )
+            )
+        )
+        return reply
+
+    body = json.loads(
+        read(capped["/donor_sensitivity"]["full"])["result"]["contents"][0]["text"]
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        direct = sp.synth_sensitivity(
+            data=frames["synth"], seed=out["seed_injected"]["value"], **_SYNTH
+        )
+    # every draw of the direct call, in order
+    assert body["n"] == 100
+    np.testing.assert_allclose(
+        [row["att"] for row in body["values"]],
+        direct["donor_sensitivity"]["att"].to_numpy(),
+        rtol=1e-12,
+    )
+    assert body["values"][:AGENT_TABLE_ROWS] == out["donor_sensitivity"]
+    assert out["original_att"] == pytest.approx(direct["original_att"], rel=1e-12)
+    # a path that was not cut is still refused
+    refused = read(
+        capped["/donor_sensitivity"]["full"].replace(
+            "donor_sensitivity", "original_att"
+        )
+    )
+    assert "error" in refused
+    # detail='standard' keeps every row
+    whole = _call(
+        "synth_sensitivity", data_path=paths["synth"], detail="standard", **_SYNTH
+    )
+    assert len(whole["donor_sensitivity"]) == 100
