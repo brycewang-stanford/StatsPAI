@@ -72,6 +72,30 @@ packages for R and Stata. That is rarely what you want for an indicator,
 so name it. Stata's `cem x(#k)` counts cut points: `x(#k)` is
 `n_bins=k - 1`, and `x(#2)` does not split `x` at all.
 
+The standard error is the within-cell one: outcome variation between
+cells does not enter the estimate, so it does not enter the variance
+either. (Through 1.43.1 the ATT's standard error was taken around each
+arm's overall mean and was too large when the cells predict the outcome.)
+
+### Which standard error
+
+Every analytic standard error of a score-based method (nearest-neighbour
+matching on the score, stratification, kernel and radius matching, full
+matching) takes the propensity score as given. A score estimated on the
+same sample balances the covariates better than the true one, so those
+standard errors are conservative, more so the better the covariates
+predict the outcome. In the calibration screen
+(`tests/reliability/se_screen/causal/matching.py`: two covariates that
+explain half of the outcome variance, n = 1,000) they ran 1.2 to 1.5
+times the sampling standard deviation, and were on target when the true
+score was supplied through `pscore=`. Two options account for the
+estimated score: `se_method='abadie_imbens_2016'` for nearest-neighbour
+matching with replacement (what Stata `teffects psmatch` reports) and
+`se_method='bootstrap'` for kernel, radius and local linear matching.
+Matching on the covariates themselves (`distance='mahalanobis'`,
+`method='nnmatch'`, `method='cem'`) has no estimated score and was on
+target.
+
 ## 2. Nearest-neighbor matching
 
 Beware: King & Nielsen (2019) show that PSM-based nearest-neighbor
