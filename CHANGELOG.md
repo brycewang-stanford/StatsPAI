@@ -2,9 +2,10 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [1.43.1] — 2026-11-07
+## [1.43.1] — 2026-11-13
 
-Follow-up to 1.43.0 from the same rOpenSci standards round:
+Follow-up to 1.43.0 from the same rOpenSci standards round, plus the
+fixes from the first agent smoke run:
 
 - A missing weight, offset or exposure now drops its row under the default
   `missing="drop"`, as the guide always said. Seven estimators used to
@@ -16,6 +17,12 @@ Follow-up to 1.43.0 from the same rOpenSci standards round:
 - Method references are filled for 43 more functions, with 42 new `paper.bib`
   entries, each checked against two independent records. Three wrong
   docstring citations are corrected.
+- `sp.feols` / `sp.fepois` / `sp.feglm` work with pyfixest 0.70, which pip
+  installs on Python 3.11 and later. On 1.43.0 its pyfixest backend lost
+  the IV diagnostics and broke `sp.ssc()` there.
+- ⚠️ Weighted `sp.feols` reports the RMSE fixest reports.
+- ⚠️ `sp.rddensity` keeps the T test as its headline; `.se` and `.ci` are
+  NaN and the density difference has its own fields.
 
 ### Fixed
 - **`statspai mcp doctor` misread console scripts installed under a long or
