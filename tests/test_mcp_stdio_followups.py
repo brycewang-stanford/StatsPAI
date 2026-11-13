@@ -346,6 +346,10 @@ def test_two_period_did_offers_nothing_that_needs_a_pre_period(srv, frames):
         as_handle=True,
     )
     sc = fit["structuredContent"]
+    # the 2x2 estimate is the difference of the four cell-mean differences
+    cell = two.groupby(["treated", "post"])["y"].mean()
+    by_hand = (cell[1, 1] - cell[1, 0]) - (cell[0, 1] - cell[0, 0])
+    assert sc["estimate"] == pytest.approx(by_hand, rel=1e-10)
     tools = {c["tool"]: c for c in sc["next_calls"]}
     assert "honest_did_from_result" not in tools
     results = _dispatch_ready(srv, fit)

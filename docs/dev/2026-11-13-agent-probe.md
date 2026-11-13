@@ -23,7 +23,7 @@ Data were simulated with known effects, one CSV per design.
 
 ## Numbers
 
-| | Round 1 (main at `692243df9`) | Round 2 (after the fixes) |
+| | Round 1 (main at `f4a8f7b87`) | Round 2 (after the fixes) |
 | --- | ---: | ---: |
 | MCP tasks finished without reading source | 16 of 16 | 16 of 16 |
 | Headline estimates and SEs equal to the direct Python call | 24 of 24 | same |
@@ -99,8 +99,10 @@ Surface codes: M = MCP server, P = Python self-description, B = both.
 | 42 | M | `synth` on a panel whose donor pool contains treated units returns an estimate with no flag | open: needs a treatment column to detect |
 | 43 | P | `partial_identification` returns `CausalResult` or `BoundsResult` by method; card has no result class | open: return type should be one class (owner decision) |
 | 44 | B | `sp.did_multiplegt` on a continuous treatment: minutes, null estimate, no error | open: outside the agent layer; `recommend` no longer routes there |
-| 45 | P | `to_dict()` of `ARIMAResult` / `MEGLMResult` carries `_`-prefixed internals (scrubbed over MCP, not in Python) | open |
+| 45 | P | `to_dict()` of `ARIMAResult` / `MEGLMResult` carries `_`-prefixed internals (scrubbed over MCP, not in Python) | `ARIMAResult` fixed the same day by the time-series probe; `MEGLMResult` open |
 | 46 | B | `audit` asks for `robust_se` on a clustered `feols` fit (`missing`) | open |
+| 47 | M | `synth_sensitivity` (now a ready follow-up of `synth`) answers with 46 KB | open: its donor-sensitivity table is 15 KB; needs a summary at `detail='agent'` |
+| 48 | M | `sdid` audit lists pre-fit and placebo checks as `missing`: the SDID result stores neither under a name the audit reads | open |
 
 ## What was verified to be right
 

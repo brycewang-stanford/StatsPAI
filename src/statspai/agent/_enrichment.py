@@ -595,12 +595,15 @@ def _has_pre_period_event_study(result: Any) -> bool:
     treated in the second period has no lead. ``honest_did_from_result``
     was offered as ``ready=true`` on both and failed when dispatched.
     """
-    try:
-        from ..did._honest_common import _extract_event_study
+    from ..did._honest_common import _extract_event_study
+    from ..exceptions import StatsPAIError
 
+    try:
         es = _extract_event_study(result)
         return bool((es["relative_time"] < 0).any())
-    except Exception:  # noqa: BLE001 - "cannot tell" means "do not offer"
+    except (StatsPAIError, AttributeError, KeyError, TypeError, ValueError):
+        # no event-study table on this result (a 2x2 fit, a non-DiD object):
+        # honest_did has nothing to work with, so it is not offered
         return False
 
 
