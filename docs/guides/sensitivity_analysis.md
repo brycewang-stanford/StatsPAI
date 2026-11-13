@@ -525,6 +525,15 @@ is monotonicity: treatment moves selection in one direction for
 everyone. If treatment plausibly destroys some jobs while creating
 others, the bounds are invalid.
 
+`lb.estimate` is the midpoint of the bounds, not an estimate of the
+effect. Read the result through `lb.ci`, the Imbens-Manski interval for
+the effect, and `lb.pvalue`, the p-value of a zero effect that this
+interval implies: it is 1 when zero lies between the estimated bounds
+and falls below 0.05 exactly when the 95% interval excludes zero. The
+same holds for `sp.manski_bounds`, whose interval covers the whole
+identified set. (Through 1.43.1 `pvalue` tested the midpoint against
+zero and could be tiny while the interval contained zero.)
+
 For outcomes (or covariates) that are missing not-at-random rather
 than selection-truncated, `sp.horowitz_manski(df, y=..., treatment=...,
 covariates=[...], y_lower=..., y_upper=...)` returns the

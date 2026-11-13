@@ -136,6 +136,7 @@ def sbw(
     include_squares: bool = False,
     alpha: float = 0.05,
     solver_options: Optional[dict] = None,
+    vce: str = "linearized",
 ) -> SBWResult:
     """
     Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE
@@ -173,6 +174,30 @@ def sbw(
         Significance level for inference on the outcome.
     solver_options : dict, optional
         Passed to ``scipy.optimize.minimize``.
+    vce : {'linearized', 'naive'}, default 'linearized'
+        Standard error of the effect.
+
+        - ``'linearized'``: the variance of a calibration estimator.
+          Weights that balance the covariates make the weighted mean
+          insensitive to the part of the outcome that is linear in them,
+          so the sampling error comes from the residuals of a weighted
+          regression of the outcome on the balanced covariates in the
+          reweighted arm, plus the spread of the target group's own
+          contributions: for the ATT,
+          ``var_T(Y - X'b_0) / n_T + sum_C w_i^2 e_i^2``.
+        - ``'naive'``: the weights are taken as fixed and each arm's
+          spread is measured around its weighted mean,
+          ``var_T(Y) / n_T + sum_C w_i^2 (Y_i - mu_C)^2``. This counts
+          outcome variation the balancing has removed and is too large
+          whenever the covariates predict the outcome. It was the only
+          standard error through 1.43.1.
+
+        In a simulation with 1,000 observations and two covariates that
+        explain about half of the outcome variance, ``'naive'`` averaged
+        1.5 times the sampling standard deviation of the ATT (95%
+        intervals covered more than 99%); ``'linearized'`` was within 5%
+        (``tests/reliability/se_screen/causal/weighting.py``). The point
+        estimate does not depend on ``vce``.
 
     Returns
     -------
@@ -195,6 +220,8 @@ def sbw(
         raise ValueError("estimand must be one of 'att', 'atc', 'ate'")
     if objective not in ("variance", "entropy"):
         raise ValueError("objective must be one of 'variance', 'entropy'")
+    if vce not in ("linearized", "naive"):
+        raise ValueError(f"vce must be 'linearized' or 'naive', got {vce!r}")
 
     req_cols = [treat] + list(covariates) + ([y] if y else [])
     df = data[req_cols].dropna().copy()
@@ -318,6 +345,7 @@ def sbw(
             weights_full,
             estimand,
             alpha,
+            X=X if vce == "linearized" else None,
         )
     else:
         estimate = se = pval = low = high = np.nan
@@ -336,6 +364,7 @@ def sbw(
         balance=bal,
         solver_status=solver_status,
     )
+    _result.model_info["vce"] = vce
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -356,6 +385,7 @@ def sbw(
                 "tolerance_scale": tolerance_scale,
                 "include_squares": include_squares,
                 "alpha": alpha,
+                "vce": vce,
             },
             data=data,
             overwrite=False,
@@ -510,58 +540,84 @@ def _balance_table(
     )
 
 
+def _wls_residuals(
+    Y: np.ndarray, X: np.ndarray, w: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Weighted least squares of ``Y`` on ``[1, X]``; coefficients, residuals.
+
+    Uses ``lstsq`` on the weighted design, so a redundant balanced column
+    (a covariate and its square on a binary variable) is harmless.
+    """
+    D = np.column_stack([np.ones(len(Y)), X])
+    sw = np.sqrt(np.clip(w, 0.0, None))
+    beta = np.linalg.lstsq(D * sw[:, None], Y * sw, rcond=None)[0]
+    return beta, Y - D @ beta
+
+
 def _weighted_treatment_effect(
     Y: np.ndarray,
     T: np.ndarray,
     w: np.ndarray,
     estimand: str,
     alpha: float,
+    X: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, float, float]:
-    """Point estimate + *conditional-on-weights* SE for the target estimand.
+    """Point estimate and standard error for the target estimand.
 
-    Uses a Horvitz-Thompson variance that treats the SBW weights as
-    fixed — i.e. does not propagate uncertainty from weight
-    estimation. For most reasonable δ and sample sizes this is within
-    5–10% of a Bayesian-bootstrap SE (Wang & Zubizarreta 2020), but
-    users who need a fully correct variance should call :func:`sbw` in
-    a bootstrap loop over ``data``.
+    With ``X`` (the balanced columns) the variance is the linearized one
+    of a calibration estimator: residuals of a weighted regression of the
+    outcome on ``X`` in each reweighted arm, and the spread of the target
+    group's contributions. Without ``X`` it is the older fixed-weights
+    variance around each arm's weighted mean, which also counts the
+    outcome variation that balancing removed. See ``vce`` in :func:`sbw`.
     """
     from scipy import stats as _stats
 
     w = np.asarray(w, dtype=float)
+    t = T == 1
+    c = ~t
+    w_t = w[t] / w[t].sum()
+    w_c = w[c] / w[c].sum()
+    mu_t = float(np.sum(w_t * Y[t]))
+    mu_c = float(np.sum(w_c * Y[c]))
+    ate = mu_t - mu_c
+    n_t, n_c, n = int(t.sum()), int(c.sum()), len(Y)
 
-    if estimand == "att":
-        # ATT = mean_T(Y) - Σ w_i Y_i over controls
-        w_t = w[T == 1]
-        w_c = w[T == 0]
-        mu_t = float(np.sum(w_t * Y[T == 1]) / w_t.sum())
-        mu_c = float(np.sum(w_c * Y[T == 0]) / w_c.sum())
-        ate = mu_t - mu_c
-        # Sandwich-type SE combines iid treated and weighted-control variance.
-        var_t = float(np.var(Y[T == 1], ddof=1) / (T == 1).sum())
-        resid_c = Y[T == 0] - mu_c
-        var_c = float(np.sum((w_c**2) * (resid_c**2)))
-    elif estimand == "atc":
-        w_t = w[T == 1]
-        w_c = w[T == 0]
-        mu_t = float(np.sum(w_t * Y[T == 1]) / w_t.sum())
-        mu_c = float(np.sum(w_c * Y[T == 0]) / w_c.sum())
-        ate = mu_t - mu_c
-        resid_t = Y[T == 1] - mu_t
-        var_t = float(np.sum((w_t**2) * (resid_t**2)))
-        var_c = float(np.var(Y[T == 0], ddof=1) / (T == 0).sum())
-    else:  # ate
-        w_t = w[T == 1]
-        w_c = w[T == 0]
-        mu_t = float(np.sum(w_t * Y[T == 1]) / w_t.sum())
-        mu_c = float(np.sum(w_c * Y[T == 0]) / w_c.sum())
-        ate = mu_t - mu_c
-        resid_t = Y[T == 1] - mu_t
-        resid_c = Y[T == 0] - mu_c
-        var_t = float(np.sum((w_t**2) * (resid_t**2)))
-        var_c = float(np.sum((w_c**2) * (resid_c**2)))
+    if X is None:
+        if estimand == "att":
+            var_t = float(np.var(Y[t], ddof=1) / n_t)
+            var_c = float(np.sum((w_c**2) * ((Y[c] - mu_c) ** 2)))
+        elif estimand == "atc":
+            var_t = float(np.sum((w_t**2) * ((Y[t] - mu_t) ** 2)))
+            var_c = float(np.var(Y[c], ddof=1) / n_c)
+        else:  # ate
+            var_t = float(np.sum((w_t**2) * ((Y[t] - mu_t) ** 2)))
+            var_c = float(np.sum((w_c**2) * ((Y[c] - mu_c) ** 2)))
+        variance = var_t + var_c
+    else:
+        D = np.column_stack([np.ones(n), X])
+        if estimand == "att":
+            # controls are reweighted to the treated: residuals of the
+            # control fit, and the treated outcomes net of that fit
+            beta0, e0 = _wls_residuals(Y[c], X[c], w_c)
+            variance = float(np.var(Y[t] - D[t] @ beta0, ddof=1) / n_t) + float(
+                np.sum(w_c**2 * e0**2)
+            )
+        elif estimand == "atc":
+            beta1, e1 = _wls_residuals(Y[t], X[t], w_t)
+            variance = float(np.var(Y[c] - D[c] @ beta1, ddof=1) / n_c) + float(
+                np.sum(w_t**2 * e1**2)
+            )
+        else:  # ate: both arms are reweighted to the whole sample
+            beta1, e1 = _wls_residuals(Y[t], X[t], w_t)
+            beta0, e0 = _wls_residuals(Y[c], X[c], w_c)
+            variance = (
+                float(np.sum(w_t**2 * e1**2))
+                + float(np.sum(w_c**2 * e0**2))
+                + float(np.var(D @ (beta1 - beta0), ddof=1) / n)
+            )
 
-    se = float(np.sqrt(var_t + var_c))
+    se = float(np.sqrt(variance))
     z = float(_stats.norm.ppf(1 - alpha / 2))
     low, high = ate - z * se, ate + z * se
     t_stat = ate / se if se > 0 else np.nan

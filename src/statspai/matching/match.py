@@ -488,8 +488,21 @@ def match(
         matching with a fixed number of matches; requesting it there warns.
         ``'auto'`` (the default) resolves to ``'abadie_imbens'`` for
         nearest-neighbour matching, ``'psmatch2'`` for kernel / radius, and
-        ``'bootstrap'`` for ``'llr'`` -- in each case the estimator measured
-        to be correctly sized for that matching scheme.
+        ``'bootstrap'`` for ``'llr'``. For kernel and radius matching the
+        ``'psmatch2'`` default is the number Stata reports, not a sized
+        one: in a design where the covariates explain half of the outcome
+        variance it averaged 1.4 times the sampling standard deviation
+        (95% intervals covered 99.5%), while ``se_method='bootstrap'`` was
+        within 4% (``tests/reliability/se_screen/causal/matching.py``).
+
+        Every analytic option takes the propensity score as given. A score
+        estimated on the same sample balances the covariates better than
+        the true one, so these standard errors are conservative for
+        score-based matching, stratification and full matching (1.1 to 1.5
+        times the sampling standard deviation in the same design; in band
+        when the true score is supplied through ``pscore=``).
+        ``'abadie_imbens_2016'`` and ``'bootstrap'`` account for the
+        estimation of the score.
 
         With ``estimand='ATE'`` (nearest-neighbour matching) the options
         are the ATE counterparts, all symmetric in the two arms:
@@ -512,10 +525,13 @@ def match(
         above. ``'psmatch2'`` is defined for the ATT only.
 
         ``method='stratify'`` and ``method='cem'`` accept ``'auto'`` (the
-        within-cell variance, recorded as ``'analytic'``) and
-        ``'bootstrap'``; ``distance='exact'`` accepts ``'auto'`` / ``'ai'``
-        (the matched-pair SE) and ``'bootstrap'``. Other values are
-        refused there rather than ignored.
+        within-cell variance, recorded as ``'analytic'``; for the CEM ATT
+        each arm's variance is pooled over the cells, and through 1.43.1
+        it was taken around the arm's overall mean, which made the
+        standard error about 1.4 times too large when the cells predict
+        the outcome) and ``'bootstrap'``; ``distance='exact'`` accepts
+        ``'auto'`` / ``'ai'`` (the matched-pair SE) and ``'bootstrap'``.
+        Other values are refused there rather than ignored.
 
         A standard error that cannot be estimated (a single matched unit,
         a stratum with one unit in an arm) is ``NaN``, with ``NaN`` p-value
@@ -2623,7 +2639,31 @@ class MatchEstimator:
 
         arr = np.asarray(estimates, dtype=float)
         info["bootstrap_bias"] = float(np.mean(arr)) - float(self._point_estimate)
-        return float(np.std(arr, ddof=1)), info
+        sd = float(np.std(arr, ddof=1))
+        # A scale that a few wild replications cannot move: the
+        # interquartile range over its value for a normal distribution.
+        q25, q75 = np.percentile(arr, [25.0, 75.0])
+        robust = float((q75 - q25) / 1.3489795003921634)
+        info["bootstrap_se_iqr"] = robust
+        if len(arr) >= 20 and robust > 0 and sd > 2.0 * robust:
+            # Local linear weights are unbounded when a treated unit has few
+            # distinct controls inside the bandwidth, and resampling makes
+            # that more likely; one such replication can dominate the
+            # standard deviation.
+            info["bootstrap_heavy_tails"] = True
+            warnings.warn(
+                f"sp.match: the bootstrap distribution has heavy tails: its "
+                f"standard deviation ({sd:.4g}) is more than twice the scale "
+                f"its interquartile range implies ({robust:.4g}), so a few "
+                "replications dominate the reported standard error. For "
+                "method='llr' this usually means the bandwidth leaves some "
+                "treated units with too few controls; try a larger bwidth. "
+                "The interquartile scale is in "
+                "model_info['bootstrap_se_iqr'].",
+                UserWarning,
+                stacklevel=3,
+            )
+        return sd, info
 
     def _resolve_se_method(self) -> str:
         """Resolve ``se_method='auto'`` to a concrete estimator.
@@ -3195,6 +3235,10 @@ class MatchEstimator:
         weights_c = []
         # per matched cell: (size, difference in means, variance of it)
         cells: List[Tuple[int, float, float]] = []
+        # per matched cell: (treated count, control count), and each arm's
+        # sum of squared deviations from its own cell mean
+        cell_counts: List[Tuple[int, int]] = []
+        ss_within = {1: 0.0, 0: 0.0}
 
         for s in np.unique(strata):
             in_s = strata == s
@@ -3205,6 +3249,9 @@ class MatchEstimator:
                 matched_c.extend(c_in.tolist())
                 w = len(t_in) / len(c_in)
                 weights_c.extend([w] * len(c_in))
+                cell_counts.append((len(t_in), len(c_in)))
+                ss_within[1] += float(np.sum((Y[t_in] - Y[t_in].mean()) ** 2))
+                ss_within[0] += float(np.sum((Y[c_in] - Y[c_in].mean()) ** 2))
                 if self.estimand == "ATE":
                     vt = (
                         np.var(Y[t_in], ddof=1) / len(t_in) if len(t_in) > 1 else np.nan
@@ -3231,16 +3278,34 @@ class MatchEstimator:
 
         att = float(np.mean(Y_t) - np.average(Y_c, weights=w_c))
 
-        var_t = np.var(Y_t, ddof=1) / len(Y_t) if len(Y_t) > 1 else 0
-        var_c = (
-            (
-                np.average((Y_c - np.average(Y_c, weights=w_c)) ** 2, weights=w_c)
-                / len(Y_c)
+        # Within-cell variance. The ATT is sum_s (n_ts / N_t) (mean_ts -
+        # mean_cs) over the matched cells, so its variance is
+        #   sum_s (n_ts / N_t)^2 (sigma_t^2 / n_ts + sigma_c^2 / n_cs),
+        # with each arm's outcome variance pooled over the cells (the
+        # residual variance of a regression on cell indicators): a fine
+        # coarsening leaves many cells with one unit of an arm, where a
+        # cell's own variance is not estimable. Through 1.43.1 the two
+        # variances were taken around the arms' overall means, which adds
+        # the outcome variation between cells -- the variation exact
+        # matching on the cells removes from the estimate.
+        n_t_cells = np.array([c[0] for c in cell_counts], dtype=float)
+        n_c_cells = np.array([c[1] for c in cell_counts], dtype=float)
+        df_t = n_t_cells.sum() - len(cell_counts)
+        df_c = n_c_cells.sum() - len(cell_counts)
+        if df_t > 0 and df_c > 0:
+            sig_t = ss_within[1] / df_t
+            sig_c = ss_within[0] / df_c
+            share_t = n_t_cells / n_t_cells.sum()
+            se = float(
+                np.sqrt(np.sum(share_t**2 * (sig_t / n_t_cells + sig_c / n_c_cells)))
             )
-            if len(Y_c) > 1
-            else 0
-        )
-        se = float(np.sqrt(var_t + var_c))
+        else:
+            se = float("nan")
+            self._se_undefined = (
+                "every matched cell holds a single treated or a single "
+                "control unit, so the outcome variance within cells cannot "
+                "be estimated; use coarser bins or se_method='bootstrap'"
+            )
 
         if self.estimand == "ATE":
             # The ATT above weights a cell by its number of treated units.
