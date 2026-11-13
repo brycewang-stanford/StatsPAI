@@ -57,8 +57,19 @@ VARS = ["e", "prod", "rw", "U"]
 DK = ["LRM", "LRY", "IBO", "IDE"]
 
 
+#: the data files, written by ``_generate_probe_ts_R.R``
+DATA = {
+    "canada": "probe_ts_canada.csv",
+    "denmark": "probe_ts_denmark.csv",
+    "nile": "probe_ts_nile.csv",
+    "lynx": "probe_ts_lynx.csv",
+    "airpassengers": "probe_ts_airpassengers.csv",
+    "dm_errors": "probe_ts_dm_errors.csv",
+}
+
+
 def _csv(name: str) -> pd.DataFrame:
-    return pd.read_csv(FX / f"probe_ts_{name}.csv")
+    return pd.read_csv(FX / DATA[name])
 
 
 def _quiet(fn, *args, **kwargs):

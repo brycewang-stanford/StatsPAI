@@ -4,8 +4,10 @@
 #   Rscript tests/reference_parity/_fixtures/_generate_probe_ts_R.R
 #
 # Needs vars, urca, forecast, strucchange, sandwich, lmtest and jsonlite.
-# Writes the CSV files the Python and Stata sides read (probe_ts_*.csv, taken
-# from datasets shipped with R, vars and urca) and probe_ts_R.json.
+# Writes the CSV files the Python and Stata sides read, taken from datasets
+# shipped with R, vars and urca (probe_ts_canada.csv, probe_ts_denmark.csv,
+# probe_ts_nile.csv, probe_ts_lynx.csv, probe_ts_airpassengers.csv), the
+# rolling-origin forecast errors probe_ts_dm_errors.csv, and probe_ts_R.json.
 # GPL packages are run as black boxes; nothing here is derived from their
 # source.
 args <- commandArgs(trailingOnly = FALSE)
