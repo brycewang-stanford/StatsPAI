@@ -314,6 +314,19 @@ def _weights(model: _Model, wts: Any) -> Optional[np.ndarray]:
     return w
 
 
+def _weights_for_grid(model: _Model, wts: Any, n_rows: int) -> Optional[np.ndarray]:
+    """Weights for a frame that may hold several counterfactual copies.
+
+    An array given for the original rows is repeated for each copy.
+    """
+    copies = len(model.frame) // max(n_rows, 1)
+    if copies > 1 and wts is not None and not isinstance(wts, (str, bool)):
+        w = np.asarray(wts, dtype=float).ravel()
+        if w.size == n_rows:
+            return np.tile(w, copies)
+    return _weights(model, wts)
+
+
 def _average(
     est: np.ndarray,
     jac: np.ndarray,
@@ -367,6 +380,91 @@ def _check_by(model: _Model, by: Optional[Union[str, Sequence[str]]]) -> List[st
     return by
 
 
+def _resolve_newdata(
+    newdata: Optional[pd.DataFrame], data: Optional[pd.DataFrame], fn: str
+) -> Optional[pd.DataFrame]:
+    """``data=`` is another name for ``newdata=`` (as in ``sp.margins``)."""
+    if data is None:
+        return newdata
+    if newdata is not None:
+        raise MethodIncompatibility(
+            f"{fn}: pass newdata= or data=, not both.",
+            recovery_hint="They name the same argument; keep one.",
+        )
+    return data
+
+
+def _counterfactual_grid(model: _Model, variables: Any) -> List[str]:
+    """Replace ``model.frame`` by its counterfactual copies.
+
+    Every row is repeated once per combination of the values in
+    ``variables`` with those columns overwritten, as marginaleffects'
+    ``predictions(variables = list(x = c(0, 1)))`` does. Returns the
+    names of the manipulated columns.
+    """
+    if variables is None:
+        return []
+    fn = model.fn
+    if isinstance(variables, str):
+        variables = [variables]
+    if not isinstance(variables, dict):
+        variables = {v: None for v in variables}
+    if not variables:
+        return []
+    fr = model.frame
+    names: List[str] = []
+    grids: List[List[Any]] = []
+    for var, values in variables.items():
+        if var not in fr.columns or var not in model.design.variables:
+            raise MethodIncompatibility(
+                f"{fn}: variables= names {var!r}, which is not a regressor "
+                "of the model in this data.",
+                recovery_hint="Regressors: "
+                + ", ".join(str(v) for v in model.design.variables),
+                diagnostics={"variable": var},
+            )
+        if values is None:
+            if _variable_kind(model, var) == "numeric":
+                raise MethodIncompatibility(
+                    f"{fn}: variables= needs the values to set for the "
+                    f"numeric regressor {var!r}.",
+                    recovery_hint=f"E.g. variables={{{var!r}: [0, 1]}}.",
+                    diagnostics={"variable": var},
+                )
+            values = sorted(
+                pd.unique(fr[var].dropna()), key=lambda v: (str(type(v)), v)
+            )
+        elif np.isscalar(values):
+            values = [values]
+        values = list(values)
+        if not values:
+            raise MethodIncompatibility(
+                f"{fn}: variables= has no value for {var!r}.",
+                recovery_hint=f"E.g. variables={{{var!r}: [0, 1]}}.",
+                diagnostics={"variable": var},
+            )
+        names.append(var)
+        grids.append(values)
+    import itertools
+
+    pieces = []
+    for combo in itertools.product(*grids):
+        piece = fr.copy()
+        for var, value in zip(names, combo):
+            piece[var] = value
+        pieces.append(piece)
+    stacked = pd.concat(pieces, ignore_index=True)
+    known = known_factor_levels(model.result)
+    if not known and model._source is not None:
+        known = known_factor_levels(
+            model.result, design_for(model.result, model._source)
+        )
+    if known:
+        reject_unseen_levels(known, stacked, context=fn)
+    model.frame = stacked
+    return names
+
+
 # ---------------------------------------------------------------------------
 # predictions
 # ---------------------------------------------------------------------------
@@ -382,6 +480,8 @@ def predictions(
     df: Any = None,
     conf_level: float = 0.95,
     vcov: bool = True,
+    variables: Any = None,
+    data: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
     """Unit-level predictions with delta-method standard errors.
 
@@ -423,6 +523,15 @@ def predictions(
         (marginaleffects refuses all of them on a fixest model).
         Contrasts and slopes of a linear model do not depend on the
         effects and keep their standard errors.
+    variables : dict, str or list of str, optional
+        Counterfactual predictions. ``{'d': [0, 1]}`` predicts every row
+        twice, once with ``d`` set to 0 and once to 1 (marginaleffects'
+        ``variables = list(d = c(0, 1))``). A name alone uses every
+        observed level of a factor or 0/1 regressor. Several variables
+        give every combination. :func:`avg_predictions` then averages
+        within each combination, or within ``by=`` when that is given.
+    data : DataFrame, optional
+        Another name for ``newdata`` (the spelling of ``sp.margins``).
 
     Returns
     -------
@@ -440,7 +549,9 @@ def predictions(
     >>> bool(((p.estimate > 0) & (p.estimate < 1)).all())
     True
     """
+    newdata = _resolve_newdata(newdata, data, "predictions")
     model = _Model(result, newdata, "predictions", vcov)
+    _counterfactual_grid(model, variables)
     by = _check_by(model, by)
     model.prepare_fe(averaged=bool(by))
     est, jac = model.predict(model.frame, type)
@@ -468,10 +579,17 @@ def avg_predictions(
     df: Any = None,
     conf_level: float = 0.95,
     vcov: bool = True,
+    variables: Any = None,
+    data: Optional[pd.DataFrame] = None,
 ) -> pd.DataFrame:
-    """Average prediction, overall or ``by=`` group (``marginaleffects::avg_predictions``).
+    """Average prediction, overall or by group.
 
-    Parameters are those of :func:`predictions`.
+    ``marginaleffects::avg_predictions``.
+    Parameters are those of :func:`predictions`. ``newdata=`` (or
+    ``data=``) may be any frame with the model's regressors, for instance
+    a counterfactual copy ``df.assign(d=1)``. ``variables={'d': [0, 1]}``
+    builds those copies and returns one average per value, the
+    standardised (g-computation) means.
 
     Examples
     --------
@@ -483,13 +601,24 @@ def avg_predictions(
     >>> fit = sp.regress("y ~ x + C(g)", data=d)
     >>> sp.avg_predictions(fit, by="g").shape[0]
     3
+    >>> cf = sp.avg_predictions(fit, variables={"g": [0, 2]})
+    >>> list(cf["g"])
+    [0, 2]
     """
+    newdata = _resolve_newdata(newdata, data, "avg_predictions")
     model = _Model(result, newdata, "avg_predictions", vcov)
+    n_rows = len(model.frame)
+    keys = _counterfactual_grid(model, variables)
     by = _check_by(model, by)
+    if by:
+        # An explicit by= replaces the default grouping by the manipulated
+        # variables (marginaleffects); name them in by= to keep them.
+        keys = []
     model.prepare_fe(averaged=True)
     est, jac = model.predict(model.frame, type)
     fe = model.fe_delta is not None
-    e, j, meta = _average(est, jac, model.frame, by, _weights(model, wts), [], fe=fe)
+    w = _weights_for_grid(model, wts, n_rows)
+    e, j, meta = _average(est, jac, model.frame, by, w, keys, fe=fe)
     return _table(
         model,
         e,

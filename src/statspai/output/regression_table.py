@@ -441,6 +441,7 @@ _STAT_NAMES_FOR_HINT = (
     "ll",
     "aic",
     "bic",
+    "rmse",
     "ymean",
     "ysd",
     "FE",
@@ -3421,6 +3422,12 @@ def regtable(
         Reorder variables.
     stats : list of str, optional
         Summary statistics. Defaults to ``["N", "R2", "adj_R2", "F"]``.
+        Also ``"ll"``, ``"aic"``, ``"bic"``, ``"rmse"``, ``"pseudo_r2"``,
+        ``"ymean"``, ``"ysd"``. For ``sp.feols`` and ``sp.fepois``
+        columns ``"rmse"``, ``"aic"`` and ``"bic"`` are the numbers of
+        fixest's ``fitstat(~ rmse + aic + bic)``, the fixed effects
+        counted as parameters. A weighted ``sp.feols`` column leaves
+        ``"aic"`` / ``"bic"`` empty.
     se_type : str, default ``"se"``
         What to show beneath coefficients: ``"se"``, ``"t"``, ``"p"``,
         or ``"ci"`` for confidence intervals.

@@ -1418,6 +1418,17 @@ def _build_registry() -> None:
                     "(Stata boottest after ivreg2)",
                 ),
                 _MISSING_PARAM,
+                ParamSpec(
+                    "augmented_diagnostics",
+                    "bool",
+                    False,
+                    True,
+                    "Attach the weak-identification statistics sp.iv reports "
+                    "to result.diagnostics: Kleibergen-Paap rk LM and Wald F "
+                    "(ivreg2 idstat / rkf), the Sanderson-Windmeijer F with "
+                    "several endogenous regressors, the Montiel Olea-Pflueger "
+                    "effective F with one (weakivtest). The fit is unchanged",
+                ),
             ],
             returns="EconometricResults",
             example='sp.ivreg("wage ~ (education ~ parent_edu + distance) + experience", data=df)',
@@ -13575,6 +13586,27 @@ def _build_registry() -> None:
             "Relative step of the central difference on transformed terms",
         ),
     }
+    _me_counterfactual = [
+        ParamSpec(
+            "variables",
+            "str | list[str] | dict",
+            False,
+            None,
+            "Counterfactual predictions: {'d': [0, 1]} predicts every row "
+            "with d set to 0 and to 1 (marginaleffects' variables = "
+            "list(d = c(0, 1))); avg_predictions returns one average per "
+            "value. A name alone uses every level of a factor or 0/1 "
+            "regressor",
+        ),
+        ParamSpec(
+            "data",
+            "DataFrame",
+            False,
+            None,
+            "Another name for newdata (the spelling of sp.margins); pass one "
+            "of the two",
+        ),
+    ]
     for _name, _desc, _extra, _example in _me_specs:
         _params: List[ParamSpec] = [_me_result]
         if _extra:
@@ -13582,6 +13614,8 @@ def _build_registry() -> None:
         _params.extend(_me_common[:2])
         _params.extend(_me_extra[_e] for _e in _extra)
         _params.extend(_me_common[2:])
+        if _name in ("predictions", "avg_predictions"):
+            _params.extend(_me_counterfactual)
         register(
             FunctionSpec(
                 name=_name,

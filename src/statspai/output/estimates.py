@@ -108,6 +108,10 @@ _STAT_ALIASES = {
     "aic": "AIC",
     "BIC": "BIC",
     "bic": "BIC",
+    # Root mean squared residual, as fixest's ``fitstat(~ rmse)``; filled
+    # for the fixest family (feols / fepois), which records it.
+    "RMSE": "RMSE",
+    "rmse": "RMSE",
     "ll": "Log-Likelihood",
     "loglik": "Log-Likelihood",
     "log_likelihood": "Log-Likelihood",
@@ -165,6 +169,7 @@ _STAT_DISPLAY = {
     "F-statistic": "F",
     "AIC": "AIC",
     "BIC": "BIC",
+    "RMSE": "RMSE",
     "Log-Likelihood": "Log-Lik.",
     "Pseudo R-squared": "Pseudo R\u00b2",
     "Mean of Y": "Mean of Y",
@@ -543,6 +548,7 @@ def _extract_model_data(result: Any) -> _ModelData:
         "F-statistic",
         "AIC",
         "BIC",
+        "RMSE",
         "Log-Likelihood",
     ):
         if k in diag:

@@ -23,6 +23,22 @@ sp.slopes(fit, "x", slope="eyex")          # unit-level elasticities
 sp.avg_comparisons(fit, {"x": "iqr"})      # third against first quartile
 ```
 
+Predictions on other rows take `newdata=` (or `data=`, the spelling of
+`sp.margins`). Counterfactual predictions take `variables=`: every row is
+predicted once per value and `avg_predictions` returns one average each,
+the standardised means of g-computation.
+
+```python
+sp.avg_predictions(fit, data=df[df.region == "south"])   # another sample
+sp.avg_predictions(fit, data=df.assign(treat=1))         # everyone treated
+sp.avg_predictions(fit, variables={"treat": [0, 1]})     # both arms, all rows
+sp.avg_predictions(fit, variables={"treat": [0, 1]}, by="region")
+```
+
+These equal `marginaleffects::avg_predictions(newdata=)` and
+`avg_predictions(variables = list(treat = c(0, 1)))`. An explicit `by=`
+replaces the grouping by the manipulated variable, as in R.
+
 ## What each function returns
 
 Each call returns a DataFrame with `estimate`, `std_error`, `statistic`,

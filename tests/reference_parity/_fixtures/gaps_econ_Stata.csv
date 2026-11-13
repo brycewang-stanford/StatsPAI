@@ -1,0 +1,280 @@
+tag,kind,name,value
+oaxaca_ref0,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_ref0,se,overall:group_1, 8.82749476510216735e-03
+oaxaca_ref0,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_ref0,se,overall:group_2, 1.59127005787027022e-02
+oaxaca_ref0,b,overall:difference, 3.17991864878886865e-01
+oaxaca_ref0,se,overall:difference, 1.81972169173022606e-02
+oaxaca_ref0,b,overall:explained, 1.13542430402303829e-01
+oaxaca_ref0,se,overall:explained, 1.14951977750632466e-02
+oaxaca_ref0,b,overall:unexplained, 2.04449434476583036e-01
+oaxaca_ref0,se,overall:unexplained, 1.78929073332124988e-02
+oaxaca_ref0,b,explained:educ, 1.26443756835813215e-01
+oaxaca_ref0,se,explained:educ, 1.08729493855698797e-02
+oaxaca_ref0,b,explained:exper,-1.22228603295034766e-01
+oaxaca_ref0,se,explained:exper, 1.95547962953269428e-02
+oaxaca_ref0,b,explained:expersq, 6.35991745249449014e-02
+oaxaca_ref0,se,explained:expersq, 1.42060436149201858e-02
+oaxaca_ref0,b,explained:south, 3.96128551073682486e-02
+oaxaca_ref0,se,explained:south, 7.10991295787204332e-03
+oaxaca_ref0,b,explained:smsa, 6.11524722921248827e-03
+oaxaca_ref0,se,explained:smsa, 3.16296791342763261e-03
+oaxaca_ref0,b,unexplained:educ, 3.69614736582068795e-02
+oaxaca_ref0,se,unexplained:educ, 1.08066239092947408e-01
+oaxaca_ref0,b,unexplained:exper, 5.52010638048130775e-01
+oaxaca_ref0,se,unexplained:exper, 1.56866211121573007e-01
+oaxaca_ref0,b,unexplained:expersq,-2.08983122535041699e-01
+oaxaca_ref0,se,unexplained:expersq, 8.07267600641341787e-02
+oaxaca_ref0,b,unexplained:south, 8.06715856314059454e-02
+oaxaca_ref0,se,unexplained:south, 2.70485558912474493e-02
+oaxaca_ref0,b,unexplained:smsa, 8.69657565205072224e-03
+oaxaca_ref0,se,unexplained:smsa, 2.55992905195185222e-02
+oaxaca_ref0,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_ref0,se,unexplained:_cons, 1.70150444770139880e-01
+oaxaca_ref1,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_ref1,se,overall:group_1, 8.82749476510216735e-03
+oaxaca_ref1,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_ref1,se,overall:group_2, 1.59127005787027022e-02
+oaxaca_ref1,b,overall:difference, 3.17991864878886865e-01
+oaxaca_ref1,se,overall:difference, 1.81972169173022606e-02
+oaxaca_ref1,b,overall:explained, 1.80458408370052226e-01
+oaxaca_ref1,se,overall:explained, 1.78638686944930618e-02
+oaxaca_ref1,b,overall:unexplained, 1.37533456508834640e-01
+oaxaca_ref1,se,overall:unexplained, 2.21835684473297712e-02
+oaxaca_ref1,b,explained:educ, 1.21176065432557531e-01
+oaxaca_ref1,se,explained:educ, 1.58942979069278262e-02
+oaxaca_ref1,b,explained:exper,-4.62607894947407242e-02
+oaxaca_ref1,se,explained:exper, 1.96512344624634322e-02
+oaxaca_ref1,b,explained:expersq, 1.51585292266705179e-02
+oaxaca_ref1,se,explained:expersq, 1.55359461635577092e-02
+oaxaca_ref1,b,explained:south, 8.47707033218193379e-02
+oaxaca_ref1,se,explained:south, 1.41135224725021449e-02
+oaxaca_ref1,b,explained:smsa, 5.61389988374614082e-03
+oaxaca_ref1,se,explained:smsa, 3.12509328260077981e-03
+oaxaca_ref1,b,unexplained:educ, 4.22291650614625702e-02
+oaxaca_ref1,se,unexplained:educ, 1.23467285449039801e-01
+oaxaca_ref1,b,unexplained:exper, 4.76042824247836782e-01
+oaxaca_ref1,se,unexplained:exper, 1.35138194918583671e-01
+oaxaca_ref1,b,unexplained:expersq,-1.60542477236767317e-01
+oaxaca_ref1,se,unexplained:expersq, 6.18786809195639997e-02
+oaxaca_ref1,b,unexplained:south, 3.55137374169548561e-02
+oaxaca_ref1,se,unexplained:south, 1.19270206750888615e-02
+oaxaca_ref1,b,unexplained:smsa, 9.19792299751706968e-03
+oaxaca_ref1,se,unexplained:smsa, 2.70742861726086283e-02
+oaxaca_ref1,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_ref1,se,unexplained:_cons, 1.70150444770139880e-01
+oaxaca_reimers,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_reimers,se,overall:group_1, 8.82749476510216735e-03
+oaxaca_reimers,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_reimers,se,overall:group_2, 1.59127005787027022e-02
+oaxaca_reimers,b,overall:difference, 3.17991864878886865e-01
+oaxaca_reimers,se,overall:difference, 1.81972169173022606e-02
+oaxaca_reimers,b,overall:explained, 1.47000419386178471e-01
+oaxaca_reimers,se,overall:explained, 1.21250342633371522e-02
+oaxaca_reimers,b,overall:unexplained, 1.70991445492708394e-01
+oaxaca_reimers,se,overall:unexplained, 1.80975464779702319e-02
+oaxaca_reimers,b,explained:educ, 1.23809911134185380e-01
+oaxaca_reimers,se,explained:educ, 1.12291626319353955e-02
+oaxaca_reimers,b,explained:exper,-8.42446963948877414e-02
+oaxaca_reimers,se,explained:exper, 1.55714064294446182e-02
+oaxaca_reimers,b,explained:expersq, 3.93788518758077105e-02
+oaxaca_reimers,se,explained:expersq, 1.10249923459763248e-02
+oaxaca_reimers,b,explained:south, 6.21917792145937967e-02
+oaxaca_reimers,se,explained:south, 8.16063268752666854e-03
+oaxaca_reimers,b,explained:smsa, 5.86457355647931455e-03
+oaxaca_reimers,se,explained:smsa, 3.05365569914181146e-03
+oaxaca_reimers,b,unexplained:educ, 3.95953193598347214e-02
+oaxaca_reimers,se,unexplained:educ, 1.15766620967320114e-01
+oaxaca_reimers,b,unexplained:exper, 5.14026731147983806e-01
+oaxaca_reimers,se,unexplained:exper, 1.45920725463901252e-01
+oaxaca_reimers,b,unexplained:expersq,-1.84762799885904522e-01
+oaxaca_reimers,se,unexplained:expersq, 7.12239585984561635e-02
+oaxaca_reimers,b,unexplained:south, 5.80926615241804042e-02
+oaxaca_reimers,se,unexplained:south, 1.94592866115005890e-02
+oaxaca_reimers,b,unexplained:smsa, 8.94724932478389509e-03
+oaxaca_reimers,se,unexplained:smsa, 2.63364737490660548e-02
+oaxaca_reimers,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_reimers,se,unexplained:_cons, 1.70150444770139880e-01
+oaxaca_cotton,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_cotton,se,overall:group_1, 8.82749476510216735e-03
+oaxaca_cotton,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_cotton,se,overall:group_2, 1.59127005787027022e-02
+oaxaca_cotton,b,overall:difference, 3.17991864878886865e-01
+oaxaca_cotton,se,overall:difference, 1.81972169173022606e-02
+oaxaca_cotton,b,overall:explained, 1.29170979409386710e-01
+oaxaca_cotton,se,overall:explained, 1.09325518735252179e-02
+oaxaca_cotton,b,overall:unexplained, 1.88820885469500155e-01
+oaxaca_cotton,se,overall:unexplained, 1.74364102967565562e-02
+oaxaca_cotton,b,explained:educ, 1.25213462132661074e-01
+oaxaca_cotton,se,explained:educ, 1.03503672433589659e-02
+oaxaca_cotton,b,explained:exper,-1.04485954424072686e-01
+oaxaca_cotton,se,explained:exper, 1.67848709196548492e-02
+oaxaca_cotton,b,explained:expersq, 5.22856284635894314e-02
+oaxaca_cotton,se,explained:expersq, 1.18076059055597440e-02
+oaxaca_cotton,b,explained:south, 5.01596880956581767e-02
+oaxaca_cotton,se,explained:south, 6.59847641186634207e-03
+oaxaca_cotton,b,explained:smsa, 5.99815514155043784e-03
+oaxaca_cotton,se,explained:smsa, 3.08989128479170670e-03
+oaxaca_cotton,b,unexplained:educ, 3.81917683613590339e-02
+oaxaca_cotton,se,unexplained:educ, 1.11663122764959613e-01
+oaxaca_cotton,b,unexplained:exper, 5.34267989177168778e-01
+oaxaca_cotton,se,unexplained:exper, 1.51735418448495862e-01
+oaxaca_cotton,b,unexplained:expersq,-1.97669576473686243e-01
+oaxaca_cotton,se,unexplained:expersq, 7.62720262966383317e-02
+oaxaca_cotton,b,unexplained:south, 7.01247526431160173e-02
+oaxaca_cotton,se,unexplained:south, 2.34999432270713363e-02
+oaxaca_cotton,b,unexplained:smsa, 8.81366773971277266e-03
+oaxaca_cotton,se,unexplained:smsa, 2.59435541875816036e-02
+oaxaca_cotton,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_cotton,se,unexplained:_cons, 1.70150444770139880e-01
+oaxaca_pooled,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_pooled,se,overall:group_1, 8.81963152289653649e-03
+oaxaca_pooled,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_pooled,se,overall:group_2, 1.58646364131591264e-02
+oaxaca_pooled,b,overall:difference, 3.17991864878886865e-01
+oaxaca_pooled,se,overall:difference, 1.81513798021363873e-02
+oaxaca_pooled,b,overall:explained, 1.59384139044344231e-01
+oaxaca_pooled,se,overall:explained, 1.14884694698896926e-02
+oaxaca_pooled,b,overall:unexplained, 1.58607725834542634e-01
+oaxaca_pooled,se,overall:unexplained, 1.46320895145618853e-02
+oaxaca_pooled,b,explained:educ, 1.39023181677032870e-01
+oaxaca_pooled,se,explained:educ, 1.10849708173203568e-02
+oaxaca_pooled,b,explained:exper,-1.14226013896385578e-01
+oaxaca_pooled,se,explained:exper, 1.78594075109427576e-02
+oaxaca_pooled,b,explained:expersq, 5.93263899999522879e-02
+oaxaca_pooled,se,explained:expersq, 1.24589397025659434e-02
+oaxaca_pooled,b,explained:south, 6.93247802936376445e-02
+oaxaca_pooled,se,explained:south, 6.82055994730084228e-03
+oaxaca_pooled,b,explained:smsa, 5.93580097010649576e-03
+oaxaca_pooled,se,explained:smsa, 3.06048658485888556e-03
+oaxaca_pooled,b,unexplained:educ, 2.43820488169872313e-02
+oaxaca_pooled,se,unexplained:educ, 1.10810577515505035e-01
+oaxaca_pooled,b,unexplained:exper, 5.44008048649481601e-01
+oaxaca_pooled,se,unexplained:exper, 1.52011690349672130e-01
+oaxaca_pooled,b,unexplained:expersq,-2.04710338010049092e-01
+oaxaca_pooled,se,unexplained:expersq, 7.56366047996984842e-02
+oaxaca_pooled,b,unexplained:south, 5.09596604451365565e-02
+oaxaca_pooled,se,unexplained:south, 2.40471626138047089e-02
+oaxaca_pooled,b,unexplained:smsa, 8.87602191115671561e-03
+oaxaca_pooled,se,unexplained:smsa, 2.58159298999352180e-02
+oaxaca_pooled,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_pooled,se,unexplained:_cons, 1.69559475517774505e-01
+oaxaca_pooled_fixed,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_pooled_fixed,se,overall:group_1, 7.81084003920005758e-03
+oaxaca_pooled_fixed,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_pooled_fixed,se,overall:group_2, 1.35872559981216248e-02
+oaxaca_pooled_fixed,b,overall:difference, 3.17991864878886865e-01
+oaxaca_pooled_fixed,se,overall:difference, 1.56723561622515092e-02
+oaxaca_pooled_fixed,b,overall:explained, 1.59384139044344231e-01
+oaxaca_pooled_fixed,se,overall:explained, 6.55983542512905433e-03
+oaxaca_pooled_fixed,b,overall:unexplained, 1.58607725834542634e-01
+oaxaca_pooled_fixed,se,overall:unexplained, 1.44328885855180174e-02
+oaxaca_pooled_fixed,b,explained:educ, 1.39023181677032870e-01
+oaxaca_pooled_fixed,se,explained:educ, 6.21770817805230008e-03
+oaxaca_pooled_fixed,b,explained:exper,-1.14226013896385578e-01
+oaxaca_pooled_fixed,se,explained:exper, 9.31082308224464965e-03
+oaxaca_pooled_fixed,b,explained:expersq, 5.93263899999522879e-02
+oaxaca_pooled_fixed,se,explained:expersq, 8.75718801006634094e-03
+oaxaca_pooled_fixed,b,explained:south, 6.93247802936376445e-02
+oaxaca_pooled_fixed,se,explained:south, 5.88316668363653324e-03
+oaxaca_pooled_fixed,b,explained:smsa, 5.93580097010649576e-03
+oaxaca_pooled_fixed,se,explained:smsa, 6.09606247926709494e-04
+oaxaca_pooled_fixed,b,unexplained:educ, 2.43820488169872313e-02
+oaxaca_pooled_fixed,se,unexplained:educ, 1.10805024448266898e-01
+oaxaca_pooled_fixed,b,unexplained:exper, 5.44008048649481601e-01
+oaxaca_pooled_fixed,se,unexplained:exper, 1.51798435790269248e-01
+oaxaca_pooled_fixed,b,unexplained:expersq,-2.04710338010049092e-01
+oaxaca_pooled_fixed,se,unexplained:expersq, 7.53964641174039441e-02
+oaxaca_pooled_fixed,b,unexplained:south, 5.09596604451365565e-02
+oaxaca_pooled_fixed,se,unexplained:south, 2.40269116956242229e-02
+oaxaca_pooled_fixed,b,unexplained:smsa, 8.87602191115671561e-03
+oaxaca_pooled_fixed,se,unexplained:smsa, 2.58154952278828523e-02
+oaxaca_pooled_fixed,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_pooled_fixed,se,unexplained:_cons, 1.69559475517774505e-01
+oaxaca_threefold,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_threefold,se,overall:group_1, 8.82749476510216735e-03
+oaxaca_threefold,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_threefold,se,overall:group_2, 1.59127005787027022e-02
+oaxaca_threefold,b,overall:difference, 3.17991864878886865e-01
+oaxaca_threefold,se,overall:difference, 1.81972169173022606e-02
+oaxaca_threefold,b,overall:endowments, 1.80458408370052226e-01
+oaxaca_threefold,se,overall:endowments, 1.78638686944930618e-02
+oaxaca_threefold,b,overall:coefficients, 2.04449434476583036e-01
+oaxaca_threefold,se,overall:coefficients, 1.78929073332125474e-02
+oaxaca_threefold,b,overall:interaction,-6.69159779677483968e-02
+oaxaca_threefold,se,overall:interaction, 1.77327079064483716e-02
+oaxaca_threefold,b,endowments:educ, 1.21176065432557531e-01
+oaxaca_threefold,se,endowments:educ, 1.58942979069278262e-02
+oaxaca_threefold,b,endowments:exper,-4.62607894947407242e-02
+oaxaca_threefold,se,endowments:exper, 1.96512344624634322e-02
+oaxaca_threefold,b,endowments:expersq, 1.51585292266705179e-02
+oaxaca_threefold,se,endowments:expersq, 1.55359461635577092e-02
+oaxaca_threefold,b,endowments:south, 8.47707033218193379e-02
+oaxaca_threefold,se,endowments:south, 1.41135224725021449e-02
+oaxaca_threefold,b,endowments:smsa, 5.61389988374614082e-03
+oaxaca_threefold,se,endowments:smsa, 3.12509328260077981e-03
+oaxaca_threefold,b,coefficients:educ, 3.69614736582068795e-02
+oaxaca_threefold,se,coefficients:educ, 1.08066239092947408e-01
+oaxaca_threefold,b,coefficients:exper, 5.52010638048130775e-01
+oaxaca_threefold,se,coefficients:exper, 1.56866211121573007e-01
+oaxaca_threefold,b,coefficients:expersq,-2.08983122535041699e-01
+oaxaca_threefold,se,coefficients:expersq, 8.07267600641341787e-02
+oaxaca_threefold,b,coefficients:south, 8.06715856314059454e-02
+oaxaca_threefold,se,coefficients:south, 2.70485558912474493e-02
+oaxaca_threefold,b,coefficients:smsa, 8.69657565205072224e-03
+oaxaca_threefold,se,coefficients:smsa, 2.55992905195185257e-02
+oaxaca_threefold,b,coefficients:_cons,-2.64907715978169200e-01
+oaxaca_threefold,se,coefficients:_cons, 1.70150444770139880e-01
+oaxaca_threefold,b,interaction:educ, 5.26769140325568808e-03
+oaxaca_threefold,se,interaction:educ, 1.54052943799478405e-02
+oaxaca_threefold,b,interaction:exper,-7.59678138002940345e-02
+oaxaca_threefold,se,interaction:exper, 2.38169552071017011e-02
+oaxaca_threefold,b,interaction:expersq, 4.84406452982743818e-02
+oaxaca_threefold,se,interaction:expersq, 2.00038189318092474e-02
+oaxaca_threefold,b,interaction:south,-4.51578482144510893e-02
+oaxaca_threefold,se,interaction:south, 1.52676473059133958e-02
+oaxaca_threefold,b,interaction:smsa, 5.01347345466347338e-04
+oaxaca_threefold,se,interaction:smsa, 1.49729608863894011e-03
+oaxaca_ref0_fixed,b,overall:group_1, 6.33610048715717955e+00
+oaxaca_ref0_fixed,se,overall:group_1, 7.81971775361532152e-03
+oaxaca_ref0_fixed,b,overall:group_2, 6.01810862227829269e+00
+oaxaca_ref0_fixed,se,overall:group_2, 1.36433455114280122e-02
+oaxaca_ref0_fixed,b,overall:difference, 3.17991864878886865e-01
+oaxaca_ref0_fixed,se,overall:difference, 1.57254209002624032e-02
+oaxaca_ref0_fixed,b,overall:explained, 1.13542430402303829e-01
+oaxaca_ref0_fixed,se,overall:explained, 7.96845721976325097e-03
+oaxaca_ref0_fixed,b,overall:unexplained, 2.04449434476583036e-01
+oaxaca_ref0_fixed,se,overall:unexplained, 1.75549097924727095e-02
+oaxaca_ref0_fixed,b,explained:educ, 1.26443756835813215e-01
+oaxaca_ref0_fixed,se,explained:educ, 6.96817154500690289e-03
+oaxaca_ref0_fixed,b,explained:exper,-1.22228603295034766e-01
+oaxaca_ref0_fixed,se,explained:exper, 1.07906489502402198e-02
+oaxaca_ref0_fixed,b,explained:expersq, 6.35991745249449014e-02
+oaxaca_ref0_fixed,se,explained:expersq, 1.05619483746762707e-02
+oaxaca_ref0_fixed,b,explained:south, 3.96128551073682486e-02
+oaxaca_ref0_fixed,se,explained:south, 6.83100763580776847e-03
+oaxaca_ref0_fixed,b,explained:smsa, 6.11524722921248827e-03
+oaxaca_ref0_fixed,se,explained:smsa, 6.76262203759518655e-04
+oaxaca_ref0_fixed,b,unexplained:educ, 3.69614736582068795e-02
+oaxaca_ref0_fixed,se,unexplained:educ, 1.08065805632667392e-01
+oaxaca_ref0_fixed,b,unexplained:exper, 5.52010638048130775e-01
+oaxaca_ref0_fixed,se,unexplained:exper, 1.56608972381367145e-01
+oaxaca_ref0_fixed,b,unexplained:expersq,-2.08983122535041699e-01
+oaxaca_ref0_fixed,se,unexplained:expersq, 8.04566115884196853e-02
+oaxaca_ref0_fixed,b,unexplained:south, 8.06715856314059454e-02
+oaxaca_ref0_fixed,se,unexplained:south, 2.69774325444474133e-02
+oaxaca_ref0_fixed,b,unexplained:smsa, 8.69657565205072224e-03
+oaxaca_ref0_fixed,se,unexplained:smsa, 2.55983128919493909e-02
+oaxaca_ref0_fixed,b,unexplained:_cons,-2.64907715978169200e-01
+oaxaca_ref0_fixed,se,unexplained:_cons, 1.70150444770139880e-01
+iv_iid,s,idstat, 1.88371292147168070e+01
+iv_iid,s,idp, 8.12024931574589607e-05
+iv_iid,s,cdf, 9.45268852707672025e+00
+iv_robust,s,idstat, 1.91454848137466733e+01
+iv_robust,s,idp, 6.96002494294861642e-05
+iv_robust,s,rkf, 9.71677075205581353e+00
+iv_robust,s,F_eff, 9.64277213829515212e+00
+iv_cluster,s,idstat, 7.18738539597027693e+00
+iv_cluster,s,idp, 2.74966060583736877e-02
+iv_cluster,s,rkf, 8.74905222004982264e+00
+iv_cluster,s,F_eff, 9.74440749550878849e+00

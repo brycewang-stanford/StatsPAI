@@ -419,6 +419,7 @@ def _dispatch(
                     data=data,
                     cluster=cluster,
                     vce=delegate,
+                    augmented_diagnostics=False,
                     **kwargs,
                 )
                 if augmented_diagnostics:

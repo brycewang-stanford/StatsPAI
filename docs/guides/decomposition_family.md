@@ -132,6 +132,19 @@ Every estimator that supports inference accepts:
   (`statspai.decomposition._common.wild_bootstrap_stat`) with
   Rademacher or Mammen weights and optional cluster IDs.
 
+`sp.oaxaca` holds the covariate means fixed by default (Stata
+`oaxaca ..., vce(robust) fixed`). `means="stochastic"` adds their sampling
+variance, the default of Stata `oaxaca ..., vce(robust)` [@jann2008blinder]:
+
+```python
+r = sp.oaxaca(df, y="lwage", group="black", x=X, means="stochastic")
+r.overall["explained_se"], r.overall["unexplained_se"], r.overall["gap_se"]
+```
+
+Point estimates are the same under both. On the Card (1995) black-white
+wage gap the explained part has SE 0.0080 with fixed means and 0.0115
+with stochastic means.
+
 ## Reference parity
 
 The plug-in Oaxaca, RIF, FFL, DFL, and Kitagawa estimators are

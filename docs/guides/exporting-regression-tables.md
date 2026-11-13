@@ -134,6 +134,12 @@ Highlights (see `sp.describe_function("regtable")` for the full list):
 - **Auto-diagnostic rows** — fixed-effect / cluster indicators, IV first-stage
   F, DiD pre-trend p, RD bandwidth/kernel/poly are extracted automatically
   (`diagnostics="auto"`).
+- **Fit statistics** — `stats=` also takes `"ll"`, `"aic"`, `"bic"`,
+  `"rmse"`, `"pseudo_r2"`, `"ymean"`, `"ysd"`. For `sp.feols` / `sp.fepois`
+  columns `"rmse"`, `"aic"` and `"bic"` equal fixest's
+  `fitstat(~ rmse + aic + bic)`: the fixed effects count as parameters. A
+  weighted `sp.feols` column has no AIC / BIC (fixest, `lm` and Stata define
+  three different weighted likelihoods).
 - **Fixed-effect level counts** — `fixef_sizes=True` emits `# Firm`, `# Year`
   rows.
 - **Robust SE at print time** — `vcov="HC1"` (`"HC0"/"HC2"/"HC3"/"robust"`)

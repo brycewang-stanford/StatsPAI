@@ -69,6 +69,9 @@ class OaxacaResult(DecompResultMixin):
         Per-group means, coefficients, standard errors, sample sizes.
     reference : str or int
         Reference weight specification used.
+    means : str
+        ``'fixed'`` or ``'stochastic'``, the treatment of the covariate
+        means in the standard errors.
 
     Examples
     --------
@@ -103,7 +106,9 @@ class OaxacaResult(DecompResultMixin):
         group_stats: Dict[str, Any],
         reference: Union[str, int],
         var_names: List[str],
+        means: str = "fixed",
     ):
+        self.means = means
         self.overall = overall
         self.detailed = detailed
         self.group_stats = group_stats
@@ -190,8 +195,12 @@ class OaxacaResult(DecompResultMixin):
                 lines.append(f"  {label + ':':<20s}{o[key]:>10.4f}{se_txt}")
 
         lines.append("")
+        if getattr(self, "means", "fixed") == "stochastic":
+            how = "  treated as estimated (Stata: oaxaca ..., vce(robust))."
+        else:
+            how = "  held fixed (Stata: oaxaca ..., vce(robust) fixed)."
         lines.append("  SEs: delta method on HC1 group regressions, covariate means")
-        lines.append("  held fixed (Stata: oaxaca ..., vce(robust) fixed).")
+        lines.append(how)
 
         # Detailed table
         if not self.detailed.empty:
@@ -548,6 +557,7 @@ def oaxaca(
     reference: Union[int, str] = 0,
     detail: bool = True,
     alpha: float = 0.05,
+    means: str = "fixed",
 ) -> OaxacaResult:
     """
     Oaxaca-Blinder decomposition of mean outcome gaps.
@@ -580,11 +590,28 @@ def oaxaca(
         component.
     alpha : float, default 0.05
         Significance level for p-values.
+    means : {'fixed', 'stochastic'}, default 'fixed'
+        How the standard errors treat the covariate means.
+        ``'fixed'`` holds them constant (Stata ``oaxaca ...,
+        vce(robust) fixed``). ``'stochastic'`` adds their sampling
+        variance (Jann 2008; the default of Stata ``oaxaca ...,
+        vce(robust)``). Point estimates are the same.
 
     Returns
     -------
     OaxacaResult
         Result object with ``.summary()``, ``.plot()``, ``.to_latex()``.
+
+    Notes
+    -----
+    With ``means='stochastic'`` each component ``g(xbar, beta)`` gets
+    the delta-method variance ``g_b' V(beta) g_b + g_x' V(xbar) g_x``,
+    where ``V(xbar)`` is the sample covariance of the covariates in a
+    group divided by its size. Means and coefficients are treated as
+    uncorrelated, and the two groups as independent. The term
+    ``trace(V(xbar) V(beta))`` of the exact variance of a product is
+    left out, as in Stata. ``overall['gap_se']`` is the standard error
+    of the raw gap under the same rule.
 
     Examples
     --------
@@ -606,6 +633,13 @@ def oaxaca(
     oaxaca1973male, blinder1973wage
     """
     # ── Validate inputs ──────────────────────────────────────────────
+    if means not in ("fixed", "stochastic"):
+        raise MethodIncompatibility(
+            f"means={means!r} is not recognised.",
+            recovery_hint="Use means='fixed' or means='stochastic'.",
+            diagnostics={"means": means},
+        )
+    stochastic = means == "stochastic"
     data = data.copy()
     x = list(x)
 
@@ -729,6 +763,24 @@ def oaxaca(
         infl[pos_b] -= _scores(X_b, resid_b, mean_X_b)
         var_unexplained = float(infl @ infl)
 
+    # ── Sampling variance of the covariate means (Jann 2008) ─────────
+    # V(xbar_g) = S_g / n_g with the n - 1 divisor; the constant has none.
+    k_full = len(x) + 1
+    vx_a = np.zeros((k_full, k_full))
+    vx_b = np.zeros((k_full, k_full))
+    if stochastic:
+        vx_a[1:, 1:] = np.atleast_2d(np.cov(X_a_raw, rowvar=False, ddof=1)) / n_a
+        vx_b[1:, 1:] = np.atleast_2d(np.cov(X_b_raw, rowvar=False, ddof=1)) / n_b
+        vx_ab = vx_a + vx_b
+        # explained = (xbar_a - xbar_b)' beta*
+        var_explained = var_explained + beta_star @ vx_ab @ beta_star
+        # unexplained = xbar_a'(beta_a - beta*) + xbar_b'(beta* - beta_b)
+        var_unexplained = (
+            var_unexplained
+            + diff_beta_a @ vx_a @ diff_beta_a
+            + diff_beta_b @ vx_b @ diff_beta_b
+        )
+
     se_explained = np.sqrt(max(var_explained, 0.0))
     se_unexplained = np.sqrt(max(var_unexplained, 0.0))
 
@@ -740,7 +792,10 @@ def oaxaca(
         for j, var in enumerate(x):
             idx = j + 1  # skip constant
             contrib_j = diff_X[idx] * beta_star[idx]
-            se_j = abs(diff_X[idx]) * np.sqrt(vcov_star[idx, idx])
+            var_j = diff_X[idx] ** 2 * vcov_star[idx, idx]
+            if stochastic:
+                var_j += beta_star[idx] ** 2 * (vx_a[idx, idx] + vx_b[idx, idx])
+            se_j = float(np.sqrt(max(var_j, 0.0)))
             z_j = contrib_j / se_j if se_j > 0 else 0.0
             p_j = 2 * stats.norm.sf(abs(z_j))
             pct_j = (contrib_j / explained * 100) if explained != 0 else float("nan")
@@ -783,6 +838,18 @@ def oaxaca(
     coefficients = mean_X_b @ diff_beta
     interaction = diff_X @ diff_beta
 
+    var_endow = diff_X @ vcov_b @ diff_X
+    var_coef = mean_X_b @ vcov_ab @ mean_X_b
+    var_inter = diff_X @ vcov_ab @ diff_X
+    # Raw gap = xbar_a' beta_a - xbar_b' beta_b (OLS with a constant).
+    var_gap = mean_X_a @ vcov_a @ mean_X_a + mean_X_b @ vcov_b @ mean_X_b
+    if stochastic:
+        vx_ab = vx_a + vx_b
+        var_endow = var_endow + beta_b @ vx_ab @ beta_b
+        var_coef = var_coef + diff_beta @ vx_b @ diff_beta
+        var_inter = var_inter + diff_beta @ vx_ab @ diff_beta
+        var_gap = var_gap + beta_a @ vx_a @ beta_a + beta_b @ vx_b @ beta_b
+
     overall = {
         "gap": gap,
         "explained": explained,
@@ -794,9 +861,10 @@ def oaxaca(
         "endowments": endowments,
         "coefficients": coefficients,
         "interaction": interaction,
-        "endowments_se": float(np.sqrt(max(diff_X @ vcov_b @ diff_X, 0.0))),
-        "coefficients_se": float(np.sqrt(max(mean_X_b @ vcov_ab @ mean_X_b, 0.0))),
-        "interaction_se": float(np.sqrt(max(diff_X @ vcov_ab @ diff_X, 0.0))),
+        "endowments_se": float(np.sqrt(max(var_endow, 0.0))),
+        "coefficients_se": float(np.sqrt(max(var_coef, 0.0))),
+        "interaction_se": float(np.sqrt(max(var_inter, 0.0))),
+        "gap_se": float(np.sqrt(max(var_gap, 0.0))),
     }
 
     return OaxacaResult(
@@ -805,6 +873,7 @@ def oaxaca(
         group_stats=group_stats,
         reference=reference,
         var_names=x,
+        means=means,
     )
 
 

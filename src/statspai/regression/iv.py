@@ -3225,6 +3225,7 @@ def iv(
     fuller_alpha: float = 1.0,
     absorb: Optional[Union[str, List[str]]] = None,
     small: bool = True,
+    _model_sink: Optional[List[Any]] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -3427,7 +3428,7 @@ def iv(
                     "has_data": data is not None,
                 },
             )
-        _result, _model, _pre = _iv_absorb_run(
+        _result, model, _pre = _iv_absorb_run(
             formula=formula,
             data=data,
             absorb_terms=absorb_terms,
@@ -3445,6 +3446,8 @@ def iv(
             fuller_alpha=fuller_alpha,
         )
         _result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    if _model_sink is not None:
+        _model_sink.append(model)
     _apply_small(_result, small, str(method).lower(), bool(absorb_terms))
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -3482,6 +3485,21 @@ def iv(
 _IV_WILD_VCOV = frozenset({"wild", "wildbootstrap", "wild_cluster", "wre", "boottest"})
 
 
+def _attach_weak_id(models: List[Any], result: Any, enabled: bool) -> None:
+    """Attach the weak-identification statistics ``sp.iv`` reports.
+
+    Kleibergen-Paap rk LM and Wald F, the Sanderson-Windmeijer F with
+    several endogenous regressors, and the Montiel Olea-Pflueger effective
+    F with one. They follow the variance of the fit and are read from the
+    model that produced ``result``; nothing in the fit changes.
+    """
+    if not enabled or not models:
+        return
+    from ..iv import _attach_augmented_diagnostics
+
+    _attach_augmented_diagnostics(models[0], result)
+
+
 @records_call("ivreg")
 @checks_input("ivreg", outcome=("formula",))
 @markout_clusters
@@ -3500,6 +3518,7 @@ def ivreg(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     missing: MissingPolicy = "drop",
+    augmented_diagnostics: bool = True,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -3542,6 +3561,14 @@ def ivreg(
         'predictors': 'drop'}``: ``'response'`` is the outcome,
         ``'predictors'`` every other column the call uses (weights and
         cluster included), and a role left out is ``'drop'``.
+    augmented_diagnostics : bool, default True
+        Attach the weak-identification statistics that ``sp.iv`` reports
+        to ``result.diagnostics``. These are the Kleibergen-Paap rk LM
+        and Wald F (``ivreg2``'s ``idstat`` and ``widstat`` / ``rkf``),
+        the Sanderson-Windmeijer F with several endogenous regressors,
+        and the Montiel Olea-Pflueger effective F with one
+        (``weakivtest``). They follow the variance of the fit.
+        Coefficients and standard errors are the same either way.
 
     Returns
     -------
@@ -3619,7 +3646,9 @@ def ivreg(
                 "bootstrap resamples residuals within clusters."
             )
         _two_sls_only("vce='wild'")
+        _models: List[Any] = []
         base = iv(
+            _model_sink=_models,
             formula=formula,
             data=data,
             robust="nonrobust",
@@ -3688,6 +3717,7 @@ def ivreg(
             )
         base.model_info["n_boot"] = wild_reps
         base.model_info["cluster"] = cluster
+        _attach_weak_id(_models, base, augmented_diagnostics)
         return base
 
     # Bias-reduced cluster SEs: ``vce="CR2"`` (Bell-McCaffrey) / ``vce="CR3"``
@@ -3700,7 +3730,9 @@ def ivreg(
             )
         _two_sls_only(f"vce={se_kw!r}")
         kind = "CR3" if se_kw.lower() in ("cr3", "jackknife") else "CR2"
+        _models: List[Any] = []
         base = iv(
+            _model_sink=_models,
             formula=formula,
             data=data,
             robust="nonrobust",
@@ -3724,6 +3756,7 @@ def ivreg(
             f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
         )
         base.model_info["cluster"] = cluster
+        _attach_weak_id(_models, base, augmented_diagnostics)
         return base
 
     # Conley spatial HAC: ``vce="conley"`` with coordinates + a distance cutoff.
@@ -3734,7 +3767,9 @@ def ivreg(
                 "conley_cutoff= (planar distance cutoff in km)."
             )
         _two_sls_only("vce='conley'")
+        _models: List[Any] = []
         base = iv(
+            _model_sink=_models,
             formula=formula,
             data=data,
             robust="nonrobust",
@@ -3761,6 +3796,7 @@ def ivreg(
         base.model_info["vcov_type"] = (
             f"Conley spatial HAC (uniform, {conley_cutoff} km; acreg-compatible)"
         )
+        _attach_weak_id(_models, base, augmented_diagnostics)
         return base
 
     # Two-way clustering: ``cluster=["firm", "year"]`` runs 2SLS once (clustered
@@ -3770,7 +3806,9 @@ def ivreg(
     if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
         _two_sls_only("two-way clustering")
         c1, c2 = cluster
+        _models: List[Any] = []
         base = iv(
+            _model_sink=_models,
             formula=formula,
             data=data,
             robust="nonrobust",
@@ -3798,6 +3836,7 @@ def ivreg(
         base.model_info["cluster"] = list(cluster)
         base.model_info["n_clusters1"] = tw["n_clusters1"]
         base.model_info["n_clusters2"] = tw["n_clusters2"]
+        _attach_weak_id(_models, base, augmented_diagnostics)
         return base
 
     kwargs.setdefault("method", "2sls")
@@ -3813,4 +3852,14 @@ def ivreg(
         # downstream without effect; they are rejected until implemented.
         known=("method", "alpha", "weights", "weights_as"),
     )
-    return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)
+    _models = []
+    result = iv(
+        formula=formula,
+        data=data,
+        robust=se_kw,
+        cluster=cluster,
+        _model_sink=_models,
+        **kwargs,
+    )
+    _attach_weak_id(_models, result, augmented_diagnostics)
+    return result

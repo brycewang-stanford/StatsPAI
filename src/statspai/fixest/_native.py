@@ -497,6 +497,19 @@ def _model_info(p: Plan, family: str, kernel: str, fml: str) -> Dict[str, Any]:
     return info
 
 
+def _information_criteria(ll: float, n_params: int, n_obs: int) -> Dict[str, float]:
+    """AIC and BIC as fixest reports them.
+
+    ``n_params`` counts the slope coefficients and the fixed-effect
+    coefficients net of the redundant ones (fixest's ``nparams``), whatever
+    the variance estimator.
+    """
+    return {
+        "AIC": float(-2.0 * ll + 2.0 * n_params),
+        "BIC": float(-2.0 * ll + np.log(n_obs) * n_params),
+    }
+
+
 def _inference(
     params: pd.Series,
     V: np.ndarray,
@@ -600,6 +613,14 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     # Weighted: normalise by the weight total (fixest), so rescaling the
     # weights leaves RMSE unchanged. Unweighted, w is all ones and this is N.
     diagnostics["RMSE"] = float(np.sqrt(ssu / float(np.sum(w))))
+    if not weighted and ssu > 0:
+        # Gaussian log-likelihood at sigma^2 = SSR / N; AIC and BIC count
+        # every estimated parameter, the fixed effects included (fixest's
+        # nparams). Weighted fits get none: fixest, R lm and Stata each
+        # define a different weighted likelihood.
+        ll = -0.5 * N * (np.log(2.0 * np.pi * ssu / N) + 1.0)
+        diagnostics.update(_information_criteria(ll, int(a["df_k"]), N))
+        diagnostics["Log-likelihood"] = float(ll)
 
     model_info = _model_info(p, "OLS", res.fe_kernel, fml)
     if p.fe:
@@ -917,15 +938,21 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
     y = np.asarray(a["y"], dtype=float)
     mu = np.asarray(a["mu"], dtype=float)
     nan = float("nan")
+    w_fit = np.asarray(a["w"], dtype=float)
     diagnostics: Dict[str, Any] = {
         "R-squared": nan,
         "Adj. R-squared": nan,
         "R-squared (within)": nan,
         "Adj. R-squared (within)": nan,
-        "RMSE": nan,
+        # Root mean squared response residual (fixest's rmse), weighted
+        # by the weights and normalised by their total.
+        "RMSE": float(np.sqrt(float(w_fit @ (y - mu) ** 2) / float(np.sum(w_fit)))),
         "Deviance": float(res.deviance),
         "Log-likelihood": float(res.log_likelihood),
     }
+    diagnostics.update(
+        _information_criteria(float(res.log_likelihood), int(a["df_k"]), N)
+    )
     # McFadden's pseudo R-squared against the constant-only Poisson model
     # on the same rows (fixest's pr2).
     from scipy.special import gammaln, xlogy
