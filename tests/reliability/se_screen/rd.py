@@ -368,7 +368,9 @@ MECHANISMS: dict = {
         "bandwidth gives the estimate heavier tails than its SE describes (median SE over "
         "MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in "
         "model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row "
-        "rdrobust/kink), is inside the band. Owner decision: make it the headline of sp.rkd."
+        "rdrobust/kink), is inside the band. Decided 2026-11-13: sp.rkd(headline='robust') "
+        "reports it, and a call without headline= warns that 'robust' becomes the default "
+        "in a later release."
     ),
 }
 

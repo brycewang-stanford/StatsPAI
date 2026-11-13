@@ -12,9 +12,8 @@ as they are and the reasons, is `docs/dev/2026-11-13-owner-decisions.md`.
 The rule is the one of the 2026-10-20 wave: no number changes now except
 the one item marked ⚠️, and a default that should change is announced with
 a `FutureWarning` first. Evidence is in
-`tests/test_owner_decisions_2026_11_13.py`. The items on traced Track A
-paths (`sp.stacked_did`, `sp.sdid`, `sp.tmle`, `sp.match`, the PLIV label)
-follow in a second entry.
+`tests/test_owner_decisions_2026_11_13.py` and
+`tests/test_owner_decisions_2026_11_13_traced.py`.
 
 #### Fixed
 - **⚠️ correctness fix: the headline of `sp.dose_response` is the
@@ -38,6 +37,20 @@ follow in a second entry.
   the new one covers it in 84% (93.5% for the contrast between the two
   sample quartiles, which is what the interval is built for). The three
   `dose_response` rows of the screen were rerun.
+- **`sp.dml(model='pliv')` labels its estimand `theta`, not `LATE`.** The
+  coefficient of the partially linear IV model (DoubleML's target
+  parameter) is a local average treatment effect only under the conditions
+  of the interactive IV model, which is `model='iivm'` and keeps the label.
+  The number is unchanged.
+- **`sp.regress` docstring: `robust='hac'` uses t(N - K) critical values.**
+  It said "normal critical values"; the p-values and intervals have always
+  been those of Stata `newey`. Only the sentence changed.
+- **`sp.match(...).summary()` labels its balance table and prints the
+  matched one.** The table under "Detailed Estimates" was the balance
+  before matching, unlabelled. It is now headed "Covariate Balance, before
+  matching", followed by "Covariate Balance, after matching" when the fit
+  holds a matched sample, each with a line naming the SMD denominator.
+  `detail` is still the before-matching table.
 
 #### Added
 - **Announced default changes** (`FutureWarning` when the option is not
@@ -46,17 +59,44 @@ follow in a second entry.
   - `sp.mr_mode(stderror=)`: `'simple'` today, `'delta'` later (the
     `TwoSampleMR` convention; on that package's example data the `'simple'`
     standard error is 2.7 times smaller).
+  - `sp.stacked_did(crit_dist=)`, a new option with the name and values
+    `sp.event_study` and `sp.sun_abraham` use: `'normal'` today, `'t'`
+    (t(G - 1), as Stata `reghdfe` and R `fixest` report for the stacked
+    regression) later. `'t'` reproduces the p-values and intervals of
+    `fixest` on the Track A module 75 stack to 1e-6. `family='poisson'`
+    keeps the normal distribution.
   - `sp.rkd(headline=)`, a new option: `'conventional'` today, `'robust'`
     (the bias-corrected estimate with the robust standard error and
     interval, the headline of `sp.rdrobust`) later. Both sets of numbers
     stay in `model_info`.
   - `sp.iv_mediate(equations=)`: `'independent'` (the `ivmediate`
     variance) today, `'joint'` later.
+- `sp.sdid(method='sc', se_method='jackknife')` warns
+  (`AssumptionWarning`, with an entry in
+  `model_info['diagnostics']['sc_jackknife_se']`): the fixed-weight
+  jackknife is not a valid standard error for the synthetic-control
+  weights. It was 4.2 times the sampling standard deviation in the SE
+  calibration screen, and R `synthdid` returns the same number. The number
+  is unchanged.
+- `sp.tmle` with its default Super Learner library reports learners that
+  did not converge once, as an `AssumptionWarning` naming the learner, the
+  nuisance and the remedy (rescale the covariates or pass a library), and
+  records it in `model_info['diagnostics']['super_learner_convergence']`,
+  in place of one sklearn `ConvergenceWarning` per internal fit. Estimates
+  are unchanged; warnings from a library the caller passes are not touched.
 - `sp.ips` / `sp.snips` and `sp.ope.ips` / `sp.ope.snips` each state their
   argument order and point at the other API, and raise
   `MethodIncompatibility` when the two policy arrays arrive in the other
   API's order in a way the shapes show (a per-row vector where a matrix
   belongs). Values are never used to guess.
+- Every balance function names the denominator of its standardized mean
+  differences: `sp.match` tables carry `attrs['smd_denominator']` (pooled
+  SD of the raw sample, before and after matching), `sp.ps_balance` tables
+  likewise (`sp.love_plot` uses the pooled SD of the weighted sample), and
+  the `sp.bal_tab` and `sp.love_plot` docstrings say how the three differ.
+  No number changed; the table of conventions is in
+  `docs/dev/modules/treatment_effects.md`.
+
 ### Features a referee asks for by name: survival and epidemiology (2026-11-13)
 
 The epidemiology probe ended with a list of things an analysis plan asks

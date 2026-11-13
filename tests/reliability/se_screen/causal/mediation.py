@@ -354,8 +354,9 @@ _INDEPENDENT = (
     "large) and positive when the loading is negative (the SE is too "
     "small). equations='joint' keeps the covariance (rows "
     "iv_mediate.indirect.joint*; equal to Stata gmm + nlcom to 2e-12). The "
-    "default is unchanged because it is the documented ivmediate number; "
-    "changing it is an owner decision."
+    "default is unchanged because it is the documented ivmediate number. "
+    "Decided 2026-11-13: a call without equations= warns that 'joint' "
+    "becomes the default in a later release."
 )
 MECHANISMS: dict = {
     "iv_mediate.indirect": _INDEPENDENT,

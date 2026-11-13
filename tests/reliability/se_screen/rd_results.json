@@ -267,7 +267,7 @@
     "se_over_sd": 0.7717,
     "bias_over_sd": 0.1948
    },
-   "mechanism": "Property of the conventional estimate at an MSE-optimal bandwidth. sp.rkd reports the conventional kink estimate and its SE as the headline; that bandwidth leaves a smoothing bias of the same order as the SE (bias/SD 0.23), and the data-driven bandwidth gives the estimate heavier tails than its SE describes (median SE over MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row rdrobust/kink), is inside the band. Owner decision: make it the headline of sp.rkd."
+   "mechanism": "Property of the conventional estimate at an MSE-optimal bandwidth. sp.rkd reports the conventional kink estimate and its SE as the headline; that bandwidth leaves a smoothing bias of the same order as the SE (bias/SD 0.23), and the data-driven bandwidth gives the estimate heavier tails than its SE describes (median SE over MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row rdrobust/kink), is inside the band. Decided 2026-11-13: sp.rkd(headline='robust') reports it, and a call without headline= warns that 'robust' becomes the default in a later release."
   },
   {
    "name": "rd_honest/M-known",

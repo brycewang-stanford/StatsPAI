@@ -779,7 +779,8 @@ What the table says:
   the 95% interval covers 92.2%. `equations="joint"` keeps the
   covariance (1.06 and 1.01 times the SD) and
   equals Stata's `gmm` + `nlcom` to 2e-12. The default is unchanged so
-  that it still equals `ivmediate`; switching it is an owner decision.
+  that it still equals `ivmediate`. Decided 2026-11-13: a call without
+  `equations=` warns that `'joint'` becomes the default in a later release.
 - The direct effect's SE does not involve the cross-equation term and is
   in band under the default.
 
@@ -1510,7 +1511,7 @@ n = 2,000, uniform running variable, constant effect 1.0. Sharp
 
 Flagged rows and their mechanism:
 
-- `rkd/default`: Property of the conventional estimate at an MSE-optimal bandwidth. sp.rkd reports the conventional kink estimate and its SE as the headline; that bandwidth leaves a smoothing bias of the same order as the SE (bias/SD 0.23), and the data-driven bandwidth gives the estimate heavier tails than its SE describes (median SE over MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row rdrobust/kink), is inside the band. Owner decision: make it the headline of sp.rkd.
+- `rkd/default`: Property of the conventional estimate at an MSE-optimal bandwidth. sp.rkd reports the conventional kink estimate and its SE as the headline; that bandwidth leaves a smoothing bias of the same order as the SE (bias/SD 0.23), and the data-driven bandwidth gives the estimate heavier tails than its SE describes (median SE over MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row rdrobust/kink), is inside the band. Decided 2026-11-13: sp.rkd(headline='robust') reports it, and a call without headline= warns that 'robust' becomes the default in a later release.
 
 ### Difference-in-differences and synthetic control (`se_screen/did.py`)
 
@@ -1564,7 +1565,7 @@ Flagged rows and their mechanism:
 - `sdid/jackknife`: Few treated units. The jackknife variance is driven by the 10 treated units, so it is itself noisy and the normal critical value is too small for it (a t with 9 degrees of freedom would give 2.26). The SE equals R synthdid's on one draw (0.0959). The bootstrap and placebo rows on the same design are inside the band.
 - `sdid/did-jackknife`: Design, not estimator. Treated units load 0.5 more on the factor, so parallel trends fail given the factor path: the DiD estimate moves with the realised post-minus-pre factor change, which is common to all units and which a jackknife over units cannot see. The estimate is unbiased over draws and its unit jackknife SE equals R synthdid's (0.0773 on one draw). With the same loading distribution in both groups (row sdid/did-jackknife-parallel) the SE is calibrated.
 - `gardner_did/stage2`: Documented option. vce='stage2' is the second-stage clustered variance without the correction for the estimated first-stage fixed effects; the default vce='analytic' (row gardner_did/default) carries the correction and is calibrated.
-- `sdid/sc-jackknife`: Property of the fixed-weight jackknife applied to synthetic control, shared with R synthdid 0.0.9 (same SE to four digits on one draw: 0.5185, against 0.107 from the placebo method). The jackknife holds the unit weights fixed. SC has no intercept, so dropping one treated unit changes the treated level that the fixed weights were chosen to match, and the pseudo-values pick up the spread of the unit effects, which a refitted SC would absorb. The SE is about four times the sampling SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with method='sc'. sp.sdid does not warn about this combination (open item).
+- `sdid/sc-jackknife`: Property of the fixed-weight jackknife applied to synthetic control, shared with R synthdid 0.0.9 (same SE to four digits on one draw: 0.5185, against 0.107 from the placebo method). The jackknife holds the unit weights fixed. SC has no intercept, so dropping one treated unit changes the treated level that the fixed weights were chosen to match, and the pseudo-values pick up the spread of the unit effects, which a refitted SC would absorb. The SE is about four times the sampling SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with method='sc'. Since the owner decision of 2026-11-13 sp.sdid warns about this combination (AssumptionWarning, model_info['diagnostics']['sc_jackknife_se']); the number is unchanged.
 - `gsynth/nonparametric`: At the edge of the band (0.917 on 1,000 draws against a limit of 0.918) with a calibrated SE (SE/SD 0.96). The reported interval is the percentile interval of 200 bootstrap draws over 40 units; a normal interval from the same SE covers 0.93.
 - `synth/augmented`: Heavy tails, not the SE: one treated unit. The median SE over the MAD-based spread is 1.05 and coverage is inside the band; a few draws with a poor pre-period fit inflate the Monte Carlo SD.
 

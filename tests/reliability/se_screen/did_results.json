@@ -699,7 +699,7 @@
     "se_over_sd": 4.2069,
     "bias_over_sd": -0.0415
    },
-   "mechanism": "Property of the fixed-weight jackknife applied to synthetic control, shared with R synthdid 0.0.9 (same SE to four digits on one draw: 0.5185, against 0.107 from the placebo method). The jackknife holds the unit weights fixed. SC has no intercept, so dropping one treated unit changes the treated level that the fixed weights were chosen to match, and the pseudo-values pick up the spread of the unit effects, which a refitted SC would absorb. The SE is about four times the sampling SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with method='sc'. sp.sdid does not warn about this combination (open item)."
+   "mechanism": "Property of the fixed-weight jackknife applied to synthetic control, shared with R synthdid 0.0.9 (same SE to four digits on one draw: 0.5185, against 0.107 from the placebo method). The jackknife holds the unit weights fixed. SC has no intercept, so dropping one treated unit changes the treated level that the fixed weights were chosen to match, and the pseudo-values pick up the spread of the unit effects, which a refitted SC would absorb. The SE is about four times the sampling SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with method='sc'. Since the owner decision of 2026-11-13 sp.sdid warns about this combination (AssumptionWarning, model_info['diagnostics']['sc_jackknife_se']); the number is unchanged."
   },
   {
    "name": "gsynth/nonparametric",

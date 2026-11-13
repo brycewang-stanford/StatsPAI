@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.43 → next: three defaults announced, ⚠️ `sp.dose_response` headline
+## 1.43 → next: four defaults announced, ⚠️ `sp.dose_response` headline, PLIV label
 
 Owner decisions of 2026-11-13 (`docs/dev/2026-11-13-owner-decisions.md`).
 
@@ -17,20 +17,24 @@ switches no earlier than 1.45.
 | function | option | today (not given) | later default | keep today's numbers |
 | --- | --- | --- | --- | --- |
 | `sp.mr_mode` (also `sp.mr("mode", ...)`) | `stderror` | `'simple'` (NOME, `mr_mbe`) | `'delta'` (`TwoSampleMR`) | `stderror="simple"` |
+| `sp.stacked_did` | `crit_dist` (new) | `'normal'` | `'t'`: t(G-1), as `reghdfe` / `fixest` | `crit_dist="normal"` |
 | `sp.rkd` | `headline` (new) | `'conventional'` | `'robust'`: bias-corrected estimate, robust SE and interval | `headline="conventional"` |
 | `sp.iv_mediate` | `equations` | `'independent'` (`ivmediate`) | `'joint'` | `equations="independent"` |
 
 What moves when the default switches: for `sp.mr_mode` the standard error,
 interval and p-value, and the weighted-mode estimate (its weights use the
-same ratio standard errors); for `sp.rkd` `estimate`, `se`, `pvalue` and
-`ci` (both sets of numbers are in `model_info['conventional']` and
-`model_info['robust']` under either setting); for `sp.iv_mediate` the
-standard error, interval and p-value of the indirect effect only.
+same ratio standard errors); for `sp.stacked_did` p-values and intervals
+only (`family='poisson'` keeps the normal distribution); for `sp.rkd`
+`estimate`, `se`, `pvalue` and `ci` (both sets of numbers are in
+`model_info['conventional']` and `model_info['robust']` under either
+setting); for `sp.iv_mediate` the standard error, interval and p-value of
+the indirect effect only.
 
 ```python
-r = sp.rkd(df, y="y", x="x", c=0, headline="robust")        # the later default, now
-r = sp.rkd(df, y="y", x="x", c=0, headline="conventional")  # today's numbers, no warning
-r.model_info["headline"], r.model_info["robust"], r.model_info["conventional"]
+r = sp.stacked_did(df, y="y", group="id", time="year",
+                   first_treat="g", crit_dist="t")      # the later default, now
+r = sp.stacked_did(..., crit_dist="normal")             # today's numbers, no warning
+r.model_info["conventions"]    # {'parity': None, 'crit_dist': 't', 'crit_df': 239}
 ```
 
 **⚠️ `sp.dose_response` headline.** `estimate` is the dose-response curve
@@ -45,10 +49,19 @@ curve in `detail` is unchanged. To reproduce the old number, difference
 `detail['response']` at rows `int(0.25 k)` and `int(0.75 k)`; its standard
 error is not stored.
 
-**New errors.** `sp.ips` / `sp.snips` / `sp.ope.ips` / `sp.ope.snips`
-raise `MethodIncompatibility` for policy arrays whose shapes show they
-were passed in the other API's order; such calls failed before with an
-`IndexError` or a shape message.
+**Labels.** `sp.dml(model='pliv').estimand` is `'theta'` (was `'LATE'`);
+code that branches on the string should test `result.method == 'Double ML
+(PLIV)'` or accept both. `sp.match(...).summary()` heads its balance table
+"Covariate Balance, before matching" (was "Detailed Estimates") and prints
+the matched table after it.
+
+**New warnings.** `sp.sdid(method='sc', se_method='jackknife')` and
+`sp.tmle` with a default library that did not converge emit one
+`AssumptionWarning` each (the latter in place of many sklearn
+`ConvergenceWarning`s). `sp.ips` / `sp.snips` / `sp.ope.ips` /
+`sp.ope.snips` raise `MethodIncompatibility` for policy arrays whose shapes
+show they were passed in the other API's order; such calls failed before
+with an `IndexError` or a shape message.
 
 ---
 

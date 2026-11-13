@@ -491,7 +491,9 @@ MECHANISMS: dict = {
         "weights were chosen to match, and the pseudo-values pick up the spread of the unit "
         "effects, which a refitted SC would absorb. The SE is about four times the sampling "
         "SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with "
-        "method='sc'. sp.sdid does not warn about this combination (open item)."
+        "method='sc'. Since the owner decision of 2026-11-13 sp.sdid warns about this "
+        "combination (AssumptionWarning, model_info['diagnostics']['sc_jackknife_se']); "
+        "the number is unchanged."
     ),
     "gardner_did/stage2": (
         "Documented option. vce='stage2' is the second-stage clustered variance without "
