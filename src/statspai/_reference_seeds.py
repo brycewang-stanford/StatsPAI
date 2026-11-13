@@ -324,4 +324,13 @@ REFERENCE_SEEDS: Dict[str, str] = {
     "svyglm": "binder1983variances, lumley2004analysis",
     # src: existing key named in a source comment
     "balance_check": "imbens2015causal",
+    # ---- new: entries added to paper.bib 2026-11-13 (see annote) ----
+    # the method's primary source; each function's docstring names the method
+    "trim_and_fill": "duval2000trim",
+    "meta_regression": "thompson2002should",
+    "srm_test": "pearson1900criterion",
+    # mod: the policy_learning.ope module docstring names the paper, which
+    # defines the inverse-propensity and direct-method estimators it combines
+    "ips": "dudik2011doubly",
+    "direct_method": "dudik2011doubly",
 }

@@ -70824,9 +70824,10 @@
       "assumptions": "curated",
       "example": "curated",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "curated"
     },
-    "reference": "",
+    "reference": "pearson1900criterion",
     "returns": {
       "class": "SRMResult",
       "description": "SRMResult (.statistic, .df, .p_value, .mismatch, .table)",
@@ -115878,9 +115879,10 @@
     "provenance": {
       "example": "docstring",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "thompson2002should",
     "returns": {
       "class": "MetaRegressionResult",
       "description": "MetaRegressionResult: Coefficient table (.tidy()), tau2, i2, r2, the residual-heterogeneity test qe and the omnibus moderator test qm, .predict() and .summary().",
@@ -116043,9 +116045,10 @@
     "provenance": {
       "example": "docstring",
       "failure_modes": "source",
+      "reference": "curated",
       "returns": "docstring"
     },
-    "reference": "",
+    "reference": "duval2000trim",
     "returns": {
       "class": "TrimFillResult",
       "description": "TrimFillResult: k0, side, the filled pooled estimate with se, ci and p_value, the original and filled fits and the imputed studies.",
@@ -173330,9 +173333,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "dudik2011doubly",
     "returns": {
       "class": "OPEResult",
       "description": "",
@@ -173589,9 +173593,10 @@
       "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
+      "reference": "curated",
       "typical_n_min": "curated"
     },
-    "reference": "",
+    "reference": "dudik2011doubly",
     "returns": {
       "class": "OPEResult",
       "description": "",
