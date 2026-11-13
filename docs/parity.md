@@ -28,11 +28,11 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | evidence kind | grade | functions |
 | --- | --- | ---: |
 | **Compared against R/Stata** (T2) | bit-exact | 529 |
-| | aligned | 76 |
-| | **subtotal** | **605** |
-| **No external software reference** | analytical-only (T1) | 369 |
+| | aligned | 77 |
+| | **subtotal** | **606** |
+| **No external software reference** | analytical-only (T1) | 368 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **423** |
+| | **subtotal** | **422** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 605 | 1009 | 1009 | 60.0% |
+| estimator callables | 606 | 1009 | 1009 | 60.1% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 605 | 1028 | 1680 | 36.0% |
+| **all registered** | 606 | 1028 | 1680 | 36.1% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 199 | 363 | 363 |
+| causal | 200 | 363 | 363 |
 | regression | 55 | 65 | 65 |
 | inference | 34 | 58 | 58 |
 | timeseries | 24 | 53 | 53 |
@@ -633,7 +633,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-07 / 2.8e-08 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 | `zivot_andrews` | urca::ur.za | R 4.5.2; urca 1.3.4 | minimum t statistic, the path over break dates and the regression at the break 1e-7 rel; break date equal | — / — | [`test_zivot_andrews_parity.py`](../tests/reference_parity/test_zivot_andrews_parity.py) (+1) |
 
-## aligned — 76 functions
+## aligned — 77 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -683,6 +683,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `mmqreg` | Stata 18 MP with SSC mmqreg 2.6 (run as a black box): one and two absorbed sets and none, q(10 / 25 / 50 / 75 / 90), vce default (GLS) / robust / cluster | Stata 18 MP (born 07 Jun 2023); mmqreg 2.6 | Location, scale and quantile coefficients and the 12 x 12 covariance of the three equations 1e-10 (observed <= 4e-12) on 18 fits; density e(fden) and e(qval) 1e-10. On 6 fits where n tau is an integer Stata returns the other end of a tied sample quantile (see note): there the quantile coefficients differ by up to 1.7% and agree to 1e-10 once tau is moved 1e-11 to select that end. | — / — | [`test_mmqreg.py`](../tests/test_mmqreg.py) (+1) |
 | `model_averaging_dml` | ddml::ddml_plm 0.3.1 (shortstack = TRUE, ensemble_type = 'nnls1'), OLS candidates, shared folds | R 4.5.2; ddml 0.3.1; sandwich 3.1.1 | short-stacking weights 1e-10 (observed 4.4e-14); ddml's final lm(y_r ~ d_r) with intercept and HC1 SE rebuilt from StatsPAI's stacked residuals at 1e-10 (observed 4.8e-16) | — / — | [`test_ml_causal_dml_parity.py`](../tests/reference_parity/test_ml_causal_dml_parity.py) (+2) |
 | `mr_raps` | R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `notears` | notears.linear.notears_linear (authors' implementation, lambda1 = 0.1, least-squares loss) | python 3.11.15; notears 3.0 (github.com/xunzheng/notears 4a9ab19); scipy 1.13.1 | thresholded graph exact on 16 designs (44 edges); edge weights 5e-2 absolute (observed <= 1.2e-2) | — / — | [`test_notears_reference_parity.py`](../tests/reference_parity/test_notears_reference_parity.py) (+1) |
 | `olley_pakes` | Stata prodest, method(op) valueadded (Rovigatti & Mollisi); R prodest::prodestOP | Stata 18 MP; prodest SSC; R prodest 1.0.2 | Simulated unbalanced panel with 31 calendar gaps. Free-input coefficient (stage-1 OLS) at 1e-12 against both, polynomial degree 2 and 3. State coefficient: StatsPAI solves the first-order condition and has a sum of squares no larger than at either reference estimate; the references stop their optimisers early (R BFGS 5.9e-6 away, Stata Nelder-Mead at tolerance 1e-5 up to 4.3e-3 away). | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `optimal_design` | Stata 18 power twomeans, knownsds (and cluster m1() m2() rho()): sample sizes, cluster counts and the minimum detectable difference | Stata Stata 18 MP (07 Jun 2023) | sample sizes and cluster counts equal (integers); unrounded n and detectable difference 2.5e-6 relative, rebuilt to 1e-9 | — / — | [`test_optimal_design_stata_parity.py`](../tests/reference_parity/test_optimal_design_stata_parity.py) (+1) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
@@ -777,7 +778,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 369 functions
+## analytical-only — 368 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -1001,7 +1002,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `noether_test` | [`test_rosenbaum_itos_parity.py`](../tests/reference_parity/test_rosenbaum_itos_parity.py) |
 | `nonlinear_icp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `notch` | [`test_notch_parity.py`](../tests/reference_parity/test_notch_parity.py) |
-| `notears` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) (+1) |
 | `offline_safe_policy` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `opreg` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `orthogonal_to_bias` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |

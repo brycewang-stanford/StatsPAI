@@ -97,16 +97,16 @@ def test_causal_discovery_dispatch_notears():
     assert "adjacency" in out
     assert "edges" in out
     np.testing.assert_allclose([out["n_edges"], out["h_value"]], [2, 0.0], atol=1e-12)
-    # atol relaxed to 1e-3: the NOTEARS augmented-Lagrangian solution drifts up
-    # to ~3e-5 across BLAS backends. The 2026-06-23 full-matrix run measured
-    # 0.63092973 on macOS / Windows / ubuntu-3.9 vs 0.63096134 on ubuntu-3.11+
-    # (~3e-5 spread), which overran the previous 1e-5 pin. The edge STRUCTURE is
-    # already locked by the n_edges==2 / h_value==0 assertion above; this check
-    # only pins the recovered weights, so 1e-3 (3 sig figs) is the right
-    # granularity for a cross-platform golden value on a non-convex solver.
+    # The weights the authors' implementation returns on these data
+    # (notears.linear.notears_linear, lambda1 = 0.1, run 2026-11-13:
+    # 0.6295443 and 0.38471224). Through 1.43.1 this test pinned
+    # 0.630961 / 0.386646, the output of a dual-update schedule that was
+    # not the published one. atol 1e-3: the solution of this non-convex
+    # problem drifts by up to ~3e-5 across BLAS backends, and the edge
+    # structure is already locked by the n_edges / h_value assertion above.
     np.testing.assert_allclose(
         out["adjacency"].loc[["x2", "x3"], ["x1", "x2"]].to_numpy(),
-        np.array([[0.630961, 0.0], [0.0, 0.386646]]),
+        np.array([[0.6295443, 0.0], [0.0, 0.38471224]]),
         atol=1e-3,
     )
 
@@ -228,7 +228,7 @@ def test_dml_rejects_conflicting_treat():
 
 
 def test_dml_accepts_model_y_and_model_d_aliases():
-    from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+    from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
 
     rng = np.random.default_rng(5)
     n = 300

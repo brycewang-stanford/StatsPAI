@@ -40,6 +40,29 @@ the new R output still matches the old before overwriting the fixture.
 | `survival` | 3.8.3 |
 | `synthdid` | 0.0.9 |
 
+### Fixtures added 2026-11-13 (`parity-graph` line)
+
+R 4.5.2 on macOS arm64. Packages marked private were installed into a
+gitignored library under `_fixtures/_rlib_pg/` and are not part of the
+`renv.lock` environment.
+
+| package | version |
+| --- | --- |
+| `dagitty` | 0.3.4 |
+| `pcalg` | 2.7.12 |
+| `InvariantCausalPrediction` | 0.8 (private library) |
+| `SuperLearner` | 2.0.40 |
+| `ltmle` | 1.3.0 |
+| `ivmodel` | 1.9.1 |
+| `sandwich` | 3.1.1 |
+| `DoubleML` | 1.0.2 (with `mlr3` 1.6.0, `mlr3learners` 0.14.0) |
+
+Python reference packages, each run outside the repository environment:
+`lingam` 1.13.0, `tigramite` 5.2.10.1 and `fklearn` 4.3.0 (Python 3.11.15,
+numpy 2.2.6, pandas 3.1.1, in `_fixtures/_rlib_pg/pyenv`); `econml` 0.16.0
+(Python 3.11.0, scikit-learn 1.6.1). Stata 18 MP with `ivreg2` 4.1.12,
+`reghdfe` 6.13.1, `ivreghdfe` 1.1.4, `jive` 1.0.2.
+
 ## Known divergence: `did` 2.3.0 clustered multiplier bootstrap
 
 `did` 2.3.0 aggregates the influence function to cluster **means** over

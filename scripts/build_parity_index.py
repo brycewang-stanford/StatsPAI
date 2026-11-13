@@ -10076,6 +10076,44 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+_FROZEN_PROMOTIONS.update(
+    {
+        "notears": {
+            "status": "aligned",
+            "reference": "notears.linear.notears_linear (authors' "
+            "implementation, lambda1 = 0.1, least-squares loss)",
+            "reference_versions": {
+                "python": "3.11.15",
+                "notears": "3.0 (github.com/xunzheng/notears 4a9ab19)",
+                "scipy": "1.13.1",
+            },
+            "tolerance": "thresholded graph exact on 16 designs (44 "
+            "edges); edge weights 5e-2 absolute (observed <= 1.2e-2)",
+            "sides": ["py"],
+            "test": [
+                "tests/reference_parity/test_notears_reference_parity.py",
+                "tests/reference_parity/_fixtures/notears_reference.json",
+            ],
+            "note": (
+                "Frozen fixture from the Apache-2.0 reference code on the "
+                "standardised data sp.notears builds. The graph, every "
+                "edge with its direction, equals the reference on every "
+                "design. The weights are not held to 1e-6 for a reason "
+                "that was located: the problem is not convex and each "
+                "inner problem stops at L-BFGS-B's default tolerance, so "
+                "the last digits follow the optimiser's path. The "
+                "reference's own weights move by up to 1.3e-2 between "
+                "scipy 1.13 and 1.17 on these designs and by less than "
+                "1e-10 where the path is stable; StatsPAI against it shows "
+                "the same pattern. The fixture keeps designs whose "
+                "weights are at least 0.1 from the threshold. Through "
+                "1.43.1 the dual update was not the published one and 4 "
+                "of 12 graphs differed."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

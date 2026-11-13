@@ -289,164 +289,73 @@ class NOTEARS:
 
         Augmented Lagrangian: L(W, alpha, rho) = F(W) + lambda1*||W||_1
                               + alpha * h(W) + 0.5 * rho * h(W)^2
+
+        Algorithm 1 of Zheng et al. (2018). Each outer step solves the
+        primal problem, raising ``rho`` tenfold and solving again until the
+        constraint has fallen to a quarter of its last accepted value, and
+        only then takes the dual step ``alpha += rho * h``. The L1 term is
+        made smooth by splitting ``W = W+ - W-`` with both parts
+        non-negative, and the split variables are carried from one solve
+        to the next.
+
+        Through 1.43.1 every primal solution was accepted and the dual
+        step was taken with the raised ``rho`` even when the constraint
+        had not fallen, which is not the published scheme and ended at
+        other graphs than the reference implementation on a third of the
+        test designs.
         """
-        # Initialise
-        W = np.zeros((d, d))
+        w = np.zeros(2 * d * d)
         rho = 1.0
         alpha = 0.0
-        h_prev = np.inf
-
-        for iteration in range(self.max_iter):
-            # Inner optimisation: minimise augmented Lagrangian over W
-            W = self._solve_inner(X, W, rho, alpha, d, n)
-
-            # Evaluate acyclicity constraint
-            h_new = _h_func(W)
-
-            if h_new > 0.25 * h_prev:
-                rho *= 10.0
-            else:
-                pass  # rho stays the same
-
-            alpha += rho * h_new
-            h_prev = h_new
-
-            if h_new <= self.h_tol:
+        h = np.inf
+        for _ in range(self.max_iter):
+            w_new = w
+            h_new = h
+            while rho < self.rho_max:
+                w_new = self._solve_inner(X, w, rho, alpha, d, n)
+                h_new = _h_func(_unsplit(w_new, d))
+                if h_new > 0.25 * h:
+                    rho *= 10.0
+                else:
+                    break
+            w, h = w_new, h_new
+            alpha += rho * h
+            if h <= self.h_tol or rho >= self.rho_max:
                 break
-
-            if rho > self.rho_max:
-                break
-
-        return W
+        return _unsplit(w, d)
 
     def _solve_inner(
         self,
         X: np.ndarray,
-        W_init: np.ndarray,
+        w_init: np.ndarray,
         rho: float,
         alpha: float,
         d: int,
         n: int,
     ) -> np.ndarray:
-        """Solve inner L-BFGS-B problem for fixed rho, alpha."""
-
-        def _objective(w_flat: np.ndarray) -> float:
-            W = w_flat.reshape(d, d)
-
-            # Least-squares loss: 0.5/n * ||X - X@W||_F^2
-            R = X - X @ W
-            loss = 0.5 / n * np.sum(R**2)
-
-            # Acyclicity
-            h = _h_func(W)
-
-            # Augmented Lagrangian terms
-            obj = loss + alpha * h + 0.5 * rho * h * h
-
-            return float(obj)
-
-        def _gradient(w_flat: np.ndarray) -> np.ndarray:
-            W = w_flat.reshape(d, d)
-
-            # Gradient of least-squares loss
-            R = X - X @ W
-            grad_loss = -1.0 / n * X.T @ R
-
-            # Gradient of h(W) = tr(e^{W o W}) - d
-            # dh/dW = (e^{W o W})^T o 2W
-            M = W * W  # element-wise square
-            E = expm(M)
-            grad_h = E.T * 2 * W
-
-            grad = grad_loss + (alpha + rho * _h_func(W)) * grad_h
-
-            return np.asarray(grad.ravel(), dtype=float)
-
-        # Use L-BFGS-B with bounds to implement L1 via variable splitting
-        # For simplicity, use proximal gradient for L1
-        # Here we use a smooth approximation: add lambda1 * sum |W_ij|
-        # via subgradient in L-BFGS-B bounds
-
-        # Actually, the standard NOTEARS approach: solve without L1 in
-        # L-BFGS-B, then threshold. For L1, we can use the variable
-        # splitting trick: W = W+ - W-, W+,W- >= 0
+        """Minimise the augmented Lagrangian over the split variables
+        ``[W+, W-]`` for fixed ``rho`` and ``alpha`` (L-BFGS-B)."""
         d2 = d * d
+        lam = self.lambda1
+        # No self-loops: the diagonal of both parts is held at zero.
+        off_diag = ~np.eye(d, dtype=bool).ravel()
+        bounds = [(0.0, None) if off else (0.0, 0.0) for off in off_diag] * 2
 
-        if self.lambda1 > 0:
-            # Variable splitting: w = [w+; w-], W = W+ - W-
-            w0 = np.zeros(2 * d2)
-            w_init = W_init.ravel()
-            w0[:d2] = np.maximum(w_init, 0)
-            w0[d2:] = np.maximum(-w_init, 0)
+        def _func(w: np.ndarray) -> tuple[float, np.ndarray]:
+            W = _unsplit(w, d)
+            R = X - X @ W
+            loss = 0.5 / n * float(np.sum(R**2))
+            grad_loss = -1.0 / n * X.T @ R
+            # h(W) = tr(e^{W o W}) - d and its gradient (e^{W o W})^T o 2W
+            E = expm(W * W)
+            h = float(np.trace(E) - d)
+            grad_W = grad_loss + (alpha + rho * h) * (E.T * 2 * W)
+            obj = loss + alpha * h + 0.5 * rho * h * h + lam * float(w.sum())
+            grad = np.concatenate([(grad_W + lam).ravel(), (-grad_W + lam).ravel()])
+            return obj, grad
 
-            # The diagonal is held at zero inside the optimisation (no
-            # self-loops). Until 1.41
-            # it was free during the fit and zeroed afterwards, so the
-            # off-diagonal weights were fitted next to self-loop weights
-            # that were then discarded.
-            off_diag = ~np.eye(d, dtype=bool).ravel()
-            bounds = [(0.0, None) if off else (0.0, 0.0) for off in off_diag] * 2
-
-            def _obj_split(w: np.ndarray) -> float:
-                wp = w[:d2].reshape(d, d)
-                wm = w[d2:].reshape(d, d)
-                W = wp - wm
-                R = X - X @ W
-                loss = 0.5 / n * np.sum(R**2)
-                h = _h_func(W)
-                l1 = self.lambda1 * (np.sum(wp) + np.sum(wm))
-                return float(loss + alpha * h + 0.5 * rho * h * h + l1)
-
-            def _grad_split(w: np.ndarray) -> np.ndarray:
-                wp = w[:d2].reshape(d, d)
-                wm = w[d2:].reshape(d, d)
-                W = wp - wm
-                R = X - X @ W
-                grad_loss = -1.0 / n * X.T @ R
-                M = W * W
-                E = expm(M)
-                h = float(np.trace(E) - d)
-                grad_h = E.T * 2 * W
-                grad_W = grad_loss + (alpha + rho * h) * grad_h
-
-                grad = np.zeros(2 * d2)
-                grad[:d2] = (grad_W + self.lambda1).ravel()
-                grad[d2:] = (-grad_W + self.lambda1).ravel()
-                return np.asarray(grad, dtype=float)
-
-            result = minimize(
-                _obj_split,
-                w0,
-                jac=_grad_split,
-                method="L-BFGS-B",
-                bounds=bounds,
-                options={"maxiter": 1000, "ftol": 1e-12},
-            )
-            w_opt = result.x
-            W_opt = np.asarray(
-                w_opt[:d2].reshape(d, d) - w_opt[d2:].reshape(d, d),
-                dtype=float,
-            )
-        else:
-            w0 = W_init.ravel().copy()
-            w0[np.eye(d, dtype=bool).ravel()] = 0.0
-            free_bounds = [
-                (None, None) if off else (0.0, 0.0)
-                for off in ~np.eye(d, dtype=bool).ravel()
-            ]
-            result = minimize(
-                _objective,
-                w0,
-                jac=_gradient,
-                method="L-BFGS-B",
-                bounds=free_bounds,
-                options={"maxiter": 1000, "ftol": 1e-12},
-            )
-            W_opt = np.asarray(result.x.reshape(d, d), dtype=float)
-
-        # The bounds keep the diagonal at exactly zero (no self-loops).
-
-        return W_opt
+        result = minimize(_func, w_init, jac=True, method="L-BFGS-B", bounds=bounds)
+        return np.asarray(result.x, dtype=float)
 
     def summary(self) -> str:
         """Print a summary of the learned DAG."""
@@ -488,6 +397,11 @@ class NOTEARS:
 # ======================================================================
 # Acyclicity constraint
 # ======================================================================
+
+
+def _unsplit(w: np.ndarray, d: int) -> np.ndarray:
+    """``W = W+ - W-`` from the stacked non-negative parts."""
+    return np.asarray((w[: d * d] - w[d * d :]).reshape(d, d), dtype=float)
 
 
 def _h_func(W: np.ndarray) -> float:

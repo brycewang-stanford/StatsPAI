@@ -499,6 +499,28 @@ Documented gaps (each pinned in its test):
   rounded, and differs from Stata's `import delimited` in the last bit on
   about a fifth of the values.
 
+### Graph, discovery, TMLE, IV, nonparametric and meta-learner fixtures (2026-11-13)
+
+Added by the `parity-graph` line for the six families the scorecard
+listed with the fewest matched estimators. Python reference packages were
+run in an interpreter of their own, never in the repository environment;
+GPL packages were run as black boxes.
+
+| Fixture | sp entry point | Reference | Tolerance |
+| --- | --- | --- | --- |
+| `dag_dagitty_R.json` | `sp.dag(...)` `.adjustment_sets` / `.implied_independencies` / `.d_separated` / `.instrumental_variables` / `.path_status`; `sp.do_rule1` / `sp.do_rule2` / `sp.do_rule3` / `sp.do_calculus_apply` | R `dagitty` 0.3.4 on 120 random graphs (`_generate_dag_dagitty_cases.py`, `_generate_dag_dagitty_R.R`); the do-calculus rules through `dseparated` on graphs mutilated in R | exact (sets and truth values) |
+| `partial_corr_pcalg_R.json` / `ness_gaussian.csv` | `sp.partial_corr_pvalue` | `pcalg::gaussCItest` 2.7.12 | p-value 1e-9 relative (observed 1.5e-12) |
+| `lingam_package.json` / `_generate_lingam_data.py` | `sp.lingam` (causal order) | Python `lingam` 1.13.0 `DirectLiNGAM()` | exact on 40 data sets; the coefficient matrix is not compared (least squares here, adaptive Lasso there) |
+| `pcmci_tigramite.json` / `_generate_pcmci_data.py` | `sp.pcmci(ci_test=<t test>)` | Python `tigramite` 5.2.10.1 `PCMCI.run_pcmci` with `ParCorr` | p-values and partial correlations 1e-10 absolute (observed 1e-15); the default Fisher z test differs from `ParCorr` in the reference distribution |
+| `icp_R.json` / `icp_data.csv` | `sp.icp(test="normal")` | R `InvariantCausalPrediction::ICP` 0.8 | accepted sets exact on 32 fits, parent intervals 1e-9; the default `test="anova"` is another test |
+| `super_learner_R.json` / `super_learner_data.csv` | `sp.super_learner` | R `SuperLearner` 2.0.40, `method.CC_LS`, folds supplied as `validRows` | CV predictions 1e-9, risks 1e-9 relative, weights 1e-6 |
+| `ltmle_survival_R.json` / `ltmle_survival.csv` | `sp.ltmle_survival` | R `ltmle` 1.3.0, `survivalOutcome = TRUE`, one call per horizon | risks 1e-8 absolute, SEs 1e-8 relative |
+| `iv_compare_R.json` / `iv_compare_Stata.json` / `rd_iv_ivw.csv` | `sp.iv_compare` | R `ivmodel` 1.9.1; Stata `ivregress`, `ivreg2 fuller(1)` 4.1.12, `jive`, `weakivtest` | 1e-9 relative; `ivmodel`'s `heteroSE` for LIML / Fuller is another sandwich form and is not copied |
+| `zero_first_stage_Stata.json` / `zero_first_stage.csv` | `sp.zero_first_stage` | Stata `regress` / `ivregress 2sls` / `reghdfe` / `ivreghdfe`, combined in the do-file | 1e-9 relative (observed 1e-14); the bootstrap SE is not compared |
+| `series_R.json` / `series_data.csv` | `sp.series` | R `lm` on `poly(raw = TRUE)` and `splines::bs`, `sandwich` 3.1.1 | 1e-8 relative; derivative 1e-7 |
+| `metalearner_econml.json` / `metalearner_doubleml_R.json` / `metalearner_train.csv` / `metalearner_new.csv` | `sp.predict_cate`; `sp.compare_metalearners` | Python `econml` 0.16.0 S / T / X learners; R `DoubleML` 1.0.2 `DoubleMLIRM` on supplied folds | effects 1e-10 absolute; average effect and SE 1e-9 relative after the `n` / `n - 1` divisor |
+| `cate_gain_curve_fklearn.json` / `cate_gain_curve.csv` | `sp.cate_gain_curve` | Python `fklearn` 4.3.0 `effect_curves` / `effect_by_segment` | 1e-10 relative at each of 100 steps |
+
 ## What the tests verify
 
 ### Recovery tests
