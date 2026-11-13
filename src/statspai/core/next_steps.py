@@ -76,7 +76,7 @@ _CTX_ALIASES = {
     "treat": ("treat", "treatment", "d", "D"),
     "covariates": ("covariates", "controls", "x_controls", "X"),
     "time": ("time", "t", "tvar"),
-    "id": ("id", "i", "unit", "ivar"),
+    "id": ("id", "i", "unit", "ivar", "entity"),
     "cohort": ("g", "gvar", "cohort", "first_treat"),
     "running": ("x", "running", "running_var"),
     "cutoff": ("c", "cutoff"),
@@ -84,7 +84,31 @@ _CTX_ALIASES = {
     "formula": ("formula", "fml"),
     "treated_unit": ("treated_unit",),
     "treatment_time": ("treatment_time",),
+    "fuzzy": ("fuzzy",),
 }
+
+#: Argument names that mean a role for one function only (``group`` is the
+#: unit id of ``sp.did_imputation`` and the treatment arm of ``sp.cic``).
+_CTX_BY_FUNCTION = {
+    "did_imputation": {"id": "group"},
+}
+
+_BARE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+def _fit_function(result: Any) -> str:
+    """Leaf name of the ``sp.<function>`` that produced ``result`` (or ``""``)."""
+    prov = getattr(result, "_provenance", None)
+    fn = getattr(prov, "function", None)
+    return fn.rsplit(".", 1)[-1] if isinstance(fn, str) and fn else ""
+
+
+def _fit_module(result: Any) -> str:
+    """``survival`` for ``sp.survival.cox``; ``""`` for a top-level name."""
+    prov = getattr(result, "_provenance", None)
+    fn = getattr(prov, "function", None)
+    parts = fn.split(".") if isinstance(fn, str) else []
+    return parts[1] if len(parts) >= 3 and parts[0] == "sp" else ""
 
 
 def _is_column_name(value: Any) -> bool:
@@ -126,6 +150,9 @@ def _fit_context(result: Any) -> Dict[str, Any]:
             if _is_column_name(value):
                 ctx[role] = value
                 break
+    for role, name in _CTX_BY_FUNCTION.get(_fit_function(result), {}).items():
+        if role not in ctx and _is_column_name(params.get(name)):
+            ctx[role] = params[name]
     if "running" in ctx and "cutoff" not in ctx:
         c = mi.get("cutoff", mi.get("c"))
         if isinstance(c, (int, float)) and not isinstance(c, bool):
@@ -134,6 +161,12 @@ def _fit_context(result: Any) -> Dict[str, Any]:
         dep = (getattr(result, "data_info", None) or {}).get("dependent_var")
         if _is_column_name(dep):
             ctx["y"] = dep
+    if "y" not in ctx and isinstance(ctx.get("formula"), str):
+        # ``sp.feols`` records the formula only; its left-hand side is the
+        # outcome when it is a bare column name.
+        lhs = ctx["formula"].split("~", 1)[0].strip()
+        if _BARE_NAME.match(lhs):
+            ctx["y"] = lhs
     return ctx
 
 
@@ -307,6 +340,77 @@ def _se_kind(mi: Dict[str, Any]) -> str:
     return "classical"
 
 
+#: Producing functions whose fit is linear in the coefficients on the
+#: outcome scale: Oster bounds, stepwise selection and an ``sp.regress``
+#: refit speak about the same model.
+_LINEAR_FUNCTIONS = frozenset(
+    {
+        "regress",
+        "feols",
+        "hdfe_ols",
+        "areg",
+        "iv",
+        "ivreg",
+        "ivreg2",
+        "liml",
+        "panel",
+        "wls",
+        "ols",
+    }
+)
+#: Likelihood models on a link scale: marginal effects apply, the linear
+#: toolkit does not.
+_GLM_FUNCTIONS = frozenset(
+    {
+        "logit",
+        "probit",
+        "cloglog",
+        "poisson",
+        "nbreg",
+        "glm",
+        "fepois",
+        "feglm",
+        "ologit",
+        "oprobit",
+        "mlogit",
+        "zip_model",
+        "zinb",
+    }
+)
+#: Formula-first estimators that take ``robust=`` (checked by
+#: ``tests/test_next_steps_families.py``).
+_FORMULA_ROBUST_REFIT = frozenset({"logit", "probit", "poisson", "nbreg"})
+_SURVIVAL_WORDS = re.compile(
+    r"\b(?:cox|hazards?|survival|weibull|aft|accelerated|frailty|kaplan)\b"
+)
+_GLM_WORDS = re.compile(
+    r"\b(?:logit|probit|cloglog|poisson|negbin|nb2|nb1|glm|ordered|multinomial)\b"
+)
+_PANEL_WORDS = frozenset({"panel", "fe", "fixed", "re", "random", "within"})
+
+
+def _econ_kind(result: Any, model_type: str) -> str:
+    """``linear`` / ``glm`` / ``survival`` / ``other`` for a regression result.
+
+    The linear-model follow-ups (an ``sp.regress`` refit, Oster bounds,
+    stepwise selection) were offered after every ``EconometricResults``
+    subclass, so a Cox fit was told to run ``sp.regress('time ~ ...')``.
+    The producing function decides when it is recorded; otherwise the
+    model label does, and an unlabelled result counts as linear (the
+    historical reading).
+    """
+    fn = _fit_function(result)
+    if _fit_module(result) == "survival" or _SURVIVAL_WORDS.search(model_type):
+        return "survival"
+    if fn in _GLM_FUNCTIONS:
+        return "glm"
+    if fn in _LINEAR_FUNCTIONS:
+        return "linear"
+    if _GLM_WORDS.search(model_type):
+        return "glm"
+    return "other" if fn else "linear"
+
+
 def _variance_step(result: Any, ctx: Dict[str, Any], model_type: str) -> Optional[Step]:
     """The standard-error follow-up that fits how the model was estimated.
 
@@ -319,20 +423,50 @@ def _variance_step(result: Any, ctx: Dict[str, Any], model_type: str) -> Optiona
 
     mi = result.model_info or {}
     kind = _se_kind(mi)
-    prov = getattr(result, "_provenance", None)
-    fn = str(getattr(prov, "function", "") or "")
+    fn = _fit_function(result)
+    family = _econ_kind(result, model_type)
     if kind == "classical":
         formula = (
             ctx.get("formula") or f"{result.data_info.get('dependent_var', 'y')} ~ ..."
         )
-        if fn == "sp.feols":
+        reason = "Re-estimate with heteroskedasticity-robust standard errors"
+        if fn == "feols":
             action = f"sp.feols({formula!r}, data=df, vcov='hetero')"
+        elif fn == "panel":
+            # The refit must keep the panel estimator: sp.regress on the
+            # same formula drops the unit effects. Cluster on the unit.
+            prov = getattr(result, "_provenance", None)
+            params = dict(getattr(prov, "params", None) or {})
+            method = params.get("method")
+            if not (ctx.get("id") and ctx.get("time") and isinstance(method, str)):
+                return None
+            action = (
+                f"sp.panel(df, {formula!r}, entity={ctx['id']!r}, "
+                f"time={ctx['time']!r}, method={method!r}, cluster={ctx['id']!r})"
+            )
+            reason = (
+                "Re-estimate with standard errors clustered on the panel unit "
+                "(serial correlation within units)"
+            )
+        elif fn in _FORMULA_ROBUST_REFIT:
+            # Recorded with the formula alone: the same call plus robust=.
+            prov = getattr(result, "_provenance", None)
+            recorded = set(getattr(prov, "params", None) or {})
+            if not ctx.get("formula") or recorded - {"formula"}:
+                return None
+            action = f"sp.{fn}({formula!r}, data=df, robust='hc1')"
+        elif family != "linear" or (fn and not ctx.get("formula")):
+            # A hazard, count or other likelihood model is not refitted by
+            # sp.regress on its formula: that is another estimator. A fit
+            # called with column arguments (sp.liml) recorded no formula
+            # to refit.
+            return None
         else:
             refit = "sp.iv" if _is_iv_fit(model_type) else "sp.regress"
             action = f"{refit}({formula!r}, data=df, robust='hc1')"
         return Step(
             action,
-            "Re-estimate with heteroskedasticity-robust standard errors",
+            reason,
             priority="recommended",
             category="robustness",
         )
@@ -409,30 +543,47 @@ def econometric_next_steps(result: Any) -> List[Step]:
     if variance_step is not None:
         steps.append(variance_step)
 
-    # ── Post-estimation ────────────────────────────────────────────── #
-    steps.append(
-        Step(
-            "sp.margins(result, data=df)",
-            "Compute average marginal effects for substantive interpretation",
-            priority="recommended",
-            category="diagnostics",
+    kind = _econ_kind(result, model_type)
+
+    # ── Survival ───────────────────────────────────────────────────── #
+    if kind == "survival" and callable(getattr(result, "ph_test", None)):
+        steps.append(
+            Step(
+                "result.ph_test()",
+                "Schoenfeld-residual test of proportional hazards, per covariate "
+                "and global",
+                priority="essential",
+                category="diagnostics",
+            )
         )
-    )
+
+    # ── Post-estimation ────────────────────────────────────────────── #
+    if kind in ("linear", "glm"):
+        steps.append(
+            Step(
+                "sp.margins(result, data=df)",
+                "Compute average marginal effects for substantive interpretation",
+                priority="recommended",
+                category="diagnostics",
+            )
+        )
 
     # ── Robustness ─────────────────────────────────────────────────── #
-    steps.append(
-        Step(
-            f"sp.oster_delta(data=df, y={_q(ctx, 'y')}, x_base=[...], "
-            "x_controls=[...])",
-            "Oster (2019) coefficient stability — assess sensitivity to unobservables",
-            priority="recommended",
-            category="sensitivity",
+    if kind == "linear":
+        steps.append(
+            Step(
+                f"sp.oster_delta(data=df, y={_q(ctx, 'y')}, x_base=[...], "
+                "x_controls=[...])",
+                "Oster (2019) coefficient stability — assess sensitivity to "
+                "unobservables",
+                priority="recommended",
+                category="sensitivity",
+            )
         )
-    )
 
     # Variable selection check
     n_params = len(result.params)
-    if n_params >= 5:
+    if n_params >= 5 and kind == "linear":
         steps.append(
             Step(
                 f"sp.stepwise(data=df, y={_q(ctx, 'y')}, x=[...], criterion='bic')",
@@ -514,7 +665,10 @@ def econometric_next_steps(result: Any) -> List[Step]:
         )
 
     # ── Panel-specific ─────────────────────────────────────────────── #
-    if any(k in model_type for k in ("panel", "fe", "fixed")):
+    # Whole words: "effects" holds "fe", and so does "coefficient".
+    if _fit_function(result) == "panel" or (
+        _PANEL_WORDS & set(re.split(r"[^a-z0-9]+", model_type))
+    ):
         steps.append(
             Step(
                 f"sp.hausman_test(data=df, y={_q(ctx, 'y')}, x=[...], "
@@ -554,6 +708,12 @@ def causal_next_steps(result: Any) -> List[Step]:
 
     method_family = _detect_family(method)
     ctx = _fit_context(result)
+    # A 2x2 fit records a before/after indicator as ``time``. The staggered
+    # estimators and an event study need the calendar period and a unit id,
+    # which the fit does not know: leave those arguments open.
+    panel_ctx = dict(ctx)
+    if "2x2" in method:
+        panel_ctx.pop("time", None)
 
     # ── DID-family ─────────────────────────────────────────────────── #
     if method_family == "did":
@@ -596,8 +756,9 @@ def causal_next_steps(result: Any) -> List[Step]:
         else:
             steps.append(
                 Step(
-                    f"sp.event_study(data=df, y={_q(ctx, 'y')}, treat_time='...', "
-                    f"time={_q(ctx, 'time')}, unit={_q(ctx, 'id')})",
+                    f"sp.event_study(data=df, y={_q(ctx, 'y')}, "
+                    f"treat_time={_q(ctx, 'cohort')}, "
+                    f"time={_q(panel_ctx, 'time')}, unit={_q(ctx, 'id')})",
                     "Estimate event study to visualize pre-trends and dynamic effects",
                     priority="essential",
                     category="diagnostics",
@@ -618,7 +779,7 @@ def causal_next_steps(result: Any) -> List[Step]:
             steps.append(
                 Step(
                     f"sp.bacon_decomposition(data=df, y={_q(ctx, 'y')}, "
-                    f"treat={_q(ctx, 'treat')}, time={_q(ctx, 'time')}, "
+                    f"treat={_q(ctx, 'treat')}, time={_q(panel_ctx, 'time')}, "
                     f"id={_q(ctx, 'id')})",
                     "Goodman-Bacon decomposition: check for negative weights in TWFE",
                     priority="recommended",
@@ -628,7 +789,7 @@ def causal_next_steps(result: Any) -> List[Step]:
             steps.append(
                 Step(
                     f"sp.did_imputation(data=df, y={_q(ctx, 'y')}, "
-                    f"group={_q(ctx, 'id')}, time={_q(ctx, 'time')}, "
+                    f"group={_q(ctx, 'id')}, time={_q(panel_ctx, 'time')}, "
                     "first_treat='...')",
                     "Try BJS (2024) imputation estimator — robust to heterogeneous "
                     "effects",
@@ -639,7 +800,7 @@ def causal_next_steps(result: Any) -> List[Step]:
             steps.append(
                 Step(
                     f"sp.callaway_santanna(data=df, y={_q(ctx, 'y')}, g='...', "
-                    f"t={_q(ctx, 'time')}, i={_q(ctx, 'id')})",
+                    f"t={_q(panel_ctx, 'time')}, i={_q(ctx, 'id')})",
                     "Try Callaway-Sant'Anna — group-time ATT with flexible aggregation",
                     priority="recommended",
                     category="alternative",
@@ -658,6 +819,15 @@ def causal_next_steps(result: Any) -> List[Step]:
 
     # ── RD-family ──────────────────────────────────────────────────── #
     elif method_family == "rd":
+        is_kink = "kink" in method
+        fuzzy = ctx.get("fuzzy")
+        # Follow-ups on a fuzzy design carry the treatment column: without
+        # it they tabulate the sharp reduced form, a different estimand.
+        fz = f", fuzzy={fuzzy!r}" if fuzzy else ""
+        rd_args = (
+            f"data=df, y={_q(ctx, 'y')}, x={_q(ctx, 'running')}, "
+            f"c={_q(ctx, 'cutoff', kind='num')}"
+        )
         steps.append(
             Step(
                 f"sp.mccrary_test(data=df, x={_q(ctx, 'running')}, "
@@ -667,15 +837,17 @@ def causal_next_steps(result: Any) -> List[Step]:
                 category="diagnostics",
             )
         )
-        steps.append(
-            Step(
-                f"sp.rd_honest(data=df, y={_q(ctx, 'y')}, x={_q(ctx, 'running')}, "
-                f"c={_q(ctx, 'cutoff', kind='num')})",
-                "Armstrong-Kolesár honest CI — valid uniformly over smooth functions",
-                priority="essential",
-                category="sensitivity",
+        if not is_kink and not fuzzy:
+            # Honest CIs for the jump in the outcome: the sharp estimand.
+            steps.append(
+                Step(
+                    f"sp.rd_honest({rd_args})",
+                    "Armstrong-Kolesár honest CI — valid uniformly over smooth "
+                    "functions",
+                    priority="essential",
+                    category="sensitivity",
+                )
             )
-        )
         steps.append(
             Step(
                 f"sp.rdbalance(data=df, x={_q(ctx, 'running')}, "
@@ -685,24 +857,37 @@ def causal_next_steps(result: Any) -> List[Step]:
                 category="diagnostics",
             )
         )
-        steps.append(
-            Step(
-                f"sp.rdbwsensitivity(data=df, y={_q(ctx, 'y')}, "
-                f"x={_q(ctx, 'running')}, c={_q(ctx, 'cutoff', kind='num')})",
-                "Bandwidth sensitivity: check stability at h/2, h, 2h",
-                priority="recommended",
-                category="robustness",
+        if is_kink:
+            # The level-jump tools (bandwidth table, placebo cutoffs) do not
+            # estimate a change in slope; the kink fit is re-run instead.
+            h = (result.model_info or {}).get("bandwidth")
+            if isinstance(h, (int, float)) and not isinstance(h, bool) and h > 0:
+                steps.append(
+                    Step(
+                        f"sp.rkd({rd_args}, h={float(h) / 2!r})",
+                        "Bandwidth sensitivity: re-estimate the kink at half the "
+                        "bandwidth",
+                        priority="recommended",
+                        category="robustness",
+                    )
+                )
+        else:
+            steps.append(
+                Step(
+                    f"sp.rdbwsensitivity({rd_args}{fz})",
+                    "Bandwidth sensitivity: check stability at h/2, h, 2h",
+                    priority="recommended",
+                    category="robustness",
+                )
             )
-        )
-        steps.append(
-            Step(
-                f"sp.rdplacebo(data=df, y={_q(ctx, 'y')}, x={_q(ctx, 'running')}, "
-                f"c={_q(ctx, 'cutoff', kind='num')})",
-                "Placebo cutoff test: should find no effect at false cutoffs",
-                priority="recommended",
-                category="robustness",
+            steps.append(
+                Step(
+                    f"sp.rdplacebo({rd_args}{fz})",
+                    "Placebo cutoff test: should find no effect at false cutoffs",
+                    priority="recommended",
+                    category="robustness",
+                )
             )
-        )
         steps.append(
             Step(
                 "result.plot()",
@@ -921,7 +1106,11 @@ def causal_next_steps(result: Any) -> List[Step]:
     # assume no unmeasured confounding. DiD / RD / IV / synth rest on
     # other assumptions, and a mean difference needs the outcome SD to be
     # put on the risk-ratio scale (sp.evalue_from_result refuses without).
-    if method_family in ("matching", "dml", "hte", "mediation", "generic"):
+    # A generic result (quantile regression, Tobit, bunching) has no
+    # designated treatment unless the fit recorded one.
+    if method_family in ("matching", "dml", "hte", "mediation") or (
+        method_family == "generic" and ctx.get("treat")
+    ):
         steps.append(
             Step(
                 f"sp.evalue_from_result(result, sd=df[{_q(ctx, 'y')}].std())",
@@ -967,6 +1156,12 @@ def causal_next_steps(result: Any) -> List[Step]:
 # ====================================================================== #
 
 
+_DIFF_IN_DIFF = re.compile(
+    r"diff[a-z]*[\s_\-]+in[\s_\-]+di(?:ff|sc)|triple[\s_\-]+diff|\bddd\b"
+)
+_RD_LABEL = re.compile(r"(?<![a-z])rd|discontinuit|kink")
+
+
 def _detect_family(method: str) -> str:
     """Classify a method string into a family.
 
@@ -989,12 +1184,19 @@ def _detect_family(method: str) -> str:
     ):
         return "synth"
 
+    # Bunching at a kink or notch is not a regression-discontinuity (or
+    # kink) design: no outcome is compared across the threshold.
+    if "bunching" in m:
+        return "generic"
+
     # --- DID ---
-    if any(
+    # "diff" alone also matched "difference in means"; the DiD labels are
+    # "difference(s)-in-differences", "diff_in_diff", "triple differences"
+    # and "difference-in-discontinuities".
+    if _DIFF_IN_DIFF.search(m) or any(
         k in m
         for k in (
             "did",
-            "diff",
             "callaway",
             "sun_abraham",
             # The method label is "Sun and Abraham (2021)"; without these a
@@ -1014,7 +1216,9 @@ def _detect_family(method: str) -> str:
         return "did"
 
     # --- RD ---
-    if any(k in m for k in ("rd", "discontinuity", "rdrobust", "kink", "rdit")):
+    # "rd" at the start of a word only (rd, rdd, rdrobust, rddensity):
+    # "hazards", "ordinal", "forward" and "standard" contain it.
+    if _RD_LABEL.search(m):
         return "rd"
 
     # --- IV (match bare "iv" and "iv ..." via word boundary) ---

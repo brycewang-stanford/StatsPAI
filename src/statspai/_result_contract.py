@@ -21,7 +21,7 @@ from __future__ import annotations
 import inspect
 import numbers
 import re
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 #: ``detail=`` levels accepted by every result's ``to_dict``.
 DETAIL_LEVELS: Tuple[str, ...] = ("minimal", "standard", "agent")
@@ -235,6 +235,16 @@ def generic_violations(obj: Any) -> List[Dict[str, Any]]:
         val = getattr(obj, name, None)
         if isinstance(val, Mapping):
             merged.update(val)
+    # ``FEOLSResult`` (sp.hdfe_ols) keeps the cluster count in its own
+    # ``cluster_info`` mapping; without it a fit on eight clusters reported
+    # no few-clusters violation.
+    cluster_info = getattr(obj, "cluster_info", None)
+    if isinstance(cluster_info, Mapping) and "n_clusters" not in merged:
+        n_cl = cluster_info.get("n_clusters")
+        if isinstance(n_cl, (list, tuple)) and n_cl:
+            n_cl = min(n_cl)
+        if _is_count(n_cl):
+            merged["n_clusters"] = n_cl
     env = minimal_envelope(obj)
     reader = _Reader(obj, [])
     # Raw values (NaN kept): a NaN estimate is a finding, an estimate the
@@ -283,26 +293,113 @@ def generic_violations(obj: Any) -> List[Dict[str, Any]]:
     return out
 
 
+#: Violation ``test`` name -> words a card failure mode about the same
+#: condition uses in its symptom. A failure mode becomes a next step only
+#: when the result reports the matching violation: the card lists what
+#: *can* go wrong with the function, ``next_steps()`` what *did*.
+_OVERLAP_WORDS = re.compile(
+    r"common support|positivity|extreme (?:propensit|[a-z-]+ ?weights?|weights?)|"
+    r"(?:poor|limited|lack of|fails|no|weak|thin) overlap",
+    re.I,
+)
+_FAILURE_MODE_EVIDENCE: Dict[str, "re.Pattern[str]"] = {
+    "pretrend": re.compile(r"pre-?trend|parallel[- ]trends?", re.I),
+    "weak_instrument": re.compile(r"weak[- ]instrument|first[- ]stage", re.I),
+    "few_clusters": re.compile(r"few clusters|small number of clusters", re.I),
+    "synth_prefit": re.compile(r"pre-?(?:treatment|period)? ?fit|rmspe", re.I),
+    "balance": re.compile(r"imbalanc|covariate balance|\bsmd\b", re.I),
+    "overlap": _OVERLAP_WORDS,
+    "dml_overlap": _OVERLAP_WORDS,
+    "ipw_effective_sample_size": re.compile(
+        r"effective sample|extreme weights?|\bess\b", re.I
+    ),
+    "extreme_censoring": re.compile(r"censor", re.I),
+    "rhat": re.compile(r"r-?hat|converg|mixing", re.I),
+    "ess_bulk": re.compile(r"effective sample|\bess\b|mixing", re.I),
+    "divergences": re.compile(r"divergences|divergent transitions", re.I),
+    "mccrary_density": re.compile(r"manipulat|density|sorting|bunching", re.I),
+    "estimate_finite": re.compile(
+        r"\bnan\b|not finite|singular|collinear|not identified|converg", re.I
+    ),
+    "se_positive": re.compile(
+        r"\bnan\b|singular|collinear|not identified|zero (?:standard error|se)|"
+        r"standard errors? (?:is|are) (?:zero|missing)",
+        re.I,
+    ),
+    "separation": re.compile(r"separation|perfect(?:ly)? predict", re.I),
+    "overdispersion": re.compile(r"overdispers", re.I),
+    "excess_zeros": re.compile(r"excess zeros?|zero[- ]inflat", re.I),
+    "proportional_hazards": re.compile(
+        r"proportional[- ]hazards?|non-?proportional", re.I
+    ),
+    "staggered_twfe": re.compile(r"stagger|negative weights?|heterogeneous", re.I),
+    "treatment_cluster_level": re.compile(
+        r"without clusters?|not clustered|level of (?:the )?treatment|"
+        r"treatment (?:is |was )?assigned",
+        re.I,
+    ),
+}
+
+
+def _present_failure_mode(
+    fm: Mapping[str, Any], violations: Sequence[Mapping[str, Any]]
+) -> Optional[Mapping[str, Any]]:
+    """The violation on the result that shows ``fm`` occurred, if any."""
+    symptom = str(fm.get("symptom") or "")
+    for v in violations:
+        pattern = _FAILURE_MODE_EVIDENCE.get(str(v.get("test") or ""))
+        if pattern is not None and pattern.search(symptom):
+            return v
+    return None
+
+
 def generic_next_steps(obj: Any) -> List[Dict[str, str]]:
     """Registry-derived follow-ups for a domain result.
 
-    Uses the producing function's registry card: each recorded failure mode
-    becomes a ``diagnostics`` step carrying its remedy, each registered
-    alternative a ``robustness`` step. Returns ``[]`` when the producing
-    function cannot be resolved unambiguously (no guessing).
+    Uses the producing function's registry card. A recorded failure mode
+    becomes a ``diagnostics`` step carrying its remedy only when the
+    result itself reports the condition (a matching entry in
+    ``violations()``); the full catalogue of failure modes stays in the
+    card (``sp.describe_function``). Each registered alternative is a
+    ``robustness`` step. Returns ``[]`` when the producing function
+    cannot be resolved unambiguously (no guessing).
     """
     function = resolve_function(obj)
     if not function:
         return []
     card = _registry_card(function)
     steps: List[Dict[str, str]] = []
-    for fm in card.get("failure_modes") or []:
-        if not isinstance(fm, Mapping) or not fm.get("remedy"):
+    failure_modes = [
+        fm
+        for fm in card.get("failure_modes") or []
+        if isinstance(fm, Mapping) and fm.get("remedy")
+    ]
+    violations: List[Mapping[str, Any]] = []
+    if failure_modes:
+        try:
+            raw = obj.violations() if callable(getattr(obj, "violations", None)) else []
+        except Exception as exc:  # a detector bug must not hide the alternatives
+            from .workflow._degradation import record_degradation
+
+            record_degradation(
+                obj,
+                section="next_steps",
+                exc=exc,
+                detail="violations() raised; no failure mode could be matched",
+            )
+            raw = []
+        violations = [v for v in raw or [] if isinstance(v, Mapping)]
+    for fm in failure_modes:
+        evidence = _present_failure_mode(fm, violations)
+        if evidence is None:
             continue
         steps.append(
             {
                 "action": str(fm["remedy"]),
-                "reason": f"Known failure mode of sp.{function}: {fm.get('symptom')}",
+                "reason": (
+                    f"Detected on this result ({evidence.get('test')}): "
+                    f"{fm.get('symptom')}"
+                ),
                 "priority": "recommended",
                 "category": "diagnostics",
             }
