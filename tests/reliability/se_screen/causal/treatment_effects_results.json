@@ -1,0 +1,1270 @@
+{
+ "study": "se_screen/treatment_effects",
+ "flag_rule": "coverage outside the band, se_over_sd outside its band, or |bias_over_sd| above its limit; bands are stored per row",
+ "statspai_version": "1.43.1",
+ "rows": [
+  {
+   "id": "ipw.ate.bootstrap",
+   "estimator": "ipw",
+   "call": "sp.ipw(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 141.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99999,
+   "sd_estimate": 0.07468,
+   "coverage": 0.9475,
+   "mean_se": 0.07239,
+   "se_over_sd": 0.969,
+   "bias_over_sd": -0.0,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00335,
+   "sd_estimate": 0.06677,
+   "coverage": 0.9575,
+   "mean_se": 0.07209,
+   "se_over_sd": 1.08,
+   "bias_over_sd": 0.05,
+   "coverage_sample_truth": 0.9625,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.att.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., estimand='ATT', se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.11664,
+   "sd_estimate": 0.08007,
+   "coverage": 0.9575,
+   "mean_se": 0.08154,
+   "se_over_sd": 1.018,
+   "bias_over_sd": 0.054,
+   "coverage_sample_truth": 0.955,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.atc.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., estimand='ATC', se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.8876883160031803,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.88611,
+   "sd_estimate": 0.08577,
+   "coverage": 0.9475,
+   "mean_se": 0.08678,
+   "se_over_sd": 1.012,
+   "bias_over_sd": -0.018,
+   "coverage_sample_truth": 0.96,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.ht.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., normalize=False, se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00287,
+   "sd_estimate": 0.07152,
+   "coverage": 0.9575,
+   "mean_se": 0.07272,
+   "se_over_sd": 1.017,
+   "bias_over_sd": 0.04,
+   "coverage_sample_truth": 0.9625,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.weights.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., weights='w', se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs + independent sampling weights U(0.5, 1.5)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99881,
+   "sd_estimate": 0.07445,
+   "coverage": 0.955,
+   "mean_se": 0.07496,
+   "se_over_sd": 1.007,
+   "bias_over_sd": -0.016,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.cluster.sandwich",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., cluster='g', se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00179,
+   "sd_estimate": 0.09551,
+   "coverage": 0.9525,
+   "mean_se": 0.09114,
+   "se_over_sd": 0.954,
+   "bias_over_sd": 0.019,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.cluster.bootstrap",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., cluster='g')",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 134.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99076,
+   "sd_estimate": 0.09495,
+   "coverage": 0.9275,
+   "mean_se": 0.0915,
+   "se_over_sd": 0.964,
+   "bias_over_sd": -0.097,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ipw.ate.ps_learner",
+   "estimator": "ipw",
+   "call": "sp.ipw(..., ps_learner=LogisticRegression(C=1e6), n_bootstrap=200)",
+   "kind": "ci",
+   "design": "_dgp.obs (n = 600, 200 bootstrap draws, B = 200: each draw refits)",
+   "n": 600,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 185.3,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00115,
+   "sd_estimate": 0.10048,
+   "coverage": 0.96,
+   "mean_se": 0.10361,
+   "se_over_sd": 1.031,
+   "bias_over_sd": 0.011,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.ate",
+   "estimator": "aipw",
+   "call": "sp.aipw(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00473,
+   "sd_estimate": 0.0757,
+   "coverage": 0.925,
+   "mean_se": 0.07035,
+   "se_over_sd": 0.929,
+   "bias_over_sd": 0.062,
+   "coverage_sample_truth": 0.93,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.att",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., estimand='ATT')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.11264,
+   "sd_estimate": 0.07658,
+   "coverage": 0.9475,
+   "mean_se": 0.07658,
+   "se_over_sd": 1.0,
+   "bias_over_sd": 0.004,
+   "coverage_sample_truth": 0.96,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.atc",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., estimand='ATC')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.8876883160031803,
+   "n_failed": 400,
+   "first_error": "ValueError: estimand must be 'ATE' or 'ATT', got 'ATC'",
+   "seconds": 40.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "coverage": null,
+   "se_over_sd": null,
+   "bias_over_sd": null,
+   "flag_reasons": [
+    "failures"
+   ],
+   "flagged": true,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.ate.no_cross_fit",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., cross_fit=False)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 22.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99785,
+   "sd_estimate": 0.06691,
+   "coverage": 0.965,
+   "mean_se": 0.06931,
+   "se_over_sd": 1.036,
+   "bias_over_sd": -0.032,
+   "coverage_sample_truth": 0.96,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.ate.sandwich",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., cross_fit=False, se_method='sandwich')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00489,
+   "sd_estimate": 0.0694,
+   "coverage": 0.9325,
+   "mean_se": 0.06914,
+   "se_over_sd": 0.996,
+   "bias_over_sd": 0.07,
+   "coverage_sample_truth": 0.955,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.ate.weights",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., weights='w')",
+   "kind": "ci",
+   "design": "_dgp.obs + independent sampling weights U(0.5, 1.5)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99777,
+   "sd_estimate": 0.07421,
+   "coverage": 0.9475,
+   "mean_se": 0.07324,
+   "se_over_sd": 0.987,
+   "bias_over_sd": -0.03,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "aipw.ate.cluster",
+   "estimator": "aipw",
+   "call": "sp.aipw(..., cluster='g')",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 3.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99845,
+   "sd_estimate": 0.0903,
+   "coverage": 0.9475,
+   "mean_se": 0.09168,
+   "se_over_sd": 1.015,
+   "bias_over_sd": -0.017,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "g_computation.ate",
+   "estimator": "g_computation",
+   "call": "sp.g_computation(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs with a constant effect (the default single regression has no treatment-covariate interaction)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 40.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99576,
+   "sd_estimate": 0.06748,
+   "coverage": 0.9275,
+   "mean_se": 0.0668,
+   "se_over_sd": 0.99,
+   "bias_over_sd": -0.063,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "g_computation.ate.by_arm",
+   "estimator": "g_computation",
+   "call": "sp.g_computation(..., by_arm=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 19.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00397,
+   "sd_estimate": 0.06543,
+   "coverage": 0.965,
+   "mean_se": 0.06876,
+   "se_over_sd": 1.051,
+   "bias_over_sd": 0.061,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "g_computation.att.by_arm",
+   "estimator": "g_computation",
+   "call": "sp.g_computation(..., estimand='ATT', by_arm=True)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 23.8,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.11059,
+   "sd_estimate": 0.07343,
+   "coverage": 0.9475,
+   "mean_se": 0.07343,
+   "se_over_sd": 1.0,
+   "bias_over_sd": -0.023,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.ate",
+   "estimator": "tmle",
+   "call": "sp.tmle(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 372.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.98711,
+   "sd_estimate": 0.06707,
+   "coverage": 0.9425,
+   "mean_se": 0.06482,
+   "se_over_sd": 0.967,
+   "bias_over_sd": -0.192,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.att",
+   "estimator": "tmle",
+   "call": "sp.tmle(..., estimand='ATT')",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.1123116839968201,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 366.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.09914,
+   "sd_estimate": 0.07349,
+   "coverage": 0.9225,
+   "mean_se": 0.06856,
+   "se_over_sd": 0.933,
+   "bias_over_sd": -0.179,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.atc.glm",
+   "estimator": "tmle",
+   "call": "sp.tmle(..., estimand='ATC', outcome_library=[OLS], propensity_library=[logit])",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 0.8876883160031803,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.89047,
+   "sd_estimate": 0.07453,
+   "coverage": 0.945,
+   "mean_se": 0.07362,
+   "se_over_sd": 0.988,
+   "bias_over_sd": 0.037,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.ate.per_arm.glm",
+   "estimator": "tmle",
+   "call": "sp.tmle(..., fluctuation='per_arm', GLM libraries)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00612,
+   "sd_estimate": 0.07002,
+   "coverage": 0.945,
+   "mean_se": 0.06961,
+   "se_over_sd": 0.994,
+   "bias_over_sd": 0.087,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.ey1.glm",
+   "estimator": "tmle",
+   "call": "sp.tmle(..., estimand='EY1', GLM libraries)",
+   "kind": "ci",
+   "design": "_dgp.obs (E[Y(1)] = 1 + TAU0 = 2)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 2.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.1,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 2.00394,
+   "sd_estimate": 0.06911,
+   "coverage": 0.95,
+   "mean_se": 0.06964,
+   "se_over_sd": 1.008,
+   "bias_over_sd": 0.057,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "tmle.ate.cluster.glm",
+   "estimator": "tmle",
+   "call": "sp.tmle(..., cluster='g', GLM libraries)",
+   "kind": "ci",
+   "design": "_dgp.obs_clustered, 100 clusters of 10",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 4.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99973,
+   "sd_estimate": 0.08938,
+   "coverage": 0.94,
+   "mean_se": 0.09077,
+   "se_over_sd": 1.015,
+   "bias_over_sd": -0.003,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "ctmle.ate",
+   "estimator": "ctmle",
+   "call": "sp.ctmle(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs (n = 500, B = 200: 15 s per fit at n = 1000)",
+   "n": 500,
+   "B": 200,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 754.2,
+   "bands": {
+    "coverage": [
+     0.9103,
+     0.9897
+    ],
+    "se_over_sd": [
+     0.8303,
+     1.1697
+    ],
+    "bias_over_sd": [
+     -0.3536,
+     0.3536
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.98049,
+   "sd_estimate": 0.09775,
+   "coverage": 0.915,
+   "mean_se": 0.08754,
+   "se_over_sd": 0.896,
+   "bias_over_sd": -0.2,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "hal_tmle.ate",
+   "estimator": "hal_tmle",
+   "call": "sp.hal_tmle(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.obs",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 62.2,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00368,
+   "sd_estimate": 0.07079,
+   "coverage": 0.9475,
+   "mean_se": 0.06948,
+   "se_over_sd": 0.982,
+   "bias_over_sd": 0.052,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "difference_in_means",
+   "estimator": "difference_in_means",
+   "call": "sp.difference_in_means(df, y, d)",
+   "kind": "ci",
+   "design": "_dgp.rct (Bernoulli(0.5) assignment)",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.6,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.0041,
+   "sd_estimate": 0.10104,
+   "coverage": 0.97,
+   "mean_se": 0.10704,
+   "se_over_sd": 1.059,
+   "bias_over_sd": 0.041,
+   "coverage_sample_truth": 0.9675,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "difference_in_means.blocks",
+   "estimator": "difference_in_means",
+   "call": "sp.difference_in_means(..., blocks='block')",
+   "kind": "ci",
+   "design": "four blocks with treatment shares 0.3 / 0.5 / 0.5 / 0.7 and a block effect",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 1.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00109,
+   "sd_estimate": 0.11605,
+   "coverage": 0.95,
+   "mean_se": 0.1124,
+   "se_over_sd": 0.969,
+   "bias_over_sd": 0.009,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "difference_in_means.cluster",
+   "estimator": "difference_in_means",
+   "call": "sp.difference_in_means(..., cluster='g')",
+   "kind": "ci",
+   "design": "cluster-randomised, 100 clusters of 10, ICC 1/3",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00369,
+   "sd_estimate": 0.15693,
+   "coverage": 0.955,
+   "mean_se": 0.15526,
+   "se_over_sd": 0.989,
+   "bias_over_sd": 0.024,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "lm_lin",
+   "estimator": "lm_lin",
+   "call": "sp.lm_lin(df, y, d, X)",
+   "kind": "ci",
+   "design": "_dgp.rct",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.7,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00186,
+   "sd_estimate": 0.0659,
+   "coverage": 0.935,
+   "mean_se": 0.06327,
+   "se_over_sd": 0.96,
+   "bias_over_sd": 0.028,
+   "coverage_sample_truth": 0.95,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "lm_lin.superpopulation",
+   "estimator": "lm_lin",
+   "call": "sp.lm_lin(..., superpopulation=True)",
+   "kind": "ci",
+   "design": "_dgp.rct",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 2.5,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 0.99747,
+   "sd_estimate": 0.06566,
+   "coverage": 0.9325,
+   "mean_se": 0.06532,
+   "se_over_sd": 0.995,
+   "bias_over_sd": -0.038,
+   "coverage_sample_truth": 0.9425,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  },
+  {
+   "id": "lm_lin.cluster",
+   "estimator": "lm_lin",
+   "call": "sp.lm_lin(..., cluster='g')",
+   "kind": "ci",
+   "design": "cluster-randomised, 100 clusters of 10, ICC 1/3, effect 1 + 0.5 x1",
+   "n": 1000,
+   "B": 400,
+   "nominal": 0.95,
+   "truth": 1.0,
+   "n_failed": 0,
+   "first_error": "",
+   "seconds": 5.0,
+   "bands": {
+    "coverage": [
+     0.918,
+     0.985
+    ],
+    "se_over_sd": [
+     0.88,
+     1.12
+    ],
+    "bias_over_sd": [
+     -0.25,
+     0.25
+    ]
+   },
+   "n_nonfinite": 0,
+   "mean_estimate": 1.00283,
+   "sd_estimate": 0.16015,
+   "coverage": 0.94,
+   "mean_se": 0.15539,
+   "se_over_sd": 0.97,
+   "bias_over_sd": 0.018,
+   "flag_reasons": [],
+   "flagged": false,
+   "mechanism": ""
+  }
+ ]
+}
