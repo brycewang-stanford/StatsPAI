@@ -3062,21 +3062,33 @@
       "tolerance": "Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI)."
     },
     {
+      "additional_tests": [
+        "tests/external_parity/test_facure_causal_inference_in_python.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
       "function": "cate_gain_curve",
       "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+        "Frozen fixture from the Apache-2.0 fklearn package: 3,000 randomized rows, a continuous and a binary treatment, an informative and an uninformative ranking without ties, steps at the top 30, 60, ..., 3,000 units on both sides. The bootstrap standard error of the area has no counterpart in fklearn and is outside this grade."
       ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "fklearn.causal.validation.curves.effect_curves and effect_by_segment (linear_effect)",
+      "reference_versions": {
+        "fklearn": "4.3.0",
+        "pandas": "3.1.1",
+        "python": "3.11.15"
+      },
       "sides": [
         "py"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/external_parity/test_facure_causal_inference_in_python.py"
+        "tests/reference_parity/test_cate_gain_curve_fklearn_parity.py",
+        "tests/reference_parity/_fixtures/cate_gain_curve_fklearn.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 relative on the cumulative effect, the cumulative and relative gain at each of 100 steps, the area and the ten quantile effects (observed 4e-14)"
     },
     {
       "function": "cate_pretrend_test",
@@ -4111,21 +4123,36 @@
       "tolerance": ""
     },
     {
-      "function": "compare_metalearners",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_oct2026_third_pass.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "compare_metalearners",
+      "notes": [
+        "Frozen fixtures: the average effect every row reports is the cross-fitted AIPW estimate, which equals DoubleML's interactive regression model under the same five folds, least squares for the arm outcomes, logistic regression for the propensity and trimming at 0.01. Convention: DoubleML's standard error divides by n, StatsPAI's by n - 1; the test rescales. The spread columns are compared for the T- and X-learner. DoubleML is MIT licensed."
+      ],
+      "reference": "R DoubleML::DoubleMLIRM(score = 'ATE') on supplied folds for the average effect; econml TLearner / XLearner for the spread of the effects",
+      "reference_versions": {
+        "DoubleML": "1.0.2",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "econml": "0.16.0",
+        "mlr3": "1.6.0",
+        "mlr3learners": "0.14.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_metalearner_tools_parity.py",
+        "tests/reference_parity/_fixtures/metalearner_doubleml_R.json",
+        "tests/reference_parity/_fixtures/metalearner_econml.json"
+      ],
+      "tolerance": "1e-9 relative on the average effect and its standard error (observed 1e-15); 1e-10 absolute on cate_std and cate_iqr"
     },
     {
       "also_verified_by": [
@@ -14825,6 +14852,7 @@
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
         "tests/reference_parity/test_closed_form_identities.py",
+        "tests/reference_parity/test_metalearner_tools_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_yuksel_aydede_causal_ml_parity.py"
@@ -18556,21 +18584,32 @@
       "tolerance": "coefficients, standard errors, rho, R-squared, F, root MSE and both Durbin-Watson statistics 1e-9 relative (observed 2.5e-15)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "predict_cate",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen fixture from the MIT-licensed econml package with the same base learners on both sides: ridge outcome models and least-squares effect models (so the T- and X-learner are different functions) and a Newton logistic propensity. The S-learner is compared with least squares only: under a penalised learner econml appends both treatment indicators and StatsPAI one, a convention the test pins on both sides. The R- and DR-learner have no same-specification counterpart in econml and are outside this grade."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "econml.metalearners SLearner / TLearner / XLearner .effect() on new rows",
+      "reference_versions": {
+        "econml": "0.16.0",
+        "python": "3.11.0",
+        "scikit-learn": "1.6.1"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_metalearner_tools_parity.py",
+        "tests/reference_parity/_fixtures/metalearner_econml.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on the predicted effect at 200 new rows (observed 1e-15)"
     },
     {
       "additional_tests": [

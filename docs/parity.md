@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 525 |
+| **Compared against R/Stata** (T2) | bit-exact | 528 |
 | | aligned | 76 |
-| | **subtotal** | **601** |
-| **No external software reference** | analytical-only (T1) | 372 |
-| | external-replication (published numbers) | 55 |
-| | **subtotal** | **427** |
+| | **subtotal** | **604** |
+| **No external software reference** | analytical-only (T1) | 370 |
+| | external-replication (published numbers) | 54 |
+| | **subtotal** | **424** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 601 | 1009 | 1009 | 59.6% |
+| estimator callables | 604 | 1009 | 1009 | 59.9% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 601 | 1028 | 1680 | 35.8% |
+| **all registered** | 604 | 1028 | 1680 | 36.0% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 196 | 363 | 363 |
+| causal | 199 | 363 | 363 |
 | regression | 55 | 65 | 65 |
 | inference | 34 | 58 | 58 |
 | timeseries | 24 | 53 | 53 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 525 functions
+## bit-exact — 528 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -145,6 +145,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `calibrate_confounding_strength` | R sensemakr::ovb_bounds (kd = ky = k) | sensemakr 0.1.6 | 1e-12 rel (CI 1e-10) | — / — | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `calibration_test` | grf::test_calibration 2.6.1 (vcov.type HC3 default and HC1), forest outputs held fixed | R 4.5.2; grf 2.6.1; sandwich 3.1.1 | coef, se, t 1e-10 rel (observed 1.1e-15); one-sided p-value 1e-8 rel (observed 1.6e-13) | — / — | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) (+1) |
 | `callaway_santanna` | did::att_gt + aggte | R 4.5.2; did 2.5.1 | rel_est<=1e-06, rel_se<=1e-09 | 1.3e-15 / 1.3e-15 | [`04_csdid.py`](../tests/r_parity/04_csdid.py) (+2) |
+| `cate_gain_curve` | fklearn.causal.validation.curves.effect_curves and effect_by_segment (linear_effect) | python 3.11.15; fklearn 4.3.0; pandas 3.1.1 | 1e-10 relative on the cumulative effect, the cumulative and relative gain at each of 100 steps, the area and the ten quantile effects (observed 4e-14) | — / — | [`test_cate_gain_curve_fklearn_parity.py`](../tests/reference_parity/test_cate_gain_curve_fklearn_parity.py) (+1) |
 | `cgs_continuous_did` | contdid::cont_did | R 4.5.2; contdid 0.1.1 | rel_est<=1e-06 | 2.4e-14 / — | [`80_contdid.py`](../tests/r_parity/80_contdid.py) (+1) |
 | `clogit` | survival::clogit | R 4.5.2; survival 3.8.3 | rel_est<=1e-06, rel_se<=1e-06 | 2.0e-13 / 1.2e-10 | [`46_clogit.py`](../tests/r_parity/46_clogit.py) (+2) |
 | `clone_censor_weight` | ipw::ipwtm(type = 'cens', family = 'binomial', link = 'logit') on the at-risk rows of each strategy, stabilised (numerator ~1) and unstabilised | R 4.5.2; ipw 1.3.0; ltmle 1.3.0; sandwich 3.1.1; SuperLearner 2.0.40 | 1e-9 relative on every weight (observed 6.6e-15); uncensored (id, time) rows identical | — / — | [`test_tte_longitudinal_r_parity.py`](../tests/reference_parity/test_tte_longitudinal_r_parity.py) (+1) |
@@ -156,6 +157,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `cmtest` | R micsr 0.1-5 `cmtest` (Croissant 2025, Microeconometrics with R) | micsr 0.1-5 | Tobit: normality, heteroskedasticity, skewness and kurtosis statistics, Hessian form and outer-product form, at 1e-9 (observed 4e-11 to 4e-16). Probit: 1e-6 (observed 8e-7 and 4e-8); micsr::binomreg stops 1e-8 short of the probit optimum and the statistic inherits it, the coefficients of both sides are compared in the same test. | — / — | [`test_cmtest_micsr_parity.py`](../tests/reference_parity/test_cmtest_micsr_parity.py) |
 | `cnsreg` | Stata cnsreg with two linear constraints (default, vce(robust), vce(cluster)) | Stata 18 | coefficients, standard errors, root MSE and F 1e-9 relative | — / — | [`test_hansen_methods_stata_parity.py`](../tests/reference_parity/test_hansen_methods_stata_parity.py) (+1) |
 | `cohen_kappa` | base-R closed form (Cohen's kappa point estimate) | R 4.5.2 | kappa + agreements 1e-12 abs (observed ~1e-16); SE not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
+| `compare_metalearners` | R DoubleML::DoubleMLIRM(score = 'ATE') on supplied folds for the average effect; econml TLearner / XLearner for the spread of the effects | R 4.5.2; DoubleML 1.0.2; mlr3 1.6.0; mlr3learners 0.14.0; econml 0.16.0 | 1e-9 relative on the average effect and its standard error (observed 1e-15); 1e-10 absolute on cate_std and cate_iqr | — / — | [`test_metalearner_tools_parity.py`](../tests/reference_parity/test_metalearner_tools_parity.py) (+2) |
 | `conformal_counterfactual` | cfcausal conformalCf_split steps with estimand='unconditional' (cfcausal::conformal per arm, weights 1/e(x) and 1/(1-e(x))), split supplied | R 4.5.2; cfcausal 0.2.1 (GitHub lihualei71/cfcausal e4ca670); conformalInference 1.1 (GitHub ryantibs/conformal 15c51c6) | 1e-12 relative on both arms' lower, upper and centre (observed <= 2.1e-15); infinite band where overlap fails | — / — | [`test_conformal_cfcausal_r_parity.py`](../tests/reference_parity/test_conformal_cfcausal_r_parity.py) (+1) |
 | `conformal_synth` | scinference (Chernozhukov-Wuthrich-Zhu authors' package, GitHub kwuthrich/scinference 567c688): estimation_method='sc', permutation_method='mb' | R 4.5.2; scinference 0.0.0.9000 567c6889ce0a1d269a62d415b88aa6baf723a3fe; limSolve 2.0.3; quadprog 1.5.8 | p-values exact (rank statistics); ATT 1e-9 rel (observed 9e-16); CI end points exact on the grid | — / — | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) (+1) |
 | `conley` | Stata acreg (Colella, Lalive, Sakalli & Thoenig) | Stata 18 MP; acreg 1.1.0 | SE 1e-9 rel (observed ~5e-15); absorbed-IV spatial 1e-10 | — / — | [`test_conley_acreg_spacetime_parity.py`](../tests/reference_parity/test_conley_acreg_spacetime_parity.py) (+1) |
@@ -465,6 +467,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `power_two_proportions` | base-R closed form (unpooled Wald two-proportion z-approx, test='wald') | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
 | `ppmlhdfe` | fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=2e-06 | 4.9e-13 / 2.2e-15 | [`37_ppmlhdfe.py`](../tests/r_parity/37_ppmlhdfe.py) (+2) |
 | `prais` | Stata prais: Prais-Winsten and Cochrane-Orcutt, rhotype regress / freg / tscorr / dw / theil / nagar, iterated and twostep, vce(robust) / vce(hc2) / vce(hc3) | Stata 18 | coefficients, standard errors, rho, R-squared, F, root MSE and both Durbin-Watson statistics 1e-9 relative (observed 2.5e-15) | — / — | [`test_regcmd_stata_r_parity.py`](../tests/reference_parity/test_regcmd_stata_r_parity.py) (+1) |
+| `predict_cate` | econml.metalearners SLearner / TLearner / XLearner .effect() on new rows | python 3.11.0; econml 0.16.0; scikit-learn 1.6.1 | 1e-10 absolute on the predicted effect at 200 new rows (observed 1e-15) | — / — | [`test_metalearner_tools_parity.py`](../tests/reference_parity/test_metalearner_tools_parity.py) (+1) |
 | `pretrends_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2; pretrends 0.1.0 | rel_est<=1e-06 | 1.6e-08 / — | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2; pretrends 0.1.0 | rel_est<=1e-06 | 1.6e-08 / — | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `prevalence_ratio` | base-R closed form (Katz-log; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed ~2e-16) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
@@ -712,7 +715,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=3e-06, rel_se<=1e-06 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 55 functions
+## external-replication — 54 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -727,7 +730,6 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `bds` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `bitest` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 | `boxcox_lambda` | [`test_hyndman_fpp_pythonic.py`](../tests/external_parity/test_hyndman_fpp_pythonic.py) |
-| `cate_gain_curve` | [`test_facure_causal_inference_in_python.py`](../tests/external_parity/test_facure_causal_inference_in_python.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
 | `chow_test` | [`test_maitra_static_dynamic.py`](../tests/external_parity/test_maitra_static_dynamic.py) |
 | `conformal_regression` | [`test_ding_linear_model.py`](../tests/external_parity/test_ding_linear_model.py) |
@@ -774,7 +776,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 372 functions
+## analytical-only — 370 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -866,7 +868,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `cluster_staggered_rollout` | [`test_oct2026_correctness_fixes.py`](../tests/reference_parity/test_oct2026_correctness_fixes.py) |
 | `cohort_anchored_event_study` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `compare_event_study_conventions` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
-| `compare_metalearners` | [`test_oct2026_third_pass.py`](../tests/reference_parity/test_oct2026_third_pass.py) |
 | `conformal` | [`test_linear_model_extensions_parity.py`](../tests/reference_parity/test_linear_model_extensions_parity.py) (+1) |
 | `conformal_cate` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) (+1) |
 | `conformal_continuous` | [`test_conformal_cfcausal_r_parity.py`](../tests/reference_parity/test_conformal_cfcausal_r_parity.py) (+1) |
@@ -1025,7 +1026,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `power_rd` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `ppi_mean` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) (+1) |
 | `ppi_ols` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
-| `predict_cate` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `pretrends_equivalence` | [`test_fect_equivalence_parity.py`](../tests/reference_parity/test_fect_equivalence_parity.py) |
 | `pretrends_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `pretrends_test` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) (+1) |

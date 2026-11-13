@@ -9948,6 +9948,100 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+# metalearners family (parity-graph line, 2026-11-13).
+_ML_TOOLS = "tests/reference_parity/test_metalearner_tools_parity.py"
+_FROZEN_PROMOTIONS.update(
+    {
+        "predict_cate": {
+            "status": "bit-exact",
+            "reference": "econml.metalearners SLearner / TLearner / "
+            "XLearner .effect() on new rows",
+            "reference_versions": {
+                "python": "3.11.0",
+                "econml": "0.16.0",
+                "scikit-learn": "1.6.1",
+            },
+            "tolerance": "1e-10 absolute on the predicted effect at 200 "
+            "new rows (observed 1e-15)",
+            "sides": ["py"],
+            "test": [
+                _ML_TOOLS,
+                "tests/reference_parity/_fixtures/metalearner_econml.json",
+            ],
+            "note": (
+                "Frozen fixture from the MIT-licensed econml package with "
+                "the same base learners on both sides: ridge outcome "
+                "models and least-squares effect models (so the T- and "
+                "X-learner are different functions) and a Newton logistic "
+                "propensity. The S-learner is compared with least squares "
+                "only: under a penalised learner econml appends both "
+                "treatment indicators and StatsPAI one, a convention the "
+                "test pins on both sides. The R- and DR-learner have no "
+                "same-specification counterpart in econml and are outside "
+                "this grade."
+            ),
+        },
+        "compare_metalearners": {
+            "status": "bit-exact",
+            "reference": "R DoubleML::DoubleMLIRM(score = 'ATE') on "
+            "supplied folds for the average effect; econml TLearner / "
+            "XLearner for the spread of the effects",
+            "reference_versions": {
+                "R": _PG_R,
+                "DoubleML": "1.0.2",
+                "mlr3": "1.6.0",
+                "mlr3learners": "0.14.0",
+                "econml": "0.16.0",
+            },
+            "tolerance": "1e-9 relative on the average effect and its "
+            "standard error (observed 1e-15); 1e-10 absolute on cate_std "
+            "and cate_iqr",
+            "sides": ["py", "R"],
+            "test": [
+                _ML_TOOLS,
+                "tests/reference_parity/_fixtures/metalearner_doubleml_R.json",
+                "tests/reference_parity/_fixtures/metalearner_econml.json",
+            ],
+            "note": (
+                "Frozen fixtures: the average effect every row reports is "
+                "the cross-fitted AIPW estimate, which equals DoubleML's "
+                "interactive regression model under the same five folds, "
+                "least squares for the arm outcomes, logistic regression "
+                "for the propensity and trimming at 0.01. Convention: "
+                "DoubleML's standard error divides by n, StatsPAI's by n - "
+                "1; the test rescales. The spread columns are compared "
+                "for the T- and X-learner. DoubleML is MIT licensed."
+            ),
+        },
+        "cate_gain_curve": {
+            "status": "bit-exact",
+            "reference": "fklearn.causal.validation.curves.effect_curves "
+            "and effect_by_segment (linear_effect)",
+            "reference_versions": {
+                "python": "3.11.15",
+                "fklearn": "4.3.0",
+                "pandas": "3.1.1",
+            },
+            "tolerance": "1e-10 relative on the cumulative effect, the "
+            "cumulative and relative gain at each of 100 steps, the area "
+            "and the ten quantile effects (observed 4e-14)",
+            "sides": ["py"],
+            "test": [
+                "tests/reference_parity/test_cate_gain_curve_fklearn_parity.py",
+                "tests/reference_parity/_fixtures/cate_gain_curve_fklearn.json",
+            ],
+            "note": (
+                "Frozen fixture from the Apache-2.0 fklearn package: "
+                "3,000 randomized rows, a continuous and a binary "
+                "treatment, an informative and an uninformative ranking "
+                "without ties, steps at the top 30, 60, ..., 3,000 units "
+                "on both sides. The bootstrap standard error of the area "
+                "has no counterpart in fklearn and is outside this grade."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers
