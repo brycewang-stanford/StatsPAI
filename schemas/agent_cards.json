@@ -20394,7 +20394,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 ranksum [Stata 18]; tolerance z, rank sum and adjusted variance 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 ranksum [Stata 18]; tolerance z, rank sum and adjusted variance 1e-9 rel -- tests/reference_parity/test_kohler_kreuter_stata_parity.py",
+      "tests/reference_parity/test_probe_econ_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -105619,7 +105620,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py"
+      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py",
+      "tests/reference_parity/test_probe_econ_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -123407,7 +123409,8 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
-      "tests/reference_parity/test_oaxaca_threefold_r_parity.py"
+      "tests/reference_parity/test_oaxaca_threefold_r_parity.py",
+      "tests/reference_parity/test_probe_econ_parity.py"
     ],
     "validation_status": "certified"
   },

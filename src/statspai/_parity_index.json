@@ -1227,6 +1227,12 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_probe_econ_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "balance_table",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -16868,7 +16874,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_oaxaca_threefold_r_parity.py"
+        "tests/reference_parity/test_oaxaca_threefold_r_parity.py",
+        "tests/reference_parity/test_probe_econ_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -19678,6 +19685,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_probe_econ_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "ranksum",
       "notes": [
         "Frozen-Stata fixture: the do-file kk_syllabus_reference.do is run through one sp.stata session on the committed synthetic file and every emitted r() / e() value is compared with what Stata 18 wrote."
