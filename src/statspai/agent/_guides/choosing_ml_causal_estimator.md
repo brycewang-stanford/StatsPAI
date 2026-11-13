@@ -42,7 +42,7 @@ appropriate sub-model from your declarations:
 | Binary    | none        | `irm` (interactive)    | ATE      |
 | Continuous| none        | `plr` (partially linear)| ATE     |
 | Binary    | one binary  | `iivm` (interactive IV)| LATE     |
-| Any       | one+        | `pliv` (partially linear IV) | LATE |
+| Any       | one+        | `pliv` (partially linear IV) | theta, the partially linear IV coefficient (a LATE only under the IIVM conditions) |
 
 ```python
 import statspai as sp

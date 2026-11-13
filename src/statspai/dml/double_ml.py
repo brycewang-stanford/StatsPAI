@@ -84,7 +84,9 @@ def dml(
 
         - ``'plr'`` : partially linear (continuous or binary D)
         - ``'irm'`` : interactive regression (binary D; ATE via AIPW)
-        - ``'pliv'`` : partially linear IV (endogenous D with instrument Z)
+        - ``'pliv'`` : partially linear IV (endogenous D with instrument Z;
+          the estimand is the model's coefficient ``theta``, labelled
+          ``'theta'``, not a LATE in general)
         - ``'iivm'`` : interactive IV (binary D, binary Z; LATE via Wald ratio)
 
     instrument : str, optional
@@ -297,7 +299,7 @@ def dml(
     ...                 covariates=['age', 'edu'],
     ...                 model='pliv', instrument='Z')
     >>> result.method, result.estimand
-    ('Double ML (PLIV)', 'LATE')
+    ('Double ML (PLIV)', 'theta')
 
     >>> # Interactive IV — binary D, binary Z (LATE)
     >>> df['lottery_win'] = rng.binomial(1, 0.5, n)

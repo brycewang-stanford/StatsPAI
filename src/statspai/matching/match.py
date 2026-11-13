@@ -975,6 +975,13 @@ def _mahalanobis_inverse(cov: np.ndarray) -> np.ndarray:
     return np.asarray(pinv / np.outer(scale, scale), dtype=float)
 
 
+#: The denominator of every SMD ``sp.match`` reports, before and after
+#: matching: ``sqrt((s_t^2 + s_c^2) / 2)`` with the two arms' sample
+#: variances taken in the raw (unmatched, unweighted) estimation sample.
+#: ``cobalt::bal.tab(s.d.denom = "pooled")`` standardizes the same way.
+_SMD_DENOMINATOR = "pooled SD of the two arms in the raw sample"
+
+
 def _standardized_difference(mean_t: float, mean_c: float, sd_pool: float) -> float:
     """``(mean_t - mean_c) / sd_pool``, with a constant covariate handled.
 
@@ -2146,7 +2153,9 @@ class MatchEstimator:
         # (age -1.20, re75 -2.17 on nsw_dw) as the balance after matching.
         if isinstance(balance, pd.DataFrame):
             balance.attrs["stage"] = "before matching"
+            balance.attrs["smd_denominator"] = _SMD_DENOMINATOR
             result.model_info["balance_before"] = balance
+            result.model_info["smd_denominator"] = _SMD_DENOMINATOR
             covs = balance[balance["variable"] != "propensity_score"]
             if len(covs):
                 result.model_info["max_abs_smd_before"] = float(covs["smd"].abs().max())
@@ -4458,8 +4467,11 @@ def _matched_balance(
     Means are weighted by the matched-frame weights (``_weight``: how often
     a control is used, or the kernel / stratum weight). The denominator is
     the pooled standard deviation of the *raw* sample, the one the
-    before-matching table uses, so the two tables are comparable (the
-    MatchIt / cobalt convention).
+    before-matching table uses, so the two tables are comparable
+    (``cobalt::bal.tab(s.d.denom = "pooled")``; cobalt's own default for
+    an ATT is the treated group's standard deviation, which is what
+    ``sp.bal_tab(estimand='ATT')`` uses). The convention is recorded in
+    ``attrs['smd_denominator']``.
     """
     if not {"_weight", "_treated"} <= set(matched.columns):
         return None
@@ -4492,6 +4504,7 @@ def _matched_balance(
         return None
     out = pd.DataFrame(rows)
     out.attrs["stage"] = "after matching"
+    out.attrs["smd_denominator"] = _SMD_DENOMINATOR
     return out
 
 

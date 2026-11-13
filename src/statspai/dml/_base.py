@@ -145,7 +145,7 @@ class _DoubleMLBase:
 
     # Overridden by subclasses
     _MODEL_TAG: str = ""  # short label, used in method= string
-    _ESTIMAND: str = "ATE"  # 'ATE' or 'LATE'
+    _ESTIMAND: str = "ATE"  # 'ATE', 'LATE' (IIVM) or 'theta' (PLR, PLIV)
     _REQUIRES_INSTRUMENT: bool = False
     # Whether ``ml_m`` / ``ml_r`` model a binary target, i.e. should
     # default to a classifier and accept binary learner aliases. Naming

@@ -57,7 +57,9 @@ class TestDMLPLIV:
         )
         assert abs(r.estimate - 1.5) < 0.2
         assert r.se > 0 and r.se < 0.2
-        assert r.estimand == "LATE"
+        # the coefficient of the partially linear IV model, not a LATE
+        # (owner decision 2026-11-13; label only)
+        assert r.estimand == "theta"
         assert r.model_info["dml_model"] == "PLIV"
 
     def test_pliv_ci_covers_truth(self, dgp_pliv):

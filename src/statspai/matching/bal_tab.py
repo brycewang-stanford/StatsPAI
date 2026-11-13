@@ -297,6 +297,15 @@ def bal_tab(
     deviations by default), the denominators here are always the
     unweighted ones.
 
+    Denominator of the standardized differences. It is recorded in the
+    result (``s_d_denom``: ``'pooled'`` for the ATE, ``'treated'`` for the
+    ATT, ``'control'`` for the ATC, unless overridden) and always computed
+    in the unweighted sample. ``sp.match`` reports its own balance tables
+    with the pooled standard deviation of the raw sample for every
+    estimand (``s_d_denom='pooled'`` here reproduces them), and
+    ``sp.love_plot`` uses the pooled standard deviation of the *weighted*
+    sample, so the three do not agree on an ATT.
+
     Examples
     --------
     >>> import numpy as np, pandas as pd

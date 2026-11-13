@@ -81,7 +81,14 @@ class DoubleMLPLIV(_DoubleMLBase):
     Direct entry point for the partially linear IV model
     ``Y = theta * D + g(X) + eps`` with ``E[eps | Z, X] = 0``. Usually
     reached through the dispatcher ``sp.dml(..., model='pliv')``; an
-    instrument column must be supplied.
+    instrument column must be supplied. The result's ``estimand`` is
+    ``'theta'``, the coefficient of this model (DoubleML's target
+    parameter). It is not a local average treatment effect in general;
+    with a binary instrument and a binary treatment use
+    ``model='iivm'`` for the LATE.
+
+    .. versionchanged:: 1.44
+       ``estimand`` was ``'LATE'``. The number is unchanged.
 
     Examples
     --------
@@ -106,7 +113,12 @@ class DoubleMLPLIV(_DoubleMLBase):
     """
 
     _MODEL_TAG = "PLIV"
-    _ESTIMAND = "LATE"
+    # The coefficient theta of the partially linear IV model, DoubleML's
+    # target parameter theta_0 (the label PLR uses too). It is a LATE only
+    # under further conditions (binary instrument and treatment,
+    # monotonicity), which is the IIVM model; it was labelled 'LATE'
+    # through 1.43.1.
+    _ESTIMAND = "theta"
     _REQUIRES_INSTRUMENT = True
     _ML_M_TARGET_BINARY = False
     _ML_R_TARGET_BINARY = False

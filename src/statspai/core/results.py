@@ -2674,6 +2674,25 @@ def _format_pvalue(value: Any) -> str:
 _AUTO = "auto"
 
 
+def _balance_stage(table: Any) -> Optional[str]:
+    """``attrs['stage']`` of a covariate-balance table, else ``None``.
+
+    ``sp.match`` labels the balance table it stores as ``detail`` with
+    ``'before matching'`` and the matched sample's table
+    (``model_info['balance_after']``) with ``'after matching'``.
+    """
+    if not isinstance(table, pd.DataFrame) or "smd" not in table.columns:
+        return None
+    stage = table.attrs.get("stage")
+    return str(stage) if stage else None
+
+
+def _balance_footnote(table: pd.DataFrame) -> List[str]:
+    """One line naming the SMD denominator, when the table records it."""
+    denom = table.attrs.get("smd_denominator")
+    return [f"  smd = difference in means / {denom}"] if denom else []
+
+
 class CausalResult(DiDAccessorsMixin):
     """
     Unified result object for all causal inference methods in StatsPAI.
@@ -4467,11 +4486,33 @@ class CausalResult(DiDAccessorsMixin):
             else:
                 cols = list(self.detail.columns)
                 title_str = "Detailed Estimates"
+            # A balance table says which sample it describes
+            # (``detail.attrs['stage']``, set by sp.match): the table under
+            # an unlabelled heading was read as the balance after matching
+            # when it is the balance before.
+            stage = _balance_stage(self.detail)
+            if stage is not None:
+                title_str = f"Covariate Balance, {stage}"
             lines.append("-" * 78)
             lines.append(f"  {title_str}")
             lines.append("-" * 78)
             lines.append(self.detail[cols].to_string(index=False, float_format="%.4f"))
+            lines.extend(_balance_footnote(self.detail))
             lines.append("")
+            after = self.model_info.get("balance_after")
+            after_stage = _balance_stage(after)
+            if (
+                stage is not None
+                and after_stage is not None
+                and isinstance(after, pd.DataFrame)
+                and len(after) > 0
+            ):
+                lines.append("-" * 78)
+                lines.append(f"  Covariate Balance, {after_stage}")
+                lines.append("-" * 78)
+                lines.append(after.to_string(index=False, float_format="%.4f"))
+                lines.extend(_balance_footnote(after))
+                lines.append("")
 
         # Pre-trend test
         # ``None`` when no test was run (``pretest='none'``, or an event

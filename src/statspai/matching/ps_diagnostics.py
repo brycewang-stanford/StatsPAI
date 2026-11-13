@@ -775,6 +775,15 @@ def ps_balance(
         )
 
     table = pd.DataFrame(rows).set_index("variable")
+    # Which standard deviation the two SMD columns divide by.
+    table.attrs["smd_denominator"] = {
+        "smd_raw": "pooled SD of the two arms, unweighted sample",
+        "smd_weighted": (
+            "pooled SD of the two arms, weighted sample"
+            if sd_denom == "weighted"
+            else "pooled SD of the two arms, unweighted sample"
+        ),
+    }
     if not complete.all():
         ps = ps.reindex(full_index)
     return PSBalanceResult(table=table, ps=ps)
@@ -1201,6 +1210,23 @@ def love_plot(
     Returns
     -------
     (fig, ax) : tuple
+
+    Notes
+    -----
+    Denominator of the plotted standardized mean differences. Both
+    series divide the difference in means by a pooled standard deviation,
+    ``sqrt((s_t^2 + s_c^2) / 2)``. The unadjusted series uses the
+    unweighted group variances. The adjusted ("Weighted") series uses the
+    *weighted* group variances, the convention of Austin and Stuart
+    (2015), which is ``sp.ps_balance(sd_denom='weighted')``. The other
+    balance tables of the package standardize differently, so the same
+    weights give different numbers: ``sp.match`` (``detail`` and
+    ``model_info['balance_after']``) divides by the pooled standard
+    deviation of the raw sample before and after matching, and
+    ``sp.bal_tab`` follows R ``cobalt`` (unweighted standard deviation;
+    pooled for the ATE, the treated group's for the ATT). For a plot on
+    the ``cobalt`` scale use ``sp.ps_balance(..., sd_denom='unweighted')``
+    and its ``.love_plot()``.
 
     Examples
     --------

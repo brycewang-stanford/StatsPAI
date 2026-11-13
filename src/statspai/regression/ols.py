@@ -1829,8 +1829,10 @@ def regress(
         Data containing variables
     robust : str, default 'nonrobust'
         Type of standard errors ('nonrobust', 'hc0'–'hc4', 'hac', 'ewc';
-        case-insensitive). ``'hac'`` is Newey-West with normal critical
-        values. ``'ewc'`` is the equal-weighted cosine estimator of
+        case-insensitive). ``'hac'`` is Newey-West; its p-values and
+        confidence intervals use t critical values with ``N - K`` degrees
+        of freedom, as Stata ``newey`` reports (not the normal
+        distribution). ``'ewc'`` is the equal-weighted cosine estimator of
         Lazarus, Lewis, Stock and Watson (2018), with t and F critical
         values whose degrees of freedom are the number of cosine terms: in
         time-series regressions it rejects a true null much less often than
