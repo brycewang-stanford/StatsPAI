@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 528 |
+| **Compared against R/Stata** (T2) | bit-exact | 529 |
 | | aligned | 76 |
-| | **subtotal** | **604** |
-| **No external software reference** | analytical-only (T1) | 370 |
+| | **subtotal** | **605** |
+| **No external software reference** | analytical-only (T1) | 369 |
 | | external-replication (published numbers) | 54 |
-| | **subtotal** | **424** |
+| | **subtotal** | **423** |
 | No numerical evidence yet | unverified | 652 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 604 | 1009 | 1009 | 59.9% |
+| estimator callables | 605 | 1009 | 1009 | 60.0% |
 | infrastructure (parity N/A) | 0 | 13 | 236 | 0.0% |
 | result / exception classes | 0 | 6 | 435 | 0.0% |
-| **all registered** | 604 | 1028 | 1680 | 36.0% |
+| **all registered** | 605 | 1028 | 1680 | 36.0% |
 
 ### Coverage by estimator family
 
@@ -75,7 +75,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | dag | 6 | 9 | 9 |
 | conformal_causal | 3 | 9 | 9 |
 | frontier | 5 | 9 | 9 |
-| causal_discovery | 2 | 7 | 7 |
+| causal_discovery | 3 | 7 | 7 |
 | target_trial | 2 | 6 | 6 |
 | transport | 3 | 6 | 6 |
 | interference | 3 | 6 | 6 |
@@ -97,7 +97,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 528 functions
+## bit-exact — 529 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -286,6 +286,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `hpd_interval` | coda::HPDinterval | R 4.5.2; coda 0.19.4.1 | 1e-9 rel at 95 and 80 percent | — / — | [`test_bayes_mcmc_parity.py`](../tests/reference_parity/test_bayes_mcmc_parity.py) (+1) |
 | `hurdle` | pscl::hurdle(dist='poisson', zero.dist='binomial') | R 4.5.2; pscl 1.5.9 | count + zero coefficients 1e-6 abs (observed ~2e-8) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
 | `icc` | Stata 18 estat icc after mixed (ML, REML) and melogit; performance::icc; psych::ICC (balanced ANOVA identity) | Stata 18 MP; R 4.5.2; performance 0.16.0; psych 2.6.5 | estimate / SE rtol 1e-6, logit-scale CI rtol 2e-6 (observed <= 2.4e-7 / 7e-7 / 1.2e-6); balanced REML ICC = ANOVA ICC(1) rtol 1e-9 | — / — | [`test_panel_icc_lrtest_parity.py`](../tests/reference_parity/test_panel_icc_lrtest_parity.py) |
+| `icp` | InvariantCausalPrediction::ICP(test = 'normal', selection = 'all') | R 4.5.2; InvariantCausalPrediction 0.8 | accepted subsets and parents exact on 32 fits; 1e-9 absolute on the parents' confidence intervals (observed 5e-15) | — / — | [`test_icp_R_parity.py`](../tests/reference_parity/test_icp_R_parity.py) (+1) |
 | `ida` | pcalg::ida(method = 'local' / 'global') | R 4.5.2; pcalg 2.7.12 | 1e-10 on the sorted multiset of possible effects | — / — | [`test_ida_pcalg_parity.py`](../tests/reference_parity/test_ida_pcalg_parity.py) (+1) |
 | `identify` | causaleffect::causal.effect (Shpitser-Pearl ID) for identifiability; base R table arithmetic for the value of the estimand | R 4.5.2; causaleffect 1.3.15 | identifiable or not: equal on seven graphs (backdoor, bow, front door, instrument, napkin, M-bias, broken front door); .estimate(data): 1e-10 rel against the truncated factorisation | — / — | [`test_ness_causal_ai_parity.py`](../tests/reference_parity/test_ness_causal_ai_parity.py) (+1) |
 | `impacts` | R spatialreg::impacts on a lagsarlm fit | spdep 1.4.2; spatialreg 1.4.3 | Direct, indirect and total at 1e-6, inheriting the SAR rho's own agreement. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
@@ -776,7 +777,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `vec` | [`test_dogan_python_econometrics.py`](../tests/external_parity/test_dogan_python_econometrics.py) (+1) |
 | `winsor` | [`test_gow_ding_accounting.py`](../tests/external_parity/test_gow_ding_accounting.py) |
 
-## analytical-only — 370 functions
+## analytical-only — 369 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -944,7 +945,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `honest_did_from_result` | [`test_honest_did_moments_R_parity.py`](../tests/reference_parity/test_honest_did_moments_R_parity.py) |
 | `honest_variance` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) (+1) |
 | `ibragimov_mueller` | [`test_ibragimov_mueller_closed_form.py`](../tests/reference_parity/test_ibragimov_mueller_closed_form.py) |
-| `icp` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `identify_counterfactual` | [`test_counterfactual_identification.py`](../tests/test_counterfactual_identification.py) (+2) |
 | `identify_transport` | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `immortal_time_check` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |

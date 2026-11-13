@@ -7730,7 +7730,7 @@
     }
   },
   {
-    "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
+    "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: certified parity evidence. Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
     "name": "series",
     "parameters": {
       "properties": {
@@ -14711,7 +14711,7 @@
     }
   },
   {
-    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: certified parity evidence.",
     "name": "dag",
     "parameters": {
       "properties": {
@@ -16818,7 +16818,7 @@
     }
   },
   {
-    "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: certified parity evidence.",
     "name": "icp",
     "parameters": {
       "properties": {
@@ -16845,6 +16845,15 @@
           "enum": [
             "linear",
             "nonlinear"
+          ],
+          "type": "string"
+        },
+        "test": {
+          "default": "anova",
+          "description": "Invariance test of the linear method, on the residuals of the pooled least-squares fit. ``\"anova\"`` compares all environments at",
+          "enum": [
+            "anova",
+            "normal"
           ],
           "type": "string"
         },
@@ -27444,7 +27453,7 @@
     }
   },
   {
-    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
+    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: certified parity evidence. Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
     "name": "zero_first_stage",
     "parameters": {
       "properties": {
@@ -27751,7 +27760,7 @@
     }
   },
   {
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: certified parity evidence.",
     "name": "iv_compare",
     "parameters": {
       "properties": {
@@ -27851,7 +27860,7 @@
     }
   },
   {
-    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
+    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: certified parity evidence. Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
     "name": "ctmle",
     "parameters": {
       "properties": {
@@ -39535,7 +39544,7 @@
     }
   },
   {
-    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: certified parity evidence.",
     "name": "recentered_iv",
     "parameters": {
       "properties": {
@@ -55364,7 +55373,7 @@
     }
   },
   {
-    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: certified parity evidence.",
     "name": "predict_cate",
     "parameters": {
       "properties": {
@@ -55385,7 +55394,7 @@
     }
   },
   {
-    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: certified parity evidence.",
     "name": "compare_metalearners",
     "parameters": {
       "properties": {
@@ -56631,7 +56640,7 @@
     }
   },
   {
-    "description": "Fit a Super Learner ensemble. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit a Super Learner ensemble. Validation: certified parity evidence.",
     "name": "super_learner",
     "parameters": {
       "properties": {
@@ -62897,7 +62906,7 @@
     }
   },
   {
-    "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: certified parity evidence.",
     "name": "lprobust_at_point",
     "parameters": {
       "properties": {
@@ -62958,7 +62967,7 @@
     }
   },
   {
-    "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: certified parity evidence.",
     "name": "lpbwselect_mse_dpi",
     "parameters": {
       "properties": {
@@ -63020,7 +63029,7 @@
     }
   },
   {
-    "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: certified parity evidence.",
     "name": "lpbwselect_mse_rot",
     "parameters": {
       "properties": {
@@ -63066,7 +63075,7 @@
     }
   },
   {
-    "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: certified parity evidence.",
     "name": "lpbwselect_imse_dpi",
     "parameters": {
       "properties": {
@@ -63128,7 +63137,7 @@
     }
   },
   {
-    "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: certified parity evidence.",
     "name": "lpbwselect_imse_rot",
     "parameters": {
       "properties": {
@@ -63169,7 +63178,7 @@
     }
   },
   {
-    "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: certified parity evidence.",
     "name": "lpbwselect_ce_rot",
     "parameters": {
       "properties": {
@@ -75144,7 +75153,7 @@
     }
   },
   {
-    "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit DirectLiNGAM (Shimizu et al. 2011). Validation: certified parity evidence.",
     "name": "lingam",
     "parameters": {
       "properties": {
@@ -75166,7 +75175,7 @@
     }
   },
   {
-    "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Greedy Equivalence Search. Validation: certified parity evidence.",
     "name": "ges",
     "parameters": {
       "properties": {
@@ -76389,7 +76398,7 @@
     }
   },
   {
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: certified parity evidence.",
     "name": "ida",
     "parameters": {
       "properties": {
@@ -76439,7 +76448,7 @@
     }
   },
   {
-    "description": "Check Rule 1: can we *insert or delete observation* of Z? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Check Rule 1: can we *insert or delete observation* of Z? Validation: certified parity evidence.",
     "name": "do_rule1",
     "parameters": {
       "properties": {
@@ -76474,7 +76483,7 @@
     }
   },
   {
-    "description": "Check Rule 2: can do(Z) be swapped for observing Z? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Check Rule 2: can do(Z) be swapped for observing Z? Validation: certified parity evidence.",
     "name": "do_rule2",
     "parameters": {
       "properties": {
@@ -76509,7 +76518,7 @@
     }
   },
   {
-    "description": "Check Rule 3: can we delete do(Z)? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Check Rule 3: can we delete do(Z)? Validation: certified parity evidence.",
     "name": "do_rule3",
     "parameters": {
       "properties": {
@@ -76544,7 +76553,7 @@
     }
   },
   {
-    "description": "Try all three rules and return every applicable simplification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Try all three rules and return every applicable simplification. Validation: certified parity evidence.",
     "name": "do_calculus_apply",
     "parameters": {
       "properties": {
@@ -77560,12 +77569,12 @@
     }
   },
   {
-    "description": "PCMCI causal discovery for stationary time-series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "PCMCI causal discovery for stationary time-series. Validation: certified parity evidence.",
     "name": "pcmci",
     "parameters": {
       "properties": {
         "ci_test": {
-          "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`.",
+          "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`, the Fisher z test. ``tigramite``'s ``ParCorr`` refers the same partial correlation to a t distribution with ``n - dim(Z) - 2`` degrees of freedom; pass that test here to reproduce its p-values. Candidates are ranked by absolute partial correlation whatever the test.",
           "type": "number"
         },
         "data": {
@@ -77574,7 +77583,7 @@
           "x-statspai-role": "dataframe"
         },
         "max_conds_dim": {
-          "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when no predictors remain).",
+          "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when fewer candidates than conditions remain).",
           "type": "integer"
         },
         "mci_alpha": {
@@ -77611,7 +77620,7 @@
     }
   },
   {
-    "description": "Partial-correlation p-value for H0: ``X Y | Z``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Partial-correlation p-value for H0: ``X Y | Z``. Validation: certified parity evidence.",
     "name": "partial_corr_pvalue",
     "parameters": {
       "properties": {
@@ -77636,7 +77645,7 @@
     }
   },
   {
-    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: certified parity evidence.",
     "name": "ltmle_survival",
     "parameters": {
       "properties": {
@@ -78972,7 +78981,7 @@
     }
   },
   {
-    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: certified parity evidence.",
     "name": "cate_gain_curve",
     "parameters": {
       "properties": {
@@ -81728,7 +81737,7 @@
     }
   },
   {
-    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: certified parity evidence.",
     "name": "ltmle_msm",
     "parameters": {
       "properties": {
@@ -81840,7 +81849,7 @@
     }
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: certified parity evidence.",
     "name": "lmtp",
     "parameters": {
       "properties": {

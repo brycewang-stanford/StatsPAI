@@ -4961,7 +4961,7 @@
     "name": "cate_eval"
   },
   {
-    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: cate_gain_curve: the index of the cate Series does not match the index of data, so the predictions cannot be paired with rows -> Give the Series the index of data, or pass cate.to_numpy() if the values are already in row order; cate_gain_curve: the <role> column <col> is not numeric (dtype <data[col].dtype>) -> Code the column as numbers: 0/1 for a two-arm treatment, or the dose.",
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: certified parity evidence. Failure modes: cate_gain_curve: the index of the cate Series does not match the index of data, so the predictions cannot be paired with rows -> Give the Series the index of data, or pass cate.to_numpy() if the values are already in row order; cate_gain_curve: the <role> column <col> is not numeric (dtype <data[col].dtype>) -> Code the column as numbers: 0/1 for a two-arm treatment, or the dose.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7039,7 +7039,7 @@
     "name": "compare_event_study_conventions"
   },
   {
-    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: certified parity evidence. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -8573,7 +8573,7 @@
     "name": "cs_report"
   },
   {
-    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler. Assumptions: Unconfoundedness given the covariates; Every confounder the outcome model misses is among the propensity candidates. Pre-conditions: binary treatment 0/1; covariates comprise the confounding set. Failure modes: Interval from se_method='influence' is too narrow -> Use se_method='bootstrap'; the influence-function SE ignores the selection of the propensity model; Outcome model badly wrong -> No gain over sp.tmle is to be expected; improve the outcome library first. Alternatives: sp.tmle, sp.hal_tmle, sp.aipw, sp.overlap_weights. Typical minimum N: 300.",
+    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: certified parity evidence. Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler. Assumptions: Unconfoundedness given the covariates; Every confounder the outcome model misses is among the propensity candidates. Pre-conditions: binary treatment 0/1; covariates comprise the confounding set. Failure modes: Interval from se_method='influence' is too narrow -> Use se_method='bootstrap'; the influence-function SE ignores the selection of the propensity model; Outcome model badly wrong -> No gain over sp.tmle is to be expected; improve the outcome library first. Alternatives: sp.tmle, sp.hal_tmle, sp.aipw, sp.overlap_weights. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "Q": {
@@ -8839,7 +8839,7 @@
     "name": "cusum_test"
   },
   {
-    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The graph is acyclic and contains the relevant common causes; Adjustment-set validity depends on the supplied graph being substantively correct. Pre-conditions: Nodes and directed edges encode a substantive causal model; Treatment and outcome nodes are named consistently. Failure modes: No valid adjustment set or cycle detected -> Inspect graph structure, remove cycles, or use sensitivity analysis for unobserved common causes. Alternatives: sp.identify, sp.dag_recommend_estimator, sp.swig. Typical minimum N: 1.",
+    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: certified parity evidence. Assumptions: The graph is acyclic and contains the relevant common causes; Adjustment-set validity depends on the supplied graph being substantively correct. Pre-conditions: Nodes and directed edges encode a substantive causal model; Treatment and outcome nodes are named consistently. Failure modes: No valid adjustment set or cycle detected -> Inspect graph structure, remove cycles, or use sensitivity analysis for unobserved common causes. Alternatives: sp.identify, sp.dag_recommend_estimator, sp.swig. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
         "latent": {
@@ -17664,7 +17664,7 @@
     "name": "german_reunification"
   },
   {
-    "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.lingam. Typical minimum N: 500.",
+    "description": "Greedy Equivalence Search. Validation: certified parity evidence. Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "max_iter": {
@@ -19681,7 +19681,7 @@
     "name": "icc"
   },
   {
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Linear-Gaussian structural model: an effect is the coefficient of x in the regression of y on x and a parent set of x; The CPDAG is the true Markov equivalence class (causal sufficiency and faithfulness, as in the discovery step that produced it); The output is a set of possible effects, one per admissible parent set (local) or per DAG (global), not one estimate. Pre-conditions: A CPDAG adjacency (A[i, j] = 1 for i -> j, both entries for an undirected edge) over the data's columns; x and y are different variables. Failure modes: More than 18 undirected edges with method='global' -> Use method='local', which gives the same distinct values; The graph has no consistent DAG extension -> Pass a CPDAG from causal discovery. Alternatives: sp.pc_algorithm, sp.ges, sp.identify. Typical minimum N: 100.",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: certified parity evidence. Assumptions: Linear-Gaussian structural model: an effect is the coefficient of x in the regression of y on x and a parent set of x; The CPDAG is the true Markov equivalence class (causal sufficiency and faithfulness, as in the discovery step that produced it); The output is a set of possible effects, one per admissible parent set (local) or per DAG (global), not one estimate. Pre-conditions: A CPDAG adjacency (A[i, j] = 1 for i -> j, both entries for an undirected edge) over the data's columns; x and y are different variables. Failure modes: More than 18 undirected edges with method='global' -> Use method='local', which gives the same distinct values; The graph has no consistent DAG extension -> Pass a CPDAG from causal discovery. Alternatives: sp.pc_algorithm, sp.ges, sp.identify. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "cpdag": {
@@ -20985,7 +20985,7 @@
     "name": "iv_bounds"
   },
   {
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml. Typical minimum N: 200.",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: certified parity evidence. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22999,7 +22999,7 @@
     "name": "lincom"
   },
   {
-    "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges. Typical minimum N: 500.",
+    "description": "Fit DirectLiNGAM (Shimizu et al. 2011). Validation: certified parity evidence. Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "standardize": {
@@ -23389,7 +23389,7 @@
     "name": "lm_lin"
   },
   {
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability: no unmeasured confounding of each treatment given the measured history; Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history; Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE). Pre-conditions: Wide data, one row per unit, treatments in time order; covariates_time has one list per time point; At least 20 complete rows. Failure modes: A shift that moves treatments outside their observed support -> Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info; A static policy on a binary treatment (set A = 1) -> That is a longitudinal TMLE target. Alternatives: sp.ltmle, sp.tmle. Typical minimum N: 200.",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: certified parity evidence. Assumptions: Sequential exchangeability: no unmeasured confounding of each treatment given the measured history; Positivity for the policy: the shifted treatment value has support under the natural treatment distribution given the history; Correctly specified or consistently estimated outcome regressions or density ratios (sequential doubly robust TMLE). Pre-conditions: Wide data, one row per unit, treatments in time order; covariates_time has one list per time point; At least 20 complete rows. Failure modes: A shift that moves treatments outside their observed support -> Density ratios explode and are trimmed at the trim quantile; choose a smaller shift or inspect the density ratios in model_info; A static policy on a binary treatment (set A = 1) -> That is a longitudinal TMLE target. Alternatives: sp.ltmle, sp.tmle. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -24297,7 +24297,7 @@
     "name": "ltmle"
   },
   {
-    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: ltmle_msm: <n> rows are too few -> Use more data.",
+    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: certified parity evidence. Failure modes: ltmle_msm: <n> rows are too few -> Use more data.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -24403,7 +24403,7 @@
     "name": "ltmle_msm"
   },
   {
-    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
+    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: certified parity evidence. Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -29895,7 +29895,7 @@
     "name": "parallel_trends_robustness"
   },
   {
-    "description": "Partial-correlation p-value for H0: ``X Y | Z``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Partial-correlation p-value for H0: ``X Y | Z``. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "Z": {
@@ -30185,15 +30185,15 @@
     "name": "pci_mtp"
   },
   {
-    "description": "PCMCI causal discovery for stationary time-series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
+    "description": "PCMCI causal discovery for stationary time-series. Validation: certified parity evidence. Assumptions: Causal Markov condition and faithfulness (PC/GES/FCI); Causal sufficiency for PC/GES (no latent confounders); FCI relaxes this; Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model. Pre-conditions: Constraint-/score-based discovery needs i.i.d. observational data with enough samples for reliable conditional-independence tests; Invariance-based discovery (ICP) needs data labelled by environment / intervention. Failure modes: Unstable skeleton / many undirected edges -- faithfulness or sample size is the likely culprit -> Increase the sample, relax the CI-test threshold, or switch to FCI if latent confounders are plausible. Alternatives: sp.pc_algorithm, sp.fci, sp.ges, sp.lingam. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "ci_test": {
-          "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`.",
+          "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`, the Fisher z test. ``tigramite``'s ``ParCorr`` refers the same partial correlation to a t distribution with ``n - dim(Z) - 2`` degrees of freedom; pass that test here to reproduce its p-values. Candidates are ranked by absolute partial correlation whatever the test.",
           "type": "number"
         },
         "max_conds_dim": {
-          "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when no predictors remain).",
+          "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when fewer candidates than conditions remain).",
           "type": "integer"
         },
         "mci_alpha": {
@@ -31086,7 +31086,7 @@
     "name": "prais"
   },
   {
-    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: certified parity evidence. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "new_data": {
@@ -37315,7 +37315,7 @@
     "name": "rdwinselect"
   },
   {
-    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The shocks are as-good-as-randomly assigned given the exposure, and the counterfactual draws come from that assignment process (for example exchangeable shocks); The shocks affect the outcome only through the treatment; The RI test is for the sharp null of a constant effect; with heterogeneous effects report the asymptotic standard error. Failure modes: data must be a pandas DataFrame -> Pass the data as a DataFrame; method must be 'recenter' or 'control', got <method> -> Use method='recenter' or method='control'; vce must be one of <sorted(_VCE_TO_ROBUST) + ['conley']>, got <vce> -> Use vce='robust', or pass cluster= for clustering. Alternatives: sp.expected_instrument, sp.iv, sp.bartik, sp.shift_share_se.",
+    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: certified parity evidence. Assumptions: The shocks are as-good-as-randomly assigned given the exposure, and the counterfactual draws come from that assignment process (for example exchangeable shocks); The shocks affect the outcome only through the treatment; The RI test is for the sharp null of a constant effect; with heterogeneous effects report the asymptotic standard error. Failure modes: data must be a pandas DataFrame -> Pass the data as a DataFrame; method must be 'recenter' or 'control', got <method> -> Use method='recenter' or method='control'; vce must be one of <sorted(_VCE_TO_ROBUST) + ['conley']>, got <vce> -> Use vce='robust', or pass cluster= for clustering. Alternatives: sp.expected_instrument, sp.iv, sp.bartik, sp.shift_share_se.",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -43164,7 +43164,7 @@
     "name": "sun_abraham"
   },
   {
-    "description": "Fit a Super Learner ensemble. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
+    "description": "Fit a Super Learner ensemble. Validation: certified parity evidence. Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
     "input_schema": {
       "properties": {
         "X": {
@@ -49397,7 +49397,7 @@
     "name": "yu_elwert_decompose"
   },
   {
-    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN. Assumptions: In the zero-first-stage subsample the instrument does not move the treatment, so any reduced-form association there is a direct effect of the instrument on the outcome; That direct effect is the same in the main sample, so it can be netted out of the main-sample IV estimate. Pre-conditions: One excluded instrument being tested; A z...",
+    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: certified parity evidence. Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN. Assumptions: In the zero-first-stage subsample the instrument does not move the treatment, so any reduced-form association there is a direct effect of the instrument on the outcome; That direct effect is the same in the main sample, so it can be netted out of the main-sample IV estimate. Pre-conditions: One excluded instrument being tested; A zfs marker (boolean or 0/1) identifying observations where the ins...",
     "input_schema": {
       "properties": {
         "absorb": {

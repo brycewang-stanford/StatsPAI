@@ -10042,6 +10042,40 @@ _FROZEN_PROMOTIONS.update(
     }
 )
 
+_FROZEN_PROMOTIONS.update(
+    {
+        "icp": {
+            "status": "bit-exact",
+            "reference": "InvariantCausalPrediction::ICP(test = 'normal', "
+            "selection = 'all')",
+            "reference_versions": {
+                "R": _PG_R,
+                "InvariantCausalPrediction": "0.8",
+            },
+            "tolerance": "accepted subsets and parents exact on 32 fits; "
+            "1e-9 absolute on the parents' confidence intervals (observed "
+            "5e-15)",
+            "sides": ["py", "R"],
+            "test": [
+                "tests/reference_parity/test_icp_R_parity.py",
+                "tests/reference_parity/_fixtures/icp_R.json",
+            ],
+            "note": (
+                "Frozen-R fixture: 16 designs with two to four "
+                "environments at alpha 0.05 and 0.01, a quarter of them "
+                "with a direct shift of the response that makes the "
+                "reference reject every subset. Non-default option: the "
+                "comparison is on test='normal', the reference's test "
+                "(each environment against the rest). The default "
+                "test='anova' is another test of the same hypothesis and "
+                "accepts a different collection of subsets on 8 of the 32 "
+                "fits. InvariantCausalPrediction is GPL and was run, not "
+                "read."
+            ),
+        },
+    }
+)
+
 
 # --------------------------------------------------------------------------- #
 #  Source parsers

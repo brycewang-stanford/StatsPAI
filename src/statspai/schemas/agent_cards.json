@@ -9655,8 +9655,8 @@
       "Cross-language parity (bit-exact) vs econml.metalearners SLearner / TLearner / XLearner; tolerance S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner -- tests/external_parity/test_metalearner_econml_parity.py",
       "tests/external_parity/test_causalml_book.py",
       "tests/reference_parity/test_closed_form_identities.py",
-      "tests/reference_parity/test_oct2026_fifth_pass.py",
-      "tests/reference_parity/test_oct2026_fourth_pass.py"
+      "tests/reference_parity/test_metalearner_tools_parity.py",
+      "tests/reference_parity/test_oct2026_fifth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -14584,22 +14584,27 @@
     ],
     "category": "nonparametric",
     "cost_profile": "",
-    "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
+    "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: certified parity evidence. Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "R lm on poly(raw = TRUE) and splines::bs with sandwich::vcovHC / vcovCL",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sandwich": "3.1.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_hansen_econometrics_logs.py"
+        "tests/reference_parity/test_series_R_parity.py",
+        "tests/reference_parity/_fixtures/series_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 relative on the cross-validation criterion, the fitted function, its standard errors and the linear coefficient (observed <= 4e-9); 1e-7 on the derivative"
     },
     "example": "sp.series(\"lwage ~ educ\", data=df, x=\"exper\")",
     "failure_modes": [
@@ -14642,7 +14647,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
+      "description": "Series (sieve) regression of y on a flexible function of one variable, a polynomial or a spline, with other regressors entering linearly. The polynomial degree or the number of knots is chosen by leave-one-out cross-validation, computed from the leverages without refitting. Returns the fitted function and its derivative on a grid with pointwise standard errors, and the cross-validation table. Validation: certified parity evidence. Do NOT use when: Behaviour at the edge of the support matters and the basis is a high-order polynomial -- use a spline or sp.lpoly; Several regressors need a flexible form -- use sp.gam.",
       "name": "series",
       "parameters": {
         "properties": {
@@ -14733,9 +14738,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_hansen_econometrics_logs.py"
+      "Cross-language parity (bit-exact) vs R lm on poly(raw = TRUE) and splines::bs with sandwich::vcovHC / vcovCL [R version 4.5.2 (2025-10-31), sandwich 3.1.1]; tolerance 1e-8 relative on the cross-validation criterion, the fitted function, its standard errors and the linear coefficient (observed <= 4e-9); 1e-7 on the derivative -- tests/reference_parity/test_series_R_parity.py",
+      "tests/external_parity/test_hansen_econometrics_logs.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -31562,23 +31568,29 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T2",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "dagitty::adjustmentSets(type = 'minimal'), impliedConditionalIndependencies, dseparated, instrumentalVariables, paths",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dagitty": "0.3.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_barrett_causal_inference_in_r.py",
-        "tests/external_parity/test_ness_causal_ai.py"
+        "tests/reference_parity/test_dag_dagitty_parity.py",
+        "tests/reference_parity/_fixtures/dag_dagitty_R.json",
+        "tests/reference_parity/test_ness_causal_ai_parity.py",
+        "tests/reference_parity/_fixtures/ness_causal_ai_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: sets and truth values, on 120 random graphs (1,440 d-separation statements)"
     },
     "example": "g = sp.dag(\"Z -> X; Z -> Y; X -> Y\"); print(g.summary(\"X\", \"Y\"))",
     "failure_modes": [
@@ -31617,7 +31629,7 @@
       }
     },
     "signature": {
-      "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Declare a causal DAG and perform identification analysis: backdoor/frontdoor adjustment sets, d-separation, path enumeration, bad controls detection, variable role classification, do-operator. Validation: certified parity evidence.",
       "name": "dag",
       "parameters": {
         "properties": {
@@ -31642,15 +31654,15 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "Cross-language parity (bit-exact) vs dagitty::adjustmentSets(type = 'minimal'), impliedConditionalIndependencies, dseparated, instrumentalVariables, paths [R version 4.5.2 (2025-10-31), dagitty 0.3.4]; tolerance exact: sets and truth values, on 120 random graphs (1,440 d-separation statements) -- tests/reference_parity/test_dag_dagitty_parity.py",
+      "tests/external_parity/test_barrett_causal_inference_in_r.py",
+      "tests/external_parity/test_ness_causal_ai.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_dag_implications_dagitty_parity.py",
-      "tests/reference_parity/test_dag_instruments_dagitty_parity.py",
-      "tests/reference_parity/test_misc_sens_R_parity.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_dag_recommend_and_tte_report.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -36270,22 +36282,27 @@
     ],
     "category": "causal_discovery",
     "cost_profile": "",
-    "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "InvariantCausalPrediction::ICP(test = 'normal', selection = 'all')",
+      "reference_versions": {
+        "InvariantCausalPrediction": "0.8",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_icp_R_parity.py",
+        "tests/reference_parity/_fixtures/icp_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "accepted subsets and parents exact on 32 fits; 1e-9 absolute on the parents' confidence intervals (observed 5e-15)"
     },
     "example": "res = sp.icp(X, y, env, alpha=0.05)",
     "failure_modes": [
@@ -36334,7 +36351,7 @@
       }
     },
     "signature": {
-      "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Invariant Causal Prediction: infer direct parents of Y by testing invariance of P(Y | X_S) across environments. Validation: certified parity evidence.",
       "name": "icp",
       "parameters": {
         "properties": {
@@ -36364,6 +36381,15 @@
             ],
             "type": "string"
           },
+          "test": {
+            "default": "anova",
+            "description": "Invariance test of the linear method, on the residuals of the pooled least-squares fit. ``\"anova\"`` compares all environments at",
+            "enum": [
+              "anova",
+              "normal"
+            ],
+            "type": "string"
+          },
           "y": {
             "description": "Response vector (length n).",
             "type": "string"
@@ -36380,10 +36406,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py",
+      "Cross-language parity (bit-exact) vs InvariantCausalPrediction::ICP(test = 'normal', selection = 'all') [InvariantCausalPrediction 0.8, R version 4.5.2 (2025-10-31)]; tolerance accepted subsets and parents exact on 32 fits; 1e-9 absolute on the parents' confidence intervals (observed 5e-15) -- tests/reference_parity/test_icp_R_parity.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py",
       "API/unit contract evidence: tests/test_icp.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -60197,22 +60224,29 @@
     ],
     "category": "causal",
     "cost_profile": "n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
-    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
+    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: certified parity evidence. Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata regress / ivregress 2sls and reghdfe / ivreghdfe: the component fits, combined in the do-file",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "ivreg2": "4.1.12",
+        "ivreghdfe": "1.1.4",
+        "reghdfe": "6.13.1"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_zero_first_stage_stata.py",
+        "tests/reference_parity/_fixtures/zero_first_stage_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on the four component coefficients, their SEs, the IV estimate and SE, and the corrected estimate (observed <= 1e-14)"
     },
     "example": "sp.zero_first_stage(df, y=\"shannon\", endog=\"policy\", instrument=\"z\", zfs=\"is_desert\", absorb=[\"county\", \"ym\"], cluster=\"county\")",
     "failure_modes": [
@@ -60287,7 +60321,7 @@
       }
     },
     "signature": {
-      "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
+      "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted. Validation: certified parity evidence. Do NOT use when: there is no credible subsample in which the instrument is inert -- the test then has nothing to identify the direct effect from. Cost: n_boot (default 999) cluster-bootstrap refits of every component regression; n_boot=0 skips it and leaves the corrected SE NaN.",
       "name": "zero_first_stage",
       "parameters": {
         "properties": {
@@ -60399,10 +60433,11 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py",
+      "Cross-language parity (bit-exact) vs Stata regress / ivregress 2sls and reghdfe / ivreghdfe: the component fits, combined in the do-file [Stata 18 MP, ivreg2 4.1.12, ivreghdfe 1.1.4, reghdfe 6.13.1]; tolerance 1e-9 relative on the four component coefficients, their SEs, the IV estimate and SE, and the corrected estimate (observed <= 1e-14) -- tests/reference_parity/test_zero_first_stage_stata.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py",
       "API/unit contract evidence: tests/test_zero_first_stage.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -60839,22 +60874,33 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R ivmodel KClass(k = 1) / LIML / Fuller(b = 1); Stata ivregress 2sls / liml, ivreg2 fuller(1), jive ujive1, estat firststage, weakivtest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "ivmodel": "1.9.1",
+        "ivreg2": "4.1.12",
+        "jive": "1.0.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_iv_compare_parity.py",
+        "tests/reference_parity/_fixtures/iv_compare_R.json",
+        "tests/reference_parity/_fixtures/iv_compare_Stata.json",
+        "tests/reference_parity/_fixtures/rd_iv_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on every estimate, standard error and F statistic (observed <= 1e-11)"
     },
     "example": "sp.iv.iv_compare('wage ~ (educ ~ nearc4 + nearc2) + exper', data=df, methods=('2sls','liml','fuller','jive','ujive'))",
     "failure_modes": [
@@ -60889,7 +60935,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: certified parity evidence.",
       "name": "iv_compare",
       "parameters": {
         "properties": {
@@ -60936,10 +60982,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
+      "Cross-language parity (bit-exact) vs R ivmodel KClass(k = 1) / LIML / Fuller(b = 1); Stata ivregress 2sls / liml, ivreg2 fuller(1), jive ujive1, estat firststage, weakivtest [R version 4.5.2 (2025-10-31), Stata 18 MP, ivmodel 1.9.1, ivreg2 4.1.12, jive 1.0.2]; tolerance 1e-9 relative on every estimate, standard error and F statistic (observed <= 1e-11) -- tests/reference_parity/test_iv_compare_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/iv/test_iv_diag.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -61128,22 +61175,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
+    "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: certified parity evidence. Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ctmle::ctmleDiscrete: the greedy and the pre-ordered sequence of candidate estimators",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ctmle": "0.1.2"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "aligned",
       "tests": [
-        "tests/reference_parity/test_ctmle_R_parity.py"
+        "tests/reference_parity/test_ctmle_R_parity.py",
+        "tests/reference_parity/_fixtures/ctmle_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-7 relative on the estimate at every step of the sequence (observed 5e-9), order of entry exact, 12 cases"
     },
     "example": "sp.ctmle(df, y=\"y\", treat=\"a\", covariates=[\"x1\", \"x2\", \"z\"], se_method=\"bootstrap\")",
     "failure_modes": [
@@ -61200,7 +61252,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
+      "description": "Collaborative TMLE (greedy C-TMLE of van der Laan and Gruber): the propensity model is built covariate by covariate for the outcome fit and its size chosen by cross-validation, so instruments and covariates the outcome model already handles stay out of the weights. For weak overlap. ATE only; the greedy and the pre-ordered sequences equal R ctmle. Validation: certified parity evidence. Do NOT use when: Overlap is good: sp.tmle with the full propensity model is then at least as precise and its inference is simpler.",
       "name": "ctmle",
       "parameters": {
         "properties": {
@@ -61360,9 +61412,9 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ctmle_R_parity.py"
+      "Cross-language parity (aligned) vs ctmle::ctmleDiscrete: the greedy and the pre-ordered sequence of candidate estimators [R version 4.5.2 (2025-10-31), ctmle 0.1.2]; tolerance 1e-7 relative on the estimate at every step of the sequence (observed 5e-9), order of entry exact, 12 cases -- tests/reference_parity/test_ctmle_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -86076,22 +86128,30 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata ivreghdfe on the recentred instrument (method 'recenter' and 'control') and ritest on 200 fixed permutations",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "ivreg2": "4.1.12",
+        "ivreghdfe": "1.1.4",
+        "reghdfe": "6.13.1",
+        "ritest": "1.1.7"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_recentered_iv_stata.py"
+        "tests/reference_parity/test_recentered_iv_stata.py",
+        "tests/reference_parity/_fixtures/_generate_recentered_iv_Stata.do"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 relative on coefficient and SE (observed <= 3e-15); randomisation-inference count exact and observed statistic 1e-9 relative"
     },
     "example": "sp.recentered_iv(df, \"y\", \"market_access\", \"market_access\", counterfactual=sp.expected_instrument(df, fn, sampler, seed=0).draws, absorb=\"region\")",
     "failure_modes": [
@@ -86152,7 +86212,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Recentered IV for treatments or instruments built from as-good-as-random shocks with non-random exposure (market access, network spillovers, simulated eligibility). Subtracts or controls for the expected instrument, the average of the instrument over counterfactual shock draws, and reports randomization inference from the same draws. Validation: certified parity evidence.",
       "name": "recentered_iv",
       "parameters": {
         "properties": {
@@ -86322,9 +86382,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_recentered_iv_stata.py"
+      "Cross-language parity (bit-exact) vs Stata ivreghdfe on the recentred instrument (method 'recenter' and 'control') and ritest on 200 fixed permutations [Stata 18 MP, ivreg2 4.1.12, ivreghdfe 1.1.4, reghdfe 6.13.1, ritest 1.1.7]; tolerance 1e-8 relative on coefficient and SE (observed <= 3e-15); randomisation-inference count exact and observed statistic 1e-9 relative -- tests/reference_parity/test_recentered_iv_stata.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -115096,22 +115156,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "econml.metalearners SLearner / TLearner / XLearner .effect() on new rows",
+      "reference_versions": {
+        "econml": "0.16.0",
+        "python": "3.11.0",
+        "scikit-learn": "1.6.1"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_oct2026_fourth_pass.py"
+        "tests/reference_parity/test_metalearner_tools_parity.py",
+        "tests/reference_parity/_fixtures/metalearner_econml.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on the predicted effect at 200 new rows (observed 1e-15)"
     },
     "example": "tau_hat = sp.predict_cate(res, new_data)",
     "failure_modes": [
@@ -115146,7 +115211,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Predict CATE on new (out-of-sample) data. Validation: certified parity evidence.",
       "name": "predict_cate",
       "parameters": {
         "properties": {
@@ -115169,9 +115234,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+      "Cross-language parity (bit-exact) vs econml.metalearners SLearner / TLearner / XLearner .effect() on new rows [econml 0.16.0, python 3.11.0, scikit-learn 1.6.1]; tolerance 1e-10 absolute on the predicted effect at 200 new rows (observed 1e-15) -- tests/reference_parity/test_metalearner_tools_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -115188,22 +115254,31 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R DoubleML::DoubleMLIRM(score = 'ATE') on supplied folds for the average effect; econml TLearner / XLearner for the spread of the effects",
+      "reference_versions": {
+        "DoubleML": "1.0.2",
+        "R": "R version 4.5.2 (2025-10-31)",
+        "econml": "0.16.0",
+        "mlr3": "1.6.0",
+        "mlr3learners": "0.14.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_oct2026_third_pass.py"
+        "tests/reference_parity/test_metalearner_tools_parity.py",
+        "tests/reference_parity/_fixtures/metalearner_doubleml_R.json",
+        "tests/reference_parity/_fixtures/metalearner_econml.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on the average effect and its standard error (observed 1e-15); 1e-10 absolute on cate_std and cate_iqr"
     },
     "example": "comp = sp.compare_metalearners(df, y='wage', treat='training',\n covariates=['age', 'edu'])",
     "failure_modes": [
@@ -115238,7 +115313,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Fit multiple meta-learners and compare their ATE estimates. Validation: certified parity evidence.",
       "name": "compare_metalearners",
       "parameters": {
         "properties": {
@@ -115285,9 +115360,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+      "Cross-language parity (bit-exact) vs R DoubleML::DoubleMLIRM(score = 'ATE') on supplied folds for the average effect; econml TLearner / XLearner for the spread of the effects [DoubleML 1.0.2, R version 4.5.2 (2025-10-31), econml 0.16.0, mlr3 1.6.0, mlr3learners 0.14.0]; tolerance 1e-9 relative on the average effect and its standard error (observed 1e-15); 1e-10 absolute on cate_std and cate_iqr -- tests/reference_parity/test_metalearner_tools_parity.py",
+      "tests/reference_parity/test_oct2026_third_pass.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -118039,22 +118115,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Fit a Super Learner ensemble. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit a Super Learner ensemble. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "SuperLearner::SuperLearner(method = 'method.CC_LS') with validRows supplied",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "SuperLearner": "2.0.40"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+        "tests/reference_parity/test_super_learner_R_parity.py",
+        "tests/reference_parity/_fixtures/super_learner_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "cross-validated predictions 1e-9 absolute, cross-validated risks 1e-9 relative, weights and ensemble predictions 1e-6 absolute"
     },
     "example": "sl = sp.super_learner(\n X, y,\n library=[LinearRegression(), Ridge(alpha=1.0)],\n n_folds=3,\n)",
     "failure_modes": [
@@ -118095,7 +118176,7 @@
       }
     },
     "signature": {
-      "description": "Fit a Super Learner ensemble. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Fit a Super Learner ensemble. Validation: certified parity evidence.",
       "name": "super_learner",
       "parameters": {
         "properties": {
@@ -118148,9 +118229,10 @@
     "stability": "stable",
     "typical_n_min": 400,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ml_causal_recovery_parity.py"
+      "Cross-language parity (bit-exact) vs SuperLearner::SuperLearner(method = 'method.CC_LS') with validRows supplied [R version 4.5.2 (2025-10-31), SuperLearner 2.0.40]; tolerance cross-validated predictions 1e-9 absolute, cross-validated risks 1e-9 relative, weights and ensemble predictions 1e-6 absolute -- tests/reference_parity/test_super_learner_R_parity.py",
+      "tests/reference_parity/test_ml_causal_recovery_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -130736,23 +130818,31 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lprobust and Stata nprobust lprobust at supplied bandwidths (vce nn)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
-        "tests/reference_parity/test_lprobust_parity.py"
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
+        "tests/reference_parity/test_lprobust_parity.py",
+        "tests/stata_parity/option_parity/results/86_lprobust_Stata.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on tau_us, tau_bc, se_us, se_rb against R (192 cases); 1e-9 absolute against Stata (10 boundary cases); effective sample size exact"
     },
     "example": "fit = sp.lprobust_at_point(x, y, eval_point=0.0, h=0.6)",
     "failure_modes": [
@@ -130822,7 +130912,7 @@
       }
     },
     "signature": {
-      "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: certified parity evidence.",
       "name": "lprobust_at_point",
       "parameters": {
         "properties": {
@@ -130885,9 +130975,9 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lprobust_cleanroom.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lprobust and Stata nprobust lprobust at supplied bandwidths (vce nn) [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on tau_us, tau_bc, se_us, se_rb against R (192 cases); 1e-9 absolute against Stata (10 boundary cases); effective sample size exact -- tests/reference_parity/test_lprobust_cleanroom.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -130909,24 +130999,30 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'mse-dpi') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_did_had_parity.py",
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     "example": "bw = sp.lpbwselect_mse_dpi(x, y, eval_point=1.0)",
     "failure_modes": [
@@ -130993,7 +131089,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: certified parity evidence.",
       "name": "lpbwselect_mse_dpi",
       "parameters": {
         "properties": {
@@ -131057,9 +131153,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_had_parity.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lpbwselect(bwselect = 'mse-dpi') (black box); Stata nprobust lpbwselect as a cross-check [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on h and b -- tests/reference_parity/test_lprobust_cleanroom.py",
+      "tests/reference_parity/test_did_had_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -131081,24 +131178,30 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'mse-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_did_had_parity.py",
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9)"
     },
     "example": "bool(sp.lpbwselect_mse_rot(x, y, eval_point=1.0)[\"h\"] > 0)",
     "failure_modes": [
@@ -131165,7 +131268,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: certified parity evidence.",
       "name": "lpbwselect_mse_rot",
       "parameters": {
         "properties": {
@@ -131213,9 +131316,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_had_parity.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lpbwselect(bwselect = 'mse-rot') (black box); Stata nprobust lpbwselect as a cross-check [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9) -- tests/reference_parity/test_lprobust_cleanroom.py",
+      "tests/reference_parity/test_did_had_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -131237,23 +131341,30 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'imse-dpi') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     "example": "bw = sp.lpbwselect_imse_dpi(x, y)",
     "failure_modes": [
@@ -131320,7 +131431,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: certified parity evidence.",
       "name": "lpbwselect_imse_dpi",
       "parameters": {
         "properties": {
@@ -131384,9 +131495,9 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lprobust_cleanroom.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lpbwselect(bwselect = 'imse-dpi') (black box); Stata nprobust lpbwselect as a cross-check [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on h and b -- tests/reference_parity/test_lprobust_cleanroom.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -131408,23 +131519,30 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'imse-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9)"
     },
     "example": "bool(sp.lpbwselect_imse_rot(x, y)[\"h\"] > 0)",
     "failure_modes": [
@@ -131491,7 +131609,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: certified parity evidence.",
       "name": "lpbwselect_imse_rot",
       "parameters": {
         "properties": {
@@ -131534,9 +131652,9 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lprobust_cleanroom.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lpbwselect(bwselect = 'imse-rot') (black box); Stata nprobust lpbwselect as a cross-check [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on h (1e-8 at p = 3, where the reference's own degree-6 global fit rounds at 4e-9) -- tests/reference_parity/test_lprobust_cleanroom.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -131558,23 +131676,30 @@
     ],
     "category": "nonparametric",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "R nprobust::lpbwselect(bwselect = 'ce-rot') (black box); Stata nprobust lpbwselect as a cross-check",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Stata": "18 MP",
+        "nprobust": "1.0.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
         "tests/reference_parity/test_lprobust_cleanroom.py",
+        "tests/reference_parity/_fixtures/lprobust_selectors_R.json",
         "tests/reference_parity/test_lprobust_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "1e-9 relative on h and b"
     },
     "example": "ce = sp.lpbwselect_ce_rot(x, y, eval_point=1.0)",
     "failure_modes": [
@@ -131641,7 +131766,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: certified parity evidence.",
       "name": "lpbwselect_ce_rot",
       "parameters": {
         "properties": {
@@ -131705,9 +131830,9 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lprobust_cleanroom.py"
+      "Cross-language parity (bit-exact) vs R nprobust::lpbwselect(bwselect = 'ce-rot') (black box); Stata nprobust lpbwselect as a cross-check [R version 4.5.2 (2025-10-31), Stata 18 MP, nprobust 1.0.0]; tolerance 1e-9 relative on h and b -- tests/reference_parity/test_lprobust_cleanroom.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -155536,22 +155661,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit DirectLiNGAM (Shimizu et al. 2011). Validation: certified parity evidence.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "lingam.DirectLiNGAM (Python, measure 'pwling'): causal order",
+      "reference_versions": {
+        "lingam": "1.13.0",
+        "numpy": "2.2.6",
+        "python": "3.11.15"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_causal_discovery_parity.py"
+        "tests/reference_parity/test_lingam_package_parity.py",
+        "tests/reference_parity/_fixtures/lingam_package.json"
       ],
-      "tolerance": ""
+      "tolerance": "exact: the causal order is a permutation, equal on 40 data sets"
     },
     "example": "res = sp.lingam(df)",
     "failure_modes": [
@@ -155592,7 +155722,7 @@
       }
     },
     "signature": {
-      "description": "Fit DirectLiNGAM (Shimizu 2011). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Fit DirectLiNGAM (Shimizu et al. 2011). Validation: certified parity evidence.",
       "name": "lingam",
       "parameters": {
         "properties": {
@@ -155616,9 +155746,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_causal_discovery_parity.py"
+      "Cross-language parity (bit-exact) vs lingam.DirectLiNGAM (Python, measure 'pwling'): causal order [lingam 1.13.0, numpy 2.2.6, python 3.11.15]; tolerance exact: the causal order is a permutation, equal on 40 data sets -- tests/reference_parity/test_lingam_package_parity.py",
+      "tests/reference_parity/test_causal_discovery_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -155635,23 +155766,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Greedy Equivalence Search. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::ges(GaussL0penObsScore, phase = c('forward', 'backward'), iterate = FALSE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_ges_parity.py",
-        "tests/reference_parity/test_ges_pcalg_parity.py"
+        "tests/reference_parity/test_ges_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/ges_pcalg_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "essential graphs compared for equality, every edge with its orientation, on 30 data sets"
     },
     "example": "res = sp.ges(df)",
     "failure_modes": [
@@ -155691,7 +155826,7 @@
       }
     },
     "signature": {
-      "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Greedy Equivalence Search. Validation: certified parity evidence.",
       "name": "ges",
       "parameters": {
         "properties": {
@@ -155715,9 +155850,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ges_parity.py"
+      "Cross-language parity (bit-exact) vs pcalg::ges(GaussL0penObsScore, phase = c('forward', 'backward'), iterate = FALSE) [R version 4.5.2 (2025-10-31), pcalg 2.7.12]; tolerance essential graphs compared for equality, every edge with its orientation, on 30 data sets -- tests/reference_parity/test_ges_pcalg_parity.py",
+      "tests/reference_parity/test_ges_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -158786,22 +158922,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "pcalg::ida(method = 'local' / 'global')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pcalg": "2.7.12"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_ida_pcalg_parity.py"
+        "tests/reference_parity/test_ida_pcalg_parity.py",
+        "tests/reference_parity/_fixtures/ida_pcalg.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 on the sorted multiset of possible effects"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\na = rng.normal(size=2000); b = a + rng.normal(size=2000)\nc = b + rng.normal(size=2000)\ndf = pd.DataFrame({'a': a, 'b': b, 'c': c})\ncp = pd.DataFrame([[0, 1, 0], [1, 0, 1], [0, 1, 0]],\n index=list('abc'), columns=list('abc'))\nr = sp.ida(df, cp, x='b', y='c')",
     "failure_modes": [
@@ -158850,7 +158991,7 @@
       }
     },
     "signature": {
-      "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Possible causal effects of ``x`` on ``y`` under a CPDAG (IDA). Validation: certified parity evidence.",
       "name": "ida",
       "parameters": {
         "properties": {
@@ -158902,9 +159043,9 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ida_pcalg_parity.py"
+      "Cross-language parity (bit-exact) vs pcalg::ida(method = 'local' / 'global') [R version 4.5.2 (2025-10-31), pcalg 2.7.12]; tolerance 1e-10 on the sorted multiset of possible effects -- tests/reference_parity/test_ida_pcalg_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -161441,22 +161582,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "PCMCI causal discovery for stationary time-series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "PCMCI causal discovery for stationary time-series. Validation: certified parity evidence.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "tigramite PCMCI.run_pcmci(tau_min = 1) with ParCorr(significance = 'analytic')",
+      "reference_versions": {
+        "numpy": "2.2.6",
+        "python": "3.11.15",
+        "tigramite": "5.2.10.1"
+      },
       "sides": [
         "py"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_frontier_known_truth_recovery.py"
+        "tests/reference_parity/test_pcmci_tigramite_parity.py",
+        "tests/reference_parity/_fixtures/pcmci_tigramite.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 absolute on the MCI p-values and partial correlations of every lagged link (observed 1e-15); link decisions exact"
     },
     "example": "res = sp.pcmci(df_ts, variables=[\"gdp\", \"inflation\", \"rates\"],\n tau_max=2, pc_alpha=0.1)",
     "failure_modes": [
@@ -161501,12 +161647,12 @@
       }
     },
     "signature": {
-      "description": "PCMCI causal discovery for stationary time-series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "PCMCI causal discovery for stationary time-series. Validation: certified parity evidence.",
       "name": "pcmci",
       "parameters": {
         "properties": {
           "ci_test": {
-            "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`.",
+            "description": "Custom CI test ``(x, y, Z) -> p_value``. Defaults to :func:`partial_corr_pvalue`, the Fisher z test. ``tigramite``'s ``ParCorr`` refers the same partial correlation to a t distribution with ``n - dim(Z) - 2`` degrees of freedom; pass that test here to reproduce its p-values. Candidates are ranked by absolute partial correlation whatever the test.",
             "type": "number"
           },
           "data": {
@@ -161515,7 +161661,7 @@
             "x-statspai-role": "dataframe"
           },
           "max_conds_dim": {
-            "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when no predictors remain).",
+            "description": "Hard cap on the conditioning-set size during PC1. ``None`` means no cap (the algorithm stops automatically when fewer candidates than conditions remain).",
             "type": "integer"
           },
           "mci_alpha": {
@@ -161554,9 +161700,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_frontier_known_truth_recovery.py"
+      "Cross-language parity (bit-exact) vs tigramite PCMCI.run_pcmci(tau_min = 1) with ParCorr(significance = 'analytic') [numpy 2.2.6, python 3.11.15, tigramite 5.2.10.1]; tolerance 1e-10 absolute on the MCI p-values and partial correlations of every lagged link (observed 1e-15); link decisions exact -- tests/reference_parity/test_pcmci_tigramite_parity.py",
+      "tests/reference_parity/test_frontier_known_truth_recovery.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -161573,22 +161720,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ltmle::ltmle(survivalOutcome = TRUE, variance.method = 'ic'), one call per horizon",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ltmle": "1.3.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+        "tests/reference_parity/test_ltmle_survival_R_parity.py",
+        "tests/reference_parity/_fixtures/ltmle_survival_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 absolute on the counterfactual risks (observed 1.6e-9), 1e-8 relative on their SEs and on the SE of the risk difference"
     },
     "example": "res = sp.ltmle_survival(\n df,\n event_indicators=[\"T1\", \"T2\", \"T3\"],\n treatments=[\"A1\", \"A2\", \"A3\"],\n covariates_time=[[\"L1\"], [\"L2\"], [\"L3\"]],\n)",
     "failure_modes": [
@@ -161639,7 +161791,7 @@
       }
     },
     "signature": {
-      "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: certified parity evidence.",
       "name": "ltmle_survival",
       "parameters": {
         "properties": {
@@ -161720,9 +161872,10 @@
     "stability": "stable",
     "typical_n_min": 400,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+      "Cross-language parity (bit-exact) vs ltmle::ltmle(survivalOutcome = TRUE, variance.method = 'ic'), one call per horizon [R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance 1e-8 absolute on the counterfactual risks (observed 1.6e-9), 1e-8 relative on their SEs and on the SE of the risk difference -- tests/reference_parity/test_ltmle_survival_R_parity.py",
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -164402,22 +164555,27 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: certified parity evidence.",
     "evidence": {
-      "grade": "external",
-      "grade_basis": "derived from status",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
+      "reference": "fklearn.causal.validation.curves.effect_curves and effect_by_segment (linear_effect)",
+      "reference_versions": {
+        "fklearn": "4.3.0",
+        "pandas": "3.1.1",
+        "python": "3.11.15"
+      },
       "sides": [
         "py"
       ],
-      "source": "external_parity",
-      "status": "external-replication",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/external_parity/test_facure_causal_inference_in_python.py"
+        "tests/reference_parity/test_cate_gain_curve_fklearn_parity.py",
+        "tests/reference_parity/_fixtures/cate_gain_curve_fklearn.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-10 relative on the cumulative effect, the cumulative and relative gain at each of 100 steps, the area and the ten quantile effects (observed 4e-14)"
     },
     "example": "good = sp.cate_gain_curve(df, cate=\"x\", y=\"y\", treat=\"dose\")",
     "failure_modes": [
@@ -164461,7 +164619,7 @@
       }
     },
     "signature": {
-      "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Cumulative gain curve of a CATE ranking on randomized data. Validation: certified parity evidence.",
       "name": "cate_gain_curve",
       "parameters": {
         "properties": {
@@ -164536,9 +164694,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_facure_causal_inference_in_python.py"
+      "Cross-language parity (bit-exact) vs fklearn.causal.validation.curves.effect_curves and effect_by_segment (linear_effect) [fklearn 4.3.0, pandas 3.1.1, python 3.11.15]; tolerance 1e-10 relative on the cumulative effect, the cumulative and relative gain at each of 100 steps, the area and the ten quantile effects (observed 4e-14) -- tests/reference_parity/test_cate_gain_curve_fklearn_parity.py",
+      "tests/external_parity/test_facure_causal_inference_in_python.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -171128,22 +171287,27 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "ltmle::ltmleMSM (glm nuisance fits, variance.method = 'ic')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ltmle": "1.3.0"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_ltmle_msm_parity.py"
+        "tests/reference_parity/test_ltmle_msm_parity.py",
+        "tests/reference_parity/_fixtures/ltmle_msm_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "1e-8 absolute on TMLE coefficients, 1e-8 relative on their SEs; IPTW coefficients 1e-11"
     },
     "example": "r = sp.ltmle_msm(df, 'Y', ['A0', 'A1'], [['L0'], ['L1']], regs,\n {'cum_a': [0, 1, 1, 2]})",
     "failure_modes": [
@@ -171180,7 +171344,7 @@
       }
     },
     "signature": {
-      "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Longitudinal TMLE of a working marginal structural model (R ``ltmleMSM``). Validation: certified parity evidence.",
       "name": "ltmle_msm",
       "parameters": {
         "properties": {
@@ -171294,9 +171458,9 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ltmle_msm_parity.py"
+      "Cross-language parity (bit-exact) vs ltmle::ltmleMSM (glm nuisance fits, variance.method = 'ic') [R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance 1e-8 absolute on TMLE coefficients, 1e-8 relative on their SEs; IPTW coefficients 1e-11 -- tests/reference_parity/test_ltmle_msm_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,
@@ -171312,22 +171476,27 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: certified parity evidence.",
     "evidence": {
-      "grade": "T1",
+      "grade": "T2",
       "grade_basis": "derived from status and sides",
       "module_id": null,
-      "reference": "",
-      "reference_versions": {},
+      "reference": "lmtp::lmtp_tmle and lmtp_sdr (SL.glm, folds = 1)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lmtp": "1.5.4"
+      },
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "tests": [
-        "tests/reference_parity/test_lmtp_parity.py"
+        "tests/reference_parity/test_lmtp_parity.py",
+        "tests/reference_parity/_fixtures/lmtp_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "3e-7 relative on estimate and SE (observed <= 1.9e-7 on the binary TMLE rows); density ratios 1e-11"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nW = rng.normal(size=n)\nA = W + rng.normal(size=n)\ndf = pd.DataFrame({'W': W, 'A': A,\n 'Y': 0.5 * A + W + rng.normal(size=n)})\nr = sp.lmtp(df, 'Y', ['A'], shift=1.0, baseline=['W'])",
     "failure_modes": [
@@ -171382,7 +171551,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Mean outcome under a modified treatment policy (sequential TMLE / SDR). Validation: certified parity evidence.",
       "name": "lmtp",
       "parameters": {
         "properties": {
@@ -171504,9 +171673,9 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lmtp_parity.py"
+      "Cross-language parity (bit-exact) vs lmtp::lmtp_tmle and lmtp_sdr (SL.glm, folds = 1) [R version 4.5.2 (2025-10-31), lmtp 1.5.4]; tolerance 3e-7 relative on estimate and SE (observed <= 1.9e-7 on the binary TMLE rows); density ratios 1e-11 -- tests/reference_parity/test_lmtp_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alias_of": null,

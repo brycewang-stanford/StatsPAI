@@ -20,10 +20,14 @@ Causal Inference* 6(2).
 
 Notes
 -----
-This implementation performs **level-alpha** subset search using the
-two-sample mean-plus-variance test (Chow test equivalent for linear
-models). For large p, pass ``max_subset_size`` < p to keep runtime
-tractable.
+This implementation performs a **level-alpha** subset search. The
+invariance of a subset is tested on the residuals of the pooled
+regression, for equal means and equal variances across environments. Two
+versions of that test are available (``test=``): a one-way analysis of
+variance with Levene's test, the default, and the environment-against-
+the-rest t and F tests of Peters et al.'s approximate method, which is
+what R ``InvariantCausalPrediction::ICP(test = "normal")`` computes. For
+large p, pass ``max_subset_size`` < p to keep runtime tractable.
 """
 
 from __future__ import annotations
@@ -128,6 +132,7 @@ def icp(
     alpha: float = 0.05,
     method: str = "linear",
     max_subset_size: int | None = None,
+    test: str = "anova",
 ) -> ICPResult:
     """Infer the direct parents of ``y`` via Invariant Causal Prediction.
 
@@ -153,6 +158,18 @@ def icp(
         fit, per Heinze-Deml et al. 2018.
     max_subset_size : int, optional
         Cap on the cardinality of subsets tested. Default: min(p, 6).
+    test : {"anova", "normal"}, default "anova"
+        Invariance test of the linear method, on the residuals of the
+        pooled least-squares fit. ``"anova"`` compares all environments at
+        once: a one-way analysis of variance for the means and Levene's
+        test for the variances, the smaller p-value doubled. ``"normal"``
+        compares each environment with the rest: Welch's t test for the
+        means and the two-sided F test for the variances, the smallest
+        p-value multiplied by ``2 * (K - 1)`` for ``K`` environments. The
+        second is the approximate test of Peters et al. (2016) as R
+        ``InvariantCausalPrediction::ICP(test = "normal")`` runs it, and
+        with it the accepted sets and the intervals are that function's.
+        Ignored by ``method="nonlinear"``.
 
     Returns
     -------
@@ -192,6 +209,14 @@ def icp(
     from ._data import check_alpha
 
     check_alpha(alpha, "icp")
+    if test not in ("anova", "normal"):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"icp: test={test!r} is not available.",
+            recovery_hint="Use test='anova' or test='normal'.",
+            diagnostics={"test": test},
+        )
     # Each subset is tested at alpha. Through 1.41 alpha was divided by
     # 2**p - 1, so adding pure-noise predictors made the test of every
     # subset stricter and the true parent dropped out of the intersection.
@@ -210,7 +235,7 @@ def icp(
         for subset in combinations(cols, k):
             S = frozenset(subset)
             pval, reason = _invariance_test(
-                X[list(subset)].to_numpy(), y, env, method=method
+                X[list(subset)].to_numpy(), y, env, method=method, test=test
             )
             if pval >= per_subset_alpha:
                 accepted.append(S)
@@ -272,7 +297,7 @@ def icp(
 
 
 def _invariance_test(
-    X: np.ndarray, y: np.ndarray, env: np.ndarray, method: str
+    X: np.ndarray, y: np.ndarray, env: np.ndarray, method: str, test: str = "anova"
 ) -> tuple[float, str]:
     """Return (pvalue, reason) for the null hypothesis of invariance."""
     n = X.shape[0]
@@ -282,6 +307,24 @@ def _invariance_test(
     resid = y - X_with_const @ beta
 
     env_labels = np.unique(env)
+    if method == "linear" and test == "normal":
+        # Each environment against the rest: Welch t test for the mean of
+        # the residuals, two-sided F test for their variance; Bonferroni
+        # over the two tests and K - 1 environments.
+        smallest = 1.0
+        for e in env_labels:
+            inside = resid[env == e]
+            rest = resid[env != e]
+            if inside.size < 2 or rest.size < 2:
+                return 0.0, "environment too small"
+            p_mean = float(stats.ttest_ind(inside, rest, equal_var=False).pvalue)
+            ratio = inside.var(ddof=1) / rest.var(ddof=1)
+            tail = float(stats.f.cdf(ratio, inside.size - 1, rest.size - 1))
+            p_var = 2.0 * min(tail, 1.0 - tail)
+            smallest = min(smallest, p_mean, p_var)
+        factor = 2.0 * (len(env_labels) - 1)
+        return float(min(1.0, factor * smallest)), "mean/variance invariance"
+
     if method == "linear":
         means = []
         vars_ = []

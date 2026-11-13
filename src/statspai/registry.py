@@ -18336,6 +18336,7 @@ def _build_registry() -> None:
                     "method", "str", False, "linear", enum=["linear", "nonlinear"]
                 ),
                 ParamSpec("max_subset_size", "int", False),
+                ParamSpec("test", "str", False, "anova", enum=["anova", "normal"]),
             ],
             returns="ICPResult",
             tags=["causal_discovery", "invariance", "icp"],

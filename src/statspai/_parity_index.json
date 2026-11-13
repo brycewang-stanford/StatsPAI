@@ -10805,21 +10805,32 @@
       "tolerance": "estimate / SE rtol 1e-6, logit-scale CI rtol 2e-6 (observed <= 2.4e-7 / 7e-7 / 1.2e-6); balanced REML ICC = ANOVA ICC(1) rtol 1e-9"
     },
     {
-      "function": "icp",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_frontier_known_truth_recovery.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "icp",
+      "notes": [
+        "Frozen-R fixture: 16 designs with two to four environments at alpha 0.05 and 0.01, a quarter of them with a direct shift of the response that makes the reference reject every subset. Non-default option: the comparison is on test='normal', the reference's test (each environment against the rest). The default test='anova' is another test of the same hypothesis and accepts a different collection of subsets on 8 of the 32 fits. InvariantCausalPrediction is GPL and was run, not read."
+      ],
+      "reference": "InvariantCausalPrediction::ICP(test = 'normal', selection = 'all')",
+      "reference_versions": {
+        "InvariantCausalPrediction": "0.8",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_icp_R_parity.py",
+        "tests/reference_parity/_fixtures/icp_R.json"
+      ],
+      "tolerance": "accepted subsets and parents exact on 32 fits; 1e-9 absolute on the parents' confidence intervals (observed 5e-15)"
     },
     {
       "also_verified_by": [
