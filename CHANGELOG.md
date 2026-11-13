@@ -183,6 +183,96 @@ References are run on the same bytes
   the user's terms.** `C(sid)` next to `| sid` was reported as
   `['__i0__', '__i1__', ...]`; the message, hint and diagnostics now say
   `C(sid)[T.2]`, `year::2001`.
+### Agent probe, open items closed (2026-11-13)
+
+The probe of the same day left seventeen agent-layer defects open
+(`docs/dev/2026-11-13-agent-probe.md`, items 32 to 48). Eleven are closed
+here. No estimate, standard error or interval of any estimator changes.
+Evidence: `tests/test_agent_followup_nov13.py`,
+`tests/test_next_steps_families.py`, `tests/test_to_dict_no_private_keys.py`,
+`tests/reference_parity/test_native_factor_terms_stata.py`.
+
+#### Fixed
+- **⚠️ `next_steps()` offered steps from a neighbouring family.** A
+  `sp.cox` fit was told to run `sp.regress('time ~ x + z', robust='hc1')`,
+  Oster bounds and marginal effects (every regression result got the
+  linear-model toolkit; the label "Cox Proportional Hazards" was also read
+  as an RD design, because "hazards" contains "rd"). `sp.bunching` got the
+  RD checklist ("Kink Design"). A fuzzy RD was offered the sharp reduced
+  form (`rd_honest`, and bandwidth / placebo tables without `fuzzy=`). A
+  kink design was offered the level-jump tools. A 2x2 `sp.did` passed its
+  before / after indicator as the calendar time of `sp.callaway_santanna`.
+  "Difference in means" results were read as DiD. Logit / probit / Poisson
+  / negative binomial fits are refitted by their own estimator, a
+  `sp.panel` fit by `sp.panel(..., cluster=<unit>)` (the `sp.regress` refit
+  dropped the unit effects), a Cox fit gets `result.ph_test()`. The test
+  runs every executable step of 21 fitted results verbatim.
+- **Card-derived `next_steps()` listed every registered failure mode.**
+  Results outside the two core result trees take their steps from the
+  producing function's card. A failure mode is now a step only when the
+  result reports the matching violation; the catalogue stays in
+  `sp.describe_function`. `FEOLSResult` (`sp.hdfe_ols`) reports
+  `few_clusters` (its cluster count was not read).
+- **MCP `plot_from_result` ignored `kind=`.** It echoed the kind over a
+  coefficient plot. `rdplot` is `sp.rdplot` on the fit's own outcome,
+  running variable and cutoff; a synthetic-control fit draws `synth`,
+  `synth_gap`, `synth_path`, `synth_weights`. A kind the result cannot
+  draw is refused (`error_kind: "method_incompatibility"`) with
+  `valid_kinds`; every reply lists `valid_kinds`.
+- **⚠️ `sp.audit` judged the variance by the wrong key.** A clustered
+  `sp.regress` or `sp.panel` fit was `failed` on `robust_se`
+  (`robust='nonrobust'` sits beside `cluster=`), a clustered or robust
+  `sp.feols` / `sp.hdfe_ols` fit `missing`. The check reads what the fit
+  recorded; an iid `sp.feols` fit is now `failed` (was `missing`).
+- **`sp.audit` on `sp.sdid`: pre-fit and placebo evidence were `missing`.**
+  The fit stores `pre_treatment_rmse`, `pretreatment_rmse_ratio` and the
+  resampling behind its standard error (`placebo_inference`, or
+  `resampling_inference` for the bootstrap / jackknife).
+- **MCP `synth_sensitivity` answered with 48 KB.** At the default
+  `detail='agent'` a table nested in a dict result keeps 20 rows once its
+  JSON passes 4 KB; the cut is listed under `arrays_capped` and readable in
+  full through `statspai://result/<id>/arrays/<path>`. The reply is 16 KB;
+  `detail='standard'` keeps every row.
+- **`to_dict()` exported `_`-prefixed internals.** Seven dataclass results
+  did (`MixedResult` its data blocks, `MEGLMResult` its full covariance,
+  `CTreeResult`, `FMMResult`, `ETSResult`, `SimpleForecastResult`,
+  `DecompositionResult`), and `CausalResult` diagnostics carried
+  `_cluster_ids`, `_pscore` and the repr of an internal object. No key
+  starting with `_` is exported at the top level or inside `diagnostics` /
+  `model_info`, at any `detail`.
+- **MCP `seed_injected` on calls that draw nothing.** The note is reported
+  only when the call seeded a generator with the filled value. A 2x2
+  `sp.did`, an analytic `sp.callaway_santanna` and `sp.rdrobust` no longer
+  carry it, nor a `seed=42` in the replay line; where it is reported the
+  result card states the same seed (`seed_source: "tool_layer"`).
+- **MCP `load_data` / `describe_data` carried the source record twice.**
+  It is under `data_provenance`, as in every other tool; the duplicate
+  `provenance` key is gone.
+- **A regression with several regressors answered `estimate: null` with
+  no explanation.** The envelope keeps `estimate: null` and
+  `focal_term: null` (no term is invented) and adds `headline_note`.
+  `FEOLSResult` gets the same envelope and a `coefficients` table.
+  `sp.liml` names its single endogenous regressor, as `sp.ivreg` does.
+  `sp.brief` showed the coefficient with the smallest p-value under
+  "best:"; it shows the designated term, or the leading coefficients in
+  model order with "(no focal term)". The MCP narrative quotes them.
+- **`sp.stata` with several estimation commands.** It still returns the
+  output of the last command. The result carries `stata_run`
+  (`n_estimation_commands`, `returned_command`,
+  `earlier_commands_not_returned`, a hint), and the MCP reply of
+  `call_function(stata)` the same fields.
+- **One balance threshold.** `violations()` warned above |SMD| 0.25 while
+  `sp.audit` failed the same matched sample at 0.10. Both read 0.10; the
+  `balance` violation has `level: "moderate"` up to 0.25 and `"severe"`
+  above.
+
+#### Added
+- **`sp.feols` fits `C(factor, Treatment(ref))`, `C(factor):x` and
+  `x:C(factor)` on its own engine.** `sp.from_stata` writes `ib2005.year`,
+  `i.year#c.x` and `c.x##i.year` this way; those lines needed the optional
+  pyfixest. Columns, names and order are formulaic's. Stata 18 `xtreg, fe`
+  and `reghdfe` on the castle-doctrine panel agree to 1e-8 on every
+  coefficient and standard error (seven models).
 
 ### Agent probe (2026-11-13)
 

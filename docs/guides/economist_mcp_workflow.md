@@ -187,7 +187,7 @@ The fitted estimator returns `result_id`. Pass it to:
 | `audit_result` | Reviewer checklist of missing diagnostics |
 | `brief_result` | One-line estimate summary |
 | `interpret_result` | Grounded explanation, optionally using MCP sampling |
-| `plot_from_result` | Inline PNG diagnostic plot |
+| `plot_from_result` | Inline PNG diagnostic plot; `kind=` picks one of the reply's `valid_kinds` (`rdplot`, `synth_gap`, `event_study`, ...), any other kind is refused |
 | `sensitivity_from_result` | E-value / Oster / Cinelli-Hazlett style checks |
 | `honest_did_from_result` | Rambachan-Roth sensitivity from DID/event-study results |
 | `bibtex` | Verified BibTeX from StatsPAI's citation registry |

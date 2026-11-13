@@ -42,6 +42,71 @@ independent check.
 `sp.iv_mediate` gains `equations="joint"`. The default is unchanged.
 
 ---
+## 1.43 → next: next steps by family, balance threshold 0.10, `sp.audit` `robust_se`, private keys out of `to_dict()`, MCP reply fields
+
+No estimate, standard error or interval changes in this entry.
+
+`result.violations()`:
+
+- The `balance` violation fires when the largest post-adjustment |SMD|
+  exceeds 0.10 (was 0.25), the threshold `sp.audit` already used. Its
+  `threshold` is 0.10 and it carries `level` (`"moderate"` up to 0.25,
+  `"severe"` above) and `severe_above: 0.25`. A matched or weighted fit
+  with a worst |SMD| between 0.10 and 0.25 now has a `balance` violation.
+- `FEOLSResult` (`sp.hdfe_ols`) reports `few_clusters` below 30 clusters.
+
+`sp.audit(result)`, check `robust_se`:
+
+- `passed` for a clustered `sp.regress` / `sp.panel` fit (was `failed`)
+  and for a clustered or robust `sp.feols` / `sp.hdfe_ols` fit (was
+  `missing`); `failed` for an iid `sp.feols` / `sp.hdfe_ols` fit (was
+  `missing`). `value` is `"cluster (<columns>)"`, the estimator's own
+  label (`"hc1"`, `"hetero"`) or `"nonrobust"`.
+- A `sp.sdid` fit: `pretreatment_fit` and `placebo_inference` are read
+  from the fit (were `missing`).
+
+`result.next_steps()`:
+
+- Steps of another family are gone (see CHANGELOG). Code that looked for
+  `sp.regress(... robust='hc1')` after a logit / probit / Poisson /
+  negative binomial fit finds the same call on that estimator; after
+  `sp.panel` it finds `sp.panel(..., cluster=<unit>)`; after `sp.cox` no
+  refit, and `result.ph_test()`.
+- Results outside `CausalResult` / `EconometricResults` no longer list
+  every failure mode of the producing function. Read the catalogue from
+  `sp.describe_function(name)["failure_modes"]`.
+- `statspai.core.next_steps._detect_family` reads whole words: "Cox
+  Proportional Hazards", "ordinal", "forward" are `generic` (were `rd`),
+  "difference in means" is `generic` (was `did`), "Bunching Estimator
+  (Kink Design)" is `generic` (was `rd`).
+
+`to_dict()`:
+
+- No `_`-prefixed key at the top level or inside `diagnostics` /
+  `model_info`. Read working state from the result object
+  (`result.model_info["_y_resid"]`, `result._blocks`), not from the
+  export.
+- A regression without a focal term carries `headline_note`;
+  `sp.liml` with one endogenous regressor has `estimate` / `se` / `pvalue`
+  / `ci` on that regressor (were `None`); `FEOLSResult` has `focal_term`,
+  and at `detail="agent"` a `coefficients` table.
+
+`sp.brief(result)` on a regression: `"k=4  treat=..., age=..., +1 more
+(no focal term)"` (was `"k=4  best: <smallest p-value term>=..."`).
+
+MCP:
+
+- `plot_from_result`: an unknown or inapplicable `kind` is an error with
+  `valid_kinds` (was a coefficient plot). The default plot of an RD fit is
+  `rdplot` when the dataset can be reached (`coef_plot` with a `note`
+  otherwise), of a synthetic-control fit `synth`.
+- `load_data` / `describe_data`: the source record is `data_provenance`
+  (the `provenance` key is gone).
+- `seed_injected` (and the seed in `replay`) only on calls that seeded a
+  generator with it.
+- At `detail='agent'`, a table nested in a dict result is cut to 20 rows
+  once it passes 4 KB (`arrays_capped`, full table at the listed
+  resource). Pass `detail='standard'` for every row.
 
 ## 1.43 → next: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
 

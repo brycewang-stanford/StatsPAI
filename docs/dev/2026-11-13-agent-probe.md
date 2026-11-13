@@ -86,23 +86,31 @@ Surface codes: M = MCP server, P = Python self-description, B = both.
 | 29 | B | 2x2 `sp.did` card said `normal`; the interval uses t(n - 4) | fixed |
 | 30 | M | HDFE result: `fitted_within` uncapped (76 KB reply) | fixed |
 | 31 | P | `rosenbaum_bounds(data=)` without `pair_id`: bare `ValueError` | fixed |
-| 32 | M | `call_function(stata, <several estimation commands>)` returns the last result only | open: `sp.stata` returns one object by design; needs a decision on a multi-result payload |
-| 33 | B | `from_stata("xtreg ... i.year, fe")` gives `feols('... + C(year) | id')`, which needs pyfixest | open: the native HDFE engine has no factor terms |
-| 34 | B | `feols` / `panel` / `liml` with several regressors: `estimate` is null (no focal term) | open: by design; the coefficients table is complete |
-| 35 | B | `next_steps()` lists every registered failure mode as a step whether or not it occurred | open: wording / design of the generic card-derived steps |
-| 36 | B | Family-inherited next steps on non-family results (`sp.regress('time ~ ...')` after `sp.cox`; RD steps after `sp.bunching`) | open: needs per-family review of `core/next_steps.py` |
-| 37 | M | `plot_from_result` draws a coefficient plot for RD and synth results; `kind='rdplot'` is echoed but the picture is the same | open |
+| 32 | M | `call_function(stata, <several estimation commands>)` returns the last result only | closed the same day (follow-up): the return shape stays; the result carries `stata_run` and the MCP reply `n_estimation_commands` / `earlier_commands_not_returned` |
+| 33 | B | `from_stata("xtreg ... i.year, fe")` gives `feols('... + C(year) | id')`, which needs pyfixest | closed (follow-up): `C(f, Treatment(ref))`, `C(f):x`, `x:C(f)` are native; pinned to Stata `xtreg, fe` / `reghdfe` at 1e-8 |
+| 34 | B | `feols` / `panel` / `liml` with several regressors: `estimate` is null (no focal term) | closed (follow-up, no focal term invented): `headline_note`, `focal_term: null`, coefficient table read by `brief` / narrative |
+| 35 | B | `next_steps()` lists every registered failure mode as a step whether or not it occurred | closed (follow-up): a failure mode is a step only when the result reports the matching violation |
+| 36 | B | Family-inherited next steps on non-family results (`sp.regress('time ~ ...')` after `sp.cox`; RD steps after `sp.bunching`) | closed (follow-up): family read from whole words, regression steps by model kind, 21 fits run every executable step |
+| 37 | M | `plot_from_result` draws a coefficient plot for RD and synth results; `kind='rdplot'` is echoed but the picture is the same | closed (follow-up): kinds per result, unknown kind refused with `valid_kinds` |
 | 38 | M | `sensitivity_from_result` default (`evalue`) needs `sd=` on a mean difference; the hint says so | left: the error is actionable |
-| 39 | M | `seed_injected` on calls with no stochastic step (2x2 `did`); card `seed_note` contradicts the replay line | open |
-| 40 | M | Successful responses repeat `data_provenance` (about 0.5 KB) and `load_data` carries it twice | open: budgeted by owner decision of 2026-10-20 |
+| 39 | M | `seed_injected` on calls with no stochastic step (2x2 `did`); card `seed_note` contradicts the replay line | closed (follow-up): reported only when a generator was seeded with it |
+| 40 | M | Successful responses repeat `data_provenance` (about 0.5 KB) and `load_data` carries it twice | closed (follow-up) for the duplicate: `load_data` / `describe_data` carry it once, as `data_provenance`; one block per reply stays by the 2026-10-20 decision |
 | 41 | M | `detect_design` proposes an RD candidate on an id or outcome column at the median | open: low-confidence candidate, costs bytes only |
 | 42 | M | `synth` on a panel whose donor pool contains treated units returns an estimate with no flag | open: needs a treatment column to detect |
 | 43 | P | `partial_identification` returns `CausalResult` or `BoundsResult` by method; card has no result class | open: return type should be one class (owner decision) |
 | 44 | B | `sp.did_multiplegt` on a continuous treatment: minutes, null estimate, no error | open: outside the agent layer; `recommend` no longer routes there |
-| 45 | P | `to_dict()` of `ARIMAResult` / `MEGLMResult` carries `_`-prefixed internals (scrubbed over MCP, not in Python) | `ARIMAResult` fixed the same day by the time-series probe; `MEGLMResult` open |
-| 46 | B | `audit` asks for `robust_se` on a clustered `feols` fit (`missing`) | open |
-| 47 | M | `synth_sensitivity` (now a ready follow-up of `synth`) answers with 46 KB | open: its donor-sensitivity table is 15 KB; needs a summary at `detail='agent'` |
-| 48 | M | `sdid` audit lists pre-fit and placebo checks as `missing`: the SDID result stores neither under a name the audit reads | open |
+| 45 | P | `to_dict()` of `ARIMAResult` / `MEGLMResult` carries `_`-prefixed internals (scrubbed over MCP, not in Python) | closed (follow-up): no result class exports a `_`-prefixed key (seven dataclass results and `CausalResult` diagnostics did) |
+| 46 | B | `audit` asks for `robust_se` on a clustered `feols` fit (`missing`) | closed (follow-up); a clustered `regress` / `panel` fit was `failed` |
+| 47 | M | `synth_sensitivity` (now a ready follow-up of `synth`) answers with 46 KB | closed (follow-up): 16 KB; nested tables capped at 20 rows, full table at the arrays resource |
+| 48 | M | `sdid` audit lists pre-fit and placebo checks as `missing`: the SDID result stores neither under a name the audit reads | closed (follow-up): `sp.sdid` stores the evidence under the names the audit reads |
+
+Follow-up of the same day (line `agent-2`): items 32 to 37, 39, 40 and 45
+to 48 were closed, and the two balance thresholds of owner decision 6
+became one (|SMD| < 0.10 in both `violations()` and `sp.audit`). Items 38,
+41 to 44 remain as recorded above. Tests:
+`tests/test_agent_followup_nov13.py`, `tests/test_next_steps_families.py`,
+`tests/test_to_dict_no_private_keys.py`,
+`tests/reference_parity/test_native_factor_terms_stata.py`.
 
 ## What was verified to be right
 

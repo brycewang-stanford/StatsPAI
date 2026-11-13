@@ -285,7 +285,10 @@ with sp.session(seed=42):
 
 Through the tool layer (MCP, `execute_tool`) the same problem is handled
 per call: an unset `seed=` / `random_state=` is filled, and the response
-says which argument and which value under `seed_injected`.
+says which argument and which value under `seed_injected`. The note is
+reported only when the call seeded a generator with the filled value: a
+fit that draws nothing (a 2x2 DiD, an analytic Callaway-Sant'Anna fit)
+carries neither the note nor a seed in its replay line.
 
 What's covered: Python `random`, NumPy legacy global (`np.random.randn`,
 `np.random.choice`, …). Lazy interop with PyTorch / JAX (only seeded
@@ -539,7 +542,7 @@ Operator settings (environment of the server process):
 | `STATSPAI_MCP_MAX_ORPHANED_CALLS` | timed-out or cancelled computations that may still be running before new calls are refused with `server_busy` (default 4; `0` = unlimited). A thread cannot be killed, so a timeout does not free the CPU |
 | `STATSPAI_MCP_MAX_QUEUE_SECONDS` | longest a `tools/call` may wait in the queue before it starts (default 900; `0` = unlimited); past it the call is answered `server_busy` instead of being run |
 | `STATSPAI_MCP_ISOLATION` | `process` runs every self-contained call (no `result_id`, `data_id` or `as_handle`) in a child process that is killed on timeout or cancel, so nothing is left running; each such call pays a fresh interpreter start. Default `thread` |
-| `STATSPAI_MCP_DEFAULT_SEED` | seed given to a tool call that leaves a `seed=` / `random_state=` argument unset (default `42`); `off` disables the fill. The response reports it as `seed_injected` |
+| `STATSPAI_MCP_DEFAULT_SEED` | seed given to a tool call that leaves a `seed=` / `random_state=` argument unset (default `42`); `off` disables the fill. The response reports it as `seed_injected` when the call seeded a generator with it |
 | `STATSPAI_MCP_MAX_REQUEST_BYTES` | largest accepted request line (default 64 MiB; `0` = unlimited); larger lines get `-32600` unparsed |
 | `STATSPAI_MCP_DATA_CACHE_SIZE` / `STATSPAI_MCP_DATA_CACHE_BYTES` | data-handle cache bounds (16 frames / 2 GiB) |
 | `STATSPAI_MCP_PROFILE` | default `tools/list` profile |

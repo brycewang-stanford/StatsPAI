@@ -100,7 +100,7 @@ detect_design -> preflight/recommend -> fit(as_handle=true)
 | `audit_result` | 生成 reviewer-style 诊断清单 |
 | `brief_result` | 结构化结果摘要 |
 | `interpret_result` | 基于结果的解释，可在支持 MCP sampling 的客户端中增强 |
-| `plot_from_result` | 返回内联 PNG 诊断图 |
+| `plot_from_result` | 返回内联 PNG 诊断图；`kind=` 取回复里 `valid_kinds` 之一（`rdplot`、`synth_gap`、`event_study` 等），其余取值会被拒绝 |
 | `sensitivity_from_result` | E-value / Oster / Cinelli-Hazlett 等敏感性分析 |
 | `honest_did_from_result` | DID/event-study 的 Rambachan-Roth 敏感性分析 |
 | `bibtex` | 从 `paper.bib` 读取真实引用，不让 agent 编造参考文献 |
