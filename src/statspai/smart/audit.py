@@ -1083,7 +1083,6 @@ _OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
 )
 
 
-@accepts_aliases(treat="treatment")
 def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str, Any]:
     """Evidence the fit already carries under an estimator's own key names.
 
@@ -1133,6 +1132,7 @@ def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str
     return extra
 
 
+@accepts_aliases(treat="treatment")
 def audit(
     result: Any,
     *,

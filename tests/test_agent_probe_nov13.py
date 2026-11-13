@@ -873,3 +873,21 @@ def test_followup_to_an_optional_data_tool_carries_the_dataset(iv_frame, tmp_pat
     assert out["structuredContent"]["coefficients"]["d"]["estimate"] == pytest.approx(
         float(direct.params["d"]), rel=1e-9
     )
+
+
+def test_audit_keeps_its_treat_alias(obs):
+    """``sp.audit(result, treat=...)`` is the house spelling of ``treatment=``.
+
+    The alias decorator was displaced when ``evidence=`` was added (the CI
+    house-style ratchet caught it); both spellings must give one report.
+    """
+    fit = sp.regress("y ~ d + x1 + x2", data=obs)
+    by_alias = sp.audit(fit, treat="d")
+    by_name = sp.audit(fit, treatment="d")
+    assert by_alias == by_name
+    names = {c["name"] for c in by_alias["checks"]}
+    # declaring a treatment adds the observational-design checks
+    assert {"overlap", "balance_after"} <= names
+    assert not {"overlap", "balance_after"} & {
+        c["name"] for c in sp.audit(fit)["checks"]
+    }
