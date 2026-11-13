@@ -6316,3 +6316,40 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — both trace ledgers re-recorded in full (line `gaps`: 21 features a referee asks for by name)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `feat(econ): ...` (four commits), `feat(meta,ml): ...` and
+  `feat(epi): ...` changed the files; the commit that adds this entry
+  re-records the traces.
+- **Reason.** Additive options and three new public functions. The files
+  on a traced estimation path are `src/statspai/__init__.py` (exports of
+  `srm_test`, `meta_regression`, `trim_and_fill`), `core/results.py` (the
+  regression-format detail table prints a `z` column when the result has
+  one), `regression/iv.py` (`sp.ivreg` attaches the rank statistics),
+  `did/callaway_santanna.py` (a warning for propensity fits on the
+  boundary), `did/event_study.py` (a note on pooled end points),
+  `fixest/_native.py` (fit statistics, column names in errors),
+  `decomposition/oaxaca.py` (`means="stochastic"`),
+  `survival/models.py` (`ties="exact"`), `inference/ipw.py`
+  (`truncate=`), `inference/g_computation.py` (`outcome_model=`,
+  `contrast=`), `multilevel/lmm.py` and `multilevel/_core.py`
+  (variance-component standard errors), `regression/gee.py` (QIC),
+  `matching/overlap_weights.py` (`se_method="sandwich"`),
+  `forest/forest_inference.py`, `metalearners/metalearners.py` and
+  `dml/_sensitivity.py` (docstrings, `rho=` / `level=`, one dropped
+  `model_info` key). Every new code path is behind an option whose default
+  reproduces the previous behaviour.
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  re-derived all 91 Track A Python results on the changed tree without the
+  Rust backend on the Python 3.10.20 reference environment: 91 reproduce,
+  0 drift, every fixture CSV byte identical, worst relative difference
+  1.7e-10 (inside the 1e-9 reproducibility floor; the committed files were
+  kept). The twelve original-data modules were re-run into a scratch
+  directory and every number agreed with the committed result within
+  1.6e-11. No committed parity result changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

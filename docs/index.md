@@ -46,7 +46,7 @@ sp.parity_status("ivreg")                 # matches R AER::ivreg within 1e-6
 
 ## When to use something else
 
-At a glance: 1,681 registered functions across 92 submodules (live count:
+At a glance: 1,687 registered functions across 92 submodules (live count:
 `python scripts/registry_stats.py`). StatsPAI is broad, and its evidence is
 uneven across that breadth: 576
 functions have been compared with R or Stata, 452 checked against known

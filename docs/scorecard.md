@@ -22,12 +22,12 @@ never carry a numerical grade (`sp.parity_summary()['denominators']`).
 
 | Measure | Estimators | Share |
 | --- | ---: | ---: |
-| Registered estimators | 1,010 | 100% |
-| With numerical evidence of any kind | 1,010 | 100.0% |
-| Same data, matched to an R / Stata / author reference (T2) | 606 | 60.0% |
-| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 529 | 52.4% |
+| Registered estimators | 1,013 | 100% |
+| With numerical evidence of any kind | 1,013 | 100.0% |
+| Same data, matched to an R / Stata / author reference (T2) | 606 | 59.8% |
+| `bit-exact` (relative gap <= 1e-6 on estimate and SE) | 529 | 52.2% |
 | `aligned` (documented looser tolerance and mechanism) | 77 | 7.6% |
-| Known truth only (`analytical-only`) | 353 | 35.0% |
+| Known truth only (`analytical-only`) | 356 | 35.1% |
 | Published numbers reproduced (`external-replication`) | 51 | 5.0% |
 | No evidence (`unverified`, listed in section 4) | 0 | 0.0% |
 
@@ -111,8 +111,8 @@ recovery and Monte Carlo coverage are the honest ceiling.
 | `fairness` | 6 | 0 | 0.0% |
 | `neural_causal` | 5 | 0 | 0.0% |
 | `conformal_causal` | 12 | 3 | 25.0% |
+| `experimental` | 16 | 5 | 31.2% |
 | `forest` | 27 | 9 | 33.3% |
-| `experimental` | 15 | 5 | 33.3% |
 | `interference` | 12 | 4 | 33.3% |
 | `target_trial` | 6 | 2 | 33.3% |
 | `mcmc` | 37 | 13 | 35.1% |

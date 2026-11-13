@@ -283,6 +283,11 @@
     "description": "Fit an Accelerated Failure Time model by MLE. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray. Assumptions: Non-informative (independent) censoring conditional on covariates; AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified. Pre-conditions: One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code; Time-varying covariates need a (start, stop] counting-process layout. Failure modes: Fewer than ~10 events per covariate -> Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit. Alternatives: sp.sp.kaplan_meier, sp.sp.finegray. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column. Gives the clustered sandwich with ``G / (G - 1)`` (``streg, vce(cluster c)``; R ``survreg(cluster = )`` has no factor). Implies ``robust=\"cluster\"``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "family": {
           "default": "weibull",
           "description": "family parameter (AFTFamily).",
@@ -298,6 +303,17 @@
           "description": "``\"duration + event ~ x1 + x2\"``. Durations must be positive and the event coded 0/1.",
           "type": "string",
           "x-statspai-role": "formula"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "Variance estimator. ``\"nonrobust\"`` is the inverse observed information. ``\"robust\"`` is the sandwich of the score contributions with Stata's ``N / (N - 1)`` factor (``streg, vce(robust)``); R ``survreg(robust = TRUE)`` is the same sandwich without the factor.",
+          "enum": [
+            "nonrobust",
+            "robust",
+            "cluster"
+          ],
+          "type": "string",
+          "x-canonical": "vce"
         }
       },
       "required": [
@@ -1897,6 +1913,23 @@
             "link"
           ],
           "type": "string"
+        },
+        "variables": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Counterfactual predictions: {'d': [0, 1]} predicts every row with d set to 0 and to 1 (marginaleffects' variables = list(d = c(0, 1))); avg_predictions returns one average per value. A name alone uses every level of a factor or 0/1 regressor"
         },
         "vcov": {
           "default": true,
@@ -8099,10 +8132,11 @@
         },
         "ties": {
           "default": "efron",
-          "description": "Tie-handling method: ``'efron'`` or ``'breslow'``.",
+          "description": "Tie-handling method: ``'efron'``, ``'breslow'`` or ``'exact'``. ``'exact'`` maximises the exact partial likelihood, the conditional probability that the subjects who failed at a tied time are the ones that failed (R ``coxph(ties = \"exact\")``, Stata ``stcox, exactp``). It is the rule to use when time is recorded coarsely and many failures share a time; Efron and Breslow approximate it and all three coincide without ties. It accepts ``strata=`` and ``start=`` and is refused with ``weights=``, ``robust=``, ``cluster=``, ``design=`` and ``tvc=``; ``ph_test()`` is not available after it, and the baseline hazard uses Breslow increments at the exact estimates (R ``basehaz``).",
           "enum": [
             "efron",
-            "breslow"
+            "breslow",
+            "exact"
           ],
           "type": "string"
         },
@@ -12880,6 +12914,10 @@
           "description": "Multipliers for the benchmark strengths.",
           "type": "number"
         },
+        "level": {
+          "description": "Coverage of the interval for the adjusted-estimate range, and the level behind ``rv_qa``. Default ``1 - alpha`` of the fit, 0.95 unless the fit asked for something else (``doubleml``'s ``sensitivity_analysis(level=)`` defaults to 0.95 as well).",
+          "type": "number"
+        },
         "q": {
           "default": 1.0,
           "description": "Bias threshold as a fraction of |theta|. ``q=1`` => confounder needed to shrink estimate to zero; ``q=0.5`` => half the estimate.",
@@ -12888,6 +12926,11 @@
         "result": {
           "description": "result parameter.",
           "type": "string"
+        },
+        "rho": {
+          "default": 1.0,
+          "description": "Degree of adversity, between -1 and 1: the correlation between the confounding the omitted variable creates in the outcome regression and in the Riesz representer. The bias bound is ``|rho|`` times the worst-case one, and the robustness values are the strengths needed at that ``rho``. The default 1 is the worst case (``doubleml``'s ``sensitivity_analysis(rho=)`` has the same default). The ``rho`` column of the benchmark table is an estimate one can plug in here.",
+          "type": "number"
         }
       },
       "required": [
@@ -16818,6 +16861,16 @@
           "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
           "type": "boolean"
         },
+        "contrast": {
+          "default": "difference",
+          "description": "How E[Y(1)] and E[Y(0)] are compared: difference (risk difference), ratio (risk / rate ratio) or odds_ratio; ratio intervals are built on the log scale",
+          "enum": [
+            "difference",
+            "ratio",
+            "odds_ratio"
+          ],
+          "type": "string"
+        },
         "covariates": {
           "description": "Baseline covariates",
           "items": {
@@ -16844,6 +16897,16 @@
           "default": 500,
           "description": "Bootstrap replications for SE",
           "type": "integer"
+        },
+        "outcome_model": {
+          "default": "linear",
+          "description": "Outcome regression when ml_Q is not given: least squares, logistic (0/1 outcome) or Poisson (counts). With by_arm=True this is Stata teffects ra (y x, logit|poisson)",
+          "enum": [
+            "linear",
+            "logit",
+            "poisson"
+          ],
+          "type": "string"
         },
         "ps_covariates": {
           "description": "With by_arm=True: weight the two regressions by inverse probability from a logit on these covariates (Stata teffects ipwra; doubly robust)",
@@ -20757,6 +20820,13 @@
           "default": 0.0,
           "description": "Propensity score trimming threshold",
           "type": "number"
+        },
+        "truncate": {
+          "description": "Percentile truncation of the weights as a pair of fractions, e.g. [0.01, 0.99] (WeightIt::trim(at=0.99, lower=TRUE)); the sandwich SE then holds the weights fixed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "vce": {
           "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap', 'robust'. Any other kind raises.",
@@ -26117,10 +26187,12 @@
         },
         "method": {
           "default": "DL",
-          "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default) or with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
+          "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default), with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), its maximum-likelihood estimate (``\"ML\"``) or the Paule-Mandel estimate (``\"PM\"``, the between-study variance at which the generalised Q statistic equals its degrees of freedom), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
           "enum": [
             "DL",
             "REML",
+            "ML",
+            "PM",
             "fixed"
           ],
           "type": "string"
@@ -26140,6 +26212,72 @@
       "type": "object"
     },
     "name": "meta_analysis"
+  },
+  {
+    "description": "Meta-regression of study effects on study-level moderators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: <who>: method must be one of <list(_core.TAU2_METHODS)>, got <method> -> Use 'REML', 'DL', 'ML', 'PM' or 'fixed'; <who>: the Knapp-Hartung adjustment (hksj=True) belongs to the random-effects model -> Use method='REML', 'DL', 'ML' or 'PM' with hksj=True; <who>: no moderators were passed -> Use sp.meta_analysis for the model without moderators.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "One minus the confidence level.",
+          "type": "number"
+        },
+        "effects": {
+          "description": "Per-study effect sizes (log odds ratios, mean differences, ...).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "hksj": {
+          "default": false,
+          "description": "Knapp-Hartung adjustment (``metafor`` ``test = \"knha\"``): the covariance matrix is multiplied by the weighted residual mean square, coefficients are tested with ``t(k - p)`` and the moderators jointly with an F statistic.",
+          "type": "boolean"
+        },
+        "intercept": {
+          "default": true,
+          "description": "Include an intercept.",
+          "type": "boolean"
+        },
+        "method": {
+          "default": "REML",
+          "description": "Estimator of the residual between-study variance: restricted maximum likelihood (the default of ``metafor`` and Stata), DerSimonian-Laird, maximum likelihood, Paule-Mandel, or none (``\"fixed\"``, a fixed-effects meta-regression).",
+          "enum": [
+            "REML",
+            "DL",
+            "ML",
+            "PM",
+            "fixed"
+          ],
+          "type": "string"
+        },
+        "moderators": {
+          "description": "Study-level covariates, one row per study: a 1-D array for a single moderator, a 2-D array, a ``{name: values}`` mapping or a DataFrame. All columns must be numeric; code categories as dummies.",
+          "type": "string"
+        },
+        "names": {
+          "description": "Moderator names when ``moderators`` is an array.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "se": {
+          "description": "Per-study standard errors (positive).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "effects",
+        "moderators",
+        "se"
+      ],
+      "type": "object"
+    },
+    "name": "meta_regression"
   },
   {
     "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
@@ -28460,6 +28598,15 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "means": {
+          "default": "fixed",
+          "description": "How the standard errors treat the covariate means. ``'fixed'`` holds them constant (Stata ``oaxaca ..., vce(robust) fixed``). ``'stochastic'`` adds their sampling variance (Jann 2008; the default of Stata ``oaxaca ..., vce(robust)``). Point estimates are the same.",
+          "enum": [
+            "fixed",
+            "stochastic"
+          ],
+          "type": "string"
+        },
         "reference": {
           "description": "Reference coefficient vector beta*: - ``0`` -- Group A coefficients (beta_A). The \"explained\" part uses Group A's returns as the benchmark. - ``1`` -- Group B coefficients (beta_B). - ``'pooled'`` -- Pooled OLS (Neumark 1988). - ``'cotton'`` -- Sample-size weighted average (Cotton 1988). - ``'reimers'`` -- Equal-weighted average (Reimers 1983). Default: 0.",
           "enum": [
@@ -29042,6 +29189,15 @@
           "default": 500,
           "description": "Paired-sample bootstrap replications for SE.",
           "type": "integer"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "``'sandwich'`` is the M-estimation standard error: the logit score equations and the two weighted means are stacked, so the sampling error of the estimated propensity score is carried into the effect. It is deterministic and is the standard error R ``PSweight::PSweight`` reports (no bootstrap). Available for every ``estimand`` except ``'matching'``, whose tilting function has a kink, and without ``trim``. ``'bootstrap'`` resamples rows ``n_bootstrap`` times.",
+          "enum": [
+            "bootstrap",
+            "sandwich"
+          ],
+          "type": "string"
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
@@ -31229,6 +31385,23 @@
             "link"
           ],
           "type": "string"
+        },
+        "variables": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Counterfactual predictions: {'d': [0, 1]} predicts every row with d set to 0 and to 1 (marginaleffects' variables = list(d = c(0, 1))); avg_predictions returns one average per value. A name alone uses every level of a factor or 0/1 regressor"
         },
         "vcov": {
           "default": true,
@@ -45867,6 +46040,84 @@
       "type": "object"
     },
     "name": "treatment_rollout_plot"
+  },
+  {
+    "description": "Duval-Tweedie trim-and-fill adjustment for funnel-plot asymmetry. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Failure modes: <who>: pass the standard errors of the studies as se= -> sp.trim_and_fill(effects, se); <who>: estimator must be 'L0', 'R0' or 'Q0', got <estimator> -> Use estimator='L0' (the default) or 'R0'; <who>: side must be 'left', 'right' or None, got <side> -> Leave side=None to let the asymmetry choose it.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "One minus the confidence level.",
+          "type": "number"
+        },
+        "effects": {
+          "description": "Per-study effect sizes, or a fitted ``sp.meta_analysis`` result (then ``se``, ``method``, ``hksj``, ``labels`` and ``alpha`` are taken from it).",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "estimator": {
+          "default": "L0",
+          "description": "Rank-based estimator of the number of missing studies.",
+          "enum": [
+            "L0",
+            "R0",
+            "Q0"
+          ],
+          "type": "string"
+        },
+        "hksj": {
+          "default": false,
+          "description": "Knapp-Hartung inference for the reported pooled effects.",
+          "type": "boolean"
+        },
+        "labels": {
+          "description": "Study labels.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxiter": {
+          "default": 100,
+          "description": "Maximum number of trim iterations.",
+          "type": "integer"
+        },
+        "method": {
+          "default": "DL",
+          "description": "Model for the pooled effect at every step, as in ``sp.meta_analysis``.",
+          "enum": [
+            "DL",
+            "REML",
+            "ML",
+            "PM",
+            "fixed"
+          ],
+          "type": "string"
+        },
+        "se": {
+          "description": "Per-study standard errors. Required with raw effects.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "side": {
+          "description": "Side on which studies are assumed missing. Default: chosen from the sign of the slope of the effect on its standard error in a meta-regression (Egger-type test); a positive slope means small studies report larger effects, so the missing ones are on the left.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "effects"
+      ],
+      "type": "object"
+    },
+    "name": "trim_and_fill"
   },
   {
     "description": "Trim sample to optimal overlap region. Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",

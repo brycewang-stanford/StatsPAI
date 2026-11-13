@@ -279,6 +279,9 @@
       "tolerance": "exact (atol 1e-15; observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_gaps_epi_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -959,7 +962,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_fixest_postestimation_parity.py"
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -4763,6 +4767,7 @@
         "tests/reference_parity/test_cox_ph_test_parity.py",
         "tests/reference_parity/test_cox_tvc_parity.py",
         "tests/reference_parity/test_cox_zph_weighted_parity.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
         "tests/reference_parity/test_probe_epi_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
@@ -6613,6 +6618,7 @@
         "tests/reference_parity/test_dml_pliv_anderson_rubin.py",
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
         "tests/reference_parity/test_dml_twoway_cluster_doubleml_parity.py",
+        "tests/reference_parity/test_gaps_ml_parity.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
         "tests/reference_parity/test_ml_probe_nov2026.py",
         "tests/reference_parity/test_rlasso_parity.py",
@@ -6778,6 +6784,7 @@
       "additional_tests": [
         "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
         "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
+        "tests/reference_parity/test_gaps_ml_parity.py",
         "tests/reference_parity/test_ml_probe_nov2026.py"
       ],
       "also_verified_by": [
@@ -8364,6 +8371,7 @@
         "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
         "tests/reference_parity/test_fixest_postestimation_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_regress_vce_weights_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
@@ -8433,6 +8441,7 @@
         "tests/reference_parity/test_fast_fepois_fixest_parity.py",
         "tests/reference_parity/test_feglm_native_fixest_parity.py",
         "tests/reference_parity/test_feglm_wild_boottest_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py",
         "tests/reference_parity/test_wild_cluster_boot_dispatch_parity.py"
       ],
@@ -9099,6 +9108,7 @@
         "tests/external_parity/test_ness_causal_ai.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
       "also_verified_by": [
@@ -9358,7 +9368,8 @@
     },
     {
       "additional_tests": [
-        "tests/external_parity/test_ding_linear_model.py"
+        "tests/external_parity/test_ding_linear_model.py",
+        "tests/reference_parity/test_gaps_epi_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -11431,6 +11442,7 @@
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
         "tests/reference_parity/test_ding_first_course_parity.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_survey_causal_parity.py",
         "tests/reference_parity/test_survey_replicate_parity.py",
         "tests/reference_parity/test_teffects_design_stata_parity.py",
@@ -11561,6 +11573,7 @@
       "additional_tests": [
         "tests/external_parity/test_facure_causal_inference_in_python.py",
         "tests/external_parity/test_ness_causal_ai.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_iv_paths_agree.py",
@@ -11869,6 +11882,7 @@
         "tests/external_parity/test_gelman_ros_examples.py",
         "tests/external_parity/test_gow_ding_accounting.py",
         "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
         "tests/reference_parity/test_iv_parity.py",
         "tests/reference_parity/test_iv_se_parity.py",
@@ -13158,6 +13172,8 @@
         "tests/reference_parity/test_binary_r2_and_scls_parity.py",
         "tests/reference_parity/test_cmtest_micsr_parity.py",
         "tests/reference_parity/test_count_weights_stata_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_inference_conventions_stata_parity.py",
         "tests/reference_parity/test_joint_wald_stata_parity.py",
         "tests/reference_parity/test_linear_model_extensions_parity.py",
@@ -14634,6 +14650,9 @@
       "tolerance": "vs glmmTMB estimates / SEs rtol 1e-6 (observed 6.9e-11 / 3.8e-8); vs Stata Laplace estimates rtol 1e-6 (observed 2.2e-7); objective identity rtol 1e-11"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_gaps_epi_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -14848,6 +14867,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_gaps_meta_parity.py",
         "tests/reference_parity/test_meta_analysis_parity.py",
         "tests/reference_parity/test_probe_epi_parity.py"
       ],
@@ -14874,6 +14894,23 @@
         "tests/reference_parity/test_weakiv_meta_parity.py"
       ],
       "tolerance": "6.2e-16 across all nine reported quantities: fixed and random pooled effect and standard error, tau^2, Cochran Q and its p-value, I^2 and H^2. REML is not implemented here, which is a capability gap rather than a disagreement."
+    },
+    {
+      "function": "meta_regression",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_gaps_meta_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "metafrontier",
@@ -15020,6 +15057,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_bayes_mixed_exact_posterior.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_icc_parity.py",
         "tests/reference_parity/test_lrtest_parity.py",
         "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
@@ -15446,6 +15484,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_mr_ivw_parity.py",
         "tests/reference_parity/test_probe_epi_parity.py"
       ],
@@ -16902,6 +16941,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_oaxaca_threefold_r_parity.py",
         "tests/reference_parity/test_probe_econ_parity.py"
       ],
@@ -17358,6 +17398,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+        "tests/reference_parity/test_gaps_epi_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_probe_epi_parity.py",
         "tests/reference_parity/test_recovery_batch_parity.py"
@@ -18670,7 +18711,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_fixest_postestimation_parity.py"
+        "tests/reference_parity/test_fixest_postestimation_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -21129,6 +21171,7 @@
         "tests/reference_parity/test_dynamic_modelling_parity.py",
         "tests/reference_parity/test_eivreg_stata_parity.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_hansen_methods_stata_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
         "tests/reference_parity/test_imputation_parity.py",
@@ -21247,6 +21290,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "regtable",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_gaps_econ_parity.py"
       ],
       "tolerance": ""
     },
@@ -23609,6 +23669,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_spec_curve_fe_Stata_parity.py"
       ],
       "tolerance": ""
@@ -23706,6 +23767,23 @@
         "tests/reference_parity/test_sqreg_parity.py"
       ],
       "tolerance": "Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 / 0.75 -- both sides minimise the same pinball loss with the same simplex. Standard errors differ from R's se='iid' by ONE SCALAR PER QUANTILE, constant across coefficients to 6e-16: the sandwich is identical and only the sparsity estimate 1/f(0) differs (Powell kernel here, Koenker-Bassett with a Siddiqui/Hall-Sheather bandwidth there). The test asserts the ratio's constancy rather than a numerical band, which a structural difference could not satisfy. R's default se='nid' (Hendricks-Koenker, also Stata qreg's) is a third convention and is recorded as one."
+    },
+    {
+      "function": "srm_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_gaps_ml_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -25885,6 +25963,23 @@
         "tests/reference_parity/test_misc_sens_R_parity.py"
       ],
       "tolerance": "1e-12 rel"
+    },
+    {
+      "function": "trim_and_fill",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_gaps_meta_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

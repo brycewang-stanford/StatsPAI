@@ -1234,6 +1234,32 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "ltmle_msm: <n> rows are too few.",
         }
     ],
+    "meta_regression": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'REML', 'DL', 'ML', 'PM' or 'fixed'.",
+            "symptom": "<who>: method must be one of "
+            "<list(_core.TAU2_METHODS)>, got <method>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use method='REML', 'DL', 'ML' or 'PM' with " "hksj=True.",
+            "symptom": "<who>: the Knapp-Hartung adjustment "
+            "(hksj=True) belongs to the random-effects "
+            "model.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use sp.meta_analysis for the model without " "moderators.",
+            "symptom": "<who>: no moderators were passed.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Use fewer moderators or more studies (k > p).",
+            "symptom": "<who>: <k> studies cannot identify <p> "
+            "coefficients and a residual variance.",
+        },
+    ],
     "mmhc": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -2053,6 +2079,27 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "learner must be 'ols' or 'post_lasso', got " "<learner>.",
         },
     ],
+    "srm_test": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use a small level such as alpha=0.001.",
+            "symptom": "srm_test: alpha must lie strictly between 0 and 1, "
+            "got <alpha>.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Check the assignment column. If one designed arm "
+            "received no units, name it in expected={arm: share, "
+            "...} so that it is counted with zero.",
+            "symptom": "srm_test: found <len(all_arms)> arm; a sample ratio "
+            "needs at least two.",
+        },
+        {
+            "exception": "statspai.DataInsufficient",
+            "remedy": "Pass data with at least one assigned unit.",
+            "symptom": "srm_test: there are no units to count.",
+        },
+    ],
     "stl": [
         {
             "exception": "statspai.MethodIncompatibility",
@@ -2246,6 +2293,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "exception": "statspai.DataInsufficient",
             "remedy": "Lower ratio.",
             "symptom": "<caller>: some blocks have fewer than <ratio> " "controls.",
+        },
+    ],
+    "trim_and_fill": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "sp.trim_and_fill(effects, se)",
+            "symptom": "<who>: pass the standard errors of the studies " "as se=.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use estimator='L0' (the default) or 'R0'.",
+            "symptom": "<who>: estimator must be 'L0', 'R0' or 'Q0', "
+            "got <estimator>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Leave side=None to let the asymmetry choose it.",
+            "symptom": "<who>: side must be 'left', 'right' or None, " "got <side>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'DL', 'REML', 'ML', 'PM' or 'fixed'.",
+            "symptom": "<who>: method must be one of "
+            "<list(_core.TAU2_METHODS)>, got <method>.",
         },
     ],
     "ts_features": [

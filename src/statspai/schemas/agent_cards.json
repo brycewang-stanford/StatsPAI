@@ -527,8 +527,8 @@
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/external_parity/test_facure_causal_inference_in_python.py",
       "tests/external_parity/test_ness_causal_ai.py",
-      "tests/reference_parity/test_hansen_methods_stata_parity.py",
-      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py"
+      "tests/reference_parity/test_gaps_econ_parity.py",
+      "tests/reference_parity/test_hansen_methods_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -669,6 +669,11 @@
       "name": "ivreg",
       "parameters": {
         "properties": {
+          "augmented_diagnostics": {
+            "default": true,
+            "description": "Attach the weak-identification statistics sp.iv reports to result.diagnostics: Kleibergen-Paap rk LM and Wald F (ivreg2 idstat / rkf), the Sanderson-Windmeijer F with several endogenous regressors, the Montiel Olea-Pflueger effective F with one (weakivtest). The fit is unchanged",
+            "type": "boolean"
+          },
           "cluster": {
             "description": "Cluster column for cluster-robust standard errors",
             "type": "string",
@@ -12549,17 +12554,21 @@
     ],
     "category": "output",
     "cost_profile": "",
-    "description": "Publication-quality multi-model regression table with auto-extracted diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/AEJA/etc.), multi-SE side-by-side display, eform odds-ratio / IRR / HR transformation with delta-method SE, column spanners (\\multicolumn / colspan / cmidrule), unified coef_map (rename + order + drop), depvar_mean / depvar_sd auto rows, and N-mismatch consistency warnings. Returns a RegtableResult exporting to text/LaTeX/HTML/Markdown/Quarto/Word/Excel plus an agent-native to_dict()/to_json() payload (metadata + rendered cell grid + numeric truth per model); save(filename) and filename= infer the format from the extension, including .json.",
+    "description": "Publication-quality multi-model regression table with auto-extracted diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/AEJA/etc.), multi-SE side-by-side display, eform odds-ratio / IRR / HR transformation with delta-method SE, column spanners (\\multicolumn / colspan / cmidrule), unified coef_map (rename + order + drop), depvar_mean / depvar_sd auto rows, and N-mismatch consistency warnings. Returns a RegtableResult exporting to text/LaTeX/HTML/Markdown/Quarto/Word/Excel plus an agent-native to_dict()/to_json() payload (metadata + rendered cell grid + numeric truth per model); save(filename) and filename= infer the format from the extension, including .json. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_gaps_econ_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.regtable(m_ols, m_iv, template=\"qje\", multi_se={\"Bootstrap SE\": [se1, se2]}, repro={\"data\": df, \"seed\": 42}, filename=\"table1.tex\")",
@@ -12641,7 +12650,7 @@
       }
     },
     "signature": {
-      "description": "Publication-quality multi-model regression table with auto-extracted diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/AEJA/etc.), multi-SE side-by-side display, eform odds-ratio / IRR / HR transformation with delta-method SE, column spanners (\\multicolumn / colspan / cmidrule), unified coef_map (rename + order + drop), depvar_mean / depvar_sd auto rows, and N-mismatch consistency warnings. Returns a RegtableResult exporting to text/LaTeX/HTML/Markdown/Quarto/Word/Excel plus an agent-native to_dict()/to_json() payload (metadata + rendered cell grid + numeric truth per model); save(filename) and filename= infer the format from the extension, including .json.",
+      "description": "Publication-quality multi-model regression table with auto-extracted diagnostic rows (FE/Cluster indicators, IV first-stage F, DiD pre-trend p, RD bandwidth/kernel/poly), journal presets (AER/QJE/Econometrica/JF/AEJA/etc.), multi-SE side-by-side display, eform odds-ratio / IRR / HR transformation with delta-method SE, column spanners (\\multicolumn / colspan / cmidrule), unified coef_map (rename + order + drop), depvar_mean / depvar_sd auto rows, and N-mismatch consistency warnings. Returns a RegtableResult exporting to text/LaTeX/HTML/Markdown/Quarto/Word/Excel plus an agent-native to_dict()/to_json() payload (metadata + rendered cell grid + numeric truth per model); save(filename) and filename= infer the format from the extension, including .json. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "regtable",
       "parameters": {
         "properties": {
@@ -12896,7 +12905,7 @@
             "type": "string"
           },
           "stats": {
-            "description": "Summary statistics. Defaults to ``[\"N\", \"R2\", \"adj_R2\", \"F\"]``.",
+            "description": "Summary statistics. Defaults to ``[\"N\", \"R2\", \"adj_R2\", \"F\"]``. Also ``\"ll\"``, ``\"aic\"``, ``\"bic\"``, ``\"rmse\"``, ``\"pseudo_r2\"``, ``\"ymean\"``, ``\"ysd\"``. For ``sp.feols`` and ``sp.fepois`` columns ``\"rmse\"``, ``\"aic\"`` and ``\"bic\"`` are the numbers of fixest's ``fitstat(~ rmse + aic + bic)``, the fixed effects counted as parameters. A weighted ``sp.feols`` column leaves ``\"aic\"`` / ``\"bic\"`` empty.",
             "items": {
               "type": "string"
             },
@@ -12964,10 +12973,11 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_gaps_econ_parity.py",
       "API/unit contract evidence: tests/test_regtable_snapshots.py",
       "API/unit contract evidence: tests/test_regtable_round4_extensions.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -25536,6 +25546,11 @@
             "description": "Confidence level",
             "type": "number"
           },
+          "data": {
+            "description": "Another name for newdata (the spelling of sp.margins); pass one of the two",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
           "df": {
             "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
             "type": "number"
@@ -25557,6 +25572,23 @@
             ],
             "type": "string"
           },
+          "variables": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Counterfactual predictions: {'d': [0, 1]} predicts every row with d set to 0 and to 1 (marginaleffects' variables = list(d = c(0, 1))); avg_predictions returns one average per value. A name alone uses every level of a factor or 0/1 regressor"
+          },
           "vcov": {
             "default": true,
             "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
@@ -25577,7 +25609,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs marginaleffects::predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
-      "tests/reference_parity/test_fixest_postestimation_parity.py"
+      "tests/reference_parity/test_fixest_postestimation_parity.py",
+      "tests/reference_parity/test_gaps_econ_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -25660,6 +25693,11 @@
             "description": "Confidence level",
             "type": "number"
           },
+          "data": {
+            "description": "Another name for newdata (the spelling of sp.margins); pass one of the two",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
           "df": {
             "description": "Reference distribution: None is normal (marginaleffects), 'model' the fit's own (t after regress), or a number",
             "type": "number"
@@ -25681,6 +25719,23 @@
             ],
             "type": "string"
           },
+          "variables": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Counterfactual predictions: {'d': [0, 1]} predicts every row with d set to 0 and to 1 (marginaleffects' variables = list(d = c(0, 1))); avg_predictions returns one average per value. A name alone uses every level of a factor or 0/1 regressor"
+          },
           "vcov": {
             "default": true,
             "description": "False returns estimates without standard errors (marginaleffects' vcov = FALSE; a switch, not a variance type). After a fit with absorbed fixed effects, averages that depend on the effects after a Poisson fit (fepois) count them as parameters, as Stata margins after poisson y x i.g; unit-level quantities and other models (logit / probit / OLS predictions with '| fe') need vcov=False",
@@ -25701,7 +25756,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (aligned) vs marginaleffects::avg_predictions on lm / glm (logit, probit, poisson) fits with interactions, factors and squared terms [R version 4.5.2 (2025-10-31), marginaleffects 0.32.0]; tolerance estimates 1e-8 relative; standard errors 2e-5 relative (slopes: estimates 1e-6, standard errors 2e-4), the precision of the reference's numerical Jacobian -- tests/reference_parity/test_marginaleffects_r_parity.py",
-      "tests/reference_parity/test_fixest_postestimation_parity.py"
+      "tests/reference_parity/test_fixest_postestimation_parity.py",
+      "tests/reference_parity/test_gaps_econ_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -28525,7 +28581,8 @@
     "typical_n_min": 40,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs gee::gee (independence, exchangeable, AR-M); Stata 18 xtgee (independent, exchangeable, ar 1; with and without nmp) [R version 4.5.2 (2025-10-31), Stata 18, gee 4.13.30]; tolerance vs gee 1e-9 rel on coefficients, naive and robust SE, scale and alpha; vs xtgee 1e-6 rel (its convergence tolerance) -- tests/reference_parity/test_linear_model_extensions_parity.py",
-      "tests/external_parity/test_ding_linear_model.py"
+      "tests/external_parity/test_ding_linear_model.py",
+      "tests/reference_parity/test_gaps_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -31672,6 +31729,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_gaps_econ_parity.py",
         "tests/reference_parity/test_spec_curve_fe_Stata_parity.py"
       ],
       "tolerance": ""
@@ -31750,6 +31808,15 @@
             "x-canonical": "cluster",
             "x-statspai-role": "column"
           },
+          "collinear": {
+            "default": "drop",
+            "description": "A specification whose controls are linearly dependent in its sample (a dummy constant in a subset): 'drop' leaves it off the curve, 'omit' leaves the redundant controls out and estimates x on the rest (Stata regress, fixest). Either way model_info['dropped_specs'] lists every specification that could not be estimated, with a reason",
+            "enum": [
+              "drop",
+              "omit"
+            ],
+            "type": "string"
+          },
           "controls": {
             "description": "Candidate control sets to sweep",
             "items": {
@@ -31817,7 +31884,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_spec_curve_fe_Stata_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_gaps_econ_parity.py",
       "API/unit contract evidence: tests/test_spec_curve.py"
     ],
     "validation_status": "validated"
@@ -32218,6 +32285,13 @@
             "default": 0.0,
             "description": "Propensity score trimming threshold",
             "type": "number"
+          },
+          "truncate": {
+            "description": "Percentile truncation of the weights as a pair of fractions, e.g. [0.01, 0.99] (WeightIt::trim(at=0.99, lower=TRUE)); the sandwich SE then holds the weights fixed",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "vce": {
             "description": "Stata-style standard-error request (vce(...) grammar). Accepted here: 'cluster <column>' (equivalently cluster=<column>); 'bootstrap', 'robust'. Any other kind raises.",
@@ -33396,6 +33470,16 @@
             "description": "Fit a linear outcome regression in each treatment arm (regression adjustment, Stata teffects ra) instead of one regression with the treatment as a regressor",
             "type": "boolean"
           },
+          "contrast": {
+            "default": "difference",
+            "description": "How E[Y(1)] and E[Y(0)] are compared: difference (risk difference), ratio (risk / rate ratio) or odds_ratio; ratio intervals are built on the log scale",
+            "enum": [
+              "difference",
+              "ratio",
+              "odds_ratio"
+            ],
+            "type": "string"
+          },
           "covariates": {
             "description": "Baseline covariates",
             "items": {
@@ -33427,6 +33511,16 @@
             "default": 500,
             "description": "Bootstrap replications for SE",
             "type": "integer"
+          },
+          "outcome_model": {
+            "default": "linear",
+            "description": "Outcome regression when ml_Q is not given: least squares, logistic (0/1 outcome) or Poisson (counts). With by_arm=True this is Stata teffects ra (y x, logit|poisson)",
+            "enum": [
+              "linear",
+              "logit",
+              "poisson"
+            ],
+            "type": "string"
           },
           "ps_covariates": {
             "description": "With by_arm=True: weight the two regressions by inverse probability from a logit on these covariates (Stata teffects ipwra; doubly robust)",
@@ -66742,6 +66836,7 @@
     "typical_n_min": 10,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw through the sp.mr dispatcher [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance IVW estimate and default random-effects SE, 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
+      "tests/reference_parity/test_gaps_epi_parity.py",
       "tests/reference_parity/test_mr_ivw_parity.py",
       "tests/reference_parity/test_probe_epi_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py",
@@ -70668,6 +70763,127 @@
     "validation_notes": [
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_cuped_known_truth.py",
       "API/unit contract evidence: tests/reference_parity/test_cuped_known_truth.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "balance_check",
+      "attrition_test"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Units are assigned independently with the designed probabilities",
+      "Expected counts are large enough for the chi-square approximation (at least 5 per arm)"
+    ],
+    "category": "experimental",
+    "cost_profile": "",
+    "description": "Sample-ratio-mismatch check for an A/B test or RCT: Pearson chi-square goodness-of-fit test of the observed arm counts against the designed allocation, for any number of arms (R chisq.test(x, p=)). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_gaps_ml_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.srm_test({\"control\": 5000, \"treated\": 5300})",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use a small level such as alpha=0.001.",
+        "symptom": "srm_test: alpha must lie strictly between 0 and 1, got <alpha>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Check the assignment column. If one designed arm received no units, name it in expected={arm: share, ...} so that it is counted with zero.",
+        "symptom": "srm_test: found <len(all_arms)> arm; a sample ratio needs at least two."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Pass data with at least one assigned unit.",
+        "symptom": "srm_test: there are no units to count."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "srm_test",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "SRMResult",
+      "description": "SRMResult (.statistic, .df, .p_value, .mismatch, .table)",
+      "fields": {
+        "alpha": "float",
+        "df": "int",
+        "diagnostics": "Dict[str, Any]",
+        "method": "str",
+        "mismatch": "bool",
+        "n": "int",
+        "n_missing": "int",
+        "p_value": "float",
+        "statistic": "float",
+        "table": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Sample-ratio-mismatch check for an A/B test or RCT: Pearson chi-square goodness-of-fit test of the observed arm counts against the designed allocation, for any number of arms (R chisq.test(x, p=)). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "srm_test",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.001,
+            "description": "Level below which the result flags a mismatch",
+            "type": "number"
+          },
+          "data": {
+            "description": "Row-level data, or a mapping / Series of arm -> count",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "expected": {
+            "description": "Designed shares or ratios per arm in sorted arm order, or a mapping arm -> share; rescaled to sum to one (default equal shares)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "treat": {
+            "description": "Assignment column (required with a DataFrame)",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_gaps_ml_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -103119,6 +103335,7 @@
         "estimate": "float",
         "method": "str",
         "q": "float",
+        "rho": "float",
         "rv_q": "float",
         "rv_qa": "float",
         "s": "float",
@@ -103157,6 +103374,10 @@
             "description": "Multipliers for the benchmark strengths.",
             "type": "number"
           },
+          "level": {
+            "description": "Coverage of the interval for the adjusted-estimate range, and the level behind ``rv_qa``. Default ``1 - alpha`` of the fit, 0.95 unless the fit asked for something else (``doubleml``'s ``sensitivity_analysis(level=)`` defaults to 0.95 as well).",
+            "type": "number"
+          },
           "q": {
             "default": 1.0,
             "description": "Bias threshold as a fraction of |theta|. ``q=1`` => confounder needed to shrink estimate to zero; ``q=0.5`` => half the estimate.",
@@ -103165,6 +103386,11 @@
           "result": {
             "description": "result parameter.",
             "type": "string"
+          },
+          "rho": {
+            "default": 1.0,
+            "description": "Degree of adversity, between -1 and 1: the correlation between the confounding the omitted variable creates in the outcome regression and in the Riesz representer. The bias bound is ``|rho|`` times the worst-case one, and the robustness values are the strengths needed at that ``rho``. The default 1 is the worst case (``doubleml``'s ``sensitivity_analysis(rho=)`` has the same default). The ``rho`` column of the benchmark table is an estimate one can plug in here.",
+            "type": "number"
           }
         },
         "required": [
@@ -103179,6 +103405,7 @@
       "Cross-language parity (bit-exact) vs doubleml (Python) DoubleML.sensitivity_analysis; tolerance bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario -- tests/external_parity/test_dml_sensitivity_parity.py",
       "tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py",
       "tests/reference_parity/test_dml_sensitivity_bound_scores.py",
+      "tests/reference_parity/test_gaps_ml_parity.py",
       "tests/reference_parity/test_ml_probe_nov2026.py"
     ],
     "validation_status": "certified"
@@ -105868,6 +106095,15 @@
             "description": "Paired-sample bootstrap replications for SE.",
             "type": "integer"
           },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "``'sandwich'`` is the M-estimation standard error: the logit score equations and the two weighted means are stacked, so the sampling error of the estimated propensity score is carried into the effect. It is deterministic and is the standard error R ``PSweight::PSweight`` reports (no bootstrap). Available for every ``estimand`` except ``'matching'``, whose tilting function has a kink, and without ``trim``. ``'bootstrap'`` resamples rows ``n_bootstrap`` times.",
+            "enum": [
+              "bootstrap",
+              "sandwich"
+            ],
+            "type": "string"
+          },
           "seed": {
             "description": "Random seed for reproducible stochastic steps.",
             "type": "integer"
@@ -105902,9 +106138,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2 [R 4.5.2, WeightIt 1.7.0]; tolerance All four estimands of the shared-propensity family (Li, Li & Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself matches R glm(family=binomial) to 2.6e-14 absolute. -- tests/reference_parity/test_overlap_weights_r_parity.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
+      "tests/reference_parity/test_gaps_epi_parity.py",
       "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_probe_epi_parity.py",
-      "tests/reference_parity/test_recovery_batch_parity.py"
+      "tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -115535,10 +115771,12 @@
           },
           "method": {
             "default": "DL",
-            "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default) or with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
+            "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default), with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), its maximum-likelihood estimate (``\"ML\"``) or the Paule-Mandel estimate (``\"PM\"``, the between-study variance at which the generalised Q statistic equals its degrees of freedom), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
             "enum": [
               "DL",
               "REML",
+              "ML",
+              "PM",
               "fixed"
             ],
             "type": "string"
@@ -115562,10 +115800,344 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R metafor::rma (method='FE' and 'DL') [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance 6.2e-16 across all nine reported quantities: fixed and random pooled effect and standard error, tau^2, Cochran Q and its p-value, I^2 and H^2. REML is not implemented here, which is a capability gap rather than a disagreement. -- tests/reference_parity/test_weakiv_meta_parity.py",
+      "tests/reference_parity/test_gaps_meta_parity.py",
       "tests/reference_parity/test_meta_analysis_parity.py",
       "tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "certified"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Meta-regression of study effects on study-level moderators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_gaps_meta_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "r = sp.meta_regression(y, s, {\"latitude\": lat}, method=\"DL\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'REML', 'DL', 'ML', 'PM' or 'fixed'.",
+        "symptom": "<who>: method must be one of <list(_core.TAU2_METHODS)>, got <method>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use method='REML', 'DL', 'ML' or 'PM' with hksj=True.",
+        "symptom": "<who>: the Knapp-Hartung adjustment (hksj=True) belongs to the random-effects model."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use sp.meta_analysis for the model without moderators.",
+        "symptom": "<who>: no moderators were passed."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Use fewer moderators or more studies (k > p).",
+        "symptom": "<who>: <k> studies cannot identify <p> coefficients and a residual variance."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "meta_regression",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "MetaRegressionResult",
+      "description": "MetaRegressionResult: Coefficient table (.tidy()), tau2, i2, r2, the residual-heterogeneity test qe and the omnibus moderator test qm, .predict() and .summary().",
+      "fields": {
+        "alpha": "float",
+        "conf_int": "pd.DataFrame",
+        "fitted": "np.ndarray",
+        "h2": "float",
+        "hksj": "bool",
+        "i2": "float",
+        "intercept": "bool",
+        "k": "int",
+        "method": "str",
+        "p_values": "pd.Series",
+        "params": "pd.Series",
+        "qe": "float",
+        "qe_df": "int",
+        "qe_pvalue": "float",
+        "qm": "float",
+        "qm_df": "Any",
+        "qm_pvalue": "float",
+        "r2": "float",
+        "residuals": "np.ndarray",
+        "statistics": "pd.Series",
+        "std_errors": "pd.Series",
+        "tau2": "float",
+        "tau2_null": "float",
+        "vcov": "pd.DataFrame"
+      }
+    },
+    "signature": {
+      "description": "Meta-regression of study effects on study-level moderators. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "meta_regression",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "One minus the confidence level.",
+            "type": "number"
+          },
+          "effects": {
+            "description": "Per-study effect sizes (log odds ratios, mean differences, ...).",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "hksj": {
+            "default": false,
+            "description": "Knapp-Hartung adjustment (``metafor`` ``test = \"knha\"``): the covariance matrix is multiplied by the weighted residual mean square, coefficients are tested with ``t(k - p)`` and the moderators jointly with an F statistic.",
+            "type": "boolean"
+          },
+          "intercept": {
+            "default": true,
+            "description": "Include an intercept.",
+            "type": "boolean"
+          },
+          "method": {
+            "default": "REML",
+            "description": "Estimator of the residual between-study variance: restricted maximum likelihood (the default of ``metafor`` and Stata), DerSimonian-Laird, maximum likelihood, Paule-Mandel, or none (``\"fixed\"``, a fixed-effects meta-regression).",
+            "enum": [
+              "REML",
+              "DL",
+              "ML",
+              "PM",
+              "fixed"
+            ],
+            "type": "string"
+          },
+          "moderators": {
+            "description": "Study-level covariates, one row per study: a 1-D array for a single moderator, a 2-D array, a ``{name: values}`` mapping or a DataFrame. All columns must be numeric; code categories as dummies.",
+            "type": "string"
+          },
+          "names": {
+            "description": "Moderator names when ``moderators`` is an array.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "se": {
+            "description": "Per-study standard errors (positive).",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "effects",
+          "se",
+          "moderators"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_gaps_meta_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "inference",
+    "cost_profile": "",
+    "description": "Duval-Tweedie trim-and-fill adjustment for funnel-plot asymmetry. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_gaps_meta_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "tf = sp.trim_and_fill(y, s)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "sp.trim_and_fill(effects, se)",
+        "symptom": "<who>: pass the standard errors of the studies as se=."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use estimator='L0' (the default) or 'R0'.",
+        "symptom": "<who>: estimator must be 'L0', 'R0' or 'Q0', got <estimator>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Leave side=None to let the asymmetry choose it.",
+        "symptom": "<who>: side must be 'left', 'right' or None, got <side>."
+      },
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use 'DL', 'REML', 'ML', 'PM' or 'fixed'.",
+        "symptom": "<who>: method must be one of <list(_core.TAU2_METHODS)>, got <method>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "trim_and_fill",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "example": "docstring",
+      "failure_modes": "source",
+      "returns": "docstring"
+    },
+    "reference": "",
+    "returns": {
+      "class": "TrimFillResult",
+      "description": "TrimFillResult: k0, side, the filled pooled estimate with se, ci and p_value, the original and filled fits and the imputed studies.",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "estimate": "float",
+        "estimator": "str",
+        "filled": "MetaAnalysisResult",
+        "filled_effects": "np.ndarray",
+        "filled_se": "np.ndarray",
+        "k0": "int",
+        "k0_raw": "float",
+        "n_iter": "int",
+        "original": "MetaAnalysisResult",
+        "p_value": "float",
+        "se": "float",
+        "side": "str",
+        "tau2": "float"
+      }
+    },
+    "signature": {
+      "description": "Duval-Tweedie trim-and-fill adjustment for funnel-plot asymmetry. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "trim_and_fill",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "One minus the confidence level.",
+            "type": "number"
+          },
+          "effects": {
+            "description": "Per-study effect sizes, or a fitted ``sp.meta_analysis`` result (then ``se``, ``method``, ``hksj``, ``labels`` and ``alpha`` are taken from it).",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "estimator": {
+            "default": "L0",
+            "description": "Rank-based estimator of the number of missing studies.",
+            "enum": [
+              "L0",
+              "R0",
+              "Q0"
+            ],
+            "type": "string"
+          },
+          "hksj": {
+            "default": false,
+            "description": "Knapp-Hartung inference for the reported pooled effects.",
+            "type": "boolean"
+          },
+          "labels": {
+            "description": "Study labels.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxiter": {
+            "default": 100,
+            "description": "Maximum number of trim iterations.",
+            "type": "integer"
+          },
+          "method": {
+            "default": "DL",
+            "description": "Model for the pooled effect at every step, as in ``sp.meta_analysis``.",
+            "enum": [
+              "DL",
+              "REML",
+              "ML",
+              "PM",
+              "fixed"
+            ],
+            "type": "string"
+          },
+          "se": {
+            "description": "Per-study standard errors. Required with raw effects.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "side": {
+            "description": "Side on which studies are assumed missing. Default: chosen from the sign of the slope of the effect on its standard error in a meta-regression (Egger-type test); a positive slope means small studies report larger effects, so the missing ones are on the left.",
+            "enum": [
+              "left",
+              "right"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "effects"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_gaps_meta_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -125498,6 +126070,7 @@
         "bib_keys": "ClassVar[Tuple[str, ...]]",
         "detailed": "pd.DataFrame",
         "group_stats": "Dict[str, Any]",
+        "means": "str",
         "method_name": "ClassVar[str]",
         "overall": "Dict[str, float]",
         "reference": "Union[str, int]",
@@ -125528,6 +126101,15 @@
             "description": "Binary group indicator (0 = Group A, 1 = Group B).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "means": {
+            "default": "fixed",
+            "description": "How the standard errors treat the covariate means. ``'fixed'`` holds them constant (Stata ``oaxaca ..., vce(robust) fixed``). ``'stochastic'`` adds their sampling variance (Jann 2008; the default of Stata ``oaxaca ..., vce(robust)``). Point estimates are the same.",
+            "enum": [
+              "fixed",
+              "stochastic"
+            ],
+            "type": "string"
           },
           "reference": {
             "description": "Reference coefficient vector beta*: - ``0`` -- Group A coefficients (beta_A). The \"explained\" part uses Group A's returns as the benchmark. - ``1`` -- Group B coefficients (beta_B). - ``'pooled'`` -- Pooled OLS (Neumark 1988). - ``'cotton'`` -- Sample-size weighted average (Cotton 1988). - ``'reimers'`` -- Equal-weighted average (Reimers 1983). Default: 0.",
@@ -125567,6 +126149,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs oaxaca::oaxaca [R version 4.5.2 (2025-10-31), oaxaca 0.1.5]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 30_oaxaca -- tests/r_parity/30_oaxaca.py",
+      "tests/reference_parity/test_gaps_econ_parity.py",
       "tests/reference_parity/test_oaxaca_threefold_r_parity.py",
       "tests/reference_parity/test_probe_econ_parity.py"
     ],
@@ -130931,7 +131514,7 @@
       "tests/reference_parity/test_fast_fepois_fixest_parity.py",
       "tests/reference_parity/test_feglm_native_fixest_parity.py",
       "tests/reference_parity/test_feglm_wild_boottest_parity.py",
-      "tests/reference_parity/test_ppmlhdfe_extended_vce_parity.py"
+      "tests/reference_parity/test_gaps_econ_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -131313,10 +131896,11 @@
           },
           "ties": {
             "default": "efron",
-            "description": "Tie-handling method: ``'efron'`` or ``'breslow'``.",
+            "description": "Tie-handling method: ``'efron'``, ``'breslow'`` or ``'exact'``. ``'exact'`` maximises the exact partial likelihood, the conditional probability that the subjects who failed at a tied time are the ones that failed (R ``coxph(ties = \"exact\")``, Stata ``stcox, exactp``). It is the rule to use when time is recorded coarsely and many failures share a time; Efron and Breslow approximate it and all three coincide without ties. It accepts ``strata=`` and ``start=`` and is refused with ``weights=``, ``robust=``, ``cluster=``, ``design=`` and ``tvc=``; ``ph_test()`` is not available after it, and the baseline hazard uses Breslow increments at the exact estimates (R ``basehaz``).",
             "enum": [
               "efron",
-              "breslow"
+              "breslow",
+              "exact"
             ],
             "type": "string"
           },
@@ -136212,7 +136796,7 @@
             "type": "string"
           },
           "data": {
-            "description": "Summary statistics with one row per SNP/instrument.",
+            "description": "Summary statistics with one row per SNP/instrument. Without it, pass the four statistics below as arrays (one value per SNP) instead of column names.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
@@ -141867,7 +142451,8 @@
         "n_groups": "int",
         "n_obs": "int",
         "random_effects": "pd.DataFrame",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -141959,9 +142544,9 @@
       "Stata parity module 25_lmm",
       "Cross-language parity (bit-exact) vs lme4::lmer [R version 4.5.2 (2025-10-31), lme4 2.0.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 25_lmm -- tests/r_parity/25_lmm.py",
       "tests/reference_parity/test_bayes_mixed_exact_posterior.py",
+      "tests/reference_parity/test_gaps_epi_parity.py",
       "tests/reference_parity/test_icc_parity.py",
-      "tests/reference_parity/test_lrtest_parity.py",
-      "tests/reference_parity/test_textbook_syllabus_stata_parity.py"
+      "tests/reference_parity/test_lrtest_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -142044,7 +142629,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -142145,7 +142731,8 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 meglm (gaussian; binomial with binomial()); lme4::lmer(REML = FALSE); lme4::glmer [R version 4.5.2 (2025-10-31), Stata 18 MP, lme4 2.0.1]; tolerance gaussian vs Stata estimates / SEs rtol 1e-6 (observed 4.2e-9 / 2.8e-7), vs lmer ML estimates 6.1e-11; binomial-trials vs Stata 2.4e-9 / 6.6e-8 -- tests/reference_parity/test_panel_glmm_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 meglm (gaussian; binomial with binomial()); lme4::lmer(REML = FALSE); lme4::glmer [R version 4.5.2 (2025-10-31), Stata 18 MP, lme4 2.0.1]; tolerance gaussian vs Stata estimates / SEs rtol 1e-6 (observed 4.2e-9 / 2.8e-7), vs lmer ML estimates 6.1e-11; binomial-trials vs Stata 2.4e-9 / 6.6e-8 -- tests/reference_parity/test_panel_glmm_parity.py",
+      "tests/reference_parity/test_gaps_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -142239,7 +142826,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -142394,7 +142982,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -142540,7 +143129,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -142682,7 +143272,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -142835,7 +143426,8 @@
         "random_effects": "pd.DataFrame",
         "thresholds": "Optional[pd.Series]",
         "thresholds_se": "Optional[pd.Series]",
-        "variance_components": "Dict[str, float]"
+        "variance_components": "Dict[str, float]",
+        "variance_components_se": "Dict[str, float]"
       }
     },
     "signature": {
@@ -157903,11 +158495,13 @@
         "log_likelihood": "float",
         "log_likelihood_scale": "str",
         "n": "int",
+        "n_clusters": "Optional[int]",
         "n_events": "int",
         "se": "np.ndarray",
         "se_log_sigma": "float | None",
         "sigma": "float",
-        "var_names": "List[str]"
+        "var_names": "List[str]",
+        "vcov_type": "str"
       }
     },
     "signature": {
@@ -157915,6 +158509,11 @@
       "name": "aft",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column. Gives the clustered sandwich with ``G / (G - 1)`` (``streg, vce(cluster c)``; R ``survreg(cluster = )`` has no factor). Implies ``robust=\"cluster\"``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -157935,6 +158534,17 @@
             "description": "``\"duration + event ~ x1 + x2\"``. Durations must be positive and the event coded 0/1.",
             "type": "string",
             "x-statspai-role": "formula"
+          },
+          "robust": {
+            "default": "nonrobust",
+            "description": "Variance estimator. ``\"nonrobust\"`` is the inverse observed information. ``\"robust\"`` is the sandwich of the score contributions with Stata's ``N / (N - 1)`` factor (``streg, vce(robust)``); R ``survreg(robust = TRUE)`` is the same sandwich without the factor.",
+            "enum": [
+              "nonrobust",
+              "robust",
+              "cluster"
+            ],
+            "type": "string",
+            "x-canonical": "vce"
           }
         },
         "required": [
@@ -157947,7 +158557,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Cross-language parity (aligned) vs survival::survreg (Weibull AFT) [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance coefficients & log-scale 5e-5 abs (observed ~1e-5) -- tests/reference_parity/test_aft_parity.py"
+      "Cross-language parity (aligned) vs survival::survreg (Weibull AFT) [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance coefficients & log-scale 5e-5 abs (observed ~1e-5) -- tests/reference_parity/test_aft_parity.py",
+      "tests/reference_parity/test_gaps_epi_parity.py"
     ],
     "validation_status": "certified"
   },
