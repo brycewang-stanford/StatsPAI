@@ -33653,11 +33653,24 @@ def _build_registry() -> None:
                     "clustering; understates SEs of time-varying controls since "
                     "control units repeat across stacks. Default: the cluster",
                 ),
+                ParamSpec(
+                    "crit_dist",
+                    "str",
+                    False,
+                    None,
+                    "Critical-value rule; estimates and SEs unchanged. 't': "
+                    "t(G-1), G the clusters of the stacked regression (Stata "
+                    "reghdfe, R fixest). 'normal': the normal distribution. "
+                    "Not given: 'normal' with a FutureWarning for "
+                    "family='gaussian' ('t' becomes the default in a later "
+                    "release); family='poisson' stays normal",
+                    ["t", "normal"],
+                ),
             ],
             returns="CausalResult with event-study coefficients",
             example=(
                 'sp.stacked_did(df, y="y", group="i", time="t", '
-                'first_treat="g", window=(-4, 4))'
+                'first_treat="g", window=(-4, 4), crit_dist="t")'
             ),
             tags=["did", "stacked", "event_study", "cengiz", "staggered", "causal"],
             reference="Cengiz, Dube, Lindner & Zipperer (2019) QJE "

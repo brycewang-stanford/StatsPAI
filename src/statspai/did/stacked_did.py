@@ -14,11 +14,10 @@ Cengiz, D., Dube, A., Lindner, A. and Zipperer, B. (2019).
 """
 
 import warnings
-from typing import List, Optional, Tuple
+from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns, missing_named_columns
@@ -27,6 +26,7 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
+from . import _crit
 from ._arg_roles import check_unit_is_not_treatment as _check_unit_is_not_treatment
 from ._core import calendar_time_aware as _calendar_time_aware
 from ._validate import drop_always_treated as _drop_always_treated
@@ -70,6 +70,7 @@ def stacked_did(
     own_overlap: str = "drop",
     aggregation: str = "event_time",
     cluster_stack: bool = False,
+    crit_dist: Optional[Literal["t", "normal"]] = None,
 ) -> CausalResult:
     """
     Stacked DID estimator (Cengiz, Dube, Lindner & Zipperer, 2019).
@@ -181,6 +182,22 @@ def stacked_did(
         one sub-experiment, so their standard errors move much less. The
         default clusters on the original ``cluster``, which nests the
         sub-experiments.
+    crit_dist : {'t', 'normal'}, optional
+        Reference distribution of the p-values and confidence intervals,
+        the same choice as in ``sp.event_study`` and ``sp.sun_abraham``.
+        ``'t'``: Student t with ``G - 1`` degrees of freedom, ``G`` the
+        number of clusters of the stacked regression (every fit here is
+        cluster-robust), which is what Stata ``reghdfe`` and R ``fixest``
+        report for the same regression. ``'normal'``: the normal
+        distribution. Not given, a ``family='gaussian'`` call uses
+        ``'normal'`` and warns (``FutureWarning``): a later release makes
+        ``'t'`` the default (owner decision 2026-11-13), as
+        ``sp.event_study`` and ``sp.sun_abraham`` did in 1.41. Passing
+        either value is silent. ``family='poisson'`` keeps the normal
+        distribution unless ``'t'`` is asked for, as ``ppmlhdfe`` and
+        ``fixest::fepois`` report z statistics. Coefficients and standard
+        errors do not depend on it. The rule used is in
+        ``model_info['conventions']``.
 
     Notes
     -----
@@ -203,7 +220,7 @@ def stacked_did(
     >>> df = sp.dgp_did(n_units=120, n_periods=8, staggered=True, seed=0)
     >>> result = sp.stacked_did(
     ...     data=df, y='y', group='unit', time='time',
-    ...     first_treat='first_treat', window=(-3, 3),
+    ...     first_treat='first_treat', window=(-3, 3), crit_dist='t',
     ... )
     >>> bool(result.estimate is not None)
     True
@@ -237,6 +254,18 @@ def stacked_did(
 
     if cluster is None:
         cluster = group
+
+    crit_arg = crit_dist.strip().lower() if isinstance(crit_dist, str) else crit_dist
+    if crit_arg not in (None, "t", "normal"):
+        raise MethodIncompatibility(
+            f"stacked_did: crit_dist={crit_dist!r} is not recognised.",
+            recovery_hint=(
+                "Pass crit_dist='t' (t(G-1), as Stata reghdfe and R fixest "
+                "report for the stacked regression) or crit_dist='normal' "
+                "(today's default)."
+            ),
+            diagnostics={"crit_dist": repr(crit_dist), "allowed": ["t", "normal"]},
+        )
 
     family = str(family).lower()
     if family not in ("gaussian", "poisson"):
@@ -675,8 +704,37 @@ def stacked_did(
         att_var = w @ V[:k_es, :k_es] @ w
         att_se = np.sqrt(max(att_var, 0.0))
 
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-    att_pval = float(2 * stats.norm.sf(abs(att) / att_se)) if att_se > 0 else np.nan
+    # Reference distribution. Today's default is the normal; crit_dist='t'
+    # is the t(G - 1) of reghdfe / fixest on the stacked regression and
+    # becomes the default of family='gaussian' in a later release.
+    n_clusters = int(pd.Series(stacked[cluster]).nunique())
+    ref_dist, ref_df = _crit.crit_spec(
+        None,
+        clustered=True,
+        n_clusters=n_clusters,
+        df_resid=None,
+        crit_dist=crit_arg,
+    )
+    if crit_arg is None and family == "gaussian" and n_clusters >= 2:
+        from .._default_change import announce_default_change
+
+        announce_default_change(
+            "stacked_did",
+            "crit_dist",
+            today="'normal'",
+            later="'t'",
+            why=(
+                "'t' refers the p-values and confidence intervals to "
+                f"t(G-1) = t({n_clusters - 1}) here, as Stata reghdfe and R "
+                "fixest report for the stacked regression and as "
+                "sp.event_study and sp.sun_abraham have done since 1.41. "
+                "Estimates and standard errors do not change."
+            ),
+        )
+    z_crit = _crit.crit_value(alpha, ref_dist, ref_df)
+    att_pval = (
+        _crit.two_sided_p(att / att_se, ref_dist, ref_df) if att_se > 0 else np.nan
+    )
     att_ci = (att - z_crit * att_se, att + z_crit * att_se)
 
     # ── Build event study detail DataFrame ───────────────────────── #
@@ -697,7 +755,7 @@ def stacked_did(
         else:
             b = es_betas[k]
             s = es_se[k]
-            p = float(2 * stats.norm.sf(abs(b) / s)) if s > 0 else np.nan
+            p = _crit.two_sided_p(b / s, ref_dist, ref_df) if s > 0 else np.nan
             rows.append(
                 {
                     "relative_time": int(k),
@@ -739,7 +797,8 @@ def stacked_did(
         "omitted_event_times": dropped_terms,
         "cluster_var": cluster_var,
         "cluster_stack": bool(cluster_stack),
-        "n_clusters": int(pd.Series(stacked[cluster]).nunique()),
+        "n_clusters": n_clusters,
+        "conventions": _crit.conventions(None, ref_dist, ref_df),
         "aggregation": aggregation if spec != "pooled" else None,
         "aggregation_weights": att_weights,
         "event_study": detail,
@@ -785,6 +844,7 @@ def stacked_did(
                 "control_group": control_group,
                 "aggregation": aggregation,
                 "cluster_stack": cluster_stack,
+                **({"crit_dist": crit_arg} if crit_arg is not None else {}),
             },
             data=data,
             overwrite=False,

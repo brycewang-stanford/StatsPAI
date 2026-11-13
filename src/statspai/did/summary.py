@@ -329,6 +329,9 @@ def _run_stacked(
         cluster=cluster,
         alpha=alpha,
         aggregation="treated_obs",
+        # Today's rule, pinned so did_summary keeps its numbers and does
+        # not warn; follows sp.stacked_did when its default becomes 't'.
+        crit_dist="normal",
     )
 
 

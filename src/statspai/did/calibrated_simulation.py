@@ -226,6 +226,9 @@ def _fit_stacked(df: pd.DataFrame, opt: "_Options") -> Tuple[float, float]:
         window=(-opt.max_horizon, opt.max_horizon),
         cluster=_ID,
         never_treated_only=opt.control_group == "nevertreated",
+        # Only the estimate and SE are read; pinned so the simulation
+        # does not repeat the default-change FutureWarning per draw.
+        crit_dist="normal",
     )
     return float(r.estimate), float(r.se)
 

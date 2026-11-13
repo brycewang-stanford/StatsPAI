@@ -113,7 +113,7 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
         "df = sp.datasets.castle_doctrine()\n"
         "r = sp.stacked_did(\n"
         '    df, y="l_homicide", group="sid", time="year",\n'
-        '    first_treat="effyear", window=(-3, 3),\n'
+        '    first_treat="effyear", window=(-3, 3), crit_dist="t",\n'
         ")\n"
     ),
     "event_study": (

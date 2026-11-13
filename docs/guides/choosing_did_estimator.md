@@ -227,7 +227,7 @@ TWFE over them.
 | Two-way Mundlak / ETWFE — cohort-size-weighted mean of ATT(g), never-treated controls (R `etwfe(cgroup='never')` + `emfx(type='group')`) | `sp.wooldridge_did(df, y, group, time, first_treat)` |
 | Poisson ETWFE for counts, as Stata `jwdid ..., method(ppmlhdfe)` + `estat simple, predict(xb)` (log points, unit FE) | `sp.etwfe(df, y, group, time, first_treat, family='poisson', fe='unit', scale='link')` |
 | The same with Stata's option names (`ivar() tvar() gvar() method() never hettype() exovar()`) | `sp.jwdid(df, y, ivar=..., tvar=..., gvar=..., method='ppmlhdfe', predict='xb')` |
-| Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`                   |
+| Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5), crit_dist='t')`                   |
 | Repeated events per unit (e.g. several minimum-wage increases), one sub-experiment per event with clean controls | `sp.stacked_did(df, y, group, time, events='event', window=(-3, 4))` |
 | Policy that is continuous or changes several times (Stata `xtevent`) | `sp.xtevent(df, y, policy='z', panel='id', time='t', window=3)` |
 | Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
