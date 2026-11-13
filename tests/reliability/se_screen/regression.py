@@ -11,6 +11,7 @@ flagging rule.
     python tests/reliability/se_screen/regression.py --confirm  # flagged, B = 1000
 """
 
+# flake8: noqa: E501
 from __future__ import annotations
 
 import sys
@@ -411,6 +412,191 @@ def d_fmm(rng):
     return df
 
 
+# ------------------------------------------------- DGPs for the option rows
+def _cluster_frame(rng):
+    g = np.repeat(np.arange(G), N // G)
+    df = pd.DataFrame({"g": g, "t": np.tile(np.arange(N // G), G)})
+    df["x1"] = rng.normal(size=G)[g] * 0.7 + rng.normal(size=N) * 0.7
+    df["x2"] = rng.normal(size=N)
+    return df, g
+
+
+def _cluster_normal(rng, g, rho=0.3):
+    """Unit-variance normal error with within-cluster correlation ``rho``."""
+    return np.sqrt(rho) * rng.normal(size=G)[g] + np.sqrt(1 - rho) * rng.normal(size=N)
+
+
+def _cluster_uniform(rng, g, rho=0.3):
+    from scipy.stats import norm
+
+    return norm.cdf(_cluster_normal(rng, g, rho))
+
+
+def d_aweights(rng):
+    """Error variance 1 / w with w known: analytic weights are the efficient ones."""
+    df = _xs(rng)
+    df["w"] = rng.uniform(0.5, 3.0, size=N)
+    df["y"] = 1 + BETA * df.x1 - 0.5 * df.x2 + rng.normal(size=N) / np.sqrt(df.w)
+    return df
+
+
+def d_pweights(rng, kind="linear"):
+    """Sampling weights unrelated to the outcome: the weighted estimator is consistent."""
+    df = {"linear": d_linear_het, "logit": d_logit, "poisson": d_negbin}[kind](rng)
+    df["w"] = rng.uniform(0.5, 3.0, size=N)
+    return df
+
+
+def d_probit_cluster(rng):
+    df, g = _cluster_frame(rng)
+    df["y"] = (-0.3 + BETA * df.x1 - 0.5 * df.x2 + _cluster_normal(rng, g) > 0).astype(
+        int
+    )
+    return df
+
+
+def d_count_cluster(rng):
+    """Poisson mean exp(xb) times a mean-one cluster effect and gamma noise."""
+    df, g = _cluster_frame(rng)
+    a = np.exp(0.4 * rng.normal(size=G) - 0.08)[g]
+    mu = np.exp(0.5 + BETA * df.x1 - 0.3 * df.x2)
+    df["y"] = rng.poisson(mu * a * rng.gamma(shape=4.0, scale=0.25, size=N))
+    return df
+
+
+def d_poisson_exposure(rng):
+    df = _xs(rng)
+    df["e"] = rng.uniform(0.5, 5.0, size=N)
+    df["y"] = rng.poisson(df.e * np.exp(-0.5 + BETA * df.x1 - 0.3 * df.x2))
+    return df
+
+
+def d_nb1(rng):
+    """NB1: variance (1 + 1.0) mu, gamma shape proportional to the mean."""
+    df = _xs(rng)
+    mu = np.exp(0.5 + BETA * df.x1 - 0.3 * df.x2)
+    df["y"] = rng.poisson(rng.gamma(shape=mu / 1.0, scale=1.0))
+    return df
+
+
+def d_tobit_cluster(rng):
+    df, g = _cluster_frame(rng)
+    df["y"] = np.maximum(
+        0.0, 0.5 + BETA * df.x1 - 0.5 * df.x2 + _cluster_normal(rng, g)
+    )
+    return df
+
+
+def d_tobit_two(rng):
+    df = _xs(rng)
+    df["y"] = np.clip(0.8 + BETA * df.x1 - 0.5 * df.x2 + rng.normal(size=N), 0.0, 2.0)
+    return df
+
+
+def d_tobit_het(rng):
+    """Symmetric heteroskedastic error: the case symmetrically censored LS is for."""
+    df = _xs(rng)
+    e = rng.normal(size=N) * np.exp(0.3 * df.x2)
+    df["y"] = np.maximum(0.0, 1.5 + BETA * df.x1 - 0.5 * df.x2 + e)
+    return df
+
+
+def d_heckman_cluster(rng):
+    df, g = _cluster_frame(rng)
+    df["z"] = rng.normal(size=N)
+    u = _cluster_normal(rng, g)
+    e = 0.5 * u + np.sqrt(0.75) * _cluster_normal(rng, g)
+    df["s"] = (0.5 + df.z + 0.5 * df.x1 + u > 0).astype(int)
+    df["y"] = np.where(df.s == 1, 1 + BETA * df.x1 - 0.5 * df.x2 + e, np.nan)
+    return df
+
+
+def d_ologit_cluster(rng):
+    df, g = _cluster_frame(rng)
+    u = _cluster_uniform(rng, g)
+    lat = BETA * df.x1 - 0.5 * df.x2 + np.log(u / (1 - u))
+    df["y"] = np.digitize(lat, [-1.0, 0.0, 1.0])
+    return df
+
+
+def d_mlogit_cluster(rng):
+    df, g = _cluster_frame(rng)
+    gum = [-np.log(-np.log(_cluster_uniform(rng, g))) for _ in range(3)]
+    u = np.column_stack(
+        [
+            gum[0],
+            0.2 + BETA * df.x1 - 0.5 * df.x2 + gum[1],
+            -0.2 - 0.5 * df.x1 + 0.3 * df.x2 + gum[2],
+        ]
+    )
+    df["y"] = u.argmax(axis=1)
+    return df
+
+
+def d_qreg_cluster(rng):
+    df, g = _cluster_frame(rng)
+    df["y"] = 1 + BETA * df.x1 - 0.5 * df.x2 + _cluster_normal(rng, g)
+    return df
+
+
+def d_gee_ar1(rng):
+    df, g = _cluster_frame(rng)
+    m = N // G
+    e = np.zeros((G, m))
+    e[:, 0] = rng.normal(size=G)
+    for j in range(1, m):
+        e[:, j] = 0.6 * e[:, j - 1] + np.sqrt(1 - 0.36) * rng.normal(size=G)
+    df["y"] = 1 + BETA * df.x1 - 0.5 * df.x2 + e.ravel()
+    return df
+
+
+def d_gee_poisson(rng):
+    return d_count_cluster(rng)
+
+
+def d_hurdle_nb(rng):
+    df = _xs(rng, 2000)
+    pos = rng.uniform(size=2000) < _expit(0.5 + 0.5 * df.x2)
+    mu = np.exp(1.0 + BETA * df.x1).to_numpy()
+    y = np.zeros(2000, dtype=int)
+    for i in np.where(pos)[0]:
+        v = 0
+        while v == 0:
+            v = rng.poisson(mu[i] * rng.gamma(2.0, 0.5))
+        y[i] = v
+    df["y"] = y
+    return df
+
+
+def d_fracprobit(rng):
+    from scipy.stats import norm
+
+    df = _xs(rng)
+    mu = norm.cdf(BETA * df.x1 - 0.5 * df.x2)
+    df["y"] = rng.beta(mu * 5.0, (1 - mu) * 5.0)
+    return df
+
+
+def d_nls_het(rng):
+    df = pd.DataFrame({"x1": rng.uniform(0, 2, size=N)})
+    df["y"] = 2.0 * np.exp(BETA * df.x1) + rng.normal(size=N) * (0.5 + df.x1)
+    return df
+
+
+def d_cns_het(rng):
+    df = _xs(rng)
+    df["y"] = 1 + BETA * df.x1 + BETA * df.x2 + rng.normal(size=N) * np.exp(0.5 * df.x1)
+    return df
+
+
+def d_outliers(rng):
+    """Symmetric contamination: 10% of the errors have sd 5."""
+    df = _xs(rng)
+    e = np.where(rng.uniform(size=N) < 0.1, 5.0, 1.0) * rng.normal(size=N)
+    df["y"] = 1 + BETA * df.x1 - 0.5 * df.x2 + e
+    return df
+
+
 # ------------------------------------------------------------------- fits
 def f(est, term="x1", **kw):
     """Formula estimator ``sp.<est>("y ~ x1 + x2", data, **kw)``."""
@@ -581,6 +767,105 @@ def fit_fmm(df):
         term="x1",
         **{"class": 1},
     )
+
+
+def fit_tobit(**kw):
+    def fit(df):
+        return coef(_sp().tobit(df, formula="y ~ x1 + x2", **kw), "x1")
+
+    return fit
+
+
+def fit_qreg(**kw):
+    def fit(df):
+        return coef(_sp().qreg(df, "y ~ x1 + x2", **kw), "x1")
+
+    return fit
+
+
+def fit_heckman_vce(**kw):
+    def fit(df):
+        r = _sp().heckman(
+            df, y="y", x=["x1", "x2"], select="s", z=["z", "x1"], method="ml", **kw
+        )
+        return coef(r, "x1")
+
+    return fit
+
+
+def fit_mlogit_kw(**kw):
+    def fit(df):
+        r = _sp().mlogit("y ~ x1 + x2", data=df, **kw)
+        return coef(r, [t for t in r.params.index if "x1" in str(t)][0])
+
+    return fit
+
+
+def fit_gee_kw(family="gaussian", **kw):
+    def fit(df):
+        return coef(
+            _sp().gee("y ~ x1 + x2", df, id="g", family=family, time="t", **kw), "x1"
+        )
+
+    return fit
+
+
+def fit_hurdle_kw(**kw):
+    def fit(df):
+        r = _sp().hurdle("y ~ x1 + x2", data=df, **kw)
+        return coef(r, [t for t in r.params.index if "x1" in str(t)][-1])
+
+    return fit
+
+
+def fit_zi_kw(est, **kw):
+    def fit(df):
+        r = getattr(_sp(), est)("y ~ x1", data=df, inflate=["x2"], **kw)
+        return coef(r, [t for t in r.params.index if "x1" in str(t)][0])
+
+    return fit
+
+
+def fit_nls_kw(**kw):
+    def fit(df):
+        r = _sp().nls("y ~ {b0}*exp({b1}*x1)", df, start={"b0": 1.0, "b1": 0.1}, **kw)
+        return coef(r, [t for t in r.params.index if "b1" in str(t)][0])
+
+    return fit
+
+
+def fit_cnsreg_kw(**kw):
+    def fit(df):
+        return coef(_sp().cnsreg("y ~ x1 + x2", df, "x1 = x2", **kw), "x1")
+
+    return fit
+
+
+def fit_prais_kw(**kw):
+    def fit(df):
+        return coef(_sp().prais("y ~ x1", df, time="t", **kw), "x1")
+
+    return fit
+
+
+def fit_iv_kw(est, term_end="w", **kw):
+    return fit_iv(est, **kw)
+
+
+def fit_biprobit_kw(**kw):
+    def fit(df):
+        r = _sp().biprobit(df, y1="y1", y2="y2", x1=["x1"], x2=["x2"], **kw)
+        return coef(r, [t for t in r.params.index if "x1" in str(t)][0])
+
+    return fit
+
+
+def fit_gam_kw(**kw):
+    def fit(df):
+        r = _sp().gam("y ~ x1 + s(x2)", df, **kw)
+        return wald(r.params["x1"], r.std_errors["x1"])
+
+    return fit
 
 
 # ------------------------------------------------------------------- rows
@@ -992,8 +1277,481 @@ ROWS = [
     ),
 ]
 
+CL = "100 clusters of 10, within-cluster correlation 0.3 in the error"
+
+OPTION_ROWS = [
+    R(
+        "regress/hc2",
+        "regress",
+        'regress(..., robust="hc2")',
+        d_linear_het,
+        f("regress", robust="hc2"),
+        design="sd of the error is exp(0.5 x1)",
+    ),
+    R(
+        "regress/hc4",
+        "regress",
+        'regress(..., robust="hc4")',
+        d_linear_het,
+        f("regress", robust="hc4"),
+        design="sd of the error is exp(0.5 x1)",
+    ),
+    R(
+        "regress/cr2",
+        "regress",
+        'regress(..., cluster="g", vce="cr2")',
+        d_linear_cluster,
+        f("regress", cluster="g", vce="cr2"),
+        design="100 clusters of 10",
+    ),
+    R(
+        "regress/cr3",
+        "regress",
+        'regress(..., cluster="g", vce="cr3")',
+        d_linear_cluster,
+        f("regress", cluster="g", vce="cr3"),
+        design="100 clusters of 10",
+    ),
+    R(
+        "regress/jackknife",
+        "regress",
+        'regress(..., cluster="g", vce="jackknife")',
+        d_linear_cluster,
+        f("regress", cluster="g", vce="jackknife"),
+        design="100 clusters of 10",
+    ),
+    R(
+        "regress/aweights",
+        "regress",
+        'regress(..., weights="w")',
+        d_aweights,
+        f("regress", weights="w"),
+        design="error variance 1 / w",
+    ),
+    R(
+        "regress/pweights",
+        "regress",
+        'regress(..., weights="w", weights_as="sampling")',
+        lambda rng: d_pweights(rng, "linear"),
+        f("regress", weights="w", weights_as="sampling"),
+        design="weights independent of the data, heteroskedastic error",
+    ),
+    R(
+        "logit/hc1",
+        "logit",
+        'logit(..., robust="hc1")',
+        d_logit,
+        f("logit", robust="hc1"),
+    ),
+    R(
+        "logit/pweights",
+        "logit",
+        'logit(..., weights="w", weights_as="sampling")',
+        lambda rng: d_pweights(rng, "logit"),
+        f("logit", weights="w", weights_as="sampling"),
+        design="weights independent of the data",
+    ),
+    R(
+        "probit/cluster",
+        "probit",
+        'probit(..., cluster="g")',
+        d_probit_cluster,
+        f("probit", cluster="g"),
+        design=CL,
+    ),
+    R(
+        "cloglog/robust",
+        "cloglog",
+        'cloglog(..., robust="robust")',
+        d_cloglog,
+        f("cloglog", robust="robust"),
+    ),
+    R(
+        "poisson/cluster",
+        "poisson",
+        'poisson(..., cluster="g")',
+        d_count_cluster,
+        f("poisson", cluster="g"),
+        design="100 clusters of 10, mean-one cluster effect",
+    ),
+    R(
+        "poisson/pweights",
+        "poisson",
+        'poisson(..., weights="w", weights_as="sampling")',
+        lambda rng: d_pweights(rng, "poisson"),
+        f("poisson", weights="w", weights_as="sampling"),
+        design="weights independent of the data, overdispersed counts",
+    ),
+    R(
+        "poisson/exposure",
+        "poisson",
+        'poisson(..., exposure="e")',
+        d_poisson_exposure,
+        f("poisson", exposure="e"),
+    ),
+    R(
+        "nbreg/cluster",
+        "nbreg",
+        'nbreg(..., cluster="g")',
+        d_count_cluster,
+        f("nbreg", cluster="g"),
+        design="100 clusters of 10, mean-one cluster effect",
+    ),
+    R(
+        "nbreg/constant-dispersion",
+        "nbreg",
+        'nbreg(..., dispersion="constant")',
+        d_nb1,
+        f("nbreg", dispersion="constant"),
+        design="NB1 counts, variance 2 mu",
+    ),
+    R(
+        "glm/binomial-cluster",
+        "glm",
+        'glm(..., family="binomial", cluster="g")',
+        d_logit_cluster,
+        f("glm", family="binomial", cluster="g"),
+        design=CL,
+    ),
+    R(
+        "glm/poisson-exposure",
+        "glm",
+        'glm(..., family="poisson", exposure="e")',
+        d_poisson_exposure,
+        f("glm", family="poisson", exposure="e"),
+    ),
+    R(
+        "tobit/cluster",
+        "tobit",
+        'tobit(..., vce="cluster g")',
+        d_tobit_cluster,
+        fit_tobit(ll=0, vce="cluster g"),
+        design=CL,
+    ),
+    R(
+        "tobit/two-limit",
+        "tobit",
+        "tobit(..., ll=0, ul=2)",
+        d_tobit_two,
+        fit_tobit(ll=0, ul=2),
+    ),
+    R(
+        "tobit/scls",
+        "tobit",
+        'tobit(..., method="scls")',
+        d_tobit_het,
+        fit_tobit(ll=0, method="scls"),
+        design="symmetric heteroskedastic error, 10% censored",
+    ),
+    R(
+        "truncreg/robust",
+        "truncreg",
+        'truncreg(..., robust="robust")',
+        d_truncreg,
+        lambda df: coef(
+            _sp().truncreg(df, formula="y ~ x1 + x2", ll=0, robust="robust"), "x1"
+        ),
+    ),
+    R(
+        "intreg/robust",
+        "intreg",
+        'intreg(..., vce="robust")',
+        d_intreg,
+        lambda df: coef(
+            _sp().intreg(df, y_lower="lo", y_upper="hi", x=["x1", "x2"], vce="robust"),
+            "x1",
+        ),
+    ),
+    R(
+        "heckman/mle-robust",
+        "heckman",
+        'heckman(..., method="ml", vce="robust")',
+        d_heckman,
+        fit_heckman_vce(vce="robust"),
+    ),
+    R(
+        "heckman/mle-cluster",
+        "heckman",
+        'heckman(..., method="ml", vce="cluster g")',
+        d_heckman_cluster,
+        fit_heckman_vce(vce="cluster g"),
+        design=CL,
+    ),
+    R(
+        "ologit/robust",
+        "ologit",
+        'ologit(..., robust="robust")',
+        d_ordered_logit,
+        f("ologit", robust="robust"),
+    ),
+    R(
+        "ologit/cluster",
+        "ologit",
+        'ologit(..., cluster="g")',
+        d_ologit_cluster,
+        f("ologit", cluster="g"),
+        design=CL,
+    ),
+    R(
+        "oprobit/robust",
+        "oprobit",
+        'oprobit(..., robust="robust")',
+        d_ordered_probit,
+        f("oprobit", robust="robust"),
+    ),
+    R(
+        "mlogit/robust",
+        "mlogit",
+        'mlogit(..., robust="robust")',
+        d_mlogit,
+        fit_mlogit_kw(robust="robust"),
+    ),
+    R(
+        "mlogit/cluster",
+        "mlogit",
+        'mlogit(..., cluster="g")',
+        d_mlogit_cluster,
+        fit_mlogit_kw(cluster="g"),
+        design=CL,
+    ),
+    R(
+        "clogit/robust",
+        "clogit",
+        'clogit(..., robust="robust")',
+        d_clogit,
+        lambda df: coef(
+            _sp().clogit("y ~ x1 + x2", data=df, group="g", robust="robust"), "x1"
+        ),
+    ),
+    R(
+        "qreg/nid",
+        "qreg",
+        'qreg(..., vce="nid")',
+        d_qreg_het,
+        fit_qreg(vce="nid"),
+        design="location-scale, sd 0.5 + x1",
+    ),
+    R(
+        "qreg/kernel",
+        "qreg",
+        'qreg(..., vce="kernel")',
+        d_qreg_het,
+        fit_qreg(vce="kernel"),
+        design="location-scale, sd 0.5 + x1",
+    ),
+    R(
+        "qreg/cluster",
+        "qreg",
+        'qreg(..., vce="cluster g")',
+        d_qreg_cluster,
+        fit_qreg(vce="cluster g"),
+        design=CL,
+    ),
+    R(
+        "zip_model/robust",
+        "zip_model",
+        'zip_model(..., robust="robust")',
+        d_zip,
+        fit_zi_kw("zip_model", robust="robust"),
+    ),
+    R(
+        "zinb/robust",
+        "zinb",
+        'zinb(..., robust="robust")',
+        d_zinb,
+        fit_zi_kw("zinb", robust="robust"),
+        n=2000,
+    ),
+    R(
+        "hurdle/robust",
+        "hurdle",
+        'hurdle(..., robust="robust")',
+        d_hurdle,
+        fit_hurdle_kw(robust="robust"),
+    ),
+    R(
+        "hurdle/negbin",
+        "hurdle",
+        'hurdle(..., count_model="negbin")',
+        d_hurdle_nb,
+        fit_hurdle_kw(count_model="negbin"),
+        n=2000,
+        design="zero-truncated negative binomial",
+    ),
+    R(
+        "fracreg/probit",
+        "fracreg",
+        'fracreg(..., link="probit")',
+        d_fracprobit,
+        fx("fracreg", link="probit"),
+    ),
+    R(
+        "betareg/robust",
+        "betareg",
+        'betareg(..., robust="robust")',
+        d_beta,
+        fx("betareg", robust="robust"),
+    ),
+    R(
+        "biprobit/robust",
+        "biprobit",
+        'biprobit(..., robust="robust")',
+        d_biprobit,
+        fit_biprobit_kw(robust="robust"),
+    ),
+    R(
+        "etregress/robust",
+        "etregress",
+        'etregress(..., robust="robust")',
+        d_etregress,
+        lambda df: (
+            lambda r: coef(r, [t for t in r.params.index if str(t).endswith("d")][0])
+        )(
+            _sp().etregress(
+                df, y="y", x=["x1"], treatment="d", z=["z", "x1"], robust="robust"
+            )
+        ),
+        design="treatment coefficient",
+    ),
+    R(
+        "ivprobit/robust",
+        "ivprobit",
+        'ivprobit(..., vce="robust")',
+        d_ivprobit,
+        fit_iv("ivprobit", vce="robust"),
+    ),
+    R(
+        "ivtobit/robust",
+        "ivtobit",
+        'ivtobit(..., vce="robust")',
+        d_ivtobit,
+        fit_iv("ivtobit", vce="robust"),
+    ),
+    R(
+        "ivpoisson/onestep",
+        "ivpoisson",
+        'ivpoisson(..., method="onestep")',
+        d_ivpoisson_add,
+        fit_iv("ivpoisson", method="onestep"),
+        n=2000,
+    ),
+    R(
+        "gee/gaussian-ar1",
+        "gee",
+        'gee(..., corstr="ar1")',
+        d_gee_ar1,
+        fit_gee_kw(corstr="ar1"),
+        design="100 clusters of 10, AR(1) errors rho 0.6",
+    ),
+    R(
+        "gee/gaussian-ar1-model",
+        "gee",
+        'gee(..., corstr="ar1", vce="model")',
+        d_gee_ar1,
+        fit_gee_kw(corstr="ar1", vce="model"),
+        design="100 clusters of 10, AR(1) errors rho 0.6: the working correlation is true",
+    ),
+    R(
+        "gee/gaussian-unstructured",
+        "gee",
+        'gee(..., corstr="unstructured")',
+        d_gee_ar1,
+        fit_gee_kw(corstr="unstructured"),
+        design="100 clusters of 10, AR(1) errors rho 0.6",
+    ),
+    R(
+        "gee/poisson-exchangeable",
+        "gee",
+        'gee(..., family="poisson", corstr="exchangeable")',
+        d_gee_poisson,
+        fit_gee_kw("poisson", corstr="exchangeable"),
+        design="100 clusters of 10, mean-one cluster effect",
+    ),
+    R(
+        "prais/robust",
+        "prais",
+        'prais(..., vce="robust")',
+        d_prais,
+        fit_prais_kw(vce="robust"),
+        n=500,
+        design="AR(1) error and regressor, rho 0.5, T = 500",
+    ),
+    R(
+        "prais/twostep",
+        "prais",
+        "prais(..., twostep=True)",
+        d_prais,
+        fit_prais_kw(twostep=True),
+        n=500,
+        design="AR(1) error and regressor, rho 0.5, T = 500",
+    ),
+    R(
+        "cnsreg/robust",
+        "cnsreg",
+        'cnsreg(..., vce="robust")',
+        d_cns_het,
+        fit_cnsreg_kw(vce="robust"),
+        design="sd of the error is exp(0.5 x1)",
+    ),
+    R(
+        "nls/robust",
+        "nls",
+        'nls(..., vce="robust")',
+        d_nls_het,
+        fit_nls_kw(vce="robust"),
+        design="error sd 0.5 + x1",
+    ),
+    R(
+        "nls/hc3",
+        "nls",
+        'nls(..., vce="hc3")',
+        d_nls_het,
+        fit_nls_kw(vce="hc3"),
+        design="error sd 0.5 + x1",
+    ),
+    R(
+        "robreg/mm-contaminated",
+        "robreg",
+        'robreg("y ~ x1 + x2")',
+        d_outliers,
+        f("robreg"),
+        design="10% of the errors have sd 5",
+    ),
+    R(
+        "robreg/m",
+        "robreg",
+        'robreg(..., method="m")',
+        d_outliers,
+        f("robreg", method="m"),
+        design="10% of the errors have sd 5",
+    ),
+    R("gam/robust", "gam", 'gam(..., vce="robust")', d_gam, fit_gam_kw(vce="robust")),
+    R(
+        "sureg/mle",
+        "sureg",
+        'sureg({eq1, eq2}, method="mle")',
+        d_sur,
+        lambda df: _sys(
+            _sp().sureg(
+                {"eq1": ("y1", ["x1"]), "eq2": ("y2", ["x2", "x3"])}, df, method="mle"
+            ),
+            "x1",
+        ),
+    ),
+]
+
+ROWS = ROWS + OPTION_ROWS
+
 # Mechanism notes for flagged rows, written into the JSON by the harness.
-MECHANISMS: dict = {}
+MECHANISMS: dict = {
+    "gee/gaussian-unstructured": (
+        "Known small-sample property of the sandwich with an unstructured working "
+        "correlation: 45 correlations are estimated from 100 clusters, the fitted weights "
+        "are noisy and the robust SE is biased down (SE/SD 0.89). In 7% of the draws the "
+        "estimated correlation matrix is not positive definite and sp.gee refuses it with "
+        "a typed error. The AR(1) and exchangeable rows on the same data are calibrated."
+    ),
+}
 
 if __name__ == "__main__":
     main(__file__, FAMILY, ROWS, MECHANISMS)

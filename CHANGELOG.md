@@ -125,6 +125,59 @@ numbers. Evidence is in `tests/test_agent_probe_nov13.py` and
   enum value tried. `--only NAME ...` re-audits some functions and keeps the
   committed entries of the others.
 
+### SE calibration screen: regression, panel, IV, survival, time series, spatial, RD, DiD, multilevel (2026-11-13)
+
+Added:
+
+- **SE calibration screen** (`tests/reliability/se_screen/`). One script per
+  family (regression, panel, IV, survival, time series, spatial and
+  nonparametric, RD, DiD and synthetic control, multilevel) simulates, for
+  each estimator call, the coverage of the reported 95% interval and the
+  ratio of the reported standard error to the sampling spread of the
+  estimate, on data that satisfy the call's assumptions. Stored results and
+  the mechanism of every flagged row are in `<family>_results.json`;
+  `tests/test_reliability_se_screen.py` keeps them in band or explained;
+  the tables are in `tests/reliability/README.md`.
+- **`sp.xtlsdvc(plug_in="consistent")`.** The bias expression needs the
+  deterministic part of the lagged outcome. Stata's `xtlsdvc`, and
+  `sp.xtlsdvc` by default, build it from within-demeaned residuals, which
+  keeps each unit's mean error in it and makes the correction too small by
+  a share that does not shrink with the number of units: with seven usable
+  periods and an autoregressive coefficient of 0.5 the exact inconsistency
+  of LSDV is -0.2353 and the first-order correction converges to -0.2195,
+  so the corrected estimate keeps a bias of -0.016 at any N (-0.55 standard
+  deviations at 500 units, eight standard errors at 2,000).
+  `plug_in="consistent"` subtracts the expected contribution of the mean
+  error; the same designs then give a bias of +0.002 (Monte Carlo SE
+  0.002). The default is unchanged and still reproduces Stata.
+  `model_info` gains `plug_in` and `initial_rho`.
+- `sp.mmqreg` notes now state the bias of order 1/T away from the median
+  with absorbed unit effects, with the measured sizes.
+- `sp.stteffects` records `model_info["censoring_weights"]` (smallest
+  fitted probability of remaining uncensored among the failures, the
+  largest weight, the effective number of failures) when a censoring model
+  is used, and its notes say when the censoring-weighted estimators have a
+  heavy-tailed sampling distribution.
+
+Fixed:
+
+- **⚠️ correctness fix: `sp.iv.many_weak_ar` reported a truncated
+  confidence set.** The default searched 101 values within 0.5 of the OLS
+  estimate and returned the smallest and largest accepted one, and the
+  constant was not partialled out. OLS is biased towards the error
+  correlation, so the true value was often outside the grid: with 30
+  instruments and a concentration parameter of 60 the reported 95% set
+  covered 70.5% of the time (1,000 draws). The set is now the exact
+  solution of the Anderson-Rubin inequality with its `F(K, n - K - p)`
+  reference, a constant is always partialled out, and an unbounded or
+  disjoint set is reported as `(-inf, inf)` with `detail["shape"]` instead
+  of a short interval. Coverage on the same seeds is 95.0%. `estimate` is
+  the LIML estimate (it was the grid minimiser). The result is labelled
+  "Anderson-Rubin confidence set": it is the classical statistic, not the
+  jackknife AR of Mikusheva and Sun, which the old label named and which
+  is not implemented. `beta_grid=` still inverts on a grid and now says in
+  `detail["touches_grid_end"]` when the set reaches an end of it.
+
 ### ML-causal probe (2026-11-13)
 
 A blind replication probe ran twenty ML-causal tasks (double machine

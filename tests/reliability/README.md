@@ -503,7 +503,6 @@ its size (conservatively, as VEIN aggregation does). `sp.rate` now warns
 on this path, as it already did for forests with fixed effects.
 
 ## Standard-error calibration screen (`se_screen/`)
-
 Parity work cannot see a wrong standard error where no reference exists.
 This screen asks one question of every estimator call it lists: on data
 that satisfy the call's stated assumptions, with a known true parameter,
@@ -535,7 +534,7 @@ standard error; those rows are coverage only.
     python tests/reliability/se_screen/regression.py --table      # the table below
 
 `tests/test_reliability_se_screen.py` reads the committed
-`<family>_results.json` files. It asserts that every unflagged row is in
+`<family>_results.json` files (the causal families are in `se_screen/causal/`, with their own test). It asserts that every unflagged row is in
 band, that every flagged row has a mechanism note, and that one row per
 family reproduces its stored first 20 draws.
 
@@ -543,7 +542,10 @@ family reproduces its stored first 20 draws.
 
 Correctly specified likelihood and moment models, n = 1,000 unless the
 row's design says otherwise, target the slope on `x1` (0.5). Robust rows
-use heteroskedastic or overdispersed data, cluster rows 100 clusters of 10.
+use heteroskedastic or overdispersed data, cluster rows 100 clusters of 10
+with the marginal model kept exact. The second half of the table is the
+options: robust, cluster, weights, exposure and alternative variance
+estimators.
 
 | row | call | n | B | coverage | SE/SD | bias/SD | flag |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
@@ -610,17 +612,539 @@ use heteroskedastic or overdispersed data, cluster rows 100 clusters of 10.
 | `ppmlhdfe/default` | `ppmlhdfe("y ~ x1", absorb="g")` | 1000 | 400 | 0.920 | 0.91 | +0.06 |  |
 | `gam/parametric-term` | `gam("y ~ x1 + s(x2)")` | 1000 | 400 | 0.950 | 1.04 | +0.00 |  |
 | `fmm/gaussian-2` | `fmm("y ~ x1", k=2)` | 1000 | 200 | 0.945 | 1.07 | +0.02 |  |
+| `regress/hc2` | `regress(..., robust="hc2")` | 1000 | 400 | 0.950 | 1.00 | +0.07 |  |
+| `regress/hc4` | `regress(..., robust="hc4")` | 1000 | 400 | 0.958 | 1.04 | +0.08 |  |
+| `regress/cr2` | `regress(..., cluster="g", vce="cr2")` | 1000 | 400 | 0.955 | 1.05 | +0.11 |  |
+| `regress/cr3` | `regress(..., cluster="g", vce="cr3")` | 1000 | 400 | 0.948 | 1.05 | -0.02 |  |
+| `regress/jackknife` | `regress(..., cluster="g", vce="jackknife")` | 1000 | 400 | 0.953 | 1.00 | -0.02 |  |
+| `regress/aweights` | `regress(..., weights="w")` | 1000 | 400 | 0.927 | 0.92 | +0.00 |  |
+| `regress/pweights` | `regress(..., weights="w", weights_as="sampling")` | 1000 | 400 | 0.960 | 1.02 | -0.01 |  |
+| `logit/hc1` | `logit(..., robust="hc1")` | 1000 | 400 | 0.948 | 1.01 | +0.03 |  |
+| `logit/pweights` | `logit(..., weights="w", weights_as="sampling")` | 1000 | 400 | 0.968 | 1.08 | +0.05 |  |
+| `probit/cluster` | `probit(..., cluster="g")` | 1000 | 400 | 0.935 | 1.01 | +0.08 |  |
+| `cloglog/robust` | `cloglog(..., robust="robust")` | 1000 | 400 | 0.955 | 1.01 | -0.02 |  |
+| `poisson/cluster` | `poisson(..., cluster="g")` | 1000 | 400 | 0.920 | 0.94 | +0.03 |  |
+| `poisson/pweights` | `poisson(..., weights="w", weights_as="sampling")` | 1000 | 400 | 0.935 | 0.92 | +0.00 |  |
+| `poisson/exposure` | `poisson(..., exposure="e")` | 1000 | 400 | 0.955 | 1.00 | +0.08 |  |
+| `nbreg/cluster` | `nbreg(..., cluster="g")` | 1000 | 400 | 0.938 | 0.98 | -0.03 |  |
+| `nbreg/constant-dispersion` | `nbreg(..., dispersion="constant")` | 1000 | 400 | 0.948 | 0.99 | -0.13 |  |
+| `glm/binomial-cluster` | `glm(..., family="binomial", cluster="g")` | 1000 | 400 | 0.958 | 0.99 | +0.09 |  |
+| `glm/poisson-exposure` | `glm(..., family="poisson", exposure="e")` | 1000 | 400 | 0.948 | 0.97 | -0.05 |  |
+| `tobit/cluster` | `tobit(..., vce="cluster g")` | 1000 | 400 | 0.940 | 0.99 | -0.03 |  |
+| `tobit/two-limit` | `tobit(..., ll=0, ul=2)` | 1000 | 400 | 0.943 | 0.98 | +0.02 |  |
+| `tobit/scls` | `tobit(..., method="scls")` | 1000 | 400 | 0.970 | 1.08 | +0.13 |  |
+| `truncreg/robust` | `truncreg(..., robust="robust")` | 1000 | 400 | 0.960 | 1.06 | -0.01 |  |
+| `intreg/robust` | `intreg(..., vce="robust")` | 1000 | 400 | 0.948 | 1.02 | +0.10 |  |
+| `heckman/mle-robust` | `heckman(..., method="ml", vce="robust")` | 1000 | 400 | 0.920 | 0.91 | -0.03 |  |
+| `heckman/mle-cluster` | `heckman(..., method="ml", vce="cluster g")` | 1000 | 1000 | 0.943 | 0.97 | -0.08 |  |
+| `ologit/robust` | `ologit(..., robust="robust")` | 1000 | 400 | 0.950 | 1.01 | +0.06 |  |
+| `ologit/cluster` | `ologit(..., cluster="g")` | 1000 | 400 | 0.955 | 1.03 | -0.00 |  |
+| `oprobit/robust` | `oprobit(..., robust="robust")` | 1000 | 400 | 0.925 | 0.98 | +0.07 |  |
+| `mlogit/robust` | `mlogit(..., robust="robust")` | 1000 | 400 | 0.945 | 0.95 | +0.03 |  |
+| `mlogit/cluster` | `mlogit(..., cluster="g")` | 1000 | 400 | 0.943 | 0.97 | -0.00 |  |
+| `clogit/robust` | `clogit(..., robust="robust")` | 1000 | 400 | 0.970 | 1.04 | +0.08 |  |
+| `qreg/nid` | `qreg(..., vce="nid")` | 1000 | 400 | 0.945 | 0.98 | +0.09 |  |
+| `qreg/kernel` | `qreg(..., vce="kernel")` | 1000 | 400 | 0.968 | 1.07 | +0.03 |  |
+| `qreg/cluster` | `qreg(..., vce="cluster g")` | 1000 | 400 | 0.948 | 1.03 | +0.02 |  |
+| `zip_model/robust` | `zip_model(..., robust="robust")` | 1000 | 400 | 0.943 | 1.03 | -0.07 |  |
+| `zinb/robust` | `zinb(..., robust="robust")` | 2000 | 400 | 0.940 | 0.93 | +0.04 |  |
+| `hurdle/robust` | `hurdle(..., robust="robust")` | 1000 | 400 | 0.953 | 1.00 | -0.07 |  |
+| `hurdle/negbin` | `hurdle(..., count_model="negbin")` | 2000 | 400 | 0.955 | 1.01 | -0.07 |  |
+| `fracreg/probit` | `fracreg(..., link="probit")` | 1000 | 400 | 0.973 | 1.03 | +0.04 |  |
+| `betareg/robust` | `betareg(..., robust="robust")` | 1000 | 400 | 0.940 | 1.00 | +0.11 |  |
+| `biprobit/robust` | `biprobit(..., robust="robust")` | 1000 | 400 | 0.950 | 1.00 | +0.06 |  |
+| `etregress/robust` | `etregress(..., robust="robust")` | 1000 | 400 | 0.958 | 1.02 | +0.04 |  |
+| `ivprobit/robust` | `ivprobit(..., vce="robust")` | 1000 | 400 | 0.945 | 0.97 | +0.07 |  |
+| `ivtobit/robust` | `ivtobit(..., vce="robust")` | 1000 | 400 | 0.955 | 1.01 | +0.01 |  |
+| `ivpoisson/onestep` | `ivpoisson(..., method="onestep")` | 2000 | 400 | 0.943 | 0.97 | -0.08 |  |
+| `gee/gaussian-ar1` | `gee(..., corstr="ar1")` | 1000 | 400 | 0.935 | 0.91 | +0.04 |  |
+| `gee/gaussian-ar1-model` | `gee(..., corstr="ar1", vce="model")` | 1000 | 1000 | 0.930 | 0.98 | +0.02 |  |
+| `gee/gaussian-unstructured` | `gee(..., corstr="unstructured")` | 1000 | 1000 | 0.916 | 0.89 | -0.03 | **yes** |
+| `gee/poisson-exchangeable` | `gee(..., family="poisson", corstr="exchangeable")` | 1000 | 400 | 0.938 | 0.95 | +0.06 |  |
+| `prais/robust` | `prais(..., vce="robust")` | 500 | 400 | 0.948 | 1.03 | -0.03 |  |
+| `prais/twostep` | `prais(..., twostep=True)` | 500 | 400 | 0.948 | 1.01 | -0.08 |  |
+| `cnsreg/robust` | `cnsreg(..., vce="robust")` | 1000 | 400 | 0.980 | 1.05 | -0.01 |  |
+| `nls/robust` | `nls(..., vce="robust")` | 1000 | 400 | 0.948 | 0.98 | -0.04 |  |
+| `nls/hc3` | `nls(..., vce="hc3")` | 1000 | 400 | 0.950 | 1.00 | -0.02 |  |
+| `robreg/mm-contaminated` | `robreg("y ~ x1 + x2")` | 1000 | 400 | 0.955 | 1.03 | -0.03 |  |
+| `robreg/m` | `robreg(..., method="m")` | 1000 | 400 | 0.945 | 1.03 | -0.11 |  |
+| `gam/robust` | `gam(..., vce="robust")` | 1000 | 400 | 0.953 | 1.00 | -0.04 |  |
+| `sureg/mle` | `sureg({eq1, eq2}, method="mle")` | 1000 | 400 | 0.943 | 0.96 | -0.02 |  |
 
-What the table says:
+121 rows, 1 flagged. What the table says:
 
-- All 64 rows are inside the band. That covers the default variance of
-  every likelihood model in the family and the robust and cluster
-  variants of the common ones.
-- The closest rows to the edge are `ppmlhdfe` with 100 absorbed groups
-  (coverage 0.920, SE/SD 0.91), `tobit(vce="robust")` (SE/SD 0.92),
-  `biprobit` (0.92), `oprobit` (0.93) and `cloglog` (0.94). None is
-  flagged, and with 400 draws the SE/SD ratio itself has a standard
-  error of about 0.035.
+- The default variance of every likelihood model in the family is inside
+  the band, and so are the robust, cluster and sampling-weight variants.
+- The one flagged row is GEE with an unstructured working correlation of
+  dimension 10 on 100 clusters. The exchangeable, AR(1) and independence
+  rows on the same kind of data are calibrated.
 - `sureg`, `three_sls` and `gam` report standard errors but no interval
   for the screened coefficient, so those rows use a normal interval
   built from the reported SE.
+- Closest to the edge without a flag: `ppmlhdfe` with 100 absorbed groups,
+  `tobit(vce="robust")`, `biprobit` and `heckman(vce="robust")`, all with
+  SE/SD between 0.91 and 0.93 on 400 draws.
+
+Flagged rows and their mechanism:
+
+- `gee/gaussian-unstructured`: Known small-sample property of the sandwich with an unstructured working correlation: 45 correlations are estimated from 100 clusters, the fitted weights are noisy and the robust SE is biased down (SE/SD 0.89). In 7% of the draws the estimated correlation matrix is not positive definite and sp.gee refuses it with a typed error. The AR(1) and exchangeable rows on the same data are calibrated.
+
+### Panel estimators (`se_screen/panel.py`)
+
+Balanced panels, 200 units by 8 periods unless the row says otherwise;
+target the slope on `x1` or the autoregressive coefficient (both 0.5).
+Each design gives the row's variance estimator what it assumes:
+independent errors for the conventional variance, AR(1) errors for the
+cluster rows, a random-walk error for conventional first differences.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `panel/fe` | `panel(method="fe")` | 1600 | 400 | 0.953 | 1.04 | +0.02 |  |
+| `panel/fe-cluster` | `panel(method="fe", cluster="id")` | 1600 | 400 | 0.958 | 1.00 | -0.06 |  |
+| `panel/fe-robust` | `panel(method="fe", robust=...)` | 1600 | 400 | 0.978 | 1.04 | +0.01 |  |
+| `panel/re` | `panel(method="re")` | 1600 | 400 | 0.940 | 0.99 | -0.08 |  |
+| `panel/re-cluster` | `panel(method="re", cluster="id")` | 1600 | 400 | 0.963 | 1.02 | -0.05 |  |
+| `panel/fd` | `panel(method="fd")` | 1600 | 400 | 0.932 | 0.94 | -0.05 |  |
+| `panel/fd-cluster` | `panel(method="fd", cluster="id")` | 1600 | 400 | 0.945 | 1.00 | +0.08 |  |
+| `panel/between` | `panel(method="between")` | 1600 | 400 | 0.938 | 0.97 | +0.13 |  |
+| `panel/pooled-cluster` | `panel(method="pooled", cluster="id")` | 1600 | 400 | 0.948 | 0.96 | -0.02 |  |
+| `panel/twoway` | `panel(method="twoway")` | 1600 | 400 | 0.932 | 0.97 | +0.03 |  |
+| `panel/mundlak` | `panel(method="mundlak")` | 1600 | 400 | 0.970 | 1.06 | -0.08 |  |
+| `xtabond/onestep` | `xtabond(y, x) (one-step, robust)` | 4000 | 400 | 0.938 | 0.98 | -0.15 |  |
+| `xtabond/twostep` | `xtabond(twostep=True)` | 4000 | 400 | 0.938 | 0.97 | -0.25 |  |
+| `xtabond/onestep-nonrobust` | `xtabond(robust=False)` | 4000 | 400 | 0.940 | 0.97 | -0.15 |  |
+| `xtabond/collapse` | `xtabond(collapse=True)` | 4000 | 400 | 0.940 | 0.99 | -0.06 |  |
+| `xtdpdsys/onestep` | `xtdpdsys(y, x)` | 4000 | 400 | 0.945 | 1.03 | +0.14 |  |
+| `xtdpdsys/twostep` | `xtdpdsys(twostep=True)` | 4000 | 400 | 0.970 | 1.07 | +0.01 |  |
+| `xtlsdvc/default` | `xtlsdvc(y, x)` | 4000 | 1000 | 0.821 | 0.79 | -0.59 | **yes** |
+| `xtlsdvc/consistent` | `xtlsdvc(plug_in="consistent")` | 4000 | 1000 | 0.882 | 0.77 | -0.07 | **yes** |
+| `xtlsdvc/bootstrap` | `xtlsdvc(bootstrap=50)` | 4000 | 200 | 0.885 | 0.93 | -0.58 | **yes** |
+| `xtlsdvc/consistent-bootstrap` | `xtlsdvc(plug_in="consistent", bootstrap=50)` | 4000 | 200 | 0.900 | 0.94 | -0.19 |  |
+| `xtivreg/fe` | `xtivreg(method="fe")` | 1600 | 400 | 0.927 | 0.93 | +0.04 |  |
+| `xtivreg/re` | `xtivreg(method="re")` | 1600 | 400 | 0.945 | 0.97 | -0.11 |  |
+| `xtivreg/fd` | `xtivreg(method="fd")` | 1600 | 400 | 0.955 | 1.00 | -0.04 |  |
+| `xtivreg/fd-cluster` | `xtivreg(method="fd", vce="cluster")` | 1600 | 400 | 0.965 | 1.05 | -0.03 |  |
+| `xtivreg/be` | `xtivreg(method="be")` | 1600 | 400 | 0.970 | 1.04 | +0.06 |  |
+| `xtpcse/default` | `xtpcse(y, x, id, time)` | 600 | 400 | 0.960 | 1.03 | -0.01 |  |
+| `xtpcse/hetonly` | `xtpcse(hetonly=True)` | 800 | 400 | 0.940 | 0.95 | +0.00 |  |
+| `panel_fgls/heteroskedastic` | `panel_fgls(y, x, id, time)` | 800 | 400 | 0.927 | 0.93 | -0.08 |  |
+| `xtregar/fe` | `xtregar(method="fe")` | 2000 | 400 | 0.943 | 0.98 | +0.00 |  |
+| `xtregar/re` | `xtregar(method="re")` | 2000 | 400 | 0.963 | 1.01 | -0.03 |  |
+| `xttobit/default` | `xttobit(y, x, id, ll=0)` | 1000 | 400 | 0.965 | 1.03 | +0.01 |  |
+| `xtintreg/default` | `xtintreg(y_lower, y_upper, x, id)` | 1000 | 200 | 0.950 | 1.00 | -0.04 |  |
+| `xthtaylor/ht` | `xthtaylor(endog=[x2, z2])` | 2500 | 400 | 0.935 | 0.99 | +0.05 |  |
+| `xthtaylor/robust` | `xthtaylor(vce="robust")` | 2500 | 400 | 0.945 | 0.96 | -0.03 |  |
+| `fama_macbeth/default` | `fama_macbeth("y ~ x1", time="t")` | 5000 | 400 | 0.955 | 0.99 | +0.08 |  |
+| `hdfe_ols/default` | `hdfe_ols("y ~ x1 + x2 | id + t")` | 1600 | 400 | 0.943 | 0.97 | -0.01 |  |
+| `hdfe_ols/cluster` | `hdfe_ols(..., cluster="id")` | 1600 | 400 | 0.945 | 0.98 | +0.04 |  |
+| `feols/default` | `feols("y ~ x1 + x2 | id")` | 1600 | 400 | 0.943 | 1.01 | -0.04 |  |
+| `feols/cluster` | `feols(..., vcov={"CRV1": "id"})` | 1600 | 400 | 0.955 | 1.03 | -0.06 |  |
+| `feols/hetero` | `feols(..., vcov="hetero")` | 1600 | 1000 | 0.925 | 0.96 | +0.02 |  |
+| `fepois/default` | `fepois("y ~ x1 | id")` | 1600 | 400 | 0.955 | 1.05 | -0.05 |  |
+| `interactive_fe/default` | `interactive_fe(n_factors=1)` | 3000 | 400 | 0.938 | 1.02 | +0.07 |  |
+| `panel_logit/fe` | `panel_logit(method="fe")` | 1600 | 400 | 0.943 | 1.00 | +0.11 |  |
+| `panel_logit/re` | `panel_logit(method="re")` | 1600 | 400 | 0.940 | 0.98 | -0.01 |  |
+| `panel_probit/re` | `panel_probit(y, x)` | 1600 | 400 | 0.955 | 1.00 | +0.05 |  |
+| `xtnbreg/fe` | `xtnbreg(model="fe")` | 1600 | 400 | 0.943 | 0.97 | +0.04 |  |
+| `mmqreg/median` | `mmqreg(absorb="id", quantile=0.5)` | 1600 | 400 | 0.943 | 0.94 | -0.04 |  |
+| `panel/fe-cr2` | `panel(method="fe", cluster="id", vce="CR2")` | 1600 | 400 | 0.940 | 0.93 | +0.04 |  |
+| `panel/fe-cr3` | `panel(method="fe", cluster="id", vce="CR3")` | 1600 | 400 | 0.953 | 0.98 | +0.09 |  |
+| `panel/fe-jackknife` | `panel(method="fe", cluster="id", vce="jackknife")` | 1600 | 400 | 0.950 | 0.98 | -0.05 |  |
+| `panel/fe-driscoll-kraay` | `panel(method="fe", robust="driscoll-kraay")` | 3000 | 1000 | 0.879 | 0.84 | +0.04 | **yes** |
+| `panel/re-robust` | `panel(method="re", robust="robust")` | 1600 | 400 | 0.945 | 0.98 | -0.02 |  |
+| `panel/twoway-cluster` | `panel(method="twoway", cluster="id")` | 1600 | 400 | 0.958 | 1.05 | -0.04 |  |
+| `panel/chamberlain` | `panel(method="chamberlain")` | 1600 | 400 | 0.948 | 1.02 | -0.03 |  |
+| `panel/between-robust` | `panel(method="be", robust="robust")` | 1600 | 400 | 0.960 | 1.06 | +0.03 |  |
+| `xtabond/twostep-nonrobust` | `xtabond(twostep=True, robust=False)` | 4000 | 400 | 0.943 | 0.96 | -0.20 |  |
+| `xtabond/ah` | `xtabond(method="ah")` | 4000 | 400 | 0.945 | 0.97 | -0.01 |  |
+| `xtabond/orthogonal` | `xtabond(orthogonal=True)` | 4000 | 1000 | 0.955 | 0.98 | -0.20 |  |
+| `xtdpdsys/collapse` | `xtdpdsys(collapse=True)` | 4000 | 400 | 0.948 | 0.99 | -0.07 |  |
+| `xtivreg/ec2sls` | `xtivreg(method="re", ec2sls=True)` | 1600 | 400 | 0.958 | 1.04 | +0.05 |  |
+| `xtivreg/fe-robust` | `xtivreg(method="fe", vce="robust")` | 1600 | 400 | 0.958 | 1.07 | -0.10 |  |
+| `xtivreg/re-cluster` | `xtivreg(method="re", vce="cluster")` | 1600 | 400 | 0.940 | 0.95 | +0.02 |  |
+| `xtpcse/ar1` | `xtpcse(correlation="ar1")` | 600 | 400 | 0.940 | 0.97 | -0.03 |  |
+| `xtpcse/psar1` | `xtpcse(correlation="psar1")` | 600 | 400 | 0.968 | 1.04 | +0.06 |  |
+| `panel_fgls/ar1` | `panel_fgls(corr="ar1")` | 600 | 400 | 0.925 | 0.91 | +0.05 |  |
+| `panel_fgls/correlated` | `panel_fgls(panels="correlated")` | 600 | 400 | 0.945 | 1.00 | -0.07 |  |
+| `xthtaylor/amacurdy` | `xthtaylor(method="amacurdy")` | 2500 | 400 | 0.948 | 0.98 | +0.08 |  |
+| `fama_macbeth/newey-west` | `fama_macbeth(lags=4)` | 10000 | 400 | 0.925 | 0.93 | +0.01 |  |
+| `feols/twoway-cluster` | `feols("y ~ x1", vcov={"CRV1": "id + t"})` | 3600 | 400 | 0.930 | 0.93 | +0.09 |  |
+| `hdfe_ols/twoway-cluster` | `hdfe_ols("y ~ x1", cluster=["id", "t"])` | 3600 | 400 | 0.963 | 0.98 | -0.07 |  |
+| `fepois/cluster` | `fepois(..., vcov={"CRV1": "id"})` | 1600 | 400 | 0.938 | 0.96 | +0.02 |  |
+| `fepois/hetero` | `fepois(..., vcov="hetero")` | 1600 | 1000 | 0.933 | 0.92 | -0.02 |  |
+| `hdfe_ols/robust` | `hdfe_ols(..., vce="robust")` | 1600 | 400 | 0.938 | 0.94 | +0.04 |  |
+| `interactive_fe/nonrobust` | `interactive_fe(robust=False)` | 3000 | 400 | 0.953 | 0.98 | +0.00 |  |
+| `panel_logit/re-cluster` | `panel_logit(method="re", cluster="id")` | 1600 | 200 | 0.940 | 0.98 | -0.09 |  |
+| `mmqreg/q25` | `mmqreg(quantile=0.25)` | 1600 | 1000 | 0.896 | 0.95 | +0.45 | **yes** |
+| `mmqreg/robust` | `mmqreg(vce="robust")` | 1600 | 400 | 0.945 | 0.98 | +0.01 |  |
+
+78 rows, 5 flagged. What the table says:
+
+- Static estimators, their cluster and small-sample variants, dynamic
+  panel GMM (one-step, two-step with the Windmeijer correction, system,
+  collapsed), panel IV, PCSE, FGLS, Hausman-Taylor, Fama-MacBeth, the
+  absorbing estimators and the random-effects binary models are in band.
+- `sp.xtlsdvc` is the finding. Its default reproduces Stata's `xtlsdvc`,
+  and that estimator keeps a bias that does not shrink with the number of
+  units. `plug_in="consistent"` (new) removes it; with `bootstrap=` it is
+  the calibrated combination (coverage 0.90 on 200 draws, SE/SD 0.94).
+- Driscoll-Kraay standard errors are 16% too small with 60 periods and
+  serially correlated common shocks.
+- `sp.mmqreg` away from the median has a bias of order 1/T with absorbed
+  unit effects.
+
+Flagged rows and their mechanism:
+
+- `xtlsdvc/default`: Two things. (1) Bias: the Stata plug-in for the deterministic part of the lagged outcome uses within-demeaned residuals, which keep each unit's mean error; the first-order correction then converges to -0.2195 where the exact LSDV inconsistency is -0.2353 (rho 0.5, seven usable periods), a bias that does not shrink with N. sp.xtlsdvc matches Stata xtlsdvc here; plug_in='consistent' removes it (tests/test_lsdvc_plug_in.py). (2) SE: the analytic SE is the LSDV one and ignores the estimated correction, as in Stata; the function warns and offers bootstrap=.
+- `xtlsdvc/consistent`: SE only. plug_in='consistent' removes the bias (bias/SD -0.07) but the analytic SE is still the LSDV one, which ignores the estimated correction (documented, warned). Row xtlsdvc/consistent-bootstrap is the calibrated combination.
+- `xtlsdvc/bootstrap`: Bias only. The parametric bootstrap SE is calibrated (SE/SD 0.93) but the default Stata plug-in leaves a bias of 0.58 SD at 500 units; see xtlsdvc/default.
+- `panel/fe-driscoll-kraay`: Known small-T property of the Driscoll-Kraay HAC. The variance is a Bartlett HAC of the 60 period sums of the scores at the default lag 3 (a hand computation on one draw gives 0.0444 against the reported 0.0448). With serially correlated period shocks in the regressor and the error (rho 0.5 each) the kernel truncates and down-weights the autocovariances and the HAC is biased down at T = 60.
+- `mmqreg/q25`: Incidental-parameter bias of order 1/T, not the SE (SE/SD 0.95). The scale equation is fitted on absolute within residuals with unit effects estimated from 8 observations each. Mean error at the 0.25 quantile: 0.069 with 4 periods, 0.035 with 8, 0.010 with 20, none with 40 (1,600 observations throughout). The median row is unaffected. Now stated in the mmqreg notes.
+
+### Instrumental variables (`se_screen/iv.py`)
+
+n = 1,000, one endogenous regressor with coefficient 0.5. Strong designs
+(first-stage F in the hundreds), a many-instrument design (30
+instruments), and weak designs where only the weak-instrument robust
+sets are screened, for coverage.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `iv/2sls` | `iv("y ~ (d ~ z1) + x1")` | 1000 | 400 | 0.953 | 0.98 | +0.01 |  |
+| `iv/2sls-robust` | `iv(..., robust="robust")` | 1000 | 400 | 0.938 | 0.97 | -0.08 |  |
+| `iv/2sls-cluster` | `iv(..., cluster="g")` | 1000 | 400 | 0.943 | 0.96 | -0.08 |  |
+| `ivreg/2sls-over` | `ivreg("y ~ (d ~ z1 + z2 + z3) + x1")` | 1000 | 400 | 0.953 | 0.98 | +0.06 |  |
+| `iv/liml` | `iv(..., method="liml")` | 1000 | 400 | 0.943 | 0.97 | -0.07 |  |
+| `iv/fuller` | `iv(..., method="fuller")` | 1000 | 400 | 0.960 | 1.02 | +0.10 |  |
+| `iv/gmm` | `iv(..., method="gmm")` | 1000 | 400 | 0.938 | 0.98 | -0.02 |  |
+| `iv/gmm-robust` | `iv(..., method="gmm", robust="robust")` | 1000 | 400 | 0.950 | 0.98 | +0.03 |  |
+| `iv/jive` | `iv(..., method="jive")` | 1000 | 400 | 0.938 | 0.94 | -0.16 |  |
+| `liml/default` | `liml(y, x_endog, x_exog, z)` | 1000 | 400 | 0.938 | 0.96 | -0.09 |  |
+| `liml/robust` | `liml(..., robust="robust")` | 1000 | 400 | 0.948 | 0.99 | -0.08 |  |
+| `liml/many` | `liml(...), 30 instruments` | 1000 | 400 | 0.940 | 0.95 | -0.02 |  |
+| `liml/fuller1` | `liml(..., fuller=1)` | 1000 | 400 | 0.927 | 0.94 | +0.02 |  |
+| `jive/jive1` | `jive(y, x_endog, x_exog, z)` | 1000 | 400 | 0.963 | 1.02 | -0.14 |  |
+| `jive/robust` | `jive(..., robust="robust")` | 1000 | 400 | 0.968 | 1.06 | -0.17 |  |
+| `iv.ujive/default` | `iv.ujive(y, d, z, exog)` | 1000 | 400 | 0.970 | 1.02 | -0.02 |  |
+| `iv.ijive/default` | `iv.ijive(y, d, z, exog)` | 1000 | 400 | 0.950 | 0.99 | -0.10 |  |
+| `iv.rjive/default` | `iv.rjive(y, d, z, exog)` | 1000 | 400 | 0.920 | 0.90 | -0.15 |  |
+| `iv.jive1/default` | `iv.jive1(y, d, z, exog)` | 1000 | 400 | 0.958 | 0.98 | -0.09 |  |
+| `iv.jive_mw/default` | `iv.jive_mw(y, endog, instruments, exog)` | 1000 | 400 | 0.950 | 1.03 | -0.09 |  |
+| `gmm/linear-iv-twostep` | `gmm(moment_fn, theta0) with Z'(y - Xb)` | 1000 | 400 | 0.948 | 1.00 | -0.01 |  |
+| `lasso_iv/default` | `iv.lasso_iv(y, x_endog, x_exog, z)` | 1000 | 400 | 0.950 | 0.96 | +0.12 |  |
+| `rlasso_iv/default` | `rlasso_iv(y, d, z, x)` | 1000 | 400 | 0.940 | 1.02 | -0.09 |  |
+| `anderson_rubin_ci/weak-1` | `anderson_rubin_ci(y, d, [z1])` | 1000 | 400 | 0.948 | n/a | n/a |  |
+| `anderson_rubin_ci/weak-3` | `anderson_rubin_ci(y, d, [z1, z2, z3])` | 1000 | 400 | 0.935 | n/a | n/a |  |
+| `anderson_rubin_ci/strong` | `anderson_rubin_ci(y, d, [z1, z2, z3])` | 1000 | 400 | 0.965 | n/a | n/a |  |
+| `conditional_lr_ci/weak-3` | `conditional_lr_ci(y, d, [z1, z2, z3])` | 1000 | 200 | 0.945 | n/a | n/a |  |
+| `k_test_ci/weak-3` | `k_test_ci(y, d, [z1, z2, z3])` | 1000 | 400 | 0.948 | n/a | n/a |  |
+| `many_weak_ar/many` | `iv.many_weak_ar(y, endog, instruments)` | 1000 | 400 | 0.955 | n/a | n/a |  |
+| `ivreg/hc3` | `ivreg(..., robust="hc3")` | 1000 | 400 | 0.953 | 1.00 | +0.02 |  |
+| `ivreg/hc0` | `ivreg(..., robust="hc0")` | 1000 | 400 | 0.950 | 0.99 | +0.01 |  |
+| `ivreg/pweights` | `ivreg(..., weights="wt", weights_as="sampling")` | 1000 | 400 | 0.945 | 0.94 | -0.06 |  |
+| `iv/liml-cluster` | `iv(..., method="liml", cluster="g")` | 1000 | 400 | 0.953 | 0.94 | -0.17 |  |
+| `iv/gmm-cluster` | `iv(..., method="gmm", cluster="g")` | 1000 | 400 | 0.925 | 0.96 | -0.02 |  |
+| `liml/cluster` | `liml(..., cluster="g")` | 1000 | 400 | 0.963 | 1.04 | -0.03 |  |
+| `jive/cluster` | `jive(..., cluster="g")` | 1000 | 400 | 0.932 | 0.96 | -0.10 |  |
+| `jive/jive2` | `jive(..., variant="jive2")` | 1000 | 400 | 0.953 | 0.95 | -0.17 |  |
+| `iv.jive_mw/many-weak` | `iv.jive_mw(y, endog, instruments, exog)` | 1000 | 400 | 0.968 | 0.96 | -0.18 |  |
+| `many_weak_ar/many-weak` | `iv.many_weak_ar(y, endog, instruments)` | 1000 | 400 | 0.950 | n/a | n/a |  |
+| `anderson_rubin_ci/cluster` | `anderson_rubin_ci(..., cluster="g")` | 1000 | 400 | 0.927 | n/a | n/a |  |
+| `conditional_lr_ci/weak-1` | `conditional_lr_ci(y, d, [z1])` | 1000 | 400 | 0.955 | n/a | n/a |  |
+
+41 rows, 0 flagged. What the table says:
+
+- Every row is in band: 2SLS, LIML, Fuller, GMM, the JIVE family, the
+  lasso IV estimators, and their robust and cluster variances.
+- The Anderson-Rubin, conditional likelihood ratio and K sets hold their
+  level with a concentration parameter of 5.
+- `sp.iv.many_weak_ar` covered 70% in the many-weak design before this
+  round: its default grid was 101 points within 0.5 of the OLS estimate
+  and the constant was left out. It now inverts the statistic exactly
+  (coverage 0.950 on the same seeds).
+
+### Survival analysis (`se_screen/survival.py`)
+
+n = 1,000, independent censoring near 30%. Regression rows target the
+coefficient on `x1`; the others a survival probability, a cumulative
+incidence, a restricted mean or a mean survival time with a closed-form
+truth.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `cox/default` | `cox("time + event ~ x1 + x2")` | 1000 | 400 | 0.955 | 1.00 | +0.02 |  |
+| `cox/breslow` | `cox(..., ties="breslow")` | 1000 | 400 | 0.973 | 1.07 | +0.12 |  |
+| `cox/robust` | `cox(..., robust="robust")` | 1000 | 400 | 0.932 | 0.98 | +0.15 |  |
+| `cox/cluster` | `cox(..., cluster="g")` | 1000 | 400 | 0.948 | 1.00 | +0.06 |  |
+| `cox/strata` | `cox(..., strata="s")` | 1000 | 400 | 0.953 | 1.00 | +0.06 |  |
+| `survreg/weibull` | `survreg(dist="weibull")` | 1000 | 400 | 0.950 | 0.98 | +0.00 |  |
+| `survreg/exponential` | `survreg(dist="exponential")` | 1000 | 400 | 0.948 | 0.99 | +0.03 |  |
+| `survreg/weibull-robust` | `survreg(dist="weibull", robust="robust")` | 1000 | 400 | 0.948 | 1.00 | -0.03 |  |
+| `survreg/lognormal` | `survreg(dist="lognormal")` | 1000 | 400 | 0.930 | 0.95 | -0.00 |  |
+| `survreg/loglogistic` | `survreg(dist="loglogistic")` | 1000 | 400 | 0.963 | 1.07 | -0.03 |  |
+| `aft/weibull` | `aft(family="weibull")` | 1000 | 400 | 0.963 | 1.04 | -0.01 |  |
+| `aft/lognormal` | `aft(family="lognormal")` | 1000 | 400 | 0.943 | 0.99 | -0.01 |  |
+| `aft/loglogistic` | `aft(family="loglogistic")` | 1000 | 400 | 0.955 | 1.00 | -0.04 |  |
+| `cox_frailty/default` | `cox_frailty(..., cluster="g")` | 1000 | 400 | 0.965 | 1.00 | -0.03 |  |
+| `finegray/default` | `finegray(duration, event, x, cause=1)` | 1000 | 400 | 0.938 | 0.98 | +0.06 |  |
+| `finegray/model` | `finegray(..., vce="model")` | 1000 | 400 | 0.948 | 0.99 | +0.07 |  |
+| `rmst/difference` | `rmst(group=, tau=2)` | 1000 | 400 | 0.938 | 1.00 | +0.04 |  |
+| `kaplan_meier/loglog` | `kaplan_meier(duration, event)` | 1000 | 400 | 0.955 | 1.04 | -0.06 |  |
+| `kaplan_meier/plain` | `kaplan_meier(conf_type="plain")` | 1000 | 400 | 0.953 | 1.05 | +0.07 |  |
+| `cuminc/default` | `cuminc(duration, event)` | 1000 | 400 | 0.963 | 0.99 | -0.01 |  |
+| `stteffects/ra` | `stteffects(method="ra")` | 2000 | 400 | 0.945 | 0.98 | -0.09 |  |
+| `stteffects/ipw` | `stteffects(method="ipw")` | 2000 | 400 | 0.940 | 0.98 | +0.04 |  |
+| `stteffects/ipwra` | `stteffects(method="ipwra")` | 2000 | 400 | 0.950 | 0.98 | -0.02 |  |
+| `stteffects/wra` | `stteffects(method="wra")` | 2000 | 400 | 0.930 | 0.93 | +0.10 |  |
+| `stteffects/ipw-heavy-censoring` | `stteffects(method="ipw")` | 2000 | 1000 | 0.953 | 0.38 | +0.05 | **yes** |
+| `cox/pweights` | `cox(..., weights="w", weights_as="sampling")` | 1000 | 400 | 0.953 | 1.04 | +0.03 |  |
+| `cox/robust-stata` | `cox(..., robust="robust", ssc="stata")` | 1000 | 400 | 0.938 | 0.95 | +0.04 |  |
+| `cox/efron-ties` | `cox(..., ties="efron")` | 1000 | 400 | 0.953 | 1.03 | -0.01 |  |
+| `cox/breslow-ties` | `cox(..., ties="breslow")` | 1000 | 1000 | 0.883 | 1.07 | -0.91 | **yes** |
+| `cox/delayed-entry` | `cox(..., start="entry")` | 1000 | 400 | 0.932 | 0.95 | +0.01 |  |
+| `survreg/cluster` | `survreg(dist="weibull", cluster="g")` | 1000 | 400 | 0.930 | 0.98 | -0.04 |  |
+| `survreg/lognormal-robust` | `survreg(dist="lognormal", robust="robust")` | 1000 | 400 | 0.965 | 1.04 | +0.01 |  |
+| `aft/exponential` | `aft(family="exponential")` | 1000 | 400 | 0.965 | 1.08 | +0.01 |  |
+| `kaplan_meier/log` | `kaplan_meier(conf_type="log")` | 1000 | 400 | 0.958 | 1.03 | -0.13 |  |
+| `kaplan_meier/ij` | `kaplan_meier(se_method="ij")` | 1000 | 400 | 0.955 | 1.01 | +0.01 |  |
+| `rmst/ij` | `rmst(group=, tau=2, se_method="ij")` | 1000 | 400 | 0.958 | 0.98 | -0.04 |  |
+| `cuminc/gray` | `cuminc(variance="gray")` | 1000 | 400 | 0.963 | 1.06 | +0.03 |  |
+| `cuminc/log-log` | `cuminc(conf_type="log-log")` | 1000 | 400 | 0.960 | 1.01 | -0.04 |  |
+| `finegray/small-sample` | `finegray(..., small_sample=True)` | 1000 | 400 | 0.930 | 0.95 | +0.05 |  |
+| `stteffects/ra-atet` | `stteffects(method="ra", estimand="ATET")` | 2000 | 400 | 0.948 | 1.00 | +0.03 |  |
+
+40 rows, 2 flagged. What the table says:
+
+- Cox (Efron, robust, cluster, strata, delayed entry, sampling weights),
+  the parametric and AFT models, shared frailty, Fine-Gray, Kaplan-Meier,
+  cumulative incidence, RMST and `stteffects` are in band.
+- Breslow's approximation is biased with heavily tied times; Efron, the
+  default, is not.
+- Censoring-weighted `stteffects` needs the probability of remaining
+  uncensored bounded away from zero over the whole range of failure times.
+  The heavy-censoring row shows what happens otherwise.
+
+Flagged rows and their mechanism:
+
+- `stteffects/ipw-heavy-censoring`: Design breaks the overlap that censoring weights need. With censoring rate 0.15 the second moment of T / G(T) does not exist for units with x1 > 1.2: long failure times are almost always censored and the rare uncensored one carries a huge weight. The estimator is heavy-tailed, so SE/SD does not settle (0.66, 0.27 and 0.38 in three runs) while coverage stays at 92% to 96%. At rate 0.04 (row stteffects/ipw) SE/SD is 0.98. sp.stteffects now records the censoring weights in model_info and its notes describe the condition.
+- `cox/breslow-ties`: Known property of the Breslow approximation with heavy ties, not the SE (SE/SD 1.07). Event times are recorded on a grid of width 0.1, so about a tenth of the risk set fails at each tied time, and Breslow's partial likelihood attenuates the coefficient (bias -0.9 SD). The Efron default on the same data (row cox/efron-ties) is inside the band.
+
+### Time series (`se_screen/timeseries.py`)
+
+Stationary designs, T = 500 (2,000 for GARCH, 200 for the interrupted
+time series), persistence 0.5.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `arima/ar1` | `arima(y, order=(1, 0, 0))` | 500 | 400 | 0.955 | 1.00 | -0.14 |  |
+| `arima/ar1-innovations` | `arima(y, order=(1, 0, 0), method="innovations_mle")` | 500 | 400 | 0.953 | 1.01 | -0.16 |  |
+| `arima/arma11-ar` | `arima(y, order=(1, 0, 1))` | 500 | 400 | 0.945 | 0.99 | -0.14 |  |
+| `arima/arma11-ma` | `arima(y, order=(1, 0, 1))` | 500 | 400 | 0.958 | 1.01 | +0.07 |  |
+| `arima/regression-ar1-errors` | `arima(y, order=(1, 0, 0), exog=x1)` | 500 | 400 | 0.963 | 1.01 | -0.02 |  |
+| `regress/hac-4` | `regress(..., vce="hac", hac_lags=4)` | 500 | 400 | 0.922 | 0.91 | -0.05 |  |
+| `regress/hac-12` | `regress(..., vce="hac", hac_lags=12)` | 500 | 400 | 0.920 | 0.91 | -0.06 |  |
+| `var/coefficient` | `var(lags=1)` | 500 | 400 | 0.945 | 1.00 | -0.14 |  |
+| `irf/asymptotic` | `irf(var, ci="asymptotic")` | 500 | 400 | 0.938 | 0.97 | -0.00 |  |
+| `irf/bootstrap` | `irf(var, ci="bootstrap", reps=200)` | 500 | 200 | 0.950 | 1.06 | -0.09 |  |
+| `local_projections/h2` | `local_projections(outcome, shock)` | 500 | 400 | 0.940 | 0.97 | -0.03 |  |
+| `garch/alpha-oim` | `garch(y)` | 2000 | 400 | 0.955 | 1.07 | +0.09 |  |
+| `garch/alpha-robust` | `garch(y, vce="robust")` | 2000 | 400 | 0.965 | 1.06 | +0.05 |  |
+| `ardl/lag-coefficient` | `ardl(y, x, lags=1, x_lags=1)` | 500 | 400 | 0.960 | 1.07 | -0.11 |  |
+| `its/level-change` | `its(y, time, intervention)` | 200 | 1000 | 0.905 | 0.86 | +0.01 | **yes** |
+| `vec/beta` | `vec(lags=2, rank=1)` | 500 | 1000 | 0.933 | 0.86 | -0.03 | **yes** |
+| `arima/ar1-no-constant` | `arima(y, order=(1, 0, 0), trend="n")` | 500 | 400 | 0.953 | 1.01 | -0.05 |  |
+| `arima/arima110` | `arima(y, order=(1, 1, 0))` | 500 | 400 | 0.958 | 1.07 | +0.05 |  |
+| `var/se-df-r` | `var(lags=1, se_df="r")` | 500 | 400 | 0.935 | 0.91 | -0.25 |  |
+| `var/overfitted` | `var(lags=2)` | 500 | 400 | 0.958 | 1.00 | -0.07 |  |
+| `irf/non-orthogonal` | `irf(var, orthogonal=False, ci="asymptotic")` | 500 | 400 | 0.958 | 1.00 | -0.06 |  |
+| `irf/bootstrap-efron` | `irf(var, ci="bootstrap", boot="efron", reps=200)` | 500 | 200 | 0.935 | 1.03 | +0.01 |  |
+| `irf/bootstrap-hall` | `irf(var, ci="bootstrap", boot="hall", reps=200)` | 500 | 200 | 0.945 | 0.99 | -0.08 |  |
+| `local_projections/h0` | `local_projections(outcome, shock), h = 0` | 500 | 400 | 0.953 | 0.99 | -0.01 |  |
+| `local_projections/h4` | `local_projections(outcome, shock), h = 4` | 500 | 400 | 0.930 | 0.98 | -0.06 |  |
+| `local_projections/robust` | `local_projections(vce="robust")` | 500 | 400 | 0.958 | 1.04 | -0.06 |  |
+| `garch/alpha-opg` | `garch(y, vce="opg")` | 2000 | 400 | 0.943 | 1.07 | +0.09 |  |
+| `garch/t-innovations` | `garch(y, dist="t")` | 2000 | 400 | 0.925 | 0.99 | -0.05 |  |
+| `garch/normal-qmle-robust` | `garch(y, vce="robust")` | 2000 | 1000 | 0.930 | 0.96 | +0.08 |  |
+| `its/level-change-lag8` | `its(..., hac_lag=8)` | 200 | 1000 | 0.880 | 0.83 | -0.01 | **yes** |
+| `its/level-change-small-sample` | `its(..., hac_small_sample=True)` | 200 | 1000 | 0.914 | 0.87 | +0.02 | **yes** |
+
+31 rows, 4 flagged. What the table says:
+
+- ARIMA, VAR coefficients, asymptotic and bootstrap impulse-response
+  bands, local projections, GARCH (OIM, OPG, robust, t innovations) and
+  ARDL are in band.
+- Newey-West standard errors are too small in the interrupted time-series
+  design at every lag choice (SE/SD 0.83 to 0.87), and 0.91 in a plain
+  regression with AR(1) errors (`regress/hac-*`, not flagged). This is the
+  estimator's known small-sample behaviour; `sp.its` equals statsmodels.
+- `garch`, `var` and `vec` report no interval for the screened
+  coefficient; those rows use a normal interval from the reported SE.
+
+Flagged rows and their mechanism:
+
+- `its/level-change`: Known property of Newey-West at a fixed lag. The SE equals statsmodels HAC (maxlags 4) to 1e-12 on one draw. With an AR(1) error (rho 0.3) the Bartlett kernel at lag 4 recovers 0.936 of the true SE in population; the rest of the gap is the small-sample bias of HAC with estimated residuals at T = 200.
+- `vec/beta`: Heavy tails, not the SE: the median SE over the MAD-based spread is 1.01 and coverage is inside the band. The reduced-rank estimate of the cointegrating vector has occasional large errors that inflate the Monte Carlo SD.
+- `its/level-change-lag8`: Same mechanism as its/level-change, and more lags make it worse, not better: the kernel truncation matters less at lag 8 (0.96 of the true SE in population) but the small-sample downward bias of a HAC built from residuals grows with the lag when the regressors are a step and a trend.
+- `its/level-change-small-sample`: Same mechanism as its/level-change. The n / (n - k) factor of hac_small_sample=True is 1.02 at T = 200 and does not close a gap of 14%.
+
+### Spatial regression and nonparametric fits (`se_screen/spatial.py`)
+
+A 25 by 25 lattice with rook contiguity for the spatial rows; n = 1,000
+and the regression function at x = 0.5 for the nonparametric rows.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `sar/beta` | `sar(W, data, "y ~ x1")` | 625 | 400 | 0.960 | 1.03 | -0.04 |  |
+| `sar/rho` | `sar(...), spatial lag coefficient` | 625 | 400 | 0.963 | 1.02 | -0.08 |  |
+| `sem/beta` | `sem(W, data, "y ~ x1")` | 625 | 400 | 0.965 | 1.05 | -0.12 |  |
+| `sem/lambda` | `sem(...), spatial error coefficient` | 625 | 400 | 0.958 | 1.00 | -0.13 |  |
+| `sdm/beta` | `sdm(W, data, "y ~ x1")` | 625 | 400 | 0.930 | 0.95 | -0.01 |  |
+| `slx/beta` | `slx(W, data, "y ~ x1")` | 625 | 400 | 0.968 | 1.01 | +0.02 |  |
+| `sac/beta` | `sac(W, data, "y ~ x1")` | 625 | 400 | 0.968 | 1.04 | -0.09 |  |
+| `sar_gmm/beta` | `sar_gmm(W, data, "y ~ x1")` | 625 | 400 | 0.960 | 1.03 | -0.05 |  |
+| `sar_gmm/rho` | `sar_gmm(...), spatial lag coefficient` | 625 | 400 | 0.948 | 0.99 | -0.09 |  |
+| `lpoly/linear-truth` | `lpoly(y, x) at x = 0.5` | 1000 | 400 | 0.958 | 1.01 | -0.02 |  |
+| `lpoly/curved-truth` | `lpoly(y, x) at x = 0.5` | 1000 | 400 | 0.940 | 0.96 | -0.09 |  |
+| `lprobust_at_point/curved` | `lprobust_at_point(x, y, 0.5, h=0.15)` | 1000 | 400 | 0.953 | 0.99 | -0.12 |  |
+
+12 rows, 0 flagged. What the table says:
+
+- All rows are in band, including the spatial parameters themselves.
+
+### Regression discontinuity beyond sharp `rdrobust` (`se_screen/rd.py`)
+
+n = 2,000, uniform running variable, constant effect 1.0. Sharp
+`rdrobust` with defaults is a Track B row and is not repeated.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `rdrobust/fuzzy` | `rdrobust(fuzzy="d")` | 4000 | 400 | 0.948 | 1.01 | -0.09 |  |
+| `rdrobust/covs` | `rdrobust(covs=["z"])` | 2000 | 1000 | 0.937 | 0.95 | -0.04 |  |
+| `rdrobust/cluster` | `rdrobust(cluster="g")` | 2000 | 400 | 0.938 | 0.99 | -0.03 |  |
+| `rdrobust/kink` | `rdrobust(deriv=1)` | 4000 | 400 | 0.945 | 0.91 | +0.07 |  |
+| `rdrobust/uniform-cerrd` | `rdrobust(kernel="uniform", bwselect="cerrd")` | 2000 | 400 | 0.955 | 1.01 | +0.06 |  |
+| `rdrobust/hc3` | `rdrobust(vce="hc3")` | 2000 | 400 | 0.932 | 0.92 | -0.01 |  |
+| `rdrobust/p2` | `rdrobust(p=2)` | 2000 | 400 | 0.927 | 0.91 | -0.01 |  |
+| `rkd/default` | `rkd(y, x)` | 4000 | 1000 | 0.941 | 0.79 | +0.23 | **yes** |
+| `rd_honest/M-known` | `rd_honest(M=0.5)` | 2000 | 400 | 0.960 | 0.99 | -0.02 |  |
+| `rdrandinf/ci` | `rdrandinf(wl=-0.15, wr=0.15), test-inversion interval` | 2000 | 400 | 0.927 | n/a | n/a |  |
+| `rdrandinf/size` | `rdrandinf(wl=-0.15, wr=0.15), p > 0.05 under no effect` | 2000 | 400 | 0.963 | n/a | n/a |  |
+| `rdmc/pooled` | `rdmc(cutoffs=[-0.4, 0.4])` | 3000 | 400 | 0.948 | 1.02 | -0.09 |  |
+| `rdrobust/hc0` | `rdrobust(vce="hc0")` | 2000 | 400 | 0.935 | 0.96 | +0.05 |  |
+| `rdrobust/hc1` | `rdrobust(vce="hc1")` | 2000 | 400 | 0.935 | 0.97 | -0.00 |  |
+| `rdrobust/hc2` | `rdrobust(vce="hc2")` | 2000 | 400 | 0.950 | 0.95 | +0.07 |  |
+| `rdrobust/msetwo` | `rdrobust(bwselect="msetwo")` | 2000 | 1000 | 0.923 | 0.88 | +0.01 |  |
+| `rdrobust/certwo` | `rdrobust(bwselect="certwo")` | 2000 | 400 | 0.932 | 0.91 | +0.03 |  |
+| `rdrobust/msecomb2` | `rdrobust(bwselect="msecomb2")` | 2000 | 400 | 0.953 | 0.95 | -0.04 |  |
+| `rdrobust/epanechnikov` | `rdrobust(kernel="epanechnikov")` | 2000 | 400 | 0.960 | 1.03 | +0.06 |  |
+| `rdrobust/manual-h` | `rdrobust(h=0.3)` | 2000 | 400 | 0.945 | 1.00 | -0.09 |  |
+| `rdrobust/fuzzy-covs` | `rdrobust(fuzzy="d", covs=["z"])` | 4000 | 400 | 0.960 | 0.98 | -0.01 |  |
+| `rdrobust/cluster-cr2` | `rdrobust(cluster="g", vce="cr2")` | 2000 | 400 | 0.968 | 1.02 | +0.11 |  |
+| `rdrobust/donut` | `rdrobust(donut=0.02)` | 2000 | 400 | 0.930 | 0.93 | +0.09 |  |
+| `rd_honest/taylor` | `rd_honest(M=0.5, sclass="T")` | 2000 | 1000 | 0.984 | 1.02 | +0.02 |  |
+| `rd_honest/flci` | `rd_honest(M=0.5, opt_criterion="flci")` | 2000 | 400 | 0.968 | 1.00 | +0.01 |  |
+| `rd_honest/uniform` | `rd_honest(M=0.5, kernel="uniform")` | 2000 | 400 | 0.975 | 1.02 | -0.03 |  |
+
+26 rows, 1 flagged. What the table says:
+
+- Fuzzy, covariate-adjusted, clustered and kink `rdrobust`, every `vce`
+  and the bandwidth selectors are in band on the robust interval. Several
+  sit near the lower edge (coverage 0.92 to 0.94), as the sharp Track B
+  row does.
+- `sp.rd_honest` covers at or above its level, `sp.rdrandinf` holds its
+  size and its test-inversion interval covers.
+- `sp.rkd` reports the conventional estimate as its headline.
+- `sp.rdmc` prints the conventional pooled estimate next to the robust SE
+  and interval; the row pairs the SE with the bias-corrected estimate it
+  belongs to.
+
+Flagged rows and their mechanism:
+
+- `rkd/default`: Property of the conventional estimate at an MSE-optimal bandwidth. sp.rkd reports the conventional kink estimate and its SE as the headline; that bandwidth leaves a smoothing bias of the same order as the SE (bias/SD 0.23), and the data-driven bandwidth gives the estimate heavier tails than its SE describes (median SE over MAD-based spread 1.06). The robust bias-corrected interval, which sp.rkd puts in model_info['robust'] and sp.rdrobust(deriv=1) reports as its headline (row rdrobust/kink), is inside the band. Owner decision: make it the headline of sp.rkd.
+
+### Difference-in-differences and synthetic control (`se_screen/did.py`)
+
+Staggered adoption (300 units, 10 periods, cohorts 5 and 7 plus never
+treated), AR(1) errors within unit, constant effect 1.0; a block design
+with one factor for the synthetic-control rows; one treated unit and 30
+controls for `sp.synth`.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `did_imputation/default` | `did_imputation(y, group, time, first_treat)` | 3000 | 400 | 0.958 | 0.99 | +0.02 |  |
+| `gardner_did/default` | `gardner_did(y, group, time, first_treat)` | 3000 | 400 | 0.948 | 0.98 | -0.01 |  |
+| `etwfe/default` | `etwfe(y, group, time, first_treat)` | 3000 | 400 | 0.938 | 0.98 | +0.03 |  |
+| `wooldridge_did/default` | `wooldridge_did(y, group, time, first_treat)` | 3000 | 400 | 0.932 | 0.98 | +0.10 |  |
+| `stacked_did/default` | `stacked_did(y, group, time, first_treat)` | 3000 | 400 | 0.943 | 0.99 | +0.01 |  |
+| `event_study/lag1` | `event_study(window=(-4, 4)), event time +1` | 3000 | 400 | 0.948 | 0.99 | -0.01 |  |
+| `event_study/lead2` | `event_study(window=(-4, 4)), event time -2` | 3000 | 400 | 0.948 | 1.01 | -0.04 |  |
+| `did_multiplegt/default` | `did_multiplegt(n_boot=50)` | 1200 | 200 | 0.960 | 1.07 | +0.08 |  |
+| `sdid/bootstrap` | `sdid(se_method="bootstrap")` | 800 | 200 | 0.970 | 1.16 | +0.03 |  |
+| `sdid/jackknife` | `sdid(se_method="jackknife")` | 800 | 1000 | 0.904 | 0.91 | +0.00 | **yes** |
+| `sdid/placebo-10-treated` | `sdid(se_method="placebo")` | 800 | 200 | 0.905 | 0.94 | -0.14 |  |
+| `sdid/did-jackknife` | `sdid(method="did", se_method="jackknife")` | 800 | 1000 | 0.793 | 0.56 | +0.01 | **yes** |
+| `sdid/did-jackknife-parallel` | `sdid(method="did", se_method="jackknife")` | 800 | 400 | 0.955 | 0.96 | -0.10 |  |
+| `gsynth/default` | `gsynth(n_factors=1)` | 800 | 400 | 0.935 | 1.00 | -0.02 |  |
+| `did_imputation/bootstrap` | `did_imputation(vce="bootstrap", n_boot=50)` | 1200 | 200 | 0.905 | 0.95 | +0.01 |  |
+| `gardner_did/stage2` | `gardner_did(vce="stage2")` | 3000 | 1000 | 0.807 | 0.66 | +0.02 | **yes** |
+| `gardner_did/bootstrap` | `gardner_did(vce="bootstrap", n_boot=50)` | 1200 | 200 | 0.945 | 1.01 | +0.02 |  |
+| `etwfe/nevertreated` | `etwfe(cgroup="nevertreated")` | 3000 | 400 | 0.958 | 1.01 | +0.01 |  |
+| `stacked_did/pooled` | `stacked_did(spec="pooled")` | 3000 | 400 | 0.943 | 1.01 | +0.08 |  |
+| `stacked_did/treated-obs` | `stacked_did(aggregation="treated_obs")` | 3000 | 400 | 0.940 | 0.97 | +0.01 |  |
+| `event_study/lag1-normal` | `event_study(crit_dist="normal"), event time +1` | 3000 | 400 | 0.943 | 0.98 | -0.02 |  |
+| `sdid/sc-jackknife` | `sdid(method="sc", se_method="jackknife")` | 800 | 1000 | 1.000 | 4.23 | -0.02 | **yes** |
+| `gsynth/nonparametric` | `gsynth(n_factors=1, inference="nonparametric")` | 800 | 1000 | 0.917 | 0.96 | -0.03 | **yes** |
+| `synth/classic-placebo-ci` | `synth(treated_unit, treatment_time)` | 1085 | 400 | 0.985 | n/a | n/a |  |
+| `synth/augmented` | `synth(method="augmented")` | 1085 | 1000 | 0.948 | 0.78 | +0.01 | **yes** |
+| `synth/conformal` | `synth(inference="conformal")` | 1085 | 200 | 0.980 | n/a | n/a |  |
+
+26 rows, 6 flagged. What the table says:
+
+- `did_imputation`, `gardner_did`, `etwfe`, `wooldridge_did`,
+  `stacked_did`, event-study leads and lags and `did_multiplegt` are in
+  band, with analytic and bootstrap variances.
+- `sp.sdid`: bootstrap and placebo are in band with 10 treated units; the
+  jackknife is 9% too small there; the jackknife with `method="sc"` is
+  four times too large. All three match R `synthdid`.
+- `gardner_did(vce="stage2")` is the uncorrected variance and behaves
+  like one.
+
+Flagged rows and their mechanism:
+
+- `sdid/jackknife`: Few treated units. The jackknife variance is driven by the 10 treated units, so it is itself noisy and the normal critical value is too small for it (a t with 9 degrees of freedom would give 2.26). The SE equals R synthdid's on one draw (0.0959). The bootstrap and placebo rows on the same design are inside the band.
+- `sdid/did-jackknife`: Design, not estimator. Treated units load 0.5 more on the factor, so parallel trends fail given the factor path: the DiD estimate moves with the realised post-minus-pre factor change, which is common to all units and which a jackknife over units cannot see. The estimate is unbiased over draws and its unit jackknife SE equals R synthdid's (0.0773 on one draw). With the same loading distribution in both groups (row sdid/did-jackknife-parallel) the SE is calibrated.
+- `gardner_did/stage2`: Documented option. vce='stage2' is the second-stage clustered variance without the correction for the estimated first-stage fixed effects; the default vce='analytic' (row gardner_did/default) carries the correction and is calibrated.
+- `sdid/sc-jackknife`: Property of the fixed-weight jackknife applied to synthetic control, shared with R synthdid 0.0.9 (same SE to four digits on one draw: 0.5185, against 0.107 from the placebo method). The jackknife holds the unit weights fixed. SC has no intercept, so dropping one treated unit changes the treated level that the fixed weights were chosen to match, and the pseudo-values pick up the spread of the unit effects, which a refitted SC would absorb. The SE is about four times the sampling SD and the interval always covers. Use se_method='placebo' or 'bootstrap' with method='sc'. sp.sdid does not warn about this combination (open item).
+- `gsynth/nonparametric`: At the edge of the band (0.917 on 1,000 draws against a limit of 0.918) with a calibrated SE (SE/SD 0.96). The reported interval is the percentile interval of 200 bootstrap draws over 40 units; a normal interval from the same SE covers 0.93.
+- `synth/augmented`: Heavy tails, not the SE: one treated unit. The median SE over the MAD-based spread is 1.05 and coverage is inside the band; a few draws with a poor pre-period fit inflate the Monte Carlo SD.
+
+### Multilevel models (`se_screen/multilevel.py`)
+
+100 or 200 groups of 10, random intercept sd 0.7, within-group regressor
+with conditional coefficient 0.5.
+
+| row | call | n | B | coverage | SE/SD | bias/SD | flag |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | :---: |
+| `mixed/random-intercept` | `mixed(y, x_fixed, group)` | 1000 | 400 | 0.945 | 0.97 | -0.00 |  |
+| `mixed/ml` | `mixed(..., method="ml")` | 1000 | 400 | 0.948 | 0.94 | +0.00 |  |
+| `mixed/random-slope` | `mixed(..., x_random=["x1"])` | 1000 | 400 | 0.940 | 0.94 | +0.07 |  |
+| `meglm/gaussian` | `meglm(..., family="gaussian")` | 1000 | 400 | 0.948 | 1.01 | +0.04 |  |
+| `melogit/laplace` | `melogit(y, x_fixed, group)` | 2000 | 400 | 0.958 | 1.02 | +0.07 |  |
+| `melogit/agq7` | `melogit(..., nAGQ=7)` | 2000 | 400 | 0.948 | 1.02 | -0.02 |  |
+| `mepoisson/laplace` | `mepoisson(y, x_fixed, group)` | 1000 | 400 | 0.930 | 0.96 | -0.01 |  |
+| `menbreg/laplace` | `menbreg(y, x_fixed, group)` | 2000 | 400 | 0.932 | 0.97 | +0.01 |  |
+| `megamma/laplace` | `megamma(y, x_fixed, group)` | 1000 | 400 | 0.965 | 1.07 | +0.06 |  |
+| `meologit/laplace` | `meologit(y, x_fixed, group)` | 2000 | 200 | 0.960 | 0.99 | +0.02 |  |
+| `mixed/random-slope-diagonal` | `mixed(..., x_random=["x1"], cov_type="diagonal")` | 1000 | 400 | 0.943 | 1.02 | +0.03 |  |
+| `mixed/three-level` | `mixed(..., group=["school", "klass"])` | 1000 | 400 | 0.945 | 0.97 | +0.02 |  |
+| `mixed/between-regressor` | `mixed(y, x_fixed, group), group-level x2` | 1000 | 400 | 0.970 | 1.03 | -0.05 |  |
+| `mepoisson/agq7` | `mepoisson(..., nAGQ=7)` | 1000 | 400 | 0.968 | 1.02 | -0.06 |  |
+| `mepoisson/random-slope` | `mepoisson(..., x_random=["x1"])` | 1000 | 200 | 0.950 | 0.96 | -0.02 |  |
+| `meglm/binomial` | `meglm(..., family="binomial")` | 2000 | 400 | 0.960 | 1.00 | +0.07 |  |
+| `melogit/between-regressor` | `melogit(y, x_fixed, group), group-level x2` | 2000 | 400 | 0.922 | 0.93 | -0.04 |  |
+
+17 rows, 0 flagged. What the table says:
+
+- Linear mixed models (REML, ML, random slopes, three levels) and the
+  generalized models under Laplace and adaptive quadrature are in band,
+  for within-group and group-level regressors.
