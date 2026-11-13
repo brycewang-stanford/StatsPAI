@@ -179,6 +179,15 @@ class TestFamilyRouting:
 
 
 class TestPassedFailedMissing:
+
+    def test_treat_is_the_house_style_spelling_of_treatment(self, real_regress_result):
+        # ``treat`` is the canonical name across the package; ``audit`` keeps
+        # ``treatment`` in its signature and must accept both with one result.
+        by_treat = sp.audit(real_regress_result, treat="x")["checks"]
+        by_treatment = sp.audit(real_regress_result, treatment="x")["checks"]
+        assert [c["name"] for c in by_treat] == [c["name"] for c in by_treatment]
+        assert sp.audit.__statspai_aliases__ == {"treat": "treatment"}
+
     def test_pretrend_passes_when_pvalue_above_threshold(self):
         r = _bare_did_result(model_info={"pretrend_test": {"pvalue": 0.50}})
         check = next(c for c in sp.audit(r)["checks"] if c["name"] == "parallel_trends")
