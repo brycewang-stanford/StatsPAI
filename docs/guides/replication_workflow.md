@@ -464,7 +464,7 @@ As of v1.7.2, **142 estimators** are instrumented (>15× original 9-baseline):
 | `sp.iv.kernel_iv` (control-function kernel IV)           | **P13**  |
 | `sp.iv.npiv` (sieve nonparametric IV)                    | **P13**  |
 | `sp.iv.many_weak_jive` (Phillips-Hale 2018 JIVE)         | **P13**  |
-| `sp.iv.many_weak_ar` (Mikusheva-Sun 2024 AR-CS)          | **P13**  |
+| `sp.iv.many_weak_ar` (Anderson-Rubin set, exact)         | **P13**  |
 | `sp.iv.continuous_iv_late` (quantile-bin Wald)           | **P13**  |
 | `sp.timeseries.arima` (ARIMA / SARIMAX)                  | **P14**  |
 | `sp.timeseries.garch` (GARCH(p,q) MLE)                   | **P14**  |

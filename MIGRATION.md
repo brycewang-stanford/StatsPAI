@@ -311,6 +311,27 @@ changes.
 
 ---
 
+## 1.43 → next: `sp.iv.many_weak_ar` returns the exact Anderson-Rubin set
+
+⚠️ correctness fix. `sp.iv.many_weak_ar` used to search 101 values within
+0.5 of the OLS estimate, without a constant, and report the smallest and
+largest accepted value. The set it returned was cut off at the ends of that
+grid and often missed the true value (70% coverage at a nominal 95% in a
+many-weak-instrument design). It now solves the Anderson-Rubin inequality
+exactly, with a constant partialled out and an `F(K, n - K - p)` reference.
+
+- `ci` is generally wider than before and can be `(-inf, inf)` when the
+  instruments are weak; `detail["shape"]` is `"interval"`, `"unbounded"`,
+  `"disjoint"` (end points in `detail["roots"]`) or `"empty"`.
+- `estimate` is the LIML estimate, the minimiser of the statistic.
+- `estimator` reads "Anderson-Rubin confidence set" (was "Jackknife AR
+  (grid CS)").
+- To reproduce an old interval pass the old grid as `beta_grid=`; the
+  constant is still partialled out.
+
+`sp.xtlsdvc` gains `plug_in="consistent"`; the default `"bruno"` is
+unchanged and reproduces Stata.
+
 ## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE; rddensity se / ci
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and
