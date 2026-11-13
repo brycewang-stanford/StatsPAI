@@ -3620,6 +3620,8 @@ def ivreg(
 
     # Resolve the canonical `vce` alias; intercept the wild sentinel.
     se_kw = vce if vce is not None else robust
+    # The fitted model, kept for the weak-identification statistics.
+    _models: List[Any] = []
 
     def _two_sls_only(what: str) -> None:
         # The wild / CR2 / CR3 / Conley / two-way variances below are
@@ -3646,7 +3648,6 @@ def ivreg(
                 "bootstrap resamples residuals within clusters."
             )
         _two_sls_only("vce='wild'")
-        _models: List[Any] = []
         base = iv(
             _model_sink=_models,
             formula=formula,
@@ -3730,7 +3731,6 @@ def ivreg(
             )
         _two_sls_only(f"vce={se_kw!r}")
         kind = "CR3" if se_kw.lower() in ("cr3", "jackknife") else "CR2"
-        _models: List[Any] = []
         base = iv(
             _model_sink=_models,
             formula=formula,
@@ -3767,7 +3767,6 @@ def ivreg(
                 "conley_cutoff= (planar distance cutoff in km)."
             )
         _two_sls_only("vce='conley'")
-        _models: List[Any] = []
         base = iv(
             _model_sink=_models,
             formula=formula,
@@ -3806,7 +3805,6 @@ def ivreg(
     if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
         _two_sls_only("two-way clustering")
         c1, c2 = cluster
-        _models: List[Any] = []
         base = iv(
             _model_sink=_models,
             formula=formula,
@@ -3852,7 +3850,6 @@ def ivreg(
         # downstream without effect; they are rejected until implemented.
         known=("method", "alpha", "weights", "weights_as"),
     )
-    _models = []
     result = iv(
         formula=formula,
         data=data,

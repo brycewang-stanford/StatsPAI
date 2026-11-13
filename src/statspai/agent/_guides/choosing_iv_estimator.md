@@ -53,6 +53,12 @@ If first-stage F < 10:
 | tF critical values (Lee 2022) | `sp.tF_critical_value(first_stage_F=F)`       |
 | Effective F (Montiel-Pflueger)| `sp.effective_f_test(r)`                      |
 
+`sp.ivreg` and `sp.iv` attach the rank statistics to every fit:
+`result.diagnostics["KP rk LM"]`, `["KP rk Wald F"]` (`ivreg2`'s
+`idstat` and `rkf`) and, with one endogenous regressor,
+`["Olea-Pflueger effective F"]` (`weakivtest`). They follow the variance
+of the fit (i.i.d., robust or clustered).
+
 **Do not report the 2SLS point estimate if F < 10 without flagging
 weak-IV.** Use the Anderson-Rubin CI, which is robust to any
 first-stage strength.

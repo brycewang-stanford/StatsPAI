@@ -1247,7 +1247,10 @@ def callaway_santanna(
         )
         if _TRIM_TALLY.n_boundary_fits > _boundary_before:
             boundary_cells.append(
-                tuple(getattr(v, "item", lambda v=v: v)() for v in (g_val, t_val))
+                (
+                    getattr(g_val, "item", lambda v=g_val: v)(),
+                    getattr(t_val, "item", lambda v=t_val: v)(),
+                )
             )
 
         pval = 2 * stats.norm.sf(abs(att / se)) if se > 0 else 1.0
