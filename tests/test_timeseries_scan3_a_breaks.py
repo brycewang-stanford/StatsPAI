@@ -189,8 +189,14 @@ class TestMultipleBreaks:
         assert r.sequential_tests[-1]["reject"] is False
         assert r.p_values is None
         assert r.rss_segments == pytest.approx(split[date], rel=1e-8)
+        # the Gaussian BIC of the partition, -2 logLik + df log N with
+        # df = (q + 1)(m + 1) = 6: what method="global" and
+        # strucchange::breakpoints report for the same split (through
+        # 1.43.1 this path used N log(RSS / N) + q (m + 1) log N instead)
         assert r.bic == pytest.approx(
-            N * np.log(split[date] / N) + 2 * 2 * np.log(N), rel=1e-8
+            N * (np.log(split[date]) + 1 - np.log(N) + np.log(2 * np.pi))
+            + 3 * 2 * np.log(N),
+            rel=1e-8,
         )
         assert "sup F(l+1|l)" in r.summary()
 

@@ -30,6 +30,12 @@ cf = sp.counterfactual_data(res)        # tidy observed vs counterfactual
 fig = sp.counterfactual_plot(res)       # observed/counterfactual + effect panel
 ```
 
+`intervention` is the row position of the first treated period. A numeric
+`time` column is the clock: the trend and the slope change are per unit of
+it. A date or period column only orders and labels the rows, and the clock
+is then one unit per row. `seasonality_period` counts observations (12 for
+monthly data) whatever the unit of `time`.
+
 The same two calls work on `sp.synth(...)`, `sp.causal_impact(...)`,
 `sp.bayes_its(...)` and `sp.bayes_synth(...)` results — the Bayesian ones carry
 genuine credible bands from the posterior.

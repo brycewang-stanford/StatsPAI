@@ -35,6 +35,7 @@ train, test = trips.iloc[:64], trips.iloc[64:]
 | Residual autocorrelation | `Box.test`, `checkresiduals` | `acorr_ljungbox` | `sp.ljungbox` |
 | Accuracy measures | `accuracy` | `utilsforecast evaluate` | `sp.forecast_accuracy` |
 | Rolling-origin cross-validation | `tsCV` | `sf.cross_validation` | `sp.tscv` |
+| Equal predictive accuracy | `dm.test` | | `sp.dm_test` |
 | Exponential smoothing | `ets` | `AutoETS` | `sp.ets` |
 | Differencing orders | `ndiffs`, `nsdiffs` | `statsforecast.arima.ndiffs` | `sp.ndiffs`, `sp.nsdiffs` |
 | ARIMA, automatic ARIMA | `Arima`, `auto.arima` | `ARIMA`, `AutoARIMA` | `sp.arima` |
@@ -159,6 +160,23 @@ cv_ets = sp.tscv(trips, lambda y, h: sp.ets(y, "MAM", period=4),
                  horizon=4, initial=40, step=4)
 ```
 
+Whether one method beats another by more than chance is a question for the
+Diebold-Mariano test on the two error series of one horizon:
+
+```python
+e_snaive = np.asarray(cv.errors)[:, 0]                 # one-step errors
+e_ets = np.asarray(sp.tscv(trips, "ets", horizon=4, initial=24,
+                           period=4).errors)[:, 0]
+dm = sp.dm_test(e_snaive, e_ets, h=1, alternative="greater")
+dm["statistic"], dm["pvalue"]       # 'greater': the second method is better
+```
+
+It is `forecast::dm.test`, with the small-sample correction of Harvey,
+Leybourne and Newbold. For errors of an `h`-step forecast pass `h`, and
+`varestimator="bartlett"` if the default variance comes out negative. The
+test compares forecasts of non-nested methods; it is not a test between a
+model and a restricted version of itself.
+
 ## Exponential smoothing (chapter 8)
 
 ```python
@@ -212,7 +230,16 @@ On the book's series it returns the model R's
 `auto.arima(approximation=FALSE)` returns. R approximates the likelihood by
 default on long or seasonal series and can then choose differently.
 
-Three conventions to know when comparing numbers:
+Five conventions to know when comparing numbers:
+
+- Standard errors are outer-product (`vce="opg"`), Stata's default. R reports
+  the observed-information ones, `sp.arima(..., vce="oim")`, which is also
+  Stata's `vce(oim)`. In a short series the two can differ by a third; the
+  summary names the one in use.
+- With differencing the first `d + s D` entries of `fit.residuals` and
+  `fit.fitted_values` are missing, as in Stata. Those observations fix the
+  starting level and have no one-step prediction. R fills them with residuals
+  close to zero. `sp.ljungbox(fit)` leaves them out.
 
 - The log likelihood is that of the differenced series, as in Stata and in R's
   `arima` applied to the differenced series. `forecast::Arima` keeps the

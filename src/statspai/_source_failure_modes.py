@@ -659,6 +659,30 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "(sites x species).",
         },
     ],
+    "dm_test": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "'greater' says method 2 is the more accurate one.",
+            "symptom": "dm_test: alternative=<alternative> is not "
+            "'two-sided', 'less' or 'greater'.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use 'bartlett' when 'acf' gives a negative variance.",
+            "symptom": "dm_test: varestimator=<varestimator> is not 'acf' or "
+            "'bartlett'.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "h is the forecast horizon of the errors.",
+            "symptom": "dm_test: h must be a positive integer, got <h>.",
+        },
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "power=2 for squared errors, 1 for absolute errors.",
+            "symptom": "dm_test: power must be positive, got <power>.",
+        },
+    ],
     "doctor": [
         {
             "exception": "statspai.MethodIncompatibility",

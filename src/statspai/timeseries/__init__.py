@@ -21,6 +21,7 @@ from .chow import chow_test
 from .cointegration import CointegrationResult, engle_granger, johansen
 from .corrgram import corrgram
 from .dlm import DLMResult, dlm
+from .dm_test import dm_test
 from .forecast_accuracy import TSCVResult, forecast_accuracy, tscv
 from .garch import GARCHResult, garch
 from .its import ITSResult, its
@@ -70,6 +71,7 @@ __all__ = [
     "StructuralBreakResult",
     "cusum_test",
     "chow_test",
+    "dm_test",
     "bds",
     "engle_granger",
     "johansen",

@@ -105,6 +105,11 @@ class KalmanResult(ResultProtocolMixin):
 
     _citation_keys = ("kalman1960new",)
 
+    @property
+    def log_likelihood(self) -> float:
+        """Alias of :attr:`loglik`, the name most StatsPAI results use."""
+        return float(self.loglik)
+
     def states(self, which: str = "smoothed") -> pd.DataFrame:
         """State estimates with their standard errors as a DataFrame.
 
@@ -393,6 +398,11 @@ class StateSpaceResult(ResultProtocolMixin):
     model_info: Dict[str, Any] = field(default_factory=dict)
 
     _citation_keys = ("kalman1960new",)
+
+    @property
+    def log_likelihood(self) -> float:
+        """Alias of :attr:`loglik`, the name most StatsPAI results use."""
+        return float(self.loglik)
 
     @property
     def coef(self) -> pd.Series:

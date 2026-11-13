@@ -392,6 +392,11 @@ class PanelUnitRootResult(ResultProtocolMixin):
             f"P-value:   {self.p_value:.4f}",
             f"N units:   {self.n_units}",
             f"T periods: {self.n_periods}",
+            *(
+                [f"Lagged differences in each ADF regression: {self.lags}"]
+                if isinstance(self.lags, (int, np.integer))
+                else []
+            ),
             "",
             "Conclusion: "
             f"{'Reject H0' if self.p_value < 0.05 else 'Fail to reject H0'} at 5%",

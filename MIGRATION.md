@@ -36,6 +36,52 @@ to 0 or 1, as under one-sided non-compliance.
 Code that selects results by `estimand == "ATE"` should include `"ATT"`
 for ATTE fits.
 
+## 1.43 → next: ARIMA residuals at the differenced observations, VAR p-values and forecast intervals, break BIC, `sp.its` time columns
+
+⚠️ correctness fix: `sp.arima` with differencing. The first `d + s D`
+entries of `result.residuals` and `result.fitted_values` are `NaN`
+(`result.model_info["n_diffuse"]` of them). They used to hold the level of
+the series and a fitted value of zero. Code that summed or tested the whole
+array should skip them:
+
+```python
+e = fit.residuals[np.isfinite(fit.residuals)]     # or fit.residuals[fit.model_info["n_diffuse"]:]
+sp.ljungbox(fit, lags=24)                         # already skips them
+```
+
+Statistics computed on the full residual array of a differenced model
+(Ljung-Box, normality, ARCH tests) were distorted by those entries and
+change. Estimates, likelihood, information criteria and forecasts do not.
+
+`sp.arima` standard errors are outer-product ones, as before; they are now
+labelled and `vce='oim'` gives the observed-information ones that R reports.
+
+⚠️ correctness fix: `sp.var(...)` with the default `se_df='stata'`. The
+p-values in `summary()` use the normal distribution, as Stata's `var`
+does, not `t(T - m)`. Coefficients and standard errors are unchanged up to
+the ninth digit (the fit now uses QR). To keep the t reference fit with
+`se_df='r'`, which also divides the residual variance by `T - m`.
+
+⚠️ correctness fix: `VARResult.forecast()` of a fit with `se_df='r'` uses
+the residual covariance over `T - m`; its standard errors grow by
+`sqrt(T / (T - m))`. Pass `sigma_df='ml'` for the former numbers.
+
+⚠️ correctness fix: `sp.structural_break(method='bai-perron').bic` is the
+Gaussian BIC that `method='global'` reports. The old value was
+`n * log(rss_segments / n) + q * (n_breaks + 1) * log(n)`; recompute it from
+those fields if a stored number has to be reproduced.
+
+⚠️ correctness fix: `sp.its(time=...)`. With a date, period or string
+column the trend is fitted on the row position (the old fit used
+nanoseconds and was meaningless). With a numeric column that does not
+advance by one per row, `slope_change` is now per unit of that column, like
+`time`, and the Fourier terms follow the observations. With an integer
+index, or without `time=`, nothing changes. `result.detail["time"]` holds
+the labels of the rows.
+
+`ARIMAResult.to_dict()` drops the private fields `_model`, `_index` and
+`_det`.
+
 ## 1.43 → next: Cox concordance with strata, Efron baseline hazard, RMST default tau, overlap-weight ESS
 
 ⚠️ correctness fix: `sp.cox(strata=...)` (unweighted, right-censored)

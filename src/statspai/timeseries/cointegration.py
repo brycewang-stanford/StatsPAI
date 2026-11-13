@@ -27,6 +27,15 @@ from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .var import _consecutive_rows, _require_independent_series
 
+#: the five deterministic cases of the Johansen procedure, as printed
+_TREND_CASES = {
+    "n": "none",
+    "rc": "constant restricted to the cointegrating relations",
+    "c": "unrestricted constant",
+    "rt": "trend restricted to the cointegrating relations, unrestricted constant",
+    "ct": "unrestricted constant and trend",
+}
+
 
 class CointegrationResult(ResultProtocolMixin):
     """Results from cointegration test.
@@ -114,6 +123,9 @@ class CointegrationResult(ResultProtocolMixin):
             # the statistics are scaled by the observations left after
             # differencing and lagging, not by the length of the series
             lines[2] += f"   Used: {n_used}"
+        case = _TREND_CASES.get(str(self.trend))
+        if case is not None and self.test_type != "Engle-Granger":
+            lines.insert(3, f"Deterministic terms: {case}")
 
         if self.test_type == "Engle-Granger":
             lines.append(f"ADF test statistic: {self.test_stats:.4f}")

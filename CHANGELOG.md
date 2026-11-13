@@ -171,6 +171,96 @@ defects were in what is printed around them. Evidence for each item is in
 - `sp.regtable(se_type="ci")` notes "95% CI in brackets". The cells were
   always bracketed.
 
+### Time-series probe (2026-11-13)
+
+Twenty macro and finance analyses were run blind in StatsPAI and repeated in
+R and Stata 18 on the same CSV bytes, comparing every number a result
+prints. Unit-root tests, ARIMA estimates and forecasts, VAR estimates, lag
+selection, Granger tests, impulse responses and variance decompositions with
+their standard errors, structural VARs, Johansen tests and VEC estimates,
+local projections, GARCH models, break tests, HAC regressions, long-run
+variances, state-space fits, Markov switching, forecast accuracy, the
+market-model event study, Fama-MacBeth and panel unit-root tests agreed with
+the references. The items below did not, or were missing. Evidence is in
+`tests/reference_parity/test_probe_ts_parity.py` and
+`tests/test_probe_ts_usability.py`.
+
+#### Fixed
+- **⚠️ correctness fix: residuals of a differenced `sp.arima` model.**
+  `fit.residuals` and `fit.fitted_values` held filter artefacts at the first
+  `d + s D` observations: a fitted value of zero (or the seasonal lag) and
+  the level of the series as the "residual". On the airline model for log
+  `AirPassengers` the first residual was 4.7185 against an innovation
+  standard deviation of 0.037. Those entries are now missing, as in Stata's
+  `predict, resid`. `sp.ljungbox(fit, lags=24)` changes from 26.618 to
+  23.620, the value of Stata's `wntestq`. Coefficients, likelihood and
+  forecasts are unchanged.
+- **⚠️ correctness fix: p-values of `sp.var`.** The default fit
+  (`se_df='stata'`) uses Stata's standard errors but `summary()` referred
+  them to `t(T - m)`. Stata's `var` uses the normal distribution. On
+  `vars::Canada` with two lags the p-value of `L1.prod` in the `e` equation
+  was 0.0049 and is now 0.0037 (Stata prints 0.004). `se_df='r'` keeps
+  `t(T - m)`, which is what R's `vars` and Stata's `var, small` report. The
+  summary names the reference distribution.
+- **⚠️ correctness fix: `VARResult.forecast` ignored `se_df`.** The interval
+  used the residual covariance over `T` whatever the fit. With `se_df='r'`
+  it now uses `T - m`, as impulse responses already did, and equals
+  `vars::predict` (one-step standard error of `e` on Canada: 0.3423 before,
+  0.3628 now). The default fit is unchanged.
+- **`sp.var` coefficients to full precision.** The normal equations were
+  solved by inverting `X'X`. On series in levels the estimates agreed with
+  R's QR fit to eight digits only (largest relative gap 8.7e-8 on Canada),
+  and an eight-step forecast of that persistent system was off by 1e-6.
+  The fit now uses QR; the gap to R is below 1e-9.
+- **⚠️ correctness fix: BIC of `sp.structural_break(method='bai-perron')`.**
+  The sequential path reported `n log(RSS/n) + q(m+1) log n` while
+  `method='global'` reported the Gaussian BIC of `strucchange`, so one
+  partition had two values under the same name (Nile, break after 1898:
+  977.09 and 1270.08). Both paths now report the second. Break dates and
+  test statistics are unchanged.
+- **⚠️ correctness fix: `sp.its` with a date or a non-integer time column.**
+  A datetime `time` column was fitted as nanoseconds since 1970 and every
+  coefficient came back near 1e-28 with a p-value attached. A numeric column
+  that does not advance by one per row (monthly data dated `1949.0,
+  1949.083, ...`) put the Fourier terms on a twelve-year cycle and measured
+  the trend per year but the slope change per row: on log `AirPassengers`
+  with a break at row 96 the level change was -0.0182 (SE 0.0822); it is
+  -0.0283 (SE 0.0255), the value with a row index and of `lm` with
+  `sandwich::NeweyWest` in R. Dates, periods and labels now only order the
+  rows, a numeric column is the clock of both slopes, and
+  `seasonality_period` counts observations. A time column with missing
+  values is refused. Integer time columns give the numbers they gave.
+- `VECResult.irf` said its orthogonalised responses were Stata's. Stata's
+  `irf create` and `fcast compute` after `vec` use the residual covariance
+  over `T - d`. The default is unchanged and documented as the
+  maximum-likelihood scaling; `sigma_df='unbiased'` reproduces Stata.
+- `sp.forecast_accuracy` left out the interval scores for the table of
+  `ARIMAResult.forecast(h)` (columns `lower` / `upper`). It now reads the
+  coverage from the table.
+- `ARIMAResult.to_dict()` no longer includes private fields. The fit
+  exported its backend object as a string with a memory address.
+- `sp.its` prints the time label of the intervention, not only its row.
+
+#### Added
+- `sp.arima(vce=)`: `'opg'` (default, Stata's default), `'oim'` (observed
+  information, what R's `arima` and Stata's `vce(oim)` report) and
+  `'robust'`. The summary names the one in use. On the Nile ARIMA(0,1,1) the
+  two standard errors of the MA coefficient are 0.0745 and 0.1143.
+- `sp.dm_test`: Diebold-Mariano test of equal predictive accuracy with the
+  Harvey-Leybourne-Newbold correction, equal to `forecast::dm.test`.
+- `VARResult.forecast(param_uncertainty=True)`: adds the variance of the
+  estimated coefficients, as Stata's `fcast compute`. `sigma_df=` overrides
+  the divisor.
+- `VARResult.normality_test()`: Jarque-Bera, skewness and kurtosis tests by
+  equation and for the system (Stata `varnorm`).
+- `VARResult.params`, `std_errors`, `pvalues` and `tidy()`.
+- `VECResult.irf(sigma_df=)` and `VECResult.forecast(sigma_df=)`.
+- `log_likelihood` on the results of `sp.dlm`, `sp.statespace`,
+  `sp.kalman_filter`, `sp.mswitch` and `sp.tvp_var`, next to `loglik`.
+- Johansen and VEC summaries state the deterministic case; the panel
+  unit-root summary states the lag order.
+
+
 ### Epidemiology probe (2026-11-13)
 
 Twenty epidemiology and biostatistics analyses were run blind in StatsPAI

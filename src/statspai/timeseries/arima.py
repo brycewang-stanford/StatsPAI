@@ -33,11 +33,18 @@ import pandas as pd
 
 from .._input_validation import check_columns, missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from .ts_tools import _kpss_level as _kpss_stat  # noqa: F401  (re-exported)
 from .ts_tools import _ndiffs as _kpss_ndiffs
 from .ts_tools import _nsdiffs
+
+_VCE_LABELS = {
+    "opg": "OPG (outer product of the scores)",
+    "oim": "OIM (observed information)",
+    "robust": "robust (sandwich)",
+}
 
 
 @dataclass
@@ -95,6 +102,17 @@ class ARIMAResult(ResultProtocolMixin):
     #: ``'root_moduli'``: smallest root modulus per lag polynomial;
     #: ``'near_unit_root'`` (fixed orders): whether one is below 1.05
     model_info: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe dict of the public fields.
+
+        The private ones (the fitted backend object, the index of the
+        series) are left out: the backend object would serialise as a
+        string with a memory address.
+        """
+        from .._result_serialize import result_to_dict
+
+        return {k: v for k, v in result_to_dict(self).items() if not k.startswith("_")}
 
     @property
     def period(self) -> int:
@@ -327,9 +345,12 @@ class ARIMAResult(ResultProtocolMixin):
         out = pd.DataFrame(
             {"forecast": pred, "lower": pred - z * sd, "upper": pred + z * sd}
         )
+        # the coverage the unlabelled ``lower`` / ``upper`` columns have,
+        # for functions that read the table (sp.forecast_accuracy)
+        out.attrs["level"] = 100.0 * (1.0 - alpha)
         if self.boxcox is not None:
-            out.attrs["level"] = 100.0 * (1.0 - alpha)
             out = back_transform_frame(out, self.boxcox, self.biasadj)
+            out.attrs["level"] = 100.0 * (1.0 - alpha)
         if not isinstance(idx, pd.RangeIndex):
             out.index = idx
         return out
@@ -366,17 +387,14 @@ class ARIMAResult(ResultProtocolMixin):
             linewidth=0.8,
             label="fitted",
         )
-        # the data: fitted + residual, except under a Box-Cox transform,
-        # where the fitted values are on the original scale and the
-        # residuals on the transformed one
-        if self.boxcox is None:
-            observed = self.fitted_values + self.residuals
-        else:
+        # the data, back on the original scale under a Box-Cox transform
+        # (taken from the model, not as fitted + residual: the first
+        # d + s D of those are missing)
+        observed = np.asarray(self._model.model.endog, dtype=float).ravel()
+        if self.boxcox is not None:
             from ._forecast_common import boxcox_inverse
 
-            observed = boxcox_inverse(
-                np.asarray(self._model.model.endog, dtype=float).ravel(), self.boxcox
-            )
+            observed = boxcox_inverse(observed, self.boxcox)
         ax.plot(
             x,
             observed,
@@ -415,6 +433,7 @@ class ARIMAResult(ResultProtocolMixin):
             f"BIC        : {self.bic:.2f}",
             f"AICc       : {self.aicc:.2f}",
             f"Log-Lik    : {self.log_likelihood:.2f}",
+            f"Std. errors: {_VCE_LABELS[str(self.model_info.get('vce', 'opg'))]}",
             "",
             (
                 f"  {'':<15s}  {'coef':>10s}  {'std err':>10s}"
@@ -666,6 +685,7 @@ def _unit_root_violation(
     }
 
 
+@records_call("arima")
 def arima(
     y: Any,
     order: Tuple[int, int, int] = (1, 0, 0),
@@ -686,6 +706,7 @@ def arima(
     boxcox: Any = None,
     biasadj: bool = False,
     data: Optional[pd.DataFrame] = None,
+    vce: str = "opg",
 ) -> ARIMAResult:
     """Fit ARIMA(p,d,q) or SARIMAX.
 
@@ -774,6 +795,18 @@ def arima(
         ``BIC`` and ``AICc`` count the estimated parameters only and use
         the number of observations after differencing, as R and Stata do.
 
+    vce : {'opg', 'oim', 'robust'}, default 'opg'
+        Covariance of the estimates. ``'opg'``: outer product of the
+        scores, the default of Stata's ``arima``. ``'oim'``: inverse of
+        the observed information (the numerical Hessian of the
+        log-likelihood), what R's ``stats::arima`` /
+        ``forecast::Arima`` report and Stata's ``arima, vce(oim)``.
+        ``'robust'``: the sandwich of the two. The two estimates of the
+        information agree in large samples under a correct model; in a
+        short series they can differ by a third (a moving-average
+        coefficient near the invertibility boundary is the usual case),
+        so name the one you report. ``result.model_info['vce']`` records
+        the choice.
     trend : {None, 'c', 'n'}, optional
         Deterministic term. ``'c'`` estimates a constant: the mean of the
         series when it is not differenced (``const``), the mean of the
@@ -789,7 +822,7 @@ def arima(
     -------
     ARIMAResult
         Exposes ``params`` and the matching standard errors ``se`` (alias
-        ``std_errors``), plus ``tvalues``, ``pvalues``, and
+        ``std_errors``; of the kind ``vce`` names), plus ``tvalues``, ``pvalues``, and
         ``conf_int(alpha)`` for inference, alongside ``aic`` / ``bic`` /
         ``aicc`` / ``log_likelihood`` and ``forecast`` / ``plot``.
         ``candidates`` lists the models an automatic search compared.
@@ -805,6 +838,15 @@ def arima(
     ``result.violations()`` lists it. A random walk fitted as an AR(1)
     is the typical case: the coefficient comes out just below one and
     its standard error is not a guide to the distance from one.
+
+    ``residuals`` and ``fitted_values`` are the one-step innovations and
+    predictions. With differencing, the first ``d + s D`` observations
+    have neither (they pin down the integration states and are not in
+    the likelihood) and are reported as missing, as Stata's ``predict,
+    resid`` does; ``model_info['n_diffuse']`` is their number. R fills
+    them with the near-zero residuals of its approximate diffuse prior.
+    Through 1.43.1 these entries held filter artefacts: a fitted value
+    of zero and the level of the series as the residual.
 
     The series is read in row order. A date or period index out of
     order, with repeated dates, or skipping a period of a monthly,
@@ -986,6 +1028,19 @@ def arima(
         )
     if method_norm not in {"statespace", "innovations_mle"}:
         raise ValueError("method must be 'statespace', 'css_ml', or 'innovations_mle'")
+    vce_norm = str(vce).lower()
+    # statsmodels names: 'approx' is the numerical Hessian of the
+    # log-likelihood (its 'oim' is Harvey's recursion for the expected
+    # information, which is not what R or Stata report)
+    _cov_types = {"opg": "opg", "oim": "approx", "robust": "robust_approx"}
+    if vce_norm not in _cov_types:
+        raise MethodIncompatibility(
+            f"arima: vce must be 'opg', 'oim' or 'robust', got {vce!r}.",
+            recovery_hint="vce='opg' is Stata's default, vce='oim' is what R "
+            "reports.",
+            diagnostics={"vce": vce},
+        )
+    _cov_type = _cov_types[vce_norm]
 
     if trend is not None and trend not in ("c", "n"):
         raise MethodIncompatibility(
@@ -1246,6 +1301,12 @@ def arima(
                         par_i[0] += loc_i
                     par_i[-1] *= scale_i * scale_i  # innovation variance
                     r0 = _build_innov(y).smooth(par_i, cov_type="opg")
+            if _cov_type != "opg":
+                with _warnings.catch_warnings():
+                    _warnings.simplefilter("ignore")
+                    r0 = r0.model.smooth(
+                        np.asarray(r0.params, dtype=float), cov_type=_cov_type
+                    )
             return _Fit(r0, r0.llf, len(np.asarray(r0.params)), n_eff, None, True)
         # The deterministic term is a regressor of the level equation: a
         # column of ones (the mean), or the time index, whose difference is
@@ -1524,12 +1585,12 @@ def arima(
         with _warnings.catch_warnings():
             _warnings.simplefilter("ignore")
             if unit == 1.0:
-                res_full = full.smooth(theta, cov_type="opg")
+                res_full = full.smooth(theta, cov_type=_cov_type)
                 bse = None
             else:
-                # the outer-product covariance is computed by numerical
-                # differentiation, which is only reliable on the rescaled
-                # series; its standard errors are mapped back
+                # the covariance is computed by numerical differentiation,
+                # which is only reliable on the rescaled series; its
+                # standard errors are mapped back
                 full_s = SARIMAX(
                     y / unit,
                     exog=X,
@@ -1540,7 +1601,9 @@ def arima(
                 )
                 _exact_diffuse(full_s)
                 bse = (
-                    np.asarray(full_s.smooth(theta_s, cov_type="opg").bse, dtype=float)
+                    np.asarray(
+                        full_s.smooth(theta_s, cov_type=_cov_type).bse, dtype=float
+                    )
                     * to_y
                 )
                 res_full = full.smooth(theta, cov_type="none")
@@ -1728,6 +1791,7 @@ def arima(
     _season = int(seas_final[3]) if seas_final else 1
     _moduli = _lag_root_moduli(_params, _season)
     _model_info: Dict[str, Any] = {
+        "vce": vce_norm,
         "omitted": list(omitted_exog),
         "root_moduli": {k: round(v, 10) for k, v in _moduli.items()},
     }
@@ -1749,6 +1813,21 @@ def arima(
     elif not auto:
         _model_info["near_unit_root"] = False
 
+    # The d + s D observations that pin down the integration states carry
+    # no innovation: the exact diffuse filter "predicts" them from nothing
+    # (fitted value 0, or the seasonal lag alone) and the "residual" is the
+    # level of the series. They are not part of the likelihood either, so
+    # they are reported as missing, as Stata's ``predict, resid`` does.
+    _resid = np.array(res.resid, dtype=float)
+    _fitted = np.array(res.fittedvalues, dtype=float)
+    _n_diffuse = int(order[1]) + (
+        int(seas_final[1]) * int(seas_final[3]) if seas_final else 0
+    )
+    if 0 < _n_diffuse < _resid.shape[0] and _resid.shape[0] == n:
+        _resid[:_n_diffuse] = np.nan
+        _fitted[:_n_diffuse] = np.nan
+    _model_info["n_diffuse"] = _n_diffuse if _resid.shape[0] == n else 0
+
     _result = ARIMAResult(
         order=(int(order[0]), int(order[1]), int(order[2])),
         seasonal_order=(
@@ -1767,12 +1846,8 @@ def arima(
         bic=float(fit_.bic),
         aicc=float(fit_.aicc),
         log_likelihood=float(fit_.llf),
-        residuals=np.asarray(res.resid),
-        fitted_values=(
-            np.asarray(res.fittedvalues)
-            if _lam is None
-            else boxcox_inverse(np.asarray(res.fittedvalues, dtype=float), _lam)
-        ),
+        residuals=_resid,
+        fitted_values=(_fitted if _lam is None else boxcox_inverse(_fitted, _lam)),
         n=n,
         _model=res,
         exog_names=exog_names,

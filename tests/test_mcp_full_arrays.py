@@ -63,8 +63,11 @@ def test_capped_residuals_are_readable_in_full(fit):
         _rpc("resources/read", {"uri": entry["full"]})["result"]["contents"][0]["text"]
     )
     assert body["n"] == 300
+    # the first residual of a differenced model is missing (JSON null)
+    served = np.array([np.nan if v is None else v for v in body["values"]], dtype=float)
+    assert np.isnan(served[0]) and np.isfinite(served[1:]).all()
     np.testing.assert_allclose(
-        body["values"], np.asarray(direct.residuals, dtype=float), rtol=1e-12
+        served, np.asarray(direct.residuals, dtype=float), rtol=1e-12, equal_nan=True
     )
     # The payload's 20 values are the head of the same array.
     assert out["residuals"] == body["values"][:OBS_ARRAY_KEEP]

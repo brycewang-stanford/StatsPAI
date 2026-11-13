@@ -8726,6 +8726,77 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="dm_test",
+            category="timeseries",
+            description=(
+                "Diebold-Mariano test that two forecasts are equally "
+                "accurate: t ratio of the mean loss differential "
+                "|e1|^power - |e2|^power with a long-run variance over the "
+                "h - 1 autocovariances an h-step forecast error has, and "
+                "the Harvey-Leybourne-Newbold small-sample correction (t "
+                "reference with n - 1 degrees of freedom). Compares "
+                "predictive accuracy of out-of-sample forecast errors, for "
+                "instance two columns of sp.tscv(...).errors. Equal to R "
+                "forecast::dm.test. Meant for non-nested forecasts; with "
+                "nested models the statistic is not asymptotically normal."
+            ),
+            params=[
+                ParamSpec("e1", "array|str", True, None, "Forecast errors of method 1"),
+                ParamSpec("e2", "array|str", True, None, "Forecast errors of method 2"),
+                ParamSpec("h", "int", False, 1, "Forecast horizon of the errors"),
+                ParamSpec(
+                    "power", "float", False, 2, "Loss is |e|^power: 2 MSE, 1 MAE"
+                ),
+                ParamSpec(
+                    "alternative",
+                    "str",
+                    False,
+                    "two-sided",
+                    "'greater': method 2 is more accurate; 'less': less accurate",
+                    ["two-sided", "less", "greater"],
+                ),
+                ParamSpec(
+                    "varestimator",
+                    "str",
+                    False,
+                    "acf",
+                    "Long-run variance: unweighted autocovariances, or "
+                    "Bartlett weights (never negative)",
+                    ["acf", "bartlett"],
+                ),
+                ParamSpec(
+                    "harvey",
+                    "bool",
+                    False,
+                    True,
+                    "Harvey-Leybourne-Newbold correction and t reference; "
+                    "False is the original statistic with a normal reference",
+                ),
+                ParamSpec("data", "DataFrame", False, None, "Frame holding e1 and e2"),
+                ParamSpec("alpha", "float", False, 0.05, "Level used for 'reject'"),
+            ],
+            returns="dict",
+            example='sp.dm_test(err["arima"], err["ets"], h=1)',
+            tags=[
+                "timeseries",
+                "forecast",
+                "diebold-mariano",
+                "predictive-accuracy",
+                "forecast-comparison",
+            ],
+            reference="diebold1995comparing",
+            assumptions=[
+                "The loss differential is covariance stationary",
+                "The forecasts come from non-nested methods (or a rolling "
+                "scheme with a fixed estimation window)",
+                "The errors are out-of-sample and of one horizon h",
+            ],
+            alternatives=["forecast_accuracy", "tscv"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bds",
             category="timeseries",
             description=(

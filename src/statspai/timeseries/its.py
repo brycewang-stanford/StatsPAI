@@ -64,6 +64,12 @@ def _time_ordered(
     if time is None:
         return df
     tcol = df[time]
+    if tcol.isna().any():
+        raise DataInsufficient(
+            f"{function}: the time column {time!r} has missing values.",
+            recovery_hint="Every row needs its period; drop or date those rows.",
+            diagnostics={"time": time, "n_missing_time": int(tcol.isna().sum())},
+        )
     dup = tcol.duplicated(keep=False) & tcol.notna()
     if dup.any():
         repeated = pd.unique(tcol[dup])[:5].tolist()
@@ -117,6 +123,11 @@ class ITSResult(ResultProtocolMixin):
     n_obs: int
     intervention_time: int
     detail: Dict[str, Any] = field(default_factory=dict)
+    #: value of the ``time`` column at the first post-intervention row
+    intervention_label: Any = None
+    #: ``'time_unit'``: what one unit of the trend and of the slope change
+    #: is; ``'period_step'``: the spacing of the time column
+    model_info: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """JSON-safe dict of every field (agent-native serialization)."""
@@ -124,11 +135,19 @@ class ITSResult(ResultProtocolMixin):
 
         return result_to_dict(self)
 
+    def _intervention_text(self) -> str:
+        row = f"row {self.intervention_time}"
+        if self.intervention_label is None:
+            return row
+        return f"{self.intervention_label} ({row})"
+
     def summary(self) -> str:  # pragma: no cover
+        unit = self.model_info.get("time_unit")
+        note = f"\nTrend and slope change are per {unit}." if unit else ""
         return (
             "Interrupted Time Series (segmented regression)\n"
             "----------------------------------------------\n"
-            f"  intervention time : t = {self.intervention_time}\n"
+            f"  intervention      : {self._intervention_text()}\n"
             f"  n                 : {self.n_obs}\n"
             f"  level change      : {self.level_change:+.4f}  "
             f"(SE={self.se_level:.4f}, "
@@ -137,6 +156,7 @@ class ITSResult(ResultProtocolMixin):
             f"(SE={self.se_slope:.4f}, "
             f"p={self.pvalue_slope:.4f})\n\n"
             f"Coefficients:\n{self.coefficients.to_string(index=False)}"
+            f"{note}"
         )
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -144,6 +164,39 @@ class ITSResult(ResultProtocolMixin):
             f"ITSResult(level={self.level_change:+.4f}, "
             f"slope={self.slope_change:+.4f})"
         )
+
+
+def _clock(df: pd.DataFrame, time: Optional[str], who: str) -> tuple:
+    """The regressor a trend is fitted on, the time labels and the unit.
+
+    A numeric time column is used as it is (the trend is per unit of that
+    column). Dates, periods and labels are not numbers a trend can be
+    fitted on (a datetime is nanoseconds since 1970), so there the clock
+    is the row position and the column only labels the rows.
+    """
+    n = len(df)
+    if time is None:
+        return np.arange(n, dtype=float), None, "period (row)"
+    tcol = df[time]
+    labels = tcol.to_numpy()
+    if pd.api.types.is_numeric_dtype(tcol) and not pd.api.types.is_bool_dtype(tcol):
+        return tcol.to_numpy(dtype=float), labels, f"unit of {time!r}"
+    if tcol.isna().any():
+        raise DataInsufficient(
+            f"{who}: the time column {time!r} has missing values.",
+            recovery_hint="Every row needs its period.",
+            diagnostics={"n_missing_time": int(tcol.isna().sum())},
+        )
+    return np.arange(n, dtype=float), labels, "period (row)"
+
+
+def _plain(value: Any) -> Any:
+    """A time label as a plain Python value (for printing and JSON)."""
+    if isinstance(value, np.datetime64):
+        return pd.Timestamp(value).isoformat()
+    if isinstance(value, np.generic):
+        return value.item()
+    return value if isinstance(value, (int, float, str)) else str(value)
 
 
 def _newey_west_vcov(X: np.ndarray, resid: np.ndarray, L: int) -> np.ndarray:
@@ -185,13 +238,18 @@ def its(
         Outcome column.
     time : str, optional
         Time column. If None, the rows are taken to be in time order and
-        the row index 0..n-1 is the time.
+        the row index 0..n-1 is the time. A numeric column is the clock
+        of the trend and of the slope change, so both are per unit of
+        that column (per year for ``1949.0, 1949.083, ...``). A date,
+        period or other non-numeric column only orders and labels the
+        rows: the clock is then the row position, one unit per period.
     intervention : int
         Time index (integer row position in the time-ordered series) at
         which the intervention begins. Required.
     seasonality_period : int, optional
-        Period P of Fourier seasonal terms (e.g. 12 for monthly data
-        with annual cycle). If None, no seasonality is added.
+        Period P of Fourier seasonal terms, in observations (e.g. 12 for
+        monthly data with annual cycle), whatever the unit of ``time``.
+        If None, no seasonality is added.
     seasonality_harmonics : int, default 2
     hac_lag : int, default 4
         Newey-West truncation lag (Bartlett weights ``1 - j/(L+1)``).
@@ -251,10 +309,7 @@ def its(
             "intervention begins, with observations on both sides.",
             diagnostics={"intervention": int(intervention), "n_obs": int(n)},
         )
-    if time is None:
-        t = np.arange(n, dtype=float)
-    else:
-        t = df[time].to_numpy(dtype=float)
+    t, labels, time_unit = _clock(df, time, "its")
     Y = df[y].to_numpy(dtype=float)
     if not (np.isfinite(Y).all() and np.isfinite(t).all()):
         raise DataInsufficient(
@@ -266,12 +321,15 @@ def its(
         )
 
     D = (np.arange(n) >= intervention).astype(float)
-    # time since intervention (for slope change term)
-    t_post = np.where(
-        np.arange(n) >= intervention,
-        np.arange(n) - intervention,
-        0,
-    ).astype(float)
+    # time since intervention (for slope change term), on the clock of the
+    # trend: with a time column that does not advance by one per row the
+    # row count would put the two slopes in different units
+    t_post = np.where(np.arange(n) >= intervention, t - t[intervention], 0.0)
+    # one period on that clock: the Fourier terms count observations
+    steps = np.diff(t)
+    step = float(np.median(steps)) if steps.size else 1.0
+    if not step > 0:  # pragma: no cover - duplicates are refused above
+        step = 1.0
 
     # Build design: [1, t, D, t_post]
     parts = [np.ones(n), t, D, t_post]
@@ -280,8 +338,8 @@ def its(
     # Fourier seasonality
     if seasonality_period is not None and seasonality_period > 1:
         for k in range(1, seasonality_harmonics + 1):
-            parts.append(np.sin(2 * np.pi * k * t / seasonality_period))
-            parts.append(np.cos(2 * np.pi * k * t / seasonality_period))
+            parts.append(np.sin(2 * np.pi * k * (t / step) / seasonality_period))
+            parts.append(np.cos(2 * np.pi * k * (t / step) / seasonality_period))
             coef_names += [f"sin_{k}", f"cos_{k}"]
 
     X = np.column_stack(parts)
@@ -329,7 +387,7 @@ def its(
     fitted = X @ beta
     counterfactual = fitted - beta[idx_level] * D - beta[idx_slope] * t_post
     detail = {
-        "time": t,
+        "time": t if labels is None else labels,
         "observed": Y,
         "fitted": fitted,
         "counterfactual": counterfactual,
@@ -349,6 +407,10 @@ def its(
         n_obs=n,
         intervention_time=int(intervention),
         detail=detail,
+        intervention_label=(
+            None if labels is None else _plain(labels[int(intervention)])
+        ),
+        model_info={"time_unit": time_unit, "period_step": step},
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

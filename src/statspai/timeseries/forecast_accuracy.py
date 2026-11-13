@@ -108,11 +108,17 @@ def _one(
             )
         return out
     widest: Optional[Tuple[float, np.ndarray, np.ndarray]] = None
+    # ``lower`` / ``upper`` without a level in the name (the default layout
+    # of ``ARIMAResult.forecast(h, alpha)``): the coverage is in ``attrs``
+    plain = frame.attrs.get("level") if hasattr(frame, "attrs") else None
     for col in frame.columns:
-        if not col.startswith("lower_"):
+        if col == "lower" and plain is not None and "upper" in frame.columns:
+            lab, up = str(plain), "upper"
+        elif not str(col).startswith("lower_"):
             continue
-        lab = col[len("lower_") :]
-        up = f"upper_{lab}"
+        else:
+            lab = col[len("lower_") :]
+            up = f"upper_{lab}"
         if up not in frame.columns:
             continue
         pct = float(lab)

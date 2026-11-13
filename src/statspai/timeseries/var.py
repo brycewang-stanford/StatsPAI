@@ -106,28 +106,81 @@ class VARResult(ResultProtocolMixin):
         #: final prediction error, |Sigma_ml| ((T + m) / (T - m))^K
         self.fpe: float = float("nan")
 
+    # --- inference -------------------------------------------------------
+    @property
+    def _small(self) -> bool:
+        """Whether the fit uses the small-sample convention (``se_df='r'``):
+        residual variance over ``T - m`` and t / F reference distributions.
+        The default (``'stata'``) is the large-sample one of Stata's
+        ``var``: divisor ``T`` and a normal reference."""
+        return str(self.se_df).lower() in {"r", "unbiased"}
+
+    def _stacked(self, column: str) -> pd.Series:
+        parts = {
+            f"{eq}:{term}": float(value)
+            for eq in self.var_names
+            for term, value in self.coefs[eq][column].items()
+        }
+        return pd.Series(parts, dtype=float)
+
+    @property
+    def params(self) -> pd.Series:
+        """Every coefficient of the system, indexed ``'<equation>:<term>'``."""
+        return self._stacked("coef")
+
+    @property
+    def std_errors(self) -> pd.Series:
+        """Standard errors matching :attr:`params`."""
+        return self._stacked("se")
+
+    @property
+    def tvalues(self) -> pd.Series:
+        """Coefficient over standard error (z ratios unless ``se_df='r'``)."""
+        return self.params / self.std_errors
+
+    @property
+    def pvalues(self) -> pd.Series:
+        """Two-sided p-values: standard normal with ``se_df='stata'``
+        (Stata ``var``), ``t(T - m)`` with ``se_df='r'`` (R ``vars``,
+        Stata ``var, small``), ``m`` the regressors per equation."""
+        ratio = self.tvalues.abs().to_numpy(dtype=float)
+        if self._small:
+            m = int(self.coefs[self.var_names[0]].shape[0])
+            p = 2.0 * stats.t.sf(ratio, self.n_obs - m)
+        else:
+            p = 2.0 * stats.norm.sf(ratio)
+        return pd.Series(p, index=self.params.index)
+
     def summary(self) -> str:
         k = len(self.var_names)
+        small = self._small
+        ref = "t" if small else "z"
         lines = [
             "Vector Autoregression (VAR)",
             "=" * 60,
             f"Lags: {self.lags:<10d} Variables: {k}",
             f"N obs: {self.n_obs:<10d} Log-lik: {self.log_likelihood:.2f}",
             (f"AIC: {self.aic:.4f}   BIC: {self.bic:.4f}   " f"HQIC: {self.hqic:.4f}"),
+            (
+                "Std. errors: residual variance over T - m; t(T - m) reference"
+                if small
+                else "Std. errors: residual variance over T; normal reference"
+            ),
             "=" * 60,
         ]
+        pvalues = self.pvalues
         for var_name in self.var_names:
             lines.append(f"\nEquation: {var_name}")
             lines.append("-" * 60)
             coef_df = self.coefs[var_name]
             lines.append(
                 f"{'Variable':<20s} {'Coef':>10s} {'SE':>10s}"
-                f" {'t':>8s} {'P>|t|':>8s}"
+                f" {ref:>8s} {'P>|' + ref + '|':>8s}"
             )
             lines.append("-" * 60)
             for idx, row in coef_df.iterrows():
                 t_val = row["coef"] / row["se"] if row["se"] > 0 else np.nan
-                p_val = 2 * stats.t.sf(abs(t_val), self.n_obs - coef_df.shape[0])
+                p_val = float(pvalues[f"{var_name}:{idx}"])
                 lines.append(
                     f"{idx:<20s} {row['coef']:>10.4f} "
                     f"{row['se']:>10.4f} {t_val:>8.3f} {p_val:>8.4f}"
@@ -302,6 +355,14 @@ class VARResult(ResultProtocolMixin):
 
         return lm_autocorrelation(self, lags=lags)
 
+    def normality_test(self) -> pd.DataFrame:
+        """Jarque-Bera, skewness and kurtosis tests of the residuals, by
+        equation and for the system (Stata ``varnorm``; the multivariate
+        rows of ``vars::normality.test``)."""
+        from .var_diagnostics import normality_test
+
+        return normality_test(self)
+
     def stability(self) -> pd.DataFrame:
         """Eigenvalues of the companion matrix (Stata ``varstable``);
         ``attrs['stable']`` is True when all lie inside the unit circle."""
@@ -315,12 +376,32 @@ class VARResult(ResultProtocolMixin):
 
         return equation_table(self)
 
-    def forecast(self, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
-        """Dynamic forecasts ``steps`` periods past the sample, with
-        standard errors that take the coefficients as known."""
+    def forecast(
+        self,
+        steps: int = 1,
+        alpha: float = 0.05,
+        *,
+        sigma_df: Optional[str] = None,
+        param_uncertainty: bool = False,
+    ) -> pd.DataFrame:
+        """Dynamic forecasts ``steps`` periods past the sample.
+
+        The standard errors take the coefficients as known unless
+        ``param_uncertainty=True``, which adds the asymptotic variance of
+        the estimated coefficients (Stata ``fcast compute``). The residual
+        covariance has divisor ``T`` or ``T - m`` as the fit's ``se_df``
+        says (``sigma_df=`` overrides it); ``se_df='r'`` reproduces
+        ``vars::predict``.
+        """
         from .var_diagnostics import forecast
 
-        return forecast(self, steps=steps, alpha=alpha)
+        return forecast(
+            self,
+            steps=steps,
+            alpha=alpha,
+            sigma_df=sigma_df,
+            param_uncertainty=param_uncertainty,
+        )
 
     def plot_irf(
         self,
@@ -610,12 +691,14 @@ def var(
         )
     _require_independent_series(var_data, var_names, "sp.var", constant=trend != "n")
 
-    # OLS for each equation
-    try:
-        XtX_inv = np.linalg.inv(X.T @ X)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(X.T @ X)
-    B = XtX_inv @ X.T @ Y  # (kp+1) x k
+    # OLS for each equation, by QR. The normal equations square the
+    # condition number: on series in levels with a constant (values near
+    # 1000) inverting X'X left the coefficients right to eight digits only,
+    # an error that dynamic forecasts of a persistent system amplify.
+    Q_x, R_x = np.linalg.qr(X)
+    R_inv = np.linalg.solve(R_x, np.eye(R_x.shape[0]))
+    XtX_inv = R_inv @ R_inv.T
+    B = R_inv @ (Q_x.T @ Y)  # (kp+1) x k
 
     residuals = Y - X @ B
     rss = residuals.T @ residuals

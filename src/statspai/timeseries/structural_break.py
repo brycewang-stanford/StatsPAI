@@ -832,7 +832,14 @@ def _bai_perron_sequential(
     break_dates = sorted(breaks)
     edges = [0] + break_dates + [n]
     rss_total = float(sum(seg(edges[i], edges[i + 1]) for i in range(len(edges) - 1)))
-    bic_val = n * np.log(rss_total / n) + q * (len(break_dates) + 1) * np.log(n)
+    # the Gaussian BIC of the partition, as method='global' and
+    # strucchange::breakpoints report it: -2 logLik + df log n with
+    # df = (q + 1)(m + 1), the coefficients and breaks plus the variance.
+    # (Through 1.43.1 this was n log(RSS / n) + q (m + 1) log n, so the
+    # same partition had two "BIC" values depending on the method.)
+    bic_val = n * (np.log(rss_total) + 1.0 - np.log(n) + np.log(2.0 * np.pi)) + (
+        q + 1
+    ) * (len(break_dates) + 1) * np.log(n)
     # statistics / critical values of the accepted steps, in the
     # chronological order of the breaks they added
     accepted = sorted((t for t in tests if t["reject"]), key=lambda t: t["date"])

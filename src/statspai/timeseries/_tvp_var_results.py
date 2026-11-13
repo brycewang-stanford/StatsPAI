@@ -90,6 +90,11 @@ class TVPVARResult(ResultProtocolMixin):
     _citation_keys = ("petris2009dynamic", "kalman1960new", "lutkepohl2005new")
 
     # ------------------------------------------------------------------ #
+    @property
+    def log_likelihood(self) -> float:
+        """Alias of :attr:`loglik`, the name most StatsPAI results use."""
+        return float(self.loglik)
+
     def _kind(self, kind: Optional[str]) -> str:
         if kind is None:
             return "smoothed" if self.coef_smoothed is not None else "filtered"

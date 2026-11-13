@@ -1,0 +1,576 @@
+key,value
+air.opg.ma1, 7.30306322012200e-02
+air.opg.sma1, 9.63128473381442e-02
+air.n_missing_resid, 1.30000000000000e+01
+air.resid14, 3.91640254176568e-02
+air.resid15, 1.39102225026266e-02
+air.resid144,-1.49690717775646e-02
+air.q24, 2.36200131263603e+01
+air.q24_p, 4.83489232274690e-01
+air.oim.ma1, 8.96442307648661e-02
+air.oim.sma1, 7.31054794804882e-02
+nile.opg.ma1, 7.45474534001215e-02
+nile.oim.ma1, 1.14352004984303e-01
+lynx.oim.ar1, 6.14299877183181e-02
+lynx.oim.ar2, 6.11478540103812e-02
+lynx.oim.const, 5.85706237127342e-02
+var.b.e.L1.e, 1.63782060228780e+00
+var.se.e.L1.e, 1.41537642596608e-01
+var.p.e.L1.e, 5.73850040695313e-31
+var.b.e.L2.e,-4.97133774749189e-01
+var.se.e.L2.e, 1.50517180830346e-01
+var.p.e.L2.e, 9.57118673182311e-04
+var.b.e.L1.prod, 1.67271668547062e-01
+var.se.e.L1.prod, 5.76852116339285e-02
+var.p.e.L1.prod, 3.73481541472529e-03
+var.b.e.L2.prod,-1.01650067211579e-01
+var.se.e.L2.prod, 6.23380767693907e-02
+var.p.e.L2.prod, 1.02969332595490e-01
+var.b.e.L1.rw,-6.31186313447105e-02
+var.se.e.L1.rw, 5.21192491753005e-02
+var.p.e.L1.rw, 2.25879076106505e-01
+var.b.e.L2.rw, 3.84449205406718e-03
+var.se.e.L2.rw, 5.23867931393246e-02
+var.p.e.L2.rw, 9.41498428534264e-01
+var.b.e.L1.U, 2.65584777212414e-01
+var.se.e.L1.U, 1.91344599930945e-01
+var.p.e.L1.U, 1.65139475981611e-01
+var.b.e.L2.U, 1.32689312628873e-01
+var.se.e.L2.U, 1.95619146780959e-01
+var.p.e.L2.U, 4.97578759215667e-01
+var.b.e._cons,-1.36998449369375e+02
+var.p.e._cons, 9.32569336396765e-03
+var.b.prod.L1.e,-1.72765811981755e-01
+var.se.prod.L1.e, 2.54532950897360e-01
+var.p.prod.L1.e, 4.97292366659610e-01
+var.b.prod.L2.e, 3.85258923082206e-01
+var.se.prod.L2.e, 2.70681222992320e-01
+var.p.prod.L2.e, 1.54650985757234e-01
+var.b.prod.L1.prod, 1.15042820441229e+00
+var.se.prod.L1.prod, 1.03737683283093e-01
+var.p.prod.L1.prod, 1.40631394666468e-28
+var.b.prod.L2.prod,-1.72411872823138e-01
+var.se.prod.L2.prod, 1.12105121593706e-01
+var.p.prod.L2.prod, 1.24061274492207e-01
+var.b.prod.L1.rw, 5.13038957811831e-02
+var.se.prod.L1.rw, 9.37281845858722e-02
+var.p.prod.L1.rw, 5.84125298813253e-01
+var.b.prod.L2.rw,-1.18851043468392e-01
+var.se.prod.L2.rw, 9.42093198754567e-02
+var.p.prod.L2.rw, 2.07105881169323e-01
+var.b.prod.L1.U,-4.78501312973062e-01
+var.se.prod.L1.U, 3.44102846177159e-01
+var.p.prod.L1.U, 1.64353902890832e-01
+var.b.prod.L2.U, 1.01591800956284e+00
+var.se.prod.L2.U, 3.51789939190174e-01
+var.p.prod.L2.U, 3.87879773674556e-03
+var.b.prod._cons,-1.66775517747204e+02
+var.p.prod._cons, 7.84181982964846e-02
+var.b.rw.L1.e,-2.68832870818684e-01
+var.se.rw.L1.e, 3.04400127784972e-01
+var.p.rw.L1.e, 3.77151863941339e-01
+var.b.rw.L2.e, 3.67848940946577e-01
+var.se.rw.L2.e, 3.23712111054260e-01
+var.p.rw.L2.e, 2.55811814024780e-01
+var.b.rw.L1.prod,-8.10650014991592e-02
+var.se.rw.L1.prod, 1.24061595703671e-01
+var.p.rw.L1.prod, 5.13482049040670e-01
+var.b.rw.L2.prod,-5.18094725777040e-03
+var.se.rw.L2.prod, 1.34068352322032e-01
+var.p.rw.L2.prod, 9.69174162966870e-01
+var.b.rw.L1.rw, 8.95478330073339e-01
+var.se.rw.L1.rw, 1.12091072155518e-01
+var.p.rw.L1.rw, 1.36207549663198e-15
+var.b.rw.L2.rw, 5.26765645449868e-02
+var.se.rw.L2.rw, 1.12666469734162e-01
+var.p.rw.L2.rw, 6.40110512635622e-01
+var.b.rw.L1.U, 1.21300325540474e-02
+var.se.rw.L1.U, 4.11518233604803e-01
+var.p.rw.L1.U, 9.76484725151375e-01
+var.b.rw.L2.U,-1.27708256301286e-01
+var.se.rw.L2.U, 4.20711354130878e-01
+var.p.rw.L2.U, 7.61468349946256e-01
+var.b.rw._cons,-3.31883387735293e+01
+var.p.rw._cons, 7.69634377720583e-01
+var.b.U.L1.e,-5.80763818865563e-01
+var.se.U.L1.e, 1.09098248660912e-01
+var.p.U.L1.e, 1.01895769435887e-07
+var.b.U.L2.e, 4.09818219800866e-01
+var.se.U.L2.e, 1.16019742315266e-01
+var.p.U.L2.e, 4.11939099256110e-04
+var.b.U.L1.prod,-7.81170733055867e-02
+var.se.U.L1.prod, 4.44641824424911e-02
+var.p.U.L1.prod, 7.89427113543668e-02
+var.b.U.L2.prod, 5.21166840858839e-02
+var.se.U.L2.prod, 4.80506448720025e-02
+var.p.U.L2.prod, 2.78090051814916e-01
+var.b.U.L1.rw, 1.86621392905569e-02
+var.se.U.L1.rw, 4.01738979273013e-02
+var.p.U.L1.rw, 6.42265245276392e-01
+var.b.U.L2.rw, 4.18011516502106e-02
+var.se.U.L2.rw, 4.03801227688299e-02
+var.p.U.L2.rw, 3.00579582499035e-01
+var.b.U.L1.U, 6.18931496617686e-01
+var.se.U.L1.U, 1.47489815148930e-01
+var.p.U.L1.U, 2.71148630864046e-05
+var.b.U.L2.U,-7.11688493982988e-02
+var.se.U.L2.U, 1.50784667080897e-01
+var.p.U.L2.U, 6.36933952976412e-01
+var.b.U._cons, 1.49780564873309e+02
+var.p.U._cons, 2.26355439144549e-04
+varnorm.jb.e.chi2, 1.53473209956286e-01
+varnorm.jb.e.p, 9.26133760505244e-01
+varnorm.skewness.e.chi2, 5.53913596033448e-02
+varnorm.skewness.e.p, 8.13934226255974e-01
+varnorm.kurtosis.e.chi2, 9.80818503529415e-02
+varnorm.kurtosis.e.p, 7.54143745050840e-01
+varnorm.skewness.e.value, 6.36633828227802e-02
+varnorm.kurtosis.e.value, 3.16943105686423e+00
+varnorm.jb.prod.chi2, 4.73645646991322e+00
+varnorm.jb.prod.p, 9.36464989728761e-02
+varnorm.skewness.prod.chi2, 1.63240625295114e+00
+varnorm.skewness.prod.p, 2.01370552761146e-01
+varnorm.kurtosis.prod.chi2, 3.10405021696208e+00
+varnorm.kurtosis.prod.p, 7.80977717321319e-02
+varnorm.skewness.prod.value,-3.45607233680134e-01
+varnorm.kurtosis.prod.value, 3.95315397629422e+00
+varnorm.jb.rw.chi2, 1.91543807629316e-01
+varnorm.jb.rw.p, 9.08671256879813e-01
+varnorm.skewness.rw.chi2, 8.16513446905796e-02
+varnorm.skewness.rw.p, 7.75071908484157e-01
+varnorm.kurtosis.rw.chi2, 1.09892462938736e-01
+varnorm.kurtosis.rw.p, 7.40266598425256e-01
+varnorm.skewness.rw.value, 7.72948163585118e-02
+varnorm.kurtosis.rw.value, 3.17934226409128e+00
+varnorm.jb.U.chi2, 1.25517024706379e-02
+varnorm.jb.U.p, 9.93743800786498e-01
+varnorm.skewness.U.chi2, 6.64593860558691e-03
+varnorm.skewness.U.p, 9.35026331545843e-01
+varnorm.kurtosis.U.chi2, 5.90576386505098e-03
+varnorm.kurtosis.U.p, 9.38743695148100e-01
+varnorm.skewness.U.value, 2.20519430130930e-02
+varnorm.kurtosis.U.value, 3.04157542847868e+00
+varnorm.jb.ALL.chi2, 5.09402518996946e+00
+varnorm.jb.ALL.p, 7.47480957555926e-01
+varnorm.skewness.ALL.chi2, 1.77609489585065e+00
+varnorm.skewness.ALL.p, 7.76852911827801e-01
+varnorm.kurtosis.ALL.chi2, 3.31793029411881e+00
+varnorm.kurtosis.ALL.p, 5.06096385619179e-01
+fcast.1.e, 9.62655688018631e+02
+fcast.1.e_se, 3.60623090611127e-01
+fcast.1.e_lower, 9.61948879749040e+02
+fcast.1.e_upper, 9.63362496288223e+02
+fcast.1.prod, 4.17262302085740e+02
+fcast.1.prod_se, 6.48523302573144e-01
+fcast.1.prod_lower, 4.15991219769562e+02
+fcast.1.prod_upper, 4.18533384401918e+02
+fcast.1.rw, 4.70295396040711e+02
+fcast.1.rw_se, 7.75579646871957e-01
+fcast.1.rw_lower, 4.68775287865699e+02
+fcast.1.rw_upper, 4.71815504215722e+02
+fcast.1.U, 6.42883235662708e+00
+fcast.1.U_se, 2.77970912126337e-01
+fcast.1.U_lower, 5.88401938010971e+00
+fcast.1.U_upper, 6.97364533314445e+00
+fcast.2.e, 9.63653755962696e+02
+fcast.2.e_se, 6.78649949321324e-01
+fcast.2.e_lower, 9.62323626503917e+02
+fcast.2.e_upper, 9.64983885421476e+02
+fcast.2.prod, 4.17740977545733e+02
+fcast.2.prod_se, 1.01208542145810e+00
+fcast.2.prod_lower, 4.15757326570397e+02
+fcast.2.prod_upper, 4.19724628521069e+02
+fcast.2.rw, 4.70894825963825e+02
+fcast.2.rw_se, 1.07202675647866e+00
+fcast.2.rw_lower, 4.68793692130664e+02
+fcast.2.rw_upper, 4.72995959796987e+02
+fcast.2.U, 5.90391851228279e+00
+fcast.2.U_se, 4.57601155177119e-01
+fcast.2.U_lower, 5.00703672885171e+00
+fcast.2.U_upper, 6.80080029571386e+00
+fcast.3.e, 9.64693197152724e+02
+fcast.3.e_se, 9.82854736610557e-01
+fcast.3.e_lower, 9.62766837266932e+02
+fcast.3.e_upper, 9.66619557038515e+02
+fcast.3.prod, 4.18219554374997e+02
+fcast.3.prod_se, 1.29337979845537e+00
+fcast.3.prod_lower, 4.15684576551693e+02
+fcast.3.prod_upper, 4.20754532198301e+02
+fcast.3.rw, 4.71536001851339e+02
+fcast.3.rw_se, 1.30362055214266e+00
+fcast.3.rw_lower, 4.68980952519633e+02
+fcast.3.rw_upper, 4.74091051183045e+02
+fcast.3.U, 5.39617737686001e+00
+fcast.3.U_se, 6.16961357388763e-01
+fcast.3.U_lower, 4.18695533652509e+00
+fcast.3.U_upper, 6.60539941719493e+00
+fcast.4.e, 9.65688172601782e+02
+fcast.4.e_se, 1.27072008523087e+00
+fcast.4.e_lower, 9.63197607000298e+02
+fcast.4.e_upper, 9.68178738203267e+02
+fcast.4.prod, 4.18563865325993e+02
+fcast.4.prod_se, 1.54040998966437e+00
+fcast.4.prod_lower, 4.15544717224825e+02
+fcast.4.prod_upper, 4.21583013427161e+02
+fcast.4.rw, 4.72249040242038e+02
+fcast.4.rw_se, 1.49527173862417e+00
+fcast.4.rw_lower, 4.69318361487234e+02
+fcast.4.rw_upper, 4.75179718996842e+02
+fcast.4.U, 4.94921903474085e+00
+fcast.4.U_se, 7.59453342652162e-01
+fcast.4.U_lower, 3.46071783520406e+00
+fcast.4.U_upper, 6.43772023427764e+00
+fcast.5.e, 9.66581350503325e+02
+fcast.5.e_se, 1.54483144350204e+00
+fcast.5.e_lower, 9.63553536511876e+02
+fcast.5.e_upper, 9.69609164494774e+02
+fcast.5.prod, 4.18764438293685e+02
+fcast.5.prod_se, 1.76973816795412e+00
+fcast.5.prod_lower, 4.15295815222429e+02
+fcast.5.prod_upper, 4.22233061364941e+02
+fcast.5.rw, 4.73065230913753e+02
+fcast.5.rw_se, 1.66147647346047e+00
+fcast.5.rw_lower, 4.69808796864610e+02
+fcast.5.rw_upper, 4.76321664962896e+02
+fcast.5.U, 4.59500797403712e+00
+fcast.5.U_se, 8.90394452242871e-01
+fcast.5.U_lower, 2.84986691560682e+00
+fcast.5.U_upper, 6.34014903246741e+00
+fcast.6.e, 9.67345975486347e+02
+fcast.6.e_se, 1.80865118869093e+00
+fcast.6.e_lower, 9.63801084295918e+02
+fcast.6.e_upper, 9.70890866676777e+02
+fcast.6.prod, 4.18837378194185e+02
+fcast.6.prod_se, 1.98547988352170e+00
+fcast.6.prod_lower, 4.14945909130453e+02
+fcast.6.prod_upper, 4.22728847257916e+02
+fcast.6.rw, 4.73994297846083e+02
+fcast.6.rw_se, 1.81131411821729e+00
+fcast.6.rw_lower, 4.70444187409688e+02
+fcast.6.rw_upper, 4.77544408282478e+02
+fcast.6.U, 4.34393262305264e+00
+fcast.6.U_se, 1.01439580096603e+00
+fcast.6.U_lower, 2.35575338709057e+00
+fcast.6.U_upper, 6.33211185901471e+00
+fcast.7.e, 9.67976892250093e+02
+fcast.7.e_se, 2.06432331197613e+00
+fcast.7.e_lower, 9.63930892906173e+02
+fcast.7.e_upper, 9.72022891594012e+02
+fcast.7.prod, 4.18809662981778e+02
+fcast.7.prod_se, 2.18669985586429e+00
+fcast.7.prod_lower, 4.14523810019285e+02
+fcast.7.prod_upper, 4.23095515944271e+02
+fcast.7.rw, 4.75027487581279e+02
+fcast.7.rw_se, 1.94960297679060e+00
+fcast.7.rw_lower, 4.71206335962618e+02
+fcast.7.rw_upper, 4.78848639199941e+02
+fcast.7.U, 4.19192845935859e+00
+fcast.7.U_se, 1.13382842461012e+00
+fcast.7.U_lower, 1.96966558247496e+00
+fcast.7.U_upper, 6.41419133624222e+00
+fcast.8.e, 9.68482722765138e+02
+fcast.8.e_se, 2.31225665974966e+00
+fcast.8.e_lower, 9.63950782989016e+02
+fcast.8.e_upper, 9.73014662541260e+02
+fcast.8.prod, 4.18711028970644e+02
+fcast.8.prod_se, 2.37121519096789e+00
+fcast.8.prod_lower, 4.14063532596753e+02
+fcast.8.prod_upper, 4.23358525344536e+02
+fcast.8.rw, 4.76145371395389e+02
+fcast.8.rw_se, 2.07863212439361e+00
+fcast.8.rw_lower, 4.72071327294469e+02
+fcast.8.rw_upper, 4.80219415496308e+02
+fcast.8.U, 4.12674467444572e+00
+fcast.8.U_se, 1.24902173945673e+00
+fcast.8.U_lower, 1.67870704920295e+00
+fcast.8.U_upper, 6.57478229968848e+00
+vec.rconstant.df_m, 6.00000000000000e+00
+vec.rconstant.fcast.1.LRM, 1.20200203469705e+01
+vec.rconstant.fcast.1.LRM_se, 2.76949758447518e-02
+vec.rconstant.fcast.1.LRY, 6.04534584480537e+00
+vec.rconstant.fcast.1.LRY_se, 2.37947154993052e-02
+vec.rconstant.fcast.1.IBO, 1.17517811571516e-01
+vec.rconstant.fcast.1.IBO_se, 8.76992944595857e-03
+vec.rconstant.fcast.1.IDE, 7.45754745694545e-02
+vec.rconstant.fcast.1.IDE_se, 5.76451617824570e-03
+vec.rconstant.fcast.2.LRM, 1.20162551757259e+01
+vec.rconstant.fcast.2.LRM_se, 3.80462616113542e-02
+vec.rconstant.fcast.2.LRY, 6.04763106431541e+00
+vec.rconstant.fcast.2.LRY_se, 3.77326411955222e-02
+vec.rconstant.fcast.2.IBO, 1.16202393224350e-01
+vec.rconstant.fcast.2.IBO_se, 1.52807465795295e-02
+vec.rconstant.fcast.2.IDE, 7.41904354228525e-02
+vec.rconstant.fcast.2.IDE_se, 9.48543376206364e-03
+vec.rconstant.fcast.3.LRM, 1.20181508879263e+01
+vec.rconstant.fcast.3.LRM_se, 5.18417414988948e-02
+vec.rconstant.fcast.3.LRY, 6.04699520989142e+00
+vec.rconstant.fcast.3.LRY_se, 4.75484168103324e-02
+vec.rconstant.fcast.3.IBO, 1.16041554801425e-01
+vec.rconstant.fcast.3.IBO_se, 2.07248032428852e-02
+vec.rconstant.fcast.3.IDE, 7.36981574479263e-02
+vec.rconstant.fcast.3.IDE_se, 1.27563410003728e-02
+vec.rconstant.fcast.4.LRM, 1.20178241125097e+01
+vec.rconstant.fcast.4.LRM_se, 6.50915255480293e-02
+vec.rconstant.fcast.4.LRY, 6.04797065709161e+00
+vec.rconstant.fcast.4.LRY_se, 5.54216905666519e-02
+vec.rconstant.fcast.4.IBO, 1.15878917663829e-01
+vec.rconstant.fcast.4.IBO_se, 2.50760444087173e-02
+vec.rconstant.fcast.4.IDE, 7.36426406833516e-02
+vec.rconstant.fcast.4.IDE_se, 1.55542439752949e-02
+vec.rconstant.oirf.LRM.LRM.0, 2.76949758447518e-02
+vec.rconstant.oirf.LRM.LRM.1, 2.29895458461329e-02
+vec.rconstant.oirf.LRM.LRM.2, 2.73378980424080e-02
+vec.rconstant.oirf.LRM.LRM.3, 2.49629519991757e-02
+vec.rconstant.oirf.LRM.LRM.4, 2.49122601866144e-02
+vec.rconstant.oirf.LRM.LRM.5, 2.42410267919356e-02
+vec.rconstant.oirf.LRM.LRM.6, 2.41908986132744e-02
+vec.rconstant.oirf.LRM.LRY.0, 1.40022704379993e-02
+vec.rconstant.oirf.LRM.LRY.1, 2.15925540300935e-02
+vec.rconstant.oirf.LRM.LRY.2, 1.96819098884758e-02
+vec.rconstant.oirf.LRM.LRY.3, 2.05753232972338e-02
+vec.rconstant.oirf.LRM.LRY.4, 1.94125661491726e-02
+vec.rconstant.oirf.LRM.LRY.5, 1.93343474899691e-02
+vec.rconstant.oirf.LRM.LRY.6, 1.91076929853705e-02
+vec.rconstant.oirf.LRM.IBO.0,-3.13921673926276e-03
+vec.rconstant.oirf.LRM.IBO.1,-2.09798128504923e-03
+vec.rconstant.oirf.LRM.IBO.2,-6.29786081140123e-04
+vec.rconstant.oirf.LRM.IBO.3,-3.53994174615289e-04
+vec.rconstant.oirf.LRM.IBO.4,-1.03721132180093e-04
+vec.rconstant.oirf.LRM.IBO.5,-1.77561318674907e-04
+vec.rconstant.oirf.LRM.IBO.6,-2.12986333909485e-04
+vec.rconstant.oirf.LRM.IDE.0,-1.77066386244680e-04
+vec.rconstant.oirf.LRM.IDE.1,-3.42782657857686e-05
+vec.rconstant.oirf.LRM.IDE.2, 2.49434424341870e-04
+vec.rconstant.oirf.LRM.IDE.3, 8.35928417772504e-04
+vec.rconstant.oirf.LRM.IDE.4, 9.61339896140115e-04
+vec.rconstant.oirf.LRM.IDE.5, 1.04277117965410e-03
+vec.rconstant.oirf.LRM.IDE.6, 1.01778241344165e-03
+vec.rconstant.oirf.LRY.LRM.0, 0.00000000000000e+00
+vec.rconstant.oirf.LRY.LRM.1, 4.14246046641826e-03
+vec.rconstant.oirf.LRY.LRM.2,-2.18010814401158e-03
+vec.rconstant.oirf.LRY.LRM.3,-5.56942532788943e-03
+vec.rconstant.oirf.LRY.LRM.4,-8.69946441679605e-03
+vec.rconstant.oirf.LRY.LRM.5,-1.01791988481937e-02
+vec.rconstant.oirf.LRY.LRM.6,-1.10904915877848e-02
+vec.rconstant.oirf.LRY.LRY.0, 1.92386306236698e-02
+vec.rconstant.oirf.LRY.LRY.1, 1.91094785283877e-02
+vec.rconstant.oirf.LRY.LRY.2, 1.93241218739517e-02
+vec.rconstant.oirf.LRY.LRY.3, 1.64466893720501e-02
+vec.rconstant.oirf.LRY.LRY.4, 1.52534152764517e-02
+vec.rconstant.oirf.LRY.LRY.5, 1.43879089129791e-02
+vec.rconstant.oirf.LRY.LRY.6, 1.41501624997625e-02
+vec.rconstant.oirf.LRY.IBO.0, 2.09806098644953e-03
+vec.rconstant.oirf.LRY.IBO.1, 5.68230776978946e-03
+vec.rconstant.oirf.LRY.IBO.2, 7.05873895540633e-03
+vec.rconstant.oirf.LRY.IBO.3, 7.67203780568597e-03
+vec.rconstant.oirf.LRY.IBO.4, 7.51616395788288e-03
+vec.rconstant.oirf.LRY.IBO.5, 7.30718469930926e-03
+vec.rconstant.oirf.LRY.IBO.6, 7.11329650373535e-03
+vec.rconstant.oirf.LRY.IDE.0,-8.23405759190564e-04
+vec.rconstant.oirf.LRY.IDE.1, 2.48757960522689e-04
+vec.rconstant.oirf.LRY.IDE.2, 1.84675363202066e-03
+vec.rconstant.oirf.LRY.IDE.3, 2.51235738452164e-03
+vec.rconstant.oirf.LRY.IDE.4, 2.79503171121764e-03
+vec.rconstant.oirf.LRY.IDE.5, 2.78316424714425e-03
+vec.rconstant.oirf.LRY.IDE.6, 2.73240757752504e-03
+vec.rconstant.oirf.IBO.LRM.0, 0.00000000000000e+00
+vec.rconstant.oirf.IBO.LRM.1,-1.15939491959609e-02
+vec.rconstant.oirf.IBO.LRM.2,-2.16418397906874e-02
+vec.rconstant.oirf.IBO.LRM.3,-2.87492484568915e-02
+vec.rconstant.oirf.IBO.LRM.4,-3.29375870889893e-02
+vec.rconstant.oirf.IBO.LRM.5,-3.53330334120624e-02
+vec.rconstant.oirf.IBO.LRM.6,-3.67699542259437e-02
+vec.rconstant.oirf.IBO.LRY.0, 0.00000000000000e+00
+vec.rconstant.oirf.IBO.LRY.1,-1.29733627018224e-03
+vec.rconstant.oirf.IBO.LRY.2,-6.56685643129745e-03
+vec.rconstant.oirf.IBO.LRY.3,-9.90876830830436e-03
+vec.rconstant.oirf.IBO.LRY.4,-1.17494601512032e-02
+vec.rconstant.oirf.IBO.LRY.5,-1.25125783260113e-02
+vec.rconstant.oirf.IBO.LRY.6,-1.28160938151422e-02
+vec.rconstant.oirf.IBO.IBO.0, 7.91549877444006e-03
+vec.rconstant.oirf.IBO.IBO.1, 1.09488244505305e-02
+vec.rconstant.oirf.IBO.IBO.2, 1.20595040630781e-02
+vec.rconstant.oirf.IBO.IBO.3, 1.17976575638089e-02
+vec.rconstant.oirf.IBO.IBO.4, 1.12700021235719e-02
+vec.rconstant.oirf.IBO.IBO.5, 1.08353912463090e-02
+vec.rconstant.oirf.IBO.IBO.6, 1.05804972845549e-02
+vec.rconstant.oirf.IBO.IDE.0, 1.59108419183993e-03
+vec.rconstant.oirf.IBO.IDE.1, 4.85482596806296e-03
+vec.rconstant.oirf.IBO.IDE.2, 6.43602820373902e-03
+vec.rconstant.oirf.IBO.IDE.3, 7.02158888106835e-03
+vec.rconstant.oirf.IBO.IDE.4, 7.05127092123607e-03
+vec.rconstant.oirf.IBO.IDE.5, 6.94108354994488e-03
+vec.rconstant.oirf.IBO.IDE.6, 6.84759001207371e-03
+vec.rconstant.oirf.IDE.LRM.0, 0.00000000000000e+00
+vec.rconstant.oirf.IDE.LRM.1,-6.38342128021775e-04
+vec.rconstant.oirf.IDE.LRM.2, 4.42327577889566e-03
+vec.rconstant.oirf.IDE.LRM.3, 8.28575758149854e-03
+vec.rconstant.oirf.IDE.LRM.4, 1.20477083715635e-02
+vec.rconstant.oirf.IDE.LRM.5, 1.44605970395478e-02
+vec.rconstant.oirf.IDE.LRM.6, 1.61293017878188e-02
+vec.rconstant.oirf.IDE.LRY.0, 0.00000000000000e+00
+vec.rconstant.oirf.IDE.LRY.1,-4.94672470729828e-03
+vec.rconstant.oirf.IDE.LRY.2,-5.75993603544229e-03
+vec.rconstant.oirf.IDE.LRY.3,-4.32326666105134e-03
+vec.rconstant.oirf.IDE.LRY.4,-3.22456987817313e-03
+vec.rconstant.oirf.IDE.LRY.5,-2.23198867770814e-03
+vec.rconstant.oirf.IDE.LRY.6,-1.72086802165251e-03
+vec.rconstant.oirf.IDE.IBO.0, 0.00000000000000e+00
+vec.rconstant.oirf.IDE.IBO.1, 1.50497937359547e-04
+vec.rconstant.oirf.IDE.IBO.2,-6.01821429111571e-04
+vec.rconstant.oirf.IDE.IBO.3,-1.05845820475971e-03
+vec.rconstant.oirf.IDE.IBO.4,-1.06793155202625e-03
+vec.rconstant.oirf.IDE.IBO.5,-9.45881265364017e-04
+vec.rconstant.oirf.IDE.IBO.6,-7.76975016767546e-04
+vec.rconstant.oirf.IDE.IDE.0, 5.47619834504992e-03
+vec.rconstant.oirf.IDE.IDE.1, 5.75425200896113e-03
+vec.rconstant.oirf.IDE.IDE.2, 5.27784108462371e-03
+vec.rconstant.oirf.IDE.IDE.3, 4.78506463522326e-03
+vec.rconstant.oirf.IDE.IDE.4, 4.46441289743408e-03
+vec.rconstant.oirf.IDE.IDE.5, 4.36401356925670e-03
+vec.rconstant.oirf.IDE.IDE.6, 4.34636999191543e-03
+vec.constant.df_m, 6.00000000000000e+00
+vec.constant.fcast.1.LRM, 1.20237155152251e+01
+vec.constant.fcast.1.LRM_se, 2.75384346685688e-02
+vec.constant.fcast.1.LRY, 6.04731114693924e+00
+vec.constant.fcast.1.LRY_se, 2.37254124246647e-02
+vec.constant.fcast.1.IBO, 1.15929284443349e-01
+vec.constant.fcast.1.IBO_se, 8.65475745572513e-03
+vec.constant.fcast.1.IDE, 7.45547791321975e-02
+vec.constant.fcast.1.IDE_se, 5.76426907319476e-03
+vec.constant.fcast.2.LRM, 1.20244865465026e+01
+vec.constant.fcast.2.LRM_se, 3.75414792023977e-02
+vec.constant.fcast.2.LRY, 6.05242475482799e+00
+vec.constant.fcast.2.LRY_se, 3.75216992735555e-02
+vec.constant.fcast.2.IBO, 1.12851184918260e-01
+vec.constant.fcast.2.IBO_se, 1.51005315429013e-02
+vec.constant.fcast.2.IDE, 7.37015241264255e-02
+vec.constant.fcast.2.IDE_se, 9.47641258553537e-03
+vec.constant.fcast.3.LRM, 1.20329597802632e+01
+vec.constant.fcast.3.LRM_se, 5.05724742616770e-02
+vec.constant.fcast.3.LRY, 6.05495187993404e+00
+vec.constant.fcast.3.LRY_se, 4.71461575913942e-02
+vec.constant.fcast.3.IBO, 1.11018571990232e-01
+vec.constant.fcast.3.IBO_se, 2.03884012358583e-02
+vec.constant.fcast.3.IDE, 7.25632179244040e-02
+vec.constant.fcast.3.IDE_se, 1.27522732891723e-02
+vec.constant.fcast.4.LRM, 1.20396980878065e+01
+vec.constant.fcast.4.LRM_se, 6.26853263001860e-02
+vec.constant.fcast.4.LRY, 6.05956492151260e+00
+vec.constant.fcast.4.LRY_se, 5.47463670937896e-02
+vec.constant.fcast.4.IBO, 1.09344491083080e-01
+vec.constant.fcast.4.IBO_se, 2.44933750185527e-02
+vec.constant.fcast.4.IDE, 7.18679873791669e-02
+vec.constant.fcast.4.IDE_se, 1.55455835720481e-02
+vec.constant.oirf.LRM.LRM.0, 2.75384346685688e-02
+vec.constant.oirf.LRM.LRM.1, 2.24612630674719e-02
+vec.constant.oirf.LRM.LRM.2, 2.64267802532227e-02
+vec.constant.oirf.LRM.LRM.3, 2.36717907447557e-02
+vec.constant.oirf.LRM.LRM.4, 2.34196563869661e-02
+vec.constant.oirf.LRM.LRM.5, 2.26094502501124e-02
+vec.constant.oirf.LRM.LRM.6, 2.25210259650474e-02
+vec.constant.oirf.LRM.LRY.0, 1.39026302563633e-02
+vec.constant.oirf.LRM.LRY.1, 2.13297072759160e-02
+vec.constant.oirf.LRM.LRY.2, 1.92209637237786e-02
+vec.constant.oirf.LRM.LRY.3, 1.99372238076109e-02
+vec.constant.oirf.LRM.LRY.4, 1.86849406074843e-02
+vec.constant.oirf.LRM.LRY.5, 1.85689475489863e-02
+vec.constant.oirf.LRM.LRY.6, 1.83347611487419e-02
+vec.constant.oirf.LRM.IBO.0,-2.99622541085755e-03
+vec.constant.oirf.LRM.IBO.1,-1.80631478112553e-03
+vec.constant.oirf.LRM.IBO.2,-2.55128510162464e-04
+vec.constant.oirf.LRM.IBO.3, 6.66284976988884e-05
+vec.constant.oirf.LRM.IBO.4, 2.94993563950225e-04
+vec.constant.oirf.LRM.IBO.5, 1.92709928455996e-04
+vec.constant.oirf.LRM.IBO.6, 1.29337336659679e-04
+vec.constant.oirf.LRM.IDE.0,-1.77981555385569e-04
+vec.constant.oirf.LRM.IDE.1, 1.35677131005630e-05
+vec.constant.oirf.LRM.IDE.2, 3.52816436774552e-04
+vec.constant.oirf.LRM.IDE.3, 9.75423564396081e-04
+vec.constant.oirf.LRM.IDE.4, 1.12171297711632e-03
+vec.constant.oirf.LRM.IDE.5, 1.20274343934283e-03
+vec.constant.oirf.LRM.IDE.6, 1.17073375267319e-03
+vec.constant.oirf.LRY.LRM.0, 0.00000000000000e+00
+vec.constant.oirf.LRY.LRM.1, 3.99581769334199e-03
+vec.constant.oirf.LRY.LRM.2,-2.40736515066347e-03
+vec.constant.oirf.LRY.LRM.3,-5.70892985274037e-03
+vec.constant.oirf.LRY.LRM.4,-8.65284808484158e-03
+vec.constant.oirf.LRY.LRM.5,-9.84087889266638e-03
+vec.constant.oirf.LRY.LRM.6,-1.04692354958894e-02
+vec.constant.oirf.LRY.LRY.0, 1.92252975705264e-02
+vec.constant.oirf.LRY.LRY.1, 1.90145044021027e-02
+vec.constant.oirf.LRY.LRY.2, 1.91702075083899e-02
+vec.constant.oirf.LRY.LRY.3, 1.63686362422211e-02
+vec.constant.oirf.LRY.LRY.4, 1.52942730431637e-02
+vec.constant.oirf.LRY.LRY.5, 1.45777801543181e-02
+vec.constant.oirf.LRY.LRY.6, 1.44869202283416e-02
+vec.constant.oirf.LRY.IBO.0, 2.11050900430454e-03
+vec.constant.oirf.LRY.IBO.1, 5.75936820996459e-03
+vec.constant.oirf.LRY.IBO.2, 7.16366369986449e-03
+vec.constant.oirf.LRY.IBO.3, 7.69717788734342e-03
+vec.constant.oirf.LRY.IBO.4, 7.44684205927179e-03
+vec.constant.oirf.LRY.IBO.5, 7.15274784711286e-03
+vec.constant.oirf.LRY.IBO.6, 6.90648696445524e-03
+vec.constant.oirf.LRY.IDE.0,-8.26132163688979e-04
+vec.constant.oirf.LRY.IDE.1, 2.49652709159896e-04
+vec.constant.oirf.LRY.IDE.2, 1.86637024755735e-03
+vec.constant.oirf.LRY.IDE.3, 2.54446787241985e-03
+vec.constant.oirf.LRY.IDE.4, 2.80604641033047e-03
+vec.constant.oirf.LRY.IDE.5, 2.76107474462222e-03
+vec.constant.oirf.LRY.IDE.6, 2.67851428917968e-03
+vec.constant.oirf.IBO.LRM.0, 0.00000000000000e+00
+vec.constant.oirf.IBO.LRM.1,-1.13750701440275e-02
+vec.constant.oirf.IBO.LRM.2,-2.07744265856027e-02
+vec.constant.oirf.IBO.LRM.3,-2.70844604852299e-02
+vec.constant.oirf.IBO.LRM.4,-3.03501510235318e-02
+vec.constant.oirf.IBO.LRM.5,-3.19026727771687e-02
+vec.constant.oirf.IBO.LRM.6,-3.26280472506219e-02
+vec.constant.oirf.IBO.LRY.0, 0.00000000000000e+00
+vec.constant.oirf.IBO.LRY.1,-1.24824439392367e-03
+vec.constant.oirf.IBO.LRY.2,-6.16527960429084e-03
+vec.constant.oirf.IBO.LRY.3,-9.05518086386386e-03
+vec.constant.oirf.IBO.LRY.4,-1.04444273479070e-02
+vec.constant.oirf.IBO.LRY.5,-1.07974378197201e-02
+vec.constant.oirf.IBO.LRY.6,-1.07836641268556e-02
+vec.constant.oirf.IBO.IBO.0, 7.84048542167579e-03
+vec.constant.oirf.IBO.IBO.1, 1.07970263938607e-02
+vec.constant.oirf.IBO.IBO.2, 1.16714540638242e-02
+vec.constant.oirf.IBO.IBO.3, 1.11667136225043e-02
+vec.constant.oirf.IBO.IBO.4, 1.04486810952772e-02
+vec.constant.oirf.IBO.IBO.5, 9.89850363832496e-03
+vec.constant.oirf.IBO.IBO.6, 9.59215332398817e-03
+vec.constant.oirf.IBO.IDE.0, 1.61001754848317e-03
+vec.constant.oirf.IBO.IDE.1, 4.84453471559972e-03
+vec.constant.oirf.IBO.IDE.2, 6.39305885827109e-03
+vec.constant.oirf.IBO.IDE.3, 6.90176452688537e-03
+vec.constant.oirf.IBO.IDE.4, 6.84108789060335e-03
+vec.constant.oirf.IBO.IDE.5, 6.65409561714023e-03
+vec.constant.oirf.IBO.IDE.6, 6.50738873292917e-03
+vec.constant.oirf.IDE.LRM.0, 0.00000000000000e+00
+vec.constant.oirf.IDE.LRM.1,-1.06308903808044e-03
+vec.constant.oirf.IDE.LRM.2, 3.53066151911735e-03
+vec.constant.oirf.IDE.LRM.3, 6.73508897564223e-03
+vec.constant.oirf.IDE.LRM.4, 9.85279324548329e-03
+vec.constant.oirf.IDE.LRM.5, 1.16457505259435e-02
+vec.constant.oirf.IDE.LRM.6, 1.27868376324332e-02
+vec.constant.oirf.IDE.LRY.0, 0.00000000000000e+00
+vec.constant.oirf.IDE.LRY.1,-5.18814200402064e-03
+vec.constant.oirf.IDE.LRY.2,-6.31896227816053e-03
+vec.constant.oirf.IDE.LRY.3,-5.19452483613184e-03
+vec.constant.oirf.IDE.LRY.4,-4.43133177627281e-03
+vec.constant.oirf.IDE.LRY.5,-3.73097840443784e-03
+vec.constant.oirf.IDE.LRY.6,-3.46296699652921e-03
+vec.constant.oirf.IDE.IBO.0, 0.00000000000000e+00
+vec.constant.oirf.IDE.IBO.1, 3.35189565081159e-04
+vec.constant.oirf.IDE.IBO.2,-2.34187853610666e-04
+vec.constant.oirf.IDE.IBO.3,-5.40402564738703e-04
+vec.constant.oirf.IDE.IBO.4,-4.32925001617151e-04
+vec.constant.oirf.IDE.IBO.5,-2.28904336095217e-04
+vec.constant.oirf.IDE.IBO.6,-1.05479041569752e-05
+vec.constant.oirf.IDE.IDE.0, 5.46996066309685e-03
+vec.constant.oirf.IDE.IDE.1, 5.74835370992627e-03
+vec.constant.oirf.IDE.IDE.2, 5.32344434047160e-03
+vec.constant.oirf.IDE.IDE.3, 4.89740472959564e-03
+vec.constant.oirf.IDE.IDE.4, 4.63517441513443e-03
+vec.constant.oirf.IDE.IDE.5, 4.58315391044230e-03
+vec.constant.oirf.IDE.IDE.6, 4.60228903888222e-03

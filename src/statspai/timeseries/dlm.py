@@ -302,6 +302,11 @@ class DLMResult(ResultProtocolMixin):
     _citation_keys = ("petris2009dynamic", "carter1994gibbs", "fruhwirth1994data")
 
     @property
+    def log_likelihood(self) -> float:
+        """Alias of :attr:`loglik`, the name most StatsPAI results use."""
+        return float(self.loglik)
+
+    @property
     def coef(self) -> pd.Series:
         return self.params
 

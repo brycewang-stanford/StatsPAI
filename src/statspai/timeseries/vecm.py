@@ -180,6 +180,8 @@ class VECResult(ResultProtocolMixin):
         impulse: Optional[str] = None,
         response: Optional[str] = None,
         orthogonal: bool = True,
+        *,
+        sigma_df: str = "ml",
     ) -> Dict[str, Any]:
         """Impulse responses of the levels.
 
@@ -195,10 +197,17 @@ class VECResult(ResultProtocolMixin):
             Restrict to one shock or one responding variable.
         orthogonal : bool, default True
             Responses to one-standard-deviation orthogonalised shocks, by
-            the Cholesky factor of the maximum-likelihood residual
-            covariance in the order of the variables (Stata ``irf
-            create`` after ``vec``). With ``False``, responses to a unit
+            the Cholesky factor of the residual covariance in the order
+            of the variables. With ``False``, responses to a unit
             forecast error in one equation.
+        sigma_df : {'ml', 'unbiased'}, default 'ml'
+            Divisor of that residual covariance. ``'ml'``: ``T``, the
+            maximum-likelihood estimate (``sigma_ml``). ``'unbiased'``:
+            ``T - d`` with ``d`` the coefficients of one equation, the
+            covariance behind the coefficient standard errors; this is
+            what Stata's ``irf create`` and ``fcast compute`` use after
+            ``vec``, so its orthogonalised responses are those of
+            ``'ml'`` times ``sqrt(T / (T - d))``.
 
         Returns
         -------
@@ -224,7 +233,7 @@ class VECResult(ResultProtocolMixin):
             raise MethodIncompatibility("vec.irf: periods must be non-negative.")
         phi = self._ma_weights(periods)
         if orthogonal:
-            phi = phi @ np.linalg.cholesky(self.sigma_ml.to_numpy())
+            phi = phi @ np.linalg.cholesky(self._sigma(sigma_df, "vec.irf"))
         out = {}
         for j, shock in enumerate(names):
             if impulse is not None and shock != impulse:
@@ -235,6 +244,17 @@ class VECResult(ResultProtocolMixin):
                 out[f"{shock} -> {resp}"] = phi[:, i, j].copy()
         return {"irf": out, "periods": list(range(periods + 1))}
 
+    def _sigma(self, sigma_df: str, who: str) -> np.ndarray:
+        """Residual covariance with divisor ``T`` or ``T - d``."""
+        if sigma_df == "ml":
+            return np.asarray(self.sigma_ml.to_numpy(), dtype=float)
+        if sigma_df == "unbiased":
+            return np.asarray(self._omega, dtype=float)
+        raise MethodIncompatibility(
+            f"{who}: sigma_df must be 'ml' or 'unbiased', got {sigma_df!r}.",
+            recovery_hint="'unbiased' reproduces Stata's irf / fcast after vec.",
+        )
+
     def fevd(self, periods: int = 20) -> pd.DataFrame:
         """Forecast-error variance decomposition of the levels under the
         Cholesky ordering of the variables.
@@ -242,7 +262,8 @@ class VECResult(ResultProtocolMixin):
         One row per shock, response and period: the share of the
         ``period``-step forecast-error variance of ``response`` due to the
         orthogonalised innovation of ``shock`` (zero at ``period = 0``, as
-        in Stata's ``irf table fevd``).
+        in Stata's ``irf table fevd``). The shares do not depend on the
+        divisor of the residual covariance.
         """
         from .svar import fevd_shares
 
@@ -260,15 +281,20 @@ class VECResult(ResultProtocolMixin):
         ]  # fmt: skip
         return pd.DataFrame(rows)
 
-    def forecast(self, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
+    def forecast(
+        self, steps: int = 1, alpha: float = 0.05, *, sigma_df: str = "ml"
+    ) -> pd.DataFrame:
         """Dynamic forecasts of the levels ``steps`` periods past the sample.
 
         Each forecast feeds the next through the error-correction
         equations, deterministic terms included. The standard error is the
-        root of ``sum_i Phi_i Sigma Phi_i'`` with the maximum-likelihood
-        residual covariance; it treats the coefficients as known, so it
-        understates the uncertainty in short samples, and it grows without
-        bound with the horizon because the levels are integrated.
+        root of ``sum_i Phi_i Sigma Phi_i'``; it treats the coefficients as
+        known, so it understates the uncertainty in short samples, and it
+        grows without bound with the horizon because the levels are
+        integrated. ``Sigma`` is the maximum-likelihood residual covariance
+        (``sigma_df='ml'``, divisor ``T``) or, with
+        ``sigma_df='unbiased'``, the one with divisor ``T - d`` that
+        Stata's ``fcast compute`` uses after ``vec`` (see :meth:`irf`).
 
         Returns
         -------
@@ -290,7 +316,7 @@ class VECResult(ResultProtocolMixin):
         slope = beta.loc["_trend"].to_numpy() if "_trend" in beta.index else 0.0
         levels = [row for row in self._levels[-(m + 1) :]]  # oldest first
         phi = self._ma_weights(steps)
-        sigma = self.sigma_ml.to_numpy()
+        sigma = self._sigma(sigma_df, "vec.forecast")
         mse = np.zeros((k, k))
         z = float(stats.norm.ppf(1.0 - alpha / 2.0))
         rows = []
@@ -371,6 +397,11 @@ class VECResult(ResultProtocolMixin):
             f"HQIC: {self.hqic:.4f}   SBIC: {self.bic:.4f}",
             "=" * 66,
         ]
+        from .cointegration import _TREND_CASES
+
+        case = _TREND_CASES.get(str(getattr(self, "trend", None)))
+        if case is not None:
+            lines.insert(4, f"Deterministic terms: {case}")
         for eq, table in self.coefs.items():
             lines += ["", f"Equation: {eq}", "-" * 66]
             lines.append(f"{'':<16s}{'Coef':>12s}{'SE':>12s}{'z':>9s}{'P>|z|':>9s}")

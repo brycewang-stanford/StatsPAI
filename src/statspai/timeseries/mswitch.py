@@ -110,6 +110,11 @@ class MarkovSwitchingResult(ResultProtocolMixin):
 
     _citation_keys = ("hamilton1989new", "kim1994dynamic")
 
+    @property
+    def log_likelihood(self) -> float:
+        """Alias of :attr:`loglik`, the name most StatsPAI results use."""
+        return float(self.loglik)
+
     def summary(self) -> str:
         kind = {"dr": "dynamic regression", "ar": "autoregression"}[self.model]
         info = self.model_info

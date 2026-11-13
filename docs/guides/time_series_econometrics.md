@@ -151,6 +151,20 @@ out["irf"]["x -> y"], out["lower"]["x -> y"], out["upper"]["x -> y"]
 fit.fevd(20, ci="asymptotic")        # variance shares with standard errors
 ```
 
+The default fit follows Stata's `var`: residual variance over `T` and a
+normal reference for the coefficients. `sp.var(df, lags=2, se_df="r")` is
+the small-sample convention of R's `vars` and of Stata's `var, small`
+(variance over `T - m`, t reference); the summary says which one is in use.
+The forecast intervals follow the same choice. They take the coefficients
+as known unless asked otherwise:
+
+```python
+fit.forecast(8, param_uncertainty=True)   # Stata fcast compute
+sp.var(df, lags=2, se_df="r").forecast(8) # vars::predict
+fit.normality_test()                      # Stata varnorm, vars::normality.test
+fit.tidy()                                # every coefficient, one row each
+```
+
 Orthogonalised responses depend on the order of the variables. The
 bootstrap regenerates the series from resampled residuals and re-estimates
 the VAR. The default band is bias-corrected (`boot="kilian"`): the
@@ -220,7 +234,11 @@ sp.johansen_lrtest(df, rank=2, loading=np.eye(4)[:, :3])   # weak exogeneity
 ```
 
 `lags` counts lagged differences: Stata's `vecrank, lags(2)` and
-`ca.jo(K = 2)` are `lags=1` here. The rank tests have non-standard
+`ca.jo(K = 2)` are `lags=1` here. `vec.irf()` and `vec.forecast()` scale
+shocks with the maximum-likelihood residual covariance. Stata's `irf
+create` and `fcast compute` after `vec` use the covariance divided by
+`T - d`, `d` the coefficients per equation; `sigma_df="unbiased"` gives
+those numbers. The rank tests have non-standard
 distributions. Once the rank is fixed, hypotheses about the cointegrating
 vectors and the loadings are ordinary chi-squared tests, and they are
 where the economics usually sits.

@@ -1271,6 +1271,7 @@ from .timeseries import (
     corrgram,
     cumulative_periodogram_test,
     cusum_test,
+    dm_test,
     engle_granger,
     forecast_accuracy,
     fourier_terms,
@@ -2352,6 +2353,7 @@ __all__ = [
     "StructuralBreakResult",
     "cusum_test",
     "chow_test",
+    "dm_test",
     "bds",
     "rolling",
     # Experimental Design

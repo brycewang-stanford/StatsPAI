@@ -1692,6 +1692,7 @@ from .timeseries.cointegration import johansen as johansen
 from .timeseries.corrgram import corrgram as corrgram
 from .timeseries.dlm import DLMResult as DLMResult
 from .timeseries.dlm import dlm as dlm
+from .timeseries.dm_test import dm_test as dm_test
 from .timeseries.forecast_accuracy import TSCVResult as TSCVResult
 from .timeseries.forecast_accuracy import forecast_accuracy as forecast_accuracy
 from .timeseries.forecast_accuracy import tscv as tscv

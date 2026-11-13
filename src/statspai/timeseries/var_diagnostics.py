@@ -346,13 +346,37 @@ def equation_table(result: Any) -> pd.DataFrame:
     return pd.DataFrame(rows).set_index("equation")
 
 
-def forecast(result: Any, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
+def forecast(
+    result: Any,
+    steps: int = 1,
+    alpha: float = 0.05,
+    *,
+    sigma_df: Any = None,
+    param_uncertainty: bool = False,
+) -> pd.DataFrame:
     """Dynamic forecasts ``steps`` periods past the estimation sample.
 
     Each forecast feeds the next. The standard error is the root of the
     forecast-error variance ``sum_i Phi_i Sigma Phi_i'`` built from the
-    moving-average coefficients; it treats the VAR coefficients as known, so
-    it understates the uncertainty in short samples.
+    moving-average coefficients. By default it treats the VAR coefficients
+    as known, so it understates the uncertainty in short samples.
+
+    Parameters
+    ----------
+    steps : int, default 1
+    alpha : float, default 0.05
+        One minus the coverage of the interval.
+    sigma_df : {'ml', 'unbiased'}, optional
+        Divisor of the residual covariance ``Sigma``: ``'ml'`` = ``T``,
+        ``'unbiased'`` = ``T - m`` with ``m`` regressors per equation
+        (R ``vars::predict``). Default: the fitted model's ``se_df``
+        (``'stata'`` / ``'ml'`` -> ``'ml'``, ``'r'`` / ``'unbiased'`` ->
+        ``'unbiased'``), as for :func:`statspai.irf`.
+    param_uncertainty : bool, default False
+        Add the asymptotic variance of the estimated coefficients,
+        ``Omega(h) / T`` (Luetkepohl 2005, section 3.5), as Stata's
+        ``fcast compute`` does. At ``h = 1`` it multiplies the variance by
+        ``1 + m / T``. Available without a time trend.
 
     Returns a DataFrame indexed by horizon ``1 .. steps`` with, for each
     variable, the columns ``<name>``, ``<name>_se``, ``<name>_lower`` and
@@ -377,7 +401,29 @@ def forecast(result: Any, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
     T = result._Y.shape[0]
     history = [result._levels[-lag] for lag in range(1, p + 1)]  # most recent first
     sigma = np.asarray(result.sigma_u, dtype=float)
+    if sigma_df is None:
+        sigma_df = (
+            "unbiased"
+            if str(getattr(result, "se_df", "stata")).lower() in {"r", "unbiased"}
+            else "ml"
+        )
+    if sigma_df not in ("ml", "unbiased"):
+        raise MethodIncompatibility(
+            f"forecast: sigma_df must be 'ml' or 'unbiased', got {sigma_df!r}.",
+            recovery_hint="Leave it unset to follow the fit's se_df.",
+        )
+    if sigma_df == "unbiased":
+        sigma = sigma * T / (T - B.shape[0])
     A = [B[lag * k : (lag + 1) * k, :].T for lag in range(p)]
+    omega_terms = None
+    if param_uncertainty:
+        if trend == "ct":
+            raise MethodIncompatibility(
+                "forecast: param_uncertainty=True is not available for a VAR "
+                "with a time trend.",
+                recovery_hint="Use trend='c', or param_uncertainty=False.",
+            )
+        omega_terms = _coefficient_uncertainty_setup(result, A, k, p, trend)
     phi = [np.eye(k)]
     mse = np.zeros((k, k))
     z = float(stats.norm.ppf(1.0 - alpha / 2.0))
@@ -394,7 +440,10 @@ def forecast(result: Any, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
         for j in range(1, min(h, p) + 1):
             nxt += phi[h - j] @ A[j - 1]
         phi.append(nxt)
-        se = np.sqrt(np.diag(mse))
+        total = mse
+        if omega_terms is not None:
+            total = mse + _omega(h, phi, sigma, *omega_terms) / T
+        se = np.sqrt(np.diag(total))
         row: Dict[str, float] = {}
         for i, name in enumerate(names):
             row[name] = float(point[i])
@@ -404,3 +453,111 @@ def forecast(result: Any, steps: int = 1, alpha: float = 0.05) -> pd.DataFrame:
         rows.append(row)
         history.insert(0, point)
     return pd.DataFrame(rows, index=pd.RangeIndex(1, steps + 1, name="horizon"))
+
+
+def _coefficient_uncertainty_setup(
+    result: Any, A: list, k: int, p: int, trend: str
+) -> tuple:
+    """Companion matrix of the regressor vector ``Z_t`` and its second
+    moment ``Gamma = Z Z' / T`` (Luetkepohl 2005, eq. 3.5.12), with
+    ``Z_t = (1, y_t', ..., y_{t-p+1}')'`` (no leading one without a
+    constant)."""
+    const = trend == "c"
+    lev = np.asarray(result._levels, dtype=float)
+    n_all = lev.shape[0]
+    T = result._Y.shape[0]
+    # rows t = p-1 .. n-2 of the levels are the regressors of the sample
+    blocks = [lev[n_all - T - lag : n_all - lag] for lag in range(1, p + 1)]
+    Z = np.column_stack(blocks) if blocks else np.zeros((T, 0))
+    if const:
+        Z = np.column_stack([np.ones(T), Z])
+    gamma = Z.T @ Z / T
+    m = Z.shape[1]
+    comp = np.zeros((m, m))
+    off = 1 if const else 0
+    if const:
+        comp[0, 0] = 1.0
+        comp[1 : 1 + k, 0] = np.asarray(result._B, dtype=float)[k * p, :]
+    for lag in range(p):
+        comp[off : off + k, off + lag * k : off + (lag + 1) * k] = A[lag]
+    if p > 1:
+        comp[off + k :, off : off + k * (p - 1)] = np.eye(k * (p - 1))
+    return comp, gamma, np.linalg.inv(gamma)
+
+
+def _omega(
+    h: int,
+    phi: list,
+    sigma: np.ndarray,
+    comp: np.ndarray,
+    gamma: np.ndarray,
+    gamma_inv: np.ndarray,
+) -> np.ndarray:
+    """``Omega(h) = sum_i sum_j tr[(B')^{h-1-i} Gamma^-1 B^{h-1-j} Gamma]
+    Phi_i Sigma Phi_j'`` for ``i, j = 0 .. h-1``."""
+    powers = [np.linalg.matrix_power(comp, e) for e in range(h)]
+    out = np.zeros_like(sigma)
+    for i in range(h):
+        left = powers[h - 1 - i].T @ gamma_inv
+        for j in range(h):
+            w = float(np.trace(left @ powers[h - 1 - j] @ gamma))
+            out += w * (phi[i] @ sigma @ phi[j].T)
+    return out
+
+
+def normality_test(result: Any) -> pd.DataFrame:
+    """Jarque-Bera, skewness and kurtosis tests of the VAR residuals.
+
+    The residuals are orthogonalised with the Cholesky factor of their
+    maximum-likelihood covariance, ``w_t = P^{-1} u_t`` (Luetkepohl 2005,
+    section 4.5), so the components are uncorrelated with unit variance
+    and the statistic depends on the order of the variables. With
+    ``b1_k = mean(w_k^3)`` and ``b2_k = mean(w_k^4)``:
+
+    * skewness: ``T b1_k^2 / 6`` per equation (chi2(1)), their sum for the
+      system (chi2(K));
+    * kurtosis: ``T (b2_k - 3)^2 / 24`` per equation, their sum for the
+      system;
+    * Jarque-Bera: the sum of the two (chi2(2) and chi2(2K)).
+
+    Returns one row per test and equation (``equation`` is ``'ALL'`` for
+    the system) with ``test``, ``equation``, ``value`` (the skewness or
+    kurtosis coefficient; missing for Jarque-Bera and the system rows),
+    ``chi2``, ``df`` and ``p``. This is Stata's ``varnorm`` and the
+    multivariate rows of R's ``vars::normality.test``.
+    """
+    _require_fit(result)
+    names = list(result.var_names)
+    u = np.asarray(result.residuals, dtype=float)
+    T, k = u.shape
+    u = u - u.mean(axis=0)
+    chol = np.linalg.cholesky(u.T @ u / T)
+    w = np.linalg.solve(chol, u.T).T
+    b1 = (w**3).mean(axis=0)
+    b2 = (w**4).mean(axis=0)
+    skew = T * b1**2 / 6.0
+    kurt = T * (b2 - 3.0) ** 2 / 24.0
+    rows = []
+
+    def add(test: str, eq: str, value: float, chi2: float, df: int) -> None:
+        rows.append(
+            {
+                "test": test,
+                "equation": eq,
+                "value": value,
+                "chi2": float(chi2),
+                "df": int(df),
+                "p": float(stats.chi2.sf(chi2, df)),
+            }
+        )
+
+    for i, name in enumerate(names):
+        add("jarque-bera", name, float("nan"), skew[i] + kurt[i], 2)
+    add("jarque-bera", "ALL", float("nan"), skew.sum() + kurt.sum(), 2 * k)
+    for i, name in enumerate(names):
+        add("skewness", name, float(b1[i]), skew[i], 1)
+    add("skewness", "ALL", float("nan"), skew.sum(), k)
+    for i, name in enumerate(names):
+        add("kurtosis", name, float(b2[i]), kurt[i], 1)
+    add("kurtosis", "ALL", float("nan"), kurt.sum(), k)
+    return pd.DataFrame(rows)
