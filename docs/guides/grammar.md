@@ -180,6 +180,14 @@ What the matrix makes explicit today:
   and CRV1 cluster SE match `reghdfe` to ~1e-9, and the wild p-value matches
   `boottest`'s exact 2¹⁵ Rademacher enumeration to Monte-Carlo error (0.0265 vs
   0.0263). See `tests/reference_parity/test_feols_wild_boottest_parity.py`.
+
+  The interval that `summary()`, `conf_int()` and `tidy()` report after
+  `vce="wild"` on `regress` / `feols` is the set of null values the bootstrap
+  test does not reject (the interval `boottest` prints), so it contains zero
+  exactly when the p-value is at least `alpha`. It exists at the level of the
+  fit: `conf_int(0.10)` on a 5% fit raises. Through 1.43.1 these methods
+  printed estimate ± critical value × cluster SE beside the bootstrap
+  p-values.
 - **`ivreg` has native wild via `vce="wild"`** — the **WRE** bootstrap
   (Davidson-MacKinnon 2010), the IV-correct procedure that resamples both the
   structural and reduced-form residuals and refits 2SLS:

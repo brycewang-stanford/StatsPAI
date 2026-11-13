@@ -62,6 +62,50 @@ coefficient (R `svyglm(deff = TRUE)`). It was a constant 1.0. With
 
 `sp.logrank_test` returns `p_value` as a Python float and adds a `rho`
 key.
+---
+
+## 1.43 → next: wild bootstrap intervals, fepois log-likelihood, Oaxaca SEs
+
+⚠️ correctness fixes. Point estimates and standard errors do not change in
+any of them.
+
+**`vce="wild"` (`sp.regress`, `sp.feols`, `sp.ivreg`, `sp.panel`).**
+`summary()`, `conf_int()` and `tidy()` now return the wild bootstrap
+confidence set instead of estimate ± critical value × SE. For `sp.regress`
+and least-squares `sp.feols` the set is the null values the bootstrap test
+does not reject (Stata `boottest`'s interval). Intervals read from
+`result.conf_int()` after `vce="wild"` therefore change, usually to wider
+ones with few clusters. `conf_int(alpha)` with a level other than the
+fit's raises `MethodIncompatibility`.
+
+```python
+r = sp.regress("y ~ x", df, vce="wild", cluster="g")
+r.conf_int()                  # bootstrap confidence sets (was normal intervals)
+# the 1.43 numbers, if a script depends on them:
+r.params - 1.959964 * r.std_errors, r.params + 1.959964 * r.std_errors
+```
+
+**`sp.fepois`.** `diagnostics["Log-likelihood"]` includes the `- log y!`
+constant (fixest `logLik`, Stata `e(ll)`). The 1.43 value is the new one
+plus `sum(w * gammaln(y + 1))`. AIC or likelihood-ratio statistics built
+from differences of two fits on the same rows are unaffected.
+
+**`sp.oaxaca(reference="pooled" | "cotton" | "reimers")`.**
+`overall["unexplained_se"]` is smaller (it was overstated by 14% to 34% in
+the reference example). No argument restores the old number.
+
+**`sp.feols` with instruments.** `diagnostics["First-stage F p-value (...)"]`
+is an F(k, df) p-value (was chi-square), and `"Hausman F-stat"` no longer
+depends on `vcov`. `"R-squared"`, `"R-squared (within)"` and `"RMSE"` are
+numbers (were NaN).
+
+**`sp.panel(method="mundlak" | "chamberlain")`.**
+`diagnostics["R-squared (within)"]` and `"R-squared (between)"` are Stata
+`xtreg`'s squared correlations, and `"R-squared (overall)"` is new. The
+1.43 values are in `model_info["r2_linearmodels"]`.
+
+**`sp.balance_table(test="ranksum")`.** p-values use the tie-corrected
+variance (Stata `ranksum`). They change wherever a covariate has ties.
 
 ---
 

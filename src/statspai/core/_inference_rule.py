@@ -30,7 +30,23 @@ def _df_value(df: float) -> Any:
 def _vcov_label(mi: Dict[str, Any]) -> str:
     for key in ("se_type", "vcov_type"):
         if isinstance(mi.get(key), str) and mi[key]:
-            return str(mi[key])
+            label = str(mi[key])
+            # sp.feols / sp.fepois record the cluster variables apart
+            # from the label: "CRV" alone does not say what was clustered.
+            cv = mi.get("clustervar")
+            if label in ("CRV", "CRV1", "CRV3") and cv:
+                names = cv if isinstance(cv, str) else ", ".join(map(str, cv))
+                g = mi.get("n_clusters")
+                multi = not isinstance(cv, str) and len(cv) > 1
+                if g is None:
+                    g_text = ""
+                elif multi:
+                    g_text = f", smallest G={int(g)}"
+                else:
+                    g_text = f", G={int(g)}"
+                detail = mi.get("vcov_type_detail") or label
+                return f"{detail}, cluster ({names}){g_text}"
+            return label
     if mi.get("gmm_vcov"):
         # GMM: robust= / cluster= pick the weight matrix, not the variance
         kind = "sandwich" if mi["gmm_vcov"] == "sandwich" else "efficient"
@@ -129,6 +145,8 @@ def inference_lines(rule: Dict[str, Any], width: int = 80) -> List[str]:
             f"Sample: {rule['n_rows']} observations in {rule['n_groups']} groups "
             f"(N used for degrees of freedom: {rule['n_obs']})"
         )
+    elif rule.get("n_obs") is not None:
+        lines.append(f"Observations: {int(rule['n_obs'])}")
     for note in rule.get("notes", ()):
         lines.extend(
             textwrap.wrap(

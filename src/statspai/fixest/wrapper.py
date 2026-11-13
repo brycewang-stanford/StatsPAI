@@ -853,7 +853,10 @@ def _note_cluster_sizes(result: Any, data: pd.DataFrame, vcov: Any) -> None:
     names = [str(n) for n in getattr(result, "params", pd.Series(dtype=float)).index]
     plain = [n for n in names if n in data.columns]
     if plain:
-        frame = data[plain + [column]].dropna()
+        # The cluster key may itself be a regressor (clustering on a
+        # discrete running variable, on years of schooling): select each
+        # column once, or ``frame[column]`` comes back two-dimensional.
+        frame = data[list(dict.fromkeys(plain + [column]))].dropna()
         try:
             X = frame[plain].to_numpy(dtype=float)
         except (TypeError, ValueError):
@@ -1159,9 +1162,13 @@ def _feols_wild(
             n_boot=reps,
             weight_type=weight_type,
             seed=seed,
+            **({} if iv is not None else {"confidence_set": True}),
         )
         pvals[var] = out["p_boot"]
-        ci_lo[var], ci_hi[var] = out["ci_boot"]
+        # Least squares: the set of null values the bootstrap test does
+        # not reject (what Stata boottest prints), so the interval agrees
+        # with the p-value beside it. 2SLS: the WRE routine's own set.
+        ci_lo[var], ci_hi[var] = out.get("ci_inverted", out["ci_boot"])
         if iv is None:
             se[var] = out["se_cluster"]
         # IV: the fit's CRV1 standard error stands (the bootstrap's own
@@ -1171,6 +1178,19 @@ def _feols_wild(
     base.pvalues = pvals
     base.conf_int_lower = ci_lo
     base.conf_int_upper = ci_hi
+    base.data_info = dict(
+        base.data_info or {},
+        stored_ci={
+            "alpha": 0.05,
+            "method": (
+                "wild cluster bootstrap confidence sets (null values the "
+                "test does not reject, as Stata boottest)"
+                if iv is None
+                else "WRE wild cluster bootstrap confidence sets"
+            ),
+            **({} if iv is None else {"coefficients": [str(v) for v in targets]}),
+        },
+    )
     base.model_info = dict(base.model_info)
     base.model_info["vcov_type"] = (
         f"wild cluster bootstrap (Cameron-Gelbach-Miller 2008, {reps} reps, "

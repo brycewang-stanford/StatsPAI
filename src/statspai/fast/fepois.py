@@ -1130,7 +1130,17 @@ def _fepois_fit(
             extra_df=cr1_extra_df,
         )
 
-    log_lik = float(np.sum(obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu)))
+    # The Poisson log-likelihood, constant included: sum w (y log mu - mu
+    # - log y!), as fixest's logLik and Stata ppmlhdfe's e(ll) report it
+    # (log y! through the gamma function, so a non-integer outcome has
+    # one too). Through 1.43.1 the constant was left out.
+    from scipy.special import gammaln
+
+    log_lik = float(
+        np.sum(
+            obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu - gammaln(y + 1.0))
+        )
+    )
 
     weight_info: Optional[Dict[str, Any]] = None
     if weights is not None and note_weights:

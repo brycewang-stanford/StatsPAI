@@ -882,13 +882,23 @@ class RegtableResult:
         ``R² / Adj. R² / F`` rows.
         """
         models = [m for p in panels for m in p.models]
+
+        def _has(m: Any, key: str) -> bool:
+            # NaN is how a model says "not defined here" (the R-squared
+            # of a Poisson fit): it fills no cell.
+            v = m.stats.get(key)
+            if v is None:
+                return False
+            try:
+                return not np.isnan(float(v))
+            except (TypeError, ValueError):
+                return True
+
         keys = ["N", "R2", "adj_R2", "F"]
-        if any(m.stats.get("Pseudo R-squared") is not None for m in models):
+        if any(_has(m, "Pseudo R-squared") for m in models):
             keys = ["N", "R2", "adj_R2", "pseudo_r2", "F", "ll"]
         return [
-            k
-            for k in keys
-            if any(m.stats.get(_STAT_ALIASES.get(k, k)) is not None for m in models)
+            k for k in keys if any(_has(m, _STAT_ALIASES.get(k, k)) for m in models)
         ]
 
     def _resolve_stat_keys(self) -> List[str]:
@@ -1255,6 +1265,11 @@ class RegtableResult:
             self.se_type, "Standard errors"
         )
 
+    def _se_enclosure(self) -> str:
+        """What the second line of each cell is printed in: confidence
+        intervals go in square brackets, everything else in parentheses."""
+        return "brackets" if self.se_type == "ci" else "parentheses"
+
     def _multi_se_cell(
         self,
         per_model: Dict[str, float],
@@ -1308,7 +1323,7 @@ class RegtableResult:
 
     def _footer_note_lines(self) -> List[str]:
         """Canonical footer lines shared by Word/Excel bundle exports."""
-        note_lines = [f"{self._se_label()} in parentheses"]
+        note_lines = [f"{self._se_label()} in {self._se_enclosure()}"]
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             note_lines.append(f"{label} in {lo}…{hi}")
@@ -1509,7 +1524,7 @@ class RegtableResult:
         lines.append(thick)
 
         # Notes
-        lines.append(f"{self._se_label()} in parentheses")
+        lines.append(f"{self._se_label()} in {self._se_enclosure()}")
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"{label} in {lo}…{hi}")
@@ -1635,7 +1650,7 @@ class RegtableResult:
                 lines.append(row_s)
             lines.append(thick)
         # Notes
-        lines.append(f"{self._se_label()} in parentheses")
+        lines.append(f"{self._se_label()} in {self._se_enclosure()}")
         if self._has_any_eform():
             lines.append(self._eform_note())
         if self.show_stars:
@@ -1722,7 +1737,7 @@ class RegtableResult:
         lines.append("</tbody>")
         # Notes
         lines.append("<tfoot>")
-        note = f"{self._se_label()} in parentheses"
+        note = f"{self._se_label()} in {self._se_enclosure()}"
         lines.append(
             f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
             f'padding:4px 8px 0 8px;">{_html_escape(note)}</td></tr>'
@@ -1962,7 +1977,7 @@ class RegtableResult:
 
         # Notes
         lines.append("<tfoot>")
-        note_text = f"{self._se_label()} in parentheses"
+        note_text = f"{self._se_label()} in {self._se_enclosure()}"
         lines.append(
             f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
             f'padding:4px 8px 0 8px;">{_html_escape(note_text)}</td></tr>'
@@ -2269,7 +2284,7 @@ class RegtableResult:
         # Notes — collected once, then emitted either as full-width
         # \multicolumn rows inside the tabular (default) or as a
         # threeparttable \begin{tablenotes} block after \end{tabular}.
-        note_texts: List[str] = [f"{self._se_label()} in parentheses"]
+        note_texts: List[str] = [f"{self._se_label()} in {self._se_enclosure()}"]
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             note_texts.append(f"{label} in {lo}…{hi}")
@@ -2417,7 +2432,7 @@ class RegtableResult:
             lines.append(f"| {row_label} |" + "|".join(f" {c} " for c in cells_t) + "|")
 
         lines.append("")
-        lines.append(f"*{self._se_label()} in parentheses*")
+        lines.append(f"*{self._se_label()} in {self._se_enclosure()}*")
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"*{label} in {lo}…{hi}*")

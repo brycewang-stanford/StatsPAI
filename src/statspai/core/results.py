@@ -4,7 +4,17 @@ Unified results class for all econometric models
 
 import warnings
 from html import escape as _html_escape
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 
 import numpy as np
 import pandas as pd
@@ -220,6 +230,24 @@ def _label_value(value: Any) -> Any:
     if isinstance(value, (float, np.floating)) and float(value).is_integer():
         return int(value)
     return value
+
+
+def _att_detail_title(cols: Sequence[str]) -> str:
+    """Heading of the ATT detail table, by what indexes its rows.
+
+    Only a table with both a ``group`` and a ``time`` column holds
+    group-time ATTs; an event-study, per-cohort or per-period table is
+    named for what it is.
+    """
+    if "group" in cols and "time" in cols:
+        return "Group-Time ATT Estimates"
+    if "relative_time" in cols:
+        return "Event-Time ATT Estimates"
+    if "group" in cols:
+        return "Group ATT Estimates"
+    if "time" in cols:
+        return "Calendar-Time ATT Estimates"
+    return "ATT Estimates"
 
 
 def _event_study_columns(es: Any) -> Optional[Tuple[str, str]]:
@@ -675,6 +703,12 @@ class EconometricResults:
         except Exception as exc:  # the table must print regardless
             output.append(f"(inference rule unavailable: {type(exc).__name__})")
 
+        stored_ci = self.data_info.get("stored_ci")
+        if stored_ci:
+            covered = stored_ci.get("coefficients")
+            which = "" if not covered else f" ({', '.join(map(str, covered))})"
+            output.append(f"Intervals{which}: {stored_ci.get('method')}")
+
         # Add model diagnostics
         if self.diagnostics:
             output.append("")
@@ -682,6 +716,10 @@ class EconometricResults:
             output.append("-" * 20)
             width = max(20, *(len(str(k)) for k in self.diagnostics))
             for key, value in self.diagnostics.items():
+                if isinstance(value, (float, np.floating)) and np.isnan(value):
+                    # A statistic the model does not define (R-squared of
+                    # a Poisson fit): a row reading "nan" says nothing.
+                    continue
                 if isinstance(value, (bool, np.bool_)) or value is None:
                     text = str(value)
                 elif isinstance(value, (int, np.integer)):
@@ -746,6 +784,30 @@ class EconometricResults:
         t_crit = stats.t.ppf(1 - alpha / 2, self._coefficient_df())
         lower = self.params - t_crit * self.std_errors
         upper = self.params + t_crit * self.std_errors
+        stored = self.data_info.get("stored_ci")
+        if stored:
+            # Intervals that are not estimate +/- critical value x SE (a
+            # bootstrap confidence set): they exist only at the level they
+            # were computed at, and are what the fit reports.
+            level = float(stored.get("alpha", self.alpha))
+            if abs(alpha - level) > 1e-12:
+                raise MethodIncompatibility(
+                    f"The intervals of this fit are {stored.get('method')}, "
+                    f"computed at alpha={level:g}; they cannot be rescaled "
+                    f"to alpha={alpha:g}.",
+                    recovery_hint=(
+                        "Refit with the level you want, or build the "
+                        "interval for one coefficient with "
+                        "sp.wild_cluster_boot(..., alpha=, "
+                        "confidence_set=True)."
+                    ),
+                    diagnostics={"alpha": alpha, "stored_alpha": level},
+                )
+            lo = pd.Series(self.conf_int_lower, index=self.params.index)
+            hi = pd.Series(self.conf_int_upper, index=self.params.index)
+            have = lo.notna() & hi.notna()
+            lower = lower.where(~have, lo)
+            upper = upper.where(~have, hi)
 
         return pd.DataFrame(
             {f"{alpha / 2:.3f}": lower, f"{1 - alpha / 2:.3f}": upper},
@@ -814,11 +876,10 @@ class EconometricResults:
             conf_level = 1 - self.alpha
         conf_level = _validate_probability(conf_level, name="conf_level")
         alpha = 1 - conf_level
-        df_resid = self._coefficient_df()
-        stats = _scipy_stats()
-        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
-        lo = self.params - t_crit * self.std_errors
-        hi = self.params + t_crit * self.std_errors
+        # conf_int() knows when the fit stores its own intervals (a
+        # bootstrap confidence set) instead of estimate +/- crit x SE.
+        bounds = self.conf_int(alpha)
+        lo, hi = bounds.iloc[:, 0], bounds.iloc[:, 1]
 
         def _arr(x: Any) -> np.ndarray:
             return np.asarray(x.values if hasattr(x, "values") else x)
@@ -4322,6 +4383,7 @@ class CausalResult(DiDAccessorsMixin):
                     for c in [
                         "group",
                         "time",
+                        "relative_time",
                         "att",
                         "se",
                         "ci_lower",
@@ -4330,7 +4392,7 @@ class CausalResult(DiDAccessorsMixin):
                     ]
                     if c in self.detail.columns
                 ]
-                title_str = "Group-Time ATT Estimates"
+                title_str = _att_detail_title(cols)
             elif "method" in self.detail.columns and "estimate" in self.detail.columns:
                 # RD-style inference table
                 cols = [
@@ -4370,7 +4432,12 @@ class CausalResult(DiDAccessorsMixin):
         pt = self.model_info.get("pretrend_test")
         if isinstance(pt, dict) and "statistic" in pt and "pvalue" in pt:
             dof = pt.get("df")
-            label = f"chi2({dof})" if dof is not None else "chi2"
+            if dof is not None and pt.get("df_denom") is not None:
+                # An F test (the event-study regression's clustered Wald
+                # test divided by its number of restrictions).
+                label = f"F({dof}, {int(pt['df_denom'])})"
+            else:
+                label = f"chi2({dof})" if dof is not None else "chi2"
             lines.append("-" * 78)
             p_f, p_chi2 = pt.get("pvalue_f"), pt.get("pvalue_chi2")
             if p_f is not None and p_chi2 is not None:
@@ -6442,10 +6509,10 @@ class CausalResult(DiDAccessorsMixin):
             if "att" in self.detail.columns:
                 cols = [
                     c
-                    for c in ["group", "time", "att", "se", "pvalue"]
+                    for c in ["group", "time", "relative_time", "att", "se", "pvalue"]
                     if c in self.detail.columns
                 ]
-                title_str = "Group-Time ATT Estimates"
+                title_str = _att_detail_title(cols)
             else:
                 cols = list(self.detail.columns)
                 title_str = "Detail"

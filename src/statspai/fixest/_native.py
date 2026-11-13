@@ -37,13 +37,21 @@ _I_TERM = re.compile(
 )
 
 
+#: ``C(factor)``: indicators for every level but the first (formulaic's
+#: treatment coding, what the delegate builds for the same term).
+_C_TERM = re.compile(r"^C\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\Z")
+
+
 @dataclass
 class ITerm:
-    """An ``i(factor[, var], ref=...)`` term of the formula."""
+    """An ``i(factor[, var], ref=...)`` or ``C(factor)`` term of the formula."""
 
     factor: str
     var: Optional[str]
     ref: str
+    #: ``C(factor)``: the reference is the first level and a dummy is
+    #: reported as ``C(factor)[T.level]``
+    categorical: bool = False
 
 
 _HETERO = ("hetero", "hc1", "robust")
@@ -102,8 +110,11 @@ def _split_formula(
         if t == "1":
             continue
         m = _I_TERM.match(t)
+        c = _C_TERM.match(t)
         if m:
             rhs.append(ITerm(m.group(1), m.group(2), m.group(3).strip("\"'")))
+        elif c:
+            rhs.append(ITerm(c.group(1), None, "", categorical=True))
         elif _NAME.match(t):
             rhs.append(t)
         else:
@@ -267,14 +278,19 @@ def _expand_i_terms(
         ):
             return f"i({t.factor}) on a column of dtype {f.dtype}"
         values = f.to_numpy()
-        try:
-            ref: Any = int(t.ref) if pd.api.types.is_integer_dtype(f) else t.ref
-        except ValueError:
-            return f"i({t.factor}, ref={t.ref}) on an integer column"
         codes, levels = pd.factorize(values, sort=True)
         level_list = list(levels)
-        if ref not in level_list:
-            return f"i({t.factor}): reference level {t.ref} not in the data"
+        if t.categorical:
+            if not level_list:
+                return f"C({t.factor}) on a column with no values"
+            ref: Any = level_list[0]
+        else:
+            try:
+                ref = int(t.ref) if pd.api.types.is_integer_dtype(f) else t.ref
+            except ValueError:
+                return f"i({t.factor}, ref={t.ref}) on an integer column"
+            if ref not in level_list:
+                return f"i({t.factor}): reference level {t.ref} not in the data"
         var = work[t.var].to_numpy(dtype=np.float64) if t.var else None
         for j, lev in enumerate(level_list):
             if lev == ref:
@@ -282,7 +298,12 @@ def _expand_i_terms(
             internal = f"__i{len(renames)}__"
             col = (codes == j).astype(np.float64)
             cols[internal] = col * var if var is not None else col
-            renames[internal] = f"{t.factor}::{lev}" + (f":{t.var}" if t.var else "")
+            if t.categorical:
+                renames[internal] = f"C({t.factor})[T.{lev}]"
+            else:
+                renames[internal] = f"{t.factor}::{lev}" + (
+                    f":{t.var}" if t.var else ""
+                )
             names.append(internal)
     return names, cols, renames
 
@@ -661,7 +682,7 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
     fitted design, scores ``w u x^``, fixest's small-sample factors. The
     first-stage F is the Wald statistic of the excluded instruments in the
     first-stage regression under the model's variance, divided by their
-    number, with a chi-square p-value: fixest's ``ivwald1`` (pyfixest
+    number, with its F(k, df) p-value: fixest's ``ivwald1`` (pyfixest
     clusters its first stage on the first dimension only and refits it
     with singletons dropped, so its robust value can differ).
     """
@@ -744,15 +765,38 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
         b_z = Pi[k_ex:, 0]
         V_zz = V1[k_ex:, k_ex:]
         wald = float(b_z @ np.linalg.pinv(V_zz) @ b_z)
-        first = (wald / k_in, float(stats.chi2.sf(wald, k_in)))
+        # An F statistic is referred to F(k_in, df), the residual degrees
+        # of freedom of the first stage under the model's variance, as
+        # fixest prints for ivwald1.
+        df1 = n - (kz + (extra1 if p.vcov == "cr1" else fe_dof))
+        first = (
+            wald / k_in,
+            float(stats.f.sf(wald / k_in, k_in, df1)) if df1 > 0 else None,
+        )
 
-    nan = float("nan")
+    # Fit statistics on the structural residuals y - X b (fixest's r2,
+    # ar2, wr2, war2 and rmse of an IV fit), same formulas as the OLS path.
+    w_obs = np.asarray(a["w"], dtype=float)
+    y_obs = np.asarray(a["y"], dtype=float)
+    ssu = float(u_s @ u_s)
+    ssy = float(w_obs @ (y_obs - np.average(y_obs, weights=w_obs)) ** 2)
+    n_all = int(res.n_kept)
+    k_fe_all = fe_dof if p.fe else 0
+    if p.fe:
+        adj = (n_all - 1) / (n_all - k - k_fe_all)
+        adj_within = (n_all - k_fe_all) / (n_all - k - k_fe_all)
+        ssy_within = float(ys @ ys)
+        r2_within = 1.0 - ssu / ssy_within
+        adj_r2_within = 1.0 - ssu / ssy_within * adj_within
+    else:
+        adj = (n_all - 1) / (n_all - k)
+        r2_within = adj_r2_within = float("nan")
     diagnostics: Dict[str, Any] = {
-        "R-squared": nan,
-        "Adj. R-squared": nan,
-        "R-squared (within)": nan,
-        "Adj. R-squared (within)": nan,
-        "RMSE": nan,
+        "R-squared": 1.0 - ssu / ssy,
+        "Adj. R-squared": 1.0 - ssu / ssy * adj,
+        "R-squared (within)": r2_within,
+        "Adj. R-squared (within)": adj_r2_within,
+        "RMSE": float(np.sqrt(ssu / float(np.sum(w_obs)))),
     }
     model_info = _model_info(p, "IV", res.fe_kernel, fml)
     if p.fe:
@@ -828,7 +872,10 @@ def fit_feols_iv(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults
         u=u_s,
         names=names,
         endo=list(range(k_ex, k)),
-        k_total=df_k,
+        # Wu-Hausman is a classical F test: its denominator counts every
+        # absorbed effect, whatever the variance of the main fit (under
+        # clustering df_k leaves out the effects nested in the clusters).
+        k_total=k + fe_dof,
         first=first,
     )
     return out
@@ -879,6 +926,17 @@ def fit_fepois(p: Plan, fml: str, *, tol: float, maxiter: int) -> EconometricRes
         "Deviance": float(res.deviance),
         "Log-likelihood": float(res.log_likelihood),
     }
+    # McFadden's pseudo R-squared against the constant-only Poisson model
+    # on the same rows (fixest's pr2).
+    from scipy.special import gammaln, xlogy
+
+    w_obs = np.asarray(a["w"], dtype=float)
+    ybar = float(np.average(y, weights=w_obs))
+    if ybar > 0:
+        ll_null = float(np.sum(w_obs * (xlogy(y, ybar) - ybar - gammaln(y + 1.0))))
+        diagnostics["Log-likelihood (null)"] = ll_null
+        if ll_null != 0:
+            diagnostics["Pseudo R-squared"] = 1.0 - float(res.log_likelihood) / ll_null
     model_info = _model_info(p, "Poisson", res.fe_kernel, fml)
     if p.fe and not p.drop_singletons:
         model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])

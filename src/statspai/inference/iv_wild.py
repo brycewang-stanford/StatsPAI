@@ -666,9 +666,12 @@ def iv_wild_bootstrap(
     def _march(inside: float, direction: float) -> Tuple[float, float]:
         # from a point inside the set, step outward (doubling) to a point
         # outside it; (inside, inf) when none is found
+        # Twenty doublings reach two million standard errors. A rejection
+        # first found farther out than that is rounding in the statistic,
+        # not an end of the set: the set is unbounded on this side.
         step = 2.0 * se
         outside = inside + direction * step
-        for _ in range(40):
+        for _ in range(20):
             if _pvalue(outside) <= alpha:
                 return inside, outside
             inside, outside = outside, outside + direction * step

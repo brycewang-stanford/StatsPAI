@@ -2343,10 +2343,15 @@ def regress(
                 n_boot=wild_reps,
                 weight_type=wild_weight_type,
                 seed=seed,
+                alpha=base.alpha,
+                confidence_set=True,
             )
             se[var] = out["se_cluster"]
             pvals[var] = out["p_boot"]
-            ci_lo[var], ci_hi[var] = out["ci_boot"]
+            # The set of null values the bootstrap test does not reject
+            # (what Stata boottest prints): the interval that agrees with
+            # the p-value beside it.
+            ci_lo[var], ci_hi[var] = out["ci_inverted"]
         base.std_errors = se
         base.pvalues = pvals
         base.conf_int_lower = ci_lo
@@ -2354,7 +2359,17 @@ def regress(
         base.model_info = dict(base.model_info)
         # These SEs replace the fitted ones and their p-values are normal;
         # mark the fit so conf_int() / tidy() / sp.test use z as well.
-        base.data_info = dict(base.data_info, inference="z")
+        base.data_info = dict(
+            base.data_info,
+            inference="z",
+            stored_ci={
+                "alpha": float(base.alpha),
+                "method": (
+                    "wild cluster bootstrap confidence sets (null values "
+                    "the test does not reject, as Stata boottest)"
+                ),
+            },
+        )
         base.model_info["vcov_type"] = (
             f"WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008, "
             f"{wild_reps} reps, {wild_weight_type})"

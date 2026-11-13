@@ -164,16 +164,34 @@ class OaxacaResult(DecompResultMixin):
             f"  ({unex_pct:>5.1f}% of gap)   SE={unex_se:.4f}"
         )
 
-        # Threefold pieces if present
+        # The two halves of the unexplained part under this reference
         if "unexplained_a" in o and "unexplained_b" in o:
             ua = o["unexplained_a"]
             ub = o["unexplained_b"]
             lines.append("")
+            lines.append("  Unexplained part, by group:")
+            lines.append("  " + "─" * (w - 4))
+            lines.append(f"  Group A vs reference: {ua:>8.4f}")
+            lines.append(f"  Reference vs Group B: {ub:>8.4f}")
+
+        # Threefold decomposition (Group B's coefficients price the
+        # endowments; it does not depend on the reference)
+        if all(k in o for k in ("endowments", "coefficients", "interaction")):
+            lines.append("")
             lines.append("  Threefold decomposition:")
             lines.append("  " + "─" * (w - 4))
-            lines.append(f"  Endowments:         {expl:>10.4f}")
-            lines.append(f"  Coefficients (A):   {ua:>10.4f}")
-            lines.append(f"  Coefficients (B):   {ub:>10.4f}")
+            for label, key in (
+                ("Endowments", "endowments"),
+                ("Coefficients", "coefficients"),
+                ("Interaction", "interaction"),
+            ):
+                se_k = o.get(f"{key}_se")
+                se_txt = f"   SE={se_k:.4f}" if se_k is not None else ""
+                lines.append(f"  {label + ':':<20s}{o[key]:>10.4f}{se_txt}")
+
+        lines.append("")
+        lines.append("  SEs: delta method on HC1 group regressions, covariate means")
+        lines.append("  held fixed (Stata: oaxaca ..., vce(robust) fixed).")
 
         # Detailed table
         if not self.detailed.empty:
@@ -625,8 +643,8 @@ def oaxaca(
     X_b = _add_constant(X_b_raw)
 
     # ── OLS for each group ───────────────────────────────────────────
-    beta_a, vcov_a, _ = _ols(y_a, X_a)
-    beta_b, vcov_b, _ = _ols(y_b, X_b)
+    beta_a, vcov_a, resid_a = _ols(y_a, X_a)
+    beta_b, vcov_b, resid_b = _ols(y_b, X_b)
 
     # Means (with constant = 1)
     mean_X_a = np.concatenate([[1.0], X_a_raw.mean(axis=0)])
@@ -646,7 +664,7 @@ def oaxaca(
     elif reference == "pooled":
         X_all = _add_constant(data[x].values.astype(float))
         y_all = data[y].values.astype(float)
-        beta_star, vcov_star, _ = _ols(y_all, X_all)
+        beta_star, vcov_star, resid_all = _ols(y_all, X_all)
     elif reference == "cotton":
         w_a = n_a / (n_a + n_b)
         w_b = n_b / (n_a + n_b)
@@ -684,12 +702,31 @@ def oaxaca(
         var_unexplained = mean_X_b @ (vcov_a + vcov_b) @ mean_X_b
     elif reference == 1:
         var_unexplained = mean_X_a @ (vcov_a + vcov_b) @ mean_X_a
+    elif reference in ("cotton", "reimers"):
+        # beta* = w_a beta_a + w_b beta_b, so the unexplained part is
+        # (w_b Xbar_a + w_a Xbar_b)'(beta_a - beta_b): one linear
+        # combination of two independent coefficient vectors.
+        w_ref = n_a / (n_a + n_b) if reference == "cotton" else 0.5
+        c_ref = (1.0 - w_ref) * mean_X_a + w_ref * mean_X_b
+        var_unexplained = c_ref @ (vcov_a + vcov_b) @ c_ref
     else:
-        # Conservative: sum of both group variances, weighted
-        var_unexplained = (
-            mean_X_a @ (vcov_a + vcov_star) @ mean_X_a
-            + mean_X_b @ (vcov_star + vcov_b) @ mean_X_b
-        )
+        # Pooled beta* is estimated on the same rows as beta_a and beta_b,
+        # so the three are correlated. The unexplained part is
+        # Xbar_a' beta_a - Xbar_b' beta_b - (Xbar_a - Xbar_b)' beta*; its
+        # variance is the sum of squares of its influence function, each
+        # regression's scores carrying its own HC1 factor (the diagonal
+        # blocks are then vcov_a, vcov_b and vcov_star exactly).
+        def _scores(X_g: np.ndarray, e_g: np.ndarray, c_g: np.ndarray) -> np.ndarray:
+            n_g, k_g = X_g.shape
+            lin = np.linalg.solve(X_g.T @ X_g, c_g)
+            return (X_g @ lin) * e_g * np.sqrt(n_g / max(n_g - k_g, 1))
+
+        pos_a = np.flatnonzero(mask_a.to_numpy())
+        pos_b = np.flatnonzero(mask_b.to_numpy())
+        infl = -_scores(X_all, resid_all, diff_X)
+        infl[pos_a] += _scores(X_a, resid_a, mean_X_a)
+        infl[pos_b] -= _scores(X_b, resid_b, mean_X_b)
+        var_unexplained = float(infl @ infl)
 
     se_explained = np.sqrt(max(var_explained, 0.0))
     se_unexplained = np.sqrt(max(var_unexplained, 0.0))

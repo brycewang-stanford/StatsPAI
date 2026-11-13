@@ -2438,6 +2438,14 @@ def _panel_bias_reduced(
         res.conf_int_upper = pd.Series(
             [wild_ci[v][1] for v in indep_vars], index=list(indep_vars)
         )
+        # conf_int() / summary() report these, not estimate +/- t x SE
+        res.data_info = dict(
+            res.data_info or {},
+            stored_ci={
+                "alpha": float(alpha),
+                "method": "wild cluster bootstrap percentile-t intervals",
+            },
+        )
     return res
 
 
@@ -2559,6 +2567,12 @@ def _fit_cre(
         data,
         ssc_inf=ssc_inf,
     )
+    if weights is None:
+        # A CRE fit is ``xtreg y x xbar, re``: report xtreg's within /
+        # between / overall R-squared of the whole design, as after
+        # method='re' (linearmodels' 1 - SSR/SST versions go to
+        # model_info['r2_linearmodels']).
+        _use_xtreg_rsquared(result, df, dep_var, list(all_exog), entity)
 
     # Test: are the Mundlak terms jointly significant?
     # (equivalent to Hausman test)

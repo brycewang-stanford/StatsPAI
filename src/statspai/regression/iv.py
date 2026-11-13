@@ -3662,7 +3662,15 @@ def ivreg(
         base.model_info = dict(base.model_info)
         # These SEs replace the fitted ones and their p-values are normal;
         # mark the fit so conf_int() / tidy() / sp.test use z as well.
-        base.data_info = dict(base.data_info, inference="z")
+        base.data_info = dict(
+            base.data_info,
+            inference="z",
+            stored_ci={
+                "alpha": 0.05,
+                "method": "WRE wild cluster bootstrap confidence set",
+                "coefficients": [str(endog_name)],
+            },
+        )
         base.model_info["vcov_type"] = (
             "WRE wild cluster bootstrap (Davidson-MacKinnon 2010, "
             f"{wild_reps} reps, {wild_weight_type}; endogenous coefficient)"

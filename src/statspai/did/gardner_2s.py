@@ -933,6 +933,32 @@ def gardner_did(
         # whether the SE is reproducible.
         model_info["boot_seed"] = boot_seed
 
+    # The event-study coefficients as a table, one row per relative time,
+    # in the layout the other staggered estimators use (``detail``); the
+    # dict under model_info['event_study'] stays as it was.
+    es_detail = None
+    if event_study:
+        rows = []
+        for k_rel, name in zip(list(horizon or []), names):
+            b_k, se_k = float(coef_dict[name]), float(se_dict[name])
+            ok = np.isfinite(b_k) and np.isfinite(se_k) and se_k > 0
+            rows.append(
+                {
+                    "relative_time": int(k_rel),
+                    "att": b_k,
+                    "se": se_k,
+                    "ci_lower": float(ci[name][0]),
+                    "ci_upper": float(ci[name][1]),
+                    "pvalue": (
+                        float(2 * sp_stats.norm.sf(abs(b_k / se_k)))
+                        if ok
+                        else float("nan")
+                    ),
+                    "n_obs": count_dict.get(name),
+                }
+            )
+        es_detail = pd.DataFrame(rows)
+
     _result = CausalResult(
         method="Gardner 2022 two-stage DID (did2s)",
         estimand="ATT",
@@ -943,6 +969,7 @@ def gardner_did(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
+        detail=es_detail,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

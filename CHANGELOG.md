@@ -4,6 +4,91 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Applied-economics probe (2026-11-13)
+
+A blind replication probe ran twenty applied-microeconomics tasks in
+StatsPAI and again in Stata 18 and R on the same bytes, and compared every
+printed number. Coefficients and standard errors agreed throughout. The
+defects were in what is printed around them. Evidence for each item is in
+`tests/reference_parity/test_probe_econ_parity.py`.
+
+#### Fixed
+- **⚠️ correctness fix: after `vce="wild"` the printed intervals were not
+  bootstrap intervals.** `sp.regress`, `sp.feols`, `sp.ivreg` and `sp.panel`
+  replace the p-values by wild cluster bootstrap p-values, but `summary()`,
+  `conf_int()` and `tidy()` printed estimate plus or minus a critical value
+  times the CRV1 standard error. On the Card data with 8 clusters `educ` had
+  p = 0.0625 beside the interval [0.0059, 0.0612]. These surfaces now report
+  the bootstrap confidence set, [-0.0001, 0.0666] in that example. For
+  `sp.regress` and least-squares `sp.feols` it is the set of null values the
+  test does not reject, which is what Stata `boottest` prints (p-values are
+  equal to `boottest`'s exactly; end points agree within its grid
+  interpolation). `conf_int(alpha)` at another level than the fit's raises
+  `MethodIncompatibility`, since a bootstrap set cannot be rescaled. The
+  point estimates, standard errors and p-values are unchanged.
+- **⚠️ correctness fix: `sp.fepois` reported a log-likelihood without its
+  constant.** `diagnostics["Log-likelihood"]` left out the `- log y!` term
+  (1798.63 where fixest and `ppmlhdfe` report -930.93 on the castle-doctrine
+  counts). It now matches fixest's `logLik`, weighted fits included.
+  `Pseudo R-squared` (fixest's `pr2`) and `Log-likelihood (null)` are new.
+  Coefficients and standard errors are unchanged.
+- **⚠️ correctness fix: `sp.oaxaca` overstated the standard error of the
+  unexplained part for `reference="pooled"`, `"cotton"` and `"reimers"`.**
+  The formula summed two variances and ignored that both halves share
+  coefficients. Card data, black-white gap: Reimers 0.02112 → 0.01798 and
+  Cotton 0.01971 → 0.01723 (Stata `oaxaca, weight() vce(robust) fixed` to
+  1e-12), pooled 0.01929 → 0.01448 (Stata `omega`: 0.01443, which scales by
+  N/(N-1) where StatsPAI uses HC1). Point estimates, the explained SE and
+  `reference=0` / `1` are unchanged.
+- **⚠️ correctness fix: `sp.feols` IV diagnostics.** The first-stage F
+  p-value used the chi-square distribution and now uses F(k, df), as fixest's
+  `ivwald1` (6.80e-05 → 7.01e-05 in the test case). Under clustering the
+  Wu-Hausman statistic left the fixed effects nested in the clusters out of
+  its denominator degrees of freedom (3.2521 → 3.2445, fixest's value under
+  every variance). An IV fit with absorbed effects now reports R-squared,
+  within R-squared and RMSE on the structural residuals. They were NaN.
+- **⚠️ correctness fix: `sp.panel(method="mundlak" | "chamberlain")` printed
+  another quantity as `R-squared (between)`.** It showed linearmodels'
+  1 - SSR/SST (0.14295) where `method="re"` shows Stata `xtreg`'s squared
+  correlation. A correlated random effects fit is `xtreg y x xbar, re`, and
+  it now reports xtreg's within, between (0.14304) and overall R-squared.
+  The linearmodels values move to `model_info["r2_linearmodels"]`.
+- **⚠️ correctness fix: `sp.balance_table(test="ranksum")` did not correct
+  the rank-sum variance for ties.** On a 0/1 covariate every observation is
+  tied. Lalonde data, `hispanic`: p = 0.104 → 0.003 (Stata `ranksum` and
+  `sp.ranksum`: 0.0035). Continuous covariates without ties are unchanged.
+- **`sp.feols` raised `ValueError: Buffer has wrong number of dimensions`
+  when the cluster variable was also a regressor** (clustering on years of
+  schooling, or on a discrete running variable).
+- **`sp.feols` fits `C(factor)` terms on its own engine.** `sp.stata`
+  translates `xtreg y x i.year, fe vce(cluster id)` to such a formula.
+  Without the optional pyfixest that command, and the rest of the do-file,
+  stopped with `MissingDependencyError`.
+- **A wild bootstrap (WRE) confidence set whose end was found only
+  millions of standard errors away is reported as unbounded** (`inf`), not
+  as a number such as 4.5e9.
+
+#### Changed
+- `summary()` of a regression states the number of observations, and after
+  `sp.feols` / `sp.fepois` names the cluster variables and their count where
+  it printed `CRV`. Rows of undefined statistics (the R-squared of a Poisson
+  fit) are no longer printed as `nan`.
+- `sp.event_study(...).summary()` labels its pre-trend statistic `F(q, G-1)`.
+  It printed `chi2(q)` beside an F statistic and its F p-value.
+- A result's detail table is headed by what indexes it. Event-study tables
+  of `sp.sun_abraham`, `sp.event_study`, `sp.stacked_did` and others were
+  headed "Group-Time ATT Estimates" and printed without their relative-time
+  column.
+- `sp.did_2stage(event_study=True)` returns the event-study coefficients as
+  `result.detail` (relative time, estimate, SE, interval, p-value), and
+  `summary()` prints them. `model_info["event_study"]` is unchanged.
+- `sp.oaxaca(...).summary()` prints the threefold decomposition (endowments,
+  coefficients, interaction, with SEs) under that heading. The block used to
+  hold the twofold explained part and the two halves of the unexplained
+  part. The summary also states the SE convention.
+- `sp.regtable(se_type="ci")` notes "95% CI in brackets". The cells were
+  always bracketed.
+
 ### Epidemiology probe (2026-11-13)
 
 Twenty epidemiology and biostatistics analyses were run blind in StatsPAI

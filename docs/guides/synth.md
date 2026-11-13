@@ -65,6 +65,44 @@ with a missing period is dropped with an `AssumptionWarning` and listed in
 a balanced panel and refuse such a donor instead; `method='mc'` keeps it,
 since matrix completion is built for missing cells.
 
+### Predictors of the classic estimator (the ADH recipe)
+
+Without predictors, `method='classic'` matches on the pre-treatment
+outcomes alone. To match on covariates as Abadie, Diamond and Hainmueller
+do, pass `covariates=` (pre-treatment means of the listed columns) or
+`special_predictors=`, a list of `(column, periods, op)` tuples. `periods`
+is one period, a list of periods, or `slice(first, last)` with both ends
+included; `op` is `'mean'` or `'sum'`. This is the Proposition 99
+specification of Abadie et al. (2010):
+
+```python
+df = sp.datasets.california_prop99()
+adh = [
+    ("lnincome", slice(1980, 1988), "mean"),
+    ("age15to24", slice(1980, 1988), "mean"),
+    ("retprice", slice(1980, 1988), "mean"),
+    ("beer", slice(1984, 1988), "mean"),
+    ("cigsale", 1975, "mean"),
+    ("cigsale", 1980, "mean"),
+    ("cigsale", 1988, "mean"),
+]
+r = sp.synth(
+    df, outcome="cigsale", unit="state", time="year",
+    treated_unit="California", treatment_time=1989,
+    special_predictors=adh,
+    v_method="regression",   # Stata synth's default V; omit for the nested search
+)
+r.model_info["weights"]            # Colorado 0.356, Utah 0.344, Nevada 0.217, Connecticut 0.083
+r.model_info["predictor_balance"]  # treated, synthetic and donor-mean values
+```
+
+`v_method='regression'` takes the predictor weights V from a regression, as
+Stata `synth` does without its `nested` option, and reproduces its donor
+weights and pre-treatment RMSPE (2.0378503). The default with predictors is
+the nested search of R `Synth`, which is slower (about two minutes here with
+the 38 placebos; `n_jobs=-1` fits them in parallel) and reaches the weights
+of the published paper.
+
 ## Inference strategies
 
 | Strategy | Call | When |

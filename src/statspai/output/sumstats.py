@@ -657,7 +657,20 @@ def balance_table(
         if test == "ttest":
             stat, pval = sp_stats.ttest_ind(t_vals, c_vals, equal_var=False)
         else:
-            stat, pval = sp_stats.ranksums(t_vals, c_vals)
+            # Wilcoxon rank-sum with the variance corrected for ties and
+            # no continuity correction: Stata ranksum, sp.ranksum, R
+            # wilcox.test(correct = FALSE). scipy's ranksums has no tie
+            # correction, which on a 0/1 covariate (all ties) inflates the
+            # p-value severalfold.
+            pval = np.nan
+            if len(t_vals) and len(c_vals):
+                pval = sp_stats.mannwhitneyu(
+                    t_vals,
+                    c_vals,
+                    alternative="two-sided",
+                    method="asymptotic",
+                    use_continuity=False,
+                ).pvalue
 
         rows.append(
             {
