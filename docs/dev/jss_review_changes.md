@@ -6385,3 +6385,42 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-13 — all 91 Track A traces and all 12 original-data traces re-recorded (owner decisions of 2026-11-13)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `chore(parity): re-record both trace ledgers after the owner
+  decisions` (line `decisions`), which follows the commits that changed
+  the sources.
+- **Reason.** Seven files on traced estimation paths changed, none in a
+  number a Track A or original-data module reports
+  (`docs/dev/2026-11-13-owner-decisions.md`):
+  `src/statspai/core/results.py` (`CausalResult.summary()` heads a staged
+  balance table "Covariate Balance, before / after matching"; on the
+  traced path of 70 Track A modules and of every original-data module),
+  `src/statspai/regression/ols.py` (one docstring sentence: HAC inference
+  uses t(N - K)),
+  `src/statspai/matching/match.py` (balance tables carry
+  `attrs['smd_denominator']`),
+  `src/statspai/did/stacked_did.py` (module 75: new `crit_dist=`; the
+  default path keeps the normal distribution and the module reads
+  estimates and standard errors only),
+  `src/statspai/synth/sdid.py` (module 12: a warning for
+  `method='sc', se_method='jackknife'`, a combination the module does not
+  run),
+  `src/statspai/dml/pliv.py`, `dml/double_ml.py`, `dml/_base.py`
+  (module 71: the PLIV estimand label is `'theta'`) and
+  `src/statspai/tmle/tmle.py` (module 72: convergence warnings of the
+  default library are collected and reported once).
+- **Effect on the paper.** None. `tests/r_parity/verify_reproduce_py.py`
+  re-derived all 91 Python modules on the changed tree without Rust
+  (Python 3.10.20 reference environment): 91 reproduce within its 1e-9
+  floor (85 fixtures byte identical, 6 embedded; worst relative difference
+  1.69e-10, module 25). The twelve original-data modules were re-run into
+  a scratch directory and every number agreed with the committed result
+  within 1e-9 (worst 1.6e-11, module 01). No committed parity result
+  changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

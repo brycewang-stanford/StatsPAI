@@ -5647,7 +5647,7 @@
           "x-statspai-source": "signature"
         },
         "propensity_library": {
-          "description": "Candidate learners for propensity model g(A|W). If None, uses a default diverse library.",
+          "description": "Candidate learners for propensity model g(A|W). If None, uses a default diverse library. The default libraries fit their linear learners (logistic regression, Lasso) on the covariates as given. When one of them does not converge, typically because the covariates are on very different scales, the call reports it once as an ``AssumptionWarning`` naming the learner and the nuisance, and records it in ``model_info['diagnostics'] ['super_learner_convergence']``, in place of one sklearn ``ConvergenceWarning`` per internal fit. Rescale the covariates or pass a library. Warnings from a library you pass are not touched.",
           "items": {
             "type": "string"
           },
@@ -34300,6 +34300,14 @@
           ],
           "x-canonical": "covariates",
           "x-statspai-role": "columns"
+        },
+        "crit_dist": {
+          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1), G the clusters of the stacked regression (Stata reghdfe, R fixest). 'normal': the normal distribution. Not given: 'normal' with a FutureWarning for family='gaussian' ('t' becomes the default in a later release); family='poisson' stays normal",
+          "enum": [
+            "t",
+            "normal"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "Panel data in long format.",
