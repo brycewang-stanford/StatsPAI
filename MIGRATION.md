@@ -5,6 +5,53 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: three defaults announced, ⚠️ `sp.dose_response` headline
+
+Owner decisions of 2026-11-13 (`docs/dev/2026-11-13-owner-decisions.md`).
+
+**Announced, nothing changes numerically yet.** Each function below keeps
+today's numbers. A call that does not pass the option gets a
+`FutureWarning`; passing it, with either value, is silent. The default
+switches no earlier than 1.45.
+
+| function | option | today (not given) | later default | keep today's numbers |
+| --- | --- | --- | --- | --- |
+| `sp.mr_mode` (also `sp.mr("mode", ...)`) | `stderror` | `'simple'` (NOME, `mr_mbe`) | `'delta'` (`TwoSampleMR`) | `stderror="simple"` |
+| `sp.rkd` | `headline` (new) | `'conventional'` | `'robust'`: bias-corrected estimate, robust SE and interval | `headline="conventional"` |
+| `sp.iv_mediate` | `equations` | `'independent'` (`ivmediate`) | `'joint'` | `equations="independent"` |
+
+What moves when the default switches: for `sp.mr_mode` the standard error,
+interval and p-value, and the weighted-mode estimate (its weights use the
+same ratio standard errors); for `sp.rkd` `estimate`, `se`, `pvalue` and
+`ci` (both sets of numbers are in `model_info['conventional']` and
+`model_info['robust']` under either setting); for `sp.iv_mediate` the
+standard error, interval and p-value of the indirect effect only.
+
+```python
+r = sp.rkd(df, y="y", x="x", c=0, headline="robust")        # the later default, now
+r = sp.rkd(df, y="y", x="x", c=0, headline="conventional")  # today's numbers, no warning
+r.model_info["headline"], r.model_info["robust"], r.model_info["conventional"]
+```
+
+**⚠️ `sp.dose_response` headline.** `estimate` is the dose-response curve
+at the 75th percentile of the observed treatment minus the curve at the
+25th percentile, which is what its label (`E[Y(t75)] - E[Y(t25)]`) and
+documentation said. Through 1.43.1 the two doses were grid points
+`int(0.25 k)` and `int(0.75 k)` of the `k = n_dose_points` doses, so the
+number moved with `n_dose_points` and `dose_range`. NHEFS (weight change on
+smoking intensity, Hirano-Imbens quadratic models): 1.0974 with
+`n_dose_points=10` and 0.9702 with 20 before, 1.2752 for both after. The
+curve in `detail` is unchanged. To reproduce the old number, difference
+`detail['response']` at rows `int(0.25 k)` and `int(0.75 k)`; its standard
+error is not stored.
+
+**New errors.** `sp.ips` / `sp.snips` / `sp.ope.ips` / `sp.ope.snips`
+raise `MethodIncompatibility` for policy arrays whose shapes show they
+were passed in the other API's order; such calls failed before with an
+`IndexError` or a shape message.
+
+---
+
 ## 1.43 → next: ⚠️ bounds p-values, the `sp.ml_bounds` band, `sp.sbw` and CEM standard errors
 
 Found by the SE calibration screen (`tests/reliability/se_screen/causal/`).

@@ -52,6 +52,10 @@ def data():
 
 
 def _fit(data, **kw):
+    # ivmediate's variance of the indirect effect, passed explicitly: the
+    # default of equations= is announced to change (owner decision
+    # 2026-11-13), and this file pins the ivmediate numbers.
+    kw.setdefault("equations", "independent")
     return sp.iv_mediate(data, y="y", treat="t", mediator="m", instrument="z", **kw)
 
 

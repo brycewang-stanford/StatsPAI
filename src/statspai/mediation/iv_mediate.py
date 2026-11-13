@@ -82,7 +82,8 @@ class IVMediateResult(ResultProtocolMixin):
     >>> t = z + v
     >>> m = 0.5 * t + v + u
     >>> df = pd.DataFrame({"y": t + m + u, "t": t, "m": m, "z": z})
-    >>> res = sp.iv_mediate(df, y="y", treat="t", mediator="m", instrument="z")
+    >>> res = sp.iv_mediate(df, y="y", treat="t", mediator="m", instrument="z",
+    ...                     equations="joint")
     >>> type(res).__name__
     'IVMediateResult'
     >>> list(res.estimates.index)
@@ -336,7 +337,7 @@ def iv_mediate(
     cluster: Optional[str] = None,
     robust: bool = False,
     level: float = 0.95,
-    equations: str = "independent",
+    equations: Optional[str] = None,
 ) -> IVMediateResult:
     """Total, direct and indirect effects with one instrument (``ivmediate``).
 
@@ -385,7 +386,7 @@ def iv_mediate(
         variances assume homoskedastic errors with ``e'e / n``.
     level : float, default 0.95
         Confidence level for the intervals.
-    equations : {"independent", "joint"}, default "independent"
+    equations : {"independent", "joint"}, optional
         How the three equations enter the variance of the indirect effect.
         ``"independent"`` sets every covariance between coefficients of
         different equations to zero, which is what ``ivmediate`` reports.
@@ -401,7 +402,10 @@ def iv_mediate(
         negative; ``"joint"`` was 1.06 and 1.01 times
         (``tests/reliability/se_screen/causal/mediation.py``). Point
         estimates, and the standard errors of the total and direct
-        effects, do not depend on it.
+        effects, do not depend on it. Not given, the call uses
+        ``"independent"`` and warns (``FutureWarning``): a later release
+        makes ``"joint"`` the default (owner decision 2026-11-13).
+        Passing either value is silent.
 
     Returns
     -------
@@ -439,7 +443,8 @@ def iv_mediate(
     >>> m = 0.6 * t + v + u + 0.5 * rng.standard_normal(n)
     >>> yv = 0.4 * t + 0.7 * m + u + rng.standard_normal(n)
     >>> df = pd.DataFrame({"y": yv, "t": t, "m": m, "z": z})
-    >>> res = sp.iv_mediate(df, y="y", treat="t", mediator="m", instrument="z")
+    >>> res = sp.iv_mediate(df, y="y", treat="t", mediator="m", instrument="z",
+    ...                     equations="joint")
     >>> abs(res.total_effect - 0.82) < 0.15
     True
     >>> abs(res.indirect_effect - 0.42) < 0.15
@@ -467,6 +472,23 @@ def iv_mediate(
             f"level must be in (0, 1), got {level!r}.",
             recovery_hint="Use e.g. level=0.95.",
         )
+    if equations is None:
+        from .._default_change import announce_default_change
+
+        announce_default_change(
+            "iv_mediate",
+            "equations",
+            today="'independent'",
+            later="'joint'",
+            why=(
+                "'independent' is the ivmediate variance of the indirect "
+                "effect, which drops the covariance between the equations; "
+                "'joint' keeps it (Stata gmm + nlcom). Only the standard "
+                "error, interval and p-value of the indirect effect differ; "
+                "estimates do not."
+            ),
+        )
+        equations = "independent"
     if equations not in ("independent", "joint"):
         raise MethodIncompatibility(
             f"equations must be 'independent' or 'joint', got {equations!r}.",

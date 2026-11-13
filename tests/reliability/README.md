@@ -831,9 +831,9 @@ What the table says:
 | `dist_iv.q75` | 2000 | 400 | 0.973 | 1.08 | 0.07 |  |
 | `beyond_average_late.q75` | 2000 | 400 | 0.958 | 1.03 | 0.03 |  |
 | `qdid.q75` | 1000 | 400 | 0.953 | 1.04 | -0.03 |  |
-| `dose_response.gps` | 1000 | 400 | 0.940 | 0.97 | -0.03 |  |
-| `dose_response.gps.confounded` | 1000 | 400 | 0.000 | 0.94 | 9.71 | coverage_low, bias |
-| `dose_response.dr` | 500 | 200 | 0.940 | 0.61 | -0.01 | se_small |
+| `dose_response.gps` | 1000 | 400 | 0.935 | 0.97 | -0.01 |  |
+| `dose_response.gps.confounded` | 1000 | 400 | 0.000 | 0.90 | 9.37 | coverage_low, bias |
+| `dose_response.dr` | 500 | 200 | 0.935 | 0.64 | 0.02 | se_small |
 
 What the table says:
 
@@ -847,17 +847,25 @@ What the table says:
 - `sp.dose_response` with the Hirano-Imbens GPS regression is in band
   when the covariates move the dose only. When a covariate also moves the
   outcome and the outcome model is linear in the dose and the GPS, the
-  curve keeps the unadjusted slope (bias of 9.7 standard errors, coverage
+  curve keeps the unadjusted slope (bias of 9.4 standard errors, coverage
   zero). The docstring reports this and the function warns on its default
   models.
 - `method='dr'` is unbiased on the same design and its interval covers
-  94%, but the mean SE is 0.61 of the sampling SD: the estimate
+  93.5%, but the mean SE is 0.64 of the sampling SD: the estimate
   has heavy tails. The conditional variance of the dose is a linear
   regression of squared residuals, which falls towards zero for a few
   covariate values, and the density weight of those units explodes.
   With a constant variance the SD of the contrast dropped from 5.0 to
   0.15 (120 draws). The function now warns when a density weight exceeds
   100; changing the variance model is an open decision.
+- The three `dose_response` rows were rerun on 2026-11-13 after the
+  headline moved to the quartiles of the observed dose (⚠️ in the
+  CHANGELOG). The verdicts did not change. The target of these rows is the
+  contrast between the two doses the result reports
+  (`model_info['dose_25']`, `['dose_75']`). Against the population
+  interquartile effect the GPS row covered 0.25% with the old grid-point
+  doses and covers 84% now; the remaining gap to 95% is the sampling
+  error of the quartiles, which the interval treats as fixed doses.
 
 ## DML as the learner changes (`dml_learners.py`)
 

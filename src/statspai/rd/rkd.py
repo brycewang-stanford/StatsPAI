@@ -17,7 +17,7 @@ Evidence from a Government Grant Policy Reform."
 *American Economic Journal: Economic Policy*, 2(2), 185-215. [@nielsen2010estimating]
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -74,6 +74,7 @@ def rkd(
     p: int = 1,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    headline: Optional[Literal["conventional", "robust"]] = None,
 ) -> CausalResult:
     """
     Regression Kink Design estimator (Card et al., 2015).
@@ -107,6 +108,21 @@ def rkd(
         Cluster variable name for clustered standard errors.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    headline : {'conventional', 'robust'}, optional
+        Which estimate fills ``estimate`` / ``se`` / ``pvalue`` / ``ci``.
+        ``'conventional'`` is the local polynomial kink estimate with its
+        HC1 (or cluster) standard error. ``'robust'`` is the
+        bias-corrected estimate with the robust standard error and
+        interval, the headline of ``sp.rdrobust`` and of R / Stata
+        ``rdrobust``. At the MSE-optimal bandwidth the conventional
+        interval ignores the smoothing bias and under-covers (bias 0.23
+        sampling SDs and SE / SD 0.79 in the 2026-11-13 calibration
+        screen); the robust one is built for that bandwidth. Both sets of
+        numbers are always in ``model_info['conventional']`` and
+        ``model_info['robust']``. Not given, the call reports
+        ``'conventional'`` and warns (``FutureWarning``): a later release
+        makes ``'robust'`` the default (owner decision 2026-11-13).
+        Passing either value is silent.
 
     Returns
     -------
@@ -129,9 +145,11 @@ def rkd(
 
     It is ``sp.rdrobust(..., deriv=1, vce='hc1')`` -- R / Stata
     ``rdrobust(deriv=1)``, the kink estimator of Calonico, Cattaneo &
-    Titiunik -- reporting the *conventional* estimate and its HC1 (or
-    cluster) standard error as the headline, with the robust
-    bias-corrected estimate, SE and interval in ``model_info['robust']``.
+    Titiunik -- reporting, with ``headline='conventional'`` (today's
+    default), the *conventional* estimate and its HC1 (or cluster)
+    standard error as the headline, with the robust bias-corrected
+    estimate, SE and interval in ``model_info['robust']``;
+    ``headline='robust'`` reports the latter as ``sp.rdrobust`` does.
     Through 1.28.0 the default bandwidth was an ad hoc rule of thumb that
     no reference computes, and the fuzzy standard error was a delta
     method that dropped the covariance between the outcome and treatment
@@ -149,7 +167,7 @@ def rkd(
     >>> X = rng.uniform(-2, 2, n)
     >>> Y = 0.5 * X + 0.8 * np.maximum(X, 0) + rng.normal(0, 0.3, n)
     >>> df = pd.DataFrame({'y': Y, 'x': X})
-    >>> result = sp.rkd(df, y='y', x='x', c=0)
+    >>> result = sp.rkd(df, y='y', x='x', c=0, headline='robust')
     >>> bool(abs(result.estimate - 0.8) < 0.5)
     True
 
@@ -158,7 +176,8 @@ def rkd(
     >>> T = 1.0 * X + 2.0 * np.maximum(X, 0) + rng.normal(0, 0.3, n)
     >>> Y2 = 0.4 * T + rng.normal(0, 0.5, n)
     >>> df2 = pd.DataFrame({'y': Y2, 'x': X, 'treat': T})
-    >>> result2 = sp.rkd(df2, y='y', x='x', c=0, treatment='treat')
+    >>> result2 = sp.rkd(df2, y='y', x='x', c=0, treatment='treat',
+    ...                  headline='robust')
     >>> bool(np.isfinite(result2.estimate))
     True
     """
@@ -171,6 +190,39 @@ def rkd(
         )
     if p < 1:
         raise ValueError(f"p must be >= 1 for RKD (need slope), got {p}")
+    if headline is not None and headline not in ("conventional", "robust"):
+        from ..exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            f"rkd: headline={headline!r} is not recognised.",
+            recovery_hint=(
+                "Pass headline='conventional' (the local polynomial kink "
+                "estimate and its SE) or headline='robust' (the "
+                "bias-corrected estimate with the robust SE and interval, "
+                "as sp.rdrobust reports)."
+            ),
+            diagnostics={
+                "headline": repr(headline),
+                "allowed": ["conventional", "robust"],
+            },
+        )
+    if headline is None:
+        from .._default_change import announce_default_change
+
+        announce_default_change(
+            "rkd",
+            "headline",
+            today="'conventional'",
+            later="'robust'",
+            why=(
+                "'robust' reports the bias-corrected estimate with the "
+                "robust standard error and interval, as sp.rdrobust and R / "
+                "Stata rdrobust do; the conventional interval ignores the "
+                "smoothing bias at the MSE-optimal bandwidth. Both sets of "
+                "numbers are in model_info either way."
+            ),
+        )
+        headline = "conventional"
 
     # --- Parse data ---
     cols = [col for col in [y, x, treatment, cluster] if col is not None]
@@ -200,8 +252,9 @@ def rkd(
     fmi = fit.model_info
     h = float(fmi["bandwidth_h"])
     conv = fmi["conventional"]
-    estimate = float(conv["estimate"])
-    se = float(conv["se"])
+    shown = fmi["robust"] if headline == "robust" else conv
+    estimate = float(shown["estimate"])
+    se = float(shown["se"])
 
     # --- Per-side slopes (reporting and plotting only) ---
     Y = df[y].values.astype(float)
@@ -278,6 +331,7 @@ def rkd(
         "n_right": n_right,
         "n_effective": n_left + n_right,
         "vce": "cluster" if cluster is not None else "hc1",
+        "headline": headline,
         "conventional": dict(conv),
         "robust": dict(fmi["robust"]),
         **extra_info,
@@ -330,6 +384,7 @@ def rkd(
                 "p": p,
                 "cluster": cluster,
                 "alpha": alpha,
+                "headline": headline,
             },
             data=data,
             overwrite=False,
@@ -490,15 +545,24 @@ def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
 
     design = mi.get("design", "Sharp")
     lines.append(f"  Design:                 {design}")
+    robust_headline = mi.get("headline") == "robust"
     lines.append(f"  RKD estimate:           {result.estimate:.4f}{stars}")
-    se_label = f"  SE ({mi.get('vce', 'hc1')}):"
+    if robust_headline:
+        lines.append("  Headline:               robust bias-corrected")
+    se_label = f"  SE ({'robust' if robust_headline else mi.get('vce', 'hc1')}):"
     lines.append(f"{se_label:<26}{result.se:.4f}")
     lines.append(f"  {pct}% CI:                [{ci[0]:.4f}, {ci[1]:.4f}]")
-    rb = mi.get("robust")
-    if rb:
+    other = mi.get("conventional") if robust_headline else mi.get("robust")
+    if other:
+        other_label = (
+            "  Conventional:           "
+            if robust_headline
+            else "  Robust bias-corrected:  "
+        )
         lines.append(
-            f"  Robust bias-corrected:  {rb['estimate']:.4f}"
-            f"  (SE: {rb['se']:.4f}; CI [{rb['ci'][0]:.4f}, {rb['ci'][1]:.4f}])"
+            f"{other_label}{other['estimate']:.4f}"
+            f"  (SE: {other['se']:.4f}; "
+            f"CI [{other['ci'][0]:.4f}, {other['ci'][1]:.4f}])"
         )
     lines.append("")
     lines.append(

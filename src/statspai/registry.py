@@ -17693,14 +17693,16 @@ def _build_registry() -> None:
                     "equations",
                     "str",
                     False,
-                    "independent",
+                    None,
                     "Covariance between the three equations in the variance "
                     "of the indirect effect: 'independent' sets it to zero "
                     "(ivmediate); 'joint' keeps it (sandwich of the stacked "
                     "system, equal to Stata gmm + nlcom). They differ when "
                     "the mediator and outcome errors are correlated, where "
                     "'independent' was 25% too large or 13% too small in "
-                    "simulation",
+                    "simulation. Not given: 'independent' with a "
+                    "FutureWarning ('joint' becomes the default in a later "
+                    "release)",
                     enum=["independent", "joint"],
                 ),
             ],
@@ -17711,7 +17713,8 @@ def _build_registry() -> None:
             ),
             example=(
                 'sp.iv_mediate(df, y="y", treat="t", mediator="m", '
-                'instrument="z", covariates=["w1"], absorb="g", cluster="g")'
+                'instrument="z", covariates=["w1"], absorb="g", cluster="g", '
+                'equations="joint")'
             ),
             tags=["mediation", "instrumental variables", "ivmediate", "causal"],
             reference="[@dippel2020causal]",
@@ -19395,6 +19398,19 @@ def _build_registry() -> None:
                 ParamSpec("seed", "int", False),
                 ParamSpec("phi", "float", False, 1.0),
                 ParamSpec("refine", "bool", False, False),
+                ParamSpec(
+                    "stderror",
+                    "str",
+                    False,
+                    None,
+                    "Ratio standard errors behind the weights and the "
+                    "bootstrap: 'simple' assumes the exposure associations "
+                    "are known (NOME, the mr_mbe default); 'delta' adds "
+                    "their sampling error (TwoSampleMR). Not given: "
+                    "'simple' with a FutureWarning ('delta' becomes the "
+                    "default in a later release)",
+                    enum=["simple", "delta"],
+                ),
             ],
             returns="ModeBasedResult",
             tags=["mendelian_randomization", "mode", "hartwig", "zempa", "robust"],

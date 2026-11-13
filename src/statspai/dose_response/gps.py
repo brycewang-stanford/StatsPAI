@@ -45,6 +45,9 @@ from ..core._covariates import expands_categorical_covariates as _expands_catego
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, MethodIncompatibility
 
+#: ``model_info['headline_doses']``: what ``dose_25`` / ``dose_75`` are.
+_HEADLINE_DOSES = "25th and 75th percentiles of the observed treatment"
+
 # ======================================================================
 # Public API
 # ======================================================================
@@ -139,17 +142,21 @@ def dose_response(
         model_info contains 'avg_marginal_effect' (derivative).
 
         ``estimate`` (``model_info['effect_25_to_75']``) is the curve at
-        ``model_info['dose_75']`` minus the curve at
-        ``model_info['dose_25']``. Those two doses are grid points, a
-        quarter and three quarters of the way through the dose grid
-        (indices ``int(0.25 k)`` and ``int(0.75 k)`` of ``k =
-        n_dose_points`` equally spaced doses over ``dose_range``). They
-        are not the 25th and 75th percentiles of the treatment, and they
-        move with ``n_dose_points`` and ``dose_range``: with the default
-        range (5th to 95th percentile) and ``k = 20`` they sit 26% and 79%
-        of the way along it. Read both doses from ``model_info`` when
-        reporting the contrast; for a contrast between two chosen doses,
-        difference the ``detail`` curve at a grid that contains them.
+        the 75th percentile of the observed treatment minus the curve at
+        its 25th percentile: the effect of moving the dose across its
+        interquartile range. The two doses are in ``model_info['dose_25']``
+        and ``model_info['dose_75']`` and are printed by ``summary()``.
+        They are empirical quantiles of the treatment column (rows with a
+        missing value dropped), so they do not depend on
+        ``n_dose_points`` or ``dose_range``; the curve is evaluated at
+        them in addition to the grid.
+
+        .. versionchanged:: 1.44
+           The two doses were grid points ``int(0.25 k)`` and
+           ``int(0.75 k)`` of the ``k = n_dose_points`` equally spaced
+           doses, which sit 26% and 79% of the way along the default 5th
+           to 95th percentile range for ``k = 20`` and moved with ``k``.
+           The curve in ``detail`` is unchanged.
 
     Examples
     --------
@@ -348,20 +355,29 @@ class DoseResponse:
         else:
             t_lo, t_hi = self.dose_range
         dose_grid = np.linspace(t_lo, t_hi, self.n_dose_points)
+        # Headline contrast: the curve at the 75th minus the 25th
+        # percentile of the observed dose. Both paths evaluate the curve
+        # pointwise, so the two extra doses leave the grid values as they
+        # were.
+        q25, q75 = (float(q) for q in np.percentile(T, [25, 75]))
+        eval_grid = np.concatenate([dose_grid, [q25, q75]])
+        k = self.n_dose_points
 
         if getattr(self, "method", "gps") == "dr":
-            return self._fit_dr(Y, T, X, dose_grid, t_lo, t_hi)
+            return self._fit_dr(Y, T, X, dose_grid, t_lo, t_hi, q25, q75)
 
         # Estimate dose-response curve
-        dr_curve = self._estimate_curve(Y, T, X, dose_grid, n)
+        full_curve = self._estimate_curve(Y, T, X, eval_grid, n)
+        dr_curve = full_curve[:k]
 
         # Bootstrap for confidence bands
         rng = np.random.RandomState(self.random_state)
-        boot_curves = np.zeros((self.n_bootstrap, self.n_dose_points))
+        boot_full = np.zeros((self.n_bootstrap, k + 2))
 
         for b in range(self.n_bootstrap):
             idx = rng.choice(n, size=n, replace=True)
-            boot_curves[b] = self._estimate_curve(Y[idx], T[idx], X[idx], dose_grid, n)
+            boot_full[b] = self._estimate_curve(Y[idx], T[idx], X[idx], eval_grid, n)
+        boot_curves = boot_full[:, :k]
 
         dr_se = np.std(boot_curves, axis=0, ddof=1)
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
@@ -377,13 +393,12 @@ class DoseResponse:
             avg_marginal_effect = 0.0
             marginal_effects = np.zeros_like(dr_curve)
 
-        # ATE-like summary: effect of going from 25th to 75th percentile
-        idx_25 = max(0, int(0.25 * self.n_dose_points))
-        idx_75 = min(self.n_dose_points - 1, int(0.75 * self.n_dose_points))
-        effect_iqr = float(dr_curve[idx_75] - dr_curve[idx_25])
+        # Headline: effect of going from the 25th to the 75th percentile
+        # of the observed dose.
+        effect_iqr = float(full_curve[k + 1] - full_curve[k])
 
         # SE of the IQR effect
-        boot_iqr = boot_curves[:, idx_75] - boot_curves[:, idx_25]
+        boot_iqr = boot_full[:, k + 1] - boot_full[:, k]
         se_iqr = float(np.std(boot_iqr, ddof=1))
 
         if se_iqr > 0:
@@ -409,8 +424,9 @@ class DoseResponse:
             "n_dose_points": self.n_dose_points,
             "avg_marginal_effect": avg_marginal_effect,
             "effect_25_to_75": effect_iqr,
-            "dose_25": float(dose_grid[idx_25]),
-            "dose_75": float(dose_grid[idx_75]),
+            "dose_25": q25,
+            "dose_75": q75,
+            "headline_doses": _HEADLINE_DOSES,
             "curve_monotone": bool(
                 np.all(np.diff(dr_curve) > 0) or np.all(np.diff(dr_curve) < 0)
             ),
@@ -438,14 +454,17 @@ class DoseResponse:
         dose_grid: np.ndarray,
         t_lo: float,
         t_hi: float,
+        q25: float,
+        q75: float,
     ) -> CausalResult:
         from .dr import dr_curve
 
+        k = len(dose_grid)
         out = dr_curve(
             Y,
             T,
             X,
-            dose_grid,
+            np.concatenate([dose_grid, [q25, q75]]),
             treatment_model=self._user_models[0],
             outcome_model=self._user_models[1],
             bandwidth=self.bandwidth,
@@ -453,23 +472,21 @@ class DoseResponse:
             random_state=self.random_state,
             alpha=self.alpha,
         )
-        est = out["est"]
-        k = len(dose_grid)
-        i25 = max(0, int(0.25 * k))
-        i75 = min(k - 1, int(0.75 * k))
-        effect = float(est[i75] - est[i25])
+        # The last two evaluation points are the quartiles of the dose.
+        effect = float(out["est"][k + 1] - out["est"][k])
         se_eff = float(
-            np.sqrt(np.sum((out["influence"][i75] - out["influence"][i25]) ** 2))
+            np.sqrt(np.sum((out["influence"][k + 1] - out["influence"][k]) ** 2))
         )
+        est = out["est"][:k]
         z = sp_stats.norm.ppf(1 - self.alpha / 2)
         marg = np.gradient(est, dose_grid) if k >= 2 else np.zeros_like(est)
         detail = pd.DataFrame(
             {
                 "dose": dose_grid,
                 "response": est,
-                "se": out["se"],
-                "ci_lower": out["ci_lower"],
-                "ci_upper": out["ci_upper"],
+                "se": out["se"][:k],
+                "ci_lower": out["ci_lower"][:k],
+                "ci_upper": out["ci_upper"][:k],
                 "marginal_effect": marg,
             }
         )
@@ -481,8 +498,9 @@ class DoseResponse:
             "bandwidth_risk": out["bw_risk"],
             "avg_marginal_effect": float(np.mean(marg)),
             "effect_25_to_75": effect,
-            "dose_25": float(dose_grid[i25]),
-            "dose_75": float(dose_grid[i75]),
+            "dose_25": q25,
+            "dose_75": q75,
+            "headline_doses": _HEADLINE_DOSES,
             "curve_monotone": bool(
                 np.all(np.diff(est) > 0) or np.all(np.diff(est) < 0)
             ),

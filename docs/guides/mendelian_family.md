@@ -126,6 +126,7 @@ pleiotropic effect.
 ```python
 res = sp.mr_mode(beta_x, beta_y, se_x, se_y,
                  method="weighted",     # or "simple"
+                 stderror="delta",      # or "simple" (NOME)
                  n_boot=1000, seed=0)
 ```
 
@@ -141,7 +142,9 @@ The default standard error treats the SNP-exposure associations as known
 sampling error to each ratio's standard error, as `mr_mbe(stderror =
 "delta")` and `TwoSampleMR`'s weighted mode do. With imprecise
 instruments the difference is large (0.37 against 1.00 on the LDL-C / CHD
-example), so report the delta version unless NOME is defensible.
+example), so report the delta version unless NOME is defensible. A call
+that does not pass `stderror` still uses `"simple"` and warns
+(`FutureWarning`): a later release makes `"delta"` the default.
 
 Reference: Hartwig, Davey Smith & Bowden (2017), *IJE* 46(6).
 

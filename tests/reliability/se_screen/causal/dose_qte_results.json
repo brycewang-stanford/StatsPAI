@@ -524,7 +524,7 @@
    "truth": 1.0557434520957034,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 272.3,
+   "seconds": 407.3,
    "bands": {
     "coverage": [
      0.918,
@@ -542,19 +542,19 @@
    "prefix": {
     "draws": 20,
     "ok": 20,
-    "sum": 54.43360401195459
+    "sum": 42.567056730890314
    },
    "n_nonfinite": 0,
    "target": "sample",
-   "coverage_population_truth": 0.0025,
-   "se_over_sd_population": 0.816,
-   "mean_estimate": -0.00167,
-   "sd_estimate": 0.05724,
-   "coverage": 0.94,
-   "mean_se": 0.05564,
-   "se_over_sd": 0.972,
-   "median_se_over_iqr_sd": 0.966,
-   "bias_over_sd": -0.029,
+   "coverage_population_truth": 0.8425,
+   "se_over_sd_population": 0.73,
+   "mean_estimate": -0.00066,
+   "sd_estimate": 0.04398,
+   "coverage": 0.935,
+   "mean_se": 0.04263,
+   "se_over_sd": 0.969,
+   "median_se_over_iqr_sd": 1.004,
+   "bias_over_sd": -0.015,
    "flag_reasons": [],
    "flagged": false,
    "statspai_version": "1.43.1",
@@ -572,7 +572,7 @@
    "truth": 1.0557434520957034,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 500.8,
+   "seconds": 270.7,
    "bands": {
     "coverage": [
      0.918,
@@ -590,26 +590,26 @@
    "prefix": {
     "draws": 20,
     "ok": 20,
-    "sum": 87.50207394157694
+    "sum": 67.7469717090889
    },
    "n_nonfinite": 0,
    "target": "sample",
    "coverage_population_truth": 0.0,
-   "se_over_sd_population": 0.791,
-   "mean_estimate": 0.77099,
-   "sd_estimate": 0.07944,
+   "se_over_sd_population": 0.663,
+   "mean_estimate": 0.59854,
+   "sd_estimate": 0.06389,
    "coverage": 0.0,
-   "mean_se": 0.07492,
-   "se_over_sd": 0.943,
-   "median_se_over_iqr_sd": 1.067,
-   "bias_over_sd": 9.706,
+   "mean_se": 0.05721,
+   "se_over_sd": 0.895,
+   "median_se_over_iqr_sd": 1.013,
+   "bias_over_sd": 9.368,
    "flag_reasons": [
     "coverage_low",
     "bias"
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": "Known property of the method, documented in sp.dose_response. The Hirano-Imbens estimator regresses the outcome on the dose and the generalized propensity score and is consistent only if that regression is right. Here the outcome model is linear in (T, GPS). The GPS is a normal density of the treatment residual, an even function of it, so it is uncorrelated with a covariate that enters the outcome linearly and the fitted curve keeps the unadjusted slope 0.7 + 0.5 / 1.25 = 1.1 instead of 0.7. The standard error is right for that estimate (SE / SD 0.94); the interval is centred in the wrong place. The docstring reports the same bias for the Hirano-Imbens quadratic and the function warns on its default models; method='dr' is unbiased on this design (dose_response.dr). When the covariates move the dose only, the GPS path is in band (dose_response.gps)."
+   "mechanism": "Known property of the method, documented in sp.dose_response. The Hirano-Imbens estimator regresses the outcome on the dose and the generalized propensity score and is consistent only if that regression is right. Here the outcome model is linear in (T, GPS). The GPS is a normal density of the treatment residual, an even function of it, so it is uncorrelated with a covariate that enters the outcome linearly and the fitted curve keeps the unadjusted slope 0.7 + 0.5 / 1.25 = 1.1 instead of 0.7. The standard error is right for that estimate (SE / SD 0.90); the interval is centred in the wrong place. The docstring reports the same bias for the Hirano-Imbens quadratic and the function warns on its default models; method='dr' is unbiased on this design (dose_response.dr). When the covariates move the dose only, the GPS path is in band (dose_response.gps)."
   },
   {
    "id": "dose_response.dr",
@@ -623,7 +623,7 @@
    "truth": 1.0557434520957034,
    "n_failed": 0,
    "first_error": "",
-   "seconds": 81.4,
+   "seconds": 174.2,
    "bands": {
     "coverage": [
      0.9103,
@@ -641,25 +641,25 @@
    "prefix": {
     "draws": 20,
     "ok": 20,
-    "sum": 54.001028957321566
+    "sum": 41.90624372139496
    },
    "n_nonfinite": 0,
    "target": "sample",
-   "coverage_population_truth": 0.39,
-   "se_over_sd_population": 0.601,
-   "mean_estimate": -0.00166,
-   "sd_estimate": 0.25487,
-   "coverage": 0.94,
-   "mean_se": 0.15635,
-   "se_over_sd": 0.613,
-   "median_se_over_iqr_sd": 0.889,
-   "bias_over_sd": -0.006,
+   "coverage_population_truth": 0.905,
+   "se_over_sd_population": 0.604,
+   "mean_estimate": 0.00404,
+   "sd_estimate": 0.18888,
+   "coverage": 0.935,
+   "mean_se": 0.12104,
+   "se_over_sd": 0.641,
+   "median_se_over_iqr_sd": 0.851,
+   "bias_over_sd": 0.021,
    "flag_reasons": [
     "se_small"
    ],
    "flagged": true,
    "statspai_version": "1.43.1",
-   "mechanism": "Heavy tails from the conditional-variance model, an open item. The pseudo-outcome divides by the normal density of the dose given the covariates, whose variance is a linear regression of squared residuals on the covariates. On this homoskedastic design that regression predicts a variance near zero for a few extreme covariate values; the density of those units' doses collapses, their weights reach the hundreds or thousands (model_info['max_density_ratio']), and the contrast between two doses swings in those draws. The reported SE is honest for the typical draw (median SE over the interquartile scale is in the stored record, coverage 94%) but the SD over draws is dominated by the rare ones. Replacing the variance model by a constant cut the SD of the contrast from 5.0 to 0.15 over 120 draws at n = 500. The estimator now warns when a density weight exceeds 100. Changing the variance model or truncating the weights changes the estimator and is left as an owner decision. The bandwidth bug recorded in before_fix was a second, smaller cause.",
+   "mechanism": "Heavy tails from the conditional-variance model, an open item. The pseudo-outcome divides by the normal density of the dose given the covariates, whose variance is a linear regression of squared residuals on the covariates. On this homoskedastic design that regression predicts a variance near zero for a few extreme covariate values; the density of those units' doses collapses, their weights reach the hundreds or thousands (model_info['max_density_ratio']), and the contrast between two doses swings in those draws. The reported SE is honest for the typical draw (median SE over the interquartile scale is in the stored record, coverage 93.5%) but the SD over draws is dominated by the rare ones. Replacing the variance model by a constant cut the SD of the contrast from 5.0 to 0.15 over 120 draws at n = 500. The estimator now warns when a density weight exceeds 100. Changing the variance model or truncating the weights changes the estimator and is left as an owner decision. The bandwidth bug recorded in before_fix was a second, smaller cause.",
    "before_fix": {
     "statspai_version": "1.43.1",
     "B": 200,

@@ -4,6 +4,59 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Owner decisions of 2026-11-13
+
+The eight work lines of 2026-11-13 each ended with questions about defaults
+and labels. They were decided the same day; the record, with the items kept
+as they are and the reasons, is `docs/dev/2026-11-13-owner-decisions.md`.
+The rule is the one of the 2026-10-20 wave: no number changes now except
+the one item marked ⚠️, and a default that should change is announced with
+a `FutureWarning` first. Evidence is in
+`tests/test_owner_decisions_2026_11_13.py`. The items on traced Track A
+paths (`sp.stacked_did`, `sp.sdid`, `sp.tmle`, `sp.match`, the PLIV label)
+follow in a second entry.
+
+#### Fixed
+- **⚠️ correctness fix: the headline of `sp.dose_response` is the
+  interquartile contrast it was described as.** `estimate` (labelled
+  `E[Y(t75)] - E[Y(t25)]`, `model_info['effect_25_to_75']`, called "the
+  25th-75th percentile effect" in the docstring and in the function's own
+  warning through 1.43.1) was read at grid points `int(0.25 k)` and
+  `int(0.75 k)` of the `k = n_dose_points` equally spaced doses, which are
+  not the quartiles of the treatment and move with `k`. It is now the curve
+  at the 75th percentile of the observed treatment minus the curve at the
+  25th, for `method='gps'` and `method='dr'`; `model_info['dose_25']` /
+  `['dose_75']` hold the two doses and `summary()` prints them. NHEFS,
+  weight change on smoking intensity (quartiles 10 and 30 cigarettes),
+  Hirano-Imbens quadratic models: 1.0974 (SE 0.5279, doses 11.2 and 31.8)
+  with `n_dose_points=10` and 0.9702 (SE 0.5243, doses 12.7 and 32.2) with
+  20 before; 1.2752 (SE 0.5291) for both after. `method='dr'`,
+  `n_dose_points=10`: 4.2639 (SE 3.8279) before, 3.6071 (SE 3.1820) after.
+  The curve in `detail`, its bands and `avg_marginal_effect` are unchanged
+  bit for bit. In the SE calibration screen the interval of the old
+  headline covered the population interquartile effect in 0.25% of draws;
+  the new one covers it in 84% (93.5% for the contrast between the two
+  sample quartiles, which is what the interval is built for). The three
+  `dose_response` rows of the screen were rerun.
+
+#### Added
+- **Announced default changes** (`FutureWarning` when the option is not
+  given; either value passed explicitly is silent; numbers unchanged; the
+  switch comes no earlier than 1.45, see MIGRATION.md):
+  - `sp.mr_mode(stderror=)`: `'simple'` today, `'delta'` later (the
+    `TwoSampleMR` convention; on that package's example data the `'simple'`
+    standard error is 2.7 times smaller).
+  - `sp.rkd(headline=)`, a new option: `'conventional'` today, `'robust'`
+    (the bias-corrected estimate with the robust standard error and
+    interval, the headline of `sp.rdrobust`) later. Both sets of numbers
+    stay in `model_info`.
+  - `sp.iv_mediate(equations=)`: `'independent'` (the `ivmediate`
+    variance) today, `'joint'` later.
+- `sp.ips` / `sp.snips` and `sp.ope.ips` / `sp.ope.snips` each state their
+  argument order and point at the other API, and raise
+  `MethodIncompatibility` when the two policy arrays arrive in the other
+  API's order in a way the shapes show (a per-row vector where a matrix
+  belongs). Values are never used to guess.
 ### Features a referee asks for by name: survival and epidemiology (2026-11-13)
 
 The epidemiology probe ended with a list of things an analysis plan asks

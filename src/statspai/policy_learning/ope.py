@@ -90,6 +90,49 @@ def _target_prob(pi_target: Any, X: np.ndarray, A: np.ndarray) -> np.ndarray:
     raise ValueError("pi_target must be (n,), (n,K), or callable")
 
 
+#: This module's name and the ``sp.ope`` name of each estimator.
+_API_NAMES = {"ips": ("sp.ips", "sp.ope.ips"), "snips": ("sp.snips", "sp.ope.snips")}
+
+
+def _refuse_swapped_policies(
+    pi_target: Any, pi_behavior: Any, n: int, function: str
+) -> None:
+    """Typed error when the two policy arrays arrive in ``sp.ope`` order.
+
+    ``sp.ips(X, A, R, pi_target, pi_behavior)`` takes the evaluation policy
+    first; ``sp.ope.ips(actions, rewards, pi_b, pi_e)`` takes the logging
+    policy first. Only the shapes are read: a 1-D ``pi_target`` next to an
+    ``(n, K)`` ``pi_behavior`` is the pattern the other order produces
+    (one logging propensity per row, then the evaluation-policy matrix).
+    Values are never inspected.
+    """
+    if pi_behavior is None or callable(pi_target):
+        return
+    pt = np.asarray(pi_target)
+    pb = np.asarray(pi_behavior)
+    if pt.ndim == 1 and pb.ndim == 2 and pb.shape[0] == n and pb.shape[1] > 1:
+        own, other = _API_NAMES[function]
+        raise MethodIncompatibility(
+            f"{function}: pi_target is one number per row and pi_behavior is "
+            f"an {pb.shape} matrix, which is what the two arrays look like "
+            "when they are passed in the other order.",
+            recovery_hint=(
+                f"{own}(X, A, R, pi_target, pi_behavior) takes the "
+                "evaluation policy first ((n, K) probabilities, or the "
+                "probability of the logged action) and then one logging "
+                f"propensity per row. {other}(actions, rewards, pi_b, pi_e) "
+                "takes the logging policy first, both as (n, K) matrices. "
+                "Swap the two arguments or pass them by keyword."
+            ),
+            diagnostics={
+                "pi_target_shape": tuple(pt.shape),
+                "pi_behavior_shape": tuple(pb.shape),
+                "n": n,
+            },
+            alternative_functions=[other],
+        )
+
+
 def _fit_propensity(X: np.ndarray, A: np.ndarray) -> Tuple[np.ndarray, bool]:
     """Fit behaviour-policy propensities; returns (probs, fallback_flag)."""
     from sklearn.linear_model import LogisticRegression
@@ -314,6 +357,14 @@ def ips(
     probabilities. ``clip`` is ``obp``'s ``lambda_`` (``np.inf`` for no
     cap). SE ``sd(w R)/sqrt(n)``.
 
+    Argument order: the evaluation policy ``pi_target`` comes first, then
+    ``pi_behavior``, one logging propensity per row (fitted by a logistic
+    regression when omitted). :func:`statspai.ope.ips` is the other
+    off-policy API: ``sp.ope.ips(actions, rewards, pi_b, pi_e)`` takes the
+    logging policy first and both policies as ``(n, K)`` matrices. A 1-D
+    ``pi_target`` next to an ``(n, K)`` ``pi_behavior`` is refused as a
+    likely swap (shapes only; values are not inspected).
+
     .. versionchanged:: 1.30.0
        ``clip`` caps the weight only; ``pi_b`` is no longer floored at
        ``1/clip``.
@@ -340,6 +391,7 @@ def ips(
     X = np.asarray(X)
     A = np.asarray(A)
     R = np.asarray(R)
+    _refuse_swapped_policies(pi_target, pi_behavior, len(A), "ips")
     pi_t = _target_prob(pi_target, X, A)
     if pi_behavior is not None:
         pi_b, pi_b_fallback = pi_behavior, False
@@ -378,6 +430,10 @@ def snips(
     ``SelfNormalizedInverseProbabilityWeighting``), weights as in
     :func:`ips`. SE is the delta-method ``sd(w (R - V)) / (mean(w) sqrt(n))``.
 
+    Argument order as in :func:`ips`: ``pi_target`` before
+    ``pi_behavior``. ``sp.ope.snips(actions, rewards, pi_b, pi_e)`` takes
+    them the other way round, both as ``(n, K)`` matrices.
+
     .. versionchanged:: 1.30.0
        The SE divided by ``sum(w)`` where ``mean(w)`` belongs, so it was
        too small by a factor of about ``sqrt(n)`` (0.00039 against a
@@ -405,6 +461,7 @@ def snips(
     X = np.asarray(X)
     A = np.asarray(A)
     R = np.asarray(R)
+    _refuse_swapped_policies(pi_target, pi_behavior, len(A), "snips")
     pi_t = _target_prob(pi_target, X, A)
     if pi_behavior is not None:
         pi_b, pi_b_fallback = pi_behavior, False

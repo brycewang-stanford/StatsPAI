@@ -124,6 +124,61 @@ class OPEResult(ResultProtocolMixin):
         )
 
 
+#: This module's name and the top-level name of each estimator.
+_API_NAMES = {"ips": ("sp.ope.ips", "sp.ips"), "snips": ("sp.ope.snips", "sp.snips")}
+
+
+def _policy_matrices(
+    actions: np.ndarray, pi_b: Any, pi_e: Any, function: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Both policies as ``(n, K)`` arrays, or a typed error.
+
+    ``sp.ope.ips(actions, rewards, pi_b, pi_e)`` takes the logging policy
+    first; ``sp.ips(X, A, R, pi_target, pi_behavior)`` takes the
+    evaluation policy first, with one logging propensity per row. Only the
+    shapes are read: an ``(n, K)`` ``pi_b`` next to a 1-D ``pi_e`` is the
+    pattern the other order produces. Values are never inspected.
+    """
+    n = len(actions)
+    pb = np.asarray(pi_b)
+    pe = np.asarray(pi_e)
+    ok = all(arr.ndim == 2 and arr.shape[0] == n for arr in (pb, pe))
+    if ok:
+        return pb, pe
+    swapped = pb.ndim == 2 and pb.shape[0] == n and pe.ndim == 1
+    own, other = _API_NAMES[function]
+    shapes = {
+        "pi_b_shape": tuple(pb.shape),
+        "pi_e_shape": tuple(pe.shape),
+        "n": n,
+        "function": function,
+    }
+    if swapped:
+        message = (
+            f"{own}: pi_b is an {pb.shape} matrix and pi_e is "
+            "one number per row, which is what the two arrays look like "
+            "when they are passed in the other order."
+        )
+    else:
+        message = (
+            f"{own}: pi_b and pi_e must both be (n, K) = "
+            f"({n}, K) probability matrices; got {pb.shape} and {pe.shape}."
+        )
+    hint = (
+        f"{own}(actions, rewards, pi_b, pi_e) takes the logging policy "
+        "first and both policies as (n, K) matrices of action "
+        f"probabilities. {other}(X, A, R, pi_target, pi_behavior) takes "
+        "the evaluation policy first and one logging propensity per row. "
+        "Swap the two arguments or pass them by keyword."
+    )
+    raise MethodIncompatibility(
+        message,
+        recovery_hint=hint,
+        diagnostics=shapes,
+        alternative_functions=[other],
+    )
+
+
 def direct_method(
     reward_model: RewardModel,
     X: np.ndarray,
@@ -190,7 +245,17 @@ def ips(
 ) -> OPEResult:
     """Inverse Propensity Scoring (aka IPS / Horvitz-Thompson).
 
-    Needs no ``reward_model``.
+    ``V = mean_i rho_i r_i`` with ``rho_i = pi_e(a_i | x_i) / pi_b(a_i |
+    x_i)`` capped at ``clip``.
+
+    Argument order: the logging (behaviour) policy ``pi_b`` comes first,
+    then the evaluation policy ``pi_e``, both as ``(n, K)`` matrices of
+    action probabilities indexed by ``actions`` coded ``0..K-1``.
+    :func:`statspai.ips` is the other off-policy API:
+    ``sp.ips(X, A, R, pi_target, pi_behavior)`` takes the evaluation policy
+    first and one logging propensity per row. An ``(n, K)`` ``pi_b`` next
+    to a 1-D ``pi_e`` is refused as a likely swap (shapes only; values are
+    not inspected). Needs no ``reward_model``.
 
     Parameters
     ----------
@@ -210,9 +275,24 @@ def ips(
     -------
     OPEResult
         ``value``, ``se``, a normal 95% ``ci`` and ``diagnostics``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n, K = 200, 3
+    >>> pi_b = np.full((n, K), 1.0 / K)
+    >>> pi_e = np.tile([0.6, 0.3, 0.1], (n, 1))
+    >>> actions = rng.integers(0, K, size=n)
+    >>> rewards = (actions == 0).astype(float)
+    >>> res = sp.ope.ips(actions, rewards, pi_b, pi_e)
+    >>> res.method
+    'IPS'
     """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
+    pi_b, pi_e = _policy_matrices(a, pi_b, pi_e, "ips")
     pe_at_a = pi_e[np.arange(len(a)), a]
     pb_at_a = pi_b[np.arange(len(a)), a]
     rho = pe_at_a / np.clip(pb_at_a, 1e-6, None)
@@ -242,7 +322,11 @@ def snips(
 ) -> OPEResult:
     """Self-Normalized IPS -- reduces variance at small bias cost.
 
-    Needs no ``reward_model``.
+    Argument order as in :func:`ips`: the logging policy ``pi_b`` first,
+    then the evaluation policy ``pi_e``, both ``(n, K)`` matrices.
+    ``sp.snips(X, A, R, pi_target, pi_behavior)`` takes them the other way
+    round, with one logging propensity per row. Needs no
+    ``reward_model``.
 
     Parameters
     ----------
@@ -265,6 +349,7 @@ def snips(
     """
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
+    pi_b, pi_e = _policy_matrices(a, pi_b, pi_e, "snips")
     rho = pi_e[np.arange(len(a)), a] / np.clip(pi_b[np.arange(len(a)), a], 1e-6, None)
     if clip is not None:
         rho = np.clip(rho, 0, clip)

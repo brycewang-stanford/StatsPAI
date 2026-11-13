@@ -1351,7 +1351,9 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
     "ivmediate": (
         "`ivmediate y x, mediator(m) treatment(t) instrument(z) absorb(f)` is "
         "sp.iv_mediate(data, y=, treat=, mediator=, instrument=, "
-        "covariates=[...], absorb=, cluster=).",
+        "covariates=[...], absorb=, cluster=, equations='independent'), "
+        "which is ivmediate's variance of the indirect effect; "
+        "equations='joint' keeps the covariance between the equations.",
         ["iv_mediate"],
     ),
     "weakivtest": (
