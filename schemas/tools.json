@@ -2120,7 +2120,7 @@
     "name": "bagged_forecast"
   },
   {
-    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence. Assumptions: Balance on the reported moments is necessary, not sufficient, for removing confounding by these covariates. Alternatives: sp.balance_diagnostics, sp.weightit, sp.energy_distance, sp.ess.",
+    "description": "Covariate balance before and after weighting for binary, multi-category and continuous treatments (R cobalt bal.tab): standardized mean differences on unweighted standard deviations (pooled over all groups for the ATE, the focal group's for the ATT), raw differences for binary covariates, variance ratios and KS statistics; pairwise comparisons with the largest absolute statistic as the summary for multi-category treatments; treatment-covariate Pearson and Spearman correlations for continuous treatments; effective sample sizes. Equals cobalt 4.6.2 to 1e-9. Validation: certified parity evidence. Assumptions: Balance on the reported moments is necessary, not sufficient, for removing confounding by these covariates. Failure modes: bal_tab: the weights of treatment group(s) <empty> sum to zero, so the group has no weighted mean -> Check the weights (a matched sample needs at least one matched unit in every group; missing weights should be 0 for unmatched rows, not for all rows). Alternatives: sp.balance_diagnostics, sp.weightit, sp.energy_distance, sp.ess.",
     "input_schema": {
       "properties": {
         "binary": {
@@ -8047,7 +8047,7 @@
           "x-statspai-role": "column"
         },
         "formula": {
-          "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS.",
+          "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS. The left-hand side can also name the event, ``'duration + event ~ x1 + x2'`` (as in :func:`sp.aft` and :func:`sp.cox_frailty`) or R's ``'Surv(duration, event) ~ x1 + x2'``, and the entry time, ``'Surv(start, stop, event) ~ x1 + x2'``.",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -23885,6 +23885,16 @@
           "description": "Column names.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "rho": {
+          "default": 0.0,
+          "description": "Power of the Harrington-Fleming ``G-rho`` weight ``S(t-)^rho``, with ``S`` the Kaplan-Meier estimate of the pooled sample (of the stratum) just before each event time. ``0`` is the log-rank (Mantel-Haenszel) test; ``1`` is the Peto-Peto modification of the Gehan-Wilcoxon test, which gives more weight to early differences. R ``survival::survdiff(rho=)``.",
+          "type": "number"
+        },
+        "strata": {
+          "description": "Column of strata. The observed and expected counts and the variance are computed within each stratum and summed (the stratified log-rank test; R ``survdiff(... + strata(s))``, Stata ``sts test, strata(s)``).",
+          "type": "string",
+          "x-statspai-role": "column"
         }
       },
       "required": [
@@ -26013,6 +26023,11 @@
           },
           "type": "array"
         },
+        "hksj": {
+          "default": false,
+          "description": "Hartung-Knapp-Sidik-Jonkman adjustment of the random-effects inference (R ``rma(test = \"knha\")``, Stata ``meta summarize, se(khartung)``): the variance of the pooled effect is ``sum w_i (y_i - mu)^2 / ((k - 1) sum w_i)`` with the random- effects weights, and the interval and p-value use the t distribution with ``k - 1`` degrees of freedom. It keeps the nominal coverage with few studies, where the normal interval is too narrow. Not with ``method=\"fixed\"``.",
+          "type": "boolean"
+        },
         "labels": {
           "description": "Study labels for the forest plot.",
           "items": {
@@ -26022,9 +26037,10 @@
         },
         "method": {
           "default": "DL",
-          "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+          "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default) or with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
           "enum": [
             "DL",
+            "REML",
             "fixed"
           ],
           "type": "string"
@@ -38735,7 +38751,7 @@
           "type": "string"
         },
         "tau": {
-          "description": "Truncation time. Default: the smallest of the groups' largest observed times (survRM2's default), so that every curve is defined up to ``tau``. A ``tau`` beyond a group's last observed time is refused.",
+          "description": "Truncation time. A group's curve is defined up to its largest observed time when that observation is censored, and everywhere when it is an event (the curve has reached zero). The default is the largest admissible ``tau``: the smallest of the largest times of the groups whose last observation is censored, or the largest observed time when every group ends in an event. This is the rule of ``survRM2::rmst2``. A larger ``tau`` is refused. .. versionchanged:: 1.44 The default used to be the smallest of the groups' largest times whatever their status, and a ``tau`` beyond a group that ends in an event was refused; ``rmst2`` accepts it. The default changes only when some group's last observation is an event.",
           "type": "number"
         },
         "weights": {
@@ -43475,7 +43491,7 @@
           "x-statspai-role": "column"
         },
         "formula": {
-          "description": "Formula ``'duration ~ x1 + x2'``.",
+          "description": "Formula ``'duration ~ x1 + x2'``, or with the event on the left-hand side: ``'duration + event ~ x1 + x2'`` / ``'Surv(duration, event) ~ x1 + x2'``.",
           "type": "string",
           "x-statspai-role": "formula"
         },

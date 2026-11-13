@@ -148,6 +148,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "forecaster.",
         },
     ],
+    "bal_tab": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Check the weights (a matched sample needs at least "
+            "one matched unit in every group; missing weights "
+            "should be 0 for unmatched rows, not for all rows).",
+            "symptom": "bal_tab: the weights of treatment group(s) <empty> "
+            "sum to zero, so the group has no weighted mean.",
+        }
+    ],
     "balance_table": [
         {
             "exception": "statspai.MethodIncompatibility",

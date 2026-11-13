@@ -151,10 +151,19 @@ def rmst(
     group : str, optional
         Group / treatment column. With two levels the contrasts are reported.
     tau : float, optional
-        Truncation time. Default: the smallest of the groups' largest
-        observed times (survRM2's default), so that every curve is defined
-        up to ``tau``. A ``tau`` beyond a group's last observed time is
-        refused.
+        Truncation time. A group's curve is defined up to its largest
+        observed time when that observation is censored, and everywhere
+        when it is an event (the curve has reached zero). The default is
+        the largest admissible ``tau``: the smallest of the largest times
+        of the groups whose last observation is censored, or the largest
+        observed time when every group ends in an event. This is the rule
+        of ``survRM2::rmst2``. A larger ``tau`` is refused.
+
+        .. versionchanged:: 1.44
+           The default used to be the smallest of the groups' largest
+           times whatever their status, and a ``tau`` beyond a group that
+           ends in an event was refused; ``rmst2`` accepts it. The default
+           changes only when some group's last observation is an event.
     weights : str, optional
         Column of non-negative case weights.
     cluster : str, optional
@@ -237,17 +246,36 @@ def rmst(
                 recovery_hint=f"Use one of {levels}.",
             )
         levels = [ref] + [lv for lv in levels if lv != ref]
-    max_t = {lv: float(T_all[g_all == lv].max()) for lv in levels}
+    max_t: Dict[str, float] = {}
+    open_end: Dict[str, bool] = {}
+    for lv in levels:
+        sel = g_all == lv
+        if w_all is not None:
+            sel = sel & (w_all > 0)
+        if not sel.any():
+            sel = g_all == lv
+        t_lv = T_all[sel]
+        max_t[lv] = float(t_lv.max())
+        # the curve stops short of zero when a row at the largest time is
+        # censored; it is then undefined beyond that time
+        open_end[lv] = bool(np.any(E_all[sel][t_lv == max_t[lv]] != 1))
+    open_times = [max_t[lv] for lv in levels if open_end[lv]]
+    tau_max = min(open_times) if open_times else max(max_t.values())
     if tau is None:
-        tau = min(max_t.values())
+        tau = tau_max
     tau = float(tau)
-    too_far = [lv for lv in levels if tau > max_t[lv]]
-    if too_far:
+    if tau > tau_max:
+        too_far = [lv for lv in levels if open_end[lv] and tau > max_t[lv]]
+        where = (
+            f"the last observed time of group(s) {too_far}, whose last "
+            "observation is censored; the curve is not identified there."
+            if too_far
+            else "the largest observed time."
+        )
         raise DataInsufficient(
-            f"rmst: tau={tau:g} is beyond the last observed time of group(s) "
-            f"{too_far}; the curve is not identified there.",
-            recovery_hint=f"Use tau <= {min(max_t.values()):g}.",
-            diagnostics={"max_time": max_t},
+            f"rmst: tau={tau:g} is beyond {where}",
+            recovery_hint=f"Use tau <= {tau_max:g}.",
+            diagnostics={"max_time": max_t, "last_is_censored": open_end},
         )
     clus = df[cluster].to_numpy() if cluster else None
     codes, G = _codes(clus, len(df))

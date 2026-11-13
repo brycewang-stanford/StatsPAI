@@ -9771,6 +9771,16 @@
       "name": "match",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level of the confidence interval",
+            "type": "number"
+          },
+          "bias_correction": {
+            "default": false,
+            "description": "Abadie-Imbens (2011) regression adjustment for the remaining covariate discrepancy within matches",
+            "type": "boolean"
+          },
           "bootstrap_reps": {
             "default": 200,
             "description": "Replications for se_method='bootstrap'",
@@ -9780,6 +9790,10 @@
             "description": "Seed for the bootstrap resampler",
             "type": "integer"
           },
+          "caliper": {
+            "description": "Largest distance of an admissible match, in the units of caliper_scale (caliper=0.2 with caliper_scale='sd' is the usual 0.2 SD of the score). Units without a match are excluded with a warning and counted in model_info",
+            "type": "number"
+          },
           "caliper_scale": {
             "default": "raw",
             "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -9787,6 +9801,11 @@
               "raw",
               "sd"
             ],
+            "type": "string"
+          },
+          "common_support": {
+            "default": "none",
+            "description": "'minmax' drops treated units whose score lies outside the range of the control scores before matching (Stata psmatch2, common)",
             "type": "string"
           },
           "covariate_calipers": {
@@ -9811,6 +9830,25 @@
           },
           "design": {
             "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=). Replicate-weight designs are refused.",
+            "type": "string"
+          },
+          "distance": {
+            "description": "Distance for nearest-neighbour matching: 'propensity' (the default of method='nearest'; a logit score), 'mahalanobis', 'euclidean' or 'exact'",
+            "enum": [
+              "propensity",
+              "mahalanobis",
+              "euclidean",
+              "exact"
+            ],
+            "type": "string"
+          },
+          "estimand": {
+            "default": "ATT",
+            "description": "Target estimand. ATE (both arms matched) for nearest-neighbour matching, method='stratify' and method='cem'",
+            "enum": [
+              "ATT",
+              "ATE"
+            ],
             "type": "string"
           },
           "exact": {
@@ -9917,6 +9955,11 @@
             "default": "drop",
             "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
           },
+          "n_matches": {
+            "default": 1,
+            "description": "Matches per unit (k of k:1 matching; MatchIt ratio, teffects nneighbor)",
+            "type": "integer"
+          },
           "ps_model": {
             "default": "logit",
             "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
@@ -9929,6 +9972,11 @@
           "pscore": {
             "description": "Column holding a fitted score to match on (Stata psmatch2, pscore()); no treatment model is fitted",
             "type": "string"
+          },
+          "replace": {
+            "default": true,
+            "description": "Match with replacement (the default; Stata teffects, psmatch2). False is greedy matching without replacement in the order m_order (MatchIt's default)",
+            "type": "boolean"
           },
           "sampling_weights": {
             "description": "Sampling (survey) weights, MatchIt s.weights, for nearest-neighbour ATT/ATC: weighted logit score, matching unchanged, effect = WLS with matching x sampling weights, SE clustered on matched sets (HC3 with replacement)",
@@ -26467,7 +26515,14 @@
       "tolerance": "every statistic 1e-9 relative (observed about 1e-15)"
     },
     "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nx1, x2 = rng.normal(size=(2, n))\ntreat = rng.choice(['a', 'b', 'c'], n)\ndf = pd.DataFrame({'x1': x1 + (treat == 'b'), 'x2': x2, 'treat': treat})\nW = sp.weightit(df, 'treat', ['x1', 'x2'], method='glm')\nr = sp.bal_tab(df, 'treat', ['x1', 'x2'], weights=W)",
-    "failure_modes": [],
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Check the weights (a matched sample needs at least one matched unit in every group; missing weights should be 0 for unmatched rows, not for all rows).",
+        "symptom": "bal_tab: the weights of treatment group(s) <empty> sum to zero, so the group has no weighted mean."
+      }
+    ],
     "inherits_from": null,
     "limitations": [],
     "name": "bal_tab",
@@ -26477,6 +26532,7 @@
       "alternatives": "curated",
       "assumptions": "curated",
       "example": "curated",
+      "failure_modes": "source",
       "reference": "curated",
       "returns": "curated"
     },
@@ -38826,7 +38882,8 @@
     "typical_n_min": 10,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw on each leave-one-out subset [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance All 28 leave-one-out estimates and default-model SEs at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
-      "tests/reference_parity/test_mr_parity.py"
+      "tests/reference_parity/test_mr_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -39106,6 +39163,7 @@
         "distortion_p": "Optional[float]",
         "global_test_pvalue": "float",
         "global_test_rss_obs": "float",
+        "n_boot": "Optional[int]",
         "outlier_corrected_estimate": "Optional[float]",
         "outlier_corrected_p": "Optional[float]",
         "outlier_corrected_se": "Optional[float]",
@@ -39866,7 +39924,10 @@
             "enum": [
               "markdown",
               "latex",
-              "text"
+              "text",
+              "target",
+              "jama",
+              "bmj"
             ],
             "type": "string"
           },
@@ -40291,6 +40352,16 @@
           "seed": {
             "description": "Random seed for reproducible stochastic steps.",
             "type": "integer"
+          },
+          "stderror": {
+            "default": "simple",
+            "description": "Standard error of each ratio estimate, which sets the weights of the weighted mode and the spread of the bootstrap draws. ``\"simple\"`` is the first-order ``se_outcome / |beta_exposure|``, which treats the exposure associations as known (the NOME assumption; the default of ``mr_mbe``). ``\"delta\"`` adds the second-order term for their sampling error, ``sqrt(se_y^2 / bx^2 + by^2 se_x^2 / bx^4)`` (``mr_mbe(stderror = \"delta\")``; ``TwoSampleMR``'s weighted mode relaxes NOME in the same way). With weak or imprecise instruments the ``\"simple\"`` standard error can be several times too small.",
+            "enum": [
+              "simple",
+              "delta"
+            ],
+            "type": "string",
+            "x-statspai-source": "signature"
           }
         },
         "required": [
@@ -40307,6 +40378,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_mbe (weighted / unweighted, stderror = simple) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Point estimates for both weightings at 1e-10 -- the same point of the same 512-point density grid. The bootstrap SE is Monte Carlo on both sides and is not compared (T3). -- tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_mode_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py",
       "API/unit contract evidence: tests/test_mr_extras.py"
     ],
     "validation_status": "certified"
@@ -65678,6 +65750,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw through the sp.mr dispatcher [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance IVW estimate and default random-effects SE, 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_ivw_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
@@ -103879,6 +103952,7 @@
       "Cross-language parity (bit-exact) vs WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2 [R 4.5.2, WeightIt 1.7.0]; tolerance All four estimands of the shared-propensity family (Li, Li & Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself matches R glm(family=binomial) to 2.6e-14 absolute. -- tests/reference_parity/test_overlap_weights_r_parity.py",
       "tests/reference_parity/test_barrett_causal_inference_in_r_parity.py",
       "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py",
       "tests/reference_parity/test_recovery_batch_parity.py"
     ],
     "validation_status": "certified"
@@ -113307,6 +113381,7 @@
         "fixed_estimate": "float",
         "fixed_se": "float",
         "h2": "float",
+        "hksj": "bool",
         "i2": "float",
         "labels": "List[str]",
         "method": "str",
@@ -113340,6 +113415,11 @@
             },
             "type": "array"
           },
+          "hksj": {
+            "default": false,
+            "description": "Hartung-Knapp-Sidik-Jonkman adjustment of the random-effects inference (R ``rma(test = \"knha\")``, Stata ``meta summarize, se(khartung)``): the variance of the pooled effect is ``sum w_i (y_i - mu)^2 / ((k - 1) sum w_i)`` with the random- effects weights, and the interval and p-value use the t distribution with ``k - 1`` degrees of freedom. It keeps the nominal coverage with few studies, where the normal interval is too narrow. Not with ``method=\"fixed\"``.",
+            "type": "boolean"
+          },
           "labels": {
             "description": "Study labels for the forest plot.",
             "items": {
@@ -113349,9 +113429,10 @@
           },
           "method": {
             "default": "DL",
-            "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+            "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default) or with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
             "enum": [
               "DL",
+              "REML",
               "fixed"
             ],
             "type": "string"
@@ -113375,7 +113456,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R metafor::rma (method='FE' and 'DL') [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance 6.2e-16 across all nine reported quantities: fixed and random pooled effect and standard error, tau^2, Cochran Q and its p-value, I^2 and H^2. REML is not implemented here, which is a capability gap rather than a disagreement. -- tests/reference_parity/test_weakiv_meta_parity.py",
-      "tests/reference_parity/test_meta_analysis_parity.py"
+      "tests/reference_parity/test_meta_analysis_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -121642,6 +121724,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survey::svyglm (design-based GLM + linearization SE) [R version 4.5.2 (2025-10-31)]; tolerance coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) -- tests/reference_parity/test_survey_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py",
       "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
@@ -128865,7 +128948,7 @@
             "x-statspai-role": "column"
           },
           "formula": {
-            "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS.",
+            "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS. The left-hand side can also name the event, ``'duration + event ~ x1 + x2'`` (as in :func:`sp.aft` and :func:`sp.cox_frailty`) or R's ``'Surv(duration, event) ~ x1 + x2'``, and the entry time, ``'Surv(start, stop, event) ~ x1 + x2'``.",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -129040,6 +129123,8 @@
       "description": "KMResult: Object with .survival_table, .median_survival, .plot(), .summary().",
       "fields": {
         "alpha": "float",
+        "conf_type": "Optional[str]",
+        "delayed_entry": "bool",
         "tables": "Dict[str, pandas.DataFrame]"
       }
     },
@@ -129124,9 +129209,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survival::survfit [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance S(t) at every event time 1e-12 (observed ~3e-17); median exact -- tests/reference_parity/test_survival_km_parity.py",
       "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py",
       "tests/reference_parity/test_survey_causal_parity.py",
-      "tests/reference_parity/test_survey_replicate_parity.py",
-      "tests/reference_parity/test_survival_causal_parity.py"
+      "tests/reference_parity/test_survey_replicate_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -129255,7 +129340,7 @@
             "x-statspai-role": "column"
           },
           "formula": {
-            "description": "Formula ``'duration ~ x1 + x2'``.",
+            "description": "Formula ``'duration ~ x1 + x2'``, or with the event on the left-hand side: ``'duration + event ~ x1 + x2'`` / ``'Surv(duration, event) ~ x1 + x2'``.",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -129360,7 +129445,7 @@
     "reference": "mantel1959statistical",
     "returns": {
       "class": "dict",
-      "description": "dict: Keys: test_statistic, p_value, df, n_groups, expected_events (per group), observed_events (per group).",
+      "description": "dict: Keys: test_statistic, p_value, df, n_groups, expected_events (per group), observed_events (per group), rho and, for a stratified test, n_strata.",
       "fields": {}
     },
     "signature": {
@@ -129387,6 +129472,16 @@
             "description": "Column names.",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "rho": {
+            "default": 0.0,
+            "description": "Power of the Harrington-Fleming ``G-rho`` weight ``S(t-)^rho``, with ``S`` the Kaplan-Meier estimate of the pooled sample (of the stratum) just before each event time. ``0`` is the log-rank (Mantel-Haenszel) test; ``1`` is the Peto-Peto modification of the Gehan-Wilcoxon test, which gives more weight to early differences. R ``survival::survdiff(rho=)``.",
+            "type": "number"
+          },
+          "strata": {
+            "description": "Column of strata. The observed and expected counts and the variance are computed within each stratum and summed (the stratified log-rank test; R ``survdiff(... + strata(s))``, Stata ``sts test, strata(s)``).",
+            "type": "string",
+            "x-statspai-role": "column"
           }
         },
         "required": [
@@ -129403,7 +129498,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survival::survdiff [R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs -- tests/reference_parity/test_survival_km_parity.py",
       "tests/external_parity/test_ding_linear_model.py",
-      "tests/reference_parity/test_linear_model_extensions_parity.py"
+      "tests/reference_parity/test_linear_model_extensions_parity.py",
+      "tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -129753,6 +129849,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_probe_epi_parity.py",
         "tests/reference_parity/test_survival_causal_parity.py"
       ],
       "tolerance": ""
@@ -129859,7 +129956,7 @@
             "type": "string"
           },
           "tau": {
-            "description": "Truncation time. Default: the smallest of the groups' largest observed times (survRM2's default), so that every curve is defined up to ``tau``. A ``tau`` beyond a group's last observed time is refused.",
+            "description": "Truncation time. A group's curve is defined up to its largest observed time when that observation is censored, and everywhere when it is an event (the curve has reached zero). The default is the largest admissible ``tau``: the smallest of the largest times of the groups whose last observation is censored, or the largest observed time when every group ends in an event. This is the rule of ``survRM2::rmst2``. A larger ``tau`` is refused. .. versionchanged:: 1.44 The default used to be the smallest of the groups' largest times whatever their status, and a ``tau`` beyond a group that ends in an event was refused; ``rmst2`` accepts it. The default changes only when some group's last observation is an event.",
             "type": "number"
           },
           "weights": {
@@ -129879,7 +129976,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_survival_causal_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_probe_epi_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -158874,12 +158971,13 @@
       "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
-      "reference": "docstring"
+      "reference": "docstring",
+      "returns": "docstring"
     },
     "reference": "hernan2016using",
     "returns": {
       "class": "TargetTrialResult",
-      "description": "",
+      "description": "TargetTrialResult",
       "fields": {
         "ci": "tuple[float, float]",
         "estimate": "float",
@@ -158897,30 +158995,30 @@
       "parameters": {
         "properties": {
           "data": {
-            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "description": "One row per subject at time zero.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },
           "outcome_col": {
-            "description": "Outcome variable column name.",
+            "description": "Outcome column (observed for every eligible subject).",
             "type": "string",
             "x-statspai-role": "column"
           },
           "protocol": {
-            "description": "protocol parameter (TargetTrialProtocol).",
+            "description": "The protocol from :func:`sp.target_trial_protocol`.",
             "type": "string"
           },
           "time_zero_filter": {
-            "description": "time_zero_filter parameter (Callable[[pd.DataFrame], pd.Series] | None).",
+            "description": "Function of ``data`` returning a boolean mask of the eligible rows; replaces the protocol's ``eligibility``.",
             "type": "string"
           },
           "treatment_col": {
-            "description": "Treatment variable column name.",
+            "description": "Strategy indicator, coded 0/1.",
             "type": "string",
             "x-statspai-role": "column"
           },
           "weights": {
-            "description": "Observation weights.",
+            "description": "One inverse-probability weight per row of ``data`` (treatment, censoring, or their product). Treated as known in the standard error.",
             "type": "string"
           }
         },

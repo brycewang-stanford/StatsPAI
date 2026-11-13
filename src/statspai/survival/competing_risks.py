@@ -257,6 +257,12 @@ class FineGrayResult(ResultProtocolMixin):
         return out
 
     @property
+    def std_errors(self) -> np.ndarray:
+        """Standard errors of the coefficients (alias of ``bse``, the name
+        the other StatsPAI results use)."""
+        return self.bse
+
+    @property
     def zvalues(self) -> np.ndarray:
         out: np.ndarray = self.params / self.bse
         return out

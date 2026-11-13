@@ -5,6 +5,66 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: Cox concordance with strata, Efron baseline hazard, RMST default tau, overlap-weight ESS
+
+⚠️ correctness fix: `sp.cox(strata=...)` (unweighted, right-censored)
+reports the concordance over pairs within a stratum, as R and Stata do. It
+used to count pairs across strata. Coefficients, standard errors and tests
+are unchanged. A stored `diagnostics["Concordance (C)"]` of a stratified
+fit is not comparable with the new one.
+
+⚠️ correctness fix: `CoxResult.baseline_hazard()` follows the tie rule of
+the fit. With `ties='efron'` (the default) and tied death times the
+cumulative hazard is slightly larger than before and equals R
+`basehaz(fit, centered = FALSE)` and Stata `predict, basechazard`. To get
+the old numbers fit with `ties='breslow'`, which also changes the
+coefficients, or compute the Breslow sum by hand. A stratified fit returns
+a `strata` column and one `time = 0` row per stratum; code that read the
+table positionally should group by `strata`.
+
+⚠️ correctness fix: `sp.rmst(tau=None)` picks the default of
+`survRM2::rmst2`. It differs from the old default only when the largest
+observation of some group is an event. Pass `tau=` explicitly to pin the
+horizon:
+
+```python
+r = sp.rmst(df, "time", "event", group="arm")           # may use a larger tau now
+r = sp.rmst(df, "time", "event", group="arm", tau=553)  # the 1.43 horizon
+```
+
+⚠️ correctness fix: `sp.overlap_weights(...).model_info["effective_sample_size"]`
+is the effective sample size of the weights (sum of `ess_treated` and
+`ess_control`). The former value, the effective size of the tilting
+function, is `model_info["tilt_ess"]`. `result.detail` now has the
+covariate names in a `variable` column, not in the index:
+
+```python
+res.detail.set_index("variable").loc["age", "smd_weighted"]   # was res.detail.loc["age", ...]
+```
+
+`sp.target_trial_emulate(...)` without `weights=`: the estimate is
+unchanged (the unadjusted difference in means) but `result.method` no
+longer repeats the protocol's analysis plan, and an observational protocol
+warns. Pass the inverse-probability weights to run the plan:
+
+```python
+ps = sp.propensity_score(df, treat="a", covariates=protocol.baseline_covariates)
+res = sp.target_trial_emulate(protocol, df, outcome_col="y", treatment_col="a",
+                              weights=sp.ps_weights(ps, df["a"], "ATE"))
+```
+
+A missing outcome among the eligible, a treatment not coded 0/1 and weights
+of the wrong length now raise.
+
+⚠️ correctness fix: `sp.svyglm(...).deff` is the design effect of each
+coefficient (R `svyglm(deff = TRUE)`). It was a constant 1.0. With
+`subpop=` it is NaN and the summary has no `DEFF` column.
+
+`sp.logrank_test` returns `p_value` as a Python float and adds a `rho`
+key.
+
+---
+
 ## 1.43 → 1.43.1: missing weights drop their rows; weighted feols RMSE; rddensity se / ci
 
 `sp.regress`, `sp.iv`, `sp.logit`, `sp.glm`, `sp.poisson`, `sp.panel` and

@@ -1068,7 +1068,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `regression_forest` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |
 | `result_card` | [`test_hdfe_fit_stats_reghdfe.py`](../tests/reference_parity/test_hdfe_fit_stats_reghdfe.py) |
 | `risk_class_selection` | [`test_risk_class_selection_known_truth.py`](../tests/reference_parity/test_risk_class_selection_known_truth.py) |
-| `rmst` | [`test_survival_causal_parity.py`](../tests/reference_parity/test_survival_causal_parity.py) |
+| `rmst` | [`test_probe_epi_parity.py`](../tests/reference_parity/test_probe_epi_parity.py) (+1) |
 | `robustness_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `romano_wolf` | [`test_romano_wolf_parity.py`](../tests/reference_parity/test_romano_wolf_parity.py) |
 | `rosenbaum_stratified` | [`test_rosenbaum_itos_parity.py`](../tests/reference_parity/test_rosenbaum_itos_parity.py) |

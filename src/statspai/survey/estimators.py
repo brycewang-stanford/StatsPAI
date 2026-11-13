@@ -73,6 +73,9 @@ class SurveyResult(ResultProtocolMixin):
                 "DEFF": self.deff,
             }
         )
+        # regression fits and replicate designs carry no design effect
+        if bool(np.all(pd.isna(np.asarray(self.deff, dtype=float)))):
+            tbl = tbl.drop(columns="DEFF")
         return tbl
 
     def __repr__(self) -> str:
@@ -697,6 +700,18 @@ def svyglm(
     vcov = bread @ _design_vcov(scores, design) @ bread
     se = np.sqrt(np.diag(vcov))
 
+    # Design effect of each coefficient: the design variance over the
+    # model-based variance of the same weighted fit, ``bread * phi`` with
+    # the Pearson dispersion ``phi = sum w (y - mu)^2 / V(mu) / (n - k)``
+    # (R ``svyglm(deff = TRUE)``). Not defined for a domain fit, whose
+    # model-based variance would be that of the subsample.
+    deff_v = np.full(k, np.nan)
+    if dom is None and n > k:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            phi = float(np.sum(w * working_residuals**2 / var_mu) / (n - k))
+            deff_v = np.diag(vcov) / (np.diag(bread) * phi)
+        deff_v = np.where(np.isfinite(deff_v), deff_v, np.nan)
+
     dof_v = _design_dof(design, dom, subpop_df)
     if dof == "residual":
         dof_v = dof_v + 1 - k
@@ -711,7 +726,7 @@ def svyglm(
         std_error=se_s,
         ci_lower=estimates - t_crit * se_s,
         ci_upper=estimates + t_crit * se_s,
-        deff=pd.Series(np.ones(k), index=var_names),  # DEFF not standard for regression
+        deff=pd.Series(deff_v, index=var_names),
         dof=dof_v,
         alpha=alpha,
     )

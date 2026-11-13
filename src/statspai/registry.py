@@ -6841,6 +6841,77 @@ def _build_registry() -> None:
                     "serving only as caliper (MatchIt mahvars=~...).",
                 ),
                 _MISSING_PARAM,
+                ParamSpec(
+                    "distance",
+                    "str",
+                    False,
+                    None,
+                    "Distance for nearest-neighbour matching: 'propensity' "
+                    "(the default of method='nearest'; a logit score), "
+                    "'mahalanobis', 'euclidean' or 'exact'",
+                    ["propensity", "mahalanobis", "euclidean", "exact"],
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATT",
+                    "Target estimand. ATE (both arms matched) for "
+                    "nearest-neighbour matching, method='stratify' and "
+                    "method='cem'",
+                    ["ATT", "ATE"],
+                ),
+                ParamSpec(
+                    "n_matches",
+                    "int",
+                    False,
+                    1,
+                    "Matches per unit (k of k:1 matching; MatchIt ratio, "
+                    "teffects nneighbor)",
+                ),
+                ParamSpec(
+                    "caliper",
+                    "float",
+                    False,
+                    None,
+                    "Largest distance of an admissible match, in the units of "
+                    "caliper_scale (caliper=0.2 with caliper_scale='sd' is "
+                    "the usual 0.2 SD of the score). Units without a match "
+                    "are excluded with a warning and counted in model_info",
+                ),
+                ParamSpec(
+                    "replace",
+                    "bool",
+                    False,
+                    True,
+                    "Match with replacement (the default; Stata teffects, "
+                    "psmatch2). False is greedy matching without "
+                    "replacement in the order m_order (MatchIt's default)",
+                ),
+                ParamSpec(
+                    "bias_correction",
+                    "bool",
+                    False,
+                    False,
+                    "Abadie-Imbens (2011) regression adjustment for the "
+                    "remaining covariate discrepancy within matches",
+                ),
+                ParamSpec(
+                    "common_support",
+                    "str",
+                    False,
+                    "none",
+                    "'minmax' drops treated units whose score lies outside "
+                    "the range of the control scores before matching (Stata "
+                    "psmatch2, common)",
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level of the confidence interval",
+                ),
             ],
             returns="CausalResult",
             example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
@@ -18982,7 +19053,11 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("result", "TargetTrialResult", True),
                 ParamSpec(
-                    "fmt", "str", False, "markdown", enum=["markdown", "latex", "text"]
+                    "fmt",
+                    "str",
+                    False,
+                    "markdown",
+                    enum=["markdown", "latex", "text", "target", "jama", "bmj"],
                 ),
                 ParamSpec("title", "str", False),
             ],

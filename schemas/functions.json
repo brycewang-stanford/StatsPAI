@@ -5016,6 +5016,16 @@
     "name": "match",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level of the confidence interval",
+          "type": "number"
+        },
+        "bias_correction": {
+          "default": false,
+          "description": "Abadie-Imbens (2011) regression adjustment for the remaining covariate discrepancy within matches",
+          "type": "boolean"
+        },
         "bootstrap_reps": {
           "default": 200,
           "description": "Replications for se_method='bootstrap'",
@@ -5025,6 +5035,10 @@
           "description": "Seed for the bootstrap resampler",
           "type": "integer"
         },
+        "caliper": {
+          "description": "Largest distance of an admissible match, in the units of caliper_scale (caliper=0.2 with caliper_scale='sd' is the usual 0.2 SD of the score). Units without a match are excluded with a warning and counted in model_info",
+          "type": "number"
+        },
         "caliper_scale": {
           "default": "raw",
           "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -5032,6 +5046,11 @@
             "raw",
             "sd"
           ],
+          "type": "string"
+        },
+        "common_support": {
+          "default": "none",
+          "description": "'minmax' drops treated units whose score lies outside the range of the control scores before matching (Stata psmatch2, common)",
           "type": "string"
         },
         "covariate_calipers": {
@@ -5056,6 +5075,25 @@
         },
         "design": {
           "description": "A survey design from sp.svydesign on the same rows, for nearest-neighbour ATT/ATC: design weights as MatchIt s.weights, SE by survey linearisation of the matched-sample regression with the matched rows as a domain of the full design (R svyglm on subset(design, matched)), t on the design df. Other methods are refused (no influence function); use sp.ipw / aipw / tmle(design=). Replicate-weight designs are refused.",
+          "type": "string"
+        },
+        "distance": {
+          "description": "Distance for nearest-neighbour matching: 'propensity' (the default of method='nearest'; a logit score), 'mahalanobis', 'euclidean' or 'exact'",
+          "enum": [
+            "propensity",
+            "mahalanobis",
+            "euclidean",
+            "exact"
+          ],
+          "type": "string"
+        },
+        "estimand": {
+          "default": "ATT",
+          "description": "Target estimand. ATE (both arms matched) for nearest-neighbour matching, method='stratify' and method='cem'",
+          "enum": [
+            "ATT",
+            "ATE"
+          ],
           "type": "string"
         },
         "exact": {
@@ -5162,6 +5200,11 @@
           "default": "drop",
           "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
         },
+        "n_matches": {
+          "default": 1,
+          "description": "Matches per unit (k of k:1 matching; MatchIt ratio, teffects nneighbor)",
+          "type": "integer"
+        },
         "ps_model": {
           "default": "logit",
           "description": "Propensity-score model; 'probit' is teffects psmatch (..., probit)",
@@ -5174,6 +5217,11 @@
         "pscore": {
           "description": "Column holding a fitted score to match on (Stata psmatch2, pscore()); no treatment model is fitted",
           "type": "string"
+        },
+        "replace": {
+          "default": true,
+          "description": "Match with replacement (the default; Stata teffects, psmatch2). False is greedy matching without replacement in the order m_order (MatchIt's default)",
+          "type": "boolean"
         },
         "sampling_weights": {
           "description": "Sampling (survey) weights, MatchIt s.weights, for nearest-neighbour ATT/ATC: weighted logit score, matching unchanged, effect = WLS with matching x sampling weights, SE clustered on matched sets (HC3 with replacement)",
@@ -18017,7 +18065,10 @@
           "enum": [
             "markdown",
             "latex",
-            "text"
+            "text",
+            "target",
+            "jama",
+            "bmj"
           ],
           "type": "string"
         },
@@ -18284,6 +18335,16 @@
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
           "type": "integer"
+        },
+        "stderror": {
+          "default": "simple",
+          "description": "Standard error of each ratio estimate, which sets the weights of the weighted mode and the spread of the bootstrap draws. ``\"simple\"`` is the first-order ``se_outcome / |beta_exposure|``, which treats the exposure associations as known (the NOME assumption; the default of ``mr_mbe``). ``\"delta\"`` adds the second-order term for their sampling error, ``sqrt(se_y^2 / bx^2 + by^2 se_x^2 / bx^4)`` (``mr_mbe(stderror = \"delta\")``; ``TwoSampleMR``'s weighted mode relaxes NOME in the same way). With weak or imprecise instruments the ``\"simple\"`` standard error can be several times too small.",
+          "enum": [
+            "simple",
+            "delta"
+          ],
+          "type": "string",
+          "x-statspai-source": "signature"
         }
       },
       "required": [
@@ -54698,6 +54759,11 @@
           },
           "type": "array"
         },
+        "hksj": {
+          "default": false,
+          "description": "Hartung-Knapp-Sidik-Jonkman adjustment of the random-effects inference (R ``rma(test = \"knha\")``, Stata ``meta summarize, se(khartung)``): the variance of the pooled effect is ``sum w_i (y_i - mu)^2 / ((k - 1) sum w_i)`` with the random- effects weights, and the interval and p-value use the t distribution with ``k - 1`` degrees of freedom. It keeps the nominal coverage with few studies, where the normal interval is too narrow. Not with ``method=\"fixed\"``.",
+          "type": "boolean"
+        },
         "labels": {
           "description": "Study labels for the forest plot.",
           "items": {
@@ -54707,9 +54773,10 @@
         },
         "method": {
           "default": "DL",
-          "description": "Which model the headline ``estimate`` reports: DerSimonian-Laird random effects (default) or fixed-effect inverse-variance. Both are always computed and available on the result.",
+          "description": "Which model the headline ``estimate`` reports: random effects with the DerSimonian-Laird moment estimate of the between-study variance (default) or with its restricted-maximum-likelihood estimate (``\"REML\"``, the default of R ``metafor::rma`` and Stata ``meta``), or fixed-effect inverse-variance. The fixed-effect and a random-effects result are always both available on the result.",
           "enum": [
             "DL",
+            "REML",
             "fixed"
           ],
           "type": "string"
@@ -62018,7 +62085,7 @@
           "x-statspai-role": "column"
         },
         "formula": {
-          "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS.",
+          "description": "Formula of the form ``'duration ~ x1 + x2'``. If given, ``duration`` is inferred from the LHS. The left-hand side can also name the event, ``'duration + event ~ x1 + x2'`` (as in :func:`sp.aft` and :func:`sp.cox_frailty`) or R's ``'Surv(duration, event) ~ x1 + x2'``, and the entry time, ``'Surv(start, stop, event) ~ x1 + x2'``.",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -62223,7 +62290,7 @@
           "x-statspai-role": "column"
         },
         "formula": {
-          "description": "Formula ``'duration ~ x1 + x2'``.",
+          "description": "Formula ``'duration ~ x1 + x2'``, or with the event on the left-hand side: ``'duration + event ~ x1 + x2'`` / ``'Surv(duration, event) ~ x1 + x2'``.",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -62274,6 +62341,16 @@
         },
         "group": {
           "description": "Column names.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "rho": {
+          "default": 0.0,
+          "description": "Power of the Harrington-Fleming ``G-rho`` weight ``S(t-)^rho``, with ``S`` the Kaplan-Meier estimate of the pooled sample (of the stratum) just before each event time. ``0`` is the log-rank (Mantel-Haenszel) test; ``1`` is the Peto-Peto modification of the Gehan-Wilcoxon test, which gives more weight to early differences. R ``survival::survdiff(rho=)``.",
+          "type": "number"
+        },
+        "strata": {
+          "description": "Column of strata. The observed and expected counts and the variance are computed within each stratum and summed (the stratified log-rank test; R ``survdiff(... + strata(s))``, Stata ``sts test, strata(s)``).",
           "type": "string",
           "x-statspai-role": "column"
         }
@@ -62473,7 +62550,7 @@
           "type": "string"
         },
         "tau": {
-          "description": "Truncation time. Default: the smallest of the groups' largest observed times (survRM2's default), so that every curve is defined up to ``tau``. A ``tau`` beyond a group's last observed time is refused.",
+          "description": "Truncation time. A group's curve is defined up to its largest observed time when that observation is censored, and everywhere when it is an event (the curve has reached zero). The default is the largest admissible ``tau``: the smallest of the largest times of the groups whose last observation is censored, or the largest observed time when every group ends in an event. This is the rule of ``survRM2::rmst2``. A larger ``tau`` is refused. .. versionchanged:: 1.44 The default used to be the smallest of the groups' largest times whatever their status, and a ``tau`` beyond a group that ends in an event was refused; ``rmst2`` accepts it. The default changes only when some group's last observation is an event.",
           "type": "number"
         },
         "weights": {
@@ -76507,30 +76584,30 @@
     "parameters": {
       "properties": {
         "data": {
-          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "description": "One row per subject at time zero.",
           "type": "object",
           "x-statspai-role": "dataframe"
         },
         "outcome_col": {
-          "description": "Outcome variable column name.",
+          "description": "Outcome column (observed for every eligible subject).",
           "type": "string",
           "x-statspai-role": "column"
         },
         "protocol": {
-          "description": "protocol parameter (TargetTrialProtocol).",
+          "description": "The protocol from :func:`sp.target_trial_protocol`.",
           "type": "string"
         },
         "time_zero_filter": {
-          "description": "time_zero_filter parameter (Callable[[pd.DataFrame], pd.Series] | None).",
+          "description": "Function of ``data`` returning a boolean mask of the eligible rows; replaces the protocol's ``eligibility``.",
           "type": "string"
         },
         "treatment_col": {
-          "description": "Treatment variable column name.",
+          "description": "Strategy indicator, coded 0/1.",
           "type": "string",
           "x-statspai-role": "column"
         },
         "weights": {
-          "description": "Observation weights.",
+          "description": "One inverse-probability weight per row of ``data`` (treatment, censoring, or their product). Treated as known in the standard error.",
           "type": "string"
         }
       },

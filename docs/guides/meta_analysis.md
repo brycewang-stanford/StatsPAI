@@ -33,7 +33,18 @@ The summary reports **both** models — you do not have to choose blind:
   across studies; wider CI, and the model StatsPAI reports by default
   (`method="DL"`).
 
-Switch the headline model with `method="fixed"`.
+Switch the headline model with `method="fixed"`, or estimate the
+between-study variance by restricted maximum likelihood with
+`method="REML"` (the default of R `metafor::rma` and Stata `meta`).
+
+With few studies the normal interval of the random-effects estimate is
+too narrow. `hksj=True` applies the Hartung-Knapp-Sidik-Jonkman
+adjustment (`rma(test = "knha")`): a variance estimate from the weighted
+residuals and a t distribution with `k - 1` degrees of freedom.
+
+```python
+r = sp.meta_analysis(effects, se, method="REML", hksj=True)
+```
 
 ---
 
@@ -81,9 +92,13 @@ m.forest_plot()             # per-study CIs + pooled diamond
 
 ## Notes & limitations
 
-- DerSimonian-Laird is the classic random-effects estimator; for very few
-  studies or rare events, REML / Paule-Mandel `tau^2` and Hartung-Knapp
-  CIs are more conservative and are on the roadmap.
+- DerSimonian-Laird is the classic random-effects estimator; for few
+  studies prefer `method="REML"` with `hksj=True`. Paule-Mandel `tau^2`,
+  trim-and-fill and meta-regression are not implemented.
+- The prediction interval is `mu +/- t(k - 2) sqrt(se^2 + tau^2)`
+  (Higgins, Thompson and Spiegelhalter); `metafor`'s default uses the
+  normal quantile and is narrower. `I^2` and `H^2` are the Q-based ones
+  under every `method`.
 - Effect sizes must be supplied on an additive scale (log-transform ratio
   measures before pooling, then exponentiate the pooled estimate for
   reporting).

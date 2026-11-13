@@ -55,11 +55,17 @@ class MetaAnalysisResult(ResultProtocolMixin):
     p_value : float
         Two-sided p-value for the pooled effect being zero.
     method : str
-        ``"fixed"`` or ``"DL"`` (DerSimonian-Laird random effects).
+        ``"fixed"``, ``"DL"`` (DerSimonian-Laird random effects) or
+        ``"REML"`` (restricted maximum likelihood random effects).
     fixed_estimate, fixed_se : float
         Fixed-effect pooled estimate and SE (always reported).
     random_estimate, random_se : float
-        Random-effects pooled estimate and SE (always reported).
+        Random-effects pooled estimate and SE (always reported), with the
+        between-study variance of ``method`` (DerSimonian-Laird under
+        ``"fixed"``). With ``hksj=True`` the SE is the Knapp-Hartung one.
+    hksj : bool
+        Whether the random-effects inference uses the Hartung-Knapp-
+        Sidik-Jonkman adjustment (t with ``k - 1`` degrees of freedom).
     tau2, q, q_df, q_pvalue, i2, h2 : float
         Between-study variance and heterogeneity statistics.
     prediction_interval : tuple or None
@@ -109,6 +115,7 @@ class MetaAnalysisResult(ResultProtocolMixin):
     se_studies: np.ndarray
     labels: List[str]
     alpha: float = 0.05
+    hksj: bool = False
 
     def egger_test(self) -> Dict[str, float]:
         """Egger's regression test for funnel-plot asymmetry.
@@ -152,32 +159,44 @@ class MetaAnalysisResult(ResultProtocolMixin):
 
     def summary(self) -> str:
         z = stats.norm.ppf(1 - self.alpha / 2)
+        k = len(self.effects)
         out = ["=" * 72, "Meta-analysis (summary data)", "=" * 72]
-        out.append(f"Studies (k)          : {len(self.effects)}")
+        out.append(f"Studies (k)          : {k}")
+        tau_name = "REML" if self.method == "REML" else "DerSimonian-Laird"
         model = (
-            "random-effects (DerSimonian-Laird)"
-            if self.method == "DL"
-            else "fixed-effect (inverse-variance)"
+            "fixed-effect (inverse-variance)"
+            if self.method == "fixed"
+            else f"random-effects ({tau_name})"
         )
         out.append(f"Model                : {model}")
+        if self.hksj:
+            out.append(
+                f"Inference            : Knapp-Hartung adjustment, t({k - 1}) "
+                "for the random-effects pooled effect"
+            )
         out.append("-" * 72)
         fe_lo = self.fixed_estimate - z * self.fixed_se
         fe_hi = self.fixed_estimate + z * self.fixed_se
-        re_lo = self.random_estimate - z * self.random_se
-        re_hi = self.random_estimate + z * self.random_se
+        crit = stats.t.ppf(1 - self.alpha / 2, df=k - 1) if self.hksj else z
+        re_lo = self.random_estimate - crit * self.random_se
+        re_hi = self.random_estimate + crit * self.random_se
         fe_ci = f"[{fe_lo:.4f}, {fe_hi:.4f}]"
         re_ci = f"[{re_lo:.4f}, {re_hi:.4f}]"
         out.append(f"Fixed-effect pooled  : {self.fixed_estimate:.4f}  {fe_ci}")
         out.append(f"Random-effects pooled: {self.random_estimate:.4f}  {re_ci}")
         if self.prediction_interval is not None:
             pi_lo, pi_hi = self.prediction_interval
-            out.append(f"  prediction interval: [{pi_lo:.4f}, {pi_hi:.4f}]")
+            out.append(
+                f"  prediction interval: [{pi_lo:.4f}, {pi_hi:.4f}]  "
+                f"(t, {k - 2} df; Higgins et al. 2009)"
+            )
         out.append("-" * 72)
         out.append("Heterogeneity:")
         out.append(f"  Q({self.q_df}) = {self.q:.4f}, p = {self.q_pvalue:.4g}")
         i2_pct = 100 * self.i2
         out.append(
-            f"  I^2 = {i2_pct:.1f}%   tau^2 = {self.tau2:.4f}" f"   H^2 = {self.h2:.4f}"
+            f"  I^2 = {i2_pct:.1f}%   tau^2 = {self.tau2:.4f} ({tau_name})"
+            f"   H^2 = {self.h2:.4f}"
         )
         egg = self.egger_test()
         if not np.isnan(egg["p_value"]):
@@ -252,8 +271,18 @@ def meta_analysis(
     method: str = "DL",
     labels: Optional[Sequence[str]] = None,
     alpha: float = 0.05,
+    hksj: bool = False,
 ) -> MetaAnalysisResult:
     """Summary-data meta-analysis with fixed- and random-effects pooling.
+
+    Pools study-level effect sizes by inverse variance (fixed effect) and
+    under a random-effects model with the DerSimonian-Laird or the REML
+    estimate of the between-study variance, with the heterogeneity
+    statistics (Cochran's Q, I-squared, tau-squared, H-squared), a
+    prediction interval, the optional Knapp-Hartung (HKSJ) adjustment,
+    Egger's regression test for funnel-plot asymmetry (small-study effects,
+    publication bias) and forest and funnel plots. R ``metafor::rma``,
+    Stata ``meta summarize``.
 
     Parameters
     ----------
@@ -261,14 +290,36 @@ def meta_analysis(
         Per-study effect sizes (e.g. log odds ratios, mean differences).
     se : sequence of float
         Per-study standard errors (must be positive).
-    method : {"DL", "fixed"}
-        Which model the headline ``estimate`` reports: DerSimonian-Laird
-        random effects (default) or fixed-effect inverse-variance. Both are
-        always computed and available on the result.
+    method : {"DL", "REML", "fixed"}
+        Which model the headline ``estimate`` reports: random effects with
+        the DerSimonian-Laird moment estimate of the between-study
+        variance (default) or with its restricted-maximum-likelihood
+        estimate (``"REML"``, the default of R ``metafor::rma`` and Stata
+        ``meta``), or fixed-effect inverse-variance. The fixed-effect and
+        a random-effects result are always both available on the result.
     labels : sequence of str, optional
         Study labels for the forest plot.
     alpha : float
         Significance level for confidence/prediction intervals.
+    hksj : bool, default False
+        Hartung-Knapp-Sidik-Jonkman adjustment of the random-effects
+        inference (R ``rma(test = "knha")``, Stata ``meta summarize,
+        se(khartung)``): the variance of the pooled effect is
+        ``sum w_i (y_i - mu)^2 / ((k - 1) sum w_i)`` with the random-
+        effects weights, and the interval and p-value use the t
+        distribution with ``k - 1`` degrees of freedom. It keeps the
+        nominal coverage with few studies, where the normal interval is
+        too narrow. Not with ``method="fixed"``.
+
+    Notes
+    -----
+    I-squared and H-squared are the Q-based ones, ``(Q - df) / Q`` and
+    ``Q / df`` (Higgins and Thompson 2002), under every ``method``;
+    ``metafor`` reports tau-squared-based versions for ``"REML"``, which
+    differ slightly. The prediction interval is
+    ``mu +/- t(k - 2) sqrt(se^2 + tau^2)`` (Higgins, Thompson and
+    Spiegelhalter 2009), with the model-based ``se``; ``metafor``'s
+    default uses the normal quantile.
 
     Returns
     -------
@@ -305,8 +356,15 @@ def meta_analysis(
     k = len(y)
     if k < 2:
         raise ValueError("meta-analysis needs at least 2 studies.")
-    if method not in ("DL", "fixed"):
-        raise ValueError("method must be 'DL' or 'fixed'.")
+    if method not in ("DL", "REML", "fixed"):
+        raise ValueError("method must be 'DL', 'REML' or 'fixed'.")
+    if hksj and method == "fixed":
+        raise MethodIncompatibility(
+            "meta_analysis: the Knapp-Hartung adjustment (hksj=True) belongs "
+            "to the random-effects model.",
+            recovery_hint="Use method='DL' or 'REML' with hksj=True, or "
+            "hksj=False with method='fixed'.",
+        )
     if labels is None:
         labels = [f"Study {i + 1}" for i in range(k)]
     else:
@@ -327,29 +385,41 @@ def meta_analysis(
     df = k - 1
     c = float(np.sum(w) - np.sum(w**2) / np.sum(w))
     tau2 = max(0.0, (q - df) / c) if c > 0 else 0.0
+    if method == "REML":
+        tau2 = _reml_tau2(y, s**2, tau2)
     q_pvalue = float(stats.chi2.sf(q, df)) if df > 0 else float("nan")
     i2 = max(0.0, (q - df) / q) if q > 0 else 0.0
     h2 = q / df if df > 0 else float("nan")
 
-    # Random-effects (DL) weights.
+    # Random-effects weights.
     w_re = 1.0 / (s**2 + tau2)
     re_est = float(np.sum(w_re * y) / np.sum(w_re))
-    re_se = float(np.sqrt(1.0 / np.sum(w_re)))
+    re_se_model = float(np.sqrt(1.0 / np.sum(w_re)))
+    re_se = re_se_model
+    if hksj:
+        # Knapp and Hartung (2003): the weighted residual mean square
+        # replaces 1 in the variance of the pooled effect.
+        re_se = float(np.sqrt(np.sum(w_re * (y - re_est) ** 2) / (df * np.sum(w_re))))
 
     z = stats.norm.ppf(1 - alpha / 2)
-    if method == "DL":
-        est, se_pooled, weights = re_est, re_se, w_re
-    else:
+    if method == "fixed":
         est, se_pooled, weights = fe_est, fe_se, w
+    else:
+        est, se_pooled, weights = re_est, re_se, w_re
 
-    ci = (est - z * se_pooled, est + z * se_pooled)
-    p_value = float(2 * stats.norm.sf(abs(est / se_pooled)))
+    if hksj:
+        crit = float(stats.t.ppf(1 - alpha / 2, df=df))
+        p_value = float(2 * stats.t.sf(abs(est / se_pooled), df=df))
+    else:
+        crit = z
+        p_value = float(2 * stats.norm.sf(abs(est / se_pooled)))
+    ci = (float(est - crit * se_pooled), float(est + crit * se_pooled))
 
     # Random-effects prediction interval (Higgins et al. 2009): uses t_{k-2}.
     prediction_interval: Optional[tuple] = None
     if k >= 3:
         t_val = stats.t.ppf(1 - alpha / 2, df=k - 2)
-        pi_se = np.sqrt(re_se**2 + tau2)
+        pi_se = np.sqrt(re_se_model**2 + tau2)
         prediction_interval = (re_est - t_val * pi_se, re_est + t_val * pi_se)
 
     return MetaAnalysisResult(
@@ -374,4 +444,54 @@ def meta_analysis(
         se_studies=s,
         labels=labels,
         alpha=alpha,
+        hksj=bool(hksj),
     )
+
+
+def _reml_tau2(y: np.ndarray, v: np.ndarray, start: float) -> float:
+    """REML estimate of the between-study variance, truncated at zero.
+
+    Fisher scoring on the restricted likelihood of the random-effects
+    model ``y_i ~ N(mu, v_i + tau2)`` (Viechtbauer 2005): with
+    ``w_i = 1 / (v_i + tau2)`` and ``mu`` the weighted mean,
+
+        tau2 <- tau2 + [sum w_i^2 (y_i - mu)^2 - sum w_i + sum w_i^2 / sum w_i]
+                       / [sum w_i^2 - 2 sum w_i^3 / sum w_i + (sum w_i^2 / sum w_i)^2]
+
+    The step is halved while it lowers the restricted likelihood, so the
+    iteration cannot overshoot, and it stops when the step no longer moves
+    ``tau2`` at double precision relative to the within-study variances.
+    """
+
+    def _ll(t2: float) -> float:
+        w = 1.0 / (v + t2)
+        mu = np.sum(w * y) / np.sum(w)
+        return float(
+            -0.5 * np.sum(np.log(v + t2))
+            - 0.5 * np.log(np.sum(w))
+            - 0.5 * np.sum(w * (y - mu) ** 2)
+        )
+
+    tau2 = max(float(start), 0.0)
+    scale = float(np.mean(v))
+    for _ in range(500):
+        w = 1.0 / (v + tau2)
+        sw = np.sum(w)
+        mu = np.sum(w * y) / sw
+        sw2 = np.sum(w**2)
+        score = np.sum(w**2 * (y - mu) ** 2) - sw + sw2 / sw
+        info = sw2 - 2.0 * np.sum(w**3) / sw + (sw2 / sw) ** 2
+        if not info > 0:
+            break
+        step = score / info
+        new = max(tau2 + step, 0.0)
+        ll_old = _ll(tau2)
+        for _ in range(60):
+            if _ll(new) >= ll_old - 1e-12 * max(1.0, abs(ll_old)):
+                break
+            new = 0.5 * (new + tau2)
+        moved = abs(new - tau2)
+        tau2 = new
+        if moved <= 1e-14 * max(scale, tau2):
+            break
+    return float(tau2)

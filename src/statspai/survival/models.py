@@ -8,6 +8,7 @@ Implements:
 - Parametric survival / AFT models (Weibull, exponential, log-normal, log-logistic)
 """
 
+import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -34,6 +35,67 @@ def _parse_formula(formula: str) -> Tuple[str, List[str]]:
     y = parts[0].strip()
     x = [v.strip() for v in parts[1].split("+") if v.strip()]
     return y, x
+
+
+_SURV_LHS = re.compile(r"^\s*Surv\s*\(([^()]*)\)\s*$")
+_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+
+
+def _survival_lhs(
+    formula: str, function: str
+) -> Tuple[str, Optional[str], Optional[str]]:
+    """Read the survival forms of a formula's left-hand side.
+
+    ``'time + event ~ x'`` (the spelling of ``sp.aft`` and
+    ``sp.cox_frailty``), ``'Surv(time, event) ~ x'`` and
+    ``'Surv(start, stop, event) ~ x'`` (R) name the event column, and the
+    entry column, in the formula. Returns the formula with the duration
+    alone on the left, the event column and the entry column (``None``
+    where the formula does not name one). Any other left-hand side is
+    returned unchanged.
+    """
+    if "~" not in formula:
+        return formula, None, None
+    lhs, rhs = formula.split("~", 1)
+    m = _SURV_LHS.match(lhs)
+    if m:
+        names = [v.strip() for v in m.group(1).split(",")]
+    elif "+" in lhs:
+        names = [v.strip() for v in lhs.split("+")]
+    else:
+        return formula, None, None
+    if len(names) not in (2, 3) or not all(_NAME.match(v) for v in names):
+        raise MethodIncompatibility(
+            f"{function}: cannot read the left-hand side {lhs.strip()!r}.",
+            recovery_hint="Write 'time ~ x' with event=, 'time + event ~ x', "
+            "'Surv(time, event) ~ x' or 'Surv(start, stop, event) ~ x', "
+            "with plain column names.",
+            diagnostics={"lhs": lhs.strip()},
+        )
+    if len(names) == 3:
+        if not m:
+            raise MethodIncompatibility(
+                f"{function}: three columns on the left-hand side need the "
+                "Surv(start, stop, event) form.",
+                recovery_hint="Write 'Surv(start, stop, event) ~ x', or "
+                "'stop + event ~ x' with start=.",
+            )
+        start, dur, ev = names
+    else:
+        start = None
+        dur, ev = names
+    return f"{dur} ~{rhs}", ev, start
+
+
+def _agree(given: Optional[str], named: Optional[str], what: str, function: str) -> Any:
+    """The column named in the formula, unless ``what=`` names another."""
+    if named is None or given is None or given == named:
+        return given if named is None else named
+    raise MethodIncompatibility(
+        f"{function}: the formula names {named!r} as the {what} column and "
+        f"{what}={given!r} another.",
+        recovery_hint=f"Name the {what} column once.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -138,15 +200,82 @@ class CoxResult(EconometricResults):
             raise RuntimeError("Concordance statistic is not available.")
         return float(self._concordance_val)
 
+    # -- summary ------------------------------------------------------------
+    def summary(self, alpha: Optional[float] = None) -> str:
+        """Coefficient table, sample counts and (``hazard_ratio=True``) the
+        hazard ratios ``exp(coef)`` with their confidence limits.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Significance level of the intervals; the fit-time level by
+            default.
+
+        Returns
+        -------
+        str
+        """
+        from ..core.results import SummaryText
+
+        text = str(super().summary(alpha))
+        level = self.alpha if alpha is None else alpha
+        lines = text.split("\n")
+        n_obs = self.data_info.get("nobs")
+        n_events = self.data_info.get("n_events")
+        counts = []
+        if n_obs is not None:
+            counts.append(f"Observations: {n_obs}")
+        if n_events is not None:
+            counts.append(f"Events: {n_events}")
+        if self._strata is not None:
+            counts.append(f"Strata: {len(np.unique(np.asarray(self._strata)))}")
+        # header ends at the second rule; the coefficient table at the
+        # first blank line after it
+        rules = [i for i, ln in enumerate(lines) if ln and set(ln) == {"="}]
+        if counts and len(rules) >= 2:
+            lines.insert(rules[1], "   ".join(counts))
+        if self.model_info.get("hazard_ratio", True) and len(self.params):
+            ci = self.conf_int(level)
+            hr = pd.DataFrame(
+                {
+                    "Haz. Ratio": np.exp(self.params),
+                    f"[{level / 2:.3f}": np.exp(ci.iloc[:, 0]),
+                    f"{1 - level / 2:.3f}]": np.exp(ci.iloc[:, 1]),
+                }
+            )
+            start = (rules[1] + 2) if len(rules) >= 2 else 0
+            blank = next(
+                (i for i in range(start, len(lines)) if lines[i] == ""), len(lines)
+            )
+            block = ["", "Hazard ratios, exp(coef):"]
+            block += hr.to_string(float_format="%.4f").split("\n")
+            lines[blank:blank] = block
+        return SummaryText("\n".join(lines))
+
     # -- baseline hazard ----------------------------------------------------
     def baseline_hazard(self) -> pd.DataFrame:
         """
-        Baseline cumulative hazard (Breslow estimator).
+        Baseline cumulative hazard at ``x = 0``, under the tie rule of the fit.
+
+        ``ties='breslow'`` gives the Breslow estimator, ``ties='efron'``
+        the Efron one, in which the tied deaths of an event time leave the
+        risk set one at a time. These are R
+        ``survival::basehaz(fit, centered = FALSE)`` and Stata
+        ``predict, basechazard`` for the same tie rule; the two estimators
+        coincide when no two deaths share a time.
+
+        .. versionchanged:: 1.44
+           An Efron fit used to report the Breslow estimator evaluated at
+           the Efron coefficients, which is neither package's number when
+           deaths are tied. A stratified fit now labels its curves with a
+           ``strata`` column.
 
         Returns
         -------
         pd.DataFrame
-            Columns ``time``, ``baseline_cumhaz``, ``baseline_survival``.
+            Columns ``time``, ``baseline_cumhaz``, ``baseline_survival``,
+            preceded by ``strata`` for a stratified fit (one curve per
+            stratum, each starting from its own ``time = 0`` row).
         """
         if self._baseline_hazard_df is None:
             raise RuntimeError("Baseline hazard is not available.")
@@ -407,7 +536,20 @@ class CoxResult(EconometricResults):
         if bh is None:
             raise RuntimeError("Baseline hazard is not available for plotting.")
 
-        if kind == "survival":
+        if "strata" in bh.columns and kind in ("survival", "hazard"):
+            col = "baseline_survival" if kind == "survival" else "baseline_cumhaz"
+            for lev, part in bh.groupby("strata", sort=False):
+                ax.step(part["time"], part[col], where="post", label=str(lev), **kwargs)
+            ax.set_xlabel("Time")
+            if kind == "survival":
+                ax.set_ylabel("Baseline survival probability")
+                ax.set_title("Cox baseline survival curve")
+                ax.set_ylim(0, 1.05)
+            else:
+                ax.set_ylabel("Cumulative hazard")
+                ax.set_title("Cox baseline cumulative hazard")
+            ax.legend(title="strata")
+        elif kind == "survival":
             ax.step(bh["time"], bh["baseline_survival"], where="post", **kwargs)
             ax.set_xlabel("Time")
             ax.set_ylabel("Baseline survival probability")
@@ -488,9 +630,17 @@ class KMResult(ResultProtocolMixin):
     True
     """
 
-    def __init__(self, tables: Dict[str, pd.DataFrame], alpha: float = 0.05):
+    def __init__(
+        self,
+        tables: Dict[str, pd.DataFrame],
+        alpha: float = 0.05,
+        conf_type: Optional[str] = None,
+        delayed_entry: bool = False,
+    ):
         self._tables = tables  # group_name -> DataFrame
         self._alpha = alpha
+        self._conf_type = conf_type
+        self._delayed_entry = delayed_entry
 
     @property
     def survival_table(self) -> pd.DataFrame:
@@ -521,6 +671,79 @@ class KMResult(ResultProtocolMixin):
             return list(result.values())[0]
         return result
 
+    def quantiles(self, probs: Any = (0.25, 0.5, 0.75)) -> pd.DataFrame:
+        """Quantiles of the survival time with confidence limits.
+
+        The ``p`` quantile is the first time at which ``S(t) <= 1 - p``
+        (``p = 0.5`` is :attr:`median_survival`). Its confidence limits are
+        the same quantile of the two confidence bands of the curve
+        (Brookmeyer and Crowley 1982): the lower limit is the first time
+        the lower band reaches ``1 - p``, the upper limit the first time
+        the upper band does, and a limit is missing when its band never
+        gets there. They therefore follow the ``conf_type`` and ``alpha``
+        of the fit. These are the limits R ``quantile(survfit)`` /
+        ``print(survfit)`` report (``0.95LCL``, ``0.95UCL``); when ``S(t)``
+        equals ``1 - p`` exactly on a step, R reports the midpoint of that
+        step for the estimate where this method (as Stata ``stci``) reports
+        its left end.
+
+        Parameters
+        ----------
+        probs : float or sequence of float
+            Probabilities in (0, 1): the fraction that has failed.
+
+        Returns
+        -------
+        pd.DataFrame
+            Columns ``prob``, ``time``, ``ci_lower``, ``ci_upper``,
+            preceded by ``group`` when the fit has groups.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> import numpy as np, pandas as pd
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"time": rng.exponential(10, 200).round(1) + 0.1,
+        ...                    "status": (rng.random(200) < 0.8).astype(int)})
+        >>> km = sp.kaplan_meier(data=df, duration="time", event="status",
+        ...                      conf_type="log")
+        >>> q = km.quantiles(0.5)
+        >>> bool(q["ci_lower"].iloc[0] <= q["time"].iloc[0] <= q["ci_upper"].iloc[0])
+        True
+        """
+        p_arr = np.atleast_1d(np.asarray(probs, dtype=float))
+        if (
+            p_arr.size == 0
+            or np.any(~np.isfinite(p_arr))
+            or np.any((p_arr <= 0) | (p_arr >= 1))
+        ):
+            raise MethodIncompatibility(
+                f"quantiles: probs must lie strictly between 0 and 1, got {probs!r}",
+                recovery_hint="Pass e.g. probs=(0.25, 0.5, 0.75).",
+                diagnostics={"probs": [float(v) for v in p_arr]},
+            )
+
+        def _first(df: pd.DataFrame, col: str, level: float) -> float:
+            hit = np.flatnonzero(df[col].to_numpy(dtype=float) <= level)
+            return float(df["time"].iloc[hit[0]]) if len(hit) else float("nan")
+
+        rows = []
+        for g, df in self._tables.items():
+            for p in p_arr:
+                level = 1.0 - float(p)
+                row = {
+                    "group": g,
+                    "prob": float(p),
+                    "time": _first(df, "survival", level),
+                    "ci_lower": _first(df, "ci_lower", level),
+                    "ci_upper": _first(df, "ci_upper", level),
+                }
+                rows.append(row)
+        out = pd.DataFrame(rows)
+        if len(self._tables) == 1:
+            out = out.drop(columns="group")
+        return out
+
     # -- summary -----------------------------------------------------------
     def summary(self) -> str:
         """Formatted summary of the Kaplan-Meier analysis."""
@@ -528,24 +751,42 @@ class KMResult(ResultProtocolMixin):
         out.append("=" * 72)
         out.append("Kaplan-Meier Survival Estimates")
         out.append("=" * 72)
+        level = 100 * (1 - self._alpha)
+        med_ci = self.quantiles(0.5)
+        if "group" in med_ci.columns:
+            med_ci = med_ci.set_index("group")
+        else:
+            med_ci.index = list(self._tables.keys())
+
+        def _fmt(v: float) -> str:
+            return "not reached" if np.isnan(v) else f"{v:.4f}"
+
         for g, df in self._tables.items():
-            n = int(df["n_risk"].iloc[0]) if len(df) > 0 else 0
-            n_events = int(df["n_event"].sum())
-            med_val = self.median_survival
-            if isinstance(med_val, dict):
-                med = med_val.get(g, np.nan)
-            else:
-                med = med_val
+            n = df["n_risk"].iloc[0] if len(df) > 0 else 0
+            n_events = df["n_event"].sum()
+            # the table lists event times only, so the censored count is
+            # what is left of the initial risk set (not defined with
+            # delayed entry, where rows join the risk set later)
+            n_censor = np.nan if self._delayed_entry else float(n - n_events)
+            med = float(med_ci.loc[g, "time"])
             label = f"Group: {g}" if len(self._tables) > 1 else "Overall"
             out.append(f"\n{label}")
-            out.append(f"  N at risk (start): {n}")
-            out.append(f"  Number of events : {n_events}")
-            out.append(
-                f"  Median survival  : {med:.4f}"
-                if not np.isnan(med)
-                else "  Median survival  : not reached"
-            )
-        out.append("\n" + "=" * 72)
+            out.append(f"  N at risk (start): {n:g}")
+            out.append(f"  Number of events : {n_events:g}")
+            if not np.isnan(n_censor):
+                out.append(f"  Number censored  : {n_censor:g}")
+            out.append(f"  Median survival  : {_fmt(med)}")
+            lo_txt = _fmt(float(med_ci.loc[g, "ci_lower"]))
+            hi_txt = _fmt(float(med_ci.loc[g, "ci_upper"]))
+            out.append(f"    {level:g}% CI         : [{lo_txt}, {hi_txt}]")
+        out.append("")
+        ct = self._conf_type if self._conf_type is not None else "as fitted"
+        out.append(
+            f"Confidence intervals: {level:g}%, {ct} scale; the limits of the "
+            "median are where"
+        )
+        out.append("the confidence bands of S(t) cross 0.5 (Brookmeyer-Crowley).")
+        out.append("=" * 72)
         return "\n".join(out)
 
     # -- plot ---------------------------------------------------------------
@@ -875,7 +1116,9 @@ def kaplan_meier(
         for g_val, gdf in data.groupby(group):
             tables[str(g_val)] = _table(gdf)
 
-    _result = KMResult(tables, alpha=alpha)
+    _result = KMResult(
+        tables, alpha=alpha, conf_type=conf_type, delayed_entry=start is not None
+    )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -911,6 +1154,8 @@ def logrank_test(
     duration: str,
     event: str,
     group: str,
+    rho: float = 0.0,
+    strata: Optional[str] = None,
 ) -> dict:
     """
     Log-rank test for equality of survival distributions across groups.
@@ -920,12 +1165,27 @@ def logrank_test(
     data : pd.DataFrame
     duration, event, group : str
         Column names.
+    rho : float, default 0.0
+        Power of the Harrington-Fleming ``G-rho`` weight ``S(t-)^rho``,
+        with ``S`` the Kaplan-Meier estimate of the pooled sample (of the
+        stratum) just before each event time. ``0`` is the log-rank
+        (Mantel-Haenszel) test; ``1`` is the Peto-Peto modification of the
+        Gehan-Wilcoxon test, which gives more weight to early differences.
+        R ``survival::survdiff(rho=)``.
+    strata : str, optional
+        Column of strata. The observed and expected counts and the
+        variance are computed within each stratum and summed (the
+        stratified log-rank test; R ``survdiff(... + strata(s))``, Stata
+        ``sts test, strata(s)``).
 
     Returns
     -------
     dict
         Keys: ``test_statistic``, ``p_value``, ``df``, ``n_groups``,
-        ``expected_events`` (per group), ``observed_events`` (per group).
+        ``expected_events`` (per group), ``observed_events`` (per group),
+        ``rho`` and, for a stratified test, ``n_strata``. With
+        ``rho != 0`` the observed and expected counts are the weighted
+        ones, as ``survdiff`` prints them.
 
     Examples
     --------
@@ -942,72 +1202,109 @@ def logrank_test(
     ...                       group="treatment")
     >>> bool("p_value" in res and "test_statistic" in res)
     True
+    >>> peto = sp.logrank_test(data=df, duration="time", event="status",
+    ...                        group="treatment", rho=1)
+    >>> peto["rho"]
+    1.0
 
     References
     ----------
     mantel1959statistical
     """
-    data = data.dropna(subset=[duration, event, group])
+    cols = [duration, event, group] + ([strata] if strata is not None else [])
+    data = data.dropna(subset=cols)
     from ._validate import check_duration_event
 
     check_duration_event(data[duration], data[event], "logrank_test")
+    try:
+        rho = float(rho)
+    except (TypeError, ValueError):
+        rho = float("nan")
+    if not np.isfinite(rho):
+        raise MethodIncompatibility(
+            "logrank_test: rho must be a finite number.",
+            recovery_hint="Use rho=0 (log-rank) or rho=1 (Peto-Peto).",
+        )
     groups = data[group].unique()
     K = len(groups)
     if K < 2:
         raise ValueError("Need at least 2 groups for the log-rank test.")
 
-    T = data[duration].values
-    E = data[event].values.astype(float)
-    G = data[group].values
-
-    # Counts by (distinct time, group); the number at risk is everyone not
-    # yet counted out, a running total down the time axis.
-    times, t_idx = np.unique(T, return_inverse=True)
-    g_idx = pd.Series(G).map({g: k for k, g in enumerate(groups)}).to_numpy()
-    n_t = len(times)
-    flat = t_idx * K + g_idx
-    count = np.bincount(flat, minlength=n_t * K).reshape(n_t, K).astype(float)
-    dead = np.bincount(flat, weights=(E == 1), minlength=n_t * K).reshape(n_t, K)
-    risk = count[::-1].cumsum(axis=0)[::-1]
-    d_tot = dead.sum(axis=1)
-    keep = d_tot > 0
-    risk, dead, d_tot = risk[keep], dead[keep], d_tot[keep]
-    n_tot = risk.sum(axis=1)
-
-    obs_k = dead.sum(axis=0)
-    exp_k = (risk * (d_tot / n_tot)[:, None]).sum(axis=0)
-    observed = {g: float(obs_k[k]) for k, g in enumerate(groups)}
-    expected = {g: float(exp_k[k]) for k, g in enumerate(groups)}
-
-    # Variance (hypergeometric); a risk set of one contributes nothing
-    with np.errstate(divide="ignore", invalid="ignore"):
-        factor = np.where(
-            n_tot > 1, d_tot * (n_tot - d_tot) / (n_tot**2 * (n_tot - 1)), 0.0
-        )
-    r = risk[:, : K - 1]
-    var_mat = (
-        np.diag((r * (factor * n_tot)[:, None]).sum(axis=0))
-        - (r * factor[:, None]).T @ r
+    T_all = data[duration].values
+    E_all = data[event].values.astype(float)
+    g_all = (
+        pd.Series(data[group].values)
+        .map({g: k for k, g in enumerate(groups)})
+        .to_numpy()
     )
+    if strata is None:
+        s_codes = np.zeros(len(data), dtype=np.int64)
+    else:
+        s_codes = pd.factorize(data[strata].values, sort=True)[0]
+
+    obs_k = np.zeros(K)
+    exp_k = np.zeros(K)
+    var_mat = np.zeros((K - 1, K - 1))
+    for sc in np.unique(s_codes):
+        in_s = s_codes == sc
+        T, E, g_idx = T_all[in_s], E_all[in_s], g_all[in_s]
+        # Counts by (distinct time, group); the number at risk is everyone
+        # not yet counted out, a running total down the time axis.
+        times, t_idx = np.unique(T, return_inverse=True)
+        n_t = len(times)
+        flat = t_idx * K + g_idx
+        count = np.bincount(flat, minlength=n_t * K).reshape(n_t, K).astype(float)
+        dead = np.bincount(flat, weights=(E == 1), minlength=n_t * K).reshape(n_t, K)
+        risk = count[::-1].cumsum(axis=0)[::-1]
+        d_tot = dead.sum(axis=1)
+        keep = d_tot > 0
+        risk, dead, d_tot = risk[keep], dead[keep], d_tot[keep]
+        n_tot = risk.sum(axis=1)
+        wt: np.ndarray
+        if rho == 0.0:
+            wt = np.ones(len(d_tot))
+        else:
+            # left-continuous pooled Kaplan-Meier: S(t-) at each event time
+            surv = np.cumprod(1.0 - d_tot / n_tot)
+            wt = np.concatenate([[1.0], surv[:-1]]) ** rho
+
+        obs_k += (dead * wt[:, None]).sum(axis=0)
+        exp_k += (risk * (wt * d_tot / n_tot)[:, None]).sum(axis=0)
+
+        # Variance (hypergeometric); a risk set of one contributes nothing
+        with np.errstate(divide="ignore", invalid="ignore"):
+            factor = np.where(
+                n_tot > 1, d_tot * (n_tot - d_tot) / (n_tot**2 * (n_tot - 1)), 0.0
+            )
+        factor = factor * wt**2
+        r = risk[:, : K - 1]
+        var_mat += (
+            np.diag((r * (factor * n_tot)[:, None]).sum(axis=0))
+            - (r * factor[:, None]).T @ r
+        )
 
     # Test statistic
-    O_E = np.array([observed[groups[i]] - expected[groups[i]] for i in range(K - 1)])
+    O_E = (obs_k - exp_k)[: K - 1]
     try:
         chi2 = float(O_E @ np.linalg.solve(var_mat, O_E))
     except np.linalg.LinAlgError:
         chi2 = float(O_E @ np.linalg.lstsq(var_mat, O_E, rcond=None)[0])
 
     df = K - 1
-    p_value = stats.chi2.sf(chi2, df=df)
+    p_value = float(stats.chi2.sf(chi2, df=df))
 
-    return {
+    out = {
         "test_statistic": chi2,
         "p_value": p_value,
         "df": df,
         "n_groups": K,
-        "observed_events": {str(g): float(observed[g]) for g in groups},
-        "expected_events": {str(g): float(expected[g]) for g in groups},
+        "observed_events": {str(g): float(obs_k[k]) for k, g in enumerate(groups)},
+        "expected_events": {str(g): float(exp_k[k]) for k, g in enumerate(groups)},
+        "rho": rho,
     }
+    if strata is not None:
+        out["n_strata"] = int(len(np.unique(s_codes)))
+    return out
 
 
 # ===================================================================
@@ -1081,9 +1378,16 @@ def _breslow_baseline_hazard(
     strata_arr: Optional[np.ndarray] = None,
     _kernel: Optional[CoxKernel] = None,
 ) -> pd.DataFrame:
-    """Breslow estimator of baseline cumulative hazard."""
+    """Baseline cumulative hazard under the tie rule of the kernel.
+
+    Breslow increments for a Breslow fit, Efron increments for an Efron
+    fit (R ``basehaz(centered = FALSE)``, Stata ``predict, basechazard``).
+    A stratified fit has one curve per stratum: the table then carries a
+    ``strata`` column and each stratum starts from its own ``time = 0``
+    row.
+    """
     kern = _kernel if _kernel is not None else CoxKernel(X, T, E, strata_arr)
-    code, time, inc = kern.breslow_increments(beta)
+    code, time, inc = kern.baseline_increments(beta)
     # cumulate within stratum: the running total less its value at the
     # start of the stratum
     total = np.cumsum(inc)
@@ -1091,13 +1395,30 @@ def _breslow_baseline_hazard(
     first[1:] = code[1:] != code[:-1]
     offset = np.where(first, total - inc, 0.0)
     cumhaz = total - np.maximum.accumulate(offset)
-    return pd.DataFrame(
-        {
-            "time": np.concatenate([[0.0], time]),
-            "baseline_cumhaz": np.concatenate([[0.0], cumhaz]),
-            "baseline_survival": np.concatenate([[1.0], np.exp(-cumhaz)]),
-        }
-    )
+    if strata_arr is None:
+        return pd.DataFrame(
+            {
+                "time": np.concatenate([[0.0], time]),
+                "baseline_cumhaz": np.concatenate([[0.0], cumhaz]),
+                "baseline_survival": np.concatenate([[1.0], np.exp(-cumhaz)]),
+            }
+        )
+    # the kernel factorises the strata in sorted order
+    levels = pd.factorize(np.asarray(strata_arr), sort=True)[1]
+    parts = []
+    for c in np.unique(code):
+        keep = code == c
+        parts.append(
+            pd.DataFrame(
+                {
+                    "strata": levels[int(c)],
+                    "time": np.concatenate([[0.0], time[keep]]),
+                    "baseline_cumhaz": np.concatenate([[0.0], cumhaz[keep]]),
+                    "baseline_survival": np.concatenate([[1.0], np.exp(-cumhaz[keep])]),
+                }
+            )
+        )
+    return pd.concat(parts, ignore_index=True)
 
 
 def _concordance_index(
@@ -1206,7 +1527,11 @@ def cox(
     ----------
     formula : str, optional
         Formula of the form ``'duration ~ x1 + x2'``.  If given,
-        ``duration`` is inferred from the LHS.
+        ``duration`` is inferred from the LHS.  The left-hand side can
+        also name the event, ``'duration + event ~ x1 + x2'`` (as in
+        :func:`sp.aft` and :func:`sp.cox_frailty`) or R's
+        ``'Surv(duration, event) ~ x1 + x2'``, and the entry time,
+        ``'Surv(start, stop, event) ~ x1 + x2'``.
     data : pd.DataFrame
         Input data.
     duration : str, optional
@@ -1358,6 +1683,9 @@ def cox(
 
     # ---- Parse inputs -------------------------------------------------
     if formula is not None:
+        formula, _ev, _st = _survival_lhs(formula, "cox")
+        event = _agree(event, _ev, "event", "cox")
+        start = _agree(start, _st, "start", "cox")
         dur_name, x_names = _parse_formula(formula)
         if x is None and any(name not in data for name in x_names):
             # C(site), a*b, I(x^2): built as columns, the way sp.regress
@@ -1370,7 +1698,14 @@ def cox(
         if x is None:
             x = x_names
     if duration is None or event is None or x is None:
-        raise ValueError("Provide (formula + event) or (duration, event, x).")
+        raise MethodIncompatibility(
+            "cox: the duration, the event indicator and the covariates are "
+            "all needed.",
+            recovery_hint="Pass formula='time ~ x1 + x2' with event='status', "
+            "or name the event in the formula ('time + status ~ x1 + x2', "
+            "'Surv(time, status) ~ x1 + x2'), or pass duration=, event= and "
+            "x=.",
+        )
 
     cols_needed = [duration, event] + x
     if strata is not None:
@@ -1612,7 +1947,7 @@ def cox(
     loglik = -neg_logpl(beta)
     loglik0 = -neg_logpl(np.zeros(p))
     bh_df = _breslow_baseline_hazard(beta, X, T, E, strata_arr, _kernel=kern)
-    if w_arr is None and start_arr is None:
+    if w_arr is None and start_arr is None and strata_arr is None:
         c_index = _concordance_index(beta, X, T, E)
     else:
         from ._cox_inputs import risk_set_concordance
@@ -1635,6 +1970,7 @@ def cox(
         "model_type": "Cox Proportional Hazards",
         "method": f"Partial likelihood ({ties})",
         "ties": ties,
+        "hazard_ratio": bool(hazard_ratio),
         "robust": robust if cluster is None else f"cluster({cluster})",
     }
     if strata:
@@ -1888,7 +2224,9 @@ def survreg(
     Parameters
     ----------
     formula : str, optional
-        Formula ``'duration ~ x1 + x2'``.
+        Formula ``'duration ~ x1 + x2'``, or with the event on the
+        left-hand side: ``'duration + event ~ x1 + x2'`` /
+        ``'Surv(duration, event) ~ x1 + x2'``.
     data : pd.DataFrame
     duration : str, optional
         Follow-up time column (or formula LHS).
@@ -1960,13 +2298,29 @@ def survreg(
         # data first, as in sp.tobit and sp.qreg
         formula, data = (data if isinstance(data, str) else None), formula
     if formula is not None:
+        formula, _ev, _st = _survival_lhs(formula, "survreg")
+        if _st is not None:
+            raise MethodIncompatibility(
+                "survreg: delayed entry (Surv(start, stop, event)) is not "
+                "supported.",
+                recovery_hint="Use 'Surv(time, event) ~ x'; sp.cox takes "
+                "counting-process rows.",
+            )
+        event = _agree(event, _ev, "event", "survreg")
         dur_name, x_names = _parse_formula(formula)
         if duration is None:
             duration = dur_name
         if x is None:
             x = x_names
     if duration is None or event is None or x is None:
-        raise ValueError("Provide (formula + event) or (duration, event, x).")
+        raise MethodIncompatibility(
+            "survreg: the duration, the event indicator and the covariates are "
+            "all needed.",
+            recovery_hint="Pass formula='time ~ x1 + x2' with event='status', "
+            "or name the event in the formula ('time + status ~ x1 + x2', "
+            "'Surv(time, status) ~ x1 + x2'), or pass duration=, event= and "
+            "x=.",
+        )
     se_req = parse_se_request(
         robust,
         cluster,

@@ -72,6 +72,10 @@ logit = sp.svyglm("hypertension ~ age + bmi + smoker",
 print(logit.summary())
 ```
 
+The `DEFF` column is the design effect of each coefficient: its design
+variance over the model-based variance of the same weighted fit (R
+`svyglm(deff = TRUE)`). A domain fit (`subpop=`) reports none.
+
 Coefficients are population-level (weighted) associations; the standard
 errors and CIs already account for stratification and clustering.
 

@@ -78,12 +78,19 @@ class MRPressoResult(ResultProtocolMixin):
     distortion_p: Optional[float] = None
     outlier_pvalues: Optional[List[float]] = None
     distortion_coefficient: Optional[float] = None
+    n_boot: Optional[int] = None
 
     def summary(self) -> str:
+        # a simulated p-value of 0 means no draw was as extreme: it is
+        # only known to lie below 1 / n_boot
+        if self.global_test_pvalue == 0 and self.n_boot:
+            p_text = f"< {1.0 / self.n_boot:.4g} (0 of {self.n_boot} draws)"
+        else:
+            p_text = f"= {self.global_test_pvalue:.4g}"
         lines = [
             "MR-PRESSO Global Test",
             f"  Observed RSS = {self.global_test_rss_obs:.3f}",
-            f"  Global test p-value = {self.global_test_pvalue:.4g}",
+            f"  Global test p-value {p_text}",
             "",
             f"Raw IVW:            beta = {self.raw_estimate:.4f}  "
             f"SE = {self.raw_se:.4f}  p = {self.raw_p:.4g}",
@@ -315,6 +322,7 @@ def mr_presso(
         distortion_p=dist_p,
         outlier_pvalues=None if outlier_p is None else [float(v) for v in outlier_p],
         distortion_coefficient=dist_coef,
+        n_boot=n_boot,
     )
 
 

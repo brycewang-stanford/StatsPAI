@@ -178,6 +178,7 @@ def mr_mode(
     seed: Optional[int] = None,
     phi: float = 1.0,
     refine: bool = False,
+    stderror: str = "simple",
 ) -> ModeBasedResult:
     """Mode-based MR estimator (Hartwig, Davey Smith & Bowden 2017).
 
@@ -209,6 +210,17 @@ def mr_mode(
         density. Leave ``False`` to reproduce ``mr_mbe``.
     n_boot : int, default 1000
         Bootstrap replicates for SE.
+    stderror : {"simple", "delta"}, default "simple"
+        Standard error of each ratio estimate, which sets the weights of
+        the weighted mode and the spread of the bootstrap draws.
+        ``"simple"`` is the first-order ``se_outcome / |beta_exposure|``,
+        which treats the exposure associations as known (the NOME
+        assumption; the default of ``mr_mbe``). ``"delta"`` adds the
+        second-order term for their sampling error,
+        ``sqrt(se_y^2 / bx^2 + by^2 se_x^2 / bx^4)``
+        (``mr_mbe(stderror = "delta")``; ``TwoSampleMR``'s weighted mode
+        relaxes NOME in the same way). With weak or imprecise instruments
+        the ``"simple"`` standard error can be several times too small.
 
     References
     ----------
@@ -234,14 +246,18 @@ def mr_mode(
     rng = np.random.default_rng(seed)
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
-    # se_exposure is not used: mr_mbe's default stderror = "simple" takes the
-    # first-order ratio SE se_y / |bx|, which ignores it. It stays in the
-    # signature for symmetry with the other estimators.
-    del se_exposure
+    if stderror not in ("simple", "delta"):
+        raise ValueError("stderror must be 'simple' or 'delta'")
     sy = np.asarray(se_outcome, dtype=float)
 
     ratios = by / bx
-    ratio_se = sy / np.abs(bx)
+    if stderror == "simple":
+        # mr_mbe's default: the first-order ratio SE se_y / |bx|, which
+        # does not use se_exposure (NOME).
+        ratio_se = sy / np.abs(bx)
+    else:
+        sx = np.asarray(se_exposure, dtype=float)
+        ratio_se = np.sqrt(sy**2 / bx**2 + by**2 * sx**2 / bx**4)
     w = 1.0 / ratio_se**2 if method == "weighted" else np.ones_like(ratios)
 
     estimate, bandwidth = _mbe_estimate(ratios, w, phi=phi, refine=refine)
@@ -279,6 +295,7 @@ def mr_mode(
                 "method": method,
                 "bandwidth": bandwidth,
                 "n_snps": len(bx),
+                "stderror": stderror,
             },
             data=None,
             overwrite=False,
@@ -331,12 +348,17 @@ class FStatisticResult(ResultProtocolMixin):
             if self.weak_instrument_risk
             else "OK — instruments strong"
         )
+        r2 = (
+            f"{self.r2_mean:.4f}"
+            if np.isfinite(self.r2_mean)
+            else "not available (pass n_samples=)"
+        )
         return (
             "MR Instrument-Strength Diagnostic\n"
             f"  Mean per-SNP F       = {self.f_mean:.2f}\n"
             f"  Min  per-SNP F       = {self.f_min:.2f}\n"
             f"  Max  per-SNP F       = {self.f_max:.2f}\n"
-            f"  Mean per-SNP R^2     = {self.r2_mean:.4f}\n"
+            f"  Mean per-SNP R^2     = {r2}\n"
             f"  Staiger-Stock rule : F >= 10 required for each SNP; {flag}"
         )
 

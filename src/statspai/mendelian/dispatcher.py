@@ -32,7 +32,7 @@ Schematic calls (``bx`` ... ``snp_df`` stand for your own data):
 
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Mapping, Tuple
 
 # name -> (module_path, function_name) -- lazy-imported so importing the
 # dispatcher is cheap.
@@ -121,8 +121,15 @@ def mr(method: str = "ivw", /, **kwargs: Any) -> Any:
         listed by ``sp.mr_available_methods()``.  Aliases are
         case-sensitive (lowercase).
     **kwargs
-        Passed through unchanged to the target function.  See the
-        referenced function's docstring for its specific signature.
+        Passed through to the target function.  See the referenced
+        function's docstring for its specific signature.  The four
+        summary-statistic arrays ``beta_exposure``, ``se_exposure``,
+        ``beta_outcome`` and ``se_outcome`` can be given to every
+        method: one that does not use an array (the Egger-intercept
+        test, radial MR and leave-one-out take no ``se_exposure``; the
+        F statistic takes no outcome arrays) is called without it, so
+        the same call works across ``method=`` values.  Any other
+        argument the target does not accept raises ``TypeError``.
 
     Returns
     -------
@@ -168,7 +175,26 @@ def mr(method: str = "ivw", /, **kwargs: Any) -> Any:
 
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
+    # The same four arrays describe every two-sample analysis; a method
+    # that has no use for one of them is called without it.
+    import inspect
+
+    accepted: Mapping[str, inspect.Parameter]
+    try:
+        accepted = inspect.signature(fn).parameters
+    except (TypeError, ValueError):  # pragma: no cover - builtins only
+        accepted = {}
+    takes_any = any(
+        prm.kind is inspect.Parameter.VAR_KEYWORD for prm in accepted.values()
+    )
+    if accepted and not takes_any:
+        for name in _SUMMARY_ARRAYS:
+            if name in kwargs and name not in accepted:
+                kwargs.pop(name)
     return fn(**kwargs)
+
+
+_SUMMARY_ARRAYS = ("beta_exposure", "se_exposure", "beta_outcome", "se_outcome")
 
 
 __all__ = ["mr", "available_methods"]

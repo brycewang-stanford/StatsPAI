@@ -390,6 +390,33 @@ class CoxKernel:
         ev = rs.ev[np.lexsort((rs.g_time[rs.ev], rs.g_code[rs.ev]))]
         return rs.g_code[ev], rs.g_time[ev], self.dead_w[ev] / (S0[ev] * scale[ev])
 
+    def baseline_increments(
+        self, beta: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Stratum code, time and baseline-hazard increment of each event
+        group under the tie rule of the fit, ascending in time within
+        stratum.
+
+        Breslow: ``sum_dead w / sum_R w exp(x'b)``. Efron: the ``d`` deaths
+        of an event time leave the risk set one ``d``-th at a time, so the
+        increment is ``sum_{l=0}^{d-1} wbar / (S0 - (l/d) D0)`` with
+        ``wbar`` the mean weight of the deaths, the same terms as the
+        partial likelihood. This is what R ``survival::basehaz`` and Stata
+        ``predict, basechazard`` report after an Efron fit; without tied
+        deaths the two rules coincide.
+        """
+        if self.breslow:
+            return self.breslow_increments(beta)
+        rs = self.rs
+        beta = np.asarray(beta, dtype=float)
+        r, _, m = self._risk(beta)
+        _, _, denom = self._terms(r)
+        per_group = self._per_event_group(self.term_w / denom)
+        with np.errstate(over="ignore", under="ignore"):
+            scale = np.exp(m[rs.start] + self.center @ beta)
+        ev = rs.ev[np.lexsort((rs.g_time[rs.ev], rs.g_code[rs.ev]))]
+        return rs.g_code[ev], rs.g_time[ev], per_group[ev] / scale[ev]
+
 
 def dominance_counts(
     ins_pos: np.ndarray,

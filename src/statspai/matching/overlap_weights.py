@@ -83,6 +83,17 @@ def overlap_weights(
     CausalResult
         ``.estimate`` targets the named estimand; ``.model_info`` stores
         the weight summary, effective sample size, and pscore diagnostics.
+        ``ess_treated`` and ``ess_control`` are the Kish effective sample
+        sizes ``(sum w)^2 / sum w^2`` of the weights of each arm (what R
+        ``WeightIt`` / ``cobalt`` report) and ``effective_sample_size``
+        their sum; ``tilt_ess`` is the same formula applied to the
+        tilting function ``h(e)`` over all rows, which measures the size
+        of the target population and not the precision of the weighted
+        means.
+
+        .. versionchanged:: 1.44
+           ``effective_sample_size`` used to hold ``tilt_ess``, which
+           equals ``n`` for ``estimand='ATE'`` whatever the weights.
 
     Examples
     --------
@@ -147,8 +158,17 @@ def overlap_weights(
     ci = (est - z * se, est + z * se)
     pval = float(2 * sp_stats.norm.sf(abs(est) / se)) if se > 0 else 1.0
 
-    ess = (h.sum()) ** 2 / (h**2).sum() if (h**2).sum() > 0 else np.nan
     full_weights = T * h / ps + (1 - T) * h / (1 - ps)
+
+    def _kish(w: np.ndarray) -> float:
+        return float(w.sum() ** 2 / (w**2).sum()) if (w**2).sum() > 0 else np.nan
+
+    # Kish effective sample size of the weights each arm's mean is taken
+    # with (the "Weighted" row of WeightIt / cobalt); the overall figure is
+    # their sum.
+    ess_treated = _kish(full_weights[T == 1])
+    ess_control = _kish(full_weights[T == 0])
+    ess = ess_treated + ess_control
     balance = balance_diagnostics(
         df,
         treatment=treat,
@@ -167,7 +187,10 @@ def overlap_weights(
         "pscore_min": float(ps.min()),
         "pscore_max": float(ps.max()),
         "effective_sample_size": float(ess),
+        "ess_treated": ess_treated,
+        "ess_control": ess_control,
         "tilt_sum": float(h.sum()),
+        "tilt_ess": _kish(h),
         "n_bootstrap": n_bootstrap,
         "balance_summary": balance.summary_stats,
     }
@@ -180,7 +203,9 @@ def overlap_weights(
         ci=ci,
         alpha=alpha,
         n_obs=n,
-        detail=balance.table,
+        # the covariate names are the index of the balance table; as a
+        # column they are printed by ``summary()`` and kept by the exports
+        detail=balance.table.reset_index(),
         model_info=model_info,
     )
 

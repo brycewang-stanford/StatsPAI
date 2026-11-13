@@ -32,6 +32,21 @@ km.plot()                     # step survival curves with at-risk counts
 `event` is the standard 1 = event observed, 0 = right-censored coding.
 Pass `group=` to stratify; omit it for a single pooled curve.
 
+`km.quantiles([0.25, 0.5, 0.75])` gives the quartiles of the survival
+time with confidence limits (R `quantile(survfit)`): the limits are the
+times at which the confidence bands of `S(t)` cross `1 - p`, so they
+follow `conf_type`. `km.summary()` prints the median with its interval.
+
+Compare the curves with the log-rank test. `rho=1` is the Peto-Peto
+test, which weights early differences more; `strata=` gives the
+stratified test of a multi-centre trial (R `survdiff(rho=, strata())`):
+
+```python
+sp.logrank_test(df, duration="time", event="event", group="arm")
+sp.logrank_test(df, duration="time", event="event", group="arm",
+                rho=1, strata="centre")
+```
+
 `weights=` gives weighted curves (with inverse-probability-of-treatment
 weights, the confounder-adjusted curve of each arm), `start=` delayed
 entry, and `cluster=` a subject id for repeated rows. The variance
@@ -53,9 +68,13 @@ cox = sp.cox(data=df, duration="time", event="event", x=["arm", "age", "sex"],
 print(cox.summary())
 ```
 
-The reported coefficients are **log hazard ratios**; exponentiate for
-the hazard ratio (pass `hazard_ratio=True` to print HRs directly). You
-can add:
+The reported coefficients are **log hazard ratios**; the summary also
+prints the hazard ratios `exp(coef)` with their confidence limits
+(`hazard_ratio=False` leaves them out). `cox.baseline_hazard()` is the
+cumulative baseline hazard under the tie rule of the fit (R `basehaz(fit,
+centered = FALSE)`, Stata `predict, basechazard`), one curve per stratum.
+With `strata=` the concordance counts pairs within a stratum. You can
+add:
 
 - `strata=` for a stratified baseline hazard,
 - `robust="hc0"` or `cluster=` for robust / clustered standard errors,
@@ -169,6 +188,11 @@ r = sp.rmst(df, duration="time", event="event", group="arm", tau=36,
             weights="iptw")
 r.contrasts        # difference, RMST ratio, RMTL ratio
 ```
+
+State `tau` in the analysis plan. Left out, it is the largest horizon at
+which every curve is defined (the `rmst2` default): a group whose last
+observation is censored caps it at that time, a group that ends in an
+event does not.
 
 **Effects on mean survival time from parametric models.**
 `sp.stteffects` is Stata's `stteffects`: regression adjustment

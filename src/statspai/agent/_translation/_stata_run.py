@@ -1049,7 +1049,9 @@ class StataSession:
             if len(names) != params.size:
                 return
             params = pd.Series(params, index=names)
-            if ses is None and getattr(result, "bse", None) is not None:
+            if isinstance(ses, np.ndarray):
+                ses = pd.Series(ses, index=names)
+            elif ses is None and getattr(result, "bse", None) is not None:
                 ses = pd.Series(np.asarray(result.bse), index=names)
         b = {str(k): float(v) for k, v in dict(params).items()}
         se = {} if ses is None else {str(k): float(v) for k, v in dict(ses).items()}

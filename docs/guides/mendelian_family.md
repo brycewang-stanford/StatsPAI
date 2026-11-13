@@ -136,6 +136,13 @@ al.'s bandwidth `phi · 0.9 · min(sd, mad) · n^(-1/5)`, located on the
 same 512-point grid as `MendelianRandomization::mr_mbe` (`refine=True`
 climbs to the continuous mode instead).
 
+The default standard error treats the SNP-exposure associations as known
+(NOME; `mr_mbe(stderror = "simple")`). `stderror="delta"` adds their
+sampling error to each ratio's standard error, as `mr_mbe(stderror =
+"delta")` and `TwoSampleMR`'s weighted mode do. With imprecise
+instruments the difference is large (0.37 against 1.00 on the LDL-C / CHD
+example), so report the delta version unless NOME is defensible.
+
 Reference: Hartwig, Davey Smith & Bowden (2017), *IJE* 46(6).
 
 ---

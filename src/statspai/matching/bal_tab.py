@@ -413,6 +413,17 @@ def bal_tab(
     )
 
     ones = np.ones(len(G))
+    if w is not None:
+        empty = [levels[k] for k in range(len(levels)) if w[G == k].sum() <= 0]
+        if empty:
+            raise MethodIncompatibility(
+                f"bal_tab: the weights of treatment group(s) {empty} sum to "
+                "zero, so the group has no weighted mean.",
+                recovery_hint="Check the weights (a matched sample needs at "
+                "least one matched unit in every group; missing weights "
+                "should be 0 for unmatched rows, not for all rows).",
+                diagnostics={"groups_with_zero_weight": [str(v) for v in empty]},
+            )
     if len(levels) == 2:
         # binary: treated (the ATT focal level, else the second level)
         # minus control

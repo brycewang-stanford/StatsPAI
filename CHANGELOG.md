@@ -2,6 +2,113 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Epidemiology probe (2026-11-13)
+
+Twenty epidemiology and biostatistics analyses were run blind in StatsPAI
+and repeated in R and Stata 18 on the same CSV bytes, comparing every number
+a result prints. Survival curves, Cox fits (ties, strata, counting process,
+`tvc`), AFT models, competing risks, matching, IPTW, entropy balancing,
+g-computation, MSMs, TMLE, mediation, MR, mixed models, GEE, E-values,
+Rosenbaum bounds, survey estimators, p-value adjustment and power agreed
+with the references. The items below did not, or were missing. Evidence is
+in `tests/reference_parity/test_probe_epi_parity.py` and
+`tests/test_probe_epi_usability.py`.
+
+#### Fixed
+- **⚠️ correctness fix: `sp.cox(strata=)` reported the wrong concordance.**
+  An unweighted stratified fit computed Harrell's C over all pairs of
+  subjects. Only pairs within a stratum are comparable, which is what R
+  `concordance` and Stata `estat concordance` count. On `survival::lung`
+  stratified by sex the value was 0.6097 and is now 0.6058, the number both
+  programs print. Coefficients and standard errors are unchanged, and so is
+  the concordance of weighted or counting-process fits, which already used
+  the stratified count.
+- **⚠️ correctness fix: `CoxResult.baseline_hazard()` after an Efron fit.**
+  The default `ties='efron'` fit reported the Breslow estimator evaluated
+  at the Efron coefficients. R `basehaz` and Stata `predict, basechazard`
+  report the Efron estimator, in which tied deaths leave the risk set one
+  at a time. On `survival::lung` the cumulative baseline hazard at day 11
+  (three deaths) was 0.0063684 and is now 0.0063979. Weighted, stratified
+  and delayed-entry fits follow the same rule. Fits with `ties='breslow'`
+  and data without tied deaths are unchanged. A stratified fit now labels
+  its curves with a `strata` column.
+- **⚠️ correctness fix: default `tau` of `sp.rmst`.** The docstring promised
+  the default of `survRM2::rmst2` but took the smaller of the groups'
+  largest times. `rmst2` lets `tau` run past a group whose last observation
+  is an event, because that curve has reached zero. On `survival::veteran`
+  the default was 553 and is now 999, with the `rmst2` contrasts. An
+  explicit `tau` in that range used to be refused and is now accepted. The
+  default changes only when some group ends in an event.
+- **⚠️ correctness fix: `effective_sample_size` of `sp.overlap_weights`.**
+  It held the Kish effective sample size of the tilting function `h(e)`,
+  which is `n` for `estimand='ATE'` whatever the weights. It is now the sum
+  of the per-arm effective sample sizes of the weights, also reported as
+  `ess_treated` and `ess_control` (the "Weighted" row of WeightIt). The old
+  number stays as `tilt_ess`. The balance table in `detail` carries the
+  covariate names as a column, so `summary()` prints them.
+- **`sp.target_trial_emulate` no longer labels a crude contrast with the
+  analysis plan.** Without `weights=` it returns the unadjusted difference
+  in means, yet `method` repeated the protocol's plan (by default "IPW +
+  pooled logistic regression") and the docstring said weights were
+  computed. `method` now reads "unadjusted difference in means (no weights
+  supplied)", and an observational protocol gets an `AssumptionWarning`
+  that names the remedy. The estimate itself is unchanged. The count
+  `n_excluded_immortal` is the number of subjects not eligible at time
+  zero; the summary and every report now say so, and `n_excluded` is an
+  alias. A treatment not coded 0/1, a missing outcome among the eligible,
+  or weights of the wrong length raise a typed error instead of returning
+  `nan` or a misaligned estimate. The guide passes IPTW weights.
+- **⚠️ correctness fix: `sp.svyglm` printed `DEFF = 1.0` for every
+  coefficient.** The column was a placeholder. It is now the design effect
+  of each coefficient, the design variance over the model-based variance
+  of the same weighted fit, equal to R `svyglm(deff = TRUE)` to 1e-8 for
+  the Gaussian, binomial and Poisson families (on `survey::apiclus1` the
+  intercept's is 4.19, not 1). A domain fit (`subpop=`) and a
+  replicate-weight design report no design effect, and the summary then
+  leaves the column out.
+- **`sp.cox(hazard_ratio=True)` did nothing.** The summary now prints the
+  hazard ratios with their confidence limits, and the numbers of
+  observations, events and strata.
+- **`sp.mr(method, ...)` accepts the four summary-statistic arrays for
+  every method.** Passing `se_exposure` to `'pleiotropy_egger'`,
+  `'leave_one_out'` or `'radial'`, or the outcome arrays to
+  `'f_statistic'`, raised `TypeError`. A method that has no use for an
+  array is now called without it.
+- `sp.bal_tab` with weights that sum to zero in a group raises
+  `MethodIncompatibility` naming the group, not `ZeroDivisionError`.
+- `sp.mr_presso` prints a simulated p-value of zero as `< 1/n_boot`.
+  `sp.mr_f_statistic` no longer prints `R^2 = nan` without `n_samples`.
+- `FineGrayResult.std_errors` exists (alias of `bse`).
+- `sp.cox` and `sp.survreg` read the event from the formula, as `sp.aft`
+  and `sp.cox_frailty` do: `'time + event ~ x'`, `'Surv(time, event) ~ x'`
+  and, for `sp.cox`, `'Surv(start, stop, event) ~ x'`. A formula without an
+  event used to raise a bare `ValueError`; the error now says what to
+  write.
+- `sp.help('match')` and its schema list `distance`, `estimand`,
+  `n_matches`, `caliper`, `replace`, `bias_correction`, `common_support`
+  and `alpha`, which were accepted but undocumented there.
+- `sp.search_functions` finds `meta_analysis` for "publication bias",
+  "funnel plot" and "forest plot", and `aft` for "weibull".
+
+#### Added
+- **`KMResult.quantiles(probs)`**: median and other quantiles of the
+  survival time with confidence limits (where the confidence bands of
+  `S(t)` cross `1 - p`; R `quantile(survfit)`). `summary()` prints the
+  median interval, the censored count and the interval scale.
+- **`sp.logrank_test(rho=, strata=)`**: the Harrington-Fleming `G-rho`
+  family (`rho=1` is Peto-Peto) and the stratified log-rank test, equal to
+  R `survdiff` to 1e-10.
+- **`sp.meta_analysis(method='REML', hksj=True)`**: REML between-study
+  variance and the Knapp-Hartung adjustment, equal to `metafor::rma` to
+  1e-9. The summary states the distribution of the prediction interval.
+- **`sp.mr_mode(stderror='delta')`**: ratio standard errors that include
+  the sampling error of the exposure associations
+  (`mr_mbe(stderror = "delta")`). The default `'simple'` assumes NOME and
+  can be several times too small with imprecise instruments (0.37 against
+  1.00 on the LDL-C / CHD example).
+
 ## [1.43.1] — 2026-11-13
 
 Follow-up to 1.43.0 from the same rOpenSci standards round, plus the

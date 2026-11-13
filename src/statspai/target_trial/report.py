@@ -163,7 +163,7 @@ def target_checklist(
         ),
         "15": (
             f"n eligible = {result.n_eligible}; "
-            f"n excluded (immortal-time prevention) = {result.n_excluded_immortal}."
+            f"n excluded (not eligible at time zero) = {result.n_excluded_immortal}."
         ),
         "18": est,
     }
@@ -350,7 +350,7 @@ def _render_markdown(
         "",
         f"Of {result.n_eligible + result.n_excluded_immortal} subjects screened, ",
         f"{result.n_eligible} met eligibility at time zero; ",
-        f"{result.n_excluded_immortal} were excluded to prevent immortal-time bias.",
+        f"{result.n_excluded_immortal} did not and were excluded.",
         "",
         f"**Causal contrast ({result.protocol.causal_contrast}):**",
         f"estimate = {result.estimate:+.4f}, "
@@ -390,7 +390,7 @@ def _render_latex(
         "\\subsection*{Results}",
         f"Of {result.n_eligible + result.n_excluded_immortal} subjects, "
         f"{result.n_eligible} met eligibility; "
-        f"{result.n_excluded_immortal} were excluded to prevent immortal time bias.",
+        f"{result.n_excluded_immortal} did not and were excluded.",
         "",
         f"Causal contrast ({result.protocol.causal_contrast}): "
         f"estimate $= {result.estimate:+.4f}$, "
@@ -463,12 +463,12 @@ def _render_jama(
         ),
         (
             "Design, Setting, and Participants",
-            f"Observational emulation via {p.analysis_plan}. "
+            f"Observational emulation via {result.method}. "
             f"Eligibility: {_stringify(p.eligibility)}. "
             f"Time zero: {p.time_zero}; follow-up through {p.followup_end}. "
             f"{result.n_eligible} of {total} screened participants were "
-            f"included; {result.n_excluded_immortal} excluded to prevent "
-            f"immortal-time bias.",
+            f"included; {result.n_excluded_immortal} did not meet the "
+            f"eligibility criteria at time zero.",
         ),
         ("Exposures", "; ".join(p.treatment_strategies)),
         ("Main Outcomes and Measures", p.outcome),
@@ -563,8 +563,8 @@ def _render_jama(
     lines.append("")
     lines.append(
         f"Of {total} individuals screened, {result.n_eligible} met "
-        f"eligibility at time zero and {result.n_excluded_immortal} were "
-        f"excluded to prevent immortal-time bias (TARGET #15)."
+        f"eligibility at time zero and {result.n_excluded_immortal} did "
+        f"not and were excluded (TARGET #15)."
     )
     lines.append("")
     lines.append(
@@ -649,7 +649,7 @@ def _render_text(
         "",
         "Results:",
         f"  n eligible       = {result.n_eligible}",
-        f"  n excluded       = {result.n_excluded_immortal} (immortal-time prevention)",
+        f"  n excluded       = {result.n_excluded_immortal} (not eligible at time 0)",
         f"  Causal contrast  = {result.protocol.causal_contrast}",
         f"  Estimate         = {result.estimate:+.4f}",
         f"  95% CI           = [{lo:+.4f}, {hi:+.4f}]",

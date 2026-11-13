@@ -164,13 +164,26 @@ print(protocol.summary())     # structured 7-element protocol table
 
 ### 3b. Emulate and report
 
+`emulate` applies the eligibility criterion at time zero and takes the
+weighted difference in mean outcome. It does not estimate weights: for an
+observational emulation fit the treatment (and censoring) model first and
+pass the inverse-probability weights. Without `weights=` the result is
+the unadjusted difference in means, its `method` says so, and an
+observational protocol gets a warning.
+
 ```python
+ps = sp.propensity_score(
+    data, treat="statin", covariates=protocol.baseline_covariates,
+)
+ipw = sp.ps_weights(ps, data["statin"], "ATE")
+
 result = sp.target_trial.emulate(
     protocol, data, outcome_col="mi", treatment_col="statin",
+    weights=ipw,
 )
 print(result.summary())
 print(f"eligible: {result.n_eligible}  "
-      f"excluded for immortal time: {result.n_excluded_immortal}")
+      f"not eligible at time zero: {result.n_excluded}")
 
 # STROBE-style Methods & Results narrative for the manuscript
 print(sp.target_trial.to_paper(result, fmt="target"))   # or "jama", "bmj"

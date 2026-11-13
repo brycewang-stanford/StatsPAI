@@ -248,6 +248,12 @@ PHRASES: Tuple[Tuple[str, str], ...] = (
     ("wild cluster bootstrap", "wildboot"),
     ("entropy balancing", "ebal"),
     ("entropy balance", "ebal"),
+    ("meta-analysis", "metaanalysis"),
+    ("meta analysis", "metaanalysis"),
+    ("publication bias", "metaanalysis"),
+    ("funnel plot", "metaanalysis"),
+    ("forest plot", "metaanalysis"),
+    ("small-study effects", "metaanalysis"),
 )
 
 #: Paraphrases an applied researcher types instead of the design name
@@ -293,6 +299,8 @@ PATTERNS: Tuple[Tuple["re.Pattern[str]", str], ...] = tuple(
 #: boost" rather than an error. Only estimand / design vocabulary lives here;
 #: every target must be an entry point that actually estimates the concept.
 CONCEPT_TARGETS: Dict[str, Tuple[str, ...]] = {
+    "metaanalysis": ("meta_analysis",),
+    "weibull": ("aft", "survreg"),
     "did": ("did", "callaway_santanna", "event_study"),
     "staggered": ("callaway_santanna", "sun_abraham", "did_imputation"),
     "event_study": ("event_study", "sun_abraham", "callaway_santanna"),
