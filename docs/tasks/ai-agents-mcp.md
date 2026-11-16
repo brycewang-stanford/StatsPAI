@@ -58,7 +58,7 @@ Agents that write and run code use the registry directly:
 import statspai as sp
 
 hits = sp.search_functions("staggered adoption event study")
-print([h["name"] for h in hits[:3]])
+print(sorted(h["name"] for h in hits[:3]))
 card = sp.describe_function("callaway_santanna")   # assumptions, failure modes, alternatives
 print(card["alternatives"][:3])
 
@@ -68,7 +68,7 @@ print({k: v for k, v in r.to_dict(detail="minimal").items() if k == "n_obs"})
 ```
 
 ```text
-['event_study', 'sun_abraham', 'callaway_santanna']
+['callaway_santanna', 'event_study', 'sun_abraham']
 ['sun_abraham', 'did_imputation', 'sdid']
 {'n_obs': 3010}
 ```

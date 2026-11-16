@@ -8,9 +8,11 @@ that copies such an example gets a ``KeyError`` before it learns anything.
 
 Each example below runs as-is after ``import statspai as sp``: the data
 come from a bundled dataset (``sp.cps_wage``, ``sp.datasets.*``, real
-extracts where one fits the design) or a ``sp.dgp_*`` simulator, and the
-keywords are the function's own parameter names, the names its schema
-lists (aliases such as ``id=`` work too, but an agent reads the schema).
+extracts where one fits the design) or a ``sp.dgp_*`` simulator (a few
+lines of NumPy where neither has the design, e.g. a front-door mediator
+or excess zeros), and the keywords are the function's own parameter
+names, the names its schema lists (aliases such as ``id=`` work too, but
+an agent reads the schema).
 ``tests/test_card_examples.py`` executes every one of them, so an example
 that stops running fails the suite instead of misleading an agent.
 
@@ -21,6 +23,8 @@ whatever example the card had.
 from __future__ import annotations
 
 from typing import Dict
+
+_SIM = "import numpy as np, pandas as pd\n" "rng = np.random.default_rng(0)\n"
 
 #: ``{function name: example code}``; each binds the result to ``r``.
 RUNNABLE_EXAMPLES: Dict[str, str] = {
@@ -448,6 +452,150 @@ RUNNABLE_EXAMPLES: Dict[str, str] = {
         '    df, y="y", treat="treatment", covariates=["x1", "x2"], n_boot=50,\n'
         "    seed=0,\n"
         ")\n"
+    ),
+    # Entry points added to the card audit in its sixth batch.
+    "anderson_rubin_ci": (
+        "df = sp.datasets.card_1995()\n"
+        "r = sp.anderson_rubin_ci(\n"
+        '    "lwage", "educ", ["nearc4", "nearc2"], exog=["exper", "black"],\n'
+        "    data=df,\n"
+        ")\n"
+    ),
+    "arima": (
+        "df = sp.datasets.california_prop99().query(\"state != 'California'\")\n"
+        'y = df.groupby("year").cigsale.mean()  # packs per capita, 38 states\n'
+        'r = sp.arima(y, order=(1, 1, 0), trend="c")\n'
+    ),
+    "cic": (
+        'df = sp.datasets.castle_doctrine().query("year in (2005, 2006)")\n'
+        "df = df[df.effyear.isna() | (df.effyear == 2006)].copy()\n"
+        'df["post"] = (df.year == 2006).astype(int)\n'
+        'df["d"] = df.effyear.notna().astype(int)\n'
+        'r = sp.cic(df, y="l_homicide", group="d", time="post", n_boot=200)\n'
+    ),
+    "conformal_cate": (
+        "df = sp.dgp_rct(n=1000, heterogeneous=True, seed=0)\n"
+        "r = sp.conformal_cate(\n"
+        '    df, y="y", treat="treatment", covariates=["x1", "x2", "x3"],\n'
+        "    random_state=0,\n"
+        ")\n"
+    ),
+    "evalue": (
+        "df = sp.datasets.nhefs()\n"
+        "fit = sp.regress(\n"
+        '    "wt82_71 ~ qsmk + sex + age + smokeintensity + wt71", data=df,\n'
+        ")\n"
+        "r = sp.evalue(\n"
+        '    estimate=fit.params["qsmk"], se=fit.std_errors["qsmk"],\n'
+        '    sd=df.wt82_71.std(), measure="OLS",\n'
+        ")\n"
+    ),
+    "front_door": (
+        _SIM + "n = 1000\n"
+        "u = rng.normal(size=n)  # unobserved confounder of D and Y\n"
+        "d = rng.binomial(1, 1 / (1 + np.exp(-u)))\n"
+        "m = rng.binomial(1, 1 / (1 + np.exp(1 - 2 * d)))  # D -> M only\n"
+        "df = pd.DataFrame({'y': 1.5 * m + u + rng.normal(size=n), 'd': d, 'm': m})\n"
+        "r = sp.front_door(df, y='y', treat='d', mediator='m', n_boot=100, seed=0)\n"
+    ),
+    "hausman_test": (
+        "df = sp.datasets.castle_doctrine()\n"
+        "r = sp.hausman_test(\n"
+        '    df, y="l_homicide", x=["unemployrt", "poverty", "l_income"],\n'
+        '    id="sid", time="year", sigmamore=True,\n'
+        ")\n"
+    ),
+    "its": (
+        "df = sp.datasets.california_prop99()\n"
+        'df = df[df.state == "California"]\n'
+        'r = sp.its(df, y="cigsale", time="year", intervention=19)  # 1989\n'
+    ),
+    "kitagawa_decompose": (
+        "df = sp.datasets.nhefs()\n"
+        'df["age_band"] = (df.age // 10) * 10\n'
+        'r = sp.kitagawa_decompose(df, rate="death", group="qsmk", by="age_band")\n'
+    ),
+    "lasso_select": (
+        "df = sp.cps_wage()\n"
+        "r = sp.lasso_select(\n"
+        '    df, y="log_wage",\n'
+        '    x=["female", "education", "experience", "tenure", "union", "married"],\n'
+        '    method="cv", n_folds=5, verbose=False,\n'
+        ")\n"
+    ),
+    "policy_tree": (
+        _SIM + "X = rng.normal(size=(1000, 3))\n"
+        "df = pd.DataFrame(X, columns=['x1', 'x2', 'x3'])\n"
+        "df['d'] = rng.binomial(1, 0.5, 1000)  # randomized\n"
+        "df['y'] = df.x2 + df.d * df.x1 + rng.normal(size=1000)  # helps if x1 > 0\n"
+        "r = sp.policy_tree(\n"
+        "    df, y='y', treat='d', covariates=['x1', 'x2', 'x3'], max_depth=1,\n"
+        ")\n"
+    ),
+    "power": 'r = sp.power("rct", n=400, effect_size=0.3)\n',
+    "pretrends_test": (
+        "df = sp.datasets.castle_doctrine()\n"
+        "es = sp.event_study(\n"
+        '    df, y="l_homicide", treat_time="effyear", time="year", unit="sid",\n'
+        '    window=(-3, 3), crit_dist="t",\n'
+        ")\n"
+        "r = sp.pretrends_test(es)\n"
+    ),
+    "qte": (
+        "df = sp.datasets.nsw_lalonde()\n"
+        "r = sp.qte(\n"
+        '    df, y="re78", treatment="treat", quantiles=[0.5, 0.75, 0.9],\n'
+        '    controls=["age", "educ", "re74", "re75"], n_boot=100, seed=0,\n'
+        ")\n"
+    ),
+    "rdplacebo": (
+        "df = sp.datasets.lee_2008_senate()\n"
+        'r = sp.rdplacebo(df, y="y", x="x", c=0, n_placebo=4)\n'
+    ),
+    "rkd": (
+        "df = sp.dgp_rd_kink(n=5000, seed=0)\n"
+        "r = sp.rkd(\n"
+        '    df, y="y", x="x", c=0, treatment="treatment", headline="robust",\n'
+        ")\n"
+    ),
+    "rosenbaum_bounds": (
+        'df = sp.datasets.nhefs().dropna(subset=["wt82_71"]).reset_index(drop=True)\n'
+        "m = sp.optimal_match(\n"
+        '    df, treatment="qsmk", outcome="wt82_71",\n'
+        '    covariates=["sex", "age", "smokeintensity", "smokeyrs", "wt71"],\n'
+        ")\n"
+        "y = df.wt82_71.to_numpy()  # weight change of each matched pair\n"
+        "r = sp.rosenbaum_bounds(y[m.pairs.treated_idx], y[m.pairs.control_idx])\n"
+    ),
+    "sqreg": (
+        "df = sp.cps_wage()\n"
+        "r = sp.sqreg(\n"
+        '    df, y="log_wage", x=["education", "experience"],\n'
+        "    quantiles=[0.25, 0.5, 0.75], reps=50, seed=0,\n"
+        ")\n"
+    ),
+    "var": (
+        _SIM + "T = 200\n"
+        "x, y = np.zeros(T), np.zeros(T)\n"
+        "for t in range(1, T):\n"
+        "    x[t] = 0.5 * x[t - 1] + rng.normal()\n"
+        "    y[t] = 0.3 * y[t - 1] + 0.4 * x[t - 1] + rng.normal()\n"
+        "r = sp.var(pd.DataFrame({'y': y, 'x': x}), variables=['y', 'x'], lags=1)\n"
+    ),
+    "wild_cluster_bootstrap": (
+        "df = sp.dgp_cluster_rct(n_clusters=12, cluster_size=30, seed=0)\n"
+        "r = sp.wild_cluster_bootstrap(\n"
+        '    df, y="y", x=["treatment"], cluster="cluster_id",\n'
+        '    test_var="treatment", weight_type="webb", n_boot=999, seed=0,\n'
+        ")\n"
+    ),
+    "zip_model": (
+        _SIM + "n = 500\n"
+        "age, chronic = rng.normal(size=n), rng.integers(0, 2, n)\n"
+        "visits = rng.poisson(np.exp(0.5 + 0.3 * age))\n"
+        "visits[rng.random(n) < 0.2 + 0.3 * chronic] = 0  # structural zeros\n"
+        "df = pd.DataFrame({'visits': visits, 'age': age, 'chronic': chronic})\n"
+        "r = sp.zip_model(data=df, y='visits', x=['age'], inflate=['chronic'])\n"
     ),
 }
 

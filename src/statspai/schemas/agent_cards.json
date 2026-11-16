@@ -7382,7 +7382,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "sp.policy_tree(df, y=\"y\", treat=\"d\", covariates=[\"x1\", \"x2\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nX = rng.normal(size=(1000, 3))\ndf = pd.DataFrame(X, columns=['x1', 'x2', 'x3'])\ndf['d'] = rng.binomial(1, 0.5, 1000) # randomized\ndf['y'] = df.x2 + df.d * df.x1 + rng.normal(size=1000) # helps if x1 > 0\nr = sp.policy_tree(\n df, y='y', treat='d', covariates=['x1', 'x2', 'x3'], max_depth=1,\n)",
     "failure_modes": [
       {
         "alternative": "sp.calibrate_cate",
@@ -33613,7 +33613,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.front_door(df, y=\"y\", treat=\"d\", mediator=\"m\", covariates=[\"x\"])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 1000\nu = rng.normal(size=n) # unobserved confounder of D and Y\nd = rng.binomial(1, 1 / (1 + np.exp(-u)))\nm = rng.binomial(1, 1 / (1 + np.exp(1 - 2 * d))) # D -> M only\ndf = pd.DataFrame({'y': 1.5 * m + u + rng.normal(size=n), 'd': d, 'm': m})\nr = sp.front_door(df, y='y', treat='d', mediator='m', n_boot=100, seed=0)",
     "failure_modes": [
       {
         "alternative": "",
@@ -67516,7 +67516,7 @@
       ],
       "tolerance": "max relative deviation < 0.01 on lalonde.exp / lalonde.psid. Both sides minimise the same weighted check function; R's BMisc::weighted_quantile uses a golden-section search whose answer on a plateau is an optimiser artifact, so point-value equality is not asserted."
     },
-    "example": "sp.qte(df, y=\"earnings\", treatment=\"training\", quantiles=[0.25, 0.5, 0.75])",
+    "example": "df = sp.datasets.nsw_lalonde()\nr = sp.qte(\n df, y=\"re78\", treatment=\"treat\", quantiles=[0.5, 0.75, 0.9],\n controls=[\"age\", \"educ\", \"re74\", \"re75\"], n_boot=100, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.trimming",
@@ -75483,7 +75483,7 @@
       ],
       "tolerance": "rel_est<=1e-06"
     },
-    "example": "sp.cic(df, y=\"y\", group=\"d\", time=\"t\")",
+    "example": "df = sp.datasets.castle_doctrine().query(\"year in (2005, 2006)\")\ndf = df[df.effyear.isna() | (df.effyear == 2006)].copy()\ndf[\"post\"] = (df.year == 2006).astype(int)\ndf[\"d\"] = df.effyear.notna().astype(int)\nr = sp.cic(df, y=\"l_homicide\", group=\"d\", time=\"post\", n_boot=200)",
     "failure_modes": [
       {
         "alternative": "qte",
@@ -83020,7 +83020,8 @@
       "parameters": {
         "properties": {
           "allow_diagonal": {
-            "description": "When no joint covariance exists: True falls back to diag(se^2) with a warning, False raises. Unset behaves as True with a FutureWarning; the default becomes False in 1.44 (a diagonal matrix makes joint pre-trend tests and HonestDiD wrong)",
+            "default": false,
+            "description": "When no joint covariance exists: False (the default since 1.44) raises, True falls back to diag(se^2) with a warning (a diagonal matrix makes joint pre-trend tests and HonestDiD wrong)",
             "type": "boolean"
           },
           "result": {
@@ -85819,7 +85820,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.pretrends_test(es_result, window=(-5, -2))",
+    "example": "df = sp.datasets.castle_doctrine()\nes = sp.event_study(\n df, y=\"l_homicide\", treat_time=\"effyear\", time=\"year\", unit=\"sid\",\n window=(-3, 3), crit_dist=\"t\",\n)\nr = sp.pretrends_test(es)",
     "failure_modes": [
       {
         "alternative": "",
@@ -86585,7 +86586,7 @@
       ],
       "tolerance": "p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14)"
     },
-    "example": "sp.wild_cluster_bootstrap(df, y=\"y\", x=[\"d\", \"x1\"], cluster=\"state\")",
+    "example": "df = sp.dgp_cluster_rct(n_clusters=12, cluster_size=30, seed=0)\nr = sp.wild_cluster_bootstrap(\n df, y=\"y\", x=[\"treatment\"], cluster=\"cluster_id\",\n test_var=\"treatment\", weight_type=\"webb\", n_boot=999, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "cr2_se",
@@ -95523,7 +95524,7 @@
       ],
       "tolerance": ""
     },
-    "example": "pl = sp.rdplacebo(df, y=\"y\", x=\"x\", n_placebo=4)",
+    "example": "df = sp.datasets.lee_2008_senate()\nr = sp.rdplacebo(df, y=\"y\", x=\"x\", c=0, n_placebo=4)",
     "failure_modes": [
       {
         "alternative": "sp.rdbwsensitivity",
@@ -95927,7 +95928,7 @@
       ],
       "tolerance": "conventional and robust estimate / SE, bandwidth: rel 1e-9 (observed 5.2e-12 vs R, 6.0e-11 vs Stata)"
     },
-    "example": "result = sp.rkd(df, y='y', x='x', c=0, headline='robust')",
+    "example": "df = sp.dgp_rd_kink(n=5000, seed=0)\nr = sp.rkd(\n df, y=\"y\", x=\"x\", c=0, treatment=\"treatment\", headline=\"robust\",\n)",
     "failure_modes": [
       {
         "alternative": "sp.rdrobust",
@@ -109274,7 +109275,7 @@
       ],
       "tolerance": "Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 / 0.75 -- both sides minimise the same pinball loss with the same simplex. Standard errors differ from R's se='iid' by ONE SCALAR PER QUANTILE, constant across coefficients to 6e-16: the sandwich is identical and only the sparsity estimate 1/f(0) differs (Powell kernel here, Koenker-Bassett with a Siddiqui/Hall-Sheather bandwidth there). The test asserts the ratio's constancy rather than a numerical band, which a structural difference could not satisfy. R's default se='nid' (Hendricks-Koenker, also Stata qreg's) is a third convention and is recorded as one."
     },
-    "example": "table = sp.sqreg(df, y='log_wage', x=['education', 'experience'])",
+    "example": "df = sp.cps_wage()\nr = sp.sqreg(\n df, y=\"log_wage\", x=[\"education\", \"experience\"],\n quantiles=[0.25, 0.5, 0.75], reps=50, seed=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.vif",
@@ -112414,7 +112415,7 @@
       ],
       "tolerance": ""
     },
-    "example": "result = sp.hausman_test(df, y='y', x=['x'], id='unit', time='time')",
+    "example": "df = sp.datasets.castle_doctrine()\nr = sp.hausman_test(\n df, y=\"l_homicide\", x=[\"unemployrt\", \"poverty\", \"l_income\"],\n id=\"sid\", time=\"year\", sigmamore=True,\n)",
     "failure_modes": [
       {
         "alternative": "sp.hausman_test",
@@ -113454,7 +113455,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "out = sp.evalue(estimate=0.5, se=0.1, sd=2.0, measure=\"OLS\")",
+    "example": "df = sp.datasets.nhefs()\nfit = sp.regress(\n \"wt82_71 ~ qsmk + sex + age + smokeintensity + wt71\", data=df,\n)\nr = sp.evalue(\n estimate=fit.params[\"qsmk\"], se=fit.std_errors[\"qsmk\"],\n sd=df.wt82_71.std(), measure=\"OLS\",\n)",
     "failure_modes": [
       {
         "alternative": "",
@@ -121448,7 +121449,7 @@
       ],
       "tolerance": ""
     },
-    "example": "result = sp.conformal_cate(df, y=\"outcome\", treat=\"treatment\",\n covariates=[\"x1\", \"x2\"], random_state=0)",
+    "example": "df = sp.dgp_rct(n=1000, heterogeneous=True, seed=0)\nr = sp.conformal_cate(\n df, y=\"y\", treat=\"treatment\", covariates=[\"x1\", \"x2\", \"x3\"],\n random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.calibrate_cate",
@@ -124594,7 +124595,7 @@
       ],
       "tolerance": ""
     },
-    "example": "sp.power(\"did\", n=1000, effect_size=0.1,\n n_periods=10, n_treated_periods=5)",
+    "example": "r = sp.power(\"rct\", n=400, effect_size=0.3)",
     "failure_modes": [
       {
         "alternative": "",
@@ -126574,7 +126575,7 @@
       ],
       "tolerance": ""
     },
-    "example": "res = sp.lasso_select(\n df, y=\"log_wage\",\n x=[\"female\", \"education\", \"experience\", \"tenure\", \"union\"],\n method=\"bic\", verbose=False)",
+    "example": "df = sp.cps_wage()\nr = sp.lasso_select(\n df, y=\"log_wage\",\n x=[\"female\", \"education\", \"experience\", \"tenure\", \"union\", \"married\"],\n method=\"cv\", n_folds=5, verbose=False,\n)",
     "failure_modes": [
       {
         "alternative": "sp.vif",
@@ -128881,7 +128882,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.zip_model(data=df, y='visits', x=['age'],\n inflate=['chronic'])",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nn = 500\nage, chronic = rng.normal(size=n), rng.integers(0, 2, n)\nvisits = rng.poisson(np.exp(0.5 + 0.3 * age))\nvisits[rng.random(n) < 0.2 + 0.3 * chronic] = 0 # structural zeros\ndf = pd.DataFrame({'visits': visits, 'age': age, 'chronic': chronic})\nr = sp.zip_model(data=df, y='visits', x=['age'], inflate=['chronic'])",
     "failure_modes": [
       {
         "alternative": "sp.nbreg",
@@ -134729,7 +134730,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "result = sp.var(df, variables=[\"y\", \"x\"], lags=2)",
+    "example": "import numpy as np, pandas as pd\nrng = np.random.default_rng(0)\nT = 200\nx, y = np.zeros(T), np.zeros(T)\nfor t in range(1, T):\n x[t] = 0.5 * x[t - 1] + rng.normal()\n y[t] = 0.3 * y[t - 1] + 0.4 * x[t - 1] + rng.normal()\nr = sp.var(pd.DataFrame({'y': y, 'x': x}), variables=['y', 'x'], lags=1)",
     "failure_modes": [
       {
         "alternative": "local_projections",
@@ -156098,7 +156099,7 @@
       ],
       "tolerance": "Rate and composition effects on Das Gupta's Table 5.1 at 1e-10; interaction exactly 0."
     },
-    "example": "res = sp.kitagawa_decompose(df, rate='y', group='group', by='age')",
+    "example": "df = sp.datasets.nhefs()\ndf[\"age_band\"] = (df.age // 10) * 10\nr = sp.kitagawa_decompose(df, rate=\"death\", group=\"qsmk\", by=\"age_band\")",
     "failure_modes": [
       {
         "alternative": "sp.gelbach",
@@ -159123,7 +159124,7 @@
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
-    "example": "res = sp.arima(gdp, order=(2, 0, 0))",
+    "example": "df = sp.datasets.california_prop99().query(\"state != 'California'\")\ny = df.groupby(\"year\").cigsale.mean() # packs per capita, 38 states\nr = sp.arima(y, order=(1, 1, 0), trend=\"c\")",
     "failure_modes": [
       {
         "alternative": "sp.johansen",
@@ -160647,7 +160648,7 @@
       ],
       "tolerance": "Both endpoints at 5e-15 after the boundary bisection replaced the grid-point endpoints (previously 8.1e-3 / 4.9e-3). A reference-free test also asserts the two AR entry points agree with each other and that neither endpoint lands exactly on a grid node."
     },
-    "example": "ci = sp.anderson_rubin_ci('y', 'd', ['z'], data=df)",
+    "example": "df = sp.datasets.card_1995()\nr = sp.anderson_rubin_ci(\n \"lwage\", \"educ\", [\"nearc4\", \"nearc2\"], exog=[\"exper\", \"black\"],\n data=df,\n)",
     "failure_modes": [
       {
         "alternative": "sp.conditional_lr_ci",
@@ -174212,7 +174213,7 @@
       ],
       "tolerance": "coefficients and Newey-West SE 1e-10 rel (observed 7.9e-14); itsa 1e-6 (glm2 IRLS)"
     },
-    "example": "res = sp.its(df, y=\"y\", time=\"month\", intervention=30)",
+    "example": "df = sp.datasets.california_prop99()\ndf = df[df.state == \"California\"]\nr = sp.its(df, y=\"cigsale\", time=\"year\", intervention=19) # 1989",
     "failure_modes": [
       {
         "alternative": "sp.johansen",
@@ -175380,7 +175381,7 @@
       ],
       "tolerance": "bounding p-values 1e-12 rel (observed 4.6e-15); Stata sig- 1e-15 abs; psens at its own 4-dp rounding"
     },
-    "example": "res = sp.rosenbaum_bounds(treated, control)",
+    "example": "df = sp.datasets.nhefs().dropna(subset=[\"wt82_71\"]).reset_index(drop=True)\nm = sp.optimal_match(\n df, treatment=\"qsmk\", outcome=\"wt82_71\",\n covariates=[\"sex\", \"age\", \"smokeintensity\", \"smokeyrs\", \"wt71\"],\n)\ny = df.wt82_71.to_numpy() # weight change of each matched pair\nr = sp.rosenbaum_bounds(y[m.pairs.treated_idx], y[m.pairs.control_idx])",
     "failure_modes": [
       {
         "alternative": "sp.evalue_rr",

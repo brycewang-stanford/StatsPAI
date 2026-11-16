@@ -313,9 +313,14 @@ def test_dose_response_headline_nhefs():
         assert (r.model_info["dose_25"], r.model_info["dose_75"]) == (10.0, 30.0)
         out.append((r.estimate, r.se))
     assert out[0] == out[1]
-    # least squares on a fixed design: stable to rounding across BLAS
-    assert out[0][0] == pytest.approx(1.27516277, rel=1e-6)
-    assert out[0][1] == pytest.approx(0.52912988, rel=1e-6)
+    # The quadratic outcome design is rank deficient (sex**2 == sex,
+    # race**2 == race: rank 43 of 45, condition number ~7e18), so the
+    # least-squares fit depends on the solver: scikit-learn 1.9 gives
+    # 1.27516 / 0.52913, scikit-learn 1.6 (the Python 3.10 CI cells)
+    # 1.27301 / 0.53218. rel=3e-3 covers both and still rejects the
+    # pre-fix grid-point readings (1.0974 and 0.9702) by a wide margin.
+    assert out[0][0] == pytest.approx(1.27516277, rel=3e-3)
+    assert out[0][1] == pytest.approx(0.52912988, rel=1e-2)
 
 
 # ---------------------------------------------------------------------------

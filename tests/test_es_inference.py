@@ -278,20 +278,22 @@ def _no_joint_vcov_result():
     )
 
 
-def test_diagonal_fallback_default_announces_the_1_44_flip():
-    """Unset allow_diagonal keeps the diagonal for now, with a FutureWarning."""
+def test_diagonal_fallback_needs_allow_diagonal_since_1_44():
+    """1.44 delivers the flip 1.43 announced: unset allow_diagonal raises
+    on a fit with no joint covariance; True keeps the diagonal with its
+    UserWarning and no FutureWarning."""
     res = _no_joint_vcov_result()
-    with pytest.warns(FutureWarning, match="allow_diagonal=False"):
-        es = sp.event_study_vcov(res)
-    assert es.joint is False
-    np.testing.assert_array_equal(es.vcov, np.diag(np.array([0.2, 0.3, 0.4, 0.5]) ** 2))
-    # pinning True keeps the diagonal and its UserWarning, no FutureWarning
+    with pytest.raises(sp.MethodIncompatibility, match="no joint"):
+        sp.event_study_vcov(res)
     with warnings.catch_warnings(record=True) as rec:
         warnings.simplefilter("always")
         pinned = sp.event_study_vcov(res, allow_diagonal=True)
     kinds = {type(w.message) for w in rec}
     assert FutureWarning not in kinds and UserWarning in kinds
-    np.testing.assert_array_equal(pinned.vcov, es.vcov)
+    assert pinned.joint is False
+    np.testing.assert_array_equal(
+        pinned.vcov, np.diag(np.array([0.2, 0.3, 0.4, 0.5]) ** 2)
+    )
     with pytest.raises(sp.MethodIncompatibility, match="no joint"):
         sp.event_study_vcov(res, allow_diagonal=False)
 

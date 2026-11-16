@@ -5,11 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → 1.44: announced default takes effect (`sp.event_study_vcov`)
+
+The default that 1.43 announced for 1.44 with a `FutureWarning` changes
+now, and the warning is gone. `sp.event_study_vcov(result)` on a fit with
+per-horizon SEs but no joint covariance raises `MethodIncompatibility`
+(`allow_diagonal=False`). Code that passed `allow_diagonal=True` is
+unaffected and still gets `diag(se**2)` with a `UserWarning`;
+`sp.uniform_bands` passes `True` itself. Fits that store the joint
+covariance (`sp.aggte(..., type='dynamic')`, `sp.sun_abraham`,
+`sp.did_imputation(horizon=...)`, `sp.event_study`, ...) are unaffected.
+
+---
+
 ## 1.43 → next: `sp.dml` PLR default learner announced
 
 Nothing changes numerically. `sp.dml(model="plr")` without `ml_g` / `ml_m`
-still fits gradient boosting (100 trees, depth 3), now with a
-`FutureWarning`: that default will be replaced, no earlier than 1.45. The
+(or with only one of them) still fits gradient boosting (100 trees,
+depth 3) for the unset nuisance, now with a `FutureWarning`: that default will be replaced, no earlier than 1.45. The
 replacement is not chosen yet.
 
 - To keep today's estimates, pass `ml_g="gbm", ml_m="gbm"`. The aliases
@@ -18,6 +31,19 @@ replacement is not chosen yet.
 - To choose for the problem, pass learners, or compare with
   `sp.dml_model_averaging`.
 - `model="irm"`, `"pliv"` and `"iivm"` are not affected.
+
+---
+
+## 1.43 → next: `sp.feols(backend="native")` refuses instead of switching engines
+
+With pyfixest installed, `sp.feols(..., backend="native")` on a design with
+regressors absorbed by the fixed effects (or collinear with each other) used
+to fall through to another engine: it either raised a bare `ValueError`
+(`i(year, ref=2000)`) or fitted the absorbed dummies. It now raises
+`NumericalInstability` naming those terms, which is what it already did
+without pyfixest. Drop the named terms, or use `backend="auto"` (the
+default) to let pyfixest drop them as fixest does. `fepois` and `feglm`
+already behaved this way.
 
 ---
 

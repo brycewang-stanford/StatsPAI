@@ -7,7 +7,9 @@ All notable changes to StatsPAI will be documented in this file.
 ### `sp.dml` PLR default learner announced (2026-11-17)
 
 - **`sp.dml(model="plr")` default learner, to be replaced no earlier than
-  1.45.** A PLR call that passes no learners now raises a `FutureWarning`.
+  1.45.** A PLR call (`sp.dml` or `sp.DoubleML(...).fit()`) that leaves `ml_g` or
+  `ml_m` unset now raises a `FutureWarning` naming the unset learner;
+  a fit from `external_predictions=` is silent.
   Its gradient-boosting nuisances cover 0.87 to 0.94 instead of 0.95 in the
   package's Monte Carlo checks. Nothing changes numerically. Pass
   `ml_g="gbm", ml_m="gbm"` to keep the current estimates; that pin builds
@@ -16,6 +18,30 @@ All notable changes to StatsPAI will be documented in this file.
   but covers 0.73 on the nonlinear n = 500 cell of
   `tests/reliability/dml_learners_results.json`. IRM, PLIV and IIVM
   defaults are not part of the change.
+
+### Nightly repairs before the release (2026-11-17)
+
+#### Changed
+- **`sp.event_study_vcov` defaults to `allow_diagonal=False`**, as 1.43
+  announced. A fit with no joint event-study covariance raises
+  `MethodIncompatibility` instead of returning `diag(se**2)` with a
+  `FutureWarning`; pass `allow_diagonal=True` to keep the diagonal.
+
+#### Fixed
+- **`sp.feols(..., backend="native")` no longer switches engines when
+  pyfixest is installed.** When the native engine refused absorbed or
+  collinear regressors, `feols` (unlike `fepois` / `feglm`) fell through to
+  the varying-slope engine whenever pyfixest was importable. That engine
+  could not parse `i(year, ref=2000)` (a bare `ValueError`) and fitted
+  `C(sid)` dummies absorbed by `| sid` without a word. `backend="native"`
+  now raises the native `NumericalInstability`, naming the absorbed or
+  collinear terms, whether or not pyfixest is installed, as it already did
+  without it. `backend="auto"` still hands such fits to pyfixest. Found by
+  the nightly matrix (every cell with pyfixest).
+- The type stub declares `sp.srm_test`, `sp.meta_regression`,
+  `sp.trim_and_fill` and their result classes.
+- The ai-agents-mcp task page prints its top search hits sorted, so a
+  reordering inside the top three no longer breaks the page.
 
 ### Owner decisions of 2026-11-13
 

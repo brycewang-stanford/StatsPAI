@@ -384,6 +384,24 @@ def test_feols_error_names_mutually_collinear_c_terms(castle):
     assert not _INTERNAL.search(str(exc))
 
 
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "l_homicide ~ post + C(sid) | sid",
+        "l_homicide ~ post + i(year, ref=2000) | sid + year",
+    ],
+)
+def test_feols_native_refusal_does_not_depend_on_pyfixest(castle, formula, monkeypatch):
+    """backend='native' raises the native refusal even when pyfixest is
+    importable; it used to fall through to another engine there (a bare
+    ValueError for i(), a silent fit of the absorbed C() dummies)."""
+    from statspai.fixest import wrapper
+
+    monkeypatch.setattr(wrapper, "_pyfixest_installed", lambda: True)
+    exc = _refusal(sp.feols, formula, castle)
+    assert exc.diagnostics["absorbed"]
+
+
 def test_feols_fit_with_factor_terms_is_unaffected(castle):
     """The renaming touches refusals only: a design that is identified
     returns the coefficient names it always did."""

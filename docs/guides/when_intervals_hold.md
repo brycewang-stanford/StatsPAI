@@ -133,7 +133,7 @@ abs(a.estimate - b.estimate) / a.se
 ```
 
 The gradient-boosting default of `sp.dml(model="plr")` will be replaced,
-no earlier than 1.45. A call that passes no learners says so with a
+no earlier than 1.45. A call that leaves `ml_g` or `ml_m` unset says so with a
 `FutureWarning`. Pass `ml_g="gbm", ml_m="gbm"` to keep today's estimates.
 That pin builds the same learners as the default.
 

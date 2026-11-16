@@ -25,7 +25,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
-from ._base import _DoubleMLBase
+from ._base import _announce_plr_default_change, _DoubleMLBase
 from ._external_predictions import build_oof_provenance_payload
 from .iivm import DoubleMLIIVM
 from .irm import DoubleMLIRM
@@ -265,10 +265,11 @@ def dml(
     ``model_info["learner_note"]``, which ``summary()`` prints.
 
     Announced change: the PLR default learner will be replaced, no
-    earlier than 1.45, and a PLR call that passes no learners warns
-    (``FutureWarning``). ``ml_g='gbm', ml_m='gbm'`` builds exactly
-    today's default learners, so it keeps current estimates and silences
-    the warning. IRM, PLIV and IIVM defaults are not part of the change.
+    earlier than 1.45. A PLR call that leaves ``ml_g`` or ``ml_m`` unset
+    warns (``FutureWarning``) unless it passes ``external_predictions``.
+    ``ml_g='gbm', ml_m='gbm'`` builds exactly today's default learners, so
+    it keeps current estimates and silences the warning. IRM, PLIV and
+    IIVM defaults are not part of the change.
 
     Examples
     --------
@@ -338,6 +339,8 @@ def dml(
                 "did_you_mean": close,
             },
         )
+    if key == "plr" and external_predictions is None:
+        _announce_plr_default_change(ml_g is None, ml_m is None)
     estimator_cls = _MODEL_REGISTRY[key]
     estimator = estimator_cls(
         data=data,
@@ -478,6 +481,7 @@ class DoubleML:
                 f"model must be one of {self._VALID_MODELS}, got '{model}'"
             )
         self.model = key
+        self._unset_learners = (ml_g is None, ml_m is None)
         self._impl: _DoubleMLBase = _MODEL_REGISTRY[key](
             data=data,
             y=y,
@@ -544,6 +548,8 @@ class DoubleML:
         ----------
         See ``docs/dml_oof_audit.md`` for the audit contract.
         """
+        if self.model == "plr" and external_predictions is None:
+            _announce_plr_default_change(*self._unset_learners)
         return self._impl.fit(
             external_predictions=external_predictions,
             store_oof=store_oof,

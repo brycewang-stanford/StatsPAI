@@ -129,9 +129,7 @@ def _from_labelled(
     )
 
 
-def event_study_vcov(
-    result: Any, *, allow_diagonal: Optional[bool] = None
-) -> EventStudyVcov:
+def event_study_vcov(result: Any, *, allow_diagonal: bool = False) -> EventStudyVcov:
     """Event-study coefficients and their joint covariance, from any DiD fit.
 
     .. versionadded:: 1.30.0
@@ -159,16 +157,18 @@ def event_study_vcov(
     ----------
     result : CausalResult
         A fitted event-study estimator.
-    allow_diagonal : bool, optional
-        What to do when the fit has no joint covariance. ``True`` returns
-        ``diag(se**2)`` with ``joint=False`` and a warning; ``False`` raises
-        :class:`MethodIncompatibility`. A diagonal matrix drops the
+    allow_diagonal : bool, default False
+        What to do when the fit has no joint covariance. ``False`` raises
+        :class:`MethodIncompatibility`; ``True`` returns ``diag(se**2)``
+        with ``joint=False`` and a warning. A diagonal matrix drops the
         cross-horizon covariances, so a joint (Wald) pre-trend test or a
         HonestDiD ``sigma`` built from it is wrong; only a sup-t band stays
-        valid (conservative, Sidak). Unset, it behaves as ``True`` and
-        warns (``FutureWarning``) that the default becomes ``False`` in
-        1.44; ``sp.uniform_bands`` passes ``True`` itself. Through 1.42.1
-        the default was ``True`` with no ``FutureWarning``.
+        valid (conservative, Sidak), and ``sp.uniform_bands`` passes
+        ``True`` itself.
+
+        .. versionchanged:: 1.44
+           The default is ``False``. Through 1.42.1 it was ``True``; 1.43
+           behaved as ``True`` with a ``FutureWarning``.
 
     Returns
     -------
@@ -277,7 +277,7 @@ def event_study_vcov(
             ),
             diagnostics={"result_type": type(result).__name__},
         )
-    if allow_diagonal is False:
+    if not allow_diagonal:
         raise MethodIncompatibility(
             "This result carries per-horizon standard errors but no joint "
             "covariance.",
@@ -291,15 +291,7 @@ def event_study_vcov(
         "(Sidak); a joint pre-trend test or a HonestDiD sigma built from it "
         "ignores the cross-horizon covariances and is wrong."
     )
-    if allow_diagonal is None:
-        warnings.warn(
-            msg + " From 1.44 the default is allow_diagonal=False, which "
-            "raises here; pass allow_diagonal=True to keep the diagonal.",
-            FutureWarning,
-            stacklevel=2,
-        )
-    else:
-        warnings.warn(msg, UserWarning, stacklevel=2)
+    warnings.warn(msg, UserWarning, stacklevel=2)
     se = es["se"].to_numpy(dtype=float)
     return EventStudyVcov(
         times=es["relative_time"].to_numpy(dtype=int),

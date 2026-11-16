@@ -336,6 +336,7 @@ def _native_feols(
             fixef_rm=fixef_rm,
             lean=lean,
             extra=extra,
+            strict=strict,
         )
     p = _native.plan(
         fml,
@@ -387,6 +388,7 @@ def _native_feols_multi(
     fixef_rm: str,
     lean: bool,
     extra: Dict[str, Any],
+    strict: bool = False,
 ) -> Optional[List[EconometricResults]]:
     """A multiple-estimation ``sp.feols`` call on the native engine.
 
@@ -419,7 +421,7 @@ def _native_feols_multi(
         try:
             out.append(_native.fit_feols(p, f, lean=lean))
         except Exception as exc:
-            if not _native.refused(exc) or not _pyfixest_installed():
+            if strict or not _native.refused(exc) or not _pyfixest_installed():
                 raise
             return None
     return out
@@ -2102,7 +2104,7 @@ def feols(
             fixef_rm=fixef_rm,
             lean=lean,
             extra=kwargs,
-            strict=False,
+            strict=backend == "native",
         )
         if native is not None:
             return native

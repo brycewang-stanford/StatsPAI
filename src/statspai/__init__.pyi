@@ -610,6 +610,8 @@ from .experimental.msprt import msprt as msprt
 from .experimental.msprt import msprt_lambda as msprt_lambda
 from .experimental.optimal import OptimalDesignResult as OptimalDesignResult
 from .experimental.optimal import optimal_design as optimal_design
+from .experimental.srm import SRMResult as SRMResult
+from .experimental.srm import srm_test as srm_test
 from .experimental.switchback import switchback as switchback
 from .experimental.switchback import switchback_design as switchback_design
 from .fairness.core import FairnessAudit as FairnessAudit
@@ -728,6 +730,10 @@ from .inference.lm_lin import lm_lin as lm_lin
 from .inference.loneway import loneway as loneway
 from .inference.meta_analysis import MetaAnalysisResult as MetaAnalysisResult
 from .inference.meta_analysis import meta_analysis as meta_analysis
+from .inference.meta_regression import MetaRegressionResult as MetaRegressionResult
+from .inference.meta_regression import TrimFillResult as TrimFillResult
+from .inference.meta_regression import meta_regression as meta_regression
+from .inference.meta_regression import trim_and_fill as trim_and_fill
 from .inference.multiway_cluster import cluster_robust_se as cluster_robust_se
 from .inference.multiway_cluster import cr3_jackknife_vcov as cr3_jackknife_vcov
 from .inference.multiway_cluster import multiway_cluster_vcov as multiway_cluster_vcov

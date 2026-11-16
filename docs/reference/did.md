@@ -71,13 +71,14 @@ with dCDH 2024 joint placebo Wald and average cumulative effect.
 
 ## Inference
 
-### `sp.event_study_vcov(result, allow_diagonal=True)`
+### `sp.event_study_vcov(result, allow_diagonal=False)`
 
 The joint covariance of an event study, read off whichever estimator
 produced it (CS / `aggte`, `event_study`, `sun_abraham`, `gardner_did`,
 `did_imputation`, `stacked_did`, `lp_did`, `did_multiplegt_dyn`, `etwfe`).
-Returns `times`, `beta`, `vcov`, `joint` and `source`; `joint=False` flags
-the cases where only a diagonal or block-diagonal matrix exists.
+Returns `times`, `beta`, `vcov`, `joint` and `source`. When the fit has
+no joint covariance it raises (since 1.44); `allow_diagonal=True` returns
+`diag(se**2)` instead, flagged `joint=False`.
 
 ### `sp.uniform_bands(result, alpha=0.05, which='all', window=None)`
 
