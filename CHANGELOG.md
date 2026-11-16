@@ -2,7 +2,31 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.44.0] — 2026-11-17
+
+The 2026-11-13 wave (owner decisions, four probes, two SE calibration
+screens, reference parity for six more families, features a referee asks
+for by name) plus the fixes that turned the nightly green:
+
+- 31 ⚠️ correctness fixes, each listed below with the old and new number:
+  among them `sp.dose_response` (the headline is the interquartile
+  contrast its label names), bounds p-values and the `sp.ml_bounds` band,
+  `sp.sbw` and CEM standard errors, `sp.var` p-values, `sp.cox(strata=)`
+  concordance, `sp.lingam` / `sp.pcmci` / `sp.notears` following their
+  papers, and `sp.feols` IV diagnostics.
+- New functions and options: meta-regression and trim-and-fill,
+  `sp.srm_test`, exact Cox ties, GLM g-computation, `sp.icp`,
+  `iv_mediate(equations='joint')`, `stacked_did(crit_dist=)`,
+  `rkd(headline=)`, Oaxaca stochastic SEs, and more (see Added below).
+- One default changes now, as 1.43 announced: `sp.event_study_vcov`
+  raises on a fit with no joint covariance unless `allow_diagonal=True`.
+- Five defaults are announced with a `FutureWarning`, to change no earlier
+  than 1.45: `sp.mr_mode(stderror=)`, `sp.stacked_did(crit_dist=)`,
+  `sp.rkd(headline=)`, `sp.iv_mediate(equations=)` and the PLR default
+  learner of `sp.dml`. Numbers do not change in 1.44; each warning names
+  the argument that keeps them.
+- `sp.feols(backend="native")` no longer switches engines when pyfixest
+  is installed.
 
 ### `sp.dml` PLR default learner announced (2026-11-17)
 

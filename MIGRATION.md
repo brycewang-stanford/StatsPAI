@@ -18,7 +18,7 @@ covariance (`sp.aggte(..., type='dynamic')`, `sp.sun_abraham`,
 
 ---
 
-## 1.43 → next: `sp.dml` PLR default learner announced
+## 1.43 → 1.44: `sp.dml` PLR default learner announced
 
 Nothing changes numerically. `sp.dml(model="plr")` without `ml_g` / `ml_m`
 (or with only one of them) still fits gradient boosting (100 trees,
@@ -34,7 +34,7 @@ replacement is not chosen yet.
 
 ---
 
-## 1.43 → next: `sp.feols(backend="native")` refuses instead of switching engines
+## 1.43 → 1.44: `sp.feols(backend="native")` refuses instead of switching engines
 
 With pyfixest installed, `sp.feols(..., backend="native")` on a design with
 regressors absorbed by the fixed effects (or collinear with each other) used
@@ -47,7 +47,7 @@ already behaved this way.
 
 ---
 
-## 1.43 → next: four defaults announced, ⚠️ `sp.dose_response` headline, PLIV label
+## 1.43 → 1.44: four defaults announced, ⚠️ `sp.dose_response` headline, PLIV label
 
 Owner decisions of 2026-11-13 (`docs/dev/2026-11-13-owner-decisions.md`).
 
@@ -107,7 +107,7 @@ with an `IndexError` or a shape message.
 
 ---
 
-## 1.43 → next: ⚠️ bounds p-values, the `sp.ml_bounds` band, `sp.sbw` and CEM standard errors
+## 1.43 → 1.44: ⚠️ bounds p-values, the `sp.ml_bounds` band, `sp.sbw` and CEM standard errors
 
 Found by the SE calibration screen (`tests/reliability/se_screen/causal/`).
 
@@ -145,7 +145,7 @@ independent check.
 
 ---
 
-## 1.43 → next: next steps by family, balance threshold 0.10, `sp.audit` `robust_se`, private keys out of `to_dict()`, MCP reply fields
+## 1.43 → 1.44: next steps by family, balance threshold 0.10, `sp.audit` `robust_se`, private keys out of `to_dict()`, MCP reply fields
 
 No estimate, standard error or interval changes in this entry.
 
@@ -213,7 +213,7 @@ MCP:
 
 ---
 
-## 1.43 → next: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
+## 1.43 → 1.44: matching balance warning, `sp.audit` statuses, `sp.preflight` verdicts, `sp.recommend` routing, MCP follow-ups
 
 No estimate, standard error or interval changes in this entry. What changes
 is what the agent layer says about a fit.
@@ -294,7 +294,7 @@ MCP server:
 - `bibtex(keys=[<estimator name>])` returns that estimator's entries under
   their bib keys and maps the name in `resolved_from_function`.
 
-## 1.43 → next: DML sensitivity benchmarks, IIVM one-sided non-compliance, DR dose-response bandwidth
+## 1.43 → 1.44: DML sensitivity benchmarks, IIVM one-sided non-compliance, DR dose-response bandwidth
 
 ⚠️ correctness fix: `sp.dml_sensitivity(fit, benchmark_covariates=[...])`
 refits the model without each benchmark covariate and reports DoubleML's
@@ -325,7 +325,7 @@ to 0 or 1, as under one-sided non-compliance.
 Code that selects results by `estimand == "ATE"` should include `"ATT"`
 for ATTE fits.
 
-## 1.43 → next: ARIMA residuals at the differenced observations, VAR p-values and forecast intervals, break BIC, `sp.its` time columns
+## 1.43 → 1.44: ARIMA residuals at the differenced observations, VAR p-values and forecast intervals, break BIC, `sp.its` time columns
 
 ⚠️ correctness fix: `sp.arima` with differencing. The first `d + s D`
 entries of `result.residuals` and `result.fitted_values` are `NaN`
@@ -371,7 +371,7 @@ the labels of the rows.
 `ARIMAResult.to_dict()` drops the private fields `_model`, `_index` and
 `_det`.
 
-## 1.43 → next: Cox concordance with strata, Efron baseline hazard, RMST default tau, overlap-weight ESS
+## 1.43 → 1.44: Cox concordance with strata, Efron baseline hazard, RMST default tau, overlap-weight ESS
 
 ⚠️ correctness fix: `sp.cox(strata=...)` (unweighted, right-censored)
 reports the concordance over pairs within a stratum, as R and Stata do. It
@@ -430,7 +430,7 @@ coefficient (R `svyglm(deff = TRUE)`). It was a constant 1.0. With
 key.
 ---
 
-## 1.43 → next: wild bootstrap intervals, fepois log-likelihood, Oaxaca SEs
+## 1.43 → 1.44: wild bootstrap intervals, fepois log-likelihood, Oaxaca SEs
 
 ⚠️ correctness fixes. Point estimates and standard errors do not change in
 any of them.
@@ -475,7 +475,7 @@ variance (Stata `ranksum`). They change wherever a covariate has ties.
 
 ---
 
-## 1.43 → next: lingam order, pcmci stages, notears schedule, zero_first_stage IV SE
+## 1.43 → 1.44: lingam order, pcmci stages, notears schedule, zero_first_stage IV SE
 
 ⚠️ correctness fix: `sp.lingam` finds the causal order with the pairwise
 likelihood-ratio measure of DirectLiNGAM. The order, and with it the
@@ -519,7 +519,7 @@ changes.
 
 ---
 
-## 1.43 → next: `sp.iv.many_weak_ar` returns the exact Anderson-Rubin set
+## 1.43 → 1.44: `sp.iv.many_weak_ar` returns the exact Anderson-Rubin set
 
 ⚠️ correctness fix. `sp.iv.many_weak_ar` used to search 101 values within
 0.5 of the OLS estimate, without a constant, and report the smallest and
