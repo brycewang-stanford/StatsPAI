@@ -2,6 +2,8 @@
 Tests for Double/Debiased Machine Learning module.
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -184,6 +186,30 @@ class TestDMLGeneral:
             == dml(plr_data, y="y", treat="d", covariates=["x1", "x2"]).estimate
         )
 
+    def test_default_plr_learners_announce_a_change(self, plr_data):
+        """Default-learner PLR warns (FutureWarning) at the user's line;
+        the pin it names builds the same learners, so it keeps the
+        estimate to the last bit and is silent."""
+
+        with pytest.warns(FutureWarning, match="no earlier than 1.45") as rec:
+            default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
+        hits = [w for w in rec if issubclass(w.category, FutureWarning)]
+        assert len(hits) == 1
+        assert hits[0].filename == __file__
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", FutureWarning)
+            pinned = dml(
+                plr_data,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
+                ml_g="gbm",
+                ml_m="gbm",
+            )
+        assert pinned.estimate == default.estimate
+        assert pinned.se == default.se
+
     def test_default_irm_learners_carry_no_note(self):
         rng = np.random.default_rng(0)
         n = 400
@@ -191,7 +217,10 @@ class TestDMLGeneral:
         d = (rng.uniform(size=n) < 1 / (1 + np.exp(-x[:, 0]))).astype(int)
         y = d + x[:, 0] + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x[:, 0], "x2": x[:, 1]})
-        fit = dml(df, y="y", treat="d", covariates=["x1", "x2"], model="irm")
+        with warnings.catch_warnings():
+            # IRM defaults are not part of the announced change.
+            warnings.simplefilter("error", FutureWarning)
+            fit = dml(df, y="y", treat="d", covariates=["x1", "x2"], model="irm")
         assert fit.model_info["default_learners"] is True
         assert "learner_note" not in fit.model_info
 

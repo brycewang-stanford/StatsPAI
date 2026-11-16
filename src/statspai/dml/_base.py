@@ -79,8 +79,34 @@ _FOLD_AWARE_MODELS = frozenset({"PLR", "IRM", "PLIV", "IIVM"})
 #: (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``).
 _DEFAULT_PLR_LEARNER_NOTE = (
     "default gradient boosting; 95% CI covered 0.88 on the one design "
-    "tested (n=500). Pass learners or compare sp.dml_model_averaging."
+    "tested (n=500). Pass learners or compare sp.dml_model_averaging. "
+    "This default changes, no earlier than 1.45."
 )
+
+# Announced after 1.43.1 (MIGRATION.md); the change lands no earlier than
+# 1.45. The replacement is not chosen: short-stacking fixes the
+# Track B design but covers 0.73 at nonlinear n=500 in
+# tests/reliability/dml_learners_results.json, below boosting's 0.87.
+_PLR_DEFAULT_CHANGE_MSG = (
+    "sp.dml(model='plr') was called without learners, so it fits the "
+    "nuisances with gradient boosting, whose 95% interval covers 0.87 to "
+    "0.94 in the package's Monte Carlo checks. This default will be "
+    "replaced, no earlier than 1.45. Pass ml_g='gbm', ml_m='gbm' to keep "
+    "the current estimates and silence this warning, or choose learners "
+    "for the problem; sp.dml_model_averaging fits several and stacks them."
+)
+
+
+def _announce_plr_default_change() -> None:
+    # No replacement value is chosen yet, so announce_default_change (which
+    # names one) does not fit; the stacklevel rule is the shared one.
+    import warnings
+
+    from .._default_change import external_stacklevel
+
+    warnings.warn(
+        _PLR_DEFAULT_CHANGE_MSG, FutureWarning, stacklevel=external_stacklevel()
+    )
 
 
 def _splits_to_fold_labels(
@@ -409,6 +435,8 @@ class _DoubleMLBase:
         # to the default learners, and a user-supplied learner is not them
         # even when it has the same class.
         self._default_learners = ml_g is None and ml_m is None and ml_r is None
+        if self._default_learners and self._MODEL_TAG == "PLR":
+            _announce_plr_default_change()
         self.ml_g = (
             self._default_ml_g()
             if ml_g is None
@@ -1403,8 +1431,7 @@ class _DoubleMLBase:
         if model_info["default_learners"] and self._MODEL_TAG == "PLR":
             # The only coverage evidence for this configuration is below
             # nominal, so the result says so where summary() prints it.
-            # A warning on every default call would be noise: the evidence
-            # is one design, and the docstring gives the full account.
+            # The FutureWarning raised in __init__ announces the 1.45 change.
             model_info["learner_note"] = _DEFAULT_PLR_LEARNER_NOTE
         if svy_df is not None:
             from ..survey.linearization import design_info

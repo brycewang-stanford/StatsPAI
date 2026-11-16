@@ -264,6 +264,12 @@ def dml(
     A PLR fit that used the defaults records this in
     ``model_info["learner_note"]``, which ``summary()`` prints.
 
+    Announced change: the PLR default learner will be replaced, no
+    earlier than 1.45, and a PLR call that passes no learners warns
+    (``FutureWarning``). ``ml_g='gbm', ml_m='gbm'`` builds exactly
+    today's default learners, so it keeps current estimates and silences
+    the warning. IRM, PLIV and IIVM defaults are not part of the change.
+
     Examples
     --------
     >>> import numpy as np

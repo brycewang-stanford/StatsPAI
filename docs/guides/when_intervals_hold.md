@@ -132,6 +132,11 @@ b = sp.dml_model_averaging(df, y="y", treat="d", covariates=xs)
 abs(a.estimate - b.estimate) / a.se
 ```
 
+The gradient-boosting default of `sp.dml(model="plr")` will be replaced,
+no earlier than 1.45. A call that passes no learners says so with a
+`FutureWarning`. Pass `ml_g="gbm", ml_m="gbm"` to keep today's estimates.
+That pin builds the same learners as the default.
+
 ## Weak instruments and poor overlap
 
 These two come from the Track B stress designs rather than the studies

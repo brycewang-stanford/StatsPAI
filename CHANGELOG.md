@@ -4,6 +4,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### `sp.dml` PLR default learner announced (2026-11-17)
+
+- **`sp.dml(model="plr")` default learner, to be replaced no earlier than
+  1.45.** A PLR call that passes no learners now raises a `FutureWarning`.
+  Its gradient-boosting nuisances cover 0.87 to 0.94 instead of 0.95 in the
+  package's Monte Carlo checks. Nothing changes numerically. Pass
+  `ml_g="gbm", ml_m="gbm"` to keep the current estimates; that pin builds
+  the same learners and silences the warning. The replacement is not chosen
+  yet: short-stacking (`sp.dml_model_averaging`) fixes the Track B design
+  but covers 0.73 on the nonlinear n = 500 cell of
+  `tests/reliability/dml_learners_results.json`. IRM, PLIV and IIVM
+  defaults are not part of the change.
+
 ### Owner decisions of 2026-11-13
 
 The eight work lines of 2026-11-13 each ended with questions about defaults

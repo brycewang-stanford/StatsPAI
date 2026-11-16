@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.43 → next: `sp.dml` PLR default learner announced
+
+Nothing changes numerically. `sp.dml(model="plr")` without `ml_g` / `ml_m`
+still fits gradient boosting (100 trees, depth 3), now with a
+`FutureWarning`: that default will be replaced, no earlier than 1.45. The
+replacement is not chosen yet.
+
+- To keep today's estimates, pass `ml_g="gbm", ml_m="gbm"`. The aliases
+  build the same learners, so the estimate and SE stay identical and the
+  warning goes away.
+- To choose for the problem, pass learners, or compare with
+  `sp.dml_model_averaging`.
+- `model="irm"`, `"pliv"` and `"iivm"` are not affected.
+
+---
+
 ## 1.43 → next: four defaults announced, ⚠️ `sp.dose_response` headline, PLIV label
 
 Owner decisions of 2026-11-13 (`docs/dev/2026-11-13-owner-decisions.md`).
