@@ -6424,3 +6424,30 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-17 — traces 08 / 10 / 21 / 67 / 71 re-recorded (DML learner notice, 1.44 flip, feols native)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `737df36d0` (DML PLR default-learner `FutureWarning`) and
+  `a0bf4f7f6` (nightly repairs, the `sp.event_study_vcov` default flip,
+  the notice per learner) each re-record
+  `tests/r_parity/results/_implementation_trace.json`.
+- **Reason.** Four files on traced estimation paths changed, none in a
+  number a Track A module reports:
+  `src/statspai/dml/_base.py` and `src/statspai/dml/double_ml.py`
+  (modules 08 and 71: a `FutureWarning` when PLR leaves `ml_g` / `ml_m`
+  unset; the modules pass their learners or read estimates only),
+  `src/statspai/did/es_inference.py` (modules 10 and 21:
+  `allow_diagonal` defaults to `False`; both modules pass a joint
+  covariance) and `src/statspai/fixest/wrapper.py` (module 67:
+  `backend="native"` keeps the native refusal; the module's fits are
+  identified).
+- **Effect on the paper.** None. The five modules were re-run without
+  Rust (Python 3.10.20 reference environment): 10 and 21 reproduce the
+  committed results byte for byte; 08, 67 and 71 differ only in the last
+  bit (1e-16), and the unchanged source gives the same bytes on this
+  machine, so the committed results were kept. No committed parity result
+  changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
