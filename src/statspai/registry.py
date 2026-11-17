@@ -26326,7 +26326,27 @@ def _build_registry() -> None:
                     None,
                     "Explicit cross-fitting fold per row (column name or array of "
                     "length ``len(data)``). Overrides ``n_folds`` / ``seed``; "
-                    "every candidate uses the same partition.",
+                    "every candidate uses the same partition. Requires "
+                    "``n_rep=1``.",
+                ),
+                ParamSpec(
+                    "n_rep",
+                    "int",
+                    False,
+                    1,
+                    "Repetitions of the cross-fitting (seeds seed, seed + 1, "
+                    "...). With n_rep > 1 the estimate is the median over "
+                    "repetitions and se**2 = median(se_r**2 + (theta_r - "
+                    "theta)**2), as sp.dml(n_rep=).",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column for one-way cluster-robust inference: folds "
+                    "over whole clusters and the cluster variance of "
+                    "sp.dml(cluster=). Two-way clustering is in sp.dml only.",
                 ),
             ],
             returns="DMLAveragingResult",

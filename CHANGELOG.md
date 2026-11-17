@@ -2,7 +2,39 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.44.1] — 2026-11-17
+
+The warning of `sp.dml(model="plr")` names its replacement, and
+`sp.dml_model_averaging` gains the two options of `sp.dml` that the
+replacement needs. No number changes.
+
+### `sp.dml_model_averaging(cluster=, n_rep=)`
+
+#### Added
+- **`cluster=`**: one-way cluster-robust short stacking and model
+  averaging. Folds are formed over whole clusters, the estimate is the
+  cluster-weighted solution of the score and the standard error comes from
+  within-cluster score sums (Chiang, Kato, Ma and Sasaki 2022), the
+  computation of `sp.dml(cluster=)`. For the per-candidate rules
+  (`equal`, `inverse_risk`, `single_best`) the covariance between
+  candidates is the cluster one. `fold_indices` that split a cluster are
+  refused; two-way clustering stays in `sp.dml`.
+- **`n_rep=`**: repeated cross-fitting with seeds `seed, seed + 1, ...`,
+  aggregated as `sp.dml(n_rep=)` does: the median estimate and
+  `se**2 = median(se_r**2 + (theta_r - theta)**2)`. `model_info` holds
+  `theta_reps` / `se_reps`, and the reported weights are means over
+  repetitions.
+- Evidence: with one candidate the function and `sp.dml` cross-fit the same
+  learner on the same folds, and they agree to rounding (rel 1e-12) under
+  `cluster=`, `n_rep=3`, both, and `cluster=` with `sample_weight=`; two
+  copies of one candidate under equal weights reproduce that candidate's
+  cluster standard error (`tests/test_dml_model_averaging.py`).
+- These are the paths `sp.dml(model="plr")` has to keep when short
+  stacking becomes its default (1.45 at the earliest). Still to do at the
+  switch: route `sp.dml`'s default PLR fit through the stacked nuisances
+  for `score="IV-type"`, two-way `cluster=`, `design=`, `store_oof=` and
+  `external_predictions=`, or keep gradient boosting on those paths and
+  say so.
 
 ### `sp.dml` PLR default learner: the replacement is named
 

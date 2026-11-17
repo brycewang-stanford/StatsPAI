@@ -60353,6 +60353,11 @@
             },
             "type": "array"
           },
+          "cluster": {
+            "description": "Cluster column for one-way cluster-robust inference: folds over whole clusters and the cluster variance of sp.dml(cluster=). Two-way clustering is in sp.dml only.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "covariates": {
             "description": "Covariate columns X",
             "items": {
@@ -60367,12 +60372,17 @@
             "x-statspai-role": "dataframe"
           },
           "fold_indices": {
-            "description": "Explicit cross-fitting fold per row (column name or array of length ``len(data)``). Overrides ``n_folds`` / ``seed``; every candidate uses the same partition.",
+            "description": "Explicit cross-fitting fold per row (column name or array of length ``len(data)``). Overrides ``n_folds`` / ``seed``; every candidate uses the same partition. Requires ``n_rep=1``.",
             "type": "string"
           },
           "n_folds": {
             "default": 5,
             "description": "Cross-fitting folds per candidate.",
+            "type": "integer"
+          },
+          "n_rep": {
+            "default": 1,
+            "description": "Repetitions of the cross-fitting (seeds seed, seed + 1, ...). With n_rep > 1 the estimate is the median over repetitions and se**2 = median(se_r**2 + (theta_r - theta)**2), as sp.dml(n_rep=).",
             "type": "integer"
           },
           "sample_weight": {
@@ -103197,6 +103207,11 @@
             },
             "type": "array"
           },
+          "cluster": {
+            "description": "Column of cluster identifiers for one-way cluster-robust inference (Chiang, Kato, Ma and Sasaki 2022, as ``sp.dml(cluster=)``). Folds are formed over whole clusters, the estimate is the cluster-weighted solution of the score, and the standard error is built from within-cluster score sums. One candidate with ``cluster=`` returns the estimate and standard error of ``sp.dml(cluster=)`` with that learner. Two-way clustering is in ``sp.dml`` only.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "covariates": {
             "description": "Covariate columns ``X``.",
             "items": {
@@ -103211,12 +103226,17 @@
             "x-statspai-role": "dataframe"
           },
           "fold_indices": {
-            "description": "Explicit cross-fitting fold per row (column name or array of length ``len(data)``). Overrides ``n_folds`` / ``seed``; every candidate uses the same partition.",
+            "description": "Explicit cross-fitting fold per row (column name or array of length ``len(data)``). Overrides ``n_folds`` / ``seed``; every candidate uses the same partition. Requires ``n_rep=1``.",
             "type": "string"
           },
           "n_folds": {
             "default": 5,
             "description": "Cross-fitting folds per candidate.",
+            "type": "integer"
+          },
+          "n_rep": {
+            "default": 1,
+            "description": "Repetitions of the cross-fitting, with seeds ``seed, seed + 1, ...``. With ``n_rep > 1`` the estimate is the median over repetitions and ``se**2 = median(se_r**2 + (theta_r - theta)**2)``, the aggregation of ``sp.dml(n_rep=)``. ``model_info`` then holds ``theta_reps`` and ``se_reps``; the reported weights are means over repetitions.",
             "type": "integer"
           },
           "sample_weight": {

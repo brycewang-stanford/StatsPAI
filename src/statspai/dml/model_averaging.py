@@ -548,6 +548,103 @@ def _cls_exact(
     return best
 
 
+def _cluster_plr_score(
+    y_resid: np.ndarray,
+    d_resid: np.ndarray,
+    codes: np.ndarray,
+    splits: List[Tuple[np.ndarray, np.ndarray]],
+    sizes: List[int],
+    sample_weight: Optional[np.ndarray],
+) -> Tuple[float, np.ndarray, float]:
+    """Cluster-weighted PLR solution, its score and Jacobian.
+
+    The one-way case of Chiang, Kato, Ma and Sasaki (2022) as ``sp.dml``
+    computes it (``_DoubleMLBase._cluster_theta_se``), so that one candidate
+    under ``cluster=`` returns the numbers of ``sp.dml(cluster=)``: with
+    ``psi = psi_a * theta + psi_b``, ``psi_a = -d_resid**2`` and
+    ``psi_b = d_resid * y_resid``, each fold's sums are divided by the
+    number of clusters in its test set.
+    """
+    psi_a = -(d_resid**2)
+    psi_b = d_resid * y_resid
+    if sample_weight is not None:
+        w = sample_weight * (len(sample_weight) / float(np.sum(sample_weight)))
+        psi_a, psi_b = w * psi_a, w * psi_b
+    num = sum(np.sum(psi_b[test]) / m for (_, test), m in zip(splits, sizes))
+    den = sum(np.sum(psi_a[test]) / m for (_, test), m in zip(splits, sizes))
+    if abs(den) < 1e-12:
+        raise ConvergenceFailure(  # pragma: no cover
+            "dml_model_averaging cluster=: score denominator is ~0.",
+            diagnostics={"context": "dml_model_averaging"},
+        )
+    theta = float(-num / den)
+    return theta, psi_a * theta + psi_b, float(den / len(splits))
+
+
+def _cluster_score_cov(
+    psi_k: np.ndarray,
+    psi_l: np.ndarray,
+    codes: np.ndarray,
+    splits: List[Tuple[np.ndarray, np.ndarray]],
+    sizes: List[int],
+) -> float:
+    """``K^-1 sum_k |I_k|^-1 sum_{g in I_k} S_kg S_lg`` of within-cluster
+    score sums ``S``; with ``psi_k is psi_l`` this is ``Gamma`` of the
+    one-way cluster variance ``Gamma / (J^2 G)``."""
+    total = 0.0
+    for (_, test), m in zip(splits, sizes):
+        s_k = np.bincount(codes[test], weights=psi_k[test])
+        s_l = s_k if psi_l is psi_k else np.bincount(codes[test], weights=psi_l[test])
+        total += float(np.sum(s_k * s_l)) / m
+    return total / len(splits)
+
+
+def _aggregate_reps(
+    reps: List["DMLAveragingResult"], alpha: float, n_rep: int
+) -> "DMLAveragingResult":
+    """Median over repeated cross-fitting, as ``sp.dml(n_rep=)`` reports it:
+    ``theta = median_r theta_r`` and
+    ``se^2 = median_r (se_r^2 + (theta_r - theta)^2)``."""
+    from scipy import stats as sp_stats
+
+    thetas = np.array([float(r.estimate) for r in reps])
+    ses = np.array([float(r.se) for r in reps])
+    theta = float(np.median(thetas))
+    se = float(np.sqrt(np.median(ses**2 + (thetas - theta) ** 2)))
+    z = sp_stats.norm.ppf(1 - alpha / 2)
+    info: Dict[str, Any] = dict(reps[0].model_info)
+    # Rep-specific arrays do not describe the aggregate.
+    info.pop("_y_resid", None)
+    info.pop("_d_resid", None)
+    labels = info["candidates"]
+    complete = [r for r in reps if r.model_info["candidates"] == labels]
+    for key in ("weights", "weights_g", "weights_m", "mse_k"):
+        if key in info:
+            info[key] = {
+                lab: float(np.mean([r.model_info[key][lab] for r in complete]))
+                for lab in labels
+            }
+    for key in ("theta_k", "se_k"):
+        info[key] = {
+            lab: float(np.median([r.model_info[key][lab] for r in complete]))
+            for lab in labels
+        }
+    info["n_rep"] = int(n_rep)
+    info["theta_reps"] = thetas.tolist()
+    info["se_reps"] = ses.tolist()
+    return DMLAveragingResult(
+        method=reps[0].method,
+        estimand="theta",
+        estimate=theta,
+        se=se,
+        pvalue=float(2 * sp_stats.norm.sf(abs(theta / se))) if se > 0 else float("nan"),
+        ci=(theta - z * se, theta + z * se),
+        alpha=alpha,
+        n_obs=int(reps[0].n_obs),
+        model_info=info,
+    )
+
+
 @accepts_aliases(weights="sample_weight")
 def dml_model_averaging(
     data: pd.DataFrame,
@@ -561,6 +658,9 @@ def dml_model_averaging(
     alpha: float = 0.05,
     sample_weight: Optional[Any] = None,
     fold_indices: Optional[Any] = None,
+    n_rep: int = 1,
+    *,
+    cluster: Optional[str] = None,
 ) -> DMLAveragingResult:
     """Model-averaging / stacking DML-PLR estimator.
 
@@ -612,7 +712,21 @@ def dml_model_averaging(
     fold_indices : array-like or str, optional
         Explicit cross-fitting fold per row (column name or array of length
         ``len(data)``). Overrides ``n_folds`` / ``seed``; every candidate
-        uses the same partition.
+        uses the same partition. Requires ``n_rep=1``.
+    n_rep : int, default 1
+        Repetitions of the cross-fitting, with seeds ``seed, seed + 1, ...``.
+        With ``n_rep > 1`` the estimate is the median over repetitions and
+        ``se**2 = median(se_r**2 + (theta_r - theta)**2)``, the aggregation
+        of ``sp.dml(n_rep=)``. ``model_info`` then holds ``theta_reps`` and
+        ``se_reps``; the reported weights are means over repetitions.
+    cluster : str, optional
+        Column of cluster identifiers for one-way cluster-robust inference
+        (Chiang, Kato, Ma and Sasaki 2022, as ``sp.dml(cluster=)``). Folds
+        are formed over whole clusters, the estimate is the cluster-weighted
+        solution of the score, and the standard error is built from
+        within-cluster score sums. One candidate with ``cluster=`` returns
+        the estimate and standard error of ``sp.dml(cluster=)`` with that
+        learner. Two-way clustering is in ``sp.dml`` only.
 
     Returns
     -------
@@ -671,6 +785,41 @@ def dml_model_averaging(
     n_folds = _require_int_at_least(n_folds, "n_folds", context, 2)
     seed = _require_int_at_least(seed, "seed", context, 0)
     alpha = _require_open_unit_float(alpha, "alpha", context)
+    n_rep = _require_int_at_least(n_rep, "n_rep", context, 1)
+    if cluster is not None and not isinstance(cluster, str):
+        raise MethodIncompatibility(
+            f"{context}: cluster must name one column; two-way clustering "
+            "is available in sp.dml(cluster=[c1, c2]) only.",
+            recovery_hint="Pass cluster='col' for one-way clustering.",
+            diagnostics={"context": context, "cluster": repr(cluster)},
+        )
+    if cluster is not None:
+        _require_columns(data, {"cluster": cluster}, context)
+    if n_rep > 1:
+        if fold_indices is not None:
+            raise MethodIncompatibility(
+                f"{context}: explicit fold_indices require n_rep=1; pass one "
+                "partition, or drop fold_indices to repeat the cross-fitting.",
+                diagnostics={"context": context, "n_rep": n_rep},
+            )
+        reps = [
+            dml_model_averaging(
+                data,
+                y=y,
+                treat=treat,
+                covariates=covariates,
+                candidates=candidates,
+                n_folds=n_folds,
+                seed=seed + rep,
+                weight_rule=weight_rule,
+                alpha=alpha,
+                sample_weight=sample_weight,
+                n_rep=1,
+                cluster=cluster,
+            )
+            for rep in range(n_rep)
+        ]
+        return _aggregate_reps(reps, alpha, n_rep)
 
     cand = _validate_candidates(candidates, context)
 
@@ -681,6 +830,8 @@ def dml_model_averaging(
     # ``denom < 1e-12`` cannot detect the problem).
     cols = [y, treat] + list(covariates)
     work = data[cols].copy()
+    if cluster is not None:
+        work["__cl__"] = data[cluster].to_numpy()
     if fold_indices is not None:
         if isinstance(fold_indices, str):
             _require_columns(data, {"fold_indices": fold_indices}, context)
@@ -792,6 +943,48 @@ def dml_model_averaging(
         ]
         n_folds = len(splits)
 
+    # One-way clustering: folds over whole clusters (the resampling of
+    # sp.dml(cluster=), down to the factorize order and the KFold seed).
+    codes: Optional[np.ndarray] = None
+    sizes: List[int] = []
+    n_clusters = 0
+    if cluster is not None:
+        codes = pd.factorize(clean["__cl__"])[0]
+        n_clusters = int(codes.max()) + 1
+        if n_clusters < n_folds:
+            raise DataInsufficient(
+                f"{context} cluster=: {n_clusters} clusters cannot fill "
+                f"n_folds={n_folds} cluster-level folds.",
+                diagnostics={
+                    "context": context,
+                    "n_clusters": n_clusters,
+                    "n_folds": n_folds,
+                },
+            )
+        if splits is not None:
+            per_cluster = pd.Series(fold_codes).groupby(codes).nunique()
+            if (per_cluster > 1).any():
+                raise MethodIncompatibility(
+                    f"{context} cluster=: the supplied fold_indices split a "
+                    "cluster across folds; every cluster must lie in one fold.",
+                    diagnostics={
+                        "context": context,
+                        "n_split_clusters": int((per_cluster > 1).sum()),
+                    },
+                )
+        else:
+            from sklearn.model_selection import KFold
+
+            kf = KFold(n_splits=n_folds, shuffle=True, random_state=seed)
+            splits = [
+                (
+                    np.flatnonzero(~np.isin(codes, test_cl)),
+                    np.flatnonzero(np.isin(codes, test_cl)),
+                )
+                for _, test_cl in kf.split(np.zeros(n_clusters))
+            ]
+        sizes = [len(np.unique(codes[test])) for _, test in splits]
+
     # --- Stage 1: fit every candidate, collect cross-fitted predictions and
     # per-candidate diagnostics. We need both predictions (for stacking)
     # and residuals (for per-candidate θ̂_k under non-stacking rules).
@@ -824,7 +1017,12 @@ def dml_model_averaging(
             # mean square). Skip it so it does not poison the stacking
             # design matrix.
             continue  # pragma: no cover
-        if sw is None:
+        if codes is not None:
+            assert splits is not None
+            theta_k, psi, J = _cluster_plr_score(y_r, d_r, codes, splits, sizes, sw)
+            gamma = _cluster_score_cov(psi, psi, codes, splits, sizes)
+            var_k = gamma / (J**2 * n_clusters)
+        elif sw is None:
             theta_k = float(np.sum(d_r * y_r) / denom)
             psi = (y_r - theta_k * d_r) * d_r
             J = -np.mean(d_r**2)
@@ -878,7 +1076,14 @@ def dml_model_averaging(
                 "different roster.",
                 diagnostics={"context": context, "denom": denom},
             )
-        if sw is None:
+        if codes is not None:
+            assert splits is not None
+            theta_avg, psi_stack, J_stack = _cluster_plr_score(
+                y_resid_stack, d_resid_stack, codes, splits, sizes, sw
+            )
+            gamma = _cluster_score_cov(psi_stack, psi_stack, codes, splits, sizes)
+            var_avg = gamma / (J_stack**2 * n_clusters)
+        elif sw is None:
             theta_avg = float(np.sum(y_resid_stack * d_resid_stack) / denom)
             psi_stack = (y_resid_stack - theta_avg * d_resid_stack) * d_resid_stack
             J_stack = -float(np.mean(d_resid_stack**2))
@@ -922,7 +1127,26 @@ def dml_model_averaging(
         # Var(θ̂_k) = Σ w_i² ψ_k,i² / (Σ w_i d_resid_k,i²)². For the
         # cross-product we use Σ_kl = Σ w_i² ψ_k,i ψ_l,i / (denom_k · denom_l).
         K_cand = len(thetas_arr)
-        if sw is None:
+        if codes is not None:
+            # Cluster covariance of the candidates' estimates:
+            # Sigma_kl = Gamma_kl / (J_k J_l G), Gamma_kl from the
+            # within-cluster sums of the two candidates' scores.
+            assert splits is not None
+            scores = [
+                _cluster_plr_score(y_r, d_r, codes, splits, sizes, sw)
+                for y_r, d_r, _ in resids
+            ]
+            sigma_kl = np.zeros((K_cand, K_cand))
+            for k in range(K_cand):
+                for l_ in range(k, K_cand):
+                    gamma_kl = _cluster_score_cov(
+                        scores[k][1], scores[l_][1], codes, splits, sizes
+                    )
+                    sigma_kl[k, l_] = sigma_kl[l_, k] = gamma_kl / (
+                        scores[k][2] * scores[l_][2] * n_clusters
+                    )
+            var_avg = float(w @ sigma_kl @ w)
+        elif sw is None:
             phi_matrix = np.zeros((n, K_cand))
             for k, (y_r, d_r, theta_k) in enumerate(resids):
                 J_k = -np.mean(d_r**2)
@@ -958,6 +1182,7 @@ def dml_model_averaging(
         "weights": dict(zip(labels, w.tolist())),
         "weight_rule": weight_rule,
         "n_folds": n_folds,
+        "n_rep": 1,
         "n_obs": int(n),
         "n_dropped_missing": int(n_dropped),
         "alpha": alpha,
@@ -967,6 +1192,12 @@ def dml_model_averaging(
             "Journal of Applied Econometrics 40(3):249-269. DOI 10.1002/jae.3103."
         ),
     }
+    if codes is not None:
+        model_info["cluster"] = cluster
+        model_info["n_clusters"] = n_clusters
+        model_info["fold_source"] = (
+            "user_fold_indices" if fold_indices is not None else "cluster_kfold"
+        )
     if weights_g is not None and weights_m is not None:
         model_info["weights_g"] = dict(zip(labels, weights_g.tolist()))
         model_info["weights_m"] = dict(zip(labels, weights_m.tolist()))
