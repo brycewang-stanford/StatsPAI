@@ -6468,3 +6468,19 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   may want to say.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-18 — traces 08 / 71 re-recorded (short stacking inside `sp.dml`)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `9e1c1ef4f` re-records
+  `tests/r_parity/results/_implementation_trace.json`.
+- **Reason.** `src/statspai/dml/plr.py`, `_base.py` and `double_ml.py`
+  (modules 08 and 71) gained the short-stacking path for a roster of
+  learners. A call without a roster, which is what both modules make,
+  runs the cross-fitting loop it ran before.
+- **Effect on the paper.** None on any number: both modules were re-run
+  without Rust and reproduce the committed results to 3e-16 (the
+  committed files were kept). The default learner is unchanged.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
