@@ -2,6 +2,41 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### `sp.dml(model="plr")` short-stacks a roster of learners
+
+#### Added
+- **`ml_g=` / `ml_m=` take a roster.** `"stack"` is Lasso, Ridge, random
+  forest and gradient boosting, the roster of `sp.dml_model_averaging`
+  and the announced 1.45 default; a list gives the candidates
+  (estimators, aliases, or `(label, estimator)` pairs). Each candidate is
+  cross-fitted on the partition of the fit, and the out-of-fold
+  predictions are combined by the constrained least squares of Ahrens,
+  Hansen, Schaffer and Wiemann (2025), one set of weights per nuisance.
+  The stacked prediction takes the place of a single learner's, so the
+  scores and variances of the PLR class apply as they are.
+  `model_info["stacking"]` holds the weights and each candidate's risk.
+- This closes the list 1.44.1 left for the switch of the default. With a
+  roster, `sp.dml` now runs `score="IV-type"` (the third nuisance is
+  stacked too, with its own weights), two-way `cluster=`, `design=`,
+  `sample_weight=`, `n_rep=`, several treatments and the benchmark refit
+  of `sp.dml_sensitivity`. `store_oof=` and `external_predictions=` are
+  IRM features that a PLR fit refuses whatever its learners are, so they
+  need nothing.
+- Evidence (`tests/test_dml_short_stack.py`): a roster in `sp.dml` equals
+  `sp.dml_model_averaging` with the same candidates to rounding (rel
+  1e-12) plain, weighted, clustered, repeated and all three together; a
+  roster of one learner equals that learner on the IV-type score, two-way
+  clusters, a stratified clustered design and their combinations; the
+  stacked nuisance never has a larger risk than a candidate; the three
+  new paths cover a known coefficient.
+- No existing number changes. A call without a roster runs the code it
+  ran before, and the default learner is still gradient boosting. The
+  `FutureWarning` now also names `ml_g="stack", ml_m="stack"` as the way
+  to fit the 1.45 default today.
+- Other models (`irm`, `pliv`, `iivm`) and `ml_r=` refuse a roster.
+
 ## [1.44.1] — 2026-11-17
 
 The warning of `sp.dml(model="plr")` names its replacement, and

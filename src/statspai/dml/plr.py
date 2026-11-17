@@ -18,11 +18,12 @@ where psi_score_i = (y_tilde_i - theta * d_tilde_i) * d_tilde_i.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 
 from ._base import _DoubleMLBase
+from ._stacking import ShortStack, crossfit_short_stack
 
 
 class DoubleMLPLR(_DoubleMLBase):
@@ -76,6 +77,40 @@ class DoubleMLPLR(_DoubleMLBase):
     _VALID_SCORES = {"partialling out", "IV-type"}
     _DEFAULT_SCORE = "partialling out"
 
+    _SUPPORTS_STACKING = True
+
+    def _oof_nuisance(
+        self,
+        learner: Any,
+        X: np.ndarray,
+        target: np.ndarray,
+        splits: List[Tuple[np.ndarray, np.ndarray]],
+        sample_weight: Optional[np.ndarray],
+        name: str,
+    ) -> np.ndarray:
+        """Out-of-fold conditional mean of ``target``; a ``ShortStack`` is
+        cross-fitted candidate by candidate and combined, and its weights
+        are kept for ``model_info['stacking'][name]``."""
+        role = "ml_m" if name == "ml_m" else "ml_g"
+
+        def crossfit(one: Any) -> np.ndarray:
+            out = np.zeros(len(target), dtype=float)
+            for train_idx, test_idx in splits:
+                w_train = None if sample_weight is None else sample_weight[train_idx]
+                fitted = self._fit_weighted(
+                    one, X[train_idx], target[train_idx], w_train
+                )
+                out[test_idx] = self._predict_nuisance(
+                    fitted, X[test_idx], target, role
+                )
+            return out
+
+        if not isinstance(learner, ShortStack):
+            return crossfit(learner)
+        stacked, info = crossfit_short_stack(learner, crossfit, target, sample_weight)
+        self._last_rep_stack[name] = info
+        return stacked
+
     def _fit_one_rep(
         self,
         Y: np.ndarray,
@@ -90,18 +125,35 @@ class DoubleMLPLR(_DoubleMLBase):
         splits = self._make_splits(X, rng_seed=rng_seed, fold_indices=fold_indices)
         y_resid: np.ndarray = np.zeros(n, dtype=float)
         d_resid: np.ndarray = np.zeros(n, dtype=float)
+        stacked = isinstance(self.ml_g, ShortStack) or isinstance(self.ml_m, ShortStack)
 
-        for train_idx, test_idx in splits:
-            w_train = sample_weight[train_idx] if sample_weight is not None else None
-            ml_g = self._fit_weighted(self.ml_g, X[train_idx], Y[train_idx], w_train)
-            y_resid[test_idx] = Y[test_idx] - self._predict_nuisance(
-                ml_g, X[test_idx], Y, "ml_g"
+        if stacked:
+            # A roster for either nuisance: each is cross-fitted on its own,
+            # candidate by candidate, on this partition (_stacking.py).
+            y_resid = Y - self._oof_nuisance(
+                self.ml_g, X, Y, splits, sample_weight, "ml_g"
             )
+            d_resid = D - self._oof_nuisance(
+                self.ml_m, X, D, splits, sample_weight, "ml_m"
+            )
+        else:
+            for train_idx, test_idx in splits:
+                w_train = (
+                    sample_weight[train_idx] if sample_weight is not None else None
+                )
+                ml_g = self._fit_weighted(
+                    self.ml_g, X[train_idx], Y[train_idx], w_train
+                )
+                y_resid[test_idx] = Y[test_idx] - self._predict_nuisance(
+                    ml_g, X[test_idx], Y, "ml_g"
+                )
 
-            ml_m = self._fit_weighted(self.ml_m, X[train_idx], D[train_idx], w_train)
-            d_resid[test_idx] = D[test_idx] - self._predict_nuisance(
-                ml_m, X[test_idx], D, "ml_m"
-            )
+                ml_m = self._fit_weighted(
+                    self.ml_m, X[train_idx], D[train_idx], w_train
+                )
+                d_resid[test_idx] = D[test_idx] - self._predict_nuisance(
+                    ml_m, X[test_idx], D, "ml_m"
+                )
 
         if self.score == "IV-type":
             # DoubleML IV-type PLR score (Chernozhukov et al. 2018, eq. 4.4;
@@ -131,11 +183,16 @@ class DoubleMLPLR(_DoubleMLBase):
             theta_initial = float(np.sum(d_resid * y_resid) / denom0)
             y_adj = Y - theta_initial * D
             g_hat = np.zeros(n, dtype=float)
-            for train_idx, test_idx in splits:
-                ml_g2 = self._fit_weighted(
-                    self.ml_g, X[train_idx], y_adj[train_idx], None
-                )
-                g_hat[test_idx] = ml_g2.predict(X[test_idx])
+            if isinstance(self.ml_g, ShortStack):
+                # g is one more conditional mean, stacked like the others
+                # with its own weights (reported as ``ml_g_iv``).
+                g_hat = self._oof_nuisance(self.ml_g, X, y_adj, splits, None, "ml_g_iv")
+            else:
+                for train_idx, test_idx in splits:
+                    ml_g2 = self._fit_weighted(
+                        self.ml_g, X[train_idx], y_adj[train_idx], None
+                    )
+                    g_hat[test_idx] = ml_g2.predict(X[test_idx])
             psi_a = -d_resid * D
             psi_b = d_resid * (Y - g_hat)
             mean_a = float(np.mean(psi_a))

@@ -3914,12 +3914,14 @@ def _build_registry() -> None:
                 ParamSpec("n_folds", "int", False, 5, "Cross-fitting folds"),
                 ParamSpec(
                     "ml_g",
-                    "str | estimator",
+                    "str | estimator | list",
                     False,
                     None,
                     "Outcome learner (model_y= is the same option): a "
                     "scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', "
-                    "'ridge', 'linear', 'xgb', 'lgbm').",
+                    "'ridge', 'linear', 'xgb', 'lgbm'). For model='plr' also "
+                    "'stack' or a list of learners: short stacking of the "
+                    "roster (the announced 1.45 default is 'stack').",
                 ),
                 ParamSpec(
                     "ml_m",
@@ -3928,7 +3930,9 @@ def _build_registry() -> None:
                     None,
                     "Treatment learner for plr / irm / pliv, instrument "
                     "propensity learner for iivm (model_d= is the same "
-                    "option). A classifier where the target is binary.",
+                    "option). A classifier where the target is binary. For "
+                    "model='plr' also 'stack' or a list of learners (short "
+                    "stacking).",
                 ),
                 ParamSpec(
                     "ml_r",

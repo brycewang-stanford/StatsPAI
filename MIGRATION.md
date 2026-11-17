@@ -25,6 +25,11 @@ random forest and gradient boosting, the estimator
   since four learners are cross-fitted. `tests/reliability/dml_default_candidates.py` records
   the four other candidates and why they were not chosen.
 - `model="irm"`, `"pliv"` and `"iivm"` are not affected.
+- After 1.44.1 (unreleased), nothing to migrate: `sp.dml(...,
+  ml_g="stack", ml_m="stack")` fits the coming default inside `sp.dml`,
+  on every PLR option (`score="IV-type"`, one- and two-way `cluster=`,
+  `design=`, `sample_weight=`, `n_rep=`), and silences the warning. A
+  list of learners in `ml_g=` / `ml_m=` stacks that roster.
 - New in 1.44.1, nothing to migrate: `sp.dml_model_averaging` takes
   `cluster=` (one-way) and `n_rep=`, computed as `sp.dml` computes them, so
   the coming default can be tried today on clustered data or with repeated

@@ -117,9 +117,10 @@ def _announce_plr_default_change(g_unset: bool, m_unset: bool) -> None:
         "stacking over Lasso, Ridge, random forest and gradient boosting, "
         "the estimator "
         "sp.dml_model_averaging fits now. Pass ml_g='gbm', ml_m='gbm' to "
-        "keep the current estimates (they build the same learners) and "
-        "silence this warning, or choose learners for the problem. See "
-        "MIGRATION.md.",
+        "keep the current estimates (they build the same learners), or "
+        "ml_g='stack', ml_m='stack' to fit the 1.45 default now; either "
+        "silences this warning, as does choosing learners for the problem. "
+        "See MIGRATION.md.",
         FutureWarning,
         stacklevel=external_stacklevel(),
     )
@@ -213,6 +214,9 @@ class _DoubleMLBase:
     _last_rep_score: Dict[str, Any]
     _DEFAULT_SCORE: Optional[str] = None
     _USES_IPW: bool = False
+    # Whether a nuisance may be a roster of learners combined by short
+    # stacking (``ml_g='stack'`` or a list; see ``_stacking.py``). PLR only.
+    _SUPPORTS_STACKING: bool = False
 
     def __init__(
         self,
@@ -451,15 +455,19 @@ class _DoubleMLBase:
         # to the default learners, and a user-supplied learner is not them
         # even when it has the same class.
         self._default_learners = ml_g is None and ml_m is None and ml_r is None
+        stack_g = self._stack_request(ml_g, "ml_g", context)
+        stack_m = self._stack_request(ml_m, "ml_m", context)
+        self._stack_request(ml_r, "ml_r", context, allowed=False)
         self.ml_g = (
             self._default_ml_g()
             if ml_g is None
-            else resolve_learner(ml_g, kind="regressor", role="ml_g")
+            else stack_g or resolve_learner(ml_g, kind="regressor", role="ml_g")
         )
         self.ml_m = (
             self._default_ml_m()
             if ml_m is None
-            else resolve_learner(
+            else stack_m
+            or resolve_learner(
                 ml_m,
                 kind="classifier" if self._ML_M_TARGET_BINARY else "regressor",
                 role="ml_m",
@@ -474,6 +482,28 @@ class _DoubleMLBase:
                 role="ml_r",
             )
         )
+
+    def _stack_request(
+        self, spec: Any, role: str, context: str, allowed: bool = True
+    ) -> Any:
+        """The ``ShortStack`` a learner argument asks for, or ``None``.
+
+        Short stacking is wired into the PLR nuisances ``ml_g`` and
+        ``ml_m``; a roster anywhere else is refused, not silently reduced
+        to one learner.
+        """
+        from ._stacking import as_short_stack
+
+        stack = as_short_stack(spec, role)
+        if stack is not None and not (allowed and self._SUPPORTS_STACKING):
+            raise MethodIncompatibility(
+                f"{context}: {role} asks for short stacking, which is "
+                "implemented for the ml_g and ml_m nuisances of model='plr' "
+                "only.",
+                recovery_hint=f"Pass one learner for {role}.",
+                diagnostics={"role": role, "model": self._MODEL_TAG.lower()},
+            )
+        return stack
 
     def _validate(self) -> None:
         context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
@@ -1369,11 +1399,13 @@ class _DoubleMLBase:
         per_rep_diags: List[Dict[str, Any]] = []
         last_residuals: Dict[str, np.ndarray] = {}
         sens_reps: List[Dict[str, Any]] = []
+        stack_reps: List[Dict[str, Dict[str, Any]]] = []
         for rep in range(self.n_rep):
             self._last_rep_diagnostics: Dict[str, Any] = {}
             self._last_rep_residuals: Dict[str, np.ndarray] = {}
             self._last_rep_sens: Dict[str, np.ndarray] = {}
             self._last_rep_ar: Dict[str, Any] = {}
+            self._last_rep_stack: Dict[str, Dict[str, Any]] = {}
             capture = collector and collector.start_rep(rep, self.random_state + rep)
             if capture is not None:
                 self._oof_rep_capture = capture
@@ -1411,6 +1443,8 @@ class _DoubleMLBase:
                 per_rep_diags.append(self._last_rep_diagnostics)
             if self._last_rep_residuals:
                 last_residuals = self._last_rep_residuals
+            if self._last_rep_stack:
+                stack_reps.append(self._last_rep_stack)
         if len(thetas) == 1:
             theta, se = thetas[0], ses[0]
         else:
@@ -1475,6 +1509,10 @@ class _DoubleMLBase:
                 )
             model_info["ml_r"] = type(self.ml_r).__name__
             model_info["instrument"] = self.instrument[0]
+        if stack_reps:
+            from ._stacking import aggregate_stack_info
+
+            model_info["stacking"] = aggregate_stack_info(stack_reps)
         if self.n_rep > 1:
             model_info["theta_all_reps"] = thetas
             model_info["se_all_reps"] = ses

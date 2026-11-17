@@ -112,6 +112,20 @@ def dml(
         called ``predict`` on a classifier and residualised on the hard
         label.
         ``None`` falls back to the per-model gradient-boosting default.
+        For ``model='plr'``, ``ml_g`` and ``ml_m`` also take a roster,
+        combined by short stacking (Ahrens, Hansen, Schaffer and Wiemann
+        2025 [@ahrens2025model]): ``'stack'`` is Lasso, Ridge, random
+        forest and gradient boosting, the roster of
+        ``sp.dml_model_averaging``; a list gives the candidates
+        (estimators, aliases, or ``(label, estimator)`` pairs). Each
+        candidate is cross-fitted on the partition of the fit and the
+        out-of-fold predictions are combined with non-negative weights
+        summing to one that minimise the squared error on the full sample,
+        one set per nuisance. Every PLR option applies to the stacked
+        nuisances (``score='IV-type'``, where the third nuisance is stacked
+        as well, ``sample_weight``, one- and two-way ``cluster``,
+        ``design``, ``n_rep``); ``model_info['stacking']`` holds the
+        weights and each candidate's risk. Other models refuse a roster.
     n_folds : int, default 5
     n_rep : int, default 1
         Repeated cross-fitting splits (median aggregation).
@@ -270,8 +284,9 @@ def dml(
     ``ml_g`` or ``ml_m`` unset warns (``FutureWarning``) unless it passes
     ``external_predictions``.
     ``ml_g='gbm', ml_m='gbm'`` builds exactly today's default learners, so
-    it keeps current estimates and silences the warning. IRM, PLIV and
-    IIVM defaults are not part of the change.
+    it keeps current estimates and silences the warning;
+    ``ml_g='stack', ml_m='stack'`` fits the 1.45 default now. IRM, PLIV
+    and IIVM defaults are not part of the change.
 
     Examples
     --------

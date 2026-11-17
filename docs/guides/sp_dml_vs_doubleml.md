@@ -328,6 +328,12 @@ Beyond the four estimator classes that mirror DoubleML one-to-one,
 - **`sp.dml_model_averaging(...)`** — short-stacking / stacking over
   candidate nuisance learners, after Ahrens, Hansen, Schaffer & Wiemann
   [@ahrens2025model].
+- **Short stacking inside `sp.dml`** — for `model="plr"`,
+  `ml_g="stack", ml_m="stack"` (or a list of learners for either) fits
+  the same short-stacked nuisances and keeps every PLR option: the
+  IV-type score, one- and two-way clusters, survey designs, weights and
+  repeated cross-fitting. `result.model_info["stacking"]` reports the
+  weights. This is the PLR default from 1.45.
 - **Unified result object** — every `sp.dml` call returns a
   `CausalResult`, so `.summary()`, `.to_latex()`, `.cite()` and the
   agent-side audit chain (`sp.audit`) work the same as for every

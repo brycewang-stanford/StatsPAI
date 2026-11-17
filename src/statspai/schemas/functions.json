@@ -2945,11 +2945,21 @@
           "description": "Rows with a missing value in a used column (outcome, regressors, weights, cluster): 'drop' deletes them listwise and reports the count; 'raise' refuses the data with DataInsufficient naming each column and its count. A dict sets the rule per role, e.g. {'response': 'raise', 'predictors': 'drop'}: 'response' is the outcome, 'predictors' every other used column (weights and cluster included); a role left out is 'drop'"
         },
         "ml_g": {
-          "description": "Outcome learner (model_y= is the same option): a scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', 'ridge', 'linear', 'xgb', 'lgbm').",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Outcome learner (model_y= is the same option): a scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', 'ridge', 'linear', 'xgb', 'lgbm'). For model='plr' also 'stack' or a list of learners: short stacking of the roster (the announced 1.45 default is 'stack')."
         },
         "ml_m": {
-          "description": "Treatment learner for plr / irm / pliv, instrument propensity learner for iivm (model_d= is the same option). A classifier where the target is binary.",
+          "description": "Treatment learner for plr / irm / pliv, instrument propensity learner for iivm (model_d= is the same option). A classifier where the target is binary. For model='plr' also 'stack' or a list of learners (short stacking).",
           "type": "string"
         },
         "ml_r": {
@@ -2968,12 +2978,12 @@
           "type": "string"
         },
         "model_d": {
-          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default. For ``model='plr'``, ``ml_g`` and ``ml_m`` also take a roster, combined by short stacking (Ahrens, Hansen, Schaffer and Wiemann 2025 [@ahrens2025model]): ``'stack'`` is Lasso, Ridge, random forest and gradient boosting, the roster of ``sp.dml_model_averaging``; a list gives the candidates (estimators, aliases, or ``(label, estimator)`` pairs). Each candidate is cross-fitted on the partition of the fit and the out-of-fold predictions are combined with non-negative weights summing to one that minimise the squared error on the full sample, one set per nuisance. Every PLR option applies to the stacked nuisances (``score='IV-type'``, where the third nuisance is stacked as well, ``sample_weight``, one- and two-way ``cluster``, ``design``, ``n_rep``); ``model_info['stacking']`` holds the weights and each candidate's risk. Other models refuse a roster.",
           "type": "string",
           "x-statspai-source": "signature"
         },
         "model_y": {
-          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default.",
+          "description": "Learners for outcome / treatment / instrument nuisance. Pass any scikit-learn-compatible estimator, or one of the convenience string aliases (case-insensitive): - ``'rf'`` -- random forest (200 trees) - ``'gbm'`` -- gradient boosting (100 estimators, depth 3) - ``'lasso'`` / ``'ridge'`` -- penalised linear (CV-tuned) - ``'linear'`` / ``'ols'`` -- plain linear regression - ``'logistic'`` -- logistic regression (classifier roles only) - ``'xgb'`` / ``'lgbm'`` -- XGBoost / LightGBM (optional install) For binary treatment (``model='irm'``) ``ml_m`` is auto-coerced to the classifier variant; same for ``ml_r`` under ``'iivm'``. Under ``'plr'`` and ``'pliv'`` a classifier may be passed for a 0/1 outcome, treatment or instrument; its ``predict_proba`` is the conditional mean (as in DoubleML's PLR). A classifier for a target that is not 0/1 is refused. Up to 1.38.0 these two models called ``predict`` on a classifier and residualised on the hard label. ``None`` falls back to the per-model gradient-boosting default. For ``model='plr'``, ``ml_g`` and ``ml_m`` also take a roster, combined by short stacking (Ahrens, Hansen, Schaffer and Wiemann 2025 [@ahrens2025model]): ``'stack'`` is Lasso, Ridge, random forest and gradient boosting, the roster of ``sp.dml_model_averaging``; a list gives the candidates (estimators, aliases, or ``(label, estimator)`` pairs). Each candidate is cross-fitted on the partition of the fit and the out-of-fold predictions are combined with non-negative weights summing to one that minimise the squared error on the full sample, one set per nuisance. Every PLR option applies to the stacked nuisances (``score='IV-type'``, where the third nuisance is stacked as well, ``sample_weight``, one- and two-way ``cluster``, ``design``, ``n_rep``); ``model_info['stacking']`` holds the weights and each candidate's risk. Other models refuse a roster.",
           "type": "string",
           "x-statspai-source": "signature"
         },
@@ -47872,7 +47882,7 @@
           "type": "array"
         },
         "cluster": {
-          "description": "Column of cluster identifiers for one-way cluster-robust inference (Chiang, Kato, Ma and Sasaki 2022, as ``sp.dml(cluster=)``). Folds are formed over whole clusters, the estimate is the cluster-weighted solution of the score, and the standard error is built from within-cluster score sums. One candidate with ``cluster=`` returns the estimate and standard error of ``sp.dml(cluster=)`` with that learner. Two-way clustering is in ``sp.dml`` only.",
+          "description": "Column of cluster identifiers for one-way cluster-robust inference (Chiang, Kato, Ma and Sasaki 2022, as ``sp.dml(cluster=)``). Folds are formed over whole clusters, the estimate is the cluster-weighted solution of the score, and the standard error is built from within-cluster score sums. One candidate with ``cluster=`` returns the estimate and standard error of ``sp.dml(cluster=)`` with that learner. Two-way clustering, the IV-type score and survey designs are in ``sp.dml``, which short-stacks a roster passed as ``ml_g=[...]``, ``ml_m=[...]``.",
           "type": "string",
           "x-statspai-role": "column"
         },

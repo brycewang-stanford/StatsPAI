@@ -726,7 +726,9 @@ def dml_model_averaging(
         solution of the score, and the standard error is built from
         within-cluster score sums. One candidate with ``cluster=`` returns
         the estimate and standard error of ``sp.dml(cluster=)`` with that
-        learner. Two-way clustering is in ``sp.dml`` only.
+        learner. Two-way clustering, the IV-type score and survey designs
+        are in ``sp.dml``, which short-stacks a roster passed as
+        ``ml_g=[...]``, ``ml_m=[...]``.
 
     Returns
     -------
@@ -790,7 +792,8 @@ def dml_model_averaging(
         raise MethodIncompatibility(
             f"{context}: cluster must name one column; two-way clustering "
             "is available in sp.dml(cluster=[c1, c2]) only.",
-            recovery_hint="Pass cluster='col' for one-way clustering.",
+            recovery_hint="Pass cluster='col' for one-way clustering, or "
+            "short-stack in sp.dml: ml_g=[...], ml_m=[...], cluster=[c1, c2].",
             diagnostics={"context": context, "cluster": repr(cluster)},
         )
     if cluster is not None:
