@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44 → next: the `sp.dml` PLR default learner's replacement is named
+## 1.44.0 → 1.44.1: the `sp.dml` PLR default learner's replacement is named
 
 Nothing changes numerically. 1.44.0 announced that the gradient-boosting
 default of `sp.dml(model="plr")` would be replaced no earlier than 1.45,
@@ -25,6 +25,10 @@ random forest and gradient boosting, the estimator
   since four learners are cross-fitted. `tests/reliability/dml_default_candidates.py` records
   the four other candidates and why they were not chosen.
 - `model="irm"`, `"pliv"` and `"iivm"` are not affected.
+- New in 1.44.1, nothing to migrate: `sp.dml_model_averaging` takes
+  `cluster=` (one-way) and `n_rep=`, computed as `sp.dml` computes them, so
+  the coming default can be tried today on clustered data or with repeated
+  cross-fitting.
 
 ---
 
@@ -47,7 +51,7 @@ Nothing changes numerically. `sp.dml(model="plr")` without `ml_g` / `ml_m`
 (or with only one of them) still fits gradient boosting (100 trees,
 depth 3) for the unset nuisance, now with a `FutureWarning`: that default will be replaced, no earlier than 1.45. The
 replacement is not chosen yet. (Chosen after 1.44.0: short stacking; see
-"1.44 → next" above.)
+"1.44.0 → 1.44.1" above.)
 
 - To keep today's estimates, pass `ml_g="gbm", ml_m="gbm"`. The aliases
   build the same learners, so the estimate and SE stay identical and the
