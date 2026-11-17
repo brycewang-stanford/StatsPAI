@@ -132,10 +132,16 @@ b = sp.dml_model_averaging(df, y="y", treat="d", covariates=xs)
 abs(a.estimate - b.estimate) / a.se
 ```
 
-The gradient-boosting default of `sp.dml(model="plr")` will be replaced,
-no earlier than 1.45. A call that leaves `ml_g` or `ml_m` unset says so with a
-`FutureWarning`. Pass `ml_g="gbm", ml_m="gbm"` to keep today's estimates.
-That pin builds the same learners as the default.
+From 1.45 (no earlier) the default of `sp.dml(model="plr")` is short
+stacking, the estimator `sp.dml_model_averaging` fits today. A second
+study (`tests/reliability/dml_default_candidates.py`) tried four other
+replacements, and none beat boosting everywhere. Short stacking was
+chosen on its worst case. Over fifteen design cells it covers better
+than boosting on eleven, and its lowest coverage is 72% against 54%. It
+loses under the smooth nonlinear confounding of the table above. When
+two confounders interact, no learner tested covered more than 4%. A call
+that leaves `ml_g` or `ml_m` unset warns; pass `ml_g="gbm", ml_m="gbm"`
+to keep today's estimates.
 
 ## Weak instruments and poor overlap
 

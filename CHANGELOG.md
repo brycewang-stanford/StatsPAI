@@ -2,6 +2,37 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### `sp.dml` PLR default learner: the replacement is named
+
+- **From 1.45 (no earlier) the default of `sp.dml(model="plr")` is short
+  stacking over Lasso, Ridge, random forest and gradient boosting**, the
+  estimator `sp.dml_model_averaging` fits today. 1.44.0 announced the
+  change without naming a replacement; the `FutureWarning`, the
+  coverage note that `summary()` prints and the docstring now name it.
+  Nothing changes numerically in this release, and `ml_g="gbm",
+  ml_m="gbm"` still keeps today's estimates.
+- The choice rests on three simulation studies. Pooled over the fifteen
+  design cells where some learner covers (the JSS manuscript's
+  six-design table, `tests/reliability/dml_learners.py`, and the new
+  study below without its two interaction cells), short stacking covers
+  better than gradient boosting on eleven, and its lowest coverage is
+  0.720 against 0.540. It covers less on the four with smooth additive
+  confounding in ten covariates (0.720 to 0.870 against 0.863 to 0.900)
+  and is six to seven times slower to fit.
+- New study `tests/reliability/dml_default_candidates.py` (300
+  replications per cell, seven designs) compared the default with
+  boosting and histogram boosting with early stopping, Lasso on a spline
+  basis, a stack of Lasso and boosting, and short stacking. Its decision
+  rule, fixed before the first run, did not separate the candidates:
+  with two interacting confounders every learner covered under 0.04.
+  Short stacking was left out of the first run by oversight and added
+  after it; the study file says so.
+- The coverage note for the default learners now gives the range from
+  the package's simulations (0.54 to 0.94) instead of the single Track B
+  number.
+
 ## [1.44.0] — 2026-11-17
 
 The 2026-11-13 wave (owner decisions, four probes, two SE calibration

@@ -75,26 +75,31 @@ _FOLD_AWARE_MODELS = frozenset({"PLR", "IRM", "PLIV", "IIVM"})
 
 
 #: Printed by ``summary()`` on a PLR fit that used the default learners.
-#: Numbers are the Track B coverage row and its learner experiment
-#: (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``).
+#: The range is the default learner's coverage over the designs of
+#: ``tests/reliability/dml_learners.py``, ``dml_default_candidates.py``
+#: (all but the two interaction cells, near 0) and the JSS six-design table.
 _DEFAULT_PLR_LEARNER_NOTE = (
-    "default gradient boosting; 95% CI covered 0.88 on the one design "
-    "tested (n=500). Pass learners or compare sp.dml_model_averaging. "
-    "This default changes, no earlier than 1.45."
+    "default gradient boosting; 95% CI covered 0.54 to 0.94 in most of "
+    "the package's simulations. From 1.45 the default is short stacking, "
+    "which sp.dml_model_averaging fits now; or pass learners."
 )
 
 
-# Announced after 1.43.1 (MIGRATION.md); the change lands no earlier than
-# 1.45. The replacement is not chosen: short-stacking fixes the
-# Track B design but covers 0.73 at nonlinear n=500 in
-# tests/reliability/dml_learners_results.json, below boosting's 0.87.
+# Announced in 1.44.0 (MIGRATION.md); the change lands no earlier than
+# 1.45. The replacement, chosen 2026-11-17, is short stacking over Lasso,
+# Ridge, random forest and gradient boosting (sp.dml_model_averaging). It
+# covers better on eight of the ten designs of
+# tests/reliability/dml_learners.py and the JSS six-design table, and
+# worse under smooth additive confounding (0.73 against 0.87 at n=500);
+# tests/reliability/dml_default_candidates.py records the decision.
 def _announce_plr_default_change(g_unset: bool, m_unset: bool) -> None:
     """``FutureWarning`` for a PLR fit that relies on a default learner.
 
     Called by ``sp.dml`` and ``DoubleML.fit`` when ``model='plr'`` leaves
     ``ml_g`` or ``ml_m`` unset and no ``external_predictions`` are given.
-    No replacement value is chosen yet, so ``announce_default_change``
-    (which names one) does not fit; the stacklevel rule is the shared one.
+    The replacement is an estimator, not a value of one argument, so
+    ``announce_default_change`` does not fit; the stacklevel rule is the
+    shared one.
     """
     import warnings
 
@@ -107,12 +112,14 @@ def _announce_plr_default_change(g_unset: bool, m_unset: bool) -> None:
         f"dml(model='plr'): {' and '.join(unset)} not given, so "
         f"{'these nuisances use' if len(unset) > 1 else 'this nuisance uses'} "
         "the default learner, gradient boosting (100 trees, depth 3), whose "
-        "95% interval covers 0.87 to 0.94 in the package's Monte Carlo "
-        "checks. This default will be replaced, no earlier than 1.45. Pass "
-        "ml_g='gbm', ml_m='gbm' to keep the current estimates (they build "
-        "the same learners) and silence this warning, or choose learners "
-        "for the problem; sp.dml_model_averaging fits several and stacks "
-        "them. See MIGRATION.md.",
+        "95% interval covers 0.54 to 0.94 in most of the package's Monte "
+        "Carlo designs. From 1.45 (no earlier) the default is short "
+        "stacking over Lasso, Ridge, random forest and gradient boosting, "
+        "the estimator "
+        "sp.dml_model_averaging fits now. Pass ml_g='gbm', ml_m='gbm' to "
+        "keep the current estimates (they build the same learners) and "
+        "silence this warning, or choose learners for the problem. See "
+        "MIGRATION.md.",
         FutureWarning,
         stacklevel=external_stacklevel(),
     )

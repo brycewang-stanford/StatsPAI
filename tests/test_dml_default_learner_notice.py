@@ -3,7 +3,9 @@
 The gradient-boosting default under-covers in the package's Monte Carlo
 checks (``tests/coverage_monte_carlo/mechanisms/results_dml_plr_learners.json``
 and ``tests/reliability/dml_learners_results.json``), so it is announced to
-be replaced no earlier than 1.45. Today's numbers stay; a PLR call that
+be replaced no earlier than 1.45, by short stacking
+(``tests/reliability/dml_default_candidates.py`` records the choice).
+Today's numbers stay; a PLR call that
 relies on a default learner gets a ``FutureWarning`` naming it, and the pin
 the warning names reproduces the default bit for bit.
 """
@@ -45,7 +47,8 @@ def test_default_plr_warns_at_the_callers_line(data):
     assert len(fw) == 1
     msg = str(fw[0].message)
     assert "ml_g and ml_m not given" in msg
-    assert "no earlier than 1.45" in msg
+    assert "From 1.45 (no earlier) the default is short stacking" in msg
+    assert "sp.dml_model_averaging" in msg
     assert "ml_g='gbm', ml_m='gbm'" in msg
     assert fw[0].filename == __file__
 

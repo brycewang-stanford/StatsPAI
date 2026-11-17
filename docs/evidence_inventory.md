@@ -1134,6 +1134,12 @@ Simulation studies under `tests/reliability/`, each with its design fixed in the
 
 | Study | Method | Quantity | B | Designs | At nominal | Furthest from nominal |
 | --- | --- | --- | ---: | ---: | ---: | --- |
+| `dml_default_candidates` | gbm | coverage | 300 | 7 | 0 | 0.000 (shape=interaction, n=2000) |
+| `dml_default_candidates` | gbm_es | coverage | 300 | 7 | 3 | 0.000 (shape=interaction, n=500) |
+| `dml_default_candidates` | hgb_es | coverage | 300 | 7 | 3 | 0.023 (shape=interaction, n=500) |
+| `dml_default_candidates` | lasso_splines | coverage | 300 | 7 | 3 | 0.000 (shape=interaction, n=500) |
+| `dml_default_candidates` | stack | coverage | 300 | 7 | 2 | 0.000 (shape=interaction, n=500) |
+| `dml_default_candidates` | short_stacking | coverage | 300 | 7 | 3 | 0.000 (shape=interaction, n=500) |
 | `dml_learners` | ols | coverage | 300 | 4 | 2 | 0.000 (shape=nonlinear, n=500) |
 | `dml_learners` | lasso | coverage | 300 | 4 | 2 | 0.000 (shape=nonlinear, n=500) |
 | `dml_learners` | rf | coverage | 300 | 4 | 1 | 0.433 (shape=nonlinear, n=500) |

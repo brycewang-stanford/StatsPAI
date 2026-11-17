@@ -168,7 +168,7 @@ class TestDMLGeneral:
 
         default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
         assert default.model_info["default_learners"] is True
-        assert "0.88" in default.model_info["learner_note"]
+        assert "0.54 to 0.94" in default.model_info["learner_note"]
         assert "Learner Note" in default.summary()
 
         supplied = dml(
@@ -191,7 +191,7 @@ class TestDMLGeneral:
         the pin it names builds the same learners, so it keeps the
         estimate to the last bit and is silent."""
 
-        with pytest.warns(FutureWarning, match="no earlier than 1.45") as rec:
+        with pytest.warns(FutureWarning, match=r"From 1\.45 \(no earlier\)") as rec:
             default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
         hits = [w for w in rec if issubclass(w.category, FutureWarning)]
         assert len(hits) == 1

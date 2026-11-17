@@ -903,9 +903,60 @@ What the table says:
   rows they disagree by many standard errors.
 
 This complements the Track B mechanism experiment
-(`tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py`), on which
-the note in `sp.dml`'s result rests; that note is unchanged. Rerun with
+(`tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py`). The note
+in `sp.dml`'s result quotes the boosting cells of this study, the next
+one and the JSS six-design table. Rerun with
 `python tests/reliability/dml_learners.py` (about an hour and a half).
+
+## Choosing the replacement for the DML default (`dml_default_candidates.py`)
+
+1.44.0 announced that the gradient-boosting default of
+`sp.dml(model='plr')` would be replaced. This study compared it with
+five candidates on seven designs, 300 replications per cell (Monte Carlo
+standard error about 0.013 at 95%). The linear and nonlinear designs are
+those of the study above; `interaction` has two confounders entering as
+a product (`m = 0.5 x0 + 0.5 x1 x2`, `g = x0 + x1 x2 + 0.5 x3`); Track B
+is the two-covariate design of `run_b1000.py`. `gbm_es` and `hgb_es` are
+boosting and histogram boosting with early stopping, `lasso_splines` is
+Lasso on cubic splines, `stack` stacks Lasso and `gbm_es` inside each
+fold, and `short_stacking` is `sp.dml_model_averaging` at its defaults.
+Entries are bias / coverage.
+
+| design | n | `gbm` | `gbm_es` | `hgb_es` | `lasso_splines` | `stack` | `short_stacking` |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| linear | 500 | -0.02 / 0.907 | -0.00 / 0.927 | -0.00 / 0.940 | +0.00 / 0.937 | -0.00 / 0.923 | -0.00 / 0.943 |
+| linear | 2000 | -0.01 / 0.923 | -0.00 / 0.943 | -0.01 / 0.927 | +0.00 / 0.957 | -0.00 / 0.953 | -0.00 / 0.950 |
+| nonlinear | 500 | +0.05 / 0.863 | +0.10 / 0.687 | +0.20 / 0.217 | +0.04 / 0.880 | +0.09 / 0.727 | +0.09 / 0.720 |
+| nonlinear | 2000 | +0.02 / 0.893 | +0.04 / 0.760 | +0.06 / 0.460 | +0.01 / 0.907 | +0.03 / 0.847 | +0.02 / 0.860 |
+| interaction | 500 | +0.25 / 0.023 | +0.35 / 0.000 | +0.23 / 0.023 | +0.41 / 0.000 | +0.39 / 0.000 | +0.30 / 0.000 |
+| interaction | 2000 | +0.25 / 0.000 | +0.27 / 0.000 | +0.10 / 0.037 | +0.40 / 0.000 | +0.30 / 0.000 | +0.17 / 0.000 |
+| Track B | 500 | -0.03 / 0.887 | -0.00 / 0.950 | +0.01 / 0.960 | -0.00 / 0.940 | -0.00 / 0.953 | -0.00 / 0.960 |
+| seconds per fit, n = 2000 | | 4.0 | 4.5 | 1.5 | 1.0 | 13.9 | 25.6 |
+
+What the table says:
+
+- No candidate beats the default everywhere. Early stopping helps with
+  linear confounding and stops too soon with nonlinear confounding,
+  badly so for histogram boosting (0.217 at n = 500). Lasso on splines is
+  the best with smooth additive confounding and cannot fit a product.
+- With an interaction every learner covers under 0.04.
+- The decision rule fixed before the first run (highest worst-cell
+  coverage, replace only if it beats the default by more than 0.025)
+  therefore separates nothing: every score is near 0. Short stacking was
+  left out of the first run by oversight and added after it.
+- The owner chose short stacking for 1.45 on the cells of all three
+  studies where some learner covers: it covers better on eleven of
+  fifteen and its worst coverage there is 0.720 against 0.540 (the JSS
+  manuscript's six-design table). It loses on the four smooth additive
+  cells and takes six to seven times as long.
+- The reported SE tracks the spread of the estimates (ratio 0.85 to
+  1.15) except for early-stopped boosting with an interaction at
+  n = 2000, where it is 0.64 alone and 0.65 inside the stack.
+
+Rerun with `python tests/reliability/dml_default_candidates.py` (about
+two hours on eight cores; naming a method reruns its cells only).
+`tests/test_reliability_dml_default_candidates.py` recomputes the first
+25 replications of two cells and checks the statements above.
 
 ## Split-sample evaluation of fixed-effects forests (`forest_split_evaluation.py`)
 

@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44 → next: the `sp.dml` PLR default learner's replacement is named
+
+Nothing changes numerically. 1.44.0 announced that the gradient-boosting
+default of `sp.dml(model="plr")` would be replaced no earlier than 1.45,
+without naming the replacement. It is short stacking over Lasso, Ridge,
+random forest and gradient boosting, the estimator
+`sp.dml_model_averaging` fits today, and the `FutureWarning` now says so.
+
+- To keep today's estimates after the switch, pass `ml_g="gbm",
+  ml_m="gbm"` now. The aliases build the default learners exactly.
+- To see the coming estimate today, call
+  `sp.dml_model_averaging(data, y=..., treat=..., covariates=...)`.
+- What to expect: over fifteen simulated design cells, short stacking
+  covers better on eleven and its lowest coverage is 0.720 against
+  0.540. Under smooth additive confounding in ten covariates it covers
+  less (0.720 against 0.863 at n = 500). With two interacting
+  confounders neither covers. Fitting takes six to seven times as long,
+  since four learners are cross-fitted. `tests/reliability/dml_default_candidates.py` records
+  the four other candidates and why they were not chosen.
+- `model="irm"`, `"pliv"` and `"iivm"` are not affected.
+
+---
+
 ## 1.43 → 1.44: announced default takes effect (`sp.event_study_vcov`)
 
 The default that 1.43 announced for 1.44 with a `FutureWarning` changes
@@ -23,7 +46,8 @@ covariance (`sp.aggte(..., type='dynamic')`, `sp.sun_abraham`,
 Nothing changes numerically. `sp.dml(model="plr")` without `ml_g` / `ml_m`
 (or with only one of them) still fits gradient boosting (100 trees,
 depth 3) for the unset nuisance, now with a `FutureWarning`: that default will be replaced, no earlier than 1.45. The
-replacement is not chosen yet.
+replacement is not chosen yet. (Chosen after 1.44.0: short stacking; see
+"1.44 → next" above.)
 
 - To keep today's estimates, pass `ml_g="gbm", ml_m="gbm"`. The aliases
   build the same learners, so the estimate and SE stay identical and the

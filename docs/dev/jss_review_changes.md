@@ -6451,3 +6451,20 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   changed.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-17 — DML PLR warning names its replacement
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** The commit that names short stacking as the 1.45 PLR
+  default re-records `tests/r_parity/results/_implementation_trace.json`.
+- **Reason.** `src/statspai/dml/_base.py` and
+  `src/statspai/dml/double_ml.py` (modules 08 and 71) changed in the text
+  of the `FutureWarning`, the `summary()` note and the docstring only.
+- **Effect on the paper.** None on any number: both modules were re-run
+  without Rust in the Python 3.10.20 reference environment and reproduce
+  the committed results byte for byte. Section 5.5 says the replacement
+  "is not settled"; it now is (short stacking), which the next re-anchor
+  may want to say.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`

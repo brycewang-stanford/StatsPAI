@@ -264,9 +264,11 @@ def dml(
     A PLR fit that used the defaults records this in
     ``model_info["learner_note"]``, which ``summary()`` prints.
 
-    Announced change: the PLR default learner will be replaced, no
-    earlier than 1.45. A PLR call that leaves ``ml_g`` or ``ml_m`` unset
-    warns (``FutureWarning``) unless it passes ``external_predictions``.
+    Announced change: from 1.45 (no earlier) the PLR default is short
+    stacking over Lasso, Ridge, random forest and gradient boosting, the
+    estimator ``sp.dml_model_averaging`` fits now. A PLR call that leaves
+    ``ml_g`` or ``ml_m`` unset warns (``FutureWarning``) unless it passes
+    ``external_predictions``.
     ``ml_g='gbm', ml_m='gbm'`` builds exactly today's default learners, so
     it keeps current estimates and silences the warning. IRM, PLIV and
     IIVM defaults are not part of the change.
