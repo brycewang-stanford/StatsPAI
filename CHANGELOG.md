@@ -2,7 +2,11 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.44.2] — 2026-11-18
+
+`sp.dml(model="plr")` fits the announced 1.45 default today, with
+`ml_g="stack", ml_m="stack"`, on every PLR option. No number changes
+and the default learner is still gradient boosting.
 
 ### `sp.dml(model="plr")` short-stacks a roster of learners
 
