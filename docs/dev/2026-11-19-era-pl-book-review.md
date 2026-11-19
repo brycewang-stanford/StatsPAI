@@ -92,6 +92,37 @@ rewrite could reach with a text column.
    `masspoints="off"`. The bin engine already implemented it; it is now
    passed through. Bins equal R `rdplot` on the chapter's floats.
 
+### Third pass (after 1.44.3): every list-taking function
+
+A sweep of the 430 registered functions that take columns as a list
+(`x=`, `covariates=`, `controls=`, `exog=` ...) called each one with a
+digit-label text column and again with the same column as floats. Where
+both ran and gave identical numbers, the labels had been read as numbers.
+It found 34 such functions beyond the first two passes, plus
+`sp.panel(method="re")`, which raised a bare `TypeError` instead.
+
+- Covariate lists of causal estimators now expand the column, following
+  `core/_covariates.py` (IPW, AIPW, TMLE and matching already did):
+  `sp.match` / `sp.psm`, `sp.didregress`, `sp.twowayfeweights`,
+  `sp.westfall_young`, `sp.qte`, `sp.multi_treatment`, `sp.fect`, the DML
+  family, `sp.conformal_cate`, `sp.bcf`, `sp.bcf_ordinal`.
+- Regressor lists refuse it (`core/_label_guard.py`): `sp.xtabond`,
+  `sp.xtdpdsys`, `sp.ardl`, `sp.xtpcse`, `sp.xtregar`, `sp.mmqreg`,
+  `sp.ridge(y=, x=)`, `sp.glmnet`, `sp.ivqreg`, `sp.rlasso_iv`,
+  `sp.interactive_fe`, `sp.etregress`, `sp.truncreg`, `sp.panel_fgls`,
+  `sp.frontier`, `sp.xtfrontier`, `sp.zisf`, `sp.lcsf`, `sp.arima(exog=)`,
+  `sp.noisy_covariates`.
+- `sp.panel` expands it in every method, equal to explicit dummies.
+- Left alone on purpose: `sp.shrinkage` and its group read numbers stored
+  as text as numbers (October rule, tested); the RD helpers' `x` is a
+  running variable.
+
+The sweep fills only common required arguments (`y`, `treat`, `id`,
+`time` ...), so functions with other required arguments were skipped, and
+`sp.bcf_longitudinal` timed out. For the rewrite: pass category columns
+through a formula with `C()`, or as `covariates=` of a causal estimator;
+for an `x=` list, build the indicators first.
+
 Checked and fine: Polars `Categorical`, `Enum`, `Int8`, `UInt32`, `Date`
 columns and `LazyFrame` input; `sp.bitest` against `stats.binomtest`
 (1e-14); per-firm `da ~ part_i` on samples of 3 to 10 rows against the

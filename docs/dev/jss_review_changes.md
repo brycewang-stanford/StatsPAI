@@ -6549,3 +6549,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   removed. The committed result files were kept.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-19 — traces re-recorded (covariate-list expansion, regressor-list refusal)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `60acdd811` re-records
+  `tests/r_parity/results/_implementation_trace.json` (7 modules: `11_psm`,
+  `28_frontier`, `29_panel_sfa`, `39_arima`, `62_truncreg`, `86_fect`,
+  `91_biprobit`) and `tests/orig_parity/results/_implementation_trace.json`
+  (2 modules: `04_lalonde_original`, `04b_nsw_psid_original`).
+- **Reason.** `matching/match.py`, `synth/fect.py` and twelve other files
+  gained the covariate-list expansion of `core/_covariates.py`;
+  `frontier/sfa.py`, `frontier/panel.py`, `timeseries/arima.py`,
+  `regression/truncreg.py`, `regression/selection.py` and six others gained
+  the label-column refusal of the new `core/_label_guard.py`. No parity
+  module passes a text covariate or regressor.
+- **Effect on the paper.** None on any number. Each module was re-run
+  without Rust under pandas 2.3.3 and reproduces its committed result to
+  8e-12 or better (`62_truncreg` 8.4e-12 on one SE, `11_psm` 6e-15, the
+  rest exactly). The committed result files were kept.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
