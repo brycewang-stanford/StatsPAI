@@ -69,6 +69,21 @@ RADIAL_MOMENTS = {
 }
 
 
+def euclid(d1: Any, d2: Any) -> Any:
+    """``sqrt(d1^2 + d2^2)`` from IEEE basic operations only.
+
+    ``np.hypot`` / ``math.hypot`` come from the platform's maths library
+    and can differ in the last bit between builds (numpy 2.2 on a Linux
+    runner against macOS). On a lattice of mass points, distances that are
+    equal in exact arithmetic then tie on one platform and not on another,
+    and a quantile or k-th-distance cut moves whole groups of observations
+    (a 0.16% bandwidth change in ``rd2d(approach="distance")``). Squares,
+    a sum and a square root are correctly rounded everywhere, and this is
+    the formula R ``rd2d`` uses, so ties break as they do there.
+    """
+    return np.sqrt(d1 * d1 + d2 * d2)
+
+
 def canonical_kernel(kernel: str) -> str:
     """Full kernel name for any accepted spelling (KeyError otherwise)."""
     return KERNEL_NAMES[str(kernel).lower()]

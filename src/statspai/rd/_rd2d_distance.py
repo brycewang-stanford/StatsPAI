@@ -31,6 +31,7 @@ from ._rd2d_common import (
     RADIAL_MOMENTS,
     canonical_kernel,
     cer_rate,
+    euclid,
     fit_window,
     kernel_1d,
     point_covariance,
@@ -129,7 +130,7 @@ def _kink_distance(eval_pts: np.ndarray, kink: np.ndarray) -> np.ndarray:
         return np.full(eval_pts.shape[0], np.inf)
     K = eval_pts[kink]
     dmin: np.ndarray = np.min(
-        np.hypot(
+        euclid(
             eval_pts[:, None, 0] - K[None, :, 0], eval_pts[:, None, 1] - K[None, :, 1]
         ),
         axis=1,

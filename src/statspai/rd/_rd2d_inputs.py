@@ -17,7 +17,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from ._rd2d_common import KERNEL_NAMES
+from ._rd2d_common import KERNEL_NAMES, euclid
 
 _APPROACHES = ("location", "distance", "pooled")
 _KERNEL_TYPES = ("prod", "rad")
@@ -222,7 +222,7 @@ def _distance_matrix(
     if distance is None:
         sign = 2.0 * T - 1.0
         return np.column_stack(
-            [np.hypot(X1 - b[j, 0], X2 - b[j, 1]) * sign for j in range(J)]
+            [euclid(X1 - b[j, 0], X2 - b[j, 1]) * sign for j in range(J)]
         )
     if (
         isinstance(distance, (list, tuple))

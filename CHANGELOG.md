@@ -60,6 +60,16 @@ The review is in `docs/dev/2026-11-19-era-pl-book-review.md`.
 - **`sp.rdplot(masspoints=)`.** R's `rdplot` option (`"adjust"`, the
   default and the behaviour so far, `"check"` or `"off"`) is passed to the
   bin selection; the book's RD chapter uses `masspoints="off"`.
+- **`sp.rd2d` gives the same numbers on every platform.** Distances to the
+  boundary points were computed with `np.hypot`, whose last bit depends on
+  the platform's maths library. On a lattice of mass points, distances
+  that are equal in exact arithmetic then tied on one machine and not on
+  another, and the `cqt` quantile cut moved a group of observations: with
+  numpy 2.2 on some Linux runners, one boundary point of
+  `approach="distance", masspoints="adjust"` had a 0.16% smaller
+  bandwidth and an estimate 1e-3 away from R `rd2d`. Distances are now
+  `sqrt(d1^2 + d2^2)` from basic operations, as in R. On macOS the numbers
+  are unchanged to the last digit or two.
 
 ## [1.44.2] — 2026-11-18
 

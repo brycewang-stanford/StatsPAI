@@ -38,6 +38,7 @@ from ._rd2d_common import (
     RADIAL_MOMENTS,
     WindowFit,
     cer_rate,
+    euclid,
     fit_window,
     kernel_1d,
     monomials,
@@ -144,8 +145,8 @@ def _weights(
         return wp
     # Radial kernel at radius sqrt(h1^2 + h2^2) (the reference's fit; see
     # the clean-room record for its variance scaling, not reproduced).
-    r = math.hypot(h1, h2)
-    return kernel_1d(_snap(np.hypot(d1, d2) / r), kernel) / (r * r)
+    r = float(euclid(h1, h2))
+    return kernel_1d(_snap(euclid(d1, d2) / r), kernel) / (r * r)
 
 
 def _scalar_weights(
@@ -154,7 +155,7 @@ def _scalar_weights(
     if kernel_type == "prod":
         wp: np.ndarray = kernel_1d(d1 / h, kernel) * kernel_1d(d2 / h, kernel)
         return wp
-    return kernel_1d(np.hypot(d1, d2) / h, kernel)
+    return kernel_1d(euclid(d1, d2) / h, kernel)
 
 
 # --------------------------------------------------------------------------
@@ -260,7 +261,7 @@ def _point_constants(
         z[idx] = v
         return z
 
-    dmed = [float(np.median(np.hypot(*sides[t]))) for t in (0, 1)]
+    dmed = [float(np.median(euclid(*sides[t]))) for t in (0, 1)]
     fp = [
         _side_fit(
             sides[t], ycols[t], A[t], kernel, kernel_type, p, clusters[t], "pilot"
@@ -410,9 +411,9 @@ def location_bandwidths(
                 d1, d2 = sides[t]
                 if unique_floor:
                     u = np.unique(np.column_stack([d1, d2]), axis=0)
-                    dist = np.hypot(u[:, 0], u[:, 1])
+                    dist = euclid(u[:, 0], u[:, 1])
                 else:
-                    dist = np.hypot(d1, d2)
+                    dist = euclid(d1, d2)
                 fl[t] = _kth_distance(dist, bwcheck)
                 A[t] = max(a0, fl[t])
         floors.append(fl)
@@ -557,7 +558,7 @@ def _effective_bandwidth(
         s1, s2 = scale
         lam = _kth_distance(np.maximum(np.abs(d1) / s1, np.abs(d2) / s2), bwcheck)
         return max(h1, lam * s1), max(h2, lam * s2)
-    lam = _kth_distance(np.hypot(d1, d2), bwcheck)
+    lam = _kth_distance(euclid(d1, d2), bwcheck)
     return max(h1, lam), max(h2, lam)
 
 
