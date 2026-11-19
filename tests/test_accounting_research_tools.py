@@ -258,6 +258,42 @@ def test_trim_sets_the_tails_to_missing_and_keeps_the_cut_values():
     assert "v_cut" in named
 
 
+def test_winsor_warns_on_infinite_values_and_leaves_them_out():
+    # 1..100 plus one +inf: the cut-offs are those of 1..100 alone
+    df = pd.DataFrame({"v": np.r_[np.arange(1.0, 101.0), np.inf]})
+    with pytest.warns(sp.StatsPAIWarning, match="1 infinite") as rec:
+        out = sp.winsor(df, ["v"], cuts=(1, 99))
+    assert rec[0].message.diagnostics == {"variable": "v", "n_infinite": 1}
+    # type-2 quantile of 1..100 at 1% / 99%: (1 + 2) / 2 and (99 + 100) / 2
+    assert out["v_w"].min() == 1.5 and out["v_w"].max() == 99.5
+    assert np.isnan(out["v_w"].iloc[-1])
+    with pytest.warns(sp.StatsPAIWarning, match="stay infinite"):
+        rep = sp.winsor(df, ["v"], cuts=(1, 99), replace=True)
+    assert rep["v"].iloc[-1] == np.inf
+
+
+def test_winsor_warns_on_missing_group_key_and_leaves_those_rows():
+    df = pd.DataFrame(
+        {"v": np.arange(1.0, 9.0), "g": [1.0, 1, 1, 1, 2, 2, np.nan, np.nan]}
+    )
+    with pytest.warns(sp.StatsPAIWarning, match="2 row") as rec:
+        rep = sp.winsor(df, ["v"], cuts=(30, 70), by="g", replace=True)
+    assert rec[0].message.diagnostics == {"rows_missing_by": 2}
+    assert rep["v"].iloc[-2:].tolist() == [7.0, 8.0]
+    # group 1 is 1..4: type-2 30% / 70% quantiles are 2 and 3
+    assert rep["v"].iloc[:4].tolist() == [2.0, 2.0, 3.0, 3.0]
+    with pytest.warns(sp.StatsPAIWarning, match="get NaN"):
+        new = sp.winsor(df, ["v"], cuts=(30, 70), by="g")
+    assert new["v_w"].iloc[-2:].isna().all()
+
+
+def test_winsor_is_silent_on_clean_data():
+    df = pd.DataFrame({"v": np.arange(1.0, 101.0), "g": np.repeat([0, 1], 50)})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        sp.winsor(df, ["v"], by="g")
+
+
 # ---------------------------------------------------------------- formulas
 
 

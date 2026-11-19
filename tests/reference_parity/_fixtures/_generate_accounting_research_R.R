@@ -75,6 +75,21 @@ tr <- d$tail; tr[!is.na(tr) & (tr < q[1] | tr > q[2])] <- NA
 q5 <- quantile(d$tail, c(0.05, 0.95), type = 2, na.rm = TRUE)
 out$winsor <- list(cuts = unname(q), cuts5 = unname(q5), w = w, tr = tr)
 
+# the same within year, as the book's group_by(fyear) |> mutate(across(x, winsorize));
+# balanced (150 a year, n p = 3 at 2%) and unbalanced (gap == 0) panels
+wins_by <- function(x, g, lo, hi, trim = FALSE) {
+  ave(x, g, FUN = function(v) {
+    q <- quantile(v, c(lo, hi), type = 2, na.rm = TRUE)
+    if (trim) { v[!is.na(v) & (v < q[1] | v > q[2])] <- NA; return(v) }
+    v[!is.na(v) & v < q[1]] <- q[1]; v[!is.na(v) & v > q[2]] <- q[2]; v
+  })
+}
+pp <- read.csv("accounting_research_panel.csv"); ppg <- pp[pp$gap == 0, ]
+out$winsor_by_year <- list(
+  w = wins_by(pp$y, pp$year, 0.01, 0.99), w2 = wins_by(pp$y, pp$year, 0.02, 0.98),
+  tr = wins_by(pp$y, pp$year, 0.01, 0.99, trim = TRUE),
+  w_gap = wins_by(ppg$y, ppg$year, 0.05, 0.90))
+
 # NDCG at k (farr::ndcg) and the rank AUC (farr::auc)
 ndcg <- function(score, resp, k) {
   rk <- sort(score, index.return = TRUE, decreasing = TRUE)$ix

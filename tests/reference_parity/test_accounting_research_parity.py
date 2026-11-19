@@ -418,6 +418,24 @@ def test_winsor_and_trim_match_r_type2_quantile(cross, R):
     assert rel([w.min(), w.max()], ref["cuts"]) < EXACT
 
 
+@pytest.mark.parametrize(
+    "key, gap, cuts, trim",
+    [
+        ("w", False, (1, 99), False),
+        ("w2", False, (2, 98), False),  # n p = 3 in each year: averaged order stats
+        ("tr", False, (1, 99), True),
+        ("w_gap", True, (5, 90), False),  # unequal year sizes, asymmetric cuts
+    ],
+)
+def test_winsor_by_year_matches_grouped_type2_quantile(panel, R, key, gap, cuts, trim):
+    """group_by(year) |> mutate(across(y, winsorize)), the book's usage."""
+    data = panel[panel["gap"] == 0] if gap else panel
+    got = sp.winsor(data, ["y"], cuts=cuts, by="year", trim=trim, replace=True)["y"]
+    want = pd.Series(R["winsor_by_year"][key], dtype=float)
+    assert (got.isna().to_numpy() == want.isna().to_numpy()).all()
+    assert rel(got.dropna(), want.dropna()) < EXACT
+
+
 def test_winsor_and_trim_match_stata_winsor2(cross, stata):
     ref = stata["winsor2"]
     cols = {

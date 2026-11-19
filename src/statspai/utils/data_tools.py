@@ -13,7 +13,8 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
-from ..exceptions import MethodIncompatibility
+from ..exceptions import MethodIncompatibility, StatsPAIWarning
+from ..exceptions import warn as _warn
 
 
 def pwcorr(
@@ -278,7 +279,12 @@ def winsor(
 
     The ``'stata'`` percentile is also R's ``quantile(type = 2)``, so
     ``sp.winsor(df, [v], cuts=(1, 99))`` equals ``farr::winsorize(v, 0.01)``
-    and ``trim=True`` equals ``farr::truncate(v, 0.01)``.
+    and ``trim=True`` equals ``farr::truncate(v, 0.01)``. With ``by=``
+    it equals ``group_by(g) |> mutate(across(v, winsorize))``, with two
+    exceptions that each raise a warning: infinite values are left out
+    of the cut-offs (farr counts them and pulls them in), and rows with
+    a missing group key are left alone (dplyr winsorizes them as one
+    more group).
 
     Before 1.33 the cutoffs used numpy's linear interpolation, which
     differs from ``winsor2`` on every variable whose ``n p / 100`` is not
@@ -310,12 +316,43 @@ def winsor(
     else:
         by_cols = [by] if isinstance(by, str) else list(by)
         groups = df.groupby(by_cols, dropna=False, sort=False).ngroup().to_numpy()
-        in_sample = in_sample & df[by_cols].notna().all(axis=1).to_numpy()
+        key_missing = df[by_cols].isna().any(axis=1).to_numpy() & in_sample
+        if key_missing.any():
+            left = "keep their value" if replace else "get NaN in the new columns"
+            _warn(
+                StatsPAIWarning,
+                f"sp.winsor: {int(key_missing.sum())} row(s) have a missing "
+                f"value in by={by_cols}; they get no cut-offs and {left}, as "
+                "in Stata's winsor2 by(). dplyr's group_by() (e.g. with "
+                "farr::winsorize) treats the missing key as a group of its "
+                "own and winsorizes it.",
+                stacklevel=3,
+                recovery_hint="Drop or fill the rows with a missing group key "
+                "before calling sp.winsor.",
+                diagnostics={"rows_missing_by": int(key_missing.sum())},
+            )
+        in_sample = in_sample & ~key_missing
 
     for var in vars:
         col = df[var].values.astype(float)
         valid = np.isfinite(col)
         use = valid & in_sample
+        n_inf = int((np.isinf(col) & in_sample).sum())
+        if n_inf:
+            left = "stay infinite" if replace else f"get NaN in {var + suffix}"
+            _warn(
+                StatsPAIWarning,
+                f"sp.winsor: {var} has {n_inf} infinite value(s); they are "
+                f"left out of the cut-offs and {left}. farr::winsorize (R) "
+                "counts them in the quantile and pulls them in to the "
+                "cut-offs, which also moves the cut-offs; Stata has no "
+                "infinite values.",
+                stacklevel=3,
+                recovery_hint="Set infinite values to NaN (e.g. from a "
+                "division by zero) before winsorizing, or clip them first if "
+                "they should count as extreme observations.",
+                diagnostics={"variable": var, "n_infinite": n_inf},
+            )
 
         winsorized = col.copy()
         for gcode in np.unique(groups[use]):

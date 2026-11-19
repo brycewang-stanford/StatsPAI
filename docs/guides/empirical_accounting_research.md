@@ -133,6 +133,22 @@ Winsorizing uses the percentile definition of Stata's `winsor2` and R's
 `quantile(type = 2)`, which are the same. Winsorize regressors, not the
 outcome: selecting on the dependent variable biases the slope.
 
+Winsorizing within year, as the book does with
+`group_by(fyear) |> mutate(across(x, winsorize))`, is `by=`:
+
+```python
+sp.winsor(comp, ["ta", "cfo", "lev"], cuts=(1, 99), by="fyear", replace=True)
+```
+
+It agrees with `farr::winsorize` to the last digit, with two exceptions,
+and each one raises a warning. An infinite value, say from a division by
+zero, is left out of the cut-offs and left as it is; `farr::winsorize`
+counts it in the quantile, which moves the cut-offs, and then pulls it in.
+A row with a missing `fyear` is left alone, as in Stata's `winsor2, by()`;
+`group_by()` makes the missing years a group of their own and winsorizes
+it. Set infinite values to missing and drop rows without a year first, and
+the two agree.
+
 A Poisson model can be quasi-separated. In the whistleblower regressions
 every firm with `mobflag = 1` paid no penalty, so that coefficient has no
 finite estimate. `sp.poisson` fits the rest, warns, and lists the
