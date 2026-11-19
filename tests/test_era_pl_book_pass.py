@@ -357,6 +357,15 @@ def _cov_frame():
     df["z"] = df["x2"] + rng.normal(size=len(df))
     df["g[T.10]"] = (df["g"] == "10").astype(float)
     df["g[T.2]"] = (df["g"] == "2").astype(float)
+    df["m"] = 0.5 * df["d"] + df["x"] + rng.normal(size=len(df))
+    df["dur"] = rng.exponential(1.0, len(df))
+    df["ev"] = rng.integers(0, 3, len(df))  # competing causes 1, 2
+    df["ev01"] = (df["ev"] > 0).astype(int)
+    df["ylo"] = df["y"] - 1
+    df["yhi"] = df["y"] + 1
+    df["prot"] = rng.integers(0, 2, len(df))
+    df["worker"] = df["id"]
+    df["firm"] = df["id"] % 6
     return df
 
 
@@ -378,6 +387,18 @@ _EXPANDING = {
     ),
     "dynamic_dml": lambda d, c: sp.dynamic_dml(
         data=d, y="y", treat="d", id="id", time="time", covariates=c
+    ),
+    "mediate": lambda d, c: sp.mediate(
+        data=d, y="y", treat="d", mediator="m", covariates=c, n_boot=50, seed=0
+    ),
+    "negative_control_outcome": lambda d, c: sp.negative_control_outcome(
+        data=d, nco="x2", treat="d", covariates=c
+    ),
+    "stteffects": lambda d, c: sp.stteffects(
+        data=d, duration="dur", event="ev01", treat="d", covariates=c
+    ),
+    "akm": lambda d, c: sp.akm(
+        data=d, y="y", worker="worker", firm="firm", covariates=c, seed=0
     ),
 }
 
@@ -431,6 +452,13 @@ _REFUSING = {
     "noisy_covariates": lambda d: sp.noisy_covariates(
         data=d, y="y", treat="d", covariates=["x", "g"]
     ),
+    "xtintreg": lambda d: sp.xtintreg(
+        data=d, y_lower="ylo", y_upper="yhi", x=["x", "g"], id="id"
+    ),
+    "finegray": lambda d: sp.finegray(data=d, duration="dur", event="ev", x=["x", "g"]),
+    "orthogonal_to_bias": lambda d: sp.orthogonal_to_bias(
+        data=d, features=["x", "g"], protected="prot"
+    ),
 }
 
 
@@ -438,3 +466,95 @@ _REFUSING = {
 def test_regressor_list_text_is_refused(name):
     with pytest.raises(MethodIncompatibility, match="category labels"):
         _REFUSING[name](_cov_frame())
+
+
+def test_ddd_heterogeneous_and_mc_synth_expand_text_covariates():
+    rng = np.random.default_rng(1)
+    N, T = 120, 8
+    df = pd.DataFrame(
+        {"id": np.repeat(np.arange(N), T), "time": np.tile(np.arange(T), N)}
+    )
+    df["x"] = np.repeat(rng.normal(size=N), T)
+    df["g"] = np.repeat(rng.choice(["1", "2", "10"], N), T)
+    df["coh"] = np.repeat(
+        np.where(np.arange(N) % 3 == 0, 0, 4 + 2 * (np.arange(N) % 3 == 2)), T
+    )
+    df["sg"] = np.repeat(rng.integers(0, 2, N), T)
+    df["y"] = (
+        1
+        + df["x"]
+        + 0.5 * ((df["coh"] > 0) & (df["time"] >= df["coh"]) & (df["sg"] == 1))
+    )
+    df["y"] += rng.normal(size=len(df))
+    df["g[T.10]"] = (df["g"] == "10").astype(float)
+    df["g[T.2]"] = (df["g"] == "2").astype(float)
+    dummies = ["x", "g[T.10]", "g[T.2]"]
+
+    def ddd(c):
+        return sp.ddd_heterogeneous(
+            df,
+            y="y",
+            unit="id",
+            time="time",
+            cohort="coh",
+            subgroup="sg",
+            x=c,
+            seed=1,
+            n_boot=50,
+            est_method="reg",
+        ).estimate
+
+    def mc(c):
+        return sp.mc_synth(
+            df,
+            outcome="y",
+            unit="id",
+            time="time",
+            treated_unit=0,
+            treatment_time=6,
+            covariates=c,
+            seed=3,
+            placebo=False,
+        ).estimate
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert ddd(["x", "g"]) == pytest.approx(ddd(dummies), rel=1e-10)
+        assert mc(["x", "g"]) == pytest.approx(mc(dummies), rel=1e-10)
+
+
+def test_panel_fd_omits_a_regressor_the_differences_remove():
+    pytest.importorskip("linearmodels")
+    df = _panel_text_frame()
+    df["h8"] = (df["h"] == "8").astype(float)  # constant within unit
+    with pytest.warns(UserWarning, match="first differences remove"):
+        a = sp.panel(df, "y ~ x + h8", entity="id", time="time", method="fd")
+    b = sp.panel(df, "y ~ x", entity="id", time="time", method="fd")
+    assert a.model_info["omitted"] == ["h8"]
+    np.testing.assert_allclose(a.params.to_numpy(), b.params.to_numpy(), rtol=1e-12)
+    with pytest.raises(MethodIncompatibility, match="every regressor"):
+        sp.panel(df, "y ~ h8", entity="id", time="time", method="fd")
+
+
+def test_panel_be_with_cluster_is_refused():
+    pytest.importorskip("linearmodels")
+    df = _panel_text_frame()
+    with pytest.raises(MethodIncompatibility, match="no clustered standard errors"):
+        sp.panel(df, "y ~ x", entity="id", time="time", method="be", cluster="id")
+
+
+def test_bcf_longitudinal_needs_twenty_bootstrap_draws():
+    df = _panel_text_frame()
+    df["d"] = (df["x"] > 0).astype(int)
+    with pytest.raises(MethodIncompatibility, match="at least 20"):
+        sp.bcf_longitudinal(
+            df,
+            outcome="y",
+            treatment="d",
+            unit="id",
+            time="time",
+            covariates=["x"],
+            n_trees_mu=10,
+            n_trees_tau=5,
+            n_bootstrap=5,
+        )

@@ -33,7 +33,8 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import AssumptionWarning, IdentificationFailure
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
+from ..exceptions import AssumptionWarning, IdentificationFailure, MethodIncompatibility
 
 # sklearn is imported lazily inside the helpers that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -202,6 +203,7 @@ def _fit_mu_tau_at_time(
 
 
 @accepts_aliases(id="unit", treat="treatment", y="outcome", seed="random_state")
+@_expands_categorical("covariates")
 def bcf_longitudinal(
     data: pd.DataFrame,
     *,
@@ -228,6 +230,7 @@ def bcf_longitudinal(
         BCF regularisation: ``n_trees_tau < n_trees_mu`` shrinks toward
         homogeneous effects.
     n_bootstrap : int, default 100
+        Bootstrap draws for the standard errors; at least 20.
     alpha : float, default 0.05
     random_state : int, default 42
 
@@ -430,6 +433,19 @@ def bcf_longitudinal(
     all_units = df[unit].unique()
     boot_point = []
     boot_per_time: Dict[Any, List[float]] = {t: [] for t in time_vals}
+    if (
+        isinstance(n_bootstrap, bool)
+        or not isinstance(n_bootstrap, (int, np.integer))
+        or n_bootstrap < 20
+    ):
+        # the standard errors need at least 20 successful draws; a smaller
+        # value used to run every draw and then fail with "5/5 succeeded"
+        raise MethodIncompatibility(
+            f"sp.bcf_longitudinal: n_bootstrap={n_bootstrap!r}; the standard "
+            "errors need at least 20 bootstrap draws.",
+            recovery_hint="Pass n_bootstrap=20 or more (default 100).",
+            diagnostics={"n_bootstrap": n_bootstrap},
+        )
     for b in range(n_bootstrap):
         draw = rng.choice(all_units, size=len(all_units), replace=True)
         boot_parts = []

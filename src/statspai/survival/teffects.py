@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _param_surv as ps
@@ -41,6 +42,7 @@ def _design(df: pd.DataFrame, cols: Sequence[str]) -> np.ndarray:
     return np.column_stack([X, np.ones(len(df))])
 
 
+@_expands_categorical("covariates")
 def stteffects(
     data: pd.DataFrame,
     duration: str,

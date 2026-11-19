@@ -58656,7 +58656,7 @@
           },
           "n_bootstrap": {
             "default": 100,
-            "description": "Number of bootstrap replications.",
+            "description": "Bootstrap draws for the standard errors; at least 20.",
             "type": "integer"
           },
           "n_trees_mu": {

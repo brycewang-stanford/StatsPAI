@@ -50,6 +50,7 @@ from scipy import stats
 
 from .._input_validation import clean_frame
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 
 
 @dataclass
@@ -139,6 +140,7 @@ def _ols_with_se(
 # --------------------------------------------------------------------
 
 
+@_expands_categorical("covariates")
 def negative_control_outcome(
     data: pd.DataFrame,
     nco: str,
@@ -225,6 +227,7 @@ def negative_control_outcome(
 # --------------------------------------------------------------------
 
 
+@_expands_categorical("covariates")
 def negative_control_exposure(
     data: pd.DataFrame,
     y: str,
@@ -292,6 +295,7 @@ def negative_control_exposure(
 # --------------------------------------------------------------------
 
 
+@_expands_categorical("covariates")
 def double_negative_control(
     data: pd.DataFrame,
     y: str,

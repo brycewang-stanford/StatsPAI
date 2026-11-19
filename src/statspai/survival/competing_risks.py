@@ -63,6 +63,7 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
@@ -758,6 +759,7 @@ def _weighted_at_risk(time: np.ndarray, w: np.ndarray, at: np.ndarray) -> np.nda
 
 
 @records_call("finegray")
+@refuses_label_columns("x")
 def finegray(
     data: pd.DataFrame,
     duration: str,

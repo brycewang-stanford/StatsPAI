@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import (
     ColumnNotFound,
     DataInsufficient,
@@ -317,6 +318,7 @@ def _partial_out(
     return xb, coef, info
 
 
+@_expands_categorical("covariates")
 def akm(
     data: pd.DataFrame,
     y: str,

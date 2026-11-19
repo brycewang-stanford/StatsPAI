@@ -23,11 +23,19 @@ The rest of the sweep found the same cast in two more groups.
   `sp.westfall_young`, `sp.qte(controls=)`, `sp.multi_treatment`,
   `sp.fect`, `sp.dml_did`, `sp.dml_panel`, `sp.dynamic_dml`,
   `sp.dml_model_averaging`, `sp.conformal_cate` / `sp.conformal_ite`,
-  `sp.bcf`, `sp.bcf_ordinal`. Numbers change for such calls only.
+  `sp.bcf`, `sp.bcf_ordinal`, `sp.bcf_longitudinal`, `sp.mediate`,
+  `sp.mediate_interventional`, `sp.stteffects`, `sp.akm`, `sp.mc_synth`,
+  `sp.did_timevarying_covariates`, `sp.ddd_heterogeneous(x=)`,
+  `sp.double_negative_control`, `sp.negative_control_exposure`,
+  `sp.negative_control_outcome`. Numbers change for such calls only.
 - Regressor lists refuse it: `sp.glmnet`, `sp.ivqreg`, `sp.rlasso_iv`,
   `sp.interactive_fe`, `sp.etregress`, `sp.truncreg`, `sp.panel_fgls`,
   `sp.frontier`, `sp.xtfrontier`, `sp.zisf`, `sp.lcsf`, `sp.arima(exog=)`,
-  `sp.noisy_covariates`.
+  `sp.noisy_covariates`, `sp.xtintreg`, `sp.finegray`,
+  `sp.orthogonal_to_bias(features=)`.
+- `sp.panel(method="fd")` drops a regressor that is constant within units
+  (warning, `model_info["omitted"]`) instead of failing; `method="be"` with
+  `cluster=` now raises `MethodIncompatibility`.
 
 ## 1.44.2 → 1.44.3: ⚠️ text regressors in count, ordered and quantile models
 

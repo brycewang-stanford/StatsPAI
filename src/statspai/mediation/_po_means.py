@@ -137,18 +137,23 @@ def _expand_categorical_covariates(
 
     One indicator per level except the lowest, named ``g[level]`` -- the
     coding ``i.g`` has in Stata and ``C(g)`` in a formula. Rows where ``g``
-    is missing get missing indicators and drop out with the rest.
+    is missing get missing indicators and drop out with the rest. A plain
+    entry naming a text or ``category`` column is read as ``C(g)``: cast to
+    float, digit labels (an industry code) would enter as one number.
     """
-    if not any(_CATEGORICAL.match(c) for c in covariates):
+    from ..core.utils import label_columns
+
+    labels = set(label_columns(data, covariates))
+    if not labels and not any(_CATEGORICAL.match(c) for c in covariates):
         return data, covariates
     frame = data.copy()
     out: List[str] = []
     for cov in covariates:
         m = _CATEGORICAL.match(cov)
-        if not m:
+        if not m and cov not in labels:
             out.append(cov)
             continue
-        name = m.group(1)
+        name = m.group(1) if m else cov
         if name not in frame.columns:
             raise ColumnNotFound.from_missing(
                 [name],
@@ -157,7 +162,10 @@ def _expand_categorical_covariates(
             )
         levels = sorted(frame[name].dropna().unique().tolist())
         for level in levels[1:]:
-            label = int(level) if float(level).is_integer() else level
+            numeric = isinstance(level, (int, float, np.number)) and not isinstance(
+                level, bool
+            )
+            label = int(level) if numeric and float(level).is_integer() else level
             col = f"{name}[{label}]"
             frame[col] = np.where(
                 frame[name].isna(), np.nan, (frame[name] == level).astype(float)

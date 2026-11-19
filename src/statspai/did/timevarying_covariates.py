@@ -87,6 +87,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core._call_record import records_call
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _core as _dc
@@ -94,6 +95,7 @@ from . import _core as _dc
 
 @records_call("did_timevarying_covariates")
 @accepts_aliases(id="unit")
+@_expands_categorical("covariates")
 def did_timevarying_covariates(
     data: pd.DataFrame,
     y: str,

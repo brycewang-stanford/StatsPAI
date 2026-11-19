@@ -117,9 +117,22 @@ It found 34 such functions beyond the first two passes, plus
   as text as numbers (October rule, tested); the RD helpers' `x` is a
   running variable.
 
-The sweep fills only common required arguments (`y`, `treat`, `id`,
-`time` ...), so functions with other required arguments were skipped, and
-`sp.bcf_longitudinal` timed out. For the rewrite: pass category columns
+A second sweep filled the arguments the first one lacked (treated unit,
+treatment time, mediator, cohort, cluster, duration / event ...) for the
+126 functions it had skipped, and ran `sp.bcf_longitudinal` on its own.
+It added thirteen: `sp.mediate`, `sp.mediate_interventional`,
+`sp.stteffects`, `sp.akm`, `sp.mc_synth`, `sp.did_timevarying_covariates`,
+`sp.ddd_heterogeneous`, the three negative-control estimators and
+`sp.bcf_longitudinal` now expand; `sp.xtintreg`, `sp.finegray` and
+`sp.orthogonal_to_bias` refuse. Functions that need a result object, a
+spatial weight matrix or shift-share shares as input were not probed.
+The same round made `sp.panel(method="fd")` omit a regressor constant
+within units (it raised `LinAlgError`), refused `method="be"` with
+`cluster=`, and fixed `sp.bcf_longitudinal(n_bootstrap<20)`, which ran
+every draw and then reported "Only 5/5 bootstrap draws succeeded".
+
+The rule chosen (owner-delegated, 2026-11-19) is written down in
+`docs/dev/modules/formulas_covariates.md`. For the rewrite: pass category columns
 through a formula with `C()`, or as `covariates=` of a causal estimator;
 for an `x=` list, build the indicators first.
 

@@ -34,6 +34,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ..matrix_completion._core import _center, _check_fixed_effects, mc_nnm_fit
@@ -45,6 +46,7 @@ from ._core import placebo_rank_pvalue
 
 
 @accepts_aliases(id="unit", y="outcome")
+@_expands_categorical("covariates")
 def mc_synth(
     data: pd.DataFrame,
     outcome: str,

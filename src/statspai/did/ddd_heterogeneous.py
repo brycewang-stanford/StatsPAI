@@ -79,6 +79,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, NumericalInstability
 from . import _core as _dc
@@ -86,6 +87,7 @@ from ._ddd_dr import ddd_dr_cell
 
 
 @accepts_aliases(id="unit")
+@_expands_categorical("x")
 def ddd_heterogeneous(
     data: pd.DataFrame,
     y: str,

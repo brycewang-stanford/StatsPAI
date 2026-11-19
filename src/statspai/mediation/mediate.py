@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -339,7 +340,8 @@ def mediate(
     mediator : str
         Mediator variable.
     covariates : list of str, optional
-        Pre-treatment covariates to control for.
+        Pre-treatment covariates to control for. A text or ``category``
+        column is expanded into ``name[T.level]`` indicators.
     n_boot : int, default 1000
         Number of bootstrap replications for inference.
     alpha : float, default 0.05
@@ -486,6 +488,21 @@ def mediate(
     ----------
     imai2010general, vanderweele2014unification
     """
+    if isinstance(data, pd.DataFrame) and covariates:
+        # a plain text / category covariate becomes g[T.level] indicators
+        # (core/_covariates.py); it used to be cast to float. ``C(g)``
+        # entries keep the potential-outcome path's own coding.
+        from ..core._covariates import expand_categorical_covariates
+        from ..core.utils import label_columns
+
+        plain = [c for c in covariates if isinstance(c, str) and c in data.columns]
+        labels = label_columns(data, plain)
+        if labels:
+            data, _, info = expand_categorical_covariates(
+                data, labels, function="mediate"
+            )
+            cols = info["columns"] if info else {}
+            covariates = [n for c in covariates for n in (cols.get(c) or [c])]
     if inference not in ("bootstrap", "delta", "robust"):
         raise ValueError(
             "inference must be 'bootstrap', 'delta' or 'robust'; " f"got {inference!r}"
@@ -1058,6 +1075,7 @@ CausalResult._CITATIONS["mediation"] = (
 )
 
 
+@_expands_categorical("covariates", "tv_confounders")
 def mediate_interventional(
     data: pd.DataFrame,
     y: str,

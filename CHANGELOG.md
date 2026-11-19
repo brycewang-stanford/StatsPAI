@@ -27,13 +27,28 @@ All notable changes to StatsPAI will be documented in this file.
   (`core/_covariates.py`, used by IPW, AIPW, TMLE, matching and the
   staggered DiD estimators): each level other than the first
   becomes a `g[T.level]` indicator. Results equal the call with those
-  indicators passed explicitly.
+  indicators passed explicitly. A second sweep, with the extra arguments
+  the first one skipped (treated unit, mediator, cohort ...), added
+  `sp.mediate`, `sp.mediate_interventional`, `sp.stteffects`, `sp.akm`,
+  `sp.mc_synth`, `sp.did_timevarying_covariates`,
+  `sp.ddd_heterogeneous(x=)` (base-period covariates), the three
+  negative-control estimators and `sp.bcf_longitudinal`.
 - **⚠️ correctness fix: thirteen more regressor lists refuse a text
   column.** `sp.glmnet`, `sp.ivqreg` (`exog=`, `instruments=`),
   `sp.rlasso_iv`, `sp.interactive_fe`, `sp.etregress`, `sp.truncreg`,
   `sp.panel_fgls`, `sp.frontier`, `sp.xtfrontier`, `sp.zisf`, `sp.lcsf`,
-  `sp.arima(exog=)` and `sp.noisy_covariates` raise
-  `MethodIncompatibility` where they fitted the codes.
+  `sp.arima(exog=)`, `sp.noisy_covariates`, `sp.xtintreg`, `sp.finegray`
+  and `sp.orthogonal_to_bias(features=)` raise `MethodIncompatibility`
+  where they fitted the codes.
+- **`sp.panel(method="fd")` omits a regressor the differences remove.** A
+  regressor constant within units raised a bare `LinAlgError`; it is now
+  omitted with a warning, as `method="fe"` does (Stata omits it too), and
+  the fit equals the one without it. `method="be"` with `cluster=` raises
+  `MethodIncompatibility` (Stata's `xtreg, be` has conventional SEs only)
+  instead of linearmodels' `ValueError`.
+- **`sp.bcf_longitudinal(n_bootstrap=)` below 20** ran every draw and then
+  failed with "Only 5/5 bootstrap draws succeeded". It now says that the
+  standard errors need at least 20 draws.
 - **`sp.panel(method="re")` with a text regressor.** It raised a bare
   `TypeError` (unit means of a text column) where the other methods
   expand the column into linearmodels' indicators (`g.10`). The default

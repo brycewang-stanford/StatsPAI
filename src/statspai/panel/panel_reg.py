@@ -1058,18 +1058,35 @@ def _dispatch_panel_impl(
                 alternative_functions=_PANEL_ALTERNATIVES,
             )
 
-    # --- Regressors the fixed effects absorb ---
-    if canonical in ("fe", "twoway"):
+    # --- Between estimator: one row per unit, conventional SEs only ---
+    if canonical == "be" and cluster is not None:
+        raise MethodIncompatibility(
+            "sp.panel(method='be') has no clustered standard errors: the "
+            "between regression has one row per unit, and Stata's xtreg, be "
+            "reports conventional standard errors only.",
+            recovery_hint="Drop cluster= for method='be' (robust='robust' "
+            "gives heteroskedasticity-robust SEs across units).",
+            diagnostics={"method": canonical, "cluster": cluster},
+            alternative_functions=_PANEL_ALTERNATIVES,
+        )
+
+    # --- Regressors the fixed effects (or first differences) absorb ---
+    if canonical in ("fe", "twoway", "fd"):
         kept, omitted = _drop_absorbed_regressors(
             data, dep_var, indep_vars, entity, time, canonical
+        )
+        absorber = (
+            "the first differences remove"
+            if canonical == "fd"
+            else "the fixed effects absorb"
         )
         if omitted and not kept:
             # Every slope is absorbed. The fit used to go ahead and report
             # the constant linearmodels adds back (the grand mean of y)
-            # under the regressor's name.
+            # under the regressor's name (fd: a singular matrix).
             raise MethodIncompatibility(
                 f"sp.panel(method={canonical!r}): every regressor {omitted} "
-                "is absorbed by the fixed effects (no variation left within "
+                f"is absorbed ({absorber} them: no variation left within "
                 f"{'units and periods' if canonical == 'twoway' else 'units'}"
                 "), so no slope is identified.",
                 recovery_hint="Use regressors that vary within units, or a "
@@ -1081,7 +1098,7 @@ def _dispatch_panel_impl(
         if omitted and kept:
             warnings.warn(
                 f"sp.panel(method={canonical!r}): {omitted} omitted because "
-                "the fixed effects absorb them (no variation left within "
+                f"{absorber} them (no variation left within "
                 f"{'units and periods' if canonical == 'twoway' else 'units'}"
                 ", or collinear with the other regressors).",
                 UserWarning,

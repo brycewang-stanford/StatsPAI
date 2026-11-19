@@ -13,6 +13,7 @@ import pandas as pd
 
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._label_guard import refuses_label_columns
 from ..exceptions import (
     ColumnNotFound,
     DataInsufficient,
@@ -731,6 +732,7 @@ def counterfactual_fairness(
 # -------------------------------------------------------------------------
 
 
+@refuses_label_columns("features")
 def orthogonal_to_bias(
     data: pd.DataFrame,
     *,

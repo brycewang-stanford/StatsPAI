@@ -27,6 +27,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._collinear import drop_collinear_names
+from ..core._label_guard import refuses_label_columns
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ..regression._optim_helpers import (
@@ -193,6 +194,7 @@ def _fit(panel: _Panel, k: int, theta0: np.ndarray, intpoints: int) -> Dict[str,
 
 @records_call("xtintreg")
 @accepts_aliases(entity="id", covariates="x")
+@refuses_label_columns("x")
 def xtintreg(
     data: pd.DataFrame,
     y_lower: str,

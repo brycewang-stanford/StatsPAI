@@ -4,7 +4,10 @@ import warnings
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
 
-warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)
+# pandas 3 removed SettingWithCopyWarning (copy-on-write is the default)
+_SWC = getattr(pd.errors, "SettingWithCopyWarning", None)
+if _SWC is not None:
+    warnings.filterwarnings("ignore", category=_SWC)
 
 MODULE = "50_xtabond"
 
