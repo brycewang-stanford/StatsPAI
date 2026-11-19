@@ -6530,3 +6530,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-19 — traces re-recorded (sp.panel RE and dynamic-panel text regressors)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `0a486b006` re-records
+  `tests/r_parity/results/_implementation_trace.json` (3 modules:
+  `35_panel`, `69_balance_panel`, `50_xtabond`).
+- **Reason.** `panel/panel_reg.py` and `panel/_ssc.py` expand a text
+  regressor in `sp.panel(method="re")` and in the `ssc=` covariance;
+  `gmm/_dynpanel/_fit.py` refuses a text regressor. No parity module
+  passes one.
+- **Effect on the paper.** None on any number. Each module was re-run
+  without Rust and reproduces its committed result exactly (maximum
+  relative difference 0). `50_xtabond` was run under pandas 2.3.3: its
+  entry script names `pd.errors.SettingWithCopyWarning`, which pandas 3
+  removed. The committed result files were kept.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
