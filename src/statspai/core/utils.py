@@ -350,6 +350,71 @@ def evaluate_formula_expression(expr: str, data: pd.DataFrame) -> pd.Series:
     return design.iloc[:, 0].astype(float).reindex(data.index)
 
 
+def label_columns(data: Any, names: Any) -> List[str]:
+    """Regressor names whose column holds category labels, not numbers.
+
+    Text, object and ``category`` columns. An estimator that builds its
+    design with ``data[v].astype(float)`` read a column of digit labels
+    (Fama-French industry ``"1"`` ... ``"48"``, SIC codes kept as text) as
+    one continuous regressor without a word, and failed on letters. patsy,
+    statsmodels and R expand such a column into indicators; so do the
+    estimators that route it through their formula path. Booleans are 0/1
+    and are not listed.
+    """
+    if not isinstance(data, pd.DataFrame):
+        return []
+    out: List[str] = []
+    for v in names or []:
+        if not isinstance(v, str) or v not in data.columns:
+            continue
+        col = data[v]
+        if isinstance(col, pd.DataFrame):
+            continue
+        dtype = col.dtype
+        if pd.api.types.is_bool_dtype(dtype) or pd.api.types.is_numeric_dtype(dtype):
+            continue
+        if isinstance(dtype, pd.CategoricalDtype):
+            out.append(v)
+        elif pd.api.types.is_object_dtype(dtype) or pd.api.types.is_string_dtype(dtype):
+            # an object column of plain numbers keeps its numeric reading
+            kind = pd.api.types.infer_dtype(col, skipna=True)
+            if kind not in (
+                "integer",
+                "floating",
+                "mixed-integer-float",
+                "decimal",
+                "boolean",
+                "empty",
+            ):
+                out.append(v)
+    return out
+
+
+def refuse_label_columns(data: Any, names: Any, *, function: str) -> None:
+    """Raise when a regressor list names a column of category labels.
+
+    For the column-list entry points (``y=`` / ``x=``) that have no factor
+    expansion: casting the labels to float would fit an industry code as a
+    number.
+    """
+    found = label_columns(data, names)
+    if not found:
+        return
+    from ..exceptions import MethodIncompatibility
+
+    raise MethodIncompatibility(
+        f"{function}: regressor column(s) {found} hold category labels "
+        "(text or category dtype), not numbers; reading them as one "
+        "numeric regressor would treat the codes as quantities.",
+        recovery_hint=(
+            "Pass a formula with C(name) to expand the column into "
+            "indicators, add the indicators yourself (pd.get_dummies), or "
+            "convert the column to numbers if it really is a quantity."
+        ),
+        diagnostics={"label_columns": found},
+    )
+
+
 def formula_to_columns(
     formula: str, data: pd.DataFrame
 ) -> Tuple[pd.DataFrame, str, List[str]]:

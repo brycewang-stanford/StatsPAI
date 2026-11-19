@@ -14,6 +14,37 @@ All notable changes to StatsPAI will be documented in this file.
   `by=` key are left alone, as in Stata's `winsor2, by()` (dplyr
   winsorizes them as a group of their own). No number changes.
 
+### Fixed
+Found by running the Python Polars edition of Gow and Lubberink,
+*Empirical Research in Accounting*, chapter by chapter against StatsPAI.
+The review is in `docs/dev/2026-11-19-era-pl-book-review.md`.
+
+- **⚠️ correctness fix: a text regressor in `sp.poisson`, `sp.nbreg`,
+  `sp.ologit`, `sp.oprobit` and `sp.qreg` is now expanded into
+  indicators.** A column of digit labels (Fama-French industry `"1"` to
+  `"12"`, a SIC code kept as text) was cast to float and fitted as one
+  numeric regressor, with no warning. Letter labels raised `ValueError`.
+  Such a column now goes through the formula path, as `C(name)` would,
+  and the coefficients equal statsmodels' (`g[T.10]`, `g[T.2]` ...).
+  `sp.zinb`, `sp.zip_model`, `sp.hurdle`, `sp.clogit` and the `y=` / `x=`
+  column-list entries have no factor expansion and now raise
+  `MethodIncompatibility` instead. Numeric and boolean columns are not
+  affected. See MIGRATION.md.
+- **A column read only as category labels may hold `inf`.** The book
+  codes a never-treated firm's event time as `-inf` inside `C(t,
+  Treatment(reference=-1))`. `sp.regress` and `sp.feols` refused the
+  whole call. A column that appears only as the first argument of `C()`,
+  `i()` or `factor()`, or as a fixed effect after `|`, is now exempt from
+  the infinite-value refusal, as in statsmodels, pyfixest and fixest.
+  Infinite values in a numeric use (a regressor, the outcome, weights)
+  are still refused.
+- **`sp.regress` rejects unknown keywords on every variance path.** With
+  `cluster=[a, b]`, `vce="cr2"`, `"cr3"`, `"conley"`, `"jackknife"` or
+  `dfadjust=True` the call returned before the check, so
+  `cluster=["firm", "year"], ssc=...` returned default two-way standard
+  errors without a word. It now raises `TypeError`, as the one-way path
+  did.
+
 ## [1.44.2] — 2026-11-18
 
 `sp.dml(model="plr")` fits the announced 1.45 default today, with

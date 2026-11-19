@@ -323,9 +323,14 @@ def _parse_formula_or_xy(
         indep_vars = parsed["exogenous"]
         fe_vars = parsed.get("fixed_effects", [])
         has_constant = parsed["has_constant"]
-        from ..core.utils import unquote_name
+        from ..core.utils import label_columns, unquote_name
 
-        if _needs_patsy(formula) and unquote_name(dep_var) in data.columns:
+        # a text / category regressor goes through patsy, which expands it
+        # into indicators (it used to be cast to float: digit labels became
+        # one numeric regressor, letters raised)
+        if (_needs_patsy(formula) or label_columns(data, indep_vars)) and unquote_name(
+            dep_var
+        ) in data.columns:
             return _patsy_count_design(formula, data, add_constant, fe_vars)
         _require_columns(data, [dep_var, *indep_vars], "formula")
         data = _complete_cases(data, [dep_var, *indep_vars])
@@ -347,6 +352,9 @@ def _parse_formula_or_xy(
         dep_var = _require_column_name(y, "y")
         X_cols = _normalize_column_list(x, "x")
         _require_columns(data, [dep_var, *X_cols], "y/x")
+        from ..core.utils import refuse_label_columns
+
+        refuse_label_columns(data, X_cols, function="count regression")
         data = _complete_cases(data, [dep_var, *X_cols])
         y_arr = data[dep_var].values.astype(np.float64)
         X_arr_parts = [data[v].values.astype(np.float64) for v in X_cols]

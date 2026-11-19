@@ -2137,6 +2137,25 @@ def regress(
     # take the native efficient path on the stored design; vce=cluster=[a,b]
     # runs CGM-2011 two-way; vce='jackknife' is an alias of CR3).
     vce_kw = kwargs.pop("vce", None) or robust
+    # The branches below (dfadjust, CR2/CR3, Conley, jackknife, wild, two-way
+    # cluster) return before the final check, so an unknown keyword --
+    # ``cluster=[a, b], ssc=...`` -- used to vanish without a word. Refuse it
+    # here; the wild bootstrap's own options are known only on that path.
+    _is_wild = isinstance(vce_kw, str) and vce_kw.lower() in (
+        "wild",
+        "wildbootstrap",
+        "wild_cluster",
+        "wcr",
+        "boottest",
+    )
+    from ..core._vcov_spec import reject_unknown_kwargs
+
+    reject_unknown_kwargs(
+        kwargs,
+        function="regress",
+        known=("weights",)
+        + (("wild_reps", "wild_weight_type", "seed") if _is_wild else ()),
+    )
     if dfadjust:
         kind_adj = vce_kw.lower() if isinstance(vce_kw, str) else ""
         if kind_adj not in ("hc2", "cr2") or (kind_adj == "cr2" and cluster is None):

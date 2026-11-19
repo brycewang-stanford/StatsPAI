@@ -265,6 +265,11 @@ def _build_matrices(
 
     all_vars = list(set([dep_var] + x_vars + inflate_vars))
     _require_plain_columns(data, [dep_var] + x_vars + inflate_vars, function)
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(
+        data, list(dict.fromkeys(x_vars + inflate_vars)), function=function
+    )
     df = data[all_vars].dropna()
 
     Y = df[dep_var].values.astype(float)
@@ -1114,6 +1119,9 @@ def hurdle(
         )
     all_vars = list(set([dep_var] + x_vars))
     _require_plain_columns(data, [dep_var] + x_vars, "hurdle")
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_vars, function="hurdle")
     df = data[all_vars].dropna()
 
     Y = df[dep_var].values.astype(float)

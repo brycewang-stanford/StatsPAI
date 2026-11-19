@@ -587,6 +587,49 @@ _NAME_TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
 _QUOTED_NAME = re.compile(r"""Q\(\s*(['"])(.+?)\1\s*\)|`([^`]+)`""")
 
 
+#: the first argument of a factor wrapper: ``C(t``, ``i(t``, ``factor(t``
+_FACTOR_ARG = re.compile(
+    r"(?<![\w.])(?:C|i|factor|as\.factor|as_factor)\(\s*([A-Za-z_][A-Za-z0-9_.]*)"
+)
+
+
+def label_only_columns(formula: Any, columns: Any) -> set:
+    """Columns a formula reads only as category labels, never as numbers.
+
+    A column is a label when it is the first argument of ``C()``, ``i()``,
+    ``factor()`` or ``as.factor()``, or a fixed effect after ``|`` (fixest
+    syntax; a ``|`` part with ``~`` in it is the instrument block, whose
+    names are numbers). ``inf`` in such a column is a category level, not
+    a failed transformation: the Gow and Lubberink event-study code codes a
+    never-treated firm's event time as ``-inf`` inside ``C(t,
+    Treatment(reference=-1))``, as R's ``i(t, ref = -1)`` code does. The
+    infinite-value refusal of :func:`require_finite` skips these columns.
+    A column that also appears anywhere else in the formula (``C(t) + t``)
+    is not a label column.
+    """
+    if not isinstance(formula, str) or "~" not in formula:
+        return set()
+    rhs = formula.split("~", 1)[1]
+    parts = rhs.split("|")
+    numeric_text = [parts[0]]
+    labels: set = set()
+    for part in parts[1:]:
+        if "~" in part:
+            numeric_text.append(part)  # endogenous ~ instruments
+        else:
+            labels.update(t for t in _NAME_TOKEN.findall(part) if t in columns)
+    body = " ".join(numeric_text)
+    labels.update(
+        m.group(1) for m in _FACTOR_ARG.finditer(body) if m.group(1) in columns
+    )
+    if not labels:
+        return set()
+    remainder = _FACTOR_ARG.sub(" ", body)
+    lhs = formula.split("~", 1)[0]
+    still_numeric = set(_NAME_TOKEN.findall(remainder + " " + lhs))
+    return {c for c in labels if c not in still_numeric}
+
+
 def _named_columns(value: Any, columns: Any) -> list:
     """Column names of ``columns`` that ``value`` refers to.
 
@@ -819,8 +862,27 @@ def check_estimator_input(
         _require_numeric_outcome(
             data, list(dict.fromkeys(outcome_cols)), function=function
         )
-    # 4. infinite values
-    require_finite(data, _columns(inf_ok), function=function)
+    # 4. infinite values (a column read only as category labels -- C(t),
+    # i(t), a fixed effect -- may hold inf as a level)
+    labels: set = set()
+    formula_params = [
+        name
+        for name, value in arguments.items()
+        if isinstance(value, str) and "~" in value and name in used
+    ]
+    for name in formula_params:
+        labels |= label_only_columns(arguments[name], columns)
+    if labels:
+        elsewhere = {
+            c
+            for name, cols in used.items()
+            if name not in formula_params and name != "cluster"
+            for c in cols
+        }
+        labels -= elsewhere
+    require_finite(
+        data, [c for c in _columns(inf_ok) if c not in labels], function=function
+    )
     # 5. a single cluster
     for c in clusters:
         n_levels = int(data[c].nunique(dropna=True))

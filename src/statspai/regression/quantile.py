@@ -247,13 +247,22 @@ def qreg(
     # Parse inputs
     if formula is not None:
         y_name, x_names = _parse_formula(formula)
-        if any(name not in data for name in [y_name] + x_names):
+        from ..core.utils import label_columns
+
+        # transformed / interaction terms, or a text / category regressor
+        # (patsy expands it into indicators; it used to be cast to float)
+        if any(name not in data for name in [y_name] + x_names) or label_columns(
+            data, x_names
+        ):
             # transformed, categorical or interaction terms: built as columns
             from ..core.utils import formula_to_columns
 
             data, y_name, x_names = formula_to_columns(formula, data)
     elif y is not None and x is not None:
         y_name, x_names = y, x
+        from ..core.utils import refuse_label_columns
+
+        refuse_label_columns(data, list(x_names), function="qreg")
     else:
         raise MethodIncompatibility("Provide either formula or (y, x)")
 

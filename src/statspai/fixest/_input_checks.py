@@ -28,7 +28,7 @@ from typing import Any, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
-from .._input_validation import require_finite
+from .._input_validation import label_only_columns, require_finite
 from ..exceptions import DataInsufficient, NumericalInstability
 
 __all__ = ["referenced_columns", "check_fixest_input", "translate_backend_failure"]
@@ -100,7 +100,10 @@ def check_fixest_input(
     used = referenced_columns(fml, data, [weights, *clusters, *extra])
     if not used:
         return
-    require_finite(data, used, function=entry)
+    # a column read only as category labels (C(t), i(t), a fixed effect)
+    # may hold inf as a level, as in fixest / pyfixest
+    labels = label_only_columns(fml, data.columns) - {weights}
+    require_finite(data, [c for c in used if c not in labels], function=entry)
     if not data.columns.is_unique:
         return  # pyfixest names the duplicated columns
     # rows fixest keeps: complete on every column the model reads

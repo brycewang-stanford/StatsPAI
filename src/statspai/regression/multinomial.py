@@ -106,6 +106,9 @@ def _build_matrices(
     """Return Y (1-d int array), X (n x k float), clean DataFrame."""
     if data is None:
         raise ValueError("'data' must be provided.")
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_names, function="categorical-outcome model")
     cols = [y_name] + x_names
     if extra_cols:
         cols = cols + [c for c in extra_cols if c not in cols]
@@ -174,8 +177,16 @@ def _formula_design_raw(
     """
     formula = _bare_outcome(formula)
     y_name, x_names = _parse_inputs(formula, data, y, x)
-    if formula is None or all(
-        isinstance(v, str) and data is not None and v in data.columns for v in x_names
+    from ..core.utils import label_columns
+
+    # a text / category regressor goes through patsy (indicators); the
+    # direct path cast it to float
+    if formula is None or (
+        all(
+            isinstance(v, str) and data is not None and v in data.columns
+            for v in x_names
+        )
+        and not label_columns(data, x_names)
     ):
         Y, X, df, names = _build_matrices(
             data, y_name, x_names, add_constant=add_constant, extra_cols=extra_cols
@@ -1373,6 +1384,9 @@ def clogit(
 
     y_name, x_names = _parse_inputs(formula, data, y, x)
     group_name = group
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_names, function="clogit")
 
     cols = [y_name, group_name] + x_names
     if cluster and cluster not in cols:

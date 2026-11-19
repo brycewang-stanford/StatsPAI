@@ -213,6 +213,39 @@ the number describes how much confounding it would take, not whether it
 is there. `sp.sensemakr` and `sp.oster_bounds` bound the coefficient
 itself.
 
+## The Python Polars edition
+
+Ian Gow and Martien Lubberink are writing a Python edition of the book
+(<https://iangow.github.io/era_pl_book/>) with Polars, statsmodels,
+pyfixest, linearmodels, rdrobust and causalml, and the helper package
+`era_pl` for its data. StatsPAI accepts the Polars frames directly. Each
+call below gives the book's number to machine precision unless the
+second column says otherwise.
+
+| the book runs | StatsPAI | note |
+| --- | --- | --- |
+| `smf.ols(f, df).fit()`, `fit(cov_type="HC1")` | `sp.regress(f, df)`, `robust="hc1"` | |
+| `cov_type="cluster"` with `use_correction`, `df_correction` | `sp.regress(f, df, cluster="firm")` | statsmodels reports normal p-values here, StatsPAI t(G - 1) |
+| `PanelOLS(...).fit(cov_type="clustered", cluster_entity=True, cluster_time=True, group_debias=False)` | `sp.feols(f, df, vcov={"CRV1": "firm + year"}, ssc=pf.ssc(G_adj=False))` | equal to 1e-4: linearmodels scales by n / (n - k), fixest by (n - 1) / (n - k). The default two-way SE (fixest, Stata) is larger by sqrt(G / (G - 1)) |
+| `FamaMacBeth.from_formula(...).fit(debiased=True)`; `cov_type="kernel", bandwidth=1` | `sp.fama_macbeth(f, df, time="year")`; `lags=1` | |
+| `pf.feols(...)` with any `vcov=` and `ssc=` | `sp.feols` with the same arguments | two-way clustering on a design whose covariance is not positive semi-definite: StatsPAI applies the eigenvalue fix of R's fixest and warns, pyfixest does not, so the SEs differ (chapter 19's by-year figure) |
+| `pf.feols("y ~ C(t, Treatment(reference=-1)) \| gvkey + year")` with `t = -inf` for never-treated firms | the same call | accepted since 2026-11-19 |
+| `pf.feols("y ~ 1 \| X ~ z_1 + z_2 + z_3")`, `iv_sargan`, first-stage F | `sp.ivreg("y ~ (X ~ z_1 + z_2 + z_3)", df)`; `diagnostics` holds the Sargan and first-stage F | |
+| `sm.Probit`, `sm.Logit`, `sm.Poisson`; average marginal effect | `sp.probit`, `sp.logit`, `sp.poisson`; `sp.margins(fit, data=df)` | |
+| `smf.glm(f, family=Poisson()).fit(cov_type="HC1")` | `sp.poisson(f, df, robust="hc1")` | StatsPAI's HC1 includes n / (n - k), as R and Stata do. Chapter 24 multiplies statsmodels' matrix by that factor, chapter 23 does not |
+| `sm.RLM(..., M=TukeyBiweight(c=3.4437))` | `sp.robreg(f, df, method="m", psi="bisquare", tuning=3.4437, vce="huber")` | coefficients equal to 3e-5: StatsPAI and R's `rlm` normalise the MAD by 0.6745, statsmodels by 0.674490 |
+| `get_influence().cooks_distance` | `sp.influence_measures(sp.regress(f, df))["cooksd"]` | |
+| `.era.winsorize()`, `.era.truncate()` | `sp.winsor(df, cols, cuts=(1, 99))`, `trim=True` | |
+| the chapter 24 ITCV function | `sp.itcv(fit, "wbflag", alpha=a)` | |
+| `rdrobust(y, x, c=75, fuzzy=d, masspoints="off")` | `sp.rdrobust(df, y=, x=, c=75, fuzzy=, masspoints="off")` | equal to R rdrobust 4.0. The Python rdrobust 2.1.1 port differs from R by about 1e-4 in the bandwidth when the running variable has ties |
+| `NearestNeighborMatch(caliper=0.03 / sd, replace=False, shuffle=False)` on data sorted by the score | `sp.match(df, y=, treat=, covariates=, pscore="pscore", replace=False, caliper=0.03, caliper_scale="raw", m_order="data")` | the same matched set. With `shuffle=True` the order is random and differs between tools |
+
+In chapter 24 the Poisson regression of `firmpenalty` has no finite
+coefficient on `mobflag`: the 13 cases with `mobflag = 1` all have a zero
+penalty. statsmodels reports a large negative number without comment;
+`sp.poisson` warns and lists the term in `model_info["separated_terms"]`.
+The coefficient on `wbflag` is identified and the two agree to 2e-13.
+
 ## What a paper written today would add
 
 - **Staggered adoption.** Chapter 21 estimates the effect of the inevitable

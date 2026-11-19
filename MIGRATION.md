@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44.2 → next: ⚠️ text regressors in count, ordered and quantile models
+
+A correctness fix. Numbers change only for calls that put a text or
+`category` column on the right-hand side of `sp.poisson`, `sp.nbreg`,
+`sp.ologit`, `sp.oprobit` or `sp.qreg`.
+
+- Before, a column of digit labels (`"1"`, `"2"`, `"10"`) was cast to
+  float and fitted as one numeric regressor named after the column. The
+  estimate treated industry codes as quantities.
+- Now the column is expanded into indicators with the first sorted level
+  as base, as `C(name)` does and as statsmodels does. The coefficients
+  are named `name[T.level]`.
+- To keep a numeric reading on purpose, convert the column first
+  (`df["x"] = df["x"].astype(float)`).
+- `sp.zinb`, `sp.zip_model`, `sp.hurdle`, `sp.clogit` and the `y=` /
+  `x=` column-list entries raise `MethodIncompatibility` for such a
+  column. Build the indicators with `pd.get_dummies`, or use a formula
+  with `C(name)` where the estimator takes one.
+
+---
+
 ## 1.44.0 → 1.44.1: the `sp.dml` PLR default learner's replacement is named
 
 Nothing changes numerically. 1.44.0 announced that the gradient-boosting
