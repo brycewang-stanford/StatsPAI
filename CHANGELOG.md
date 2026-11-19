@@ -2,6 +2,18 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **`sp.winsor` warns where it departs from `farr::winsorize`.** With
+  `by="year"` it equals the book's `group_by(year) |> mutate(across(x,
+  winsorize))` to the last digit, now pinned by a golden test. Two inputs
+  are handled differently and now raise a `StatsPAIWarning` with the count
+  in `diagnostics`. Infinite values stay out of the cut-offs (farr counts
+  them, which moves the cut-offs, and pulls them in). Rows with a missing
+  `by=` key are left alone, as in Stata's `winsor2, by()` (dplyr
+  winsorizes them as a group of their own). No number changes.
+
 ## [1.44.2] — 2026-11-18
 
 `sp.dml(model="plr")` fits the announced 1.45 default today, with
