@@ -5,6 +5,16 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44.3 → next: ⚠️ text regressors in seven more column-list estimators
+
+A correctness fix with no number changes for numeric data. `sp.xtabond`,
+`sp.xtdpdsys`, `sp.ardl`, `sp.xtpcse`, `sp.xtregar`, `sp.mmqreg` and
+`sp.ridge(y=, x=)` used to cast a text or `category`
+regressor (digit labels such as an industry code) to float and fit it as
+one number. They now raise `MethodIncompatibility`. Build the indicators
+with `pd.get_dummies`, use `sp.ridge` with a formula and `C(name)`, or
+convert the column with `.astype(float)` if it really is a quantity.
+
 ## 1.44.2 → 1.44.3: ⚠️ text regressors in count, ordered and quantile models
 
 A correctness fix. Numbers change only for calls that put a text or

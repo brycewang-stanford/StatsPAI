@@ -35,6 +35,7 @@ from scipy import stats
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
+from ..core.utils import refuse_label_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._forecast_common import require_time_order
 from .structural_break import _EXACT_FIT
@@ -784,6 +785,7 @@ def ardl(
     frame = data if time is None else data.sort_values(time, kind="stable")
     if time is not None:
         frame = frame.set_index(time)
+    refuse_label_columns(data, [y] + xs, function="sp.ardl")
     frame = frame[[y] + xs]
     if not frame.index.is_unique:
         raise MethodIncompatibility(

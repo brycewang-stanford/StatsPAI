@@ -2,6 +2,27 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **⚠️ correctness fix: seven more column-list estimators refuse a text
+  regressor.** A sweep of the 430 registered functions that take columns
+  as a list (`x=`, `covariates=` ...) found `sp.xtabond`, `sp.xtdpdsys`,
+  `sp.ardl`, `sp.xtpcse`, `sp.xtregar`, `sp.mmqreg` and `sp.ridge` (`y=` /
+  `x=` entry) fitting a column of digit labels as one number, with
+  estimates identical to the float-coded column. (`sp.shrinkage` keeps its
+  documented rule: numbers stored as text are read as numbers, labels
+  raise.) They now
+  raise `MethodIncompatibility`, as the other column-list entries did
+  since 1.44.3. `sp.ridge("y ~ x + g", data=...)` expands such a column.
+  See MIGRATION.md.
+- **`sp.panel(method="re")` with a text regressor.** It raised a bare
+  `TypeError` (unit means of a text column) where the other methods
+  expand the column into linearmodels' indicators (`g.10`). The default
+  `ssc=` covariance also rebuilt the design by casting the labels. Both
+  now use the indicators; coefficients and standard errors equal the fit
+  on explicit dummies for every method.
+
 ## [1.44.3] — 2026-11-19
 
 Fixes from running the Python Polars edition of *Empirical Research in

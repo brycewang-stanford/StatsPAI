@@ -47,6 +47,7 @@ from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..core.results import EconometricResults
+from ..core.utils import refuse_label_columns
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
 __all__ = ["mmqreg"]
@@ -272,6 +273,7 @@ def mmqreg(
         )
     cols = [y] + xs + fes + ([cluster] if cluster else [])
     check_columns(data, list(dict.fromkeys(cols)), function="mmqreg")
+    refuse_label_columns(data, [y] + xs, function="mmqreg")
     frame = data[list(dict.fromkeys(cols))].dropna()
     frame, n_single = _drop_singletons(frame, fes)
     if n_single:

@@ -283,3 +283,65 @@ def test_rdplot_passes_masspoints():
         fig, _ = sp.rdplot(d, y="y", x="x", c=0, masspoints=mp)
         ref = rdplot_numbers(d["y"].to_numpy(), d["x"].to_numpy(), c=0, masspoints=mp)
         assert tuple(fig.rdplot_data["J"]) == tuple(ref["J"])
+
+
+def _panel_text_frame():
+    rng = np.random.default_rng(1)
+    n = 300
+    df = pd.DataFrame(
+        {"id": np.repeat(np.arange(30), 10), "time": np.tile(np.arange(10), 30)}
+    )
+    df["x"] = rng.normal(size=n)
+    df["g"] = rng.choice(["1", "2", "10"], n)
+    df["h"] = np.where(df["id"] % 3 == 0, "7", "8")  # constant within unit
+    df["y"] = df["x"] + (df["g"] == "10") + (df["h"] == "8") + rng.normal(size=n)
+    for col, lev in (("g", "10"), ("g", "2"), ("h", "8")):
+        df[f"{col}{lev}"] = (df[col] == lev).astype(float)
+    return df
+
+
+@pytest.mark.parametrize("method", ["re", "fe", "be", "pooled", "twoway"])
+@pytest.mark.parametrize("cluster", [None, "id"])
+def test_panel_text_regressor_equals_its_indicators(method, cluster):
+    # method='re' used to raise TypeError (unit means of a text column), and
+    # the ssc= covariance cast the labels to numbers
+    pytest.importorskip("linearmodels")
+    if method == "be" and cluster is not None:
+        pytest.skip("between estimator has conventional SEs only")
+    df = _panel_text_frame()
+    kw = dict(entity="id", time="time", method=method, cluster=cluster)
+    a = sp.panel(df, "y ~ x + g + h", **kw)
+    b = sp.panel(df, "y ~ x + g10 + g2 + h8", **kw)
+    assert [c.replace(".", "") for c in a.params.index] == list(b.params.index)
+    np.testing.assert_allclose(a.params.to_numpy(), b.params.to_numpy(), rtol=1e-10)
+    np.testing.assert_allclose(
+        np.asarray(a.std_errors), np.asarray(b.std_errors), rtol=1e-10
+    )
+
+
+_COLUMN_LIST_CALLS = {
+    "xtabond": lambda d: sp.xtabond(d, y="y", x=["x", "g"]),
+    "xtdpdsys": lambda d: sp.xtdpdsys(d, y="y", x=["x", "g"]),
+    "ardl": lambda d: sp.ardl(d, y="y", x=["x", "g"]),
+    "xtpcse": lambda d: sp.xtpcse(d, y="y", x=["x", "g"], id="id", time="time"),
+    "xtregar": lambda d: sp.xtregar(d, y="y", x=["x", "g"], id="id", time="time"),
+    "mmqreg": lambda d: sp.mmqreg(d, y="y", x=["x", "g"]),
+    "ridge": lambda d: sp.ridge(data=d, y="y", x=["x", "g"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_COLUMN_LIST_CALLS))
+def test_column_list_estimators_refuse_text_but_fit_numbers(name):
+    # found by a sweep: each fitted the digit labels as one number, giving
+    # exactly the estimates of the float-coded column
+    df = _panel_text_frame()
+    call = _COLUMN_LIST_CALLS[name]
+    with pytest.raises(MethodIncompatibility, match="category labels"):
+        call(df)
+    call(df.assign(g=df["g"].astype(float)))  # a numeric column still fits
+
+
+def test_ridge_formula_expands_text():
+    df = _panel_text_frame()
+    res = sp.ridge("y ~ x + g", data=df)
+    assert {"g[T.10]", "g[T.2]"} <= set(res.params.index)

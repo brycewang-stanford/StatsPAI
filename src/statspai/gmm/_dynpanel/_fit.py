@@ -13,6 +13,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from ...core.utils import refuse_label_columns
 from ...exceptions import IdentificationFailure, MethodIncompatibility
 from ._data import add_time_dummies, build_panel_arrays, unit_cluster_codes
 from ._diagnostics import (
@@ -150,6 +151,7 @@ def fit_dynamic_panel(
         )
 
     needed = [y] + exog_vars + pre_vars + endo_vars
+    refuse_label_columns(data, needed, function="sp.xtabond / sp.xtdpdsys")
     # ``cluster=id`` IS the default unit grouping, so it must not be pivoted
     # as a variable (the frame would carry the index column twice).
     cluster_is_unit = cluster is not None and cluster == id

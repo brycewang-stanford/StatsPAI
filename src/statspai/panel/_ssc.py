@@ -242,7 +242,13 @@ def panel_ssc_inference(
     )
 
     y = frame[dep_var].to_numpy(dtype=float)
-    X = frame[exog].to_numpy(dtype=float)
+    # a text / category regressor enters the fit as linearmodels' indicators
+    # (``g.10``, first level dropped); rebuild the same columns, not a cast
+    from linearmodels.panel.data import convert_columns
+
+    Xf = pd.concat([convert_columns(frame[c], drop_first=True) for c in exog], axis=1)
+    exog = [str(c) for c in Xf.columns]
+    X = Xf.to_numpy(dtype=float)
     unit = pd.factorize(frame[entity])[0]
     period = pd.factorize(frame[time])[0]
     n_unit = int(unit.max()) + 1

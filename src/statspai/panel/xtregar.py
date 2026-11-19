@@ -35,6 +35,7 @@ from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._collinear import independent_columns
 from ..core.results import EconometricResults
+from ..core.utils import refuse_label_columns
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
 __all__ = ["xtregar"]
@@ -490,6 +491,7 @@ def xtregar(
     """
     xs = [x] if isinstance(x, str) else list(x)
     check_columns(data, {"y": y, "x": xs, "id": id, "time": time}, function="xtregar")
+    refuse_label_columns(data, [y] + xs, function="xtregar")
     method = str(method).lower()
     if method not in ("re", "fe"):
         raise MethodIncompatibility(

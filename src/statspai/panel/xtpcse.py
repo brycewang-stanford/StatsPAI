@@ -24,6 +24,7 @@ from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core.results import EconometricResults
+from ..core.utils import refuse_label_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["xtpcse"]
@@ -154,6 +155,7 @@ def xtpcse(
         )
     xs = [x] if isinstance(x, str) else list(x)
     check_columns(data, {"y": y, "x": xs, "id": id, "time": time}, function="xtpcse")
+    refuse_label_columns(data, [y] + xs, function="xtpcse")
     df = data.loc[data[[y, id, time] + xs].notna().all(axis=1)]
     df = df.sort_values([id, time], kind="mergesort")
     if df.duplicated([id, time]).any():

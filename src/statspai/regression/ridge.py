@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
-from ..core.utils import create_design_matrices
+from ..core.utils import create_design_matrices, refuse_label_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
@@ -154,6 +154,7 @@ def _ridge_design(formula, data, y, x):
             "x=['x1', 'x2'] and data.",
         )
     cols = [x] if isinstance(x, str) else list(x)
+    refuse_label_columns(data, [y] + cols, function="ridge")
     frame = data[[y] + cols].dropna()
     return (
         frame[y].to_numpy(dtype=float),

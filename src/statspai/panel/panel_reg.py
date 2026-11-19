@@ -1545,10 +1545,13 @@ def _fit_linearmodels(
                 "another time-varying variable.",
             )
         cov_kwargs = _build_cov_kwargs(robust, cluster, panel_data, entity, time)
-    if method == "re" and within_rank_deficient(exog):
+    # the design as linearmodels built it: a text / category regressor is
+    # already expanded into indicators (``g.10``), as in the other methods
+    re_exog = lm_model.exog.dataframe if method == "re" else None
+    if re_exog is not None and within_rank_deficient(re_exog):
         # a regressor constant within unit: linearmodels' variance
         # components count it as a within parameter (see _cre)
-        lm_result = fit_re(dep, add_constant(exog), cov_kwargs)
+        lm_result = fit_re(dep, re_exog, cov_kwargs)
     else:
         lm_result = lm_model.fit(**cov_kwargs)
     ssc_inf = None
