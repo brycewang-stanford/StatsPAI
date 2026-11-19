@@ -6484,3 +6484,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   committed files were kept). The default learner is unchanged.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-19 — traces re-recorded (text regressors, inf factor levels, regress kwargs)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `f53e00c76` re-records
+  `tests/r_parity/results/_implementation_trace.json` (66 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (12 modules).
+- **Reason.** `src/statspai/_input_validation.py`, `core/utils.py`,
+  `regression/ols.py`, `count.py`, `multinomial.py`, `quantile.py`,
+  `zeroinflated.py` and `fixest/_input_checks.py` changed: text regressors
+  are expanded in the count, ordered and quantile models, a label-only
+  column may hold `inf`, and `sp.regress` rejects unknown keywords on
+  every variance path. No parity module passes a text regressor, an
+  `inf` level or an unknown keyword.
+- **Effect on the paper.** None on any number. Every module was re-run
+  without Rust and reproduces its committed result to 4e-9 or better,
+  except `06_rd` at 5e-8, which unmodified HEAD reproduces identically
+  on this machine (an environment drift, not this change). The committed
+  result files were kept. No package or classification changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
