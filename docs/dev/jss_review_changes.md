@@ -6572,3 +6572,27 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-19 — traces re-recorded and fixture lock refreshed (second text-column sweep)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `6a6096487` re-records
+  `tests/r_parity/results/_implementation_trace.json` (6 modules: `24_coxph`,
+  `35_panel`, `36_mediation`, `50_xtabond`, `69_balance_panel`, `77_ddd`)
+  and refreshes `tests/r_parity/TIER_A_FIXTURE_LOCK.json`.
+- **Reason.** `survival/competing_risks.py`, `mediation/mediate.py`,
+  `mediation/_po_means.py` and `did/ddd_heterogeneous.py` gained the
+  text-column expansion or refusal; `panel/panel_reg.py` omits regressors
+  first differences remove and refuses `be` with `cluster=`. The entry
+  script `tests/r_parity/50_xtabond.py` now looks up
+  `pd.errors.SettingWithCopyWarning` with `getattr` (pandas 3 removed it),
+  which changes the fixture-lock hash of that file. No parity module passes
+  a text covariate, a unit-constant first-difference regressor or `be` with
+  `cluster=`.
+- **Effect on the paper.** None on any number. Each module was re-run
+  without Rust and reproduces its committed result exactly (maximum
+  relative difference 0). `50_xtabond` now also runs under pandas 3.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
