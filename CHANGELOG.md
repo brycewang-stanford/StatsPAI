@@ -2,7 +2,15 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.44.3] — 2026-11-19
+
+Fixes from running the Python Polars edition of *Empirical Research in
+Accounting* through StatsPAI. ⚠️ A text column of digit labels used as a
+regressor was fitted as one number in nine estimators; it is now expanded
+into indicators, or refused where the estimator has no factor expansion.
+Also: `inf` as a factor level, regression-table `keep=` / `drop=`
+patterns, `sp.rdplot(masspoints=)`, and `sp.rd2d` numbers that no longer
+depend on the platform.
 
 ### Changed
 - **`sp.winsor` warns where it departs from `farr::winsorize`.** With

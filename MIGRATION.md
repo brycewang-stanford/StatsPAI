@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44.2 → next: ⚠️ text regressors in count, ordered and quantile models
+## 1.44.2 → 1.44.3: ⚠️ text regressors in count, ordered and quantile models
 
 A correctness fix. Numbers change only for calls that put a text or
 `category` column on the right-hand side of `sp.poisson`, `sp.nbreg`,
