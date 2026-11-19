@@ -6596,3 +6596,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-11-19 — traces re-recorded (spatial ML search finishes on the analytic gradient)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `9af63312a` re-records
+  `tests/r_parity/results/_implementation_trace.json` (2 modules:
+  `65_spatial`, `66_spatial_gmm`).
+- **Reason.** `spatial/models/_fiml.py` adds Newton steps on the analytic
+  gradient of the concentrated log-likelihood after the Nelder-Mead
+  search, so the optimum no longer moves with the platform's rounding
+  (Parity guards failed the GNS Stata cell by 1.05e-6 on one runner).
+- **Effect on the paper.** None on any number in the committed results:
+  both modules were re-run without Rust and reproduce their committed
+  results exactly. Estimates of `sp.sar` / `sp.sem` / `sp.sac` /
+  `sp.sdem` / `sp.gns` can move in about the seventh significant digit;
+  any table that prints them to six digits is unchanged.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
