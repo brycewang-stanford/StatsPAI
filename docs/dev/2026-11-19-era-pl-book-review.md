@@ -67,6 +67,56 @@ Chapters 1, 2, 6 to 12 and 17 are data manipulation, linking or plotting.
    trying `cluster=["firm", "year"], ssc=...` to reproduce linearmodels'
    `group_debias=False`. Rejected before the dispatch now.
 
+## Second pass (same day): what a full rewrite in `sp.*` would hit
+
+Ian Gow plans to implement the whole book with StatsPAI, so the second pass
+looked at what the first one did not exercise: the 35 regression tables,
+the RD plots, the simulation loops, Polars dtypes, and every estimator a
+rewrite could reach with a text column.
+
+4. **⚠️ The text-regressor bug was wider.** A sweep of every registered
+   function that takes `(formula, data)`, plus the column-list entries,
+   found the same silent cast in `sp.ivreg`, `sp.iv`, `sp.cox` (now
+   expanded, equal to pyfixest and statsmodels `PHReg`) and in `sp.xtnbreg`,
+   `sp.hdfe_ols`, `sp.rifreg`, `sp.heckman`, `sp.fracreg`, `sp.betareg`,
+   `sp.liml`, `sp.jive`, `sp.lasso_iv`, `sp.survreg`, `sp.mixed`,
+   `sp.meglm`, and the `y=` / `x=` entries of logit / probit and tobit (now
+   refused). Every `(formula, data)` estimator now either expands such a
+   column or refuses it.
+5. **`keep=` / `drop=` in `sp.regtable` / `sp.esttab` matched exact names
+   only**, so the book's `ETable(..., drop=["fyear", "ppe", ...])` idiom
+   hid nothing, without a word. Entries are now exact names, else globs,
+   else regular expressions (fixest, pyfixest, maketables, Stata `esttab`),
+   and an entry that matches nothing warns.
+6. **`sp.rdplot` had no `masspoints=`**; the book passes
+   `masspoints="off"`. The bin engine already implemented it; it is now
+   passed through. Bins equal R `rdplot` on the chapter's floats.
+
+Checked and fine: Polars `Categorical`, `Enum`, `Int8`, `UInt32`, `Date`
+columns and `LazyFrame` input; `sp.bitest` against `stats.binomtest`
+(1e-14); per-firm `da ~ part_i` on samples of 3 to 10 rows against the
+book's hand-coded t-test; `sp.auc` against `roc_auc_score` with ties.
+Speed inside the book's simulation loops: `sp.regress` and `sp.ivreg` as
+fast as statsmodels / pyfixest, `sp.feols` 1.3x pyfixest, `sp.probit` 6x
+statsmodels (30 ms a fit; 2,000 fits take a minute).
+
+Notes for the rewrite (not bugs):
+
+- A Polars `Categorical` takes its base level from the order of first
+  appearance in pyfixest, statsmodels and StatsPAI alike; R sorts levels.
+  `era_pl.load_data` casts R factors to `Categorical` without their level
+  order (`cmsw_2018$wbtype`, `wbsource`). Use `pl.Enum([...])` or
+  `C(x, Treatment(reference=...))` to fix the base.
+- Chapter 26's "logit" is scikit-learn's ridge-penalised fit (`C = 1` on
+  standardised features); the R edition used `glm`. `sp.logit` is the
+  unpenalised MLE; on a rare outcome the two predicted probabilities differ
+  in the third decimal.
+- `sp.regress` names a boolean regressor `flag` alone and `flag[T.True]`
+  inside an interaction (patsy); `sp.feols` names it `flag` and
+  `treat:post`, as pyfixest does. Chapter 19's `coef()["treat:post"]`
+  works with `sp.feols`.
+- `sp.esttab` is deprecated in favour of `sp.regtable`.
+
 ## Documented differences (not bugs)
 
 - **Two-way clustering, chapter 5.** linearmodels `PanelOLS(...,

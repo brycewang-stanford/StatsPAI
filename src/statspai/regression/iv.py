@@ -2984,9 +2984,31 @@ def _materialise_formula_terms(
     inst_terms = _top_level_terms(inst_part)
     endog_terms = _top_level_terms(endog_part)
     controls = {"1", "0", "-1", "+1", "-0"}
+    from ..core.utils import label_columns
+
+    # a text / category exogenous regressor or instrument is a factor:
+    # expanded into indicators like C(name) (it used to be cast to float
+    # and fitted as one number)
+    labels = set(
+        label_columns(
+            data,
+            [t.strip() for t in exog_terms + inst_terms + endog_terms + [dep]],
+        )
+    )
+    bad = [t.strip() for t in endog_terms + [dep] if t.strip() in labels]
+    if bad:
+        raise MethodIncompatibility(
+            f"IV formula: {bad} hold category labels (text or category "
+            "dtype); an outcome or endogenous regressor must be numeric.",
+            recovery_hint="Convert the column to numbers, or build the "
+            "indicator you mean as a numeric column.",
+            diagnostics={"label_columns": bad},
+        )
 
     def plain(term: str) -> bool:
         compact = term.replace(" ", "")
+        if compact in labels:
+            return False
         return compact in controls or bool(_PLAIN_NAME.match(compact))
 
     dep_term = dep.strip()

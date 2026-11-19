@@ -20,16 +20,22 @@ Found by running the Python Polars edition of Gow and Lubberink,
 The review is in `docs/dev/2026-11-19-era-pl-book-review.md`.
 
 - **⚠️ correctness fix: a text regressor in `sp.poisson`, `sp.nbreg`,
-  `sp.ologit`, `sp.oprobit` and `sp.qreg` is now expanded into
-  indicators.** A column of digit labels (Fama-French industry `"1"` to
-  `"12"`, a SIC code kept as text) was cast to float and fitted as one
-  numeric regressor, with no warning. Letter labels raised `ValueError`.
-  Such a column now goes through the formula path, as `C(name)` would,
-  and the coefficients equal statsmodels' (`g[T.10]`, `g[T.2]` ...).
-  `sp.zinb`, `sp.zip_model`, `sp.hurdle`, `sp.clogit` and the `y=` / `x=`
-  column-list entries have no factor expansion and now raise
-  `MethodIncompatibility` instead. Numeric and boolean columns are not
-  affected. See MIGRATION.md.
+  `sp.ologit`, `sp.oprobit`, `sp.mlogit`, `sp.qreg`, `sp.ivreg`, `sp.iv`
+  and `sp.cox` is now expanded into indicators.** A column of digit
+  labels (Fama-French industry `"1"` to `"12"`, a SIC code kept as text)
+  was cast to float and fitted as one numeric regressor, with no warning.
+  Letter labels raised `ValueError`. Such a column now goes through the
+  formula path, as `C(name)` would, and the coefficients equal
+  statsmodels' and pyfixest's (`g[T.10]`, `g[T.2]` ...). Estimators with
+  no factor expansion now raise `MethodIncompatibility` instead of fitting
+  the codes: `sp.zinb`, `sp.zip_model`, `sp.hurdle`, `sp.clogit`,
+  `sp.xtnbreg`, `sp.hdfe_ols` (write `i.g`), `sp.rifreg`, `sp.heckman`,
+  `sp.fracreg`, `sp.betareg`, `sp.liml`, `sp.jive`, `sp.lasso_iv`,
+  `sp.survreg`, `sp.mixed`, `sp.meglm` / `sp.melogit` and the `y=` / `x=`
+  column-list entries of the count, logit / probit, tobit, quantile and
+  ordered models. A text outcome or endogenous regressor of `sp.ivreg` is
+  refused. Numeric and boolean columns are not affected. See
+  MIGRATION.md.
 - **A column read only as category labels may hold `inf`.** The book
   codes a never-treated firm's event time as `-inf` inside `C(t,
   Treatment(reference=-1))`. `sp.regress` and `sp.feols` refused the
@@ -44,6 +50,16 @@ The review is in `docs/dev/2026-11-19-era-pl-book-review.md`.
   `cluster=["firm", "year"], ssc=...` returned default two-way standard
   errors without a word. It now raises `TypeError`, as the one-way path
   did.
+- **`sp.regtable` / `sp.esttab` `keep=` and `drop=` take patterns.** An
+  entry that is not a coefficient name is read as a glob (`*`, `?`, as in
+  Stata's `esttab`) or a regular expression searched in the name (as in
+  fixest, pyfixest and maketables `etable`), so `drop=["fyear"]` hides
+  every `C(fyear)` term and its interactions. Such an entry used to
+  select nothing without a word; an entry that matches nothing now warns.
+  Exact names select exactly as before.
+- **`sp.rdplot(masspoints=)`.** R's `rdplot` option (`"adjust"`, the
+  default and the behaviour so far, `"check"` or `"off"`) is passed to the
+  bin selection; the book's RD chapter uses `masspoints="off"`.
 
 ## [1.44.2] — 2026-11-18
 

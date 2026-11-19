@@ -102,6 +102,11 @@ def _require_columns(data: pd.DataFrame, columns: Sequence[str], role: str) -> N
 
 def _numeric_column(data: pd.DataFrame, column: str, role: str) -> np.ndarray:
     _require_columns(data, [column], role)
+    if role == "regressor":
+        # pd.to_numeric would read digit labels ("1", "10") as quantities
+        from ..core.utils import refuse_label_columns
+
+        refuse_label_columns(data, [column], function="count regression")
     try:
         values = pd.to_numeric(data[column], errors="raise").to_numpy(dtype=np.float64)
     except (TypeError, ValueError) as exc:

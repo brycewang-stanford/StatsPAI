@@ -12732,7 +12732,7 @@
             "type": "integer"
           },
           "drop": {
-            "description": "Hide these variables.",
+            "description": "Hide these variables; entries as for ``keep``, so ``drop=[\"fyear\"]`` hides every ``C(fyear)`` term and its interactions.",
             "items": {
               "type": "string"
             },
@@ -12767,7 +12767,7 @@
             "type": "integer"
           },
           "keep": {
-            "description": "Only show these variables.",
+            "description": "Only show these variables. Each entry is a coefficient name, or else a pattern: a glob with ``*`` / ``?`` (Stata ``esttab``) or a regular expression searched in the name (fixest, pyfixest and maketables ``etable``). An entry that matches nothing warns.",
             "items": {
               "type": "string"
             },
@@ -13079,7 +13079,7 @@
             "type": "integer"
           },
           "drop": {
-            "description": "Show only these coefficients / hide these coefficients.",
+            "description": "Show only these coefficients / hide these coefficients. An entry that is not a coefficient name is a glob (``*`` / ``?``) or a regular expression, as in regtable.",
             "items": {
               "type": "string"
             },
@@ -13096,7 +13096,7 @@
             "type": "integer"
           },
           "keep": {
-            "description": "Show only these coefficients / hide these coefficients.",
+            "description": "Show only these coefficients / hide these coefficients. An entry that is not a coefficient name is a glob (``*`` / ``?``) or a regular expression, as in regtable.",
             "items": {
               "type": "string"
             },
@@ -94666,6 +94666,16 @@
               "uniform",
               "triangular",
               "epanechnikov"
+            ],
+            "type": "string"
+          },
+          "masspoints": {
+            "default": "adjust",
+            "description": "R ``rdplot(masspoints=)``. ``'adjust'`` switches the spacings bin selectors to their polynomial-regression versions when 20% or more of either side are mass points; ``'check'`` only reports the share; ``'off'`` ignores mass points (the Gow and Lubberink RD chapter passes it).",
+            "enum": [
+              "adjust",
+              "check",
+              "off"
             ],
             "type": "string"
           },

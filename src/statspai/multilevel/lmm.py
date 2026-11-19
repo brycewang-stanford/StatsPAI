@@ -1218,7 +1218,9 @@ def mixed(
         )
     x_fixed = list(x_fixed)
     x_random_cols: List[str] = list(x_random) if x_random is not None else []
+    from ..core.utils import refuse_label_columns
 
+    refuse_label_columns(data, x_fixed + x_random_cols, function="mixed")
     df = _prepare_frame(data, y, x_fixed, group_cols, x_random_cols)
 
     # Dispatch to the dedicated three-level nested routine when the user

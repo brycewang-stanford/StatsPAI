@@ -1755,6 +1755,7 @@ def rdplot(
     title: Optional[str] = None,
     x_label: Optional[str] = None,
     y_label: Optional[str] = None,
+    masspoints: str = "adjust",
 ) -> Tuple[Any, Any]:
     """
     RD plot: binned scatter with polynomial fit on each side of the cutoff.
@@ -1824,6 +1825,12 @@ def rdplot(
     ax : matplotlib Axes, optional
     figsize : tuple
     title, x_label, y_label : str, optional
+    masspoints : {'adjust', 'check', 'off'}, default 'adjust'
+        R ``rdplot(masspoints=)``. ``'adjust'`` switches the spacings bin
+        selectors to their polynomial-regression versions when 20% or more
+        of either side are mass points; ``'check'`` only reports the share;
+        ``'off'`` ignores mass points (the Gow and Lubberink RD chapter
+        passes it).
 
     Returns
     -------
@@ -1883,6 +1890,7 @@ def rdplot(
         weights=Wo,
         covs=Zc,
         ci=100.0 * ci_level,
+        masspoints=masspoints,
         cluster=Cl,
     )
     vb, vp = res["vars_bins"], res["vars_poly"]

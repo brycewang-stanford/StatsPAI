@@ -9,7 +9,8 @@ Internal version-to-version migrations are at the top; the long-form
 
 A correctness fix. Numbers change only for calls that put a text or
 `category` column on the right-hand side of `sp.poisson`, `sp.nbreg`,
-`sp.ologit`, `sp.oprobit` or `sp.qreg`.
+`sp.ologit`, `sp.oprobit`, `sp.mlogit`, `sp.qreg`, `sp.ivreg`, `sp.iv`
+or `sp.cox`.
 
 - Before, a column of digit labels (`"1"`, `"2"`, `"10"`) was cast to
   float and fitted as one numeric regressor named after the column. The
@@ -19,10 +20,14 @@ A correctness fix. Numbers change only for calls that put a text or
   are named `name[T.level]`.
 - To keep a numeric reading on purpose, convert the column first
   (`df["x"] = df["x"].astype(float)`).
-- `sp.zinb`, `sp.zip_model`, `sp.hurdle`, `sp.clogit` and the `y=` /
-  `x=` column-list entries raise `MethodIncompatibility` for such a
-  column. Build the indicators with `pd.get_dummies`, or use a formula
-  with `C(name)` where the estimator takes one.
+- Estimators without factor expansion raise `MethodIncompatibility` for
+  such a column where they used to fit the codes: `sp.zinb`,
+  `sp.zip_model`, `sp.hurdle`, `sp.clogit`, `sp.xtnbreg`, `sp.hdfe_ols`,
+  `sp.rifreg`, `sp.heckman`, `sp.fracreg`, `sp.betareg`, `sp.liml`,
+  `sp.jive`, `sp.lasso_iv`, `sp.survreg`, `sp.mixed`, `sp.meglm` /
+  `sp.melogit`, and the `y=` / `x=` column-list entries. Build the
+  indicators with `pd.get_dummies`, write `i.name` in `sp.hdfe_ols`, or
+  use a formula with `C(name)` where the estimator takes one.
 
 ---
 

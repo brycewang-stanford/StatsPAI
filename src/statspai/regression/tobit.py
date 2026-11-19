@@ -198,6 +198,9 @@ def tobit(
             context="tobit",
             extra_diagnostics={"missing": list(named.values())},
         )
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, list(x), function="tobit")
     df = data[list(dict.fromkeys([y] + list(x) + extra))].dropna()
     from ..core._collinear import drop_collinear_names
 

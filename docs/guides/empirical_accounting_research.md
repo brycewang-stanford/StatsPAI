@@ -239,6 +239,18 @@ second column says otherwise.
 | the chapter 24 ITCV function | `sp.itcv(fit, "wbflag", alpha=a)` | |
 | `rdrobust(y, x, c=75, fuzzy=d, masspoints="off")` | `sp.rdrobust(df, y=, x=, c=75, fuzzy=, masspoints="off")` | equal to R rdrobust 4.0. The Python rdrobust 2.1.1 port differs from R by about 1e-4 in the bandwidth when the running variable has ties |
 | `NearestNeighborMatch(caliper=0.03 / sd, replace=False, shuffle=False)` on data sorted by the score | `sp.match(df, y=, treat=, covariates=, pscore="pscore", replace=False, caliper=0.03, caliper_scale="raw", m_order="data")` | the same matched set. With `shuffle=True` the order is random and differs between tools |
+| `ETable(fms, drop=["fyear", "ppe"], signif_code=[0.01, 0.05, 0.10])` with t-statistics | `sp.regtable(*fms, drop=["fyear", "ppe"], se_type="t", fmt=3)` | `keep=` / `drop=` take exact names, globs or regular expressions |
+| `rdplot(df, y=, x=, cutoff=75, masspoints="off")` | `sp.rdplot(df, y=, x=, c=75, masspoints="off")` | bins equal R `rdplot` |
+| `stats.binomtest(k, n, p)` | `sp.bitest(successes=k, n=n, p=p)` | |
+
+Three things to know when moving the code over. A Polars `Categorical`
+takes its base level from the order of first appearance (in pyfixest and
+statsmodels too); R sorts the levels, so fix the base with `pl.Enum([...])`
+or `C(x, Treatment(reference=...))` where it matters. A text column on the
+right-hand side is a factor in every StatsPAI estimator that can expand
+it and is refused by the others; it is never fitted as a number. And
+chapter 26's logit is scikit-learn's penalised fit, so `sp.logit` (the
+maximum-likelihood fit of the R edition) gives slightly different scores.
 
 In chapter 24 the Poisson regression of `firmpenalty` has no finite
 coefficient on `mobflag`: the 13 cases with `mobflag = 1` all have a zero

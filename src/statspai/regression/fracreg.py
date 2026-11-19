@@ -101,6 +101,9 @@ def fracreg(
         raise ValueError("fracreg requires data, y, and x")
 
     x_names = list(x)
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_names, function="fracreg")
     df = data.dropna(subset=[y] + x_names)
     n = len(df)
 
@@ -318,6 +321,9 @@ def betareg(
 
     x_names = list(x)
     z_names = list(z) if z is not None else []
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_names + z_names, function="betareg")
     df = data.dropna(
         subset=[y] + x_names + z_names + ([cluster] if cluster is not None else [])
     )

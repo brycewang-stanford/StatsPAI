@@ -1706,7 +1706,13 @@ def cox(
         event = _agree(event, _ev, "event", "cox")
         start = _agree(start, _st, "start", "cox")
         dur_name, x_names = _parse_formula(formula)
-        if x is None and any(name not in data for name in x_names):
+        from ..core.utils import label_columns
+
+        # a text / category covariate is a factor (C(name)); it used to be
+        # cast to float and fitted as one number
+        if x is None and (
+            any(name not in data for name in x_names) or label_columns(data, x_names)
+        ):
             # C(site), a*b, I(x^2): built as columns, the way sp.regress
             # and sp.qreg read the same right-hand side
             from ..core.utils import formula_to_columns
@@ -1726,6 +1732,9 @@ def cox(
             "x=.",
         )
 
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, list(x), function="cox")
     cols_needed = [duration, event] + x
     if strata is not None:
         cols_needed.append(strata)
@@ -2349,6 +2358,10 @@ def survreg(
             duration = dur_name
         if x is None:
             x = x_names
+    if x is not None:
+        from ..core.utils import refuse_label_columns
+
+        refuse_label_columns(data, list(x), function="survreg")
     if duration is None or event is None or x is None:
         raise MethodIncompatibility(
             "survreg: the duration, the event indicator and the covariates are "

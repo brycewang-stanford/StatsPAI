@@ -675,6 +675,22 @@ def _materialize_rhs(
     contributes the same columns Stata's ``regress`` would build for
     ``i.f#c.x`` / ``i.f##c.x``.
     """
+    # A text / category column read as a number would fit its codes as a
+    # quantity; it has to be written i.f or C(f).
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(
+        df,
+        [
+            a.name
+            for t in terms
+            if t.kind != "slope"
+            for a in t.atoms
+            if not a.categorical
+        ]
+        + [t.x for t in terms if t.kind == "slope"],
+        function="hdfe_ols",
+    )
     # Fast path: all bare names -> exactly the legacy behaviour.
     if terms and all(t.is_plain_name for t in terms):
         names = [t.atoms[0].name for t in terms]

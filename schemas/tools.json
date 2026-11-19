@@ -36774,6 +36774,16 @@
           ],
           "type": "string"
         },
+        "masspoints": {
+          "default": "adjust",
+          "description": "R ``rdplot(masspoints=)``. ``'adjust'`` switches the spacings bin selectors to their polynomial-regression versions when 20% or more of either side are mass points; ``'check'`` only reports the share; ``'off'`` ignores mass points (the Gow and Lubberink RD chapter passes it).",
+          "enum": [
+            "adjust",
+            "check",
+            "off"
+          ],
+          "type": "string"
+        },
         "nbins": {
           "description": "Bins per side. If None, chosen by ``binselect``.",
           "type": "integer"

@@ -186,6 +186,11 @@ def heckman(
         },
         function="heckman",
     )
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(
+        data, list(dict.fromkeys(list(x) + list(z))), function="heckman"
+    )
     if select is None:
         select = "_selected"
         while select in data.columns:

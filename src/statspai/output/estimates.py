@@ -830,7 +830,9 @@ def esttab(
     star_levels : tuple of float, default (0.10, 0.05, 0.01)
         p-value thresholds for ``*``, ``**``, ``***``.
     keep, drop : sequence of str, optional
-        Show only these coefficients / hide these coefficients.
+        Show only these coefficients / hide these coefficients. An entry
+        that is not a coefficient name is a glob (``*`` / ``?``) or a
+        regular expression, as in regtable.
     order : sequence of str, optional
         Coefficients to list first, in this order.
     labels : dict, optional

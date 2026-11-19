@@ -740,6 +740,9 @@ def _fit_binary(
         var_names = list(X_df.columns)
         dep_var = y_df.columns[0]
     elif y is not None and x is not None and data is not None:
+        from ..core.utils import refuse_label_columns
+
+        refuse_label_columns(data, list(x), function="logit / probit")
         cols = [y] + list(x)
         clean = data[cols].dropna()
         y_vec = clean[y].values.astype(float)

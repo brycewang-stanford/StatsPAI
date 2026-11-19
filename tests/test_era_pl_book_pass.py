@@ -181,3 +181,105 @@ def test_two_way_cluster_rejects_unknown_keywords():
         sp.regress("y ~ x", d, cluster="a", vce="cr2", foo=1)
     with pytest.raises(TypeError, match="wild_reps"):
         sp.regress("y ~ x", d, cluster="a", wild_reps=99)
+
+
+# ------------------------------------------------- second pass (2026-11-19)
+def test_ivreg_expands_a_text_exogenous_regressor(labelled):
+    pf = pytest.importorskip("pyfixest")
+    d = labelled.assign(
+        z=labelled["x"] + np.random.default_rng(9).normal(size=len(labelled))
+    )
+    ours = sp.ivreg("yc ~ g + (x ~ z)", d)
+    ref = pf.feols("yc ~ C(g) | x ~ z", data=d)
+    ref_coef = ref.coef().rename(lambda k: k.replace("C(g)", "g"))
+    np.testing.assert_allclose(ours.params.reindex(ref_coef.index), ref_coef, rtol=1e-9)
+    with pytest.raises(MethodIncompatibility, match="category labels"):
+        sp.ivreg("yc ~ x + (g ~ z)", d)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda d: sp.hdfe_ols("yc ~ x + g", d),
+        lambda d: sp.rifreg("yc ~ x + g", d),
+        lambda d: sp.heckman(d, y="yc", x=["x", "g"], z=["x", "g", "y"], select=None),
+        lambda d: sp.fracreg(
+            d.assign(f=d["yc"] / (1 + d["yc"].max())), y="f", x=["x", "g"]
+        ),
+        lambda d: sp.logit(
+            data=d.assign(b=(d["y"] > 0).astype(int)), y="b", x=["x", "g"]
+        ),
+        lambda d: sp.tobit(data=d, y="yc", x=["x", "g"]),
+        lambda d: sp.mixed(
+            d.assign(grp=np.arange(len(d)) // 8),
+            y="yc",
+            x_fixed=["x", "g"],
+            group="grp",
+        ),
+        lambda d: sp.liml(
+            data=d.assign(z=d["x"]), y="yc", x_endog=["x"], x_exog=["g"], z=["z"]
+        ),
+    ],
+    ids=[
+        "hdfe_ols",
+        "rifreg",
+        "heckman",
+        "fracreg",
+        "logit_xy",
+        "tobit_xy",
+        "mixed",
+        "liml",
+    ],
+)
+def test_estimators_without_expansion_refuse_text(labelled, call):
+    with pytest.raises(MethodIncompatibility, match="category labels"):
+        call(labelled)
+
+
+def test_cox_expands_a_text_covariate(labelled):
+    rng = np.random.default_rng(4)
+    d = labelled.assign(
+        dur=rng.exponential(1.0, len(labelled)) * np.exp(-0.3 * labelled["x"]),
+        ev=(rng.random(len(labelled)) < 0.8).astype(int),
+    )
+    ours = sp.cox("dur ~ x + g", d, event="ev")
+    ref = smf.phreg("dur ~ x + g", d, status=d["ev"].to_numpy(), ties="efron").fit()
+    ref_params = pd.Series(ref.params, index=ref.model.exog_names)
+    np.testing.assert_allclose(
+        ours.params.reindex(ref_params.index), ref_params, rtol=1e-6
+    )
+
+
+def test_regtable_keep_and_drop_take_patterns():
+    rng = np.random.default_rng(2)
+    d = pd.DataFrame({"x": rng.normal(size=200), "yr": rng.choice([1, 2, 3], 200)})
+    d["y"] = d["x"] + rng.normal(size=200)
+    fit = sp.regress("y ~ x * C(yr)", d)
+    names = list(fit.params.index)
+    from statspai.output.regression_table import _match_coef_names
+
+    assert _match_coef_names(names, ["yr"], "drop") == {n for n in names if "yr" in n}
+    assert _match_coef_names(names, ["x"], "keep") == {"x"}  # exact name wins
+    assert _match_coef_names(names, ["x:*"], "keep") == {
+        n for n in names if n.startswith("x:")
+    }
+    with pytest.warns(UserWarning, match="matched no coefficient"):
+        _match_coef_names(names, ["nothere"], "keep")
+    text = str(sp.regtable(fit, drop=["yr"]))
+    assert "C(yr)" not in text and "x" in text
+
+
+def test_rdplot_passes_masspoints():
+    pytest.importorskip("matplotlib")
+    import matplotlib
+
+    matplotlib.use("Agg")
+    rng = np.random.default_rng(5)
+    x = np.round(rng.uniform(-1, 1, 800), 1)  # heavy mass points
+    d = pd.DataFrame({"x": x, "y": x + (x >= 0) + rng.normal(0, 0.3, 800)})
+    from statspai.rd._rdplot_numbers import rdplot_numbers
+
+    for mp in ("off", "adjust"):
+        fig, _ = sp.rdplot(d, y="y", x="x", c=0, masspoints=mp)
+        ref = rdplot_numbers(d["y"].to_numpy(), d["x"].to_numpy(), c=0, masspoints=mp)
+        assert tuple(fig.rdplot_data["J"]) == tuple(ref["J"])

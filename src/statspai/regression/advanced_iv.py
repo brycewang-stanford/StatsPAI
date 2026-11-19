@@ -183,6 +183,9 @@ def liml(
             ),
         )
 
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, list(x_endog) + list(x_exog) + list(z), function="liml")
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
 
@@ -495,6 +498,9 @@ def jive(
             recovery_hint="Pass z=[...] with at least one excluded instrument.",
         )
 
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, list(x_endog) + list(x_exog) + list(z), function="jive")
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
 
@@ -700,6 +706,11 @@ def lasso_iv(
             recovery_hint="Pass z=[...] with the candidate instrument set.",
         )
 
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(
+        data, list(x_endog) + list(x_exog) + list(z), function="lasso_iv"
+    )
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
 

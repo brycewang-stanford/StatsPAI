@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 5.28,
+   "seconds": 1.26,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -75,7 +75,7 @@
     "src/statspai/output/_lineage.py": "0e8e5de0624a764479895b99d351469377694d95ac35335372a0d1e185ca6072",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "0bdeb213c3d870835bba1913712383c5b41422a6ce74e2a40a21e3c9f51d9c76",
-    "src/statspai/regression/iv.py": "1809742a88fec04a83c62ae9af4292b0d4a51d3e4895e18b72be4ec51e48ab3f",
+    "src/statspai/regression/iv.py": "c8d3b4f81bc9e3d7a150c76937caf356de4922cabb375f9e0eb4e2270d1bfde8",
     "src/statspai/regression/ols.py": "c2530c9b13ad69173c6c0c2e0260c618ba6df3f4cf0de5ce847b5ff6e65e3515"
    },
    "dependency_versions": {
@@ -230,7 +230,7 @@
    "result_sha256": "dc4b349d76249d59ded1f4ac66ccad31621f9d6e6b4de6f9ddcbdf9913859663"
   },
   "04b_nsw_psid_original": {
-   "seconds": 4.31,
+   "seconds": 1.28,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -269,7 +269,7 @@
     "src/statspai/output/_lineage.py": "0e8e5de0624a764479895b99d351469377694d95ac35335372a0d1e185ca6072",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/postestimation/_covariance.py": "0bdeb213c3d870835bba1913712383c5b41422a6ce74e2a40a21e3c9f51d9c76",
-    "src/statspai/regression/logit_probit.py": "065b6ac2437de8f832271303b331d8796ce8d921d9af78c424439778d8890a40",
+    "src/statspai/regression/logit_probit.py": "726d72c3bbcf6154a8ef665f83d707a6b940f23f97584ab4d322368d7126fde1",
     "src/statspai/regression/ols.py": "c2530c9b13ad69173c6c0c2e0260c618ba6df3f4cf0de5ce847b5ff6e65e3515"
    },
    "dependency_versions": {
@@ -282,7 +282,7 @@
    "result_sha256": "b89cab74aaedc16e8b571d753b9af9747d7cfc6c950dfb9773885d4cd8d1d526"
   },
   "05_lee_original": {
-   "seconds": 3.0,
+   "seconds": 0.92,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -314,7 +314,7 @@
     "src/statspai/rd/_core.py": "e4c5d38b511494f74bbf32de9501ed0ce5f84a88fedc1fcfc7f5f261289422f2",
     "src/statspai/rd/_lpdensity.py": "93e6d7f00358450638e428650c5920ee993ccd4dec1661f46e5f999d24df0704",
     "src/statspai/rd/_nn_variance.py": "a3c10eab0c93cb053086f5a86a1e62b3e9640f2bffb97853bbdf96f45e6a69c2",
-    "src/statspai/rd/rdrobust.py": "5b674090f6af2f698b3b7d5b9ff1338d1a9e6e333b5d39f48e527ba017cb47aa"
+    "src/statspai/rd/rdrobust.py": "2a9f6bd22413ddbe0025fbc3787184f23967e3143399dc8e1ac67f2194bcd83c"
    },
    "dependency_versions": {
     "numpy": "2.4.6",

@@ -1789,6 +1789,9 @@ def meglm(
     observed = curvature == "observed"
 
     x_fixed = _coerce_column_list(x_fixed, "x_fixed")
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, x_fixed, function="meglm")
     x_random_cols = _coerce_optional_column_list(x_random, "x_random")
     if nAGQ > 1 and len(x_random_cols) > 0:
         raise MethodIncompatibility(

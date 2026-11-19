@@ -200,6 +200,54 @@ def _reference_df_from_json(
     return pd.Series(values, index=terms, dtype=float) if seen else None
 
 
+def _match_coef_names(
+    names: Sequence[str], patterns: Any, role: str, warn: bool = True
+) -> set:
+    """Coefficient names selected by ``keep=`` / ``drop=`` entries.
+
+    An entry that is a coefficient name selects that name. Otherwise it is
+    a pattern, as in Stata's ``esttab`` (wildcards), fixest's ``etable``,
+    pyfixest's ``etable`` and maketables (regular expressions): with ``*``
+    or ``?`` it is a glob, else a regular expression searched anywhere in
+    the name, so ``drop=["fyear"]`` hides ``C(fyear)[T.1997]`` and
+    ``inv_at:C(fyear)[T.1997]``. Before 2026-11-19 such an entry selected
+    nothing without a word. An entry that selects nothing warns.
+    """
+    import fnmatch
+    import re
+
+    names = [str(n) for n in names]
+    exact = set(names)
+    out: set = set()
+    unmatched: List[str] = []
+    for pat in patterns or []:
+        pat = str(pat)
+        if pat in exact:
+            out.add(pat)
+            continue
+        if "*" in pat or "?" in pat:
+            hits = [n for n in names if fnmatch.fnmatchcase(n, pat)]
+        else:
+            try:
+                rx = re.compile(pat)
+                hits = [n for n in names if rx.search(n)]
+            except re.error:
+                hits = [n for n in names if pat in n]
+        if hits:
+            out.update(hits)
+        else:
+            unmatched.append(pat)
+    if unmatched and warn:
+        warnings.warn(
+            f"regtable: {role}= entr{'ies' if len(unmatched) > 1 else 'y'} "
+            f"{unmatched} matched no coefficient (an entry is an exact name, "
+            "a glob with * / ?, or a regular expression).",
+            UserWarning,
+            stacklevel=4,
+        )
+    return out
+
+
 def _format_fe_label(token: str) -> str:
     """``"firm"`` → ``"# Firm"``; ``"firm^year"`` → ``"# Firm × Year"``."""
     parts = [p.strip() for p in token.split("^") if p.strip()]
@@ -942,10 +990,11 @@ class RegtableResult:
         all_vars = list(seen)
 
         if self.keep is not None:
-            keep_set = set(self.keep)
+            keep_set = _match_coef_names(all_vars, self.keep, "keep")
             all_vars = [v for v in all_vars if v in keep_set]
         if self.drop:
-            all_vars = [v for v in all_vars if v not in self.drop]
+            drop_set = _match_coef_names(all_vars, self.drop, "drop")
+            all_vars = [v for v in all_vars if v not in drop_set]
         if self.order:
             ordered: List[str] = []
             remaining = list(all_vars)
@@ -3261,9 +3310,11 @@ def _merge_shared_labels(
             seen[str(v)] = None
     names = list(seen)
     if keep is not None:
-        keep_set = set(keep)
+        keep_set = _match_coef_names(names, keep, "keep", warn=False)
         names = [v for v in names if v in keep_set]
-    names = [v for v in names if v not in drop]
+    if drop:
+        drop_set = _match_coef_names(names, drop, "drop", warn=False)
+        names = [v for v in names if v not in drop_set]
     if order:
         ordered = [v for v in order if v in names]
         names = list(dict.fromkeys(ordered + names))
@@ -3415,9 +3466,14 @@ def regtable(
     model_labels : list of str, optional
         Column header labels. Defaults to ``(1), (2), ...``.
     keep : list of str, optional
-        Only show these variables.
+        Only show these variables. Each entry is a coefficient name, or
+        else a pattern: a glob with ``*`` / ``?`` (Stata ``esttab``) or a
+        regular expression searched in the name (fixest, pyfixest and
+        maketables ``etable``). An entry that matches nothing warns.
     drop : list of str, optional
-        Hide these variables.
+        Hide these variables; entries as for ``keep``, so
+        ``drop=["fyear"]`` hides every ``C(fyear)`` term and its
+        interactions.
     order : list of str, optional
         Reorder variables.
     stats : list of str, optional

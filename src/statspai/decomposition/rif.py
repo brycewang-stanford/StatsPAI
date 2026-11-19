@@ -190,6 +190,9 @@ def rifreg(
         raise ValueError("formula must contain '~'")
     dep, rhs = [s.strip() for s in formula.split("~", 1)]
     indep = [v.strip() for v in rhs.split("+") if v.strip()]
+    from ..core.utils import refuse_label_columns
+
+    refuse_label_columns(data, indep, function="rifreg")
     df = data[[dep] + indep].dropna()
     y = df[dep].to_numpy(dtype=float)
     X = np.column_stack([np.ones(len(df))] + [df[v].to_numpy(float) for v in indep])
