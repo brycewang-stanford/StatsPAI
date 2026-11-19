@@ -46,6 +46,17 @@ All notable changes to StatsPAI will be documented in this file.
   the fit equals the one without it. `method="be"` with `cluster=` raises
   `MethodIncompatibility` (Stata's `xtreg, be` has conventional SEs only)
   instead of linearmodels' `ValueError`.
+- **Spatial ML estimates no longer depend on the machine.** `sp.sar`,
+  `sp.sem`, `sp.sac`, `sp.sdem` and `sp.gns` stopped their Nelder-Mead
+  search wherever the simplex shrank below tolerance. On the flat
+  rho-lambda ridge of a GNS likelihood that point moved with the
+  platform's rounding, and one coefficient differed by 1e-6 between two CI
+  runners (Parity guards on 1568a530e failed against Stata `spregress` by
+  1.05e-6 relative). Newton steps on the analytic gradient of the
+  concentrated likelihood now finish at the stationary point: the result
+  is the same to 1e-14 however loosely the simplex stops. Estimates move
+  in about the seventh significant digit; log-likelihoods are unchanged
+  to 1e-12.
 - **`sp.bcf_longitudinal(n_bootstrap=)` below 20** ran every draw and then
   failed with "Only 5/5 bootstrap draws succeeded". It now says that the
   standard errors need at least 20 draws.

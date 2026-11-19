@@ -74,6 +74,49 @@ def _fit(y: np.ndarray, Z: np.ndarray, Wd: np.ndarray, lag: bool) -> Dict[str, A
         val = -n / 2.0 * np.log(s2) + logdet(lam) + (logdet(rho) if lag else 0.0)
         return -val, g, s2
 
+    def grad(t: np.ndarray) -> np.ndarray:
+        # analytic gradient of the concentrated log-likelihood (the
+        # regression coefficients drop out by the envelope theorem)
+        rho, lam = unpack(t)
+        B = eye - lam * Wd
+        _, g, s2 = conc(t)
+        u = y - rho * Wy - Z @ g
+        e = B @ u
+        d_lam = (e @ (Wd @ u)) / s2 - float(np.sum(omega / (1.0 - lam * omega)).real)
+        if not lag:
+            return np.array([-d_lam])
+        d_rho = (e @ (B @ Wy)) / s2 - float(np.sum(omega / (1.0 - rho * omega)).real)
+        return -np.array([d_rho, d_lam])
+
+    def _polish(t: np.ndarray) -> np.ndarray:
+        # Nelder-Mead stops where its simplex shrinks below the tolerance;
+        # on the flat rho-lambda ridge of a GNS likelihood that point moved
+        # with the platform's rounding (1e-6 in a coefficient between two CI
+        # runners). Newton steps on the analytic gradient converge to the
+        # stationary point itself; a step that worsens the objective, or
+        # leaves the parameter space, is not taken.
+        for _ in range(20):
+            gr = grad(t)
+            h = 1e-6
+            J = np.empty((t.size, t.size))
+            for i in range(t.size):
+                d = np.zeros(t.size)
+                d[i] = h
+                J[:, i] = (grad(t + d) - grad(t - d)) / (2.0 * h)
+            try:
+                step = np.linalg.solve(J, gr)
+            except np.linalg.LinAlgError:
+                break
+            cand = t - step
+            if not np.all(np.isfinite(cand)) or conc(cand)[0] > conc(t)[
+                0
+            ] + 1e-12 * abs(conc(t)[0]):
+                break
+            t = cand
+            if np.max(np.abs(step)) < 1e-14:
+                break
+        return t
+
     k = 2 if lag else 1
     best = None
     for start in ([0.0] * k, [0.5] * k, [-0.5] * k):
@@ -90,7 +133,7 @@ def _fit(y: np.ndarray, Z: np.ndarray, Wd: np.ndarray, lag: bool) -> Dict[str, A
             "spatial ML: the concentrated log-likelihood has no interior maximum.",
             recovery_hint="Check W (row-normalised, no isolated units).",
         )
-    t = best.x
+    t = _polish(np.asarray(best.x, dtype=float))
     _, g, s2 = conc(t)
     rho, lam = unpack(t)
 
