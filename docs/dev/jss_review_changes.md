@@ -6507,3 +6507,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-19 — traces re-recorded (second pass: IV / cox text regressors, guards)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `e1053fe29` re-records
+  `tests/r_parity/results/_implementation_trace.json` (24 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (3 modules).
+- **Reason.** `regression/iv.py`, `survival/models.py`,
+  `regression/count.py`, `heckman.py`, `fracreg.py`, `tobit.py`,
+  `logit_probit.py`, `advanced_iv.py`, `panel/feols.py`,
+  `decomposition/rif.py`, `multilevel/lmm.py` and `glmm.py` gained the
+  text-regressor expansion or refusal; `rd/rdrobust.py` passes
+  `masspoints=` to `sp.rdplot`. No parity module passes a text regressor
+  or `masspoints=` to `sp.rdplot`.
+- **Effect on the paper.** None on any number. Every module was re-run
+  without Rust and reproduces its committed result to 4e-9 or better,
+  except `06_rd` at 5e-8, the environment drift recorded in the previous
+  entry (unmodified HEAD gives the same numbers). The committed result
+  files were kept. No package or classification changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
