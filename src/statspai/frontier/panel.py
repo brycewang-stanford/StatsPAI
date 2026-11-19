@@ -38,6 +38,7 @@ from scipy.optimize import minimize
 from scipy.special import logsumexp
 
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from . import _core as _fc
 from .sfa import FrontierResult
 from .sfa import frontier as _cs_frontier
@@ -48,6 +49,7 @@ from .sfa import frontier as _cs_frontier
 
 
 @records_call("xtfrontier")
+@refuses_label_columns("x")
 def xtfrontier(
     data: pd.DataFrame,
     y: str,

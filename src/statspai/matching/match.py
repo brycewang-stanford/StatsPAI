@@ -42,6 +42,7 @@ from scipy import stats
 from scipy.spatial.distance import cdist
 
 from .._input_validation import check_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from . import _metric_tree
@@ -219,6 +220,7 @@ def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
 # ======================================================================
 
 
+@_expands_categorical("covariates")
 def match(
     data: pd.DataFrame,
     y: str,

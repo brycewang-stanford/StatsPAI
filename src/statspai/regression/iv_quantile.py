@@ -64,11 +64,13 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._label_guard import refuses_label_columns
 from ..core.results import EconometricResults
 from .quantile import _qreg_fit
 
 
 @accepts_aliases(seed="random_state")
+@refuses_label_columns("exog", "instruments")
 def ivqreg(
     data: pd.DataFrame,
     y: str,

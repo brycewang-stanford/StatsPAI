@@ -36,6 +36,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from .bcf import _bcf_fit as _bcf_binary
 
@@ -172,6 +173,7 @@ class BCFOrdinalResult(ResultProtocolMixin):
 
 
 @accepts_aliases(seed="random_state")
+@_expands_categorical("covariates")
 def bcf_ordinal(
     data: pd.DataFrame,
     *,

@@ -34,6 +34,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from ..core._call_record import records_call
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._vcov_spec import accepts_vce
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -121,6 +122,7 @@ def _wald_f(fit: Dict[str, Any], positions: Sequence[int]) -> Dict[str, float]:
 
 @records_call("didregress")
 @accepts_vce(default="cluster")
+@_expands_categorical("covariates")
 def didregress(
     data: pd.DataFrame,
     y: str,

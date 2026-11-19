@@ -27,6 +27,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._learners import positive_class_proba
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -244,6 +245,7 @@ def _fold_labels(
 
 
 @accepts_aliases(seed="random_state")
+@_expands_categorical("covariates")
 def dml_did(
     data: pd.DataFrame,
     y: str,

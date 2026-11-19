@@ -81,6 +81,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import (
     AssumptionWarning,
     ColumnNotFound,
@@ -405,6 +406,7 @@ def _r2(target: np.ndarray, pred: np.ndarray) -> float:
 
 
 @accepts_aliases(_strict=True, unit="id", seed="random_state")
+@_expands_categorical("covariates")
 def dynamic_dml(
     data: pd.DataFrame,
     y: str,

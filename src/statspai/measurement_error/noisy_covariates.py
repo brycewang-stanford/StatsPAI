@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from .._input_validation import check_columns
+from ..core._label_guard import refuses_label_columns
 from ..core._validate import require_binary_treatment
 from ..core.results import CausalResult
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
@@ -239,6 +240,7 @@ def _summarise(
 # --------------------------------------------------------------------
 
 
+@refuses_label_columns("covariates")
 def noisy_covariates(
     data: pd.DataFrame,
     y: str,

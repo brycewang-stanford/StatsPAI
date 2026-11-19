@@ -38,6 +38,7 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from ..core.results import EconometricResults
 from ..exceptions import (
     ConvergenceFailure,
@@ -977,6 +978,7 @@ class _FrontierSpec:
 
 
 @records_call("frontier")
+@refuses_label_columns("x")
 def frontier(
     data: pd.DataFrame,
     y: str,

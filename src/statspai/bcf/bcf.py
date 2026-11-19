@@ -40,6 +40,7 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIWarning
 
@@ -64,6 +65,7 @@ class BCFApproximationWarning(StatsPAIWarning):
 
 
 @accepts_aliases(seed="random_state")
+@_expands_categorical("covariates")
 def bcf(
     data: pd.DataFrame,
     y: str,

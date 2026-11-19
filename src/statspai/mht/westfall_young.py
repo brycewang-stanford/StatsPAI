@@ -22,6 +22,7 @@ from scipy import stats
 
 from .._input_validation import check_columns
 from ..core._call_record import records_call
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core._validate import require_bool_flag
 from ..core._vcov_spec import accepts_vce
 from ..exceptions import MethodIncompatibility
@@ -55,6 +56,7 @@ def _stepdown_maxt(t_obs: np.ndarray, t_perm: np.ndarray) -> np.ndarray:
 
 @records_call("westfall_young")
 @accepts_vce(default=("hc1", "robust"), native={"nonrobust": {"robust": False}})
+@_expands_categorical("covariates")
 def westfall_young(
     data: pd.DataFrame,
     y: Sequence[str],

@@ -35,6 +35,7 @@ from .._input_validation import check_columns, missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
 from ..core._collinear import drop_collinear
+from ..core._label_guard import refuses_label_columns
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from .ts_tools import _kpss_level as _kpss_stat  # noqa: F401  (re-exported)
 from .ts_tools import _ndiffs as _kpss_ndiffs
@@ -686,6 +687,7 @@ def _unit_root_violation(
 
 
 @records_call("arima")
+@refuses_label_columns("exog")
 def arima(
     y: Any,
     order: Tuple[int, int, int] = (1, 0, 0),

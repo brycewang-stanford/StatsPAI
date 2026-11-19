@@ -40,6 +40,7 @@ from scipy import sparse, stats
 
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 
@@ -221,6 +222,7 @@ def _random_weights_test(cells: pd.DataFrame, variables: Sequence[str]) -> pd.Da
     unit="group",
     treatment="treat",
 )
+@_expands_categorical("covariates")
 def twowayfeweights(
     data: pd.DataFrame,
     y: str,

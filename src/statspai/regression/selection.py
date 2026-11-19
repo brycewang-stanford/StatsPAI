@@ -26,6 +26,7 @@ from scipy.optimize import minimize
 
 from .._aliases import accepts_aliases
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
@@ -422,6 +423,7 @@ def _sandwich(H: Any, scores: Any, cluster_vals: Any) -> Any:
 @records_call("etregress")
 @accepts_aliases(treat="treatment", vce="robust")
 @markout_clusters
+@refuses_label_columns("x")
 def etregress(
     data: pd.DataFrame,
     y: str,

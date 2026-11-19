@@ -285,9 +285,23 @@ def test_dml_did_drops_units_seen_in_one_period_with_a_warning():
     assert fit.n_obs == full.n_obs
 
 
-def test_dml_did_rejects_non_numeric_covariates():
+def test_dml_did_expands_a_text_covariate():
+    # covariate lists follow core/_covariates.py: "hi" / "lo" becomes the
+    # indicator x1[T.lo], as if passed by hand
     df = _did_data()
     df["x1"] = np.where(df["x1"] > 0, "hi", "lo")
+    a = _did_fit(df, random_state=0)
+    df["x1[T.lo]"] = (df["x1"] == "lo").astype(float)
+    b = _did_fit(df, covariates=["x0", "x1[T.lo]"], random_state=0)
+    np.testing.assert_allclose(a.estimate, b.estimate, rtol=1e-10)
+
+
+def test_dml_did_rejects_non_numeric_covariates():
+    # strings mixed with numbers: not read as categories, and not castable
+    df = _did_data()
+    df["x1"] = pd.Series(
+        ["hi" if v > 0 else 1.0 for v in df["x1"]], index=df.index, dtype=object
+    )
     with pytest.raises(MethodIncompatibility, match="covariates must be numeric"):
         _did_fit(df)
 

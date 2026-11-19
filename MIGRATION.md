@@ -15,6 +15,20 @@ one number. They now raise `MethodIncompatibility`. Build the indicators
 with `pd.get_dummies`, use `sp.ridge` with a formula and `C(name)`, or
 convert the column with `.astype(float)` if it really is a quantity.
 
+The rest of the sweep found the same cast in two more groups.
+
+- Covariate lists now expand a text or `category` column into
+  `name[T.level]` indicators, as IPW, AIPW, TMLE and matching already did:
+  `sp.match` / `sp.psm`, `sp.didregress`, `sp.twowayfeweights`,
+  `sp.westfall_young`, `sp.qte(controls=)`, `sp.multi_treatment`,
+  `sp.fect`, `sp.dml_did`, `sp.dml_panel`, `sp.dynamic_dml`,
+  `sp.dml_model_averaging`, `sp.conformal_cate` / `sp.conformal_ite`,
+  `sp.bcf`, `sp.bcf_ordinal`. Numbers change for such calls only.
+- Regressor lists refuse it: `sp.glmnet`, `sp.ivqreg`, `sp.rlasso_iv`,
+  `sp.interactive_fe`, `sp.etregress`, `sp.truncreg`, `sp.panel_fgls`,
+  `sp.frontier`, `sp.xtfrontier`, `sp.zisf`, `sp.lcsf`, `sp.arima(exog=)`,
+  `sp.noisy_covariates`.
+
 ## 1.44.2 → 1.44.3: ⚠️ text regressors in count, ordered and quantile models
 
 A correctness fix. Numbers change only for calls that put a text or

@@ -75,6 +75,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import (
     ColumnNotFound,
     DataInsufficient,
@@ -328,6 +329,7 @@ def _cluster_se_from_psi(
 
 
 @accepts_aliases(id="unit", weights="sample_weight")
+@_expands_categorical("covariates")
 def dml_panel(
     data: pd.DataFrame,
     y: str,

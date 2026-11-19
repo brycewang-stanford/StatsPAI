@@ -25,6 +25,7 @@ import pandas as pd
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
+from ..core._label_guard import refuses_label_columns
 from ..exceptions import (
     ColumnNotFound,
     ConvergenceWarning,
@@ -418,6 +419,7 @@ class GlmnetResult(ResultProtocolMixin):
         return self.summary()
 
 
+@refuses_label_columns("x")
 def glmnet(
     data: pd.DataFrame,
     y: str,

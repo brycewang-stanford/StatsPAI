@@ -46,6 +46,7 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from ..core._vcov_spec import accepts_vce
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import _cluster_codes, rlasso
@@ -532,6 +533,7 @@ def _grab(v: Any, data: Optional[pd.DataFrame], cols: bool = False) -> np.ndarra
     default=None,
     native={"robust": {"robust": True}, "nonrobust": {"robust": False}},
 )
+@refuses_label_columns("x")
 def rlasso_iv(
     y: Union[np.ndarray, pd.Series, str],
     d: Union[np.ndarray, pd.Series, str],

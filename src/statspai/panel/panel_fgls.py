@@ -23,9 +23,11 @@ from typing import List
 import numpy as np
 import pandas as pd
 
+from ..core._label_guard import refuses_label_columns
 from ..core.results import EconometricResults
 
 
+@refuses_label_columns("x")
 def panel_fgls(
     data: pd.DataFrame,
     y: str,

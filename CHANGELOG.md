@@ -16,6 +16,24 @@ All notable changes to StatsPAI will be documented in this file.
   raise `MethodIncompatibility`, as the other column-list entries did
   since 1.44.3. `sp.ridge("y ~ x + g", data=...)` expands such a column.
   See MIGRATION.md.
+- **⚠️ correctness fix: covariate lists of fourteen causal estimators
+  expand a text or `category` column.** The rest of the sweep found
+  `sp.match` (and so `sp.psm`), `sp.didregress`, `sp.twowayfeweights`,
+  `sp.westfall_young`, `sp.qte(controls=)`, `sp.multi_treatment`,
+  `sp.fect`, `sp.dml_did`, `sp.dml_panel`, `sp.dynamic_dml`,
+  `sp.dml_model_averaging`, `sp.conformal_cate` (and `sp.conformal_ite`),
+  `sp.bcf` and `sp.bcf_ordinal` casting such a column to its numeric
+  values. They now take the library's covariate-list rule
+  (`core/_covariates.py`, used by IPW, AIPW, TMLE, matching and the
+  staggered DiD estimators): each level other than the first
+  becomes a `g[T.level]` indicator. Results equal the call with those
+  indicators passed explicitly.
+- **⚠️ correctness fix: thirteen more regressor lists refuse a text
+  column.** `sp.glmnet`, `sp.ivqreg` (`exog=`, `instruments=`),
+  `sp.rlasso_iv`, `sp.interactive_fe`, `sp.etregress`, `sp.truncreg`,
+  `sp.panel_fgls`, `sp.frontier`, `sp.xtfrontier`, `sp.zisf`, `sp.lcsf`,
+  `sp.arima(exog=)` and `sp.noisy_covariates` raise
+  `MethodIncompatibility` where they fitted the codes.
 - **`sp.panel(method="re")` with a text regressor.** It raised a bare
   `TypeError` (unit means of a text column) where the other methods
   expand the column into linearmodels' indicators (`g.10`). The default

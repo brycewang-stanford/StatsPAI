@@ -17,6 +17,8 @@ References are the statsmodels / pyfixest calls the book itself makes.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -345,3 +347,94 @@ def test_ridge_formula_expands_text():
     df = _panel_text_frame()
     res = sp.ridge("y ~ x + g", data=df)
     assert {"g[T.10]", "g[T.2]"} <= set(res.params.index)
+
+
+def _cov_frame():
+    df = _panel_text_frame()
+    rng = np.random.default_rng(2)
+    df["d"] = (rng.normal(size=len(df)) + 0.3 * df["x"] > 0).astype(int)
+    df["x2"] = rng.normal(size=len(df))
+    df["z"] = df["x2"] + rng.normal(size=len(df))
+    df["g[T.10]"] = (df["g"] == "10").astype(float)
+    df["g[T.2]"] = (df["g"] == "2").astype(float)
+    return df
+
+
+_EXPANDING = {
+    "didregress": lambda d, c: sp.didregress(
+        data=d, y="y", treat="d", group="id", time="time", covariates=c
+    ),
+    "westfall_young": lambda d, c: sp.westfall_young(
+        data=d, y="y", treat="d", covariates=c, seed=0
+    ),
+    "qte": lambda d, c: sp.qte(data=d, y="y", treatment="d", controls=c),
+    "psm": lambda d, c: sp.psm(d, y="y", d="d", X=c),
+    "conformal_cate": lambda d, c: sp.conformal_cate(
+        data=d, y="y", treat="d", covariates=c, random_state=0
+    ),
+    "dml_did": lambda d, c: sp.dml_did(data=d, y="y", treat="d", covariates=c),
+    "dml_panel": lambda d, c: sp.dml_panel(
+        data=d, y="y", treat="d", unit="id", covariates=c
+    ),
+    "dynamic_dml": lambda d, c: sp.dynamic_dml(
+        data=d, y="y", treat="d", id="id", time="time", covariates=c
+    ),
+}
+
+
+def _numbers(res):
+    if isinstance(res, pd.DataFrame):
+        return res.select_dtypes("number").to_numpy(dtype=float).ravel()
+    for attr in ("estimate", "params", "att", "ate"):
+        v = getattr(res, attr, None)
+        if v is not None:
+            try:
+                return np.atleast_1d(np.asarray(v, dtype=float))
+            except (TypeError, ValueError):
+                continue
+    raise AssertionError(f"no numbers on {type(res).__name__}")
+
+
+@pytest.mark.parametrize("name", sorted(_EXPANDING))
+def test_covariate_list_text_is_expanded_like_explicit_indicators(name):
+    # these cast the labels to one number before; covariate lists follow
+    # core/_covariates.py: a categorical entry becomes g[T.level] columns
+    df = _cov_frame()
+    call = _EXPANDING[name]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        a = _numbers(call(df, ["x", "g"]))
+        b = _numbers(call(df, ["x", "g[T.10]", "g[T.2]"]))
+    np.testing.assert_allclose(a, b, rtol=1e-10, atol=1e-12)
+
+
+_REFUSING = {
+    "glmnet": lambda d: sp.glmnet(d, y="y", x=["x", "g"], cv=False, lambda_=0.1),
+    "ivqreg": lambda d: sp.ivqreg(
+        data=d, y="y", endog="x2", instruments=["z"], exog=["x", "g"]
+    ),
+    "ivqreg_instruments": lambda d: sp.ivqreg(
+        data=d, y="y", endog="x2", instruments=["z", "g"], exog=["x"]
+    ),
+    "rlasso_iv": lambda d: sp.rlasso_iv(data=d, y="y", d="d", z=["z"], x=["x", "g"]),
+    "interactive_fe": lambda d: sp.interactive_fe(data=d, y="y", x=["x", "g"]),
+    "etregress": lambda d: sp.etregress(
+        data=d, y="y", x=["x", "g"], treatment="d", z=["z"]
+    ),
+    "truncreg": lambda d: sp.truncreg(data=d, y="y", x=["x", "g"]),
+    "panel_fgls": lambda d: sp.panel_fgls(data=d, y="y", x=["x", "g"]),
+    "frontier": lambda d: sp.frontier(data=d, y="y", x=["x", "g"]),
+    "xtfrontier": lambda d: sp.xtfrontier(data=d, y="y", x=["x", "g"], id="id"),
+    "zisf": lambda d: sp.zisf(data=d, y="y", x=["x", "g"]),
+    "lcsf": lambda d: sp.lcsf(data=d, y="y", x=["x", "g"]),
+    "arima": lambda d: sp.arima(data=d, y="y", exog=["x", "g"]),
+    "noisy_covariates": lambda d: sp.noisy_covariates(
+        data=d, y="y", treat="d", covariates=["x", "g"]
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(_REFUSING))
+def test_regressor_list_text_is_refused(name):
+    with pytest.raises(MethodIncompatibility, match="category labels"):
+        _REFUSING[name](_cov_frame())

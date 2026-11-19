@@ -74,6 +74,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._input_validation import check_columns
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
 from ..exceptions import (
     ColumnNotFound,
@@ -646,6 +647,7 @@ def _aggregate_reps(
 
 
 @accepts_aliases(weights="sample_weight")
+@_expands_categorical("covariates")
 def dml_model_averaging(
     data: pd.DataFrame,
     y: str,

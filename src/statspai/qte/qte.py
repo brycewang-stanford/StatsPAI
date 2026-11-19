@@ -46,6 +46,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..exceptions import MethodIncompatibility
 
 # ══════════════════════════════════════════════════════════════════════
@@ -540,6 +541,7 @@ _QTE_METHODS = ("firpo_qte", "firpo_qtt", "conditional_qr", "distribution")
 
 
 @accepts_aliases(covariates="controls", treat="treatment")
+@_expands_categorical("controls")
 def qte(
     data: pd.DataFrame,
     y: str,

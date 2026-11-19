@@ -37,6 +37,7 @@ from scipy import stats
 from scipy.optimize import minimize
 
 from ..core._call_record import records_call
+from ..core._label_guard import refuses_label_columns
 from ..exceptions import ConvergenceFailure
 from . import _core as _fc
 from .sfa import FrontierResult
@@ -47,6 +48,7 @@ from .sfa import FrontierResult
 
 
 @records_call("zisf")
+@refuses_label_columns("x")
 def zisf(
     data: pd.DataFrame,
     y: str,
@@ -315,6 +317,7 @@ def zisf(
 
 
 @records_call("lcsf")
+@refuses_label_columns("x")
 def lcsf(
     data: pd.DataFrame,
     y: str,
