@@ -783,6 +783,9 @@ class EconometricResults:
                 output.append(f"{key:{width}s}: {text}")
 
         output.append("=" * 80)
+        from ._report import summary_block
+
+        output = list(output) + summary_block(self)
         return SummaryText("\n".join(output))
 
     def inference_rule(self) -> Dict[str, Any]:
@@ -4689,6 +4692,9 @@ class CausalResult(DiDAccessorsMixin):
         lines.append("=" * 78)
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
 
+        from ._report import summary_block
+
+        lines = list(lines) + summary_block(self)
         return SummaryText("\n".join(lines))
 
     # ------------------------------------------------------------------

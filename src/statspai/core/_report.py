@@ -653,3 +653,20 @@ def report_lines(rep: Optional[Dict[str, Any]]) -> List[str]:
         ]
     out.extend("  - " + b for b in rep["basis"])
     return out
+
+
+def summary_block(result: Any) -> List[str]:
+    """Lines ``summary()`` appends when the report differs from the fit.
+
+    Empty when no rule covers the result or no diagnostic fired, so the
+    printed table of an untroubled fit is unchanged.
+    """
+    try:
+        rep = recommended_report(result)
+    except Exception:  # printing a fit must not fail on its report
+        return []
+    if not rep or rep.get("status") == "conventional":
+        return []
+    if rep.get("ci") is None and rep.get("status") != "refuse":
+        return ["", "Report: " + " ".join(rep.get("basis") or [])]
+    return [""] + report_lines(rep) + ["  (result.report() has the details)"]

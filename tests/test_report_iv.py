@@ -131,3 +131,10 @@ def test_agent_payload_carries_the_report():
 def test_results_without_a_rule_return_none():
     df = _draw(0, 0.5, 1)
     assert sp.regress("y ~ d + x1", data=df).report() is None
+
+
+def test_summary_prints_the_report_only_when_it_differs_from_the_fit():
+    weak = str(_fit(_draw(1, 0.12, 1), 1).summary())
+    assert "Report:" in weak and "anderson_rubin" in weak
+    strong = str(_fit(_draw(0, 0.5, 1), 1).summary())
+    assert "Report:" not in strong
