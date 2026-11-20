@@ -515,7 +515,11 @@ def execute_tool(
         ``TypeError`` bugs raised inside the serializer body.
         """
         if serialize is _default_serializer:
-            return serialize(result_obj, detail=detail)
+            # the report may need the estimation frame (wild bootstrap)
+            from ...core._report import report_data
+
+            with report_data(data):
+                return serialize(result_obj, detail=detail)
         import inspect
 
         try:

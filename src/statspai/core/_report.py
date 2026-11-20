@@ -28,13 +28,32 @@ Rules (each follows the cited paper, not a tuning exercise):
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import math
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
-__all__ = ["recommended_report"]
+__all__ = ["recommended_report", "report_data"]
+
+# The estimation data, when the caller has it: some reports (the wild
+# cluster bootstrap) cannot be computed from the fitted result alone.
+_DATA: "contextvars.ContextVar[Optional[pd.DataFrame]]" = contextvars.ContextVar(
+    "statspai_report_data", default=None
+)
+
+
+@contextlib.contextmanager
+def report_data(data: Optional[pd.DataFrame]) -> Iterator[None]:
+    """Make ``data`` available to every ``report()`` computed inside."""
+    token = _DATA.set(data)
+    try:
+        yield
+    finally:
+        _DATA.reset(token)
+
 
 # First-stage F above which the just-identified Wald interval has correct
 # size with the usual critical value (Lee, McCrary, Moreira and Porter 2022).
@@ -460,21 +479,130 @@ def _rd_report(result: Any) -> Optional[Dict[str, Any]]:
     return rep
 
 
+# ---------------------------------------------------------- few clusters
+
+_MAX_BOOT_TERMS = 10
+
+
+def _cluster_report(result: Any) -> Optional[Dict[str, Any]]:
+    mi = getattr(result, "model_info", None) or {}
+    if not isinstance(mi, dict) or not hasattr(result, "params"):
+        return None
+    cluster = mi.get("cluster")
+    g = _f(mi.get("n_clusters"))
+    if not isinstance(cluster, str) or g is None:
+        return None
+    from ._agent_summary import _FEW_CLUSTERS_MIN
+
+    level = 1.0 - float(mi.get("alpha", 0.05) or 0.05)
+    focal = None
+    finder = getattr(result, "_focal_term", None)
+    if callable(finder):
+        focal = finder()[0]
+    try:
+        terms = [str(t) for t in result.params.index]
+    except Exception:
+        return None
+    slopes = [t for t in terms if t.lower() not in ("intercept", "const", "_cons")]
+
+    def _conv(t: str) -> Dict[str, Any]:
+        return {
+            "estimate": _f(result.params[t]),
+            "se": _f(result.std_errors[t]),
+            "ci": [_f(result.conf_int_lower[t]), _f(result.conf_int_upper[t])],
+            "ci_method": "cluster_robust",
+        }
+
+    if focal is not None:
+        rep = _blank(_conv(focal), level)
+        rep["term"] = focal
+    else:
+        rep = _blank({"ci_method": "cluster_robust"}, level)
+        rep["terms"] = {t: _conv(t) for t in slopes[:_MAX_BOOT_TERMS]}
+    rep["n_clusters"] = int(g)
+    if g >= _FEW_CLUSTERS_MIN:
+        return rep
+    rep["basis"].append(
+        f"{int(g)} clusters: cluster-robust standard errors are biased down "
+        "and their t-tests over-reject with so few "
+        "(Cameron, Gelbach and Miller 2008)."
+    )
+    data = _DATA.get()
+    if data is None or cluster not in getattr(data, "columns", ()):
+        rep["status"] = "caution"
+        rep["basis"].append(
+            "pass the estimation data (result.report(data=df)) to get the "
+            "wild cluster bootstrap interval, or run sp.wild_cluster_boot."
+        )
+        return rep
+    from ..inference.jackknife import wild_cluster_boot
+
+    todo = [focal] if focal is not None else slopes[:_MAX_BOOT_TERMS]
+    done: Dict[str, Any] = {}
+    for t in todo:
+        try:
+            w = wild_cluster_boot(
+                result,
+                data,
+                cluster,
+                variable=t,
+                confidence_set=True,
+                seed=0,
+                alpha=1 - level,
+            )
+            lo, hi = w.get("ci_inverted") or w["ci_boot"]
+            done[t] = {
+                "ci": [float(lo), float(hi)],
+                "p_boot": _f(w.get("p_boot")),
+                "n_boot": w.get("n_boot"),
+            }
+        except Exception as exc:
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                rep.setdefault("degradations", []),
+                section=f"report.wild_cluster_boot[{t}]",
+                exc=exc,
+            )
+    if not done:
+        rep["status"] = "caution"
+        return rep
+    rep["alternatives"]["wild_cluster_bootstrap"] = done
+    rep["basis"].append(
+        "the reported interval inverts the wild cluster restricted "
+        "bootstrap test. It is not a remedy when only one or two clusters "
+        "are treated."
+    )
+    rep.update(status="adjusted", ci_method="wild_cluster_bootstrap")
+    if focal is not None and focal in done:
+        rep["ci"] = done[focal]["ci"]
+    else:
+        for t, d in done.items():
+            rep["terms"][t] = {**rep["terms"][t], "report_ci": d["ci"]}
+    return rep
+
+
 # ------------------------------------------------------------- dispatch
 
 _BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (
     _iv_report,
     _did_report,
     _rd_report,
+    _cluster_report,
 )
 
 
-def recommended_report(result: Any) -> Optional[Dict[str, Any]]:
+def recommended_report(
+    result: Any, data: Optional[pd.DataFrame] = None
+) -> Optional[Dict[str, Any]]:
     """Return the estimate and interval to report for ``result``.
 
     Parameters
     ----------
     result : fitted StatsPAI result
+    data : DataFrame, optional
+        The estimation data. Needed only for reports that resample it
+        (the wild cluster bootstrap under few clusters).
 
     Returns
     -------
@@ -496,6 +624,9 @@ def recommended_report(result: Any) -> Optional[Dict[str, Any]]:
     ----------
     lee2022valid, andrews2019weak, anderson1949estimation, olea2013robust
     """
+    if data is not None:
+        with report_data(data):
+            return recommended_report(result)
     for build in _BUILDERS:
         rep = build(result)
         if rep is not None:

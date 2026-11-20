@@ -1686,7 +1686,7 @@ class EconometricResults:
 
         return econometric_violations(self)
 
-    def report(self) -> Optional[Dict[str, Any]]:
+    def report(self, data: Optional[pd.DataFrame] = None) -> Optional[Dict[str, Any]]:
         """
         The estimate and interval to report, given this fit's diagnostics.
 
@@ -1695,6 +1695,12 @@ class EconometricResults:
         weak first stage); a refusal when no defensible interval exists.
         The fit's own numbers are unchanged and repeated under
         ``conventional``.
+
+        Parameters
+        ----------
+        data : DataFrame, optional
+            The estimation data, for reports that resample it (the wild
+            cluster bootstrap interval under few clusters).
 
         Returns
         -------
@@ -1720,7 +1726,7 @@ class EconometricResults:
         """
         from ._report import recommended_report
 
-        return recommended_report(self)
+        return recommended_report(self, data=data)
 
     def to_agent_summary(self) -> Dict[str, Any]:
         """
@@ -5943,7 +5949,7 @@ class CausalResult(DiDAccessorsMixin):
 
         return causal_violations(self)
 
-    def report(self) -> Optional[Dict[str, Any]]:
+    def report(self, data: Optional[pd.DataFrame] = None) -> Optional[Dict[str, Any]]:
         """
         The estimate and interval to report, given this fit's diagnostics.
 
@@ -5952,6 +5958,12 @@ class CausalResult(DiDAccessorsMixin):
         weak first stage); a refusal when no defensible interval exists.
         The fit's own numbers are unchanged and repeated under
         ``conventional``.
+
+        Parameters
+        ----------
+        data : DataFrame, optional
+            The estimation data, for reports that resample it (the wild
+            cluster bootstrap interval under few clusters).
 
         Returns
         -------
@@ -5977,7 +5989,7 @@ class CausalResult(DiDAccessorsMixin):
         """
         from ._report import recommended_report
 
-        return recommended_report(self)
+        return recommended_report(self, data=data)
 
     def to_agent_summary(self) -> Dict[str, Any]:
         """
