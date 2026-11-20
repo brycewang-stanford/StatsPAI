@@ -62,6 +62,21 @@ _TF_STRONG_F = 104.7
 _MOP_TAU = 0.10
 
 
+def _frame(result: Any) -> Optional[pd.DataFrame]:
+    """The estimation data: what the caller passed to ``report(data=)``,
+    else the frame the fit was called with while it is still alive."""
+    data = _DATA.get()
+    if data is not None:
+        return data
+    from ._call_record import get_call_record
+
+    record = get_call_record(result)
+    if record is None:
+        return None
+    frames = [ref.get() for ref in record.frames().values()]
+    return frames[0] if len(frames) == 1 and frames[0] is not None else None
+
+
 def _f(x: Any) -> Optional[float]:
     try:
         v = float(x)
@@ -527,7 +542,7 @@ def _cluster_report(result: Any) -> Optional[Dict[str, Any]]:
         "and their t-tests over-reject with so few "
         "(Cameron, Gelbach and Miller 2008)."
     )
-    data = _DATA.get()
+    data = _frame(result)
     if data is None or cluster not in getattr(data, "columns", ()):
         rep["status"] = "caution"
         rep["basis"].append(
@@ -582,6 +597,82 @@ def _cluster_report(result: Any) -> Optional[Dict[str, Any]]:
     return rep
 
 
+# ----------------------------------------------------------------- overlap
+
+# Crump, Hotz, Imbens and Mitnik (2009): keep propensities in [0.1, 0.9].
+_CRUMP = 0.10
+
+
+def _overlap_report(result: Any) -> Optional[Dict[str, Any]]:
+    mi = getattr(result, "model_info", None) or {}
+    if not isinstance(mi, dict) or mi.get("_pscore") is None:
+        return None
+    est, se = _f(getattr(result, "estimate", None)), _f(getattr(result, "se", None))
+    ci = getattr(result, "ci", None)
+    if est is None or se is None or ci is None:
+        return None
+    from ._agent_summary import _DML_OVERLAP_EXTREME_SHARE, _propensity_extreme_share
+
+    alpha = float(getattr(result, "alpha", 0.05) or 0.05)
+    rep = _blank(
+        {"estimate": est, "se": se, "ci": [float(ci[0]), float(ci[1])]}, 1 - alpha
+    )
+    share = _propensity_extreme_share(mi)
+    if share is None:
+        return rep
+    rep["extreme_propensity_share"] = share
+    if share <= _DML_OVERLAP_EXTREME_SHARE:
+        return rep
+    ps = np.asarray(mi["_pscore"], dtype=float)
+    keep = (ps >= _CRUMP) & (ps <= 1 - _CRUMP)
+    rep["status"] = "caution"
+    rep["basis"].append(
+        f"{share:.0%} of units have a propensity score at or beyond the "
+        "overlap bound: for them the other treatment state is not observed "
+        "among comparable units, so the population effect rests on "
+        "extrapolating the outcome model."
+    )
+    data = _frame(result)
+    from ._call_record import get_call_record
+
+    record = get_call_record(result)
+    if data is None or record is None or len(data) != len(ps) or keep.sum() < 30:
+        rep["basis"].append(
+            "restrict the sample to the overlap region (sp.trimming) and "
+            "report that effect as what the data identify."
+        )
+        return rep
+    try:
+        import statspai as _sp
+
+        args, kwargs = record.restore(data=data.loc[keep])
+        sub = getattr(_sp, record.function)(*args, **kwargs)
+        sci = getattr(sub, "ci", None)
+        rep["alternatives"]["overlap_trimmed"] = {
+            "estimate": _f(sub.estimate),
+            "se": _f(sub.se),
+            "ci": [float(sci[0]), float(sci[1])] if sci is not None else None,
+            "n_kept": int(keep.sum()),
+            "share_kept": float(keep.mean()),
+            "estimand": (
+                "average effect among units with propensity score in "
+                f"[{_CRUMP}, {1 - _CRUMP}] (Crump, Hotz, Imbens and Mitnik 2009)"
+            ),
+        }
+        rep["basis"].append(
+            f"alternatives.overlap_trimmed is the effect on the "
+            f"{keep.mean():.0%} of units inside the overlap region, which the "
+            "data identify without extrapolation. It is a different estimand."
+        )
+    except Exception as exc:
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            rep.setdefault("degradations", []), section="report.overlap", exc=exc
+        )
+    return rep
+
+
 # ------------------------------------------------------------- dispatch
 
 _BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (
@@ -589,6 +680,7 @@ _BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (
     _did_report,
     _rd_report,
     _cluster_report,
+    _overlap_report,
 )
 
 

@@ -43,6 +43,7 @@ def test_few_clusters_report_the_inverted_wild_bootstrap_interval():
 
 
 def test_without_data_the_report_is_a_caution():
+    # the frame of the call is gone: nothing to resample
     rep = _fit(_data(0, 8)).report()
     assert rep["status"] == "caution"
     assert rep["ci"] == rep["conventional"]["ci"]
