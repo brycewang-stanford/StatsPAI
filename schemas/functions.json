@@ -41647,7 +41647,13 @@
           "items": {
             "type": "number"
           },
-          "type": "array"
+          "type": "array",
+          "x-aliases": [
+            "M",
+            "Mbar",
+            "Mvec",
+            "m_bar"
+          ]
         },
         "method": {
           "default": "smoothness",
