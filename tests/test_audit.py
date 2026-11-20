@@ -789,6 +789,7 @@ class TestAuditReportRendering:
         assert set(report) == {
             "method",
             "method_family",
+            "verdict",
             "checks",
             "summary",
             "coverage",

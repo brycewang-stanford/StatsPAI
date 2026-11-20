@@ -1175,6 +1175,49 @@ def _derived_evidence(model_info: Dict[str, Any], method_label: str) -> Dict[str
     return extra
 
 
+def _verdict(result: Any, n_failed: int) -> Dict[str, Any]:
+    """One instruction for the reader: what to report, and why.
+
+    Built from ``result.report()`` (the interval the fit's own diagnostics
+    support). A checklist with every box ticked is not a verdict: a
+    sensitivity analysis that was run counts as evidence present whatever
+    it found.
+    """
+    rep = None
+    reporter = getattr(result, "report", None)
+    if callable(reporter):
+        try:
+            rep = reporter()
+        except Exception:  # the audit must still return its checklist
+            rep = None
+    if not isinstance(rep, dict):
+        return {
+            "action": "review_failed_checks" if n_failed else "no_rule",
+            "reason": (
+                f"{n_failed} check(s) failed; no reporting rule covers this "
+                "result, so read the failed checks before reporting."
+                if n_failed
+                else "no reporting rule covers this result."
+            ),
+        }
+    action = {
+        "conventional": "report",
+        "adjusted": "report_adjusted",
+        "caution": "report_with_caveat",
+        "refuse": "do_not_report",
+    }[rep["status"]]
+    out: Dict[str, Any] = {
+        "action": action,
+        "estimate": rep.get("estimate"),
+        "ci": rep.get("ci"),
+        "ci_method": rep.get("ci_method"),
+        "reason": rep.get("refuse")
+        or " ".join(rep.get("basis") or [])
+        or "no diagnostic stored on the fit contradicts the conventional interval.",
+    }
+    return out
+
+
 @accepts_aliases(treat="treatment")
 def audit(
     result: Any,
@@ -1417,6 +1460,13 @@ def audit(
             "suggest_function": chk.suggest_function,
             "rationale": chk.rationale,
         }
+        if chk.compare == "exists" and status == "passed":
+            # "passed" here records that the analysis was run. What it
+            # found is in ``value`` and in the audit's ``verdict``.
+            entry["note"] = (
+                "evidence recorded: the analysis was run. This is not a "
+                "finding that the estimate is robust; see 'verdict'."
+            )
         if (
             status == "missing"
             and model_info.get("_audit_two_period")
@@ -1519,6 +1569,7 @@ def audit(
     report = {
         "method": method_label,
         "method_family": family,
+        "verdict": _verdict(result, n_failed),
         "checks": checks,
         "summary": {
             "passed": n_passed,

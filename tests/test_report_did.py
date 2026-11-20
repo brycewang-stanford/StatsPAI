@@ -104,3 +104,16 @@ def test_one_pre_period_cannot_be_trend_adjusted():
 def test_agent_payload_carries_the_report():
     d = _es(_panel(0, 0.06)).to_dict(detail="agent")
     assert d["report"]["status"] == "adjusted"
+
+
+def test_audit_verdict_is_not_a_tick_for_having_run_honest_did():
+    # A rejected pre-trend test and an honest-DiD run on record used to read
+    # "parallel_trends failed, honest_did passed". The verdict says what to
+    # report; the existence check says only that the analysis was run.
+    es = _es(_panel(2, 0.15))
+    es.model_info["honest_did"] = {"has_run": True, "max_rejecting_M": 2.0}
+    rep = sp.audit(es)
+    assert rep["verdict"]["action"] == "report_adjusted"
+    assert rep["verdict"]["ci"] == es.report()["ci"]
+    hd = next(c for c in rep["checks"] if c["name"] == "honest_did")
+    assert hd["status"] == "passed" and "not a finding" in hd["note"]
