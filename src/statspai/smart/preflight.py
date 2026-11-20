@@ -414,10 +414,37 @@ def _check_covariates_exist(data: pd.DataFrame, kwargs: Dict[str, Any]) -> Check
 def _check_formula_columns(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
     formula = kwargs.get("formula") or kwargs.get("fml")
     if not formula:
-        return _failed(
-            "formula not provided.",
-            arg_name="formula",
-        )
+        # The model can be named by its parts instead of a formula
+        # (y / treatment / instrument / covariates): check those columns.
+        named: List[str] = []
+        for key in (
+            "y",
+            "outcome",
+            "treatment",
+            "treat",
+            "endog",
+            "instrument",
+            "instruments",
+            "covariates",
+            "exog",
+        ):
+            v = kwargs.get(key)
+            if isinstance(v, str):
+                named.append(v)
+            elif isinstance(v, (list, tuple)):
+                named.extend(c for c in v if isinstance(c, str))
+        if not named:
+            return _failed(
+                "formula not provided.",
+                arg_name="formula",
+            )
+        absent = [c for c in dict.fromkeys(named) if c not in data.columns]
+        if absent:
+            return _failed(
+                f"columns missing from DataFrame: {absent}",
+                missing=absent,
+            )
+        return _passed(n_columns=len(dict.fromkeys(named)))
     # Lightweight Wilkinson parse — pull bare-word identifiers out of
     # the formula and check each is a column. Doesn't need to be
     # perfect; patsy will give the precise error if we miss something.

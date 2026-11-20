@@ -2016,6 +2016,32 @@ def _resolve_tool_data(
 
     from ._replay import data_comment
 
+    # A client that fills every schema slot sends "None", "" or [] for the
+    # sources it is not using; those are absent, not a second source.
+    def _absent(v: Any) -> bool:
+        if v is None or v == "" or v == [] or v == {}:
+            return True
+        return isinstance(v, str) and v.strip().lower() in ("none", "null", "nan")
+
+    if _absent(data_id):
+        data_id = None
+    if _absent(data_path):
+        data_path = None
+    if _absent(data_records):
+        data_records = None
+    if _absent(data_csv):
+        data_csv = None
+    # Next to a usable source, a data_id that names no live handle and a
+    # data_csv that is not a table cannot be what the caller meant to load.
+    if data_path is not None or data_records is not None:
+        if isinstance(data_id, str):
+            from ._data_cache import DATA_CACHE as _DC
+
+            if _DC.get(data_id) is None:
+                data_id = None
+        if isinstance(data_csv, str) and "\n" not in data_csv and "," not in data_csv:
+            data_csv = None
+
     sources = [
         k
         for k, v in (
