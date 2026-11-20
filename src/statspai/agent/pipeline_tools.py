@@ -1137,6 +1137,37 @@ def _pipeline_rd(
 # ----------------------------------------------------------------------
 
 
+def _with_report(out: Dict[str, Any]) -> Dict[str, Any]:
+    """Put the primary fit's ``report`` first in a pipeline payload.
+
+    A pipeline's stages list what was run; the report is the one answer
+    they add up to (``result.report()`` on the primary fit).
+    """
+    rid = out.get("result_id") if isinstance(out, dict) else None
+    if not rid or "error" in out:
+        return out
+    primary = RESULT_CACHE.get(rid)
+    reporter = getattr(primary, "report", None)
+    if not callable(reporter):
+        return out
+    try:
+        rep = reporter()
+    except Exception as exc:
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            out.setdefault("degradations", []), section="report", exc=exc
+        )
+        return out
+    if rep is None:
+        return out
+    from ..core.results import _to_jsonable
+
+    head = {k: out[k] for k in ("pipeline", "method") if k in out}
+    rest = {k: v for k, v in out.items() if k not in head}
+    return {**head, "report": _to_jsonable(rep), **rest}
+
+
 def execute_pipeline_tool(
     name: str,
     arguments: Dict[str, Any],
@@ -1164,25 +1195,31 @@ def execute_pipeline_tool(
         ).strip()
         return refused
     if name == "pipeline_did":
-        return _pipeline_did(
-            arguments,
-            data,
-            detail=detail,
-            as_handle=as_handle,
+        return _with_report(
+            _pipeline_did(
+                arguments,
+                data,
+                detail=detail,
+                as_handle=as_handle,
+            )
         )
     if name == "pipeline_iv":
-        return _pipeline_iv(
-            arguments,
-            data,
-            detail=detail,
-            as_handle=as_handle,
+        return _with_report(
+            _pipeline_iv(
+                arguments,
+                data,
+                detail=detail,
+                as_handle=as_handle,
+            )
         )
     if name == "pipeline_rd":
-        return _pipeline_rd(
-            arguments,
-            data,
-            detail=detail,
-            as_handle=as_handle,
+        return _with_report(
+            _pipeline_rd(
+                arguments,
+                data,
+                detail=detail,
+                as_handle=as_handle,
+            )
         )
     return {
         "error": f"unknown pipeline tool: {name!r}",

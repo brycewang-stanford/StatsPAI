@@ -37,6 +37,21 @@ def _scipy_stats() -> Any:
     return _stats
 
 
+def _report_after_headline(payload: Dict[str, Any], rep: Any) -> Dict[str, Any]:
+    """Insert ``report`` after the headline block of an agent payload."""
+    anchor = next(
+        (k for k in ("alpha", "ci", "pvalue", "se", "estimate") if k in payload), None
+    )
+    if anchor is None:
+        return {"report": rep, **payload}
+    out: Dict[str, Any] = {}
+    for k, v in payload.items():
+        out[k] = v
+        if k == anchor:
+            out["report"] = rep
+    return out
+
+
 class SummaryText(str):
     """``str`` subclass that renders formatted summaries in Jupyter / IPython.
 
@@ -2263,7 +2278,9 @@ class EconometricResults:
             rep = None
             record_degradation(degradations, section="report", exc=exc)
         if rep is not None:
-            base["report"] = _to_jsonable(rep)
+            # Right after the headline, so a reader that stops early (or a
+            # client that truncates) still sees what to report.
+            base = _report_after_headline(base, _to_jsonable(rep))
 
         base.update(
             {
@@ -6213,7 +6230,9 @@ class CausalResult(DiDAccessorsMixin):
             rep = None
             record_degradation(degradations, section="report", exc=exc)
         if rep is not None:
-            out["report"] = _to_jsonable(rep)
+            # Right after the headline, so a reader that stops early (or a
+            # client that truncates) still sees what to report.
+            out = _report_after_headline(out, _to_jsonable(rep))
 
         out.update(
             {
