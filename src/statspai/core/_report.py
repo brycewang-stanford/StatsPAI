@@ -409,11 +409,63 @@ def _did_report(result: Any) -> Optional[Dict[str, Any]]:
     return rep
 
 
+# --------------------------------------------------------------------- RD
+
+# Density-test levels: below the first the design is flagged, below the
+# second the sorting is treated as established.
+_DENSITY_FLAG, _DENSITY_REFUSE = 0.05, 0.01
+
+
+def _rd_report(result: Any) -> Optional[Dict[str, Any]]:
+    mi = getattr(result, "model_info", None) or {}
+    if not isinstance(mi, dict) or "rd_type" not in mi:
+        return None
+    est, se = _f(getattr(result, "estimate", None)), _f(getattr(result, "se", None))
+    ci = getattr(result, "ci", None)
+    if est is None or se is None or ci is None:
+        return None
+    alpha = float(getattr(result, "alpha", 0.05) or 0.05)
+    rep = _blank(
+        {
+            "estimate": est,
+            "se": se,
+            "ci": [float(ci[0]), float(ci[1])],
+            "ci_method": "robust_bias_corrected",
+        },
+        1 - alpha,
+    )
+    dens = mi.get("mccrary")
+    p = _f(dens.get("pvalue")) if isinstance(dens, dict) else None
+    if p is None:
+        return rep
+    rep["density_pvalue"] = p
+    if p >= _DENSITY_FLAG:
+        return rep
+    rep["basis"].append(
+        f"the density test rejects continuity of the running variable at the "
+        f"cutoff (p = {p:.3g}): units appear to sort across it, so those just "
+        "above and just below are not comparable (McCrary 2008; Cattaneo, "
+        "Jansson and Ma 2020)."
+    )
+    if p < _DENSITY_REFUSE:
+        return _refuse(
+            rep,
+            f"the running variable is manipulated at the cutoff (density test "
+            f"p = {p:.3g}); the discontinuity does not identify the effect. A "
+            "donut estimate (sp.rdrobust(..., donut=d)) identifies it only "
+            "under the further assumption that sorting is confined to the "
+            "excluded window.",
+        )
+    rep["status"] = "caution"
+    return rep
+
+
 # ------------------------------------------------------------- dispatch
 
 _BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (
     _iv_report,
     _did_report,
+    _rd_report,
 )
 
 

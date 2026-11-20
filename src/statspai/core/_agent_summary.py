@@ -1114,7 +1114,13 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                 "alternatives": [],
             }
         )
-    if se is None or (se is not None and se <= 0):
+    # A result whose headline is a test statistic (a density test, say) has
+    # no standard error by construction; that is not a numerical failure.
+    _scale = mi.get("scale") if isinstance(mi, dict) else None
+    _is_statistic = isinstance(_scale, dict) and str(
+        _scale.get("estimate", "")
+    ).endswith("statistic")
+    if not _is_statistic and (se is None or (se is not None and se <= 0)):
         out.append(
             {
                 "kind": "numerical",
