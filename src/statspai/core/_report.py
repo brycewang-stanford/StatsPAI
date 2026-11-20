@@ -145,7 +145,7 @@ def _iv_report(result: Any) -> Optional[Dict[str, Any]]:
         se = _f(result.std_errors[endog])
         lo = _f(result.conf_int_lower[endog])
         hi = _f(result.conf_int_upper[endog])
-    except Exception:
+    except (KeyError, AttributeError, TypeError):
         return None
     conventional = {
         "estimate": est,
@@ -516,7 +516,7 @@ def _cluster_report(result: Any) -> Optional[Dict[str, Any]]:
         focal = finder()[0]
     try:
         terms = [str(t) for t in result.params.index]
-    except Exception:
+    except (AttributeError, TypeError):
         return None
     slopes = [t for t in terms if t.lower() not in ("intercept", "const", "_cons")]
 
@@ -755,7 +755,14 @@ def summary_block(result: Any) -> List[str]:
     """
     try:
         rep = recommended_report(result)
-    except Exception:  # printing a fit must not fail on its report
+    except Exception as exc:  # printing a fit must not fail on its report
+        from ._fallback import warn_fallback
+
+        warn_fallback(
+            "computing the report block of summary()",
+            exc,
+            "summary() is printed without it; call result.report() to see why",
+        )
         return []
     if not rep or rep.get("status") == "conventional":
         return []

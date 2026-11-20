@@ -1188,7 +1188,14 @@ def _verdict(result: Any, n_failed: int) -> Dict[str, Any]:
     if callable(reporter):
         try:
             rep = reporter()
-        except Exception:  # the audit must still return its checklist
+        except Exception as exc:  # the audit must still return its checklist
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "computing the audit verdict from result.report()",
+                exc,
+                "the verdict falls back to the count of failed checks",
+            )
             rep = None
     if not isinstance(rep, dict):
         return {
