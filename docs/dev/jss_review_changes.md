@@ -6620,7 +6620,7 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commit.** `9f64c488f` re-records
+- **Commit.** `9f64c488f` re-records (and `d257683fc` again, after `baaa93605` made the fallbacks in `core/_report.py` warn)
   `tests/r_parity/results/_implementation_trace.json` (91 modules) and
   `tests/orig_parity/results/_implementation_trace.json` (12 modules).
 - **Reason.** `core/results.py` (the `report()` method, the report block
