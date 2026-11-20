@@ -6615,3 +6615,31 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   any table that prints them to six digits is unchanged.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-21 — traces re-recorded (`result.report()` and agent-payload work)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `9f64c488f` re-records
+  `tests/r_parity/results/_implementation_trace.json` (91 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (12 modules).
+- **Reason.** `core/results.py` (the `report()` method, the report block
+  in `to_dict(detail="agent")` and `summary()`), `core/_agent_summary.py`
+  (no `se_positive` violation for a test-statistic headline) and
+  `did/__init__.py` (explicit `method="cs"` reads a 0/1 treatment
+  indicator) are executed by the Track A modules. None changes an
+  estimate, a standard error or an interval of any fit.
+- **Effect on the paper.** None on any number. Every module was re-run
+  without Rust before re-recording: 89 of 91 reproduce their committed
+  results (worst relative difference 1.4e-10). `06_rd` (5.5e-8) and
+  `76_pretrends` (1e-7) exceed the 1e-9 reproducibility floor on this
+  machine; they differ by the same amounts on main at `3beb1127d`, so the
+  drift predates this change and is left for a separate look.
+  `summary()` now prints a "Report:" block at its foot when a diagnostic
+  changes what should be reported; a manuscript listing that prints
+  `summary()` of an IV fit with first-stage F below 104.7, an event study
+  or a few-cluster regression would gain those lines at the next
+  re-anchor.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
