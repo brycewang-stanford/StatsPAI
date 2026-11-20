@@ -1671,6 +1671,42 @@ class EconometricResults:
 
         return econometric_violations(self)
 
+    def report(self) -> Optional[Dict[str, Any]]:
+        """
+        The estimate and interval to report, given this fit's diagnostics.
+
+        The conventional interval when no diagnostic fires; a robust
+        interval when one does (for example the Anderson-Rubin set under a
+        weak first stage); a refusal when no defensible interval exists.
+        The fit's own numbers are unchanged and repeated under
+        ``conventional``.
+
+        Returns
+        -------
+        dict or None
+            ``None`` when no reporting rule covers this result. Otherwise
+            keys ``status`` (``'conventional'``, ``'adjusted'``,
+            ``'caution'`` or ``'refuse'``), ``estimate``, ``ci``, ``level``,
+            ``ci_method``, ``basis``, ``refuse``, ``conventional`` and
+            ``alternatives``. See :func:`statspai.core._report.recommended_report`.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"z": rng.normal(size=500)})
+        >>> u = rng.normal(size=500)
+        >>> df["x"] = 0.1 * df.z + u + rng.normal(size=500)
+        >>> df["y"] = 0.5 * df.x + u + rng.normal(size=500)
+        >>> rep = sp.iv("y ~ (x ~ z)", data=df).report()
+        >>> rep["status"] in ("adjusted", "refuse")
+        True
+        """
+        from ._report import recommended_report
+
+        return recommended_report(self)
+
     def to_agent_summary(self) -> Dict[str, Any]:
         """
         JSON-ready *nested* summary for agent consumption.
@@ -2220,6 +2256,14 @@ class EconometricResults:
             for alt in v.get("alternatives", []) or []:
                 if alt and alt not in suggested:
                     suggested.append(alt)
+
+        try:
+            rep = self.report()
+        except Exception as exc:
+            rep = None
+            record_degradation(degradations, section="report", exc=exc)
+        if rep is not None:
+            base["report"] = _to_jsonable(rep)
 
         base.update(
             {
@@ -5882,6 +5926,42 @@ class CausalResult(DiDAccessorsMixin):
 
         return causal_violations(self)
 
+    def report(self) -> Optional[Dict[str, Any]]:
+        """
+        The estimate and interval to report, given this fit's diagnostics.
+
+        The conventional interval when no diagnostic fires; a robust
+        interval when one does (for example the Anderson-Rubin set under a
+        weak first stage); a refusal when no defensible interval exists.
+        The fit's own numbers are unchanged and repeated under
+        ``conventional``.
+
+        Returns
+        -------
+        dict or None
+            ``None`` when no reporting rule covers this result. Otherwise
+            keys ``status`` (``'conventional'``, ``'adjusted'``,
+            ``'caution'`` or ``'refuse'``), ``estimate``, ``ci``, ``level``,
+            ``ci_method``, ``basis``, ``refuse``, ``conventional`` and
+            ``alternatives``. See :func:`statspai.core._report.recommended_report`.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"z": rng.normal(size=500)})
+        >>> u = rng.normal(size=500)
+        >>> df["x"] = 0.1 * df.z + u + rng.normal(size=500)
+        >>> df["y"] = 0.5 * df.x + u + rng.normal(size=500)
+        >>> rep = sp.iv("y ~ (x ~ z)", data=df).report()
+        >>> rep["status"] in ("adjusted", "refuse")
+        True
+        """
+        from ._report import recommended_report
+
+        return recommended_report(self)
+
     def to_agent_summary(self) -> Dict[str, Any]:
         """
         JSON-ready *nested* summary for agent consumption.
@@ -6126,6 +6206,14 @@ class CausalResult(DiDAccessorsMixin):
             for alt in v.get("alternatives", []) or []:
                 if alt and alt not in suggested:
                     suggested.append(alt)
+
+        try:
+            rep = self.report()
+        except Exception as exc:
+            rep = None
+            record_degradation(degradations, section="report", exc=exc)
+        if rep is not None:
+            out["report"] = _to_jsonable(rep)
 
         out.update(
             {

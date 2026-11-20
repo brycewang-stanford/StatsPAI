@@ -1,0 +1,337 @@
+"""The interval to report, given the diagnostics a fit already holds.
+
+A fitted result carries the conventional estimate and interval, and next to
+them the diagnostics that say when that interval cannot be trusted (a weak
+first stage, a rejected pre-trend test, a density break at an RD cutoff).
+Reading the two together is left to the caller, and a caller in a hurry
+reports the conventional interval. :func:`recommended_report` does the
+reading: it returns the conventional interval when no diagnostic fires, the
+robust alternative when one does, and a refusal when no defensible interval
+exists. The conventional numbers are never changed; they are repeated under
+``conventional`` so both can be shown.
+
+Rules (each follows the cited paper, not a tuning exercise):
+
+* IV, one endogenous regressor, one instrument. The Wald interval with the
+  1.96 critical value is valid only when the first-stage F exceeds 104.7
+  [@lee2022valid]. Below that the report is the Anderson-Rubin set, which
+  is valid at any instrument strength and efficient in the just-identified
+  model [@anderson1949estimation; @andrews2019weak]; when the arrays needed
+  to invert the test are not available (weights, clustering) it is the tF
+  interval of [@lee2022valid].
+* IV, several instruments. When the effective F [@olea2013robust] is below
+  its 10% worst-case-bias critical value, the report is the LIML estimate
+  with the Anderson-Rubin set [@andrews2019weak].
+* An unbounded robust set means the data do not bound the effect at the
+  stated level: the report is a refusal that says so.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any, Callable, Dict, List, Optional, Sequence
+
+import numpy as np
+import pandas as pd
+
+__all__ = ["recommended_report"]
+
+# First-stage F above which the just-identified Wald interval has correct
+# size with the usual critical value (Lee, McCrary, Moreira and Porter 2022).
+_TF_STRONG_F = 104.7
+# Worst-case bias fraction for the Olea-Pflueger critical value.
+_MOP_TAU = 0.10
+
+
+def _f(x: Any) -> Optional[float]:
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        return None
+    return v if math.isfinite(v) else None
+
+
+def _blank(conventional: Dict[str, Any], level: float) -> Dict[str, Any]:
+    return {
+        "status": "conventional",
+        "estimate": conventional.get("estimate"),
+        "ci": conventional.get("ci"),
+        "level": level,
+        "ci_method": conventional.get("ci_method", "wald"),
+        "basis": [],
+        "refuse": None,
+        "conventional": conventional,
+        "alternatives": {},
+    }
+
+
+def _refuse(rep: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    rep.update(status="refuse", estimate=None, ci=None, ci_method=None, refuse=reason)
+    return rep
+
+
+# --------------------------------------------------------------------- IV
+
+
+def _iv_frame(iv: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Rebuild a named frame from the arrays an IV fit stores."""
+    n_exog, n_endog = int(iv["n_exog"]), int(iv["n_endog"])
+    X, W, y = np.asarray(iv["X"]), np.asarray(iv["W"]), np.asarray(iv["y"])
+    if n_endog != 1 or W.shape[1] <= n_exog:
+        return None
+    exog, Z, d = X[:, :n_exog], W[:, n_exog:], X[:, n_exog]
+    # the weak-IV routines add their own constant
+    scale = np.maximum(np.abs(exog).max(axis=0), 1e-300) if n_exog else np.ones(0)
+    keep = [j for j in range(n_exog) if np.ptp(exog[:, j]) > 1e-12 * scale[j]]
+    has_const = len(keep) < n_exog
+    cols: Dict[str, np.ndarray] = {"__y": y, "__d": d}
+    xn = [f"__x{j}" for j in keep]
+    zn = [f"__z{j}" for j in range(Z.shape[1])]
+    cols.update({name: exog[:, j] for name, j in zip(xn, keep)})
+    cols.update({name: Z[:, j] for j, name in enumerate(zn)})
+    return {
+        "data": pd.DataFrame(cols),
+        "exog": xn,
+        "instruments": zn,
+        "has_const": has_const,
+        "arrays": (y, exog, d.reshape(-1, 1), Z),
+    }
+
+
+def _iv_report(result: Any) -> Optional[Dict[str, Any]]:
+    mi = getattr(result, "model_info", None) or {}
+    di = getattr(result, "data_info", None) or {}
+    iv = di.get("iv") if isinstance(di, dict) else None
+    if not isinstance(iv, dict) or int(iv.get("n_endog", 0)) != 1:
+        return None
+    endog = iv["endog_names"][0]
+    level = 1.0 - float(mi.get("alpha", 0.05) or 0.05)
+    try:
+        est = _f(result.params[endog])
+        se = _f(result.std_errors[endog])
+        lo = _f(result.conf_int_lower[endog])
+        hi = _f(result.conf_int_upper[endog])
+    except Exception:
+        return None
+    conventional = {
+        "estimate": est,
+        "se": se,
+        "ci": [lo, hi],
+        "ci_method": "wald",
+        "estimator": str(mi.get("method", "2sls")),
+    }
+    rep = _blank(conventional, level)
+    rep["term"] = endog
+
+    diag = getattr(result, "diagnostics", None) or {}
+    f_eff = _f(diag.get("Olea-Pflueger effective F")) or _f(mi.get("first_stage_f"))
+    k = int(np.asarray(iv["W"]).shape[1]) - int(iv["n_exog"])
+    if f_eff is None or est is None or se is None:
+        return rep
+    rep["first_stage_F"] = f_eff
+    rep["n_instruments"] = k
+
+    weighted = bool(iv.get("weighted"))
+    clustered = mi.get("cluster") not in (None, False, "")
+    robust = str(mi.get("robust") or "nonrobust").lower()
+    ar_vcov = (
+        "classic" if robust in ("nonrobust", "none", "false", "classic") else "HC1"
+    )
+    arrays_ok = not weighted and not clustered and abs(level - 0.95) < 1e-9
+    frame = _iv_frame(iv) if arrays_ok else None
+    if frame is not None and not frame["has_const"]:
+        frame = None  # the weak-IV routines assume an intercept
+
+    def _ar() -> Optional[Dict[str, Any]]:
+        if frame is None:
+            return None
+        from ..diagnostics.weak_iv import anderson_rubin_test
+
+        out = anderson_rubin_test(
+            frame["data"],
+            y="__y",
+            endog="__d",
+            instruments=frame["instruments"],
+            exog=frame["exog"] or None,
+            ar_vcov=ar_vcov,
+        )
+        a, b = out["ar_ci"]
+        return {
+            "ci": [float(a), float(b)],
+            "bounded": bool(np.isfinite(a) and np.isfinite(b)),
+            "disjoint": bool(out.get("ar_ci_disjoint", False)),
+            "vcov": out.get("ar_vcov"),
+        }
+
+    if k == 1:
+        if f_eff >= _TF_STRONG_F:
+            return rep
+        from ..diagnostics.weak_iv import tF_critical_value
+
+        crit = float(tF_critical_value(f_eff)) if abs(level - 0.95) < 1e-9 else None
+        rep["basis"].append(
+            f"first-stage F = {f_eff:.1f} is below {_TF_STRONG_F}: the Wald "
+            "interval with the 1.96 critical value under-covers "
+            "(Lee, McCrary, Moreira and Porter 2022)."
+        )
+        if crit is not None:
+            tf_ci = (
+                [est - crit * se, est + crit * se]
+                if math.isfinite(crit)
+                else [-math.inf, math.inf]
+            )
+            rep["alternatives"]["tF"] = {"critical_value": crit, "ci": tf_ci}
+        ar = _ar()
+        if ar is not None:
+            rep["alternatives"]["anderson_rubin"] = ar
+        chosen, name = None, None
+        if ar is not None and not ar["disjoint"]:
+            chosen, name = ar["ci"], "anderson_rubin"
+        elif crit is not None:
+            chosen, name = rep["alternatives"]["tF"]["ci"], "tF"
+        if chosen is None:
+            rep["basis"].append(
+                "no weak-instrument-robust interval is available for this "
+                "fit (level other than 95%); treat the Wald interval as a "
+                "lower bound on the uncertainty."
+            )
+            rep["status"] = "caution"
+            return rep
+        if not (math.isfinite(chosen[0]) and math.isfinite(chosen[1])):
+            return _refuse(
+                rep,
+                f"the instrument is too weak (first-stage F = {f_eff:.1f}) to "
+                f"bound the effect: the {level:.0%} weak-instrument-robust "
+                "set is unbounded.",
+            )
+        rep.update(status="adjusted", ci=chosen, ci_method=name)
+        return rep
+
+    # several instruments
+    crit10 = None
+    if frame is not None:
+        from ..diagnostics.weak_iv import effective_f_test
+
+        eff = effective_f_test(
+            frame["data"],
+            endog="__d",
+            instruments=frame["instruments"],
+            exog=frame["exog"] or None,
+            vcov="classic" if ar_vcov == "classic" else "HC1",
+        )
+        crit10 = _f(
+            ((eff.get("critical_values") or {}).get("simplified") or {}).get(_MOP_TAU)
+        )
+    threshold = crit10 if crit10 is not None else 23.1
+    rep["weak_threshold"] = threshold
+    if f_eff >= threshold:
+        return rep
+    rep["basis"].append(
+        f"effective F = {f_eff:.1f} with {k} instruments is below the "
+        f"critical value {threshold:.1f} for a {_MOP_TAU:.0%} worst-case bias "
+        "(Montiel Olea and Pflueger 2013): 2SLS is biased toward OLS and its "
+        "Wald interval under-covers."
+    )
+    ar = _ar()
+    if ar is None:
+        rep["status"] = "caution"
+        rep["basis"].append(
+            "a weak-instrument-robust set could not be computed from this "
+            "fit (weights or clustering); run sp.anderson_rubin_test with the "
+            "same cluster variable."
+        )
+        return rep
+    rep["alternatives"]["anderson_rubin"] = ar
+    liml = None
+    try:
+        from ..regression.iv import _k_class_fit, _liml_kappa
+
+        y, exog, d, Z = frame["arrays"]
+        kappa = _liml_kappa(y, exog, d, Z)
+        fit = _k_class_fit(
+            y, exog, d, Z, kappa, robust="nonrobust" if ar_vcov == "classic" else "hc1"
+        )
+        liml = {
+            "estimate": float(np.asarray(fit["params"]).ravel()[-1]),
+            "se": float(np.asarray(fit["std_errors"]).ravel()[-1]),
+            "kappa": float(kappa),
+        }
+        rep["alternatives"]["liml"] = liml
+    except Exception as exc:  # the report must not fail the fit
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            rep.setdefault("degradations", []), section="report.liml", exc=exc
+        )
+    if not ar["bounded"] or ar["disjoint"]:
+        return _refuse(
+            rep,
+            f"the instruments are too weak (effective F = {f_eff:.1f}, {k} "
+            f"instruments) to bound the effect: the {level:.0%} "
+            "Anderson-Rubin set is unbounded or disjoint.",
+        )
+    rep.update(status="adjusted", ci=ar["ci"], ci_method="anderson_rubin")
+    if liml is not None and ar["ci"][0] <= liml["estimate"] <= ar["ci"][1]:
+        rep["estimate"] = liml["estimate"]
+        rep["estimator"] = "liml"
+    return rep
+
+
+# ------------------------------------------------------------- dispatch
+
+_BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (_iv_report,)
+
+
+def recommended_report(result: Any) -> Optional[Dict[str, Any]]:
+    """Return the estimate and interval to report for ``result``.
+
+    Parameters
+    ----------
+    result : fitted StatsPAI result
+
+    Returns
+    -------
+    dict or None
+        ``None`` when no rule covers the result. Otherwise a dict with
+
+        * ``status``: ``'conventional'`` (no diagnostic fired),
+          ``'adjusted'`` (a robust interval replaces the conventional one),
+          ``'caution'`` (a diagnostic fired and no robust interval could be
+          computed) or ``'refuse'`` (no defensible interval);
+        * ``estimate``, ``ci``, ``level``, ``ci_method``;
+        * ``basis``: the diagnostics behind the choice, as sentences;
+        * ``refuse``: the reason when ``status == 'refuse'``;
+        * ``conventional``: the fit's own estimate, standard error and
+          interval, unchanged;
+        * ``alternatives``: every robust quantity computed on the way.
+
+    References
+    ----------
+    lee2022valid, andrews2019weak, anderson1949estimation, olea2013robust
+    """
+    for build in _BUILDERS:
+        rep = build(result)
+        if rep is not None:
+            return rep
+    return None
+
+
+def report_lines(rep: Optional[Dict[str, Any]]) -> List[str]:
+    """Render a report as a few plain lines for ``summary()``."""
+    if not rep:
+        return []
+    if rep["status"] == "refuse":
+        out = ["Report: no defensible interval. " + str(rep["refuse"])]
+    else:
+        lo, hi = rep["ci"]
+        tag = {
+            "conventional": "conventional interval; no diagnostic fired",
+            "adjusted": f"{rep['ci_method']} interval replaces the conventional one",
+            "caution": "conventional interval, but a diagnostic fired",
+        }[rep["status"]]
+        out = [
+            f"Report: {rep['estimate']:.4g}, {rep['level']:.0%} CI "
+            f"[{lo:.4g}, {hi:.4g}] ({tag})"
+        ]
+    out.extend("  - " + b for b in rep["basis"])
+    return out
