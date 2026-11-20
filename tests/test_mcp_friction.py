@@ -95,3 +95,51 @@ def test_explicit_cs_reads_a_treatment_indicator_like_auto_does():
     got = sp.did(df, y="y", treat="treated", time="time", id="unit", method="cs")
     assert got.estimate == pytest.approx(ref.estimate, rel=1e-12)
     assert got.se == pytest.approx(ref.se, rel=1e-12)
+
+
+def _dirty(n=3000):
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(50, 10, n),
+            "t": rng.integers(0, 2, n),
+            "x": rng.normal(size=n),
+        }
+    )
+    clean = df.copy()
+    df.loc[:99, "y"] = -99.0
+    return pd.concat([df, df.iloc[200:260]], ignore_index=True), clean
+
+
+def test_preflight_flags_missing_value_codes_and_duplicate_records():
+    dirty, clean = _dirty()
+    out = sp.preflight(dirty, "regress", formula="y ~ t + x")
+    warns = {w["check"]: w for w in out["data_warnings"]}
+    assert out["verdict"] == "WARN"
+    assert warns["sentinel_codes"]["evidence"]["columns"]["y"] == {
+        "value": -99.0,
+        "n_rows": 100,
+    }
+    assert warns["duplicate_rows"]["evidence"]["n_duplicates"] == 60
+    ok = sp.preflight(clean, "regress", formula="y ~ t + x")
+    assert ok["data_warnings"] == [] and ok["verdict"] == "PASS"
+
+
+def test_a_real_99_inside_the_scale_is_not_a_code():
+    rng = np.random.default_rng(1)
+    df = pd.DataFrame({"score": rng.integers(0, 101, 5000).astype(float)})
+    from statspai.smart.preflight import data_hygiene_warnings
+
+    assert data_hygiene_warnings(df) == []
+
+
+def test_estimator_reply_leads_with_the_data_warnings(tmp_path):
+    dirty, _ = _dirty()
+    path = tmp_path / "d.csv"
+    dirty.to_csv(path, index=False)
+    out = _call("regress", {"formula": "y ~ t + x", "data_path": str(path)})
+    assert next(iter(out)) == "data_warnings"
+    assert {w["check"] for w in out["data_warnings"]} == {
+        "sentinel_codes",
+        "duplicate_rows",
+    }

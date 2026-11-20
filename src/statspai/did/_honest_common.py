@@ -81,6 +81,8 @@ def _coerce_m_grid(
             return list(_RM_DEFAULT_GRID)
         sigma = float(se_hat)
         return [0.0, 0.5 * sigma, sigma, 1.5 * sigma, 2.0 * sigma, 3.0 * sigma]
+    if isinstance(m_grid, (int, float)) and not isinstance(m_grid, bool):
+        m_grid = [m_grid]  # one value of M: a one-point grid
     try:
         out = [float(m) for m in m_grid]
     except (TypeError, ValueError) as exc:

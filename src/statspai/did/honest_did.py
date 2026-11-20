@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from ._arp_sets import rm_confidence_set
@@ -73,6 +74,9 @@ from ._honest_moments import (  # noqa: F401
 from ._honest_r import _find_rscript, _honest_did_r_backend  # noqa: F401
 
 
+# The papers and the R / Stata packages write the bound as M, Mbar or
+# Mvec; all name the grid of values to evaluate.
+@accepts_aliases(M="m_grid", Mbar="m_grid", m_bar="m_grid", Mvec="m_grid")
 def honest_did(
     result: CausalResult,
     e: int = 0,

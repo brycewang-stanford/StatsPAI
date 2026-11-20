@@ -618,6 +618,24 @@ def execute_tool(
     if seed_injected:
         out["seed_injected"] = seed_injected
 
+    # Problems in the data the fit ran on (missing-value codes left as
+    # numbers, duplicate records): an estimate on such data is wrong
+    # whatever the estimator, so every reply that used a frame says so.
+    if isinstance(data, pd.DataFrame) and "error" not in out:
+        try:
+            from ...smart.preflight import data_hygiene_warnings
+
+            _hyg = data_hygiene_warnings(data)
+        except Exception as exc:
+            from ...workflow._degradation import record_degradation
+
+            _hyg = []
+            record_degradation(
+                out.setdefault("degradations", []), section="data_warnings", exc=exc
+            )
+        if _hyg:
+            out = {"data_warnings": _hyg, **out}
+
     # Result-handle caching. When ``as_handle=True`` we stash the live
     # fitted result in the process-local LRU cache and surface a handle
     # so the next tools/call can reach it without re-loading the CSV

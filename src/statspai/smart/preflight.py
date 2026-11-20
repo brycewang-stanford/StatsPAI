@@ -647,10 +647,122 @@ def _check_iv_first_stage_strength(
 # ====================================================================== #
 
 
+_SENTINEL_MAGNITUDES = frozenset(
+    {9.0, 99.0, 999.0, 9999.0, 99999.0, 8.0, 88.0, 888.0, 8888.0, 7.0, 77.0, 777.0}
+)
+
+
+def _check_sentinel_codes(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
+    """Numeric missing-value codes (-99, 999, ...) left in the data.
+
+    A value counts when it has a code-like magnitude, repeats, and sits
+    apart from every other value of the column by more than three
+    interquartile ranges: a real 99 inside a 0-100 scale is not flagged.
+    """
+    import numpy as np
+
+    found: Dict[str, Dict[str, Any]] = {}
+    n = len(data)
+    floor = max(5, int(0.002 * n))
+    for col in data.columns:
+        ser = data[col]
+        if not pd.api.types.is_numeric_dtype(ser) or pd.api.types.is_bool_dtype(ser):
+            continue
+        vals = ser.dropna().to_numpy(dtype=float)
+        if vals.size < 30:
+            continue
+        uniq, counts = np.unique(vals, return_counts=True)
+        if uniq.size < 4:
+            continue
+        for v, c in zip(uniq, counts):
+            if abs(v) not in _SENTINEL_MAGNITUDES or c < floor:
+                continue
+            rest = vals[vals != v]
+            q1, q3 = np.percentile(rest, [25, 75])
+            iqr = q3 - q1
+            if iqr <= 0:
+                continue
+            gap = (rest.min() - v) if v < rest.min() else (v - rest.max())
+            if gap > 3 * iqr:
+                found[str(col)] = {"value": float(v), "n_rows": int(c)}
+    if found:
+        desc = ", ".join(
+            f"{c} == {d['value']:g} ({d['n_rows']} rows)" for c, d in found.items()
+        )
+        return _warning(
+            f"possible missing-value codes left as numbers: {desc}. Recode "
+            "them to missing before estimating.",
+            columns=found,
+        )
+    return _passed()
+
+
+def _check_duplicate_rows(data: pd.DataFrame, kwargs: Dict[str, Any]) -> CheckResult:
+    """Exact duplicate rows in data that has a continuous column.
+
+    Two rows agreeing on a continuous measurement to the last digit are a
+    repeated record, not two observations; all-categorical data can repeat
+    legitimately and is not flagged.
+    """
+    n = len(data)
+    if n < 2:
+        return _passed()
+    continuous = [
+        c
+        for c in data.columns
+        if pd.api.types.is_float_dtype(data[c]) and data[c].nunique() > 0.5 * n
+    ]
+    if not continuous:
+        return _passed()
+    dup = int(data.duplicated(keep="first").sum())
+    if dup:
+        return _warning(
+            f"{dup} exact duplicate row(s) ({dup / n:.1%} of the data): "
+            "repeated records overstate the sample and bias the estimate "
+            "when duplication differs by group. Drop them "
+            "(data.drop_duplicates()) unless they are real observations.",
+            n_duplicates=dup,
+            share=dup / n,
+        )
+    return _passed()
+
+
+def data_hygiene_warnings(data: pd.DataFrame) -> List[Dict[str, Any]]:
+    """The data-level warnings of :func:`preflight`, without a method.
+
+    Missing-value codes left as numbers and exact duplicate records, each
+    as ``{"check", "message", "evidence"}``. Empty for clean data.
+    """
+    out: List[Dict[str, Any]] = []
+    if not isinstance(data, pd.DataFrame) or data.empty:
+        return out
+    for chk in _HYGIENE:
+        name = chk.name
+        status, message, evidence = chk.fn(data, {})
+        if status != "passed":
+            out.append({"check": name, "message": message, "evidence": evidence})
+    return out
+
+
 _UNIVERSAL: Tuple[_Check, ...] = (
     _Check("data_is_dataframe", "Is `data` a pandas DataFrame?", _check_dataframe),
     _Check(
         "data_non_empty", "Does the DataFrame have at least one row?", _check_non_empty
+    ),
+)
+
+# Data-level checks, reported under ``data_warnings`` so the position of a
+# method's own checks in ``checks`` does not move.
+_HYGIENE: Tuple[_Check, ...] = (
+    _Check(
+        "sentinel_codes",
+        "Are numeric missing-value codes (-99, 999, ...) left in the data?",
+        _check_sentinel_codes,
+    ),
+    _Check(
+        "duplicate_rows",
+        "Are there exact duplicate records?",
+        _check_duplicate_rows,
     ),
 )
 
@@ -1145,9 +1257,11 @@ def preflight(data: pd.DataFrame, method: str, **kwargs: Any) -> Dict[str, Any]:
             }
         )
 
+    hygiene = data_hygiene_warnings(data) if isinstance(data, pd.DataFrame) else []
+
     if n_failed > 0:
         verdict = "FAIL"
-    elif n_warning > 0:
+    elif n_warning > 0 or hygiene:
         verdict = "WARN"
     else:
         verdict = "PASS"
@@ -1155,6 +1269,7 @@ def preflight(data: pd.DataFrame, method: str, **kwargs: Any) -> Dict[str, Any]:
     return {
         "method": method_key,
         "verdict": verdict,
+        "data_warnings": hygiene,
         "checks": results,
         "summary": {
             "passed": n_passed,

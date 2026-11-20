@@ -117,3 +117,11 @@ def test_audit_verdict_is_not_a_tick_for_having_run_honest_did():
     assert rep["verdict"]["ci"] == es.report()["ci"]
     hd = next(c for c in rep["checks"] if c["name"] == "honest_did")
     assert hd["status"] == "passed" and "not a finding" in hd["note"]
+
+
+def test_honest_did_accepts_the_names_the_literature_uses_for_the_bound():
+    es = _es(_panel(0, 0.06))
+    ref = sp.honest_did(es, method="relative_magnitude", m_grid=[1.0])
+    for kw in ({"Mbar": 1.0}, {"m_bar": 1}, {"M": [1.0]}):
+        got = sp.honest_did(es, method="relative_magnitude", **kw)
+        assert got.equals(ref)
