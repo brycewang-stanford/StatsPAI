@@ -277,9 +277,144 @@ def _iv_report(result: Any) -> Optional[Dict[str, Any]]:
     return rep
 
 
+# -------------------------------------------------------------------- DiD
+
+# Power a pre-trend test needs before "it did not reject" is evidence.
+_PRETREND_POWER = 0.80
+
+
+def _did_report(result: Any) -> Optional[Dict[str, Any]]:
+    mi = getattr(result, "model_info", None) or {}
+    es = mi.get("event_study") if isinstance(mi, dict) else None
+    pt = mi.get("pretrend_test") if isinstance(mi, dict) else None
+    if not isinstance(es, pd.DataFrame) or "relative_time" not in es:
+        return None
+    coef = "att" if "att" in es else ("estimate" if "estimate" in es else None)
+    est, se = _f(getattr(result, "estimate", None)), _f(getattr(result, "se", None))
+    if coef is None or est is None or se is None or se <= 0:
+        return None
+    alpha = float(getattr(result, "alpha", 0.05) or 0.05)
+    from scipy import stats
+
+    z = float(stats.norm.ppf(1 - alpha / 2))
+    ci = getattr(result, "ci", None)
+    conv_ci = (
+        [float(ci[0]), float(ci[1])]
+        if ci is not None and len(ci) == 2
+        else [est - z * se, est + z * se]
+    )
+    rep = _blank(
+        {"estimate": est, "se": se, "ci": conv_ci, "ci_method": "wald"}, 1 - alpha
+    )
+
+    rt = es["relative_time"].to_numpy(dtype=float)
+    b = es[coef].to_numpy(dtype=float)
+    ses = es["se"].to_numpy(dtype=float) if "se" in es else np.full(len(es), np.nan)
+    post = rt >= 0
+    pre = (rt < 0) & np.isfinite(ses) & (ses > 0)
+    n_post, n_pre = int(post.sum()), int(pre.sum())
+    p_pre = _f(pt.get("pvalue")) if isinstance(pt, dict) else None
+    rejected = p_pre is not None and p_pre < alpha
+    if p_pre is not None:
+        rep["pretrend_pvalue"] = p_pre
+    if n_post == 0 or n_pre == 0:
+        return rep
+
+    # The headline must be the plain average of the post-period event-study
+    # coefficients for the sensitivity interval to be about the same number.
+    same_target = abs(float(np.mean(b[post])) - est) <= 1e-6 * max(abs(est), 1.0)
+    horizon = float(np.mean(rt[post] + 1.0))
+    slope = z * se / horizon
+    power = None
+    try:
+        from ..did.pretrends import pretrends_power
+
+        pw = pretrends_power(result, slope=slope, alpha=alpha)
+        power = _f(pw.get("power_joint")) or _f(pw.get("power"))
+    except Exception as exc:
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            rep.setdefault("degradations", []), section="report.power", exc=exc
+        )
+    if power is not None:
+        rep["pretrend_power"] = power
+        rep["pretrend_power_slope"] = slope
+    underpowered = power is not None and power < _PRETREND_POWER
+    if not rejected and not underpowered:
+        return rep
+
+    if rejected:
+        rep["basis"].append(
+            f"the pre-trend test rejects parallel trends (p = {p_pre:.3g}): the "
+            "conventional estimate carries the bias of the differential trend."
+        )
+    else:
+        rep["basis"].append(
+            f"the pre-trend test has power {power:.2f} against a linear "
+            f"differential trend of {slope:.3g} per period, the trend that "
+            "would move the truth out of the conventional interval; not "
+            "rejecting is weak evidence for parallel trends (Roth 2022)."
+        )
+    if not same_target or n_pre < 2:
+        rep["status"] = "caution"
+        rep["basis"].append(
+            "a trend-robust interval for this aggregate is not computed here "
+            "(the headline is not the plain average of the post-period "
+            "event-study coefficients, or fewer than two pre-period "
+            "coefficients are estimated); run sp.honest_did on the event "
+            "study."
+        )
+        return rep
+    try:
+        from ..did.honest_did import honest_did
+
+        lvec = np.full(n_post, 1.0 / n_post)
+        sd = honest_did(
+            result, l_vec=lvec, method="smoothness", m_grid=[0.0], alpha=alpha
+        ).iloc[0]
+        lo, hi = float(sd["ci_lower"]), float(sd["ci_upper"])
+        rep["alternatives"]["linear_trend"] = {"ci": [lo, hi], "M": 0.0}
+        rm = honest_did(
+            result, l_vec=lvec, method="relative_magnitude", m_grid=[1.0], alpha=alpha
+        ).iloc[0]
+        rep["alternatives"]["relative_magnitude"] = {
+            "ci": [float(rm["ci_lower"]), float(rm["ci_upper"])],
+            "Mbar": 1.0,
+        }
+    except Exception as exc:
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            rep.setdefault("degradations", []), section="report.honest_did", exc=exc
+        )
+        if "linear_trend" not in rep["alternatives"]:
+            rep["status"] = "caution"
+            return rep
+    if not (math.isfinite(lo) and math.isfinite(hi)):
+        return _refuse(
+            rep,
+            "the design cannot bound the effect once a linear differential "
+            "trend is allowed: the trend-robust interval is unbounded.",
+        )
+    rep["basis"].append(
+        "the reported interval allows the pre-period differential trend to "
+        "continue linearly after treatment (Rambachan and Roth 2023, "
+        "smoothness restriction with M = 0)."
+    )
+    rep.update(status="adjusted", ci=[lo, hi], ci_method="honest_did_linear_trend")
+    if rejected or not (lo <= est <= hi):
+        rep["estimate"] = 0.5 * (lo + hi)
+        rep["estimator"] = "linear_trend_adjusted"
+    return rep
+
+
 # ------------------------------------------------------------- dispatch
 
-_BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (_iv_report,)
+_BUILDERS: Sequence[Callable[[Any], Optional[Dict[str, Any]]]] = (
+    _iv_report,
+    _did_report,
+)
 
 
 def recommended_report(result: Any) -> Optional[Dict[str, Any]]:
