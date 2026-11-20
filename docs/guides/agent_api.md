@@ -163,6 +163,38 @@ every `tools/call`:
 
 ---
 
+## `result.report()` — what to report
+
+`violations()` lists what is wrong with a fit. `report()` goes one step
+further and answers the question an agent actually has: which estimate and
+interval should be reported.
+
+```python
+r = sp.ivreg("y ~ x1 + (d ~ z)", data=df, robust="hc1")
+rep = r.report()
+rep["status"]        # 'conventional' | 'adjusted' | 'caution' | 'refuse'
+rep["estimate"], rep["ci"], rep["ci_method"]
+rep["basis"]         # the diagnostics behind the choice, as sentences
+rep["conventional"]  # the fit's own estimate, SE and interval, unchanged
+rep["alternatives"]  # every robust quantity computed on the way
+```
+
+| Design | Diagnostic that fires | Reported instead |
+| --- | --- | --- |
+| IV, one instrument | first-stage F below 104.7 | Anderson-Rubin set (tF interval under weights or clustering); refusal if unbounded |
+| IV, several instruments | effective F below the 10% worst-case-bias critical value | LIML with the Anderson-Rubin set |
+| Event-study DiD | pre-trend test rejects, or has under 80% power against the trend that would break the conventional interval | smoothness interval with M = 0 (the pre-period trend continues linearly) |
+| RD | density test rejects | caution at 5%, refusal at 1% |
+| Clustered regression | fewer than 30 clusters | inverted wild cluster bootstrap interval |
+| AIPW / IPW / DML | more than 5% of propensities at the overlap bound | caution, with the effect on the overlap region as a labelled alternative |
+
+The fit's own `estimate`, `se` and `ci` never change. `summary()` prints
+the report at its foot when it differs from the fit, and
+`to_dict(detail="agent")`, the MCP estimator replies and `sp.audit`
+(`verdict`) carry it. Reports that resample the data (the wild bootstrap,
+the overlap refit) find the frame the fit was called with; pass
+`r.report(data=df)` when that frame is gone.
+
 ## `sp.audit(result)` — the missing-evidence view
 
 `sp.audit()` is intentionally distinct from three neighbours:

@@ -4,7 +4,64 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **`result.report()`: the estimate and interval to report, given the fit's
+  own diagnostics.** A fit holds the conventional interval and, next to it,
+  the diagnostics that say when that interval cannot be trusted. `report()`
+  reads the two together and returns `status` (`conventional`, `adjusted`,
+  `caution` or `refuse`), `estimate`, `ci`, `ci_method`, the `basis` in
+  sentences, the fit's own numbers under `conventional`, and every robust
+  quantity it computed under `alternatives`. The fit's `estimate`, `se` and
+  `ci` are unchanged. Rules:
+  - IV, one instrument, first-stage F below 104.7 [@lee2022valid]: the
+    Anderson-Rubin set (the tF interval when the arrays are not available:
+    weights, clustering); a refusal when that set is unbounded.
+  - IV, several instruments, effective F below the Montiel Olea-Pflueger
+    10% critical value [@olea2013robust]: LIML with the Anderson-Rubin set.
+  - Event-study DiD, pre-trend test rejected or with less than 80% power
+    against the linear trend that would move the truth out of the
+    conventional interval [@roth2022pretest]: the smoothness interval with
+    M = 0 [@rambachan2023more]; the relative-magnitude interval at
+    Mbar = 1 alongside.
+  - RD: flagged when the density test rejects at 5%, refused at 1%
+    [@mccrary2008manipulation; @cattaneo2020simple].
+  - Clustered regression with fewer than 30 clusters: the inverted wild
+    cluster restricted bootstrap interval [@cameron2008bootstrap].
+  - AIPW / IPW / DML with more than 5% of propensities at the overlap
+    bound: a caution, with the same call refitted on propensities in
+    [0.1, 0.9] as a labelled alternative estimand [@crump2009dealing].
+
+  `summary()` prints the report at its foot when it differs from the fit;
+  `to_dict(detail="agent")`, every MCP estimator reply and the
+  `pipeline_did` / `pipeline_iv` / `pipeline_rd` replies carry it right
+  after the headline; `sp.audit` repeats it as `verdict`. The MCP server
+  instructions tell a client to report it.
+- **Data-hygiene warnings.** `sp.preflight` and every MCP estimator reply
+  that used a data frame carry `data_warnings` for missing-value codes left
+  as numbers (-99, 999, ...; flagged only when the value repeats and sits
+  more than three interquartile ranges from the rest of the column) and
+  for exact duplicate records in data with a continuous column.
+- `sp.honest_did` accepts `M`, `Mbar`, `m_bar` and `Mvec` for the grid, and
+  a single number as a one-point grid.
+
+### Changed
+- `sp.audit`: an existence-only check (`honest_did`) that is marked passed
+  carries a note that it records only that the analysis was run. Having
+  run a sensitivity analysis is not a finding that the estimate is robust;
+  the new `verdict` says what to report.
+- `sp.did(method="cs")` and `method="sun_abraham"` read a 0/1 treatment
+  indicator that switches on within unit as `method="auto"` already did
+  (the cohort is the first treated period), instead of refusing the column
+  as a malformed cohort.
+- MCP: a data-source argument sent as a placeholder (`"None"`, `""`, `[]`,
+  an unknown handle next to a real path) is treated as absent instead of
+  raising "exactly one data source". `sp.preflight(method="iv")` checks
+  `y` / `treatment` / `instrument` / `covariates` when no formula is given.
+
 ### Fixed
+- `sp.rddensity`: the result no longer carries a `se_positive` violation.
+  Its headline is a test statistic, which has no standard error by
+  construction.
 - **⚠️ correctness fix: seven more column-list estimators refuse a text
   regressor.** A sweep of the 430 registered functions that take columns
   as a list (`x=`, `covariates=` ...) found `sp.xtabond`, `sp.xtdpdsys`,
