@@ -72,3 +72,26 @@ def test_iv_preflight_accepts_named_parts_instead_of_a_formula(iv_csv):
     assert {c["name"]: c["status"] for c in bad["checks"]}[
         "formula_columns_exist"
     ] == "failed"
+
+
+def test_explicit_cs_reads_a_treatment_indicator_like_auto_does():
+    rng = np.random.default_rng(0)
+    n, T, g = 200, 6, 3
+    tr = np.arange(n) < n // 2
+    rows = [
+        pd.DataFrame(
+            {
+                "unit": np.arange(n),
+                "time": t,
+                "treated": (tr & (t >= g)).astype(int),
+                "first_treat": np.where(tr, g, 0),
+                "y": rng.normal(size=n) + 1.0 * (tr & (t >= g)),
+            }
+        )
+        for t in range(T)
+    ]
+    df = pd.concat(rows, ignore_index=True)
+    ref = sp.did(df, y="y", treat="first_treat", time="time", id="unit", method="cs")
+    got = sp.did(df, y="y", treat="treated", time="time", id="unit", method="cs")
+    assert got.estimate == pytest.approx(ref.estimate, rel=1e-12)
+    assert got.se == pytest.approx(ref.se, rel=1e-12)

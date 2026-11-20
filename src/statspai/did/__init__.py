@@ -755,6 +755,22 @@ def did(
     _METHOD_ALIASES = {"did2s": "2x2"}
     method = _METHOD_ALIASES.get(method, method)
 
+    # A cohort estimator named explicitly gets the same reading of a 0/1
+    # treatment indicator as method='auto': the cohort is the first period
+    # with treat == 1 (0 = never treated).
+    if (
+        method in ("callaway_santanna", "cs", "sun_abraham", "sa", "sunab")
+        and id is not None
+        and treat != "_statspai_cohort"
+        and treat in data.columns
+        and set(data[treat].dropna().unique()) <= {0, 1, True, False}
+        and (data.groupby(id)[treat].nunique(dropna=True) > 1).any()
+    ):
+        derived = _indicator_to_cohort(data, treat=treat, id=id, time=time)
+        data = data.copy()
+        data["_statspai_cohort"] = derived
+        treat = "_statspai_cohort"
+
     # Methods whose estimator honours unit weights end-to-end (point
     # estimate, aggregation shares, and influence-function SEs).
     _WEIGHT_AWARE_METHODS = frozenset(
