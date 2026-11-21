@@ -6730,3 +6730,29 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-22 — traces re-recorded (era_statpai review round)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `3c5ca41fa` re-records
+  `tests/r_parity/results/_implementation_trace.json` (all 91 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (all 12).
+- **Reason.** Files hashed by the traces changed: `core/results.py`
+  (`normal_reference()`, a new method), `regression/ols.py` and
+  `core/_design_guardrails.py` (a `coef_only=True` fit is not added to
+  the specification counter), `rd/rdrobust.py` (the fuzzy
+  `first_stage_F` diagnostic is computed on the reported variance),
+  `_article_aliases.py` (frame-first weak-IV sets) and
+  `fixest/wrapper.py`.
+- **Effect on the paper.** None: all 103 modules were re-run without Rust
+  and no committed result changed. `first_stage_F` is not a Track A row;
+  the fuzzy estimate, standard errors and bandwidths of `06_rd` are
+  untouched. Differences from the committed files are rounding (at most
+  4.3e-10) except `76_pretrends` (7.8e-7, randomised integrator),
+  `06_rd` (5.5e-8), `27_glmm_aghq` (4.0e-9), `26_glmm_logit` (2.0e-9) and
+  `28_frontier` (1.4e-9), the same environment gaps the unmodified
+  1.44.5 tree shows on this machine.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
