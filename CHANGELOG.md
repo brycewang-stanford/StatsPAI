@@ -59,6 +59,13 @@ All notable changes to StatsPAI will be documented in this file.
   `y` / `treatment` / `instrument` / `covariates` when no formula is given.
 
 ### Fixed
+- `sp.sdem`, `sp.gns`, `sp.sac`: the ML standard errors invert the
+  analytic observed information instead of a finite-difference Hessian.
+  The step-based Hessian lost about 1e-6 relative to rounding, and that
+  part differed between machines: the GNS intercept SE was 1.2e-6 from
+  Stata `spregress, ml` on Linux and 2e-7 on macOS. SEs move by at most a
+  few parts in 1e7 and no longer depend on the platform; all eight Stata
+  cells (SDEM / GNS / SAC) are within 3.1e-7.
 - `sp.rddensity`: the result no longer carries a `se_positive` violation.
   Its headline is a test statistic, which has no standard error by
   construction.

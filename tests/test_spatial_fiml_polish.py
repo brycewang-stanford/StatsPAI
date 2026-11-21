@@ -42,3 +42,38 @@ def test_estimates_do_not_depend_on_the_simplex_tolerance(monkeypatch, model, sa
     monkeypatch.setattr(fiml, "minimize", loose)
     rough = getattr(sp, model)(A, df, "y ~ x1 + x2").params
     np.testing.assert_allclose(rough.to_numpy(), tight.to_numpy(), rtol=1e-10)
+
+
+@pytest.mark.parametrize("lag", [True, False])
+@pytest.mark.parametrize("sample", [1, 2])
+def test_observed_information_is_the_hessian_of_the_log_likelihood(lag, sample):
+    """The analytic observed information equals a finite-difference Hessian
+    of the full log-likelihood, written out here independently, to that
+    difference's own error. A step-based Hessian lost ~1e-6 relative to
+    rounding, and that part differed between CI runners (nightly
+    2026-11-20/21, GNS const SE 1.2e-6 from Stata on Linux only)."""
+    df, A = _load(sample)
+    Wd = A / A.sum(axis=1, keepdims=True)
+    X = np.column_stack([np.ones(len(df)), df["x1"], df["x2"]])
+    Z = np.column_stack([X, Wd @ X[:, 1:]])
+    y = df["y"].to_numpy(dtype=float)
+    fit = fiml._fit(y, Z, Wd, lag)
+    n = len(y)
+    k = Z.shape[1]
+
+    def loglik(p):
+        g, r = p[:k], (p[k] if lag else 0.0)
+        lam, s = p[-2], p[-1]
+        e = (np.eye(n) - lam * Wd) @ (y - r * (Wd @ y) - Z @ g)
+        ld = np.linalg.slogdet(np.eye(n) - lam * Wd)[1]
+        if lag:
+            ld += np.linalg.slogdet(np.eye(n) - r * Wd)[1]
+        return -n / 2 * np.log(2 * np.pi * s) + ld - e @ e / (2 * s)
+
+    p = np.concatenate(
+        [fit["g"], [fit["rho"]] if lag else [], [fit["lam"], fit["sigma2"]]]
+    )
+    H_num = fiml._hessian(loglik, p)
+    H = -np.linalg.inv(fit["V"])
+    np.testing.assert_allclose(H, H_num, rtol=1e-4, atol=1e-5 * np.abs(H).max())
+    assert np.allclose(H, H.T, rtol=0, atol=1e-12 * np.abs(H).max())

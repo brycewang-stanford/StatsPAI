@@ -45,6 +45,54 @@ def _hessian(f: Callable[[np.ndarray], float], p: np.ndarray) -> np.ndarray:
     return (4.0 * at_step(5e-5) - at_step(1e-4)) / 3.0
 
 
+def _observed_hessian(
+    y: np.ndarray,
+    Z: np.ndarray,
+    Wd: np.ndarray,
+    Wy: np.ndarray,
+    omega: np.ndarray,
+    g: np.ndarray,
+    rho: float,
+    lam: float,
+    s2: float,
+    lag: bool,
+) -> np.ndarray:
+    """Analytic Hessian of the full log-likelihood in ``(g, [rho], lambda, s2)``.
+
+    ``l = -n/2 log(2 pi s2) + logdet(I - rho W) + logdet(I - lambda W)
+    - e'e / (2 s2)`` with ``e = (I - lambda W)(y - rho W y - Z g)``. ``e`` is
+    linear in each parameter, and its only non-zero second derivatives are
+    ``d2e / dg dlambda = W Z`` and ``d2e / drho dlambda = W W y``. A finite-
+    difference Hessian of ``l`` loses about 1e-6 relative to rounding (steps
+    of 5e-5 on a log-likelihood near 1e2), and that part differed between CI
+    runners; the closed form does not depend on a step.
+    """
+    n, k = Z.shape
+    B = np.eye(n) - lam * Wd
+    u = y - rho * Wy - Z @ g
+    e = B @ u
+    cols = [-(B @ Z)]
+    if lag:
+        cols.append(-(B @ Wy)[:, None])
+    cols.append(-(Wd @ u)[:, None])
+    D = np.hstack(cols)  # de / d(g, [rho], lambda)
+    m = D.shape[1]
+    il = m - 1  # position of lambda
+    C = np.zeros((m, m))  # e' d2e / dtheta_i dtheta_j
+    C[:k, il] = C[il, :k] = e @ (Wd @ Z)
+    if lag:
+        C[k, il] = C[il, k] = e @ (Wd @ Wy)
+    Hth = -(D.T @ D + C) / s2
+    Hth[il, il] -= float(np.sum(omega**2 / (1.0 - lam * omega) ** 2).real)
+    if lag:
+        Hth[k, k] -= float(np.sum(omega**2 / (1.0 - rho * omega) ** 2).real)
+    H = np.zeros((m + 1, m + 1))
+    H[:m, :m] = Hth
+    H[:m, m] = H[m, :m] = (e @ D) / s2**2
+    H[m, m] = n / (2.0 * s2**2) - float(e @ e) / s2**3
+    return H
+
+
 def _fit(y: np.ndarray, Z: np.ndarray, Wd: np.ndarray, lag: bool) -> Dict[str, Any]:
     n = len(y)
     omega = np.linalg.eigvals(Wd)
@@ -152,7 +200,7 @@ def _fit(y: np.ndarray, Z: np.ndarray, Wd: np.ndarray, lag: bool) -> Dict[str, A
         )
 
     p = np.concatenate([g, [rho] if lag else [], [lam, s2]])
-    H = _hessian(full, p)
+    H = _observed_hessian(y, Z, Wd, Wy, omega, g, rho, lam, s2, lag)
     try:
         V = np.linalg.inv(-H)
     except np.linalg.LinAlgError as exc:

@@ -280,6 +280,8 @@ def _iv_report(result: Any) -> Optional[Dict[str, Any]]:
     try:
         from ..regression.iv import _k_class_fit, _liml_kappa
 
+        if frame is None:  # _ar() returned a set, so the arrays exist
+            raise RuntimeError("the IV arrays are not available for LIML")
         y, exog, d, Z = frame["arrays"]
         kappa = _liml_kappa(y, exog, d, Z)
         fit = _k_class_fit(

@@ -2704,7 +2704,7 @@
    "result_sha256": "9997083815f5760943ac43fec429e9d1e44fd6b13454e6d0e8d8346cc9d21997"
   },
   "65_spatial": {
-   "seconds": 0.84,
+   "seconds": 1.73,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2735,7 +2735,7 @@
     "src/statspai/spatial/gwr/mgwr.py": "1a066da60c48e7b4d06681346fd508f6c081e8fb7ac4acae97b8f5a506e6dc66",
     "src/statspai/spatial/iv.py": "d5f157b4448d823729e3adbfe854457d3d58f0a61ccb1798a953b7ca5d3a14a0",
     "src/statspai/spatial/models/__init__.py": "5ef185db7ba7c6ef8358444067abfa57e18b913bb1ab57374e532e6283a24c68",
-    "src/statspai/spatial/models/_fiml.py": "f4b7f2073d17edf214246f963bfee7c57014cabb487960361a03d4b376d8646a",
+    "src/statspai/spatial/models/_fiml.py": "b5434c719a3545d1873d841d6dde7047a2b4a95b9605d7abb9911e849aa79b01",
     "src/statspai/spatial/models/_legacy.py": "267749f669e59807e233ee73043ec711f29146e3cf50078218f386f8dcc10ad4",
     "src/statspai/spatial/models/_logdet.py": "dce942bbd7f10557f276372d974bcafb9a591f2e90c11856b7ea82158fe31c3b",
     "src/statspai/spatial/models/diagnostics.py": "68b048b93bff074f87efad769a6ad69b5afacd4c93732f7ee8c261bb6c809c41",
@@ -2762,7 +2762,7 @@
    "result_sha256": "139185559c66a520e28e507cde7fa09529834489cbe7e3d8c59e7b94de4bf4ee"
   },
   "66_spatial_gmm": {
-   "seconds": 0.83,
+   "seconds": 2.19,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2794,7 +2794,7 @@
     "src/statspai/spatial/gwr/mgwr.py": "1a066da60c48e7b4d06681346fd508f6c081e8fb7ac4acae97b8f5a506e6dc66",
     "src/statspai/spatial/iv.py": "d5f157b4448d823729e3adbfe854457d3d58f0a61ccb1798a953b7ca5d3a14a0",
     "src/statspai/spatial/models/__init__.py": "5ef185db7ba7c6ef8358444067abfa57e18b913bb1ab57374e532e6283a24c68",
-    "src/statspai/spatial/models/_fiml.py": "f4b7f2073d17edf214246f963bfee7c57014cabb487960361a03d4b376d8646a",
+    "src/statspai/spatial/models/_fiml.py": "b5434c719a3545d1873d841d6dde7047a2b4a95b9605d7abb9911e849aa79b01",
     "src/statspai/spatial/models/_legacy.py": "267749f669e59807e233ee73043ec711f29146e3cf50078218f386f8dcc10ad4",
     "src/statspai/spatial/models/_logdet.py": "dce942bbd7f10557f276372d974bcafb9a591f2e90c11856b7ea82158fe31c3b",
     "src/statspai/spatial/models/diagnostics.py": "68b048b93bff074f87efad769a6ad69b5afacd4c93732f7ee8c261bb6c809c41",
