@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44.3 → next: ⚠️ text regressors in seven more column-list estimators
+## 1.44.3 → 1.44.4: ⚠️ text regressors in seven more column-list estimators
 
 A correctness fix with no number changes for numeric data. `sp.xtabond`,
 `sp.xtdpdsys`, `sp.ardl`, `sp.xtpcse`, `sp.xtregar`, `sp.mmqreg` and

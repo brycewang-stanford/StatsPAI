@@ -6643,3 +6643,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-21 — traces re-recorded (spatial ML SEs from the analytic observed information)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `b5ba34cf0` re-records
+  `tests/r_parity/results/_implementation_trace.json` (2 modules:
+  `65_spatial`, `66_spatial_gmm`).
+- **Reason.** `spatial/models/_fiml.py` inverts the closed-form Hessian of
+  the full log-likelihood instead of a finite-difference one, whose
+  rounding error (about 1e-6 relative) differed between machines: the
+  nightly failed the GNS Stata cell by 1.24e-6 on Linux.
+- **Effect on the paper.** None on any number in the committed results:
+  both modules were re-run without Rust; `65_spatial` reproduces its
+  committed results exactly, `66_spatial_gmm` to 1.6e-14 (environment
+  rounding, file left as committed). Standard errors of `sp.sdem` /
+  `sp.gns` / `sp.sac` move by at most a few parts in 1e7.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`

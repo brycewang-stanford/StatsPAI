@@ -4,6 +4,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.44.4] — 2026-11-21
+
+`result.report()`: the estimate and interval to report, given the fit's own
+diagnostics (weak IV, pre-trends, RD density, few clusters, overlap), in
+`summary()`, every MCP estimator reply and `sp.audit`'s new `verdict`.
+Also: data-hygiene warnings, `sp.did(method="cs")` on a 0/1 treatment, ⚠️
+seven more column-list estimators refuse a text regressor, and spatial ML
+standard errors that no longer depend on the platform.
+
 ### Added
 - **`result.report()`: the estimate and interval to report, given the fit's
   own diagnostics.** A fit holds the conventional interval and, next to it,
