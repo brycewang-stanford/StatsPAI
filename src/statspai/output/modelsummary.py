@@ -31,7 +31,8 @@ Migration notes
   dropped (regtable's ladder is ``*/**/***`` by convention; symbol
   control is via ``notation='symbols'`` for ``†/‡/§``).
 - ``se_type='parentheses'`` (default) and ``se_type='none'``
-  (coefficients only) work as before. ``se_type='brackets'`` is no longer a separate render mode —
+  (coefficients only) work as before. ``se_type='brackets'`` is no
+  longer a separate render mode —
   emits ``UserWarning`` and falls back to parentheses. Use
   ``show_ci=True`` (which renders ``[lo, hi]``) if you want brackets
   to convey actual information.

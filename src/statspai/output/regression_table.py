@@ -1952,14 +1952,16 @@ class RegtableResult:
                     for gi, p2 in enumerate(self.panels):
                         for m in p2.models:
                             if gi == pi:
+                                se_html = _html_escape(self._se_cell(m, var, flat_idx))
                                 lines.append(
                                     f'<td style="text-align:center; padding:0 12px; '
                                     f'color:#555; font-size:12px;">'
-                                    f"{_html_escape(self._se_cell(m, var, flat_idx))}</td>"
+                                    f"{se_html}</td>"
                                 )
                             else:
                                 lines.append(
-                                    '<td style="text-align:center; padding:0 12px;"></td>'
+                                    '<td style="text-align:center; '
+                                    'padding:0 12px;"></td>'
                                 )
                             flat_idx += 1
                     lines.append("</tr>")
