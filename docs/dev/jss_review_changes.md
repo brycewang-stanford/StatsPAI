@@ -6710,3 +6710,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-21 — traces re-recorded (`coef_only` summary, `sp.feols` multi-reference `backend=`)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** The commit carrying this entry re-records
+  `tests/r_parity/results/_implementation_trace.json` (70 modules) and
+  `tests/orig_parity/results/_implementation_trace.json` (12 modules).
+- **Reason.** `core/results.py` (`summary()` prints the coefficient column
+  alone for a `coef_only=True` fit) and `fixest/wrapper.py` (the
+  `i(..., ref=[...])` route forwards `backend=`) are hashed by the traces.
+  Neither change is on a numerical path.
+- **Effect on the paper.** None: all 82 modules were re-run without Rust and
+  no committed result changed. Differences from the committed files are
+  rounding (at most 3.4e-10) except `06_rd` (5.5e-8), `28_frontier`
+  (1.4e-9) and `76_pretrends` (3.8e-7, randomised integrator), the same
+  environment gaps the unmodified 1.44.4 tree shows on this machine.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

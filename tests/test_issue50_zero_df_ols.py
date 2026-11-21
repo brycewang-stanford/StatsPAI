@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import MethodIncompatibility
 
 pl = pytest.importorskip("polars")
 
@@ -150,3 +151,37 @@ def test_regress_coef_only_refuses_a_variance_option(kwargs):
 def test_feols_coef_only_refuses_a_variance_option(kwargs):
     with pytest.raises(sp.MethodIncompatibility, match="coef_only=True"):
         sp.feols("y ~ x1 + x2", data=pd.DataFrame(ISSUE), coef_only=True, **kwargs)
+
+
+@pytest.mark.parametrize("fit_fn", [sp.regress, sp.feols], ids=["regress", "feols"])
+def test_coef_only_summary_prints_only_the_coefficient_column(fit_fn):
+    """No standard errors exist, so no statistic / p-value / interval columns."""
+    d = pd.DataFrame({"x": [0.0, 1.0], "y": [0.0, 2.0]})
+    text = fit_fn("y ~ x", data=d, coef_only=True).summary()
+    header = next(ln for ln in text.splitlines() if "Coefficient" in ln)
+    assert header.split() == ["Coefficient"]
+    assert "statistic" not in text and "P>|" not in text
+    row = next(ln for ln in text.splitlines() if ln.startswith("x "))
+    assert row.split() == ["x", "2.0000"]  # the line through (0, 0), (1, 2)
+
+
+def test_feols_multi_reference_levels_honour_backend():
+    """``i(t, ref=[...])`` refits through feols; ``backend=`` must go with it."""
+    rng = np.random.default_rng(0)
+    d = pd.DataFrame(
+        {"u": np.repeat(np.arange(20), 10), "t": np.tile(np.arange(-5, 5), 20)}
+    )
+    d["y"] = d["u"] + 0.5 * (d["t"] >= 0) + rng.normal(size=len(d))
+    fml = "y ~ i(t, ref=[-1, -5]) | u"
+    with pytest.raises(MethodIncompatibility, match="backend must be"):
+        sp.feols(fml, data=d, backend="bogus")
+    native = sp.feols(fml, data=d, backend="native", vcov="iid")
+    assert native.model_info["backend"] == "statspai-native"
+    pytest.importorskip("pyfixest")
+    pf = sp.feols(fml, data=d, backend="pyfixest", vcov="iid")
+    assert pf.model_info["backend"] == "pyfixest"
+    # same estimator on two engines: agree to the demeaning tolerance
+    np.testing.assert_allclose(native.params.values, pf.params.values, rtol=1e-6)
+    np.testing.assert_allclose(
+        native.std_errors.values, pf.std_errors.values, rtol=1e-6
+    )

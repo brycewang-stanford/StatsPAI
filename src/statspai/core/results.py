@@ -736,6 +736,11 @@ class EconometricResults:
             }
         )
 
+        if (self.model_info or {}).get("inference") == "unavailable":
+            # coef_only=True: no standard errors exist, so the statistic,
+            # p-value and interval columns would be NaN under a z label.
+            coef_table = coef_table[["Coefficient"]]
+
         # Format the output
         output = []
         output.append("=" * 80)

@@ -2165,6 +2165,7 @@ def feols(
                 conley_lat=conley_lat,
                 conley_lon=conley_lon,
                 conley_cutoff=conley_cutoff,
+                backend=backend,
                 coef_only=coef_only,
                 **kwargs,
             )

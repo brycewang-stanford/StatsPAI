@@ -4,6 +4,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- `summary()` of a `coef_only=True` fit (`sp.regress`, `sp.feols`) prints
+  the coefficient column alone. It printed NaN standard-error, statistic,
+  p-value and interval columns under a "z-statistic" label.
+- `sp.feols` with several reference levels (`i(t, ref=[-1, -5])`) now
+  honours `backend=`. The argument was dropped on that route, so
+  `backend="pyfixest"` ran the native engine and an invalid value was
+  accepted. Estimates are unchanged.
+
 ## [1.44.5] — 2026-11-21
 
 Seven reports from Ian Gow (#48 to #54): coefficient-only regression
