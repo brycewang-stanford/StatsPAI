@@ -1021,10 +1021,19 @@ class GLMEstimator(BaseEstimator):
         if isinstance(family, NegativeBinomial):
             family.alpha = self._estimate_nb_alpha(y, mu, weights, family.alpha)
 
+        # The reported probabilities / means are the inverse link of the
+        # final linear predictor. The clamp above only keeps the IRLS
+        # weights, variance and deviance finite; reporting the clamped mu
+        # floored fitted probabilities at 1e-15 while predict(data) on the
+        # same rows returned the exact inverse link (GitHub issue #53).
+        # statsmodels and sp.logit report the exact value too (R clamps
+        # eta at +-30 on both paths, so it floors at 2.2e-16).
+        fitted_mean = np.asarray(link.inverse(X @ params + offset), dtype=float)
+
         if isinstance(family, Binomial) and np.all((y == 0) | (y == 1)):
             from .logit_probit import _warn_if_separated
 
-            _warn_if_separated(y, mu)
+            _warn_if_separated(y, fitted_mean, X, weights)
 
         # ----------------------------------------------------------------
         # Variance-covariance matrix
@@ -1140,9 +1149,9 @@ class GLMEstimator(BaseEstimator):
 
         std_errors = np.sqrt(np.diag(var_cov))
 
-        # Fitted values & residuals
-        fitted_values = mu
-        residuals = y - mu
+        # Fitted values & residuals (response scale, unclamped; see above)
+        fitted_values = fitted_mean
+        residuals = y - fitted_values
 
         # Deviance residuals (signed)
         unit_dev = family.deviance_residuals(y, mu, weights)

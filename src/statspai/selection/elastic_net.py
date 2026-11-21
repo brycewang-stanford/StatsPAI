@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy.special import expit
 
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
@@ -116,6 +117,9 @@ class _Path:
         self.const = self.sd <= 0
         self.y = y
         self.converged = True
+        # penalties at which the fit still failed after the warm-started
+        # retry (named in the ConvergenceWarning)
+        self.failed: List[float] = []
         if family == "gaussian":
             # glmnet scales a Gaussian outcome to unit variance (divisor n)
             # and states lambda on the original scale. The lasso term is
@@ -152,7 +156,7 @@ class _Path:
         if family == "gaussian":
             g0 = np.abs(self.xty - self.gram @ self.b_inf)
         else:
-            prob = 1.0 / (1.0 + np.exp(-(self.a0_inf + self.Z @ self.b_inf)))
+            prob = expit(self.a0_inf + self.Z @ self.b_inf)
             g0 = np.abs(self.Z.T @ (y - prob)) / self.n
         pen = vp > 0
         ratio = np.where(pen & ~self.const, g0 / np.where(pen, vp, 1.0), 0.0)
@@ -175,8 +179,7 @@ class _Path:
         return 1.0 - self._deviance(a0 + self.Z @ b) / self.null_dev
 
     def _deviance(self, eta: np.ndarray) -> float:
-        prob = 1.0 / (1.0 + np.exp(-eta))
-        prob = np.clip(prob, 1e-15, 1 - 1e-15)
+        prob = np.clip(expit(eta), 1e-15, 1 - 1e-15)
         y = self.y
         return float(-2.0 * np.mean(y * np.log(prob) + (1 - y) * np.log(1 - prob)))
 
@@ -196,17 +199,19 @@ class _Path:
         betas: List[np.ndarray] = []
         a0s: List[float] = []
         devs: List[float] = []
+        lam_from = self.lambda_max
         for k, lam in enumerate(lambdas):
             if auto and k == 0:
                 ok = True
             else:
-                ls = lam / self.ys
-                b, a0, ok = self._solve(
-                    b,
-                    a0,
-                    ls * self.alpha * self.vp,
-                    ls * (1.0 - self.alpha) * self.vp,
-                )
+                start_b, start_a0 = b, a0
+                b, a0, ok = self._solve_at(lam, b, a0)
+                if not ok and self.family == "binomial":
+                    b, a0, ok = self._warm_retry(lam, start_b, start_a0, lam_from)
+                if not ok:
+                    self.failed.append(float(lam))
+            if ok:
+                lam_from = float(lam)
             dev = self._dev_ratio(b, a0)
             self.converged = self.converged and ok
             betas.append(b.copy())
@@ -231,6 +236,48 @@ class _Path:
             "dev": np.array(devs),
         }
 
+    def _solve_at(
+        self, lam: float, b: np.ndarray, a0: float
+    ) -> Tuple[np.ndarray, float, bool]:
+        ls = lam / self.ys
+        b, a0, ok = self._solve(
+            b, a0, ls * self.alpha * self.vp, ls * (1.0 - self.alpha) * self.vp
+        )
+        ok = ok and bool(np.all(np.isfinite(b))) and bool(np.isfinite(a0))
+        return b, a0, ok
+
+    def _warm_retry(
+        self, lam: float, b: np.ndarray, a0: float, lam_from: float
+    ) -> Tuple[np.ndarray, float, bool]:
+        """Refit at ``lam`` along a decreasing path of warm starts.
+
+        The undamped Newton steps of :meth:`_irls` can overshoot from a
+        start far from the solution: a single small penalty fitted from the
+        null fit overflowed and returned probabilities of 0 (GitHub issue
+        #54), while a decreasing sequence ending at the same penalty
+        converged. The retry walks from the last penalty that converged
+        (``lam_from``, the infinite-penalty fit for the first one) down to
+        ``lam`` by factors of 0.8, each fit starting from the previous one.
+        It runs only after a failure, so a fit that converged directly is
+        never changed.
+        """
+        if not (np.all(np.isfinite(b)) and np.isfinite(a0)) or lam_from <= lam:
+            b, a0, lam_from = self.b_inf.copy(), self.a0_inf, self.lambda_max
+        if lam_from <= lam:
+            return self._solve_at(lam, self.b_inf.copy(), self.a0_inf)
+        end = lam if lam > 0 else lam_from * 1e-4
+        steps = int(np.clip(np.ceil(np.log(lam_from / end) / np.log(1.25)), 1, 400))
+        grid = list(np.geomspace(lam_from, end, steps + 1)[1:])
+        if lam <= 0:
+            grid.append(0.0)
+        grid[-1] = lam
+        ok = False
+        for step_lam in grid:
+            b, a0, ok = self._solve_at(float(step_lam), b, a0)
+            if not (np.all(np.isfinite(b)) and np.isfinite(a0)):
+                return b, a0, False
+        return b, a0, ok
+
     def _irls(
         self, b: np.ndarray, a0: float, l1: np.ndarray, l2: np.ndarray
     ) -> Tuple[np.ndarray, float, bool]:
@@ -239,7 +286,7 @@ class _Path:
         ok = False
         for _ in range(100):
             eta = a0 + Z @ b
-            prob = 1.0 / (1.0 + np.exp(-eta))
+            prob = expit(eta)
             w = prob * (1 - prob)
             lo, hi = prob < _PMIN, prob > 1 - _PMIN
             prob = np.where(lo, 0.0, np.where(hi, 1.0, prob))
@@ -385,7 +432,7 @@ class GlmnetResult(ResultProtocolMixin):
                 "glmnet: type must be 'response' or 'link'.",
                 recovery_hint="Use type='response'.",
             )
-        return np.asarray(1.0 / (1.0 + np.exp(-eta)), dtype=float)
+        return np.asarray(expit(eta), dtype=float)
 
     @property
     def n_nonzero(self) -> int:
@@ -706,7 +753,7 @@ def glmnet(
             if family == "gaussian":
                 fold_err[f] = np.mean((yv[test][None, :] - eta) ** 2, axis=1)
             else:
-                prob = np.clip(1.0 / (1.0 + np.exp(-eta)), _PMIN, 1 - _PMIN)
+                prob = np.clip(expit(eta), _PMIN, 1 - _PMIN)
                 yt = yv[test][None, :]
                 fold_err[f] = -2.0 * np.mean(
                     yt * np.log(prob) + (1 - yt) * np.log(1 - prob), axis=1
@@ -729,9 +776,23 @@ def glmnet(
             }
         )
     if not converged:
+        bad = sorted(set(full.failed), reverse=True)
+        where = (
+            "at lambda = "
+            + ", ".join(f"{v:.6g}" for v in bad[:5])
+            + (" ..." if len(bad) > 5 else "")
+            if bad
+            else "at some penalty of a cross-validation fold"
+        )
+        retried = (
+            " (also after a warm-started retry along a decreasing path)"
+            if family == "binomial"
+            else ""
+        )
         warnings.warn(
-            "glmnet: coordinate descent did not converge at some penalty; "
-            "raise max_iter or drop the smallest penalties.",
+            f"glmnet: the fit did not converge {where}{retried}; pass a "
+            "decreasing lambda_ sequence ending at that penalty, raise "
+            "max_iter, or drop the smallest penalties.",
             ConvergenceWarning,
             stacklevel=2,
         )

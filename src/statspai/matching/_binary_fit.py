@@ -150,8 +150,12 @@ def fit_binary_index(
     if separated:
         from ..regression.logit_probit import _warn_if_separated
 
-        _warn_if_separated(t, fitted)
-        converged = False
+        # boundary scores on data that are not separated are a finite
+        # optimum (the LP check inside finds no separating direction)
+        verdict = _warn_if_separated(t, fitted, A)
+        separated = verdict != "boundary"
+        if separated:
+            converged = False
     elif not converged:
         warnings.warn(
             f"the {model} propensity model did not converge in {max_iter} "

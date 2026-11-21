@@ -183,7 +183,72 @@ def _hessian(
     return _as_float_array(X.T @ (d2[:, np.newaxis] * X))
 
 
-def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
+# Separation LP: problems with more cells than this are not certified (the
+# dense LP would cost more than the fit) and keep the hedged wording.
+_SEPARATION_LP_MAX_CELLS = 5_000_000
+# fitted probabilities this close to 0 or 1 open the separation LP
+_NEAR_BOUNDARY = 1e-6
+
+
+def _separating_direction(
+    y: np.ndarray, X: np.ndarray, weights: Optional[np.ndarray] = None
+) -> Optional[bool]:
+    """Whether some direction ``b`` separates the outcomes (an LP check).
+
+    The binary-response MLE fails to exist exactly when some ``b`` gives
+    ``(2 y_i - 1) x_i'b >= 0`` for every observation with at least one
+    inequality strict (complete or quasi-complete separation). Maximising
+    ``sum_i (2 y_i - 1) x_i'b`` over the box
+    ``|b_j| <= 1`` subject to those inequalities finds such a ``b`` when
+    one exists. The columns are scaled to unit maximum so the box does not
+    favour a regressor's units. Rows with zero weight do not enter the
+    likelihood and are left out.
+
+    Returns True (separated), False (no separating direction: the MLE
+    exists) or None (not checked: problem too large or the solver failed).
+    """
+    y_arr = np.asarray(y, dtype=float).ravel()
+    X_arr = np.asarray(X, dtype=float)
+    if X_arr.ndim == 1:
+        X_arr = X_arr.reshape(-1, 1)
+    if weights is not None:
+        keep = np.asarray(weights, dtype=float).ravel() > 0
+        y_arr, X_arr = y_arr[keep], X_arr[keep]
+    if X_arr.shape[0] == 0 or X_arr.size > _SEPARATION_LP_MAX_CELLS:
+        return None
+    if not np.all(np.isfinite(X_arr)):
+        return None
+    col_max = np.max(np.abs(X_arr), axis=0)
+    used = col_max > 0
+    if not np.any(used):
+        return False
+    A = (2.0 * y_arr - 1.0)[:, None] * (X_arr[:, used] / col_max[used])
+    from scipy.optimize import linprog
+
+    try:
+        sol = linprog(
+            -A.sum(axis=0),
+            A_ub=-A,
+            b_ub=np.zeros(A.shape[0]),
+            bounds=[(-1.0, 1.0)] * A.shape[1],
+            method="highs",
+        )
+    except (ValueError, np.linalg.LinAlgError):
+        return None
+    if sol.status != 0 or sol.x is None:
+        return None
+    margin = A @ sol.x
+    # a certificate: no row on the wrong side (beyond the solver's
+    # feasibility tolerance) and some row strictly on the right one
+    return bool(margin.min() >= -1e-7 and margin.max() > 1e-6)
+
+
+def _warn_if_separated(
+    y: np.ndarray,
+    p_hat: np.ndarray,
+    X: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
+) -> Optional[str]:
     """Warn on (quasi-)complete separation, where the MLE does not exist.
 
     Under separation Newton-Raphson does not diverge loudly: it "converges"
@@ -191,48 +256,102 @@ def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
     the reported estimates and standard errors are artefacts of the stopping
     rule, not a finite optimum.
 
-    Two signatures, either one enough:
+    Two cheap signals open the check:
 
     * every observation is classified correctly by the sign of the fitted
       index. That *is* complete separation: a linear index that puts all
       the ones on one side and all the zeros on the other can be scaled up
       without bound, each step raising the likelihood.
     * some fitted probabilities are 0 or 1 to machine precision (R ``glm``
-      warns on the same event). A finite maximum of a binary likelihood
-      does not put an observation there; it is what quasi-complete
-      separation looks like, e.g. a category in which the outcome never
-      varies.
+      warns on the same event). That is what quasi-complete separation
+      looks like (a category in which the outcome never varies), but a
+      finite optimum can put an observation there too: an outlying
+      regressor value under a steep but well-identified slope (GitHub
+      issue #53). With the design ``X`` the separation is then decided by
+      the linear program of :func:`_separating_direction`; only a found
+      separating direction is reported as non-existence of the MLE.
 
     An earlier version also required 99 percent of the fitted probabilities
     to lie within 0.01 of the boundary. With a few dozen observations one
     point near the separating threshold was enough to silence the warning
     while the slope ran into the thousands.
+
+    Returns ``"complete"``, ``"quasi-complete"`` (separation found),
+    ``"suspected"`` (boundary probabilities, no design to check),
+    ``"boundary"`` (boundary probabilities, the data are not separated)
+    or None.
     """
     y_arr = np.asarray(y).ravel()
     p = np.asarray(p_hat).ravel()
     if p.size == 0 or np.unique(y_arr).size < 2:
-        return
+        return None
     complete = np.array_equal((p >= 0.5).astype(int), y_arr.astype(int))
     eps = 10.0 * np.finfo(float).eps
     n_boundary = int(np.sum((p < eps) | (p > 1.0 - eps)))
-    if not complete and n_boundary == 0:
-        return
-    from ..exceptions import ConvergenceWarning
+    # With the design at hand the LP also runs when probabilities are near
+    # (not yet at) the bound: the iterations often stop on a quasi-separated
+    # category with p around 1 - 1e-9, which the machine-precision signal
+    # missed. The LP decides; nearness alone claims nothing.
+    n_near = int(np.sum((p < _NEAR_BOUNDARY) | (p > 1.0 - _NEAR_BOUNDARY)))
+    if not complete and n_boundary == 0 and (X is None or n_near == 0):
+        return None
+    from ..exceptions import ConvergenceWarning, StatsPAIWarning
     from ..exceptions import warn as _sp_warn
+
+    separated: Optional[bool] = True if complete else None
+    if not complete and X is not None:
+        separated = _separating_direction(y_arr, X, weights)
+    if separated is None and n_boundary == 0 and not complete:
+        return None
+
+    if separated is False:
+        if n_boundary == 0:
+            return None
+        _sp_warn(
+            StatsPAIWarning,
+            f"{n_boundary} fitted probabilities are numerically 0 or 1, but "
+            "the data are not separated (no linear combination of the "
+            "regressors splits the two outcomes; checked by linear "
+            "programming), so the maximum-likelihood estimates exist and "
+            "the fit is a finite optimum. Those observations lie far out "
+            "in the regressor space; their probabilities are reported as "
+            "computed rather than floored.",
+            recovery_hint=(
+                "Check the observations with extreme fitted probabilities "
+                "for outlying regressor values or a misspecified functional "
+                "form."
+            ),
+            diagnostics={"n_boundary": n_boundary, "separated": False},
+            stacklevel=3,
+        )
+        return "boundary"
 
     if complete:
         what = (
             "Complete separation detected: the linear index classifies every "
-            "observation correctly"
+            "observation correctly, so the maximum-likelihood estimates do "
+            "not exist"
         )
+        verdict = "complete"
+    elif separated:
+        what = (
+            f"Quasi-complete separation detected: {n_near} fitted "
+            f"probabilities are within {_NEAR_BOUNDARY:g} of 0 or 1 and a "
+            "linear combination "
+            "of the regressors splits the two outcomes (checked by linear "
+            "programming), so the maximum-likelihood estimates do not exist"
+        )
+        verdict = "quasi-complete"
     else:
         what = (
             f"Quasi-complete separation suspected: {n_boundary} fitted "
-            "probabilities are numerically 0 or 1"
+            "probabilities are numerically 0 or 1. If the data are "
+            "separated, the maximum-likelihood estimates do not exist"
         )
+        verdict = "suspected"
     _sp_warn(
         ConvergenceWarning,
-        what + ", so the maximum-likelihood estimates do not exist. The "
+        what + ". The "
         "reported coefficients and standard errors are driven by the "
         "optimizer's stopping rule, not a finite optimum, and should not be "
         "interpreted.",
@@ -242,8 +361,10 @@ def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
             "prior='weakly_informative')), drop the perfectly separating "
             "predictor, or pool sparse categories."
         ),
+        diagnostics={"n_boundary": n_boundary, "separation": verdict},
         stacklevel=3,
     )
+    return verdict
 
 
 def _binary_r2(
@@ -933,7 +1054,7 @@ def _fit_binary(
 
     # ── Diagnostics ─────────────────────────────────────────────────────
     p_hat = cdf_func(X_mat @ beta)
-    _warn_if_separated(y_vec, p_hat)
+    _warn_if_separated(y_vec, p_hat, X_mat, w)
     lr_chi2 = 2.0 * (ll - ll_null)
     lr_df = k - 1
     lr_pvalue = stats.chi2.sf(lr_chi2, lr_df) if lr_df > 0 else np.nan

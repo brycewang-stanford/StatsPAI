@@ -835,8 +835,12 @@ def bma(
                 far = _glm_fit(y, X, family, link, max_iter=60, probe=True)
                 with warnings.catch_warnings(record=True) as caught:
                     warnings.simplefilter("always")
-                    _warn_if_separated(y, _glm_parts(family, link)[0](X @ far.coef))
-                for item in caught:
+                    verdict = _warn_if_separated(
+                        y, _glm_parts(family, link)[0](X @ far.coef), X
+                    )
+                # boundary probabilities on data that are not separated
+                # are a finite optimum: nothing diverges
+                for item in caught if verdict != "boundary" else ():
                     text = (
                         f"{item.message} The inclusion probabilities and "
                         "averaged coefficients of the terms involved are "
