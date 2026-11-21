@@ -6662,3 +6662,23 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   `sp.gns` / `sp.sac` move by at most a few parts in 1e7.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-21 — traces re-recorded (zero-cohort warning in the staggered estimators)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `7df202a20` re-records
+  `tests/r_parity/results/_implementation_trace.json` (9 modules: `04_csdid`,
+  `05_sunab`, `16_bjs`, `17_etwfe`, `38_drdid`, `73_did2s`, `75_stacked`,
+  `79_didff`, `84_bjs_pretrends`) and
+  `tests/orig_parity/results/_implementation_trace.json` (`02_mpdta_original`).
+- **Reason.** `did/_validate.py` gains `warn_zero_cohort_is_a_period`, called
+  by `callaway_santanna`, `sun_abraham` and `did_imputation`; those files are
+  hashed by the traces. The helper only warns.
+- **Effect on the paper.** None: all ten modules were re-run without Rust and
+  reproduce their committed results (worst relative difference 1.75e-12).
+  No parity dataset has a cohort of 0 together with a period 0, so the
+  warning does not fire in any module.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
