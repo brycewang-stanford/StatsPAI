@@ -6682,3 +6682,31 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-21 — traces re-recorded (GitHub issues #48–#54)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commits.** `eada1f550` (`coef_only=True` in `sp.regress` /
+  `sp.feols`), `30f33313e` (`sp.glm` response scale, separation check,
+  `sp.glmnet` warm retry), `25822d99b` (`accepts_frames` on result
+  `predict` methods, infinite-value hint) and the commit carrying this
+  entry re-record `tests/r_parity/results/_implementation_trace.json`
+  (79 modules) and `tests/orig_parity/results/_implementation_trace.json`
+  (12 modules).
+- **Reason.** The three commits touch files on almost every estimation
+  path (`core/results.py`, `_input_validation.py`, `regression/ols.py`,
+  `regression/glm.py`, `fixest/_native.py`). Default paths gained only
+  guards at zero residual df and a decorator on `predict`.
+- **Effect on the paper.** None on any number in the committed results.
+  All 79 Track A modules and the 12 original-data modules were re-run
+  without Rust before re-recording. 74 Track A modules and all 12
+  original-data modules reproduce to 1e-9 or better. `06_rd`,
+  `26_glmm_logit`, `27_glmm_aghq` and `28_frontier` differ from the
+  committed files by 1e-9 to 5e-8 and are byte-identical to a run at
+  unmodified `eee04e03c` (environment drift). `76_pretrends` uses a
+  randomised integrator and differs run to run by about 1e-7, at
+  `eee04e03c` too. No result file was changed.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
