@@ -4,6 +4,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.44.5] — 2026-11-21
+
+Seven reports from Ian Gow (#48 to #54): coefficient-only regression
+tables, `predict()` on polars frames, coefficients of a fit with zero
+residual degrees of freedom, ⚠️ one response scale for `sp.glm`
+predictions, a separation warning that needs evidence, and
+`sp.glmnet` at a single small penalty.
+
 ### Added
 - `callaway_santanna`, `sun_abraham` and `did_imputation` warn
   (`AssumptionWarning`) when a cohort of 0 is also an observed period.

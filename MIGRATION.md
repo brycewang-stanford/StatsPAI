@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44.4 → next: ⚠️ `sp.glm` fitted probabilities are no longer floored
+## 1.44.4 → 1.44.5: ⚠️ `sp.glm` fitted probabilities are no longer floored
 
 A correctness fix for reported probabilities only. `sp.glm(...)
 .fitted_values()` and `.predict()` used to floor binomial probabilities
