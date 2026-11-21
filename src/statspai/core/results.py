@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from .._export_path import checks_export_path
+from .._frame_input import accepts_frames
 from ..exceptions import MethodIncompatibility
 from ._result_access import DiDAccessorsMixin
 
@@ -1145,6 +1146,7 @@ class EconometricResults:
 
         return _fixef(self)
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

@@ -4,18 +4,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-
-- `sp.preflight(method="iv")` and the MCP `preflight` tool now run the
-  first-stage strength check when the model is named by its columns
-  (`treatment=` / `instrument=` / `instruments=` / `covariates=`), not only
-  for a formula. Before, a call by named columns skipped the check, so a
-  dead instrument passed. The MCP tool also advertises `formula=` and
-  `instruments=`. Same first-stage regression and F statistic as the
-  formula path.
-
 ### Added
-
 - `callaway_santanna`, `sun_abraham` and `did_imputation` warn
   (`AssumptionWarning`) when a cohort of 0 is also an observed period.
   0 is still read as never treated (R `did` / Stata `csdid`), so no
@@ -23,6 +12,75 @@ All notable changes to StatsPAI will be documented in this file.
   would be used as controls and that NaN has only one reading.
 - `tests/test_mcp_schema_contract.py`: every argument a curated or
   auto-registered MCP tool advertises must bind to its function.
+- **`sp.regtable(se_type="none")` prints a coefficient-only table**
+  (#51). The statistic line under each coefficient and the "Standard
+  errors in parentheses" footer go; stars, `stats=` rows and `notes=`
+  stay. `statistic=""` does the same (it left a blank line under every
+  coefficient). Every output (text, HTML, LaTeX, Markdown, Word, Excel,
+  DataFrame, transposed) follows it, and `sp.modelsummary(se_type="none")`
+  now maps to it instead of warning. `se_type` is now checked: a value
+  outside `se` / `t` / `p` / `ci` / `none` raises `MethodIncompatibility`,
+  where it printed standard errors (case is ignored).
+- **`result.predict()` takes polars and Arrow frames** (#49). The
+  `predict` methods of result objects (`sp.regress`, `sp.logit`,
+  `sp.probit`, `sp.glm`, `sp.poisson`, `sp.nbreg`, `sp.ivreg`, `sp.feols`,
+  `sp.gam`, the forests, mixed models and the rest) convert a polars
+  `DataFrame` / `LazyFrame` or Arrow table to pandas first, through the
+  same `_frame_input` layer as the `sp.*` functions. Predictions equal
+  those for `new.to_pandas()`, in input row order; pandas arguments pass
+  by identity.
+- **`sp.regress(coef_only=True)` / `sp.feols(coef_only=True)` return the
+  coefficients of a full-rank fit with zero residual degrees of freedom**
+  (#50): as many complete observations as parameters, fixed effects
+  counted. Standard errors, t statistics, p-values, intervals, F and
+  adjusted R² are NaN, `df_resid` is 0 and `model_info['inference']` is
+  `'unavailable'`; `sp.regtable` leaves the statistic cell empty. The
+  default still raises `DataInsufficient`, and its recovery hint now
+  names the option. `sp.feols` on the native engine raised a bare
+  `ZeroDivisionError` for such a design with absorbed fixed effects; it
+  now raises `DataInsufficient`.
+
+### Fixed
+- `sp.preflight(method="iv")` and the MCP `preflight` tool now run the
+  first-stage strength check when the model is named by its columns
+  (`treatment=` / `instrument=` / `instruments=` / `covariates=`), not only
+  for a formula. Before, a call by named columns skipped the check, so a
+  dead instrument passed. The MCP tool also advertises `formula=` and
+  `instruments=`. Same first-stage regression and F statistic as the
+  formula path.
+- **⚠️ correctness fix: `sp.glm` reports one response scale** (#53).
+  `fitted_values()` and `predict()` floored binomial probabilities at
+  1e-15 (and clamped other families' means to [1e-15, 1e15]) while
+  `predict(data)` on the same rows returned the exact inverse link. All
+  three now return the inverse link of the fitted linear predictor.
+  Coefficients, standard errors, deviance and log-likelihood are
+  unchanged. See MIGRATION.md.
+- **The separation warning claims separation only with evidence** (#53;
+  `sp.glm`, `sp.logit`, `sp.probit`, propensity fits, `sp.bma`). "The
+  maximum-likelihood estimates do not exist" is reported only when a
+  linear-programming check finds a separating direction or the fitted
+  index classifies every observation. Fitted probabilities at 0 or 1 on
+  data that are not separated raise a `StatsPAIWarning` describing a
+  finite optimum. Quasi-complete separation is also detected when the
+  iterations stop before the probabilities reach machine precision.
+- **`sp.glmnet(family="binomial")` with a single small `lambda_`** (#54)
+  could overflow from the cold start and return probabilities of 0. A
+  penalty that fails is refitted along a decreasing warm-started path,
+  and the `ConvergenceWarning` names any penalty that still fails. Fits
+  that already converged are unchanged.
+- **The `sp.regtable` sample-size warning names the switch that silences
+  it** (#48). It said to add `notes=[...]`, which documents the
+  difference but leaves the warning. It now says to explain the
+  difference in `notes=` and pass `consistency_check=False`, and that
+  this switch governs only the sample-size check.
+- **Infinite-value hint covers category labels** (#52). A column read
+  only as labels (`C()`, `i()`, `factor()`, a fixed effect after `|`)
+  could already hold `-inf` since 1.44.3, which keeps never-treated units
+  in an event study such as `sp.feols("y ~ i(t, ref=-1) | unit + year")`.
+  A test now pins the issue's two-way FE example against the fit with
+  `-inf` recoded to a finite reference level. The `DataInsufficient` hint
+  raised for numeric uses now says so, where it only offered recoding to
+  NaN (which drops those rows).
 
 ## [1.44.4] — 2026-11-21
 

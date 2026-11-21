@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from ..exceptions import MethodIncompatibility
 from . import _grf_engine as engine
 from ._grf_family import (
@@ -78,6 +79,7 @@ class LMForestResult(GRFFamilyForest):
         q = len(self.outcome_names)
         return np.asarray(flat, dtype=float).reshape(flat.shape[0], k, q)
 
+    @accepts_frames
     def predict(
         self, newdata: Any = None, estimate_variance: bool = False
     ) -> Dict[str, np.ndarray]:

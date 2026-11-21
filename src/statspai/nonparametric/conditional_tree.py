@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -443,6 +444,7 @@ class CTreeResult(ResultProtocolMixin):
             out[here] = np.where(go_left, node.left, node.right)
         return out
 
+    @accepts_frames
     def predict(self, data: pd.DataFrame, type: str = "response") -> np.ndarray:
         """Predict for new data.
 

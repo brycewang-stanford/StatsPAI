@@ -21,6 +21,7 @@ import pandas as pd
 from scipy import optimize, special, stats
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
@@ -1838,6 +1839,7 @@ class GLMRegression(BaseModel):
         self.is_fitted = True
         return results_obj
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

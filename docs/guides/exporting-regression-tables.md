@@ -118,7 +118,7 @@ tbl = sp.regtable(
     coef_labels={"educ": "Schooling"},
     keep=["educ", "exper"],
     stats=["N", "R2", "adj_R2", "F"],
-    se_type="se",                 # "se" | "t" | "p" | "ci"
+    se_type="se",                 # "se" | "t" | "p" | "ci" | "none"
     star_levels=(0.10, 0.05, 0.01),
     template="aer",
     title="Returns to schooling",
@@ -150,6 +150,14 @@ Highlights (see `sp.describe_function("regtable")` for the full list):
   grouping header (`\multicolumn` / `colspan` / `cmidrule`).
 - **eform** — `eform=True` reports `exp(b)` (odds ratio / IRR / HR) with
   delta-method SE; pass a per-model list to mix columns.
+- **Coefficient-only tables** — `se_type="none"` (or `statistic=""`) drops
+  the statistic line under each coefficient and the "Standard errors in
+  parentheses" footer. Stars, `stats=` rows and `notes=` stay; add
+  `stars=False` for bare estimates.
+- **Different sample sizes** — when column Ns differ, `regtable` warns.
+  If that is intended, explain it in `notes=[...]` and pass
+  `consistency_check=False`. A note alone does not silence the warning,
+  and the switch controls only this one check.
 
 ### Decimal places
 

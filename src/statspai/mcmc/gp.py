@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, optimize, stats
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
@@ -139,6 +140,7 @@ class GPResult(ResultProtocolMixin):
         """Log marginal likelihood at the hyperparameters."""
         return float(self.loglik)
 
+    @accepts_frames
     def predict(
         self,
         newdata: Optional[pd.DataFrame] = None,

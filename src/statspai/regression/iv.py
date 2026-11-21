@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._frame_input import accepts_frames
 from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
@@ -2287,6 +2288,7 @@ class IVRegression(BaseModel):
         normalised: np.ndarray = w * (n / w.sum())
         return normalised
 
+    @accepts_frames
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Generate predictions from the fitted IV model.
 

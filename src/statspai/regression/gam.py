@@ -31,6 +31,7 @@ import pandas as pd
 from scipy import optimize, stats
 from scipy.interpolate import BSpline
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._call_record import records_call
@@ -436,6 +437,7 @@ class GAMResult(ResultProtocolMixin):
         blocks = [P] + [sm.term_design(data) for sm in self._smooths]
         return np.column_stack(blocks)
 
+    @accepts_frames
     def predict(
         self,
         data: pd.DataFrame,

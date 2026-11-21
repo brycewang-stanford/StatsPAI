@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44.4 → next: ⚠️ `sp.glm` fitted probabilities are no longer floored
+
+A correctness fix for reported probabilities only. `sp.glm(...)
+.fitted_values()` and `.predict()` used to floor binomial probabilities
+at 1e-15 (other families' means were clamped to [1e-15, 1e15]), while
+`.predict(data)` on the same rows returned the exact inverse link. All
+three now return the inverse link of the fitted linear predictor, so a
+row with a linear index of -55 reports 1.3e-24 where it reported 1e-15.
+Coefficients, standard errors, deviance and log-likelihood do not move.
+Code that relied on the floor, such as `np.log(p)` on fitted
+probabilities, should clip explicitly with `np.clip(p, 1e-15, 1 - 1e-15)`.
+
+Two smaller changes in the same round.
+
+- `sp.regtable(se_type=...)` is now checked. A value outside `se`, `t`,
+  `p`, `ci`, `none` raises `MethodIncompatibility`; it used to print
+  standard errors. `se_type="none"` gives a coefficient-only table.
+- The separation warning of `sp.glm` / `sp.logit` / `sp.probit` is a
+  `ConvergenceWarning` only when separation is certified. Boundary
+  probabilities on unseparated data now raise a `StatsPAIWarning`, so a
+  filter on `ConvergenceWarning` no longer catches that case.
+
 ## 1.44.3 → 1.44.4: ⚠️ text regressors in seven more column-list estimators
 
 A correctness fix with no number changes for numeric data. `sp.xtabond`,

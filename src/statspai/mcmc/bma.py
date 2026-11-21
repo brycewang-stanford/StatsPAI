@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, special
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import (
@@ -510,6 +511,7 @@ class BMAResult(ResultProtocolMixin):
             },
         }
 
+    @accepts_frames
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Model-averaged prediction of the mean.
 

@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ..forest import _grf_engine as engine
 from ..forest._grf_family import (
@@ -158,6 +159,7 @@ class CausalSurvivalForestResult(GRFFamilyForest):
         self.feature_names: list = []
         self.detail: Dict[str, Any] = {}
 
+    @accepts_frames
     def predict(
         self, newdata: Any = None, estimate_variance: bool = False
     ) -> pd.DataFrame:

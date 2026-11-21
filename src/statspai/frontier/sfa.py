@@ -37,6 +37,7 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from .._frame_input import accepts_frames
 from ..core._call_record import records_call
 from ..core._label_guard import refuses_label_columns
 from ..core.results import EconometricResults
@@ -336,6 +337,7 @@ class FrontierResult(EconometricResults):
     # Out-of-sample prediction
     # ------------------------------------------------------------------
 
+    @accepts_frames
     def predict(  # type: ignore[override]
         self,
         new_data: pd.DataFrame,

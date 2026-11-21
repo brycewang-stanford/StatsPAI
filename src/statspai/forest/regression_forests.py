@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
 from . import _grf_engine as engine
 from ._grf_family import (
@@ -77,6 +78,7 @@ class PredictionForest(GRFFamilyForest):
         self.n_obs = 0
         self.detail: dict = {}
 
+    @accepts_frames
     def predict(
         self,
         newdata: Any = None,

@@ -95,8 +95,14 @@ that failed, such as `log(0)` or a division by zero. A used column holding
 `inf` is refused with a `DataInsufficient` that names each column and its
 count (`diagnostics["infinite_by_column"]`), whatever `missing=` says. To
 have those rows dropped like missing ones, recode them first with
-`data.replace([np.inf, -np.inf], np.nan)`. The one exception is the
-cohort column of a staggered DiD, where `g = inf` means never treated.
+`data.replace([np.inf, -np.inf], np.nan)`. There are two exceptions. In
+the cohort column of a staggered DiD, `g = inf` means never treated. A
+column a formula reads only as category labels (the first argument of
+`C()`, `i()` or `factor()`, or a fixed effect after `|`) may also hold
+`inf`. Event time coded as `-inf` for never-treated units is an example.
+`sp.feols("y ~ i(t, ref=-1) | unit + year", data)` keeps those rows as
+comparisons. If the same column also enters the model as a number, it is
+refused.
 
 ## Other input the core estimators refuse
 

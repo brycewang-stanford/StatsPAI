@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import special, stats
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
@@ -518,6 +519,7 @@ class BARTResult(ResultProtocolMixin):
             index=index,
         )
 
+    @accepts_frames
     def predict_draws(self, newdata: pd.DataFrame) -> np.ndarray:
         """Posterior draws of the regression function at ``newdata``:
         an array with one row per draw."""
@@ -542,6 +544,7 @@ class BARTResult(ResultProtocolMixin):
         f = st["center"] + st["scale"] * out
         return np.asarray(special.ndtr(f)) if self.family == "binary" else f
 
+    @accepts_frames
     def predict(
         self, newdata: Optional[pd.DataFrame] = None, level: Optional[float] = None
     ) -> pd.DataFrame:

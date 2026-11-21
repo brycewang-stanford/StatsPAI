@@ -1221,7 +1221,7 @@ class RegtableResult:
         fixed precision for the whole table and cannot take the row-adaptive
         format.
         """
-        if var not in model.params.index:
+        if var not in model.params.index or not self._shows_statistic:
             return ""
         if self.statistic_template is not None:
             ctx = self._build_cell_context(model, var, flat_idx)
@@ -1263,7 +1263,10 @@ class RegtableResult:
         b = float(model.params[var])
         se_v = model.std_errors.get(var, np.nan)
         _, se_new = self._apply_coef_transform(b, se_v, flat_idx)
-        return f"({_fmt_val(se_new if se_new is not None else se_v, cell_fmt)})"
+        se_txt = _fmt_val(se_new if se_new is not None else se_v, cell_fmt)
+        # A coefficient-only fit (coef_only=True) has no standard error:
+        # leave the cell empty instead of printing "()".
+        return f"({se_txt})" if se_txt else ""
 
     def _has_any_eform(self) -> bool:
         return any(self.eform_flags)
@@ -1320,6 +1323,21 @@ class RegtableResult:
         intervals go in square brackets, everything else in parentheses."""
         return "brackets" if self.se_type == "ci" else "parentheses"
 
+    @property
+    def _shows_statistic(self) -> bool:
+        """Whether each coefficient gets a second (statistic) line.
+
+        ``se_type="none"`` or ``statistic=""`` gives a coefficient-only
+        table: no statistic rows and no "... in parentheses" footer.
+        """
+        return self.se_type != "none" and self.statistic_template != ""
+
+    def _statistic_note_lines(self) -> List[str]:
+        """The "Standard errors in parentheses" footer, if one applies."""
+        if not self._shows_statistic:
+            return []
+        return [f"{self._se_label()} in {self._se_enclosure()}"]
+
     def _multi_se_cell(
         self,
         per_model: Dict[str, float],
@@ -1373,7 +1391,7 @@ class RegtableResult:
 
     def _footer_note_lines(self) -> List[str]:
         """Canonical footer lines shared by Word/Excel bundle exports."""
-        note_lines = [f"{self._se_label()} in {self._se_enclosure()}"]
+        note_lines = self._statistic_note_lines()
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             note_lines.append(f"{label} in {lo}…{hi}")
@@ -1411,10 +1429,11 @@ class RegtableResult:
                 row += f"{self._coef_cell(m, var, base_idx + off):>{col_w}}"
             lines.append(row)
             # SE row
-            row2 = " " * label_w
-            for off, m in enumerate(models):
-                row2 += f"{self._se_cell(m, var, base_idx + off):>{col_w}}"
-            lines.append(row2)
+            if self._shows_statistic:
+                row2 = " " * label_w
+                for off, m in enumerate(models):
+                    row2 += f"{self._se_cell(m, var, base_idx + off):>{col_w}}"
+                lines.append(row2)
             # Extra SE rows from multi_se. Each label maps to one entry per
             # model across the WHOLE table, so we slice into the panel using
             # cumulative model offsets.
@@ -1427,7 +1446,8 @@ class RegtableResult:
                     )
                     row3 += f"{cell:>{col_w}}"
                 lines.append(row3)
-            lines.append("")  # blank between vars
+            if self._shows_statistic or self.multi_se:
+                lines.append("")  # blank between vars
         return lines
 
     def _ascii_mode(self) -> bool:
@@ -1574,7 +1594,7 @@ class RegtableResult:
         lines.append(thick)
 
         # Notes
-        lines.append(f"{self._se_label()} in {self._se_enclosure()}")
+        lines.extend(self._statistic_note_lines())
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"{label} in {lo}…{hi}")
@@ -1651,10 +1671,11 @@ class RegtableResult:
             for var in var_list:
                 row_e += f"{self._coef_cell(m, var, mi):>{col_w}}"
             lines.append(row_e)
-            row_s = " " * label_w
-            for var in var_list:
-                row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
-            lines.append(row_s)
+            if self._shows_statistic:
+                row_s = " " * label_w
+                for var in var_list:
+                    row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
+                lines.append(row_s)
         lines.append(thick)
         # Stats: one row per stat — N, R², Adj. R², F (each cell is the
         # value for that model under the corresponding column? No — in
@@ -1692,15 +1713,16 @@ class RegtableResult:
                 for k in self._stat_keys:
                     row_e += f"{self._stat_cell(m, k):>{col_w}}"
                 lines.append(row_e)
-                row_s = " " * label_w
-                for var in var_list:
-                    row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
-                for _ in self._stat_keys:
-                    row_s += f"{'':>{col_w}}"
-                lines.append(row_s)
+                if self._shows_statistic:
+                    row_s = " " * label_w
+                    for var in var_list:
+                        row_s += f"{self._se_cell(m, var, mi):>{col_w}}"
+                    for _ in self._stat_keys:
+                        row_s += f"{'':>{col_w}}"
+                    lines.append(row_s)
             lines.append(thick)
         # Notes
-        lines.append(f"{self._se_label()} in {self._se_enclosure()}")
+        lines.extend(self._statistic_note_lines())
         if self._has_any_eform():
             lines.append(self._eform_note())
         if self.show_stars:
@@ -1768,17 +1790,18 @@ class RegtableResult:
                 )
             lines.append("</tr>")
             # SE row
-            lines.append("<tr>")
-            lines.append("<td></td>")
-            for var in var_list:
-                lines.append(
-                    f'<td style="text-align:center; padding:0 12px; '
-                    f'color:#555; font-size:12px;">'
-                    f"{_html_escape(self._se_cell(m, var, mi))}</td>"
-                )
-            for _ in self._stat_keys:
+            if self._shows_statistic:
+                lines.append("<tr>")
                 lines.append("<td></td>")
-            lines.append("</tr>")
+                for var in var_list:
+                    lines.append(
+                        f'<td style="text-align:center; padding:0 12px; '
+                        f'color:#555; font-size:12px;">'
+                        f"{_html_escape(self._se_cell(m, var, mi))}</td>"
+                    )
+                for _ in self._stat_keys:
+                    lines.append("<td></td>")
+                lines.append("</tr>")
         # Bottom rule
         lines.append(
             f'<tr><td colspan="{ncols}" '
@@ -1787,11 +1810,11 @@ class RegtableResult:
         lines.append("</tbody>")
         # Notes
         lines.append("<tfoot>")
-        note = f"{self._se_label()} in {self._se_enclosure()}"
-        lines.append(
-            f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
-            f'padding:4px 8px 0 8px;">{_html_escape(note)}</td></tr>'
-        )
+        for note in self._statistic_note_lines():
+            lines.append(
+                f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+                f'padding:4px 8px 0 8px;">{_html_escape(note)}</td></tr>'
+            )
         if self.show_stars:
             lines.append(
                 f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
@@ -1922,23 +1945,24 @@ class RegtableResult:
                         flat_idx += 1
                 lines.append("</tr>")
                 # SE row
-                lines.append("<tr>")
-                lines.append("<td></td>")
-                flat_idx = 0
-                for gi, p2 in enumerate(self.panels):
-                    for m in p2.models:
-                        if gi == pi:
-                            lines.append(
-                                f'<td style="text-align:center; padding:0 12px; '
-                                f'color:#555; font-size:12px;">'
-                                f"{_html_escape(self._se_cell(m, var, flat_idx))}</td>"
-                            )
-                        else:
-                            lines.append(
-                                '<td style="text-align:center; padding:0 12px;"></td>'
-                            )
-                        flat_idx += 1
-                lines.append("</tr>")
+                if self._shows_statistic:
+                    lines.append("<tr>")
+                    lines.append("<td></td>")
+                    flat_idx = 0
+                    for gi, p2 in enumerate(self.panels):
+                        for m in p2.models:
+                            if gi == pi:
+                                lines.append(
+                                    f'<td style="text-align:center; padding:0 12px; '
+                                    f'color:#555; font-size:12px;">'
+                                    f"{_html_escape(self._se_cell(m, var, flat_idx))}</td>"
+                                )
+                            else:
+                                lines.append(
+                                    '<td style="text-align:center; padding:0 12px;"></td>'
+                                )
+                            flat_idx += 1
+                    lines.append("</tr>")
                 # Extra SE rows from multi_se
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
@@ -2027,11 +2051,11 @@ class RegtableResult:
 
         # Notes
         lines.append("<tfoot>")
-        note_text = f"{self._se_label()} in {self._se_enclosure()}"
-        lines.append(
-            f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
-            f'padding:4px 8px 0 8px;">{_html_escape(note_text)}</td></tr>'
-        )
+        for note_text in self._statistic_note_lines():
+            lines.append(
+                f'<tr><td colspan="{ncols}" style="text-align:left; font-size:11px; '
+                f'padding:4px 8px 0 8px;">{_html_escape(note_text)}</td></tr>'
+            )
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             multi_note = f"{label} in {lo}…{hi}"
@@ -2246,24 +2270,25 @@ class RegtableResult:
                 lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
                 # SE row — siunitx wraps the parenthesised SE in braces so the
                 # S column treats it as centred text, not an uncertainty.
-                cells2: List[str] = []
-                flat_idx = 0
-                for gi, p2 in enumerate(self.panels):
-                    for m in p2.models:
-                        if gi == pi:
-                            se_txt = _latex_escape(
-                                self._se_cell(
-                                    m,
-                                    var,
-                                    flat_idx,
-                                    fmt_override=_si_fmt if siunitx else None,
+                if self._shows_statistic:
+                    cells2: List[str] = []
+                    flat_idx = 0
+                    for gi, p2 in enumerate(self.panels):
+                        for m in p2.models:
+                            if gi == pi:
+                                se_txt = _latex_escape(
+                                    self._se_cell(
+                                        m,
+                                        var,
+                                        flat_idx,
+                                        fmt_override=_si_fmt if siunitx else None,
+                                    )
                                 )
-                            )
-                            cells2.append("{%s}" % se_txt if siunitx else se_txt)
-                        else:
-                            cells2.append("{}" if siunitx else "")
-                        flat_idx += 1
-                lines.append(" & " + " & ".join(cells2) + " \\\\")
+                                cells2.append("{%s}" % se_txt if siunitx else se_txt)
+                            else:
+                                cells2.append("{}" if siunitx else "")
+                            flat_idx += 1
+                    lines.append(" & " + " & ".join(cells2) + " \\\\")
                 # Extra SE rows (multi_se) — rejected under siunitx above.
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
@@ -2334,7 +2359,7 @@ class RegtableResult:
         # Notes — collected once, then emitted either as full-width
         # \multicolumn rows inside the tabular (default) or as a
         # threeparttable \begin{tablenotes} block after \end{tabular}.
-        note_texts: List[str] = [f"{self._se_label()} in {self._se_enclosure()}"]
+        note_texts: List[str] = self._statistic_note_lines()
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             note_texts.append(f"{label} in {lo}…{hi}")
@@ -2431,16 +2456,17 @@ class RegtableResult:
                         flat_idx += 1
                 lines.append(f"| {label} |" + "|".join(f" {c} " for c in cells) + "|")
                 # SE row
-                cells2: List[str] = []
-                flat_idx = 0
-                for gi, p2 in enumerate(self.panels):
-                    for m in p2.models:
-                        if gi == pi:
-                            cells2.append(self._se_cell(m, var, flat_idx))
-                        else:
-                            cells2.append("")
-                        flat_idx += 1
-                lines.append("| |" + "|".join(f" {c} " for c in cells2) + "|")
+                if self._shows_statistic:
+                    cells2: List[str] = []
+                    flat_idx = 0
+                    for gi, p2 in enumerate(self.panels):
+                        for m in p2.models:
+                            if gi == pi:
+                                cells2.append(self._se_cell(m, var, flat_idx))
+                            else:
+                                cells2.append("")
+                            flat_idx += 1
+                    lines.append("| |" + "|".join(f" {c} " for c in cells2) + "|")
                 # Extra SE rows from multi_se
                 base_idx = sum(len(p.models) for p in self.panels[:pi])
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
@@ -2482,7 +2508,7 @@ class RegtableResult:
             lines.append(f"| {row_label} |" + "|".join(f" {c} " for c in cells_t) + "|")
 
         lines.append("")
-        lines.append(f"*{self._se_label()} in {self._se_enclosure()}*")
+        lines.extend(f"*{line}*" for line in self._statistic_note_lines())
         for ext_idx, (label, _) in enumerate(self.multi_se):
             lo, hi = _MULTI_SE_BRACKETS[ext_idx % len(_MULTI_SE_BRACKETS)]
             lines.append(f"*{label} in {lo}…{hi}*")
@@ -2606,10 +2632,11 @@ class RegtableResult:
                     label,
                     _panel_cells(pi, lambda m, mi, off: self._coef_cell(m, var, mi)),
                 )
-                _emit(
-                    "",
-                    _panel_cells(pi, lambda m, mi, off: self._se_cell(m, var, mi)),
-                )
+                if self._shows_statistic:
+                    _emit(
+                        "",
+                        _panel_cells(pi, lambda m, mi, off: self._se_cell(m, var, mi)),
+                    )
                 # Extra SE rows (multi_se)
                 for ext_idx, (_, per_model_list) in enumerate(self.multi_se):
                     _emit(
@@ -3377,6 +3404,9 @@ def _merge_shared_labels(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+_VALID_SE_TYPES = ("se", "t", "p", "ci", "none")
+
+
 @accepts_aliases(
     _strict=True,
     vce="vcov",
@@ -3486,7 +3516,11 @@ def regtable(
         ``"aic"`` / ``"bic"`` empty.
     se_type : str, default ``"se"``
         What to show beneath coefficients: ``"se"``, ``"t"``, ``"p"``,
-        or ``"ci"`` for confidence intervals.
+        ``"ci"`` for confidence intervals, or ``"none"`` for a
+        coefficient-only table. ``"none"`` drops the statistic rows and
+        the "Standard errors in parentheses" footer; stars (unless
+        ``stars=False``), ``stats=`` rows and ``notes=`` stay.
+        ``statistic=""`` has the same effect.
     stars : bool, default True
         Append significance stars.
     star_levels : tuple, default ``(0.10, 0.05, 0.01)``
@@ -3630,10 +3664,12 @@ def regtable(
         or the legacy four-parameter spec.
     consistency_check : bool, default True
         When two or more columns are passed and their sample sizes
-        differ, emit a ``UserWarning``. Reviewer red flag — disable by
-        setting ``False`` (or annotate with ``notes=[...]``) when the
-        N-mismatch is intentional (IV first stage on a subsample,
-        RD bandwidth restriction, etc.).
+        differ, emit a ``UserWarning``. This sample-size comparison is
+        the only check it controls. When the N-mismatch is intentional
+        (IV first stage on a subsample, RD bandwidth restriction,
+        etc.), explain it with ``notes=[...]`` and set
+        ``consistency_check=False``. A note on its own documents the
+        difference for the reader but does not silence the warning.
     estimate : str, optional
         Custom format string for the **top** (coefficient) line in
         each cell. Mirrors R ``modelsummary``'s ``estimate=`` argument.
@@ -3782,6 +3818,18 @@ def regtable(
             f"{sorted(_VALID_OUTPUTS)}",
             recovery_hint="Choose a supported table output format.",
             diagnostics={"output": output},
+        )
+
+    if isinstance(se_type, str):
+        se_type = se_type.lower()
+    if se_type not in _VALID_SE_TYPES:
+        raise MethodIncompatibility(
+            f"se_type={se_type!r} is invalid. Must be one of: "
+            f"{list(_VALID_SE_TYPES)}",
+            recovery_hint=(
+                "Use 'se', 't', 'p', 'ci', or 'none' for a coefficient-only " "table."
+            ),
+            diagnostics={"se_type": se_type},
         )
 
     # --- Resolve numeric precision (digits= is the int-flavoured alias) ---
@@ -3994,8 +4042,11 @@ def regtable(
             warnings.warn(
                 f"Sample sizes differ across columns (range "
                 f"{min(ns):,}–{max(ns):,}). If this is intentional (e.g. "
-                f"IV first stage on a subsample), add a footnote via "
-                f"notes=[...]; otherwise re-fit on a common sample.",
+                f"IV first stage on a subsample), explain it in a footnote "
+                f"via notes=[...] and pass consistency_check=False to "
+                f"silence this warning (notes= alone does not, and "
+                f"consistency_check governs only this sample-size check); "
+                f"otherwise re-fit on a common sample.",
                 UserWarning,
                 stacklevel=2,
             )

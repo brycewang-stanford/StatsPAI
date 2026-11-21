@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._validate import require_numeric_columns
@@ -117,6 +118,7 @@ class _ThresholdResults(EconometricResults):
     _thr_base: Any = None
     _thr: Optional[Dict[str, Any]] = None
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

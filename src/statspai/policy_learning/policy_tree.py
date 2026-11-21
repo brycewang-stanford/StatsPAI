@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from .._export_path import checks_export_path
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
@@ -1059,6 +1060,7 @@ class PolicyTree:
         _note_gain_near_null(res)
         return res
 
+    @accepts_frames
     def predict(self, X_new: np.ndarray) -> np.ndarray:
         """
         Predict treatment assignment for new data.

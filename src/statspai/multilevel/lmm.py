@@ -47,6 +47,7 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
@@ -215,6 +216,7 @@ class MixedResult(ResultProtocolMixin):
     # Predict
     # ------------------------------------------------------------------
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

@@ -8105,8 +8105,8 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "se",
-                    "Bottom-row content",
-                    ["se", "t", "p", "ci"],
+                    "Bottom-row content ('none' = coefficients only)",
+                    ["se", "t", "p", "ci", "none"],
                 ),
                 ParamSpec(
                     "labels",

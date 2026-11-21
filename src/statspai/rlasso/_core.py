@@ -57,6 +57,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -440,6 +441,7 @@ class RLassoFit(ResultProtocolMixin):
     def selected(self) -> List[str]:
         return [self.colnames[j] for j in np.where(self.index)[0]]
 
+    @accepts_frames
     def predict(self, newX: np.ndarray) -> np.ndarray:
         """Predict on the original (uncentered) scale — ``hdm::predict.rlasso``."""
         Xn = np.asarray(newX, dtype=float)

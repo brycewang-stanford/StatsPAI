@@ -11,6 +11,7 @@ from scipy import stats
 from scipy.linalg import solve_triangular
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from .._input_validation import ZERO_DF_COEF_ONLY_HINT, MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
@@ -1547,6 +1548,7 @@ class OLSRegression(BaseModel):
         self.is_fitted = True
         return fitted_result
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

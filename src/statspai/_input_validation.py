@@ -172,7 +172,10 @@ INFINITE_VALUES_HINT = (
     "nor passed to the estimator. Fix the step that produced them (a log "
     "of zero, a division by zero), or recode them as missing with "
     "data.replace([np.inf, -np.inf], np.nan) to have those rows dropped "
-    "like any other missing value."
+    "like any other missing value. A column read only as category labels "
+    "(the first argument of C() / i() / factor(), or a fixed effect after "
+    "'|') may hold inf, e.g. event time -inf for never-treated units; "
+    "every other use of that column must then be categorical too."
 )
 
 

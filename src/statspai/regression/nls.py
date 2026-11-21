@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from ..core._call_record import records_call
 from ..core._vcov import sandwich_vcov
@@ -181,6 +182,7 @@ class _NLSResults(EconometricResults):
 
         return fitted
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

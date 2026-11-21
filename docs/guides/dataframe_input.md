@@ -22,6 +22,11 @@ The frame is converted to pandas when the function is called; a
 `LazyFrame` is collected first. Results are the usual StatsPAI objects,
 and tables inside them are pandas. Nothing is converted back.
 
+The `predict` methods of result objects take the same frames, so a polars
+workflow can fit and predict with one frame type. `fit.predict(new)`
+returns what `fit.predict(new.to_pandas())` returns, in the row order of
+`new`.
+
 The numbers are the pandas numbers: a test fits the same models on the
 same data as pandas, polars, a polars `LazyFrame` and an Arrow table and
 requires identical coefficients and standard errors

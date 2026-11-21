@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices, refuse_label_columns
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -77,6 +78,7 @@ class RidgeResult(ResultProtocolMixin):
     def coef(self) -> pd.Series:
         return self.params
 
+    @accepts_frames
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Fitted values, on ``data`` when given."""
         if data is None:

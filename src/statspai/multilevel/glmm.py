@@ -64,6 +64,7 @@ import pandas as pd
 from scipy import special, stats
 from scipy.optimize import minimize
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _glmm_ri as _ri
@@ -1043,6 +1044,7 @@ class MEGLMResult(ResultProtocolMixin):
         fig.tight_layout()
         return fig, ax
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

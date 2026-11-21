@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 
 _PREDICT_TYPES = ("mu", "marginal", "classpr", "classposteriorpr")
@@ -161,6 +162,7 @@ class FMMResult(ResultProtocolMixin):
             )
         return self.class_tables[cls].copy()
 
+    @accepts_frames
     def predict(
         self,
         newdata: Optional[pd.DataFrame] = None,

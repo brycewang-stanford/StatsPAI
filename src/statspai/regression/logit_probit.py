@@ -31,6 +31,7 @@ from scipy import stats
 from scipy.special import expit as _expit
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from .._input_validation import MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
@@ -1254,6 +1255,7 @@ def _fit_binary(
     return result
 
 
+@accepts_frames
 def _bound_result_predict(
     beta: np.ndarray,
     X_mat: np.ndarray,

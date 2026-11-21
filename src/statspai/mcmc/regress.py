@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, special, stats
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core.utils import create_design_matrices
@@ -819,6 +820,7 @@ class BayesRegressResult(_PredictiveMethods, ResultProtocolMixin):
         # drop it and shift every later prediction onto the wrong row
         return prediction_design(self._design_info, names, data)
 
+    @accepts_frames
     def predict(
         self,
         data: Optional[pd.DataFrame] = None,

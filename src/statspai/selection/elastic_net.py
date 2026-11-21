@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy.special import expit
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._label_guard import refuses_label_columns
@@ -406,6 +407,7 @@ class GlmnetResult(ResultProtocolMixin):
         a0, b = self._at(s)
         return pd.Series(np.r_[a0, b], index=["intercept", *self.x])
 
+    @accepts_frames
     def predict(
         self,
         data: pd.DataFrame,

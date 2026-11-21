@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from .._result_serialize import ResultProtocolMixin
 from ..core._validate import require_numeric_columns
@@ -95,6 +96,7 @@ class ShrinkageResult(ResultProtocolMixin):
     _center: np.ndarray = field(default_factory=lambda: np.zeros(0), repr=False)
     _scale: np.ndarray = field(default_factory=lambda: np.ones(0), repr=False)
 
+    @accepts_frames
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Predicted outcome for the rows of ``data`` (which must hold the
         predictors, in their original units)."""

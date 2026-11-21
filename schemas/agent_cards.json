@@ -12508,7 +12508,7 @@
           },
           "se_type": {
             "default": "parentheses",
-            "description": "Kept for compatibility: the standard error is always shown in parentheses. ``'brackets'`` and ``'none'`` warn and fall back to it; use ``show_ci=True`` for ``[lo, hi]`` intervals.",
+            "description": "``'parentheses'`` shows the standard error in parentheses; ``'none'`` prints coefficients only (no statistic rows, no \"Standard errors in parentheses\" footer). ``'brackets'`` warns and falls back to parentheses; use ``show_ci=True`` for ``[lo, hi]`` intervals.",
             "type": "string",
             "x-statspai-source": "signature"
           },
@@ -12892,12 +12892,13 @@
           },
           "se_type": {
             "default": "se",
-            "description": "Bottom-row content",
+            "description": "Bottom-row content ('none' = coefficients only)",
             "enum": [
               "se",
               "t",
               "p",
-              "ci"
+              "ci",
+              "none"
             ],
             "type": "string"
           },

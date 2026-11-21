@@ -32,6 +32,7 @@ from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import GradientBoostingRegressor
 
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from .._input_validation import check_columns
 from ..core._covariates import expands_categorical_covariates as _expands_categorical
 from ..core.results import CausalResult
@@ -386,6 +387,7 @@ class ConformalCATE:
             _citation_key="conformal_cate",
         )
 
+    @accepts_frames
     def predict(self, X_new: np.ndarray) -> Dict[str, np.ndarray]:
         """
         Predict CATE with conformal intervals for new data.

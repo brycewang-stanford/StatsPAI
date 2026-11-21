@@ -30,8 +30,8 @@ Migration notes
   only the threshold *values* are used, the symbol overrides are
   dropped (regtable's ladder is ``*/**/***`` by convention; symbol
   control is via ``notation='symbols'`` for ``†/‡/§``).
-- ``se_type='parentheses'`` (default) and ``se_type='none'`` work as
-  before. ``se_type='brackets'`` is no longer a separate render mode —
+- ``se_type='parentheses'`` (default) and ``se_type='none'``
+  (coefficients only) work as before. ``se_type='brackets'`` is no longer a separate render mode —
   emits ``UserWarning`` and falls back to parentheses. Use
   ``show_ci=True`` (which renders ``[lo, hi]``) if you want brackets
   to convey actual information.
@@ -152,9 +152,11 @@ def modelsummary(
         ``{"*": 0.10, "**": 0.05, "***": 0.01}`` sets the thresholds; only
         its values are used, the symbols stay ``*`` / ``**`` / ``***``.
     se_type : str, default 'parentheses'
-        Kept for compatibility: the standard error is always shown in
-        parentheses. ``'brackets'`` and ``'none'`` warn and fall back to
-        it; use ``show_ci=True`` for ``[lo, hi]`` intervals.
+        ``'parentheses'`` shows the standard error in parentheses;
+        ``'none'`` prints coefficients only (no statistic rows, no
+        "Standard errors in parentheses" footer). ``'brackets'`` warns
+        and falls back to parentheses; use ``show_ci=True`` for
+        ``[lo, hi]`` intervals.
     show_ci : bool, default False
         Show the confidence interval beneath each coefficient instead of
         the standard error.
@@ -251,14 +253,7 @@ def modelsummary(
             )
             rt_se_type = "se"
         elif st == "none":
-            warnings.warn(
-                "modelsummary(se_type='none') is no longer supported; "
-                "the SE row will remain. Use sp.regtable(...) directly "
-                "if you need a different uncertainty cell.",
-                UserWarning,
-                stacklevel=3,
-            )
-            rt_se_type = "se"
+            rt_se_type = "none"
         else:
             rt_se_type = "se"
 

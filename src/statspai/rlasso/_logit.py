@@ -55,6 +55,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple
 import numpy as np
 from scipy import stats
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -253,6 +254,7 @@ class RLassoLogitFit(ResultProtocolMixin):
     def selected(self) -> List[str]:
         return [self.colnames[j] for j in np.where(self.index)[0]]
 
+    @accepts_frames
     def predict(self, newX: np.ndarray, type: str = "response") -> np.ndarray:
         """Predict on ``newX`` — ``type='response'`` (probabilities) or
         ``'link'`` (log-odds).  Mirrors ``hdm::predict.rlassologit``."""

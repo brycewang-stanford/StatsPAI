@@ -163,6 +163,18 @@ def wrap(fn: Callable[..., Any]) -> Callable[..., Any]:
     return accepting_frames
 
 
+def accepts_frames(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator form of :func:`wrap` for methods that take new data.
+
+    Result methods are not reached by :func:`install` (which wraps the
+    public ``sp.*`` functions), so ``result.predict(polars_frame)`` would
+    otherwise meet a pandas-only check. Applied to the ``predict`` methods
+    of result classes: ``self`` and pandas arguments pass by identity, a
+    polars / Arrow frame is converted to pandas first.
+    """
+    return wrap(fn)
+
+
 def _eligible(obj: Any) -> bool:
     import inspect
 

@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -145,6 +146,7 @@ class ModelAverageResult(ResultProtocolMixin):
         values = np.array([float(statistic(fit)) for fit in self.fits])
         return float(values @ self.weights.to_numpy())
 
+    @accepts_frames
     def predict(self, data: pd.DataFrame) -> np.ndarray:
         """Averaged predictions for new data."""
         out = np.zeros(len(data))

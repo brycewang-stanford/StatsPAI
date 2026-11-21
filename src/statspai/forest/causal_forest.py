@@ -37,6 +37,7 @@ from sklearn.tree import DecisionTreeRegressor
 
 # Import our core classes
 from .._aliases import accepts_aliases
+from .._frame_input import accepts_frames
 from .._input_validation import missing_named_columns
 from ..core.base import BaseModel
 from ..exceptions import (
@@ -1373,6 +1374,7 @@ class CausalForest(BaseModel):
         predictions = np.array(predictions_list)  # shape: (n_trees, n_samples)
         return np.asarray(np.mean(predictions, axis=0), dtype=float)
 
+    @accepts_frames
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
         Generate treatment effect predictions (required by BaseModel)

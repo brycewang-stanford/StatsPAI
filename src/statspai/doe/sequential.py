@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._frame_input import accepts_frames
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._common import pair_sqdist, resolve_factors
@@ -68,6 +69,7 @@ class SequentialDesignResult(ResultProtocolMixin):
     goal: str
     model_info: Dict[str, Any] = field(default_factory=dict)
 
+    @accepts_frames
     def predict(self, newdata: pd.DataFrame, **kwargs: Any) -> pd.DataFrame:
         """Surrogate prediction (``mean``, ``sd``, ``lower``, ``upper``) at
         new points given in the units of the factors."""
