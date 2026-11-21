@@ -677,8 +677,15 @@ def _attach_fe(
 
 
 @_names_user_columns
-def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
-    """Fit a planned ``sp.feols`` call natively, in the delegate's layout."""
+def fit_feols(
+    p: Plan, fml: str, *, lean: bool = False, coef_only: bool = False
+) -> EconometricResults:
+    """Fit a planned ``sp.feols`` call natively, in the delegate's layout.
+
+    ``coef_only=True`` keeps the coefficients and leaves every inferential
+    field NaN; it is what a full-rank fit with zero residual degrees of
+    freedom (the fixed effects counted) can report.
+    """
     from ..fast.feols import _feols_fit
 
     if p.endog:
@@ -709,6 +716,25 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
         G = 0
         df_k = a["df_k"]
         df_t = N - df_k
+    df_resid = N - max(k, int(a["df_k"]))
+    if df_resid <= 0 and not coef_only:
+        from .._input_validation import ZERO_DF_COEF_ONLY_HINT
+        from ..exceptions import DataInsufficient
+
+        raise DataInsufficient(
+            "sp.feols requires more observations than parameters to estimate "
+            "residual variance and standard errors: "
+            f"nobs={N}, parameters={int(a['df_k'])} (fixed effects included), "
+            f"residual df={df_resid}.",
+            recovery_hint=ZERO_DF_COEF_ONLY_HINT,
+            diagnostics={
+                "nobs": N,
+                "n_params": int(a["df_k"]),
+                "df_resid": df_resid,
+            },
+        )
+    if coef_only:
+        V = np.full((k, k), np.nan)
     se, t, pv = _inference(params, V, p, df_t, normal=False)
 
     # R-squared family, as pyfixest computes them (weighted sums of squares).
@@ -718,17 +744,19 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     ssy = float(w @ (y - np.average(y, weights=w)) ** 2)
     has_intercept = 1
     diagnostics: Dict[str, Any] = {}
+    nan = float("nan")
     if p.fe:
         k_fe = int(np.sum(np.asarray(res.fe_cardinality) - 1) + 1)
-        adj = (N - has_intercept) / (N - k - k_fe)
-        adj_within = (N - k_fe) / (N - k - k_fe)
+        df_adj = N - k - k_fe
+        adj = (N - has_intercept) / df_adj if df_adj > 0 else nan
+        adj_within = (N - k_fe) / df_adj if df_adj > 0 else nan
         y_dem = np.asarray(a["y_dem"], dtype=float)
         ssy_within = float(w @ (y_dem * y_dem))
         r2_within = 1.0 - ssu / ssy_within
         adj_r2_within = 1.0 - ssu / ssy_within * adj_within
     else:
-        adj = (N - has_intercept) / (N - k)
-        r2_within = adj_r2_within = float("nan")
+        adj = (N - has_intercept) / (N - k) if N > k else nan
+        r2_within = adj_r2_within = nan
     diagnostics["R-squared"] = 1.0 - ssu / ssy
     diagnostics["Adj. R-squared"] = 1.0 - ssu / ssy * adj
     diagnostics["R-squared (within)"] = r2_within
@@ -736,7 +764,7 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
     # Weighted: normalise by the weight total (fixest), so rescaling the
     # weights leaves RMSE unchanged. Unweighted, w is all ones and this is N.
     diagnostics["RMSE"] = float(np.sqrt(ssu / float(np.sum(w))))
-    if not weighted and ssu > 0:
+    if not weighted and ssu > 0 and df_resid > 0:
         # Gaussian log-likelihood at sigma^2 = SSR / N; AIC and BIC count
         # every estimated parameter, the fixed effects included (fixest's
         # nparams). Weighted fits get none: fixest, R lm and Stata each
@@ -752,6 +780,15 @@ def fit_feols(p: Plan, fml: str, *, lean: bool = False) -> EconometricResults:
         model_info["fe_singleton_obs"] = _singleton_obs(a["fe_codes"], a["fe_card"])
     if G:
         model_info["n_clusters"] = G
+    if coef_only:
+        model_info["coef_only"] = True
+        model_info["inference"] = "unavailable"
+        model_info["inference_reason"] = (
+            "zero residual degrees of freedom: no residual variance exists"
+            if df_resid <= 0
+            else "coef_only=True: no variance was estimated"
+        )
+        model_info["vcov_type"] = model_info["vcov_type_detail"] = "none"
     data_info: Dict[str, Any] = {
         "nobs": N,
         "df_resid": N - max(k, df_k),

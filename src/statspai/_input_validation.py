@@ -159,6 +159,14 @@ def check_columns(
 
 #: The one message every estimator gives for ``inf`` in the data, so the
 #: same input is refused the same way whichever estimator reads it.
+ZERO_DF_COEF_ONLY_HINT = (
+    "With as many complete observations as parameters a full-rank design "
+    "still identifies the coefficients, but no residual variance, standard "
+    "error, t statistic, p-value or interval exists. Pass coef_only=True to "
+    "get the coefficients with every inferential field NaN, or provide more "
+    "observations / drop regressors."
+)
+
 INFINITE_VALUES_HINT = (
     "Infinite values are not missing values, so they are neither dropped "
     "nor passed to the estimator. Fix the step that produced them (a log "

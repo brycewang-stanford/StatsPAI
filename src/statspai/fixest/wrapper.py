@@ -377,6 +377,87 @@ def _native_feols(
     return out
 
 
+def _native_feols_coef_only(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    vcov: Any,
+    cluster: Optional[str],
+    weights: Optional[str],
+    ssc: Any,
+    fixef_rm: str,
+    lean: bool,
+    backend: str,
+    conley: Tuple[Any, Any, Any],
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """``sp.feols(coef_only=True)``: the native OLS fit with no variance."""
+    from . import _native
+
+    asked = []
+    if vcov is not None and not (isinstance(vcov, str) and vcov.lower() == "iid"):
+        asked.append(f"vcov={vcov!r}")
+    for name, value in (("cluster", cluster), ("ssc", ssc)):
+        if value is not None:
+            asked.append(f"{name}={value!r}")
+    if any(v is not None for v in conley):
+        asked.append("conley_lat= / conley_lon= / conley_cutoff=")
+    if backend == "pyfixest":
+        asked.append("backend='pyfixest'")
+    if _native.expand_multiple(fml) is not None:
+        asked.append("multiple estimation syntax")
+    if _has_varying_slopes(fml):
+        asked.append("varying slopes")
+    if asked:
+        raise MethodIncompatibility(
+            "feols(coef_only=True) returns the native OLS coefficients "
+            "without a variance, so it cannot be combined with "
+            + ", ".join(asked)
+            + ".",
+            recovery_hint=(
+                "Drop those options (one model, vcov='iid' or unset), or drop "
+                "coef_only=True when the design leaves residual degrees of "
+                "freedom."
+            ),
+            diagnostics={"conflicting_options": asked},
+        )
+    p = _native.plan(
+        fml,
+        data,
+        vcov="iid",
+        cluster=None,
+        weights=weights,
+        ssc=None,
+        fixef_rm=fixef_rm,
+        extra=extra,
+        multiway_ok=False,
+        iv_ok=False,
+    )
+    if not isinstance(p, _native.Plan):
+        raise MethodIncompatibility(
+            f"feols(coef_only=True) runs on the native engine, which cannot "
+            f"fit this call: {p}.",
+            recovery_hint=(
+                "Simplify the formula to OLS terms the native engine reads, "
+                "or drop coef_only=True."
+            ),
+            diagnostics={"native_refusal": str(p)},
+        )
+    out = _native.fit_feols(p, fml, lean=lean, coef_only=True)
+    _note_weights(out, p.data, "iid", weights)
+    _check_design(
+        out,
+        data,
+        formula=fml,
+        entry="sp.feols",
+        fe=p.fe,
+        cluster=None,
+        vcov="iid",
+        weights=weights,
+    )
+    return out
+
+
 def _native_feols_multi(
     models: List[str],
     data: pd.DataFrame,
@@ -1844,6 +1925,7 @@ def feols(
     backend: str = "auto",
     weights_as: Optional[str] = None,
     missing: MissingPolicy = "drop",
+    coef_only: bool = False,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -1961,6 +2043,18 @@ def feols(
         'predictors': 'drop'}``: ``'response'`` is the outcome,
         ``'predictors'`` every other column the call uses (weights and
         cluster included), and a role left out is ``'drop'``.
+    coef_only : bool, default False
+        Return the coefficients without estimating a variance. Needed when
+        a full-rank design has exactly as many complete observations as
+        parameters, the fixed effects counted (zero residual degrees of
+        freedom), which otherwise raises ``DataInsufficient``. Standard
+        errors, t statistics, p-values, intervals, the adjusted R-squared
+        family and (at zero residual df) the log likelihood, AIC and BIC
+        are NaN; ``model_info['inference']`` is ``'unavailable'`` with the
+        reason in ``model_info['inference_reason']``. Runs on the native
+        engine for a single OLS model; refuses a variance choice
+        (``vcov=`` other than ``'iid'``, ``cluster=``, ``ssc=``, Conley),
+        IV, multiple estimation and ``backend='pyfixest'``.
 
     Returns
     -------
@@ -2038,6 +2132,7 @@ def feols(
                 conley_lon=conley_lon,
                 conley_cutoff=conley_cutoff,
                 backend=backend,
+                coef_only=coef_only,
                 **kwargs,
             )
     # The native varying-slope parser (sp.hdfe_ols) reads Stata's i.f /
@@ -2070,6 +2165,7 @@ def feols(
                 conley_lat=conley_lat,
                 conley_lon=conley_lon,
                 conley_cutoff=conley_cutoff,
+                coef_only=coef_only,
                 **kwargs,
             )
             fits = res if isinstance(res, list) else [res]
@@ -2092,7 +2188,22 @@ def feols(
         weights=weights,
         cluster=cluster,
         extra=[conley_lat, conley_lon],
+        coef_only=coef_only,
     )
+    if coef_only:
+        return _native_feols_coef_only(
+            fml,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            lean=lean,
+            backend=backend,
+            conley=(conley_lat, conley_lon, conley_cutoff),
+            extra=kwargs,
+        )
     if backend != "pyfixest" and not _has_varying_slopes(fml):
         native = _native_feols(
             fml,

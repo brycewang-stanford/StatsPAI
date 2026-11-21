@@ -958,6 +958,18 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec(
+                    "coef_only",
+                    "bool",
+                    False,
+                    False,
+                    "Return the coefficients with every inferential field NaN "
+                    "and model_info['inference'] == 'unavailable'. Needed for "
+                    "a full-rank design with as many complete observations as "
+                    "parameters (zero residual df), which otherwise raises "
+                    "DataInsufficient. Refuses robust= / cluster= / vce= and "
+                    "the other variance options",
+                ),
+                ParamSpec(
                     "weights_as",
                     "str",
                     False,

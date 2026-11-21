@@ -79,7 +79,8 @@ def _vcov_label(mi: Dict[str, Any]) -> str:
 def inference_rule(result: Any) -> Dict[str, Any]:
     """The variance, reference distribution and finite-sample convention.
 
-    Keys: ``vcov`` (label), ``distribution`` (``'t'`` or ``'z'``), ``df``
+    Keys: ``vcov`` (label), ``distribution`` (``'t'`` or ``'z'``;
+    ``'none'`` for a ``coef_only=True`` fit, which has no variance), ``df``
     (``None`` under z), ``joint_test`` (``'F(q, df)'`` or ``'chi2(q)'``),
     ``n_obs``; when recorded, ``n_clusters``, ``small`` (IV),
     ``ssc`` (panel), ``n_rows`` / ``n_groups`` (panel), and ``notes``.
@@ -97,6 +98,16 @@ def inference_rule(result: Any) -> Dict[str, Any]:
         "joint_test": "chi2(q)" if z else f"F(q, {_df_value(df)})",
         "n_obs": di.get("nobs"),
     }
+    if mi.get("inference") == "unavailable":
+        # coef_only=True: no variance, so no reference distribution either
+        rule.update(
+            vcov="not estimated (coef_only=True)",
+            distribution="none",
+            df=None,
+            joint_test="none",
+            notes=[str(mi.get("inference_reason") or "no variance was estimated")],
+        )
+        return rule
     if mi.get("n_clusters") is not None:
         rule["n_clusters"] = mi["n_clusters"]
     for key in ("n_rows", "n_groups"):
@@ -135,11 +146,14 @@ def inference_lines(rule: Dict[str, Any], width: int = 80) -> List[str]:
     """``summary()`` lines for :func:`inference_rule`."""
     import textwrap
 
-    dist = "z" if rule["distribution"] == "z" else f"t({rule['df']})"
-    lines = [
-        f"Std. errors: {rule['vcov']}",
-        f"Inference: {dist}; joint tests {rule['joint_test']}",
-    ]
+    if rule["distribution"] == "none":
+        lines = [f"Std. errors: {rule['vcov']}", "Inference: unavailable"]
+    else:
+        dist = "z" if rule["distribution"] == "z" else f"t({rule['df']})"
+        lines = [
+            f"Std. errors: {rule['vcov']}",
+            f"Inference: {dist}; joint tests {rule['joint_test']}",
+        ]
     if "n_rows" in rule and "n_groups" in rule:
         lines.append(
             f"Sample: {rule['n_rows']} observations in {rule['n_groups']} groups "

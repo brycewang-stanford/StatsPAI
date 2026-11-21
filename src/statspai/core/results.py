@@ -624,6 +624,8 @@ class EconometricResults:
         bad = ~np.isfinite(se)
         if not bad.any():
             return
+        if (self.model_info or {}).get("inference") == "unavailable":
+            return  # coef_only=True: NaN by request, not a singular variance
         omitted = set((self.model_info or {}).get("omitted", ()) or ())
         terms = [
             str(t) for t, b in zip(self.params.index, bad) if b and t not in omitted

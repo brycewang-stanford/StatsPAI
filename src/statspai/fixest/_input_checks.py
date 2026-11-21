@@ -28,7 +28,11 @@ from typing import Any, Iterable, List, Optional
 import numpy as np
 import pandas as pd
 
-from .._input_validation import label_only_columns, require_finite
+from .._input_validation import (
+    ZERO_DF_COEF_ONLY_HINT,
+    label_only_columns,
+    require_finite,
+)
 from ..exceptions import DataInsufficient, NumericalInstability
 
 __all__ = ["referenced_columns", "check_fixest_input", "translate_backend_failure"]
@@ -78,8 +82,13 @@ def check_fixest_input(
     weights: Optional[str] = None,
     cluster: Any = None,
     extra: Iterable[Any] = (),
+    coef_only: bool = False,
 ) -> None:
-    """Refuse degenerate input before ``entry`` dispatches to a backend."""
+    """Refuse degenerate input before ``entry`` dispatches to a backend.
+
+    ``coef_only=True`` (``sp.feols``) accepts as many complete rows as
+    parameters: the coefficients exist, only their variance does not.
+    """
     if not isinstance(data, pd.DataFrame) or not isinstance(fml, str):
         return  # the backends' own type checks report these
     if len(data) == 0:
@@ -132,12 +141,16 @@ def check_fixest_input(
             },
         )
     k = _n_params_plain(fml)
-    if k is not None and complete <= k:
+    if k is not None and (complete < k or (complete == k and not coef_only)):
         raise DataInsufficient(
             f"{entry} requires more observations than parameters to estimate "
             "residual variance and standard errors: "
             f"nobs={complete}, parameters={k}, residual df={complete - k}.",
-            recovery_hint="Provide more complete observations or drop regressors.",
+            recovery_hint=(
+                ZERO_DF_COEF_ONLY_HINT
+                if complete == k and entry == "sp.feols"
+                else "Provide more complete observations or drop regressors."
+            ),
             diagnostics={"n_complete": complete, "n_params": k},
         )
 

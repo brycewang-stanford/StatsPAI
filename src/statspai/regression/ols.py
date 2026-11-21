@@ -11,7 +11,7 @@ from scipy import stats
 from scipy.linalg import solve_triangular
 
 from .._aliases import accepts_aliases
-from .._input_validation import MissingPolicy, checks_input
+from .._input_validation import ZERO_DF_COEF_ONLY_HINT, MissingPolicy, checks_input
 from ..core._call_record import records_call
 from ..core._vcov_spec import markout_clusters
 from ..core.base import BaseEstimator, BaseModel
@@ -592,11 +592,22 @@ class OLSEstimator(BaseEstimator):
                 "explain any variation and R-squared is undefined.",
                 stacklevel=2,
             )
-        if n <= k:
+        # coef_only=True: the point estimates of a full-rank design need only
+        # n >= k; the residual variance (and every inferential quantity built
+        # on it) needs n > k. statsmodels / R ``lm`` return the coefficients
+        # at zero residual df with undefined inference; here that is opt-in.
+        coef_only = bool(kwargs.pop("coef_only", False))
+        if n < k or (n == k and not coef_only):
             raise DataInsufficient(
                 "OLS requires more observations than parameters to estimate "
                 "residual variance and standard errors: "
-                f"nobs={n}, parameters={k}, residual df={n - k}."
+                f"nobs={n}, parameters={k}, residual df={n - k}.",
+                recovery_hint=(
+                    ZERO_DF_COEF_ONLY_HINT
+                    if n == k
+                    else "Provide more complete observations or drop regressors."
+                ),
+                diagnostics={"nobs": n, "n_params": k, "df_resid": n - k},
             )
         # Stata ``regress, vce(robust)`` is HC1; ``True`` means the same.
         robust_key = "hc1" if robust is True else str(robust).lower()
@@ -734,7 +745,10 @@ class OLSEstimator(BaseEstimator):
                     warnings.warn("X'X matrix is singular, using pseudo-inverse")
 
         # Variance-covariance via accelerated sandwich kernels
-        if cluster is not None:
+        if coef_only:
+            # no variance is estimated: every inferential field stays NaN
+            var_cov = np.full((k, k), np.nan)
+        elif cluster is not None:
             cluster_arr = np.asarray(cluster)
             if cluster_arr.shape[0] != n:
                 raise MethodIncompatibility(
@@ -830,7 +844,11 @@ class OLSEstimator(BaseEstimator):
             adj_r_squared = np.nan
         else:
             r_squared = 1 - rss / tss
-            adj_r_squared = 1 - (rss / (n - k)) / (tss / (n - 1 if has_const else n))
+            adj_r_squared = (
+                1 - (rss / (n - k)) / (tss / (n - 1 if has_const else n))
+                if n > k
+                else np.nan
+            )
 
         # F statistic: every slope is zero (with a constant), every
         # coefficient is zero (without one).
@@ -853,7 +871,9 @@ class OLSEstimator(BaseEstimator):
         # Wald statistic b'V^{-1}b / q on that covariance, as Stata and
         # R's lmtest::waldtest(vcov=) report it. Its denominator degrees of
         # freedom are N - K, or G - 1 with G clusters.
-        if (
+        if coef_only:
+            f_stat = f_pvalue = np.nan
+        elif (
             (robust_key != "nonrobust" or cluster is not None)
             and df_model > 0
             and n > k
@@ -1429,6 +1449,15 @@ class OLSRegression(BaseModel):
                 model_info["weights_as"] = _weights_as
         if omitted:
             model_info["omitted"] = omitted
+        coef_only = bool(kwargs.get("coef_only", False))
+        if coef_only:
+            model_info["coef_only"] = True
+            model_info["inference"] = "unavailable"
+            model_info["inference_reason"] = (
+                "zero residual degrees of freedom: no residual variance exists"
+                if results["df_resid"] == 0
+                else "coef_only=True: no variance was estimated"
+            )
         if cluster_var is not None:
             model_info["n_clusters"] = n_clusters_obs
             model_info["n_clusters_effective"] = n_clusters_eff
@@ -1477,7 +1506,11 @@ class OLSRegression(BaseModel):
             data_info["hotelling_df"] = int(results["ewc_df"])
 
         rss_per_obs = results["rss"] / results["nobs"]
-        if rss_per_obs <= 0:
+        if results["df_resid"] == 0:
+            # an exact fit: the "residuals" are rounding error, and the
+            # Gaussian likelihood on them is meaningless
+            log_likelihood = aic = bic = np.nan
+        elif rss_per_obs <= 0:
             log_likelihood = np.inf
             aic = -np.inf
             bic = -np.inf
@@ -1791,6 +1824,32 @@ def _refuse_weights(weights: Any, what: str) -> None:
         )
 
 
+_NONROBUST_SPELLINGS = ("nonrobust", "false", "none", "ols", "oim", "iid", "classical")
+
+
+def _refuse_coef_only_variance_options(**opts: Any) -> None:
+    """``coef_only=True`` estimates no variance: refuse every option that
+    only chooses one, rather than accept it and return NaN for it."""
+    robust = opts.pop("robust")
+    asked = []
+    if robust is not False and str(robust).lower() not in _NONROBUST_SPELLINGS:
+        asked.append(f"robust={robust!r}")
+    defaults = {"hac_small": False, "dfadjust": False}
+    for name, value in opts.items():
+        if value is not None and value is not defaults.get(name, None):
+            asked.append(f"{name}={value!r}")
+    if asked:
+        raise MethodIncompatibility(
+            "regress(coef_only=True) returns coefficients without a variance, "
+            "so it cannot be combined with " + ", ".join(asked) + ".",
+            recovery_hint=(
+                "Drop the variance options, or drop coef_only=True when the "
+                "design leaves residual degrees of freedom."
+            ),
+            diagnostics={"conflicting_options": asked},
+        )
+
+
 @records_call("regress")
 @accepts_aliases(vce="robust")
 @checks_input("regress", outcome=("formula",))
@@ -1816,6 +1875,7 @@ def regress(
     weights_as: Optional[str] = None,
     design: Optional[Any] = None,
     missing: MissingPolicy = "drop",
+    coef_only: bool = False,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1943,6 +2003,21 @@ def regress(
         'predictors': 'drop'}``: ``'response'`` is the outcome,
         ``'predictors'`` every other column the call uses (weights and
         cluster included), and a role left out is ``'drop'``.
+    coef_only : bool, default False
+        Return the least-squares coefficients without estimating a
+        variance. Needed when a full-rank design has exactly as many
+        complete observations as parameters (zero residual degrees of
+        freedom), which otherwise raises ``DataInsufficient``: the
+        coefficients are identified, but no residual variance exists.
+        Standard errors, t statistics, p-values, confidence intervals,
+        the F statistic, adjusted R-squared and (at zero residual df) the
+        log likelihood, AIC and BIC are NaN, and
+        ``model_info['inference']`` is ``'unavailable'`` with the reason
+        in ``model_info['inference_reason']``. Cannot be combined with a
+        variance option (``robust=`` other than ``'nonrobust'``,
+        ``cluster=``, ``vce=``, ``vcov=``, Conley / HAC / EWC options,
+        ``dfadjust=``, ``design=``). A rank-deficient design still has
+        its collinear columns omitted or refused per ``collinear=``.
 
     Returns
     -------
@@ -1969,6 +2044,23 @@ def regress(
     >>> "education" in results.params.index
     True
     """
+    if coef_only:
+        _refuse_coef_only_variance_options(
+            robust=robust,
+            cluster=cluster,
+            vce=vce,
+            vcov=vcov,
+            conley_lat=conley_lat,
+            conley_lon=conley_lon,
+            conley_cutoff=conley_cutoff,
+            hac_lags=hac_lags,
+            hac_small=hac_small,
+            hac_panel=hac_panel,
+            ewc_df=ewc_df,
+            dfadjust=dfadjust,
+            design=design,
+            weights_as=weights_as,
+        )
     if design is not None:
         _args = dict(locals())
         from ..survey._regression_design import (
@@ -2496,6 +2588,8 @@ def regress(
                 recovery_hint="The default is floor(0.4 * T ** (2 / 3)).",
             )
         kwargs["ewc_df"] = int(ewc_df)
+    if coef_only:
+        kwargs["coef_only"] = True
     _result = model.fit(robust=robust_kw, cluster=cluster, **kwargs)
     if is_ewc:
         _result.model_info["ewc_df"] = int(_result.data_info["df_inference"])

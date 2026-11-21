@@ -9,6 +9,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "coef_only": {
+          "default": false,
+          "description": "Return the coefficients with every inferential field NaN and model_info['inference'] == 'unavailable'. Needed for a full-rank design with as many complete observations as parameters (zero residual df), which otherwise raises DataInsufficient. Refuses robust= / cluster= / vce= and the other variance options",
+          "type": "boolean"
+        },
         "collinear": {
           "default": "omit",
           "description": "Rank-deficient design: 'omit' drops the later member of each collinear set with a warning (Stata regress), listed in model_info['omitted']; 'raise' raises",
@@ -62129,6 +62134,11 @@
           "description": "Cluster id column for the extended ``vce=`` menu; also a shorthand for one-way ``{\"CRV1\": cluster}``.",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "coef_only": {
+          "default": false,
+          "description": "Return the coefficients without estimating a variance. Needed when a full-rank design has exactly as many complete observations as parameters, the fixed effects counted (zero residual degrees of freedom), which otherwise raises ``DataInsufficient``. Standard errors, t statistics, p-values, intervals, the adjusted R-squared family and (at zero residual df) the log likelihood, AIC and BIC are NaN; ``model_info['inference']`` is ``'unavailable'`` with the reason in ``model_info['inference_reason']``. Runs on the native engine for a single OLS model; refuses a variance choice (``vcov=`` other than ``'iid'``, ``cluster=``, ``ssc=``, Conley), IV, multiple estimation and ``backend='pyfixest'``.",
+          "type": "boolean"
         },
         "collin_tol": {
           "default": 1e-06,
