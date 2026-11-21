@@ -25,7 +25,7 @@ non-empty DataFrame, sample size sanity).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -509,30 +509,71 @@ _STOCK_YOGO_F_CRIT_10PCT = 16.38  # 1 endog, 1 IV
 _STAIGER_STOCK_F_RULE = 10.0  # rule of thumb
 
 
+def _as_names(v: Any) -> List[str]:
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, (list, tuple)):
+        return [c for c in v if isinstance(c, str)]
+    return []
+
+
+def _iv_parts(
+    kwargs: Dict[str, Any],
+) -> "Tuple[Optional[List[str]], List[str], List[str]]":
+    """(endogenous, instruments, exogenous) from a formula or named parts.
+
+    A Wilkinson IV formula wins. Without one, the model can be named by
+    its parts, as the MCP ``preflight`` tool advertises: ``treatment`` /
+    ``treat`` / ``endog`` for the endogenous regressor(s), ``instrument``
+    / ``instruments`` for the excluded instruments, ``covariates`` /
+    ``exog`` for the included exogenous regressors. Before this, a call
+    by named parts skipped the first-stage check and passed a dead
+    instrument. ``endogenous`` is ``None`` when neither form is present.
+    """
+    formula = kwargs.get("formula") or kwargs.get("fml")
+    if isinstance(formula, str) and "~" in formula:
+        # Lazy import: parse_formula triggers a regression-module import
+        # that we want to defer until preflight is actually run on an IV.
+        from ..core.utils import parse_formula
+
+        parsed = parse_formula(formula)
+        return (
+            list(parsed.get("endogenous", []) or []),
+            list(parsed.get("instruments", []) or []),
+            list(parsed.get("exogenous", []) or []),
+        )
+    endog: List[str] = []
+    for key in ("treatment", "treat", "endog"):
+        endog.extend(_as_names(kwargs.get(key)))
+    instruments: List[str] = []
+    for key in ("instrument", "instruments", "z"):
+        instruments.extend(_as_names(kwargs.get(key)))
+    if not endog and not instruments:
+        return None, [], []
+    exog: List[str] = []
+    for key in ("covariates", "exog"):
+        exog.extend(_as_names(kwargs.get(key)))
+    dedupe = lambda xs: list(dict.fromkeys(xs))  # noqa: E731
+    return dedupe(endog), dedupe(instruments), dedupe(exog)
+
+
 def _check_iv_first_stage_strength(
     data: pd.DataFrame, kwargs: Dict[str, Any]
 ) -> CheckResult:
     """First-stage F gate for IV preflight.
 
-    Parses the Wilkinson IV formula, runs the first-stage OLS for each
+    Reads the IV from a Wilkinson formula or from named parts (see
+    :func:`_iv_parts`), runs the first-stage OLS for each
     endogenous variable, and reports whether the partial F-statistic
     of the instruments clears the Staiger-Stock rule of thumb (F=10)
     and the Stock-Yogo 10% max-size critical value (F=16.38 for the
-    one-instrument case).  Falls back to a passed verdict if the
-    formula does not match an IV pattern (the universal column check
+    one-instrument case).  Falls back to a passed verdict if neither
+    a formula nor named parts describe an IV (the universal column check
     will catch malformed formulas separately).
     """
-    formula = kwargs.get("formula")
-    if not isinstance(formula, str) or "~" not in formula:
-        return _passed(skipped="formula missing or non-string")
-    # Lazy import: parse_formula triggers a regression-module import
-    # that we want to defer until preflight is actually run on an IV.
-    from ..core.utils import parse_formula
-
-    parsed = parse_formula(formula)
-    endog = parsed.get("endogenous", []) or []
-    instruments = parsed.get("instruments", []) or []
-    exog = parsed.get("exogenous", []) or []
+    endog, instruments, exog = _iv_parts(kwargs)
+    if endog is None:
+        return _passed(skipped="no IV formula and no named treatment + instrument")
     if not endog or not instruments:
         # Not an IV formula — the formula_columns check + sp.ivreg
         # will diagnose this; preflight stays silent.

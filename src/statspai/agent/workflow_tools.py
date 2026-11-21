@@ -267,11 +267,9 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
     {
         "name": "preflight",
         "description": (
-            "Run pre-fit identification checks for a chosen method on a "
-            "DataFrame. Verdict in {PASS, WARN, FAIL}. ALWAYS call this "
-            "before fitting on an unfamiliar dataset to surface design "
-            "problems (overlap, cohort sizes, IV first-stage F, "
-            "running-variable density at the cutoff)."
+            "Pre-fit identification checks for a method; verdict PASS, "
+            "WARN or FAIL. Call before fitting unfamiliar data: overlap, "
+            "cohort sizes, IV first-stage F, RD density at the cutoff."
         ),
         "input_schema": {
             "type": "object",
@@ -290,6 +288,8 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
                 "cohort": {"type": "string"},
                 "running_var": {"type": "string"},
                 "instrument": {"type": "string"},
+                "instruments": {"type": "array", "items": {"type": "string"}},
+                "formula": {"type": "string"},
                 "covariates": {
                     "type": "array",
                     "items": {"type": "string"},

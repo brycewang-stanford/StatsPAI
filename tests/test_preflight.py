@@ -327,6 +327,49 @@ class TestIVFirstStageStrength:
         if check["status"] == "warning" and 10.0 <= f < 16.38:
             assert "Stock-Yogo" in check["message"]
 
+    def test_named_parts_give_the_formula_first_stage(self):
+        # The MCP preflight tool names the IV by columns, not a formula.
+        # Before 2026-11-21 that skipped the check and a dead instrument
+        # passed. Same first-stage OLS, so the F statistic is identical.
+        df = _make_iv_df(seed=2026, pi=0.10, eu=1.5, n=600)
+        named = sp.preflight(df, "iv", y="y", treatment="d", instrument="z")
+        formula = sp.preflight(df, "iv", formula="y ~ (d ~ z)")
+        a, b = _first_stage_check(named), _first_stage_check(formula)
+        assert a["status"] == b["status"] == "warning"
+        assert a["evidence"]["weakest_F"] == pytest.approx(
+            b["evidence"]["weakest_F"], rel=1e-12
+        )
+        assert named["verdict"] == "WARN"
+
+    def test_named_parts_with_covariates_partial_them_out(self):
+        # F for d ~ z | x must equal the formula version with x exogenous.
+        df = _make_iv_df(seed=7, pi=0.7, eu=0.5, n=800)
+        df["x"] = np.random.default_rng(1).normal(size=len(df))
+        named = sp.preflight(
+            df, "iv", y="y", treatment="d", instruments=["z"], covariates=["x"]
+        )
+        formula = sp.preflight(df, "iv", formula="y ~ x + (d ~ z)")
+        a, b = _first_stage_check(named), _first_stage_check(formula)
+        assert a["status"] == b["status"] == "passed"
+        assert a["evidence"]["weakest_F"] == pytest.approx(
+            b["evidence"]["weakest_F"], rel=1e-12
+        )
+
+    def test_mcp_preflight_by_named_parts_flags_a_weak_instrument(self):
+        from statspai.agent.workflow_tools import execute_workflow_tool
+
+        df = _make_iv_df(seed=2026, pi=0.10, eu=1.5, n=600)
+        out = execute_workflow_tool(
+            "preflight",
+            {"method": "iv", "y": "y", "treatment": "d", "instrument": "z"},
+            data=df,
+            detail="agent",
+            result_id=None,
+            as_handle=False,
+        )
+        assert out["verdict"] == "WARN"
+        assert _first_stage_check(out)["evidence"]["weakest_F"] < 10.0
+
     def test_non_iv_formula_skipped_silently(self):
         # An IV-named call with a non-IV formula falls back to a
         # passed verdict on the strength check (the universal column
