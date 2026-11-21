@@ -454,6 +454,7 @@ def _native_feols_coef_only(
         cluster=None,
         vcov="iid",
         weights=weights,
+        count_specification=False,
     )
     return out
 

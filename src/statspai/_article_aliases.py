@@ -576,6 +576,26 @@ def partial_identification(
 # ---------------------------------------------------------------------------
 
 
+def _data_first(args: Any, kwargs: Any) -> Any:
+    """Accept ``f(df, y=..., endog=..., instruments=...)``.
+
+    The weak-IV confidence sets take ``y`` first and the frame as ``data=``
+    (they also accept arrays), while ``sp.anderson_rubin_test`` and most of
+    the library take the frame first. A leading DataFrame is read as
+    ``data`` so both spellings work; with ``data=`` also given it is an
+    error, as two frames would be.
+    """
+    import pandas as pd
+
+    if args and isinstance(args[0], pd.DataFrame):
+        if kwargs.get("data") is not None:
+            raise TypeError(
+                "a DataFrame was passed both as the first argument and as data="
+            )
+        return args[1:], {**kwargs, "data": args[0]}
+    return args, kwargs
+
+
 def anderson_rubin_ci(*args: Any, **kwargs: Any) -> Any:
     """Anderson-Rubin confidence set — re-export of
     :func:`statspai.iv.weak_iv_ci.anderson_rubin_ci`.
@@ -603,6 +623,7 @@ def anderson_rubin_ci(*args: Any, **kwargs: Any) -> Any:
     """
     from .iv.weak_iv_ci import anderson_rubin_ci as _impl
 
+    args, kwargs = _data_first(args, kwargs)
     return _impl(*args, **kwargs)
 
 
@@ -651,6 +672,7 @@ def conditional_lr_ci(*args: Any, **kwargs: Any) -> Any:
     """
     from .iv.weak_iv_ci import conditional_lr_ci as _impl
 
+    args, kwargs = _data_first(args, kwargs)
     return _impl(*args, **kwargs)
 
 

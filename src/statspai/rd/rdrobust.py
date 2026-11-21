@@ -1146,18 +1146,10 @@ def rdrobust(
             deriv=deriv,
             covs=Z,
         )
-        # First-stage F (for weak-IV diagnostic, KKN 2025)
+        # First-stage F (for weak-IV diagnostic, KKN 2025). Legacy value;
+        # replaced below by the one on the reported variance whenever the
+        # CCT path supplied the estimate.
         fs_F = float((fs_conv / fs_se) ** 2) if fs_se and fs_se > 0 else float("inf")
-        if warn_weak_first_stage and np.isfinite(fs_F) and fs_F < 10:
-            warnings.warn(
-                f"rdrobust (fuzzy): first-stage F = {fs_F:.2f} < 10. "
-                "Conventional fuzzy-RD t-tests have a power asymmetry "
-                "(Kaliski-Keane-Neal 2025, NBER 33972); also report the ITT "
-                "(sharp RD on the outcome) and consider sp.rd.rd_bias_aware_fuzzy "
-                "(Noack & Rothe 2024, ECTA) for bias-aware CIs.",
-                UserWarning,
-                stacklevel=2,
-            )
         if _tau_bc_cct is None:
             # Legacy fallback only. The CCT path forms the Wald ratio itself,
             # by the delta method, and rescaling its output here would divide
@@ -1189,28 +1181,53 @@ def rdrobust(
         pos = W_obs > 0
         n_eff_l = int(np.sum(left & pos & (X_c >= -_hl_w)))
         n_eff_r = int(np.sum(right & pos & (X_c <= _hr_w)))
-        if D is not None:
-            from ._cct_bandwidth import cct_bias_corrected as _cbc
 
-            _bl_w, _br_w = b if isinstance(b, tuple) else (b, b)
-            fs_c, _, fs_s, _ = _cbc(
-                D,
-                X_c,
-                0.0,
-                float(_hl_w),
-                float(_hr_w),
-                float(_bl_w),
-                float(_br_w),
-                p,
-                q,
-                deriv,
-                kernel,
-                covs=Z,
-                vce=vce,
-                cluster=cl_vals_all,
-                weights=W_obs,
-            )
-            fs_F = float((fs_c / fs_s) ** 2) if fs_s > 0 else float("inf")
+    if D is not None and (_tau_bc_cct is not None or W_obs is not None):
+        # The first stage is the sharp RD of the treatment on the same
+        # bandwidths, so its F is (jump / se)^2 with the variance the fit
+        # reports: the chosen ``vce`` (nearest-neighbour by default), the
+        # clusters and the weights. The legacy helper above knows none of
+        # the three, and its F disagreed with ``sp.rdrobust(y=<treatment>,
+        # h=, b=)`` on the same data (and with R's ``tau_T / se_T``).
+        from ._cct_bandwidth import cct_bias_corrected as _cbc
+
+        _hl_f, _hr_f = h if isinstance(h, tuple) else (h, h)
+        _bl_f, _br_f = b if isinstance(b, tuple) else (b, b)
+        fs_c, _, fs_s, _ = _cbc(
+            D,
+            X_c,
+            0.0,
+            float(_hl_f),
+            float(_hr_f),
+            float(_bl_f),
+            float(_br_f),
+            p,
+            q,
+            deriv,
+            kernel,
+            covs=Z,
+            vce=vce,
+            cluster=cl_vals_all,
+            weights=W_obs,
+        )
+        fs_F = float((fs_c / fs_s) ** 2) if fs_s > 0 else float("inf")
+
+    if (
+        D is not None
+        and warn_weak_first_stage
+        and fs_F is not None
+        and np.isfinite(fs_F)
+        and fs_F < 10
+    ):
+        warnings.warn(
+            f"rdrobust (fuzzy): first-stage F = {fs_F:.2f} < 10. "
+            "Conventional fuzzy-RD t-tests have a power asymmetry "
+            "(Kaliski-Keane-Neal 2025, NBER 33972); also report the ITT "
+            "(sharp RD on the outcome) and consider sp.rd.rd_bias_aware_fuzzy "
+            "(Noack & Rothe 2024, ECTA) for bias-aware CIs.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if scalepar != 1.0:
         tau_conv, tau_bc = tau_conv * scalepar, tau_bc * scalepar

@@ -225,7 +225,7 @@ second column says otherwise.
 | the book runs | StatsPAI | note |
 | --- | --- | --- |
 | `smf.ols(f, df).fit()`, `fit(cov_type="HC1")` | `sp.regress(f, df)`, `robust="hc1"` | |
-| `cov_type="cluster"` with `use_correction`, `df_correction` | `sp.regress(f, df, cluster="firm")` | statsmodels reports normal p-values here, StatsPAI t(G - 1) |
+| `cov_type="cluster"` with `use_correction`, `df_correction` | `sp.regress(f, df, cluster="firm")` | statsmodels reports normal p-values here, StatsPAI t(G - 1); `fit.normal_reference()` gives the normal ones |
 | `PanelOLS(...).fit(cov_type="clustered", cluster_entity=True, cluster_time=True, group_debias=False)` | `sp.feols(f, df, vcov={"CRV1": "firm + year"}, ssc=pf.ssc(G_adj=False))` | equal to 1e-4: linearmodels scales by n / (n - k), fixest by (n - 1) / (n - k). The default two-way SE (fixest, Stata) is larger by sqrt(G / (G - 1)) |
 | `FamaMacBeth.from_formula(...).fit(debiased=True)`; `cov_type="kernel", bandwidth=1` | `sp.fama_macbeth(f, df, time="year")`; `lags=1` | |
 | `pf.feols(...)` with any `vcov=` and `ssc=` | `sp.feols` with the same arguments | two-way clustering on a design whose covariance is not positive semi-definite: StatsPAI applies the eigenvalue fix of R's fixest and warns, pyfixest does not, so the SEs differ (chapter 19's by-year figure) |
@@ -235,13 +235,21 @@ second column says otherwise.
 | `smf.glm(f, family=Poisson()).fit(cov_type="HC1")` | `sp.poisson(f, df, robust="hc1")` | StatsPAI's HC1 includes n / (n - k), as R and Stata do. Chapter 24 multiplies statsmodels' matrix by that factor, chapter 23 does not |
 | `sm.RLM(..., M=TukeyBiweight(c=3.4437))` | `sp.robreg(f, df, method="m", psi="bisquare", tuning=3.4437, vce="huber")` | coefficients equal to 3e-5: StatsPAI and R's `rlm` normalise the MAD by 0.6745, statsmodels by 0.674490 |
 | `get_influence().cooks_distance` | `sp.influence_measures(sp.regress(f, df))["cooksd"]` | |
-| `.era.winsorize()`, `.era.truncate()` | `sp.winsor(df, cols, cuts=(1, 99))`, `trim=True` | |
+| `.era.winsorize()`, `.era.truncate()` | `df.pipe(sp.winsor, vars=cols, cuts=(1, 99), replace=True)`, `trim=True` | a Polars frame comes back as Polars with its other columns untouched; bit-identical on finite data with nulls, also with `by=` against `.over()` |
 | the chapter 24 ITCV function | `sp.itcv(fit, "wbflag", alpha=a)` | |
 | `rdrobust(y, x, c=75, fuzzy=d, masspoints="off")` | `sp.rdrobust(df, y=, x=, c=75, fuzzy=, masspoints="off")` | equal to R rdrobust 4.0. The Python rdrobust 2.1.1 port differs from R by about 1e-4 in the bandwidth when the running variable has ties |
 | `NearestNeighborMatch(caliper=0.03 / sd, replace=False, shuffle=False)` on data sorted by the score | `sp.match(df, y=, treat=, covariates=, pscore="pscore", replace=False, caliper=0.03, caliper_scale="raw", m_order="data")` | the same matched set. With `shuffle=True` the order is random and differs between tools |
 | `ETable(fms, drop=["fyear", "ppe"], signif_code=[0.01, 0.05, 0.10])` with t-statistics | `sp.regtable(*fms, drop=["fyear", "ppe"], se_type="t", fmt=3)` | `keep=` / `drop=` take exact names, globs or regular expressions |
 | `rdplot(df, y=, x=, cutoff=75, masspoints="off")` | `sp.rdplot(df, y=, x=, c=75, masspoints="off")` | bins equal R `rdplot` |
 | `stats.binomtest(k, n, p)` | `sp.bitest(successes=k, n=n, p=p)` | |
+
+Loops that fit one formula group by group (a market model per security,
+a Jones model per industry-year) should pass `coef_only=True`:
+`sp.regress(f, g, coef_only=True).params`. It fits designs with no
+residual degrees of freedom, and such fits are not counted by the
+specification-search warning. A grouped Polars expression or
+`np.linalg.lstsq` is still 10 to 50 times faster per fit, which matters
+inside a simulation.
 
 Three things to know when moving the code over. A Polars `Categorical`
 takes its base level from the order of first appearance (in pyfixest and

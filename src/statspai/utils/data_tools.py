@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._frame_input import returns_input_frame
 from .._input_validation import check_columns
 from ..exceptions import MethodIncompatibility, StatsPAIWarning
 from ..exceptions import warn as _warn
@@ -196,6 +197,7 @@ def _pwcorr_latex(
     return "\n".join(lines)
 
 
+@returns_input_frame
 def winsor(
     data: pd.DataFrame,
     vars: Optional[List[str]] = None,
@@ -251,7 +253,10 @@ def winsor(
     Returns
     -------
     pd.DataFrame
-        DataFrame with winsorized variables.
+        DataFrame with winsorized variables. A polars ``DataFrame`` or
+        ``LazyFrame`` comes back as one, with the other columns exactly as
+        they were passed and missing values as null, so the call fits a
+        chain: ``df.pipe(sp.winsor, vars=["x"], replace=True)``.
 
     Examples
     --------

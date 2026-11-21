@@ -5,6 +5,32 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44.5 → next: ⚠️ fuzzy RD first-stage F, same-security event pairs; `sp.winsor` returns polars
+
+Two correctness fixes to reported diagnostics, and one return-type
+change for polars callers.
+
+- `sp.rdrobust(fuzzy=)`: `model_info["first_stage_F"]` is computed on
+  the variance the fit reports (the chosen `vce`, clusters, weights). It
+  used a legacy variance and could be off by 15% or more. The fuzzy
+  estimate, standard errors, intervals and bandwidths are unchanged.
+  Code that thresholds on the stored F (for example `F < 10`) may now
+  take the other branch.
+- `sp.abnormal_returns(correlation="calendar")`: pairs of events of the
+  same security no longer enter `mean_correlation`. `adj_patell` and
+  `kp` change for samples in which a security has two or more events;
+  `patell`, `bmp`, the abnormal returns and every other test do not.
+  A single-security study now reports `adj_patell == patell` and
+  `kp == bmp` with a warning.
+- `sp.winsor(polars_frame, ...)` returns a polars frame (a `LazyFrame`
+  for a `LazyFrame`). Code that relied on getting pandas back should
+  pass `df.to_pandas()` or call `.to_pandas()` on the result. pandas
+  input is unaffected.
+- `sp.regtable(diagnostics=True)`: the over-identification row of a
+  conventional 2SLS column is labelled "Sargan p-value" (it was "Hansen
+  J p-value"). Code that looks the row up by label should use the new
+  name.
+
 ## 1.44.4 → 1.44.5: ⚠️ `sp.glm` fitted probabilities are no longer floored
 
 A correctness fix for reported probabilities only. `sp.glm(...)

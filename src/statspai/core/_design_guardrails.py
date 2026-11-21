@@ -552,6 +552,7 @@ def check_design(
     time: Optional[str] = None,
     weights: Any = None,
     poisson: bool = False,
+    count_specification: bool = True,
 ) -> List[Dict[str, Any]]:
     """Run the design guardrails on a fitted regression.
 
@@ -581,6 +582,12 @@ def check_design(
         For the specification key only.
     poisson : bool
         The fit is a Poisson regression (changes the recommended estimator).
+    count_specification : bool
+        Add the fit to the specification-search counter. ``False`` for a
+        ``coef_only=True`` fit: it reports no p-value or interval, so there
+        is no test for the search to inflate (the by-group loops such fits
+        are written for would otherwise count one "specification" per
+        group).
     """
     user, stacklevel = _call_site()
     if not user or not isinstance(data, pd.DataFrame) or not isinstance(formula, str):
@@ -593,6 +600,13 @@ def check_design(
         found = _run(spec, data, entry, cluster, vcov, unit, time, poisson)
     except (TypeError, ValueError, KeyError, IndexError, MemoryError) as exc:
         _put(result, "design_checks_skipped", f"{type(exc).__name__}: {exc}")
+    if not count_specification:
+        if found:
+            stored = _get_list(result)
+            stored.extend(found)
+            _put(result, DESIGN_VIOLATIONS_KEY, stored)
+        _warn(found, entry, stacklevel + 1)
+        return found
     n_used = _n_used(result)
     key = "|".join(
         str(x)

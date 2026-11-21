@@ -826,6 +826,63 @@ class EconometricResults:
 
         return inference_rule(self)
 
+    def normal_reference(self) -> "EconometricResults":
+        """A copy of the fit whose tests and intervals use the standard normal.
+
+        ``sp.regress`` refers a coefficient to Student's t (with the
+        residual degrees of freedom, or G - 1 under clustering), as Stata
+        ``regress`` and R ``lm`` / ``fixest`` do. Some published tables
+        report normal-reference p-values instead (statsmodels
+        ``use_t=False``, Stata ``ivreg2`` without ``small``). This returns
+        the same estimates and standard errors with p-values, confidence
+        intervals, ``sp.test`` and ``sp.regtable`` stars on z; the fit it
+        is called on is left as it was.
+
+        Returns
+        -------
+        EconometricResults
+            ``inference_rule()["distribution"]`` is ``"z"`` on the copy.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> df = pd.DataFrame({"x": rng.normal(size=12)})
+        >>> df["y"] = df["x"] + rng.normal(size=12)
+        >>> fit = sp.regress("y ~ x", data=df)
+        >>> z = fit.normal_reference()
+        >>> bool(z.pvalues["x"] < fit.pvalues["x"])   # z tails are thinner
+        True
+        >>> bool(np.isclose(z.std_errors["x"], fit.std_errors["x"]))
+        True
+        """
+        import copy as _copy
+
+        from ..exceptions import MethodIncompatibility
+
+        if (self.model_info or {}).get("inference") == "unavailable":
+            raise MethodIncompatibility(
+                "normal_reference(): this fit has no variance, so there is "
+                "no test to refer to a distribution.",
+                recovery_hint="Refit without coef_only=True.",
+            )
+        if "stored_ci" in (self.data_info or {}):
+            raise MethodIncompatibility(
+                "normal_reference(): this fit carries intervals from its own "
+                f"method ({self.data_info['stored_ci'].get('method')}), which a "
+                "normal reference would overwrite.",
+                recovery_hint="Use the intervals the fit reports.",
+            )
+        out = _copy.copy(self)
+        out.model_info = dict(self.model_info or {})
+        out.data_info = {
+            k: v for k, v in (self.data_info or {}).items() if k != "df_by_coefficient"
+        }
+        out.data_info["inference"] = "z"
+        out._compute_statistics()
+        return out
+
     def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
         """
         Return confidence intervals for parameters

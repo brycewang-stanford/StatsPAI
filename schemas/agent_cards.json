@@ -108998,7 +108998,7 @@
     "reference": "",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: DataFrame with winsorized variables.",
+      "description": "pd.DataFrame: DataFrame with winsorized variables. A polars DataFrame or LazyFrame comes back as one, with the other columns exactly as they were passed and missing values as null, so the call fits a chain: df.pipe(sp.winsor, vars=[\"x\"],",
       "fields": {}
     },
     "signature": {

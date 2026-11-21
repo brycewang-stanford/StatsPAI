@@ -7,7 +7,9 @@ calls :func:`install`): an argument that is a polars ``DataFrame`` /
 ``ChunkedArray``, or any object speaking the Arrow PyCapsule stream
 protocol (``__arrow_c_stream__``) or the DataFrame interchange protocol
 (``__dataframe__``) is converted to pandas before the call. Results are
-the usual pandas-based objects.
+the usual pandas-based objects. The exception is a function that returns
+the data itself with columns added or replaced (``sp.winsor``): decorated
+with :func:`returns_input_frame`, it gives a polars caller polars back.
 
 pandas inputs, and everything else, are passed through untouched: the
 wrapper hands the function the very same objects it was given (a test pins
@@ -131,8 +133,80 @@ def _make(fn):
             return fn(*args, **kwargs)
         return fn(*converted[0], **converted[1])
     return accepting_frames
+
+def _make_same(fn):
+    def same_frame_out(*args, **kwargs):
+        converted = _passthrough(args, kwargs)
+        if converted is None:
+            return fn(*args, **kwargs)
+        out = fn(*converted[0], **converted[1])
+        return _restore(args, kwargs, converted, out)
+    return same_frame_out
 """
-_shim_ns: Dict[str, Any] = {"_passthrough": _passthrough}
+
+
+def _first_frame(
+    args: Tuple[Any, ...], kwargs: Dict[str, Any]
+) -> Optional[Tuple[Any, Any]]:
+    """``(position or name, value)`` of the data argument, if it is polars."""
+    candidates = [(0, args[0])] if args else []
+    if "data" in kwargs:
+        candidates.append(("data", kwargs["data"]))
+    for where, value in candidates:
+        cls = type(value)
+        if cls.__module__.split(".", 1)[0] == "polars" and cls.__name__ in (
+            "DataFrame",
+            "LazyFrame",
+        ):
+            return where, value
+    return None
+
+
+def _restore(
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+    converted: Tuple[Tuple[Any, ...], Dict[str, Any]],
+    out: Any,
+) -> Any:
+    """Give a polars caller a polars frame back.
+
+    For functions that return their data with columns added or replaced
+    (``sp.winsor``). The columns the function left alone are taken from the
+    caller's own frame, so their dtypes survive (a ``Date`` would come back
+    from pandas as a ``Datetime``); only new and changed columns are built
+    from the pandas result, with NaN as null. A ``LazyFrame`` gets a
+    ``LazyFrame``. Anything else (pandas in, or a result that is not a
+    frame of the same length) is returned as the function produced it.
+    """
+    hit = _first_frame(args, kwargs)
+    if hit is None or not isinstance(out, pd.DataFrame):
+        return out
+    where, original = hit
+    as_pandas = converted[0][0] if where == 0 else converted[1]["data"]
+    import polars as pl
+
+    lazy = type(original).__name__ == "LazyFrame"
+    frame = original.collect() if lazy else original
+    if len(out) != frame.height or not isinstance(out.index, pd.RangeIndex):
+        result = pl.from_pandas(out, nan_to_null=True)
+        return result.lazy() if lazy else result
+    columns = []
+    for name in out.columns:
+        key = str(name)
+        untouched = (
+            key in frame.columns
+            and name in as_pandas.columns
+            and out[name].equals(as_pandas[name])
+        )
+        if untouched:
+            columns.append(frame.get_column(key))
+        else:
+            columns.append(pl.from_pandas(out[name], nan_to_null=True).alias(key))
+    result = pl.DataFrame(columns)
+    return result.lazy() if lazy else result
+
+
+_shim_ns: Dict[str, Any] = {"_passthrough": _passthrough, "_restore": _restore}
 exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
     compile(
         _SHIM_SOURCE,
@@ -142,6 +216,9 @@ exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
     _shim_ns,
 )
 _SHIM_FACTORY: Callable[[Callable[..., Any]], Callable[..., Any]] = _shim_ns["_make"]
+_SAME_FACTORY: Callable[[Callable[..., Any]], Callable[..., Any]] = _shim_ns[
+    "_make_same"
+]
 
 
 #: One wrapper per original function, so aliases (``sp.bjs`` and
@@ -173,6 +250,21 @@ def accepts_frames(fn: Callable[..., Any]) -> Callable[..., Any]:
     polars / Arrow frame is converted to pandas first.
     """
     return wrap(fn)
+
+
+def returns_input_frame(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator for functions that hand the data back with columns changed.
+
+    ``sp.winsor(polars_frame, ...)`` then returns a polars frame (see
+    :func:`_restore`), so it can sit in a ``.pipe()`` chain. Estimators do
+    not use this: their results are pandas-based whatever came in. pandas
+    arguments still pass by identity. :func:`install` leaves a function
+    decorated here alone.
+    """
+    same_frame_out = functools.wraps(fn)(_SAME_FACTORY(fn))
+    setattr(same_frame_out, ATTR, fn)
+    _WRAPPERS[id(fn)] = (fn, same_frame_out)
+    return same_frame_out
 
 
 def _eligible(obj: Any) -> bool:

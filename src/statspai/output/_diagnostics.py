@@ -278,6 +278,23 @@ def _iv_hansen_J_p_cell(result: Any) -> str:
     return ""
 
 
+def _iv_overid_label(results: List[Any]) -> str:
+    """Row label naming the over-identification test the columns report.
+
+    A conventional (homoskedastic) 2SLS fit stores Sargan's test, a robust
+    or GMM fit Hansen's J. The row is named after what is in it; a table
+    that mixes the two gets the neutral label.
+    """
+    kinds = set()
+    for r in results:
+        diag = _diagnostics(r)
+        if "Hansen J p-value" in diag or "Hansen-J p-value" in diag:
+            kinds.add("Hansen J p-value")
+        elif "Sargan p-value" in diag:
+            kinds.add("Sargan p-value")
+    return kinds.pop() if len(kinds) == 1 else "Overid. test p-value"
+
+
 def _is_iv_result(result: Any) -> bool:
     """Detect IV: result has any IV-specific diagnostic key."""
     if _is_causal(result):
@@ -491,7 +508,7 @@ def extract_diagnostic_rows(
             rows["KP rk Wald F"] = kp
         hj = [_iv_hansen_J_p_cell(r) for r in results]
         if any(c for c in hj):
-            rows["Hansen J p-value"] = hj
+            rows[_iv_overid_label(results)] = hj
 
     # DiD-specific
     if include_did and any(_is_did_result(r) for r in results):

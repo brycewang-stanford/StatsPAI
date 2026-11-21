@@ -239,14 +239,29 @@ def _sign_rank(car: np.ndarray) -> Tuple[float, float]:
     return float(res.statistic), float(res.pvalue)
 
 
-def _mean_correlation(residuals: Dict[Any, pd.Series]) -> float:
+def _mean_correlation(
+    residuals: Dict[Any, pd.Series], units: Optional[Sequence[Any]] = None
+) -> float:
     """Average pairwise correlation of the residual series, over the
-    index values each pair shares."""
+    index values each pair shares.
+
+    ``units`` (one per series, calendar pairing only) leaves out the pairs
+    that belong to one security. Two events of the same security share
+    their estimation days, and on those days the two "series" are one
+    return series fitted twice: a correlation of one that measures no
+    dependence between securities. NaN when no pair of different
+    securities is left.
+    """
     frame = pd.DataFrame(residuals)
     if frame.shape[1] < 2:
         return 0.0
     corr = frame.corr(min_periods=3).to_numpy()
     off = ~np.eye(corr.shape[0], dtype=bool)
+    if units is not None:
+        codes = pd.factorize(pd.Series(list(units), dtype=object))[0]
+        off &= codes[:, None] != codes[None, :]
+        if not off.any():
+            return float("nan")
     values = corr[off]
     values = values[np.isfinite(values)]
     return float(values.mean()) if values.size else 0.0
@@ -590,7 +605,19 @@ def abnormal_returns(
         {"aar": ar_frame.mean(axis=1), "n": ar_frame.notna().sum(axis=1)}
     )
     aar["caar"] = aar["aar"].cumsum()
-    r_bar = _mean_correlation(residuals)
+    r_bar = _mean_correlation(
+        residuals, table[id].tolist() if corr_key == "calendar" else None
+    )
+    if not np.isfinite(r_bar):
+        # every usable event belongs to one security
+        warnings.warn(
+            "abnormal_returns: all events belong to one security, so there "
+            "is no cross-correlation between securities to adjust for; "
+            "adj_patell and kp equal patell and bmp (mean_correlation = 0).",
+            UserWarning,
+            stacklevel=2,
+        )
+        r_bar = 0.0
     tests = _car_tests(
         table["scar"].to_numpy(dtype=float),
         table["dof"].to_numpy(dtype=float),

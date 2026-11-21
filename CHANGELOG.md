@@ -4,7 +4,63 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+Review of Ian Gow's StatsPAI edition of *Empirical Research in
+Accounting* (every chapter read against 1.44.5, each suggestion run).
+
+### Added
+- **`sp.winsor` gives a polars frame back to a polars caller.** A polars
+  `DataFrame` or `LazyFrame` used to come back as pandas, with `Date`
+  columns turned into datetimes, so the call could not sit in a polars
+  chain. The columns it does not touch are now returned exactly as
+  passed and missing values are null:
+  `df.pipe(sp.winsor, vars=["x"], cuts=(1, 99), replace=True)`. The
+  values equal the pandas route bit for bit (and `era_pl`'s
+  `.era.winsorize()` on the book's data, also with `by=`). pandas input
+  still returns pandas. The mechanism is
+  `_frame_input.returns_input_frame`, for functions that hand the data
+  back with columns changed.
+- **`result.normal_reference()`** on regression results: a copy of the
+  fit whose p-values, intervals, `sp.test` and `sp.regtable` stars use
+  the standard normal in place of Student's t (statsmodels
+  `use_t=False`, Stata `ivreg2` without `small`). Estimates and standard
+  errors are the same; the original fit is left alone. Equal to
+  statsmodels' robust default to 1e-10.
+- `sp.anderson_rubin_ci` and `sp.conditional_lr_ci` accept the frame
+  first, `sp.anderson_rubin_ci(df, y=..., endog=..., instruments=[...])`,
+  as `sp.anderson_rubin_test` does. That spelling raised
+  `TypeError: got multiple values for argument 'y'`. The array form and
+  `data=` are unchanged.
+
 ### Fixed
+- ⚠️ **`sp.rdrobust(fuzzy=)` `model_info["first_stage_F"]` is now on
+  the reported variance.** It was computed with a legacy heteroskedastic
+  variance that ignored `vce=`, `cluster=` and the nearest-neighbour
+  default, so it disagreed with the sharp RD of the treatment on the
+  same bandwidths (8.24 against 7.11 on one sample). It now equals
+  `(tau_T / se_T)^2` of R `rdrobust` 4.0.0 to 2e-13 and the sharp fit
+  exactly. The fuzzy estimate, its standard errors and the bandwidths do
+  not move. The weak-first-stage warning (F < 10) is issued on the
+  corrected value.
+- ⚠️ **`sp.abnormal_returns(correlation="calendar")` no longer pairs a
+  security with itself.** Two events of one security share their
+  estimation days, where the two residual series are the same returns
+  fitted twice. Those pairs entered the mean cross-correlation as
+  correlations of one. With one security and several events the mean
+  was 1.0, `kp` was exactly 0 with p = 1 and `adj_patell` a third of
+  `patell`, with no warning. Pairs of the same security are now left
+  out; with a single security the adjustment does not apply, `kp` and
+  `adj_patell` equal `bmp` and `patell`, and a warning says so. Samples
+  with one event per security, and `correlation="event"`, are unchanged.
+- `sp.regress(coef_only=True)` and `sp.feols(coef_only=True)` no longer
+  count toward the specification-search warning. A loop fitting one
+  formula on 626 securities emitted 626 warnings that "its p-value and
+  confidence interval treat it as the only test", for fits that report
+  neither. Fits with inference are counted as before.
+- `sp.regtable(diagnostics=True)` labelled the over-identification row
+  "Hansen J p-value" for a conventional `sp.ivreg` fit, whose value is
+  Sargan's. The row is now named after the test in it ("Sargan
+  p-value", "Hansen J p-value", or "Overid. test p-value" when the
+  columns mix the two).
 - `summary()` of a `coef_only=True` fit (`sp.regress`, `sp.feols`) prints
   the coefficient column alone. It printed NaN standard-error, statistic,
   p-value and interval columns under a "z-statistic" label.

@@ -2617,6 +2617,7 @@ def regress(
         cluster=cluster,
         vcov="hac" if is_hac else ("ewc" if is_ewc else robust_kw),
         weights=weights,
+        count_specification=not coef_only,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
