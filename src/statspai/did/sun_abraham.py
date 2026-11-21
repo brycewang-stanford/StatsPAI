@@ -65,6 +65,7 @@ from ._sa_sample import resolve_reference_periods as _resolve_reference_periods
 from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
 from ._validate import require_constant_cohort as _require_constant_cohort
 from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
+from ._validate import warn_zero_cohort_is_a_period as _warn_zero_cohort_is_a_period
 
 # ======================================================================
 # Public API
@@ -599,6 +600,7 @@ def sun_abraham(
     if i is not None:
         _require_constant_cohort(df, unit=i, cohort=g, function="sun_abraham")
         _duplicate_unit_period_rows(df, unit=i, time=t, function="sun_abraham")
+    _warn_zero_cohort_is_a_period(df, time=t, cohort=g, unit=i, function="sun_abraham")
     ref_periods = _resolve_reference_periods(anticipation, ref_p)
     ref_set = set(ref_periods)
     if pretest not in ("joint", "none"):

@@ -4,6 +4,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- `sp.preflight(method="iv")` and the MCP `preflight` tool now run the
+  first-stage strength check when the model is named by its columns
+  (`treatment=` / `instrument=` / `instruments=` / `covariates=`), not only
+  for a formula. Before, a call by named columns skipped the check, so a
+  dead instrument passed. The MCP tool also advertises `formula=` and
+  `instruments=`. Same first-stage regression and F statistic as the
+  formula path.
+
+### Added
+
+- `callaway_santanna`, `sun_abraham` and `did_imputation` warn
+  (`AssumptionWarning`) when a cohort of 0 is also an observed period.
+  0 is still read as never treated (R `did` / Stata `csdid`), so no
+  estimate changes; the warning says that units first treated in period 0
+  would be used as controls and that NaN has only one reading.
+- `tests/test_mcp_schema_contract.py`: every argument a curated or
+  auto-registered MCP tool advertises must bind to its function.
+
 ## [1.44.4] — 2026-11-21
 
 `result.report()`: the estimate and interval to report, given the fit's own

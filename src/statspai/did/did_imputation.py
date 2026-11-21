@@ -49,6 +49,7 @@ from ._core import normalize_se_method as _normalize_se_method
 from ._validate import duplicate_unit_period_rows as _duplicate_unit_period_rows
 from ._validate import require_constant_cohort as _require_constant_cohort
 from ._validate import warn_few_treated_clusters as _warn_few_treated_clusters
+from ._validate import warn_zero_cohort_is_a_period as _warn_zero_cohort_is_a_period
 
 
 def _didimp_cluster_bootstrap(
@@ -530,6 +531,9 @@ def did_imputation(
         df, unit=group, cohort=first_treat, function="did_imputation"
     )
     _duplicate_unit_period_rows(df, unit=group, time=time, function="did_imputation")
+    _warn_zero_cohort_is_a_period(
+        df, time=time, cohort=first_treat, unit=group, function="did_imputation"
+    )
     if isinstance(shift, bool) or not isinstance(shift, (int, np.integer)):
         raise MethodIncompatibility(
             f"shift must be a non-negative int, got {shift!r}.",

@@ -60,6 +60,7 @@ from ._cs_rcs import cs_repeated_cross_sections as _callaway_santanna_rcs
 from ._cs_rcs import gt_cells as _get_gt_pairs
 from ._validate import inference_note as _inference_note
 from ._validate import require_constant_cohort as _require_constant_cohort
+from ._validate import warn_zero_cohort_is_a_period as _warn_zero_cohort_is_a_period
 
 #: Below this many treated clusters the cluster-robust and multiplier-
 #: bootstrap variances over-reject whatever the total cluster count
@@ -940,6 +941,9 @@ def callaway_santanna(
         # R `did` stops on a cohort that varies within a unit; the reshape
         # below would otherwise keep each unit's first row only.
         _require_constant_cohort(data, unit=i, cohort=g, function="callaway_santanna")
+    _warn_zero_cohort_is_a_period(
+        data, time=t, cohort=g, unit=i if panel else None, function="callaway_santanna"
+    )
     # Always-treated units (g <= first period + anticipation) leave the
     # sample here, as in R did and Stata csdid; they carry no ATT(g, t) and
     # are never comparisons, so only the unit counts move.

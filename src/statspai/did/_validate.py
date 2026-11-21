@@ -73,6 +73,48 @@ def normalized_cohort(series: pd.Series) -> pd.Series:
     return num.fillna(0).replace([np.inf, -np.inf], 0)
 
 
+def warn_zero_cohort_is_a_period(
+    data: pd.DataFrame,
+    *,
+    time: str,
+    cohort: str,
+    unit: Optional[str],
+    function: str,
+) -> Optional[Dict[str, Any]]:
+    """Warn when cohort 0 is also an observed period.
+
+    The staggered estimators read a cohort of 0 as never treated, the
+    convention of R ``did`` and Stata ``csdid``. When the time column
+    itself contains 0, the same value can also mean "first treated in
+    period 0", and the two readings give opposite control groups. Nothing
+    in the data settles which one the caller meant, so the estimator keeps
+    the convention and says so. Returns the evidence (also attached to the
+    warning) or ``None`` when the coding is unambiguous.
+    """
+    t = pd.to_numeric(data[time], errors="coerce")
+    if not bool((t == 0).any()):
+        return None
+    g = pd.to_numeric(data[cohort], errors="coerce")
+    zero = g == 0
+    if not bool(zero.any()):
+        return None
+    n_units = (
+        int(data.loc[zero, unit].nunique()) if unit is not None else int(zero.sum())
+    )
+    what = "unit(s)" if unit is not None else "row(s)"
+    info = {"n_zero_cohort": n_units, "counted": what, "zero_is_a_period": True}
+    warnings.warn(
+        f"{function}: {n_units} {what} have {cohort!r} = 0 and 0 is also an "
+        f"observed value of {time!r}. 0 is read as never treated (the R did / "
+        "csdid convention). If these units were first treated in period 0, "
+        "they are being used as controls; give never-treated units NaN "
+        "instead, which has only one reading.",
+        AssumptionWarning,
+        stacklevel=3,
+    )
+    return info
+
+
 def require_constant_cohort(
     data: pd.DataFrame,
     *,
