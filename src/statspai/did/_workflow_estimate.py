@@ -207,6 +207,25 @@ def run_estimate(wf: "DiDWorkflow", step: DiDStep) -> None:
     if wf._twfe is not None and np.isfinite(wf._twfe):
         step.evidence["twfe"] = wf._twfe
         step.finding += f" TWFE on the same panel gives {fmt(wf._twfe)}."
+    # Overlap, read off the fit (Baker et al. 2026, section 4.4: check
+    # strong overlap with the estimated propensity scores). Only a fit
+    # that estimated them carries the counts.
+    info = getattr(fit, "model_info", None) or {}
+    if inp.covariates and "n_pscore_trimmed" in info:
+        trimmed = int(info["n_pscore_trimmed"])
+        step.evidence["overlap"] = {
+            "pscore_trim": info.get("pscore_trim"),
+            "n_pscore_trimmed": trimmed,
+            "n_pscore_boundary_cells": info.get("n_pscore_boundary_cells"),
+        }
+        step.finding += (
+            f" Overlap: {trimmed} comparison unit-cell(s) had an estimated "
+            f"propensity score at or above {info.get('pscore_trim')} and "
+            "were trimmed."
+            if trimmed
+            else " Overlap: no comparison unit had an estimated propensity "
+            f"score at or above the trimming bound {info.get('pscore_trim')}."
+        )
 
 
 # ===================================================================== #

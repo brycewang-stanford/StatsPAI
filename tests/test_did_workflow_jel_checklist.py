@@ -218,3 +218,23 @@ def test_design_step_carries_the_balance_table_of_the_covariates():
 
     plain = _quiet(sp.did_workflow, df, through="design", **KW)
     assert "balance" not in plain.step("design").evidence
+
+
+# --------------------------------------------------------------------- #
+# overlap in the estimate step
+# --------------------------------------------------------------------- #
+def test_estimate_step_reports_the_overlap_the_fit_recorded():
+    df = _panel(noise=0.5)
+    df["x"] = (df["unit"] % 7) / 7.0
+    wf = _quiet(sp.did_workflow, df, covariates=["x"], through="estimate", **KW)
+    step = wf.step("estimate")
+    info = wf.fit.model_info
+    assert step.evidence["overlap"] == {
+        "pscore_trim": info["pscore_trim"],
+        "n_pscore_trimmed": info["n_pscore_trimmed"],
+        "n_pscore_boundary_cells": info.get("n_pscore_boundary_cells"),
+    }
+    assert "Overlap:" in step.finding
+    plain = _quiet(sp.did_workflow, df, through="estimate", **KW)
+    assert "overlap" not in plain.step("estimate").evidence
+    assert "Overlap:" not in plain.step("estimate").finding

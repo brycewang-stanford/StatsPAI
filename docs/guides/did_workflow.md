@@ -251,7 +251,7 @@ each item.
 | Baker et al. (2026) | In the workflow |
 | --- | --- |
 | 1. Define the target parameter | Step 1: `target`, `weights`; the estimand is printed with every estimate |
-| 2. State the identification assumptions and the evidence | Step 1 states the parallel-trends assumption the estimator imposes, with covariates and absorbed effects. Step 2 holds the covariate balance table in levels and changes. Step 6 holds the pre-trend test and its power; step 8 the test of sensitivity to the outcome scale |
+| 2. State the identification assumptions and the evidence | Step 1 states the parallel-trends assumption the estimator imposes, with covariates and absorbed effects. Step 2 holds the covariate balance table in levels and changes. Step 4 reports how many comparison units reached the propensity-score trimming bound. Step 6 holds the pre-trend test and its power; step 8 the test of sensitivity to the outcome scale |
 | 3. Choose the estimation method | Step 4: `estimator`, and `estimator_options` for regression adjustment, weighting or the doubly robust form |
 | 4. Discuss the sources of uncertainty | Step 1: `cluster`. Step 2 counts treated and comparison clusters. The report names what is treated as random |
 | 5. Estimate | Steps 4 and 5: the summary effect, and the event study with pointwise and simultaneous bands |

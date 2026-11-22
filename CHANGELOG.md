@@ -37,6 +37,10 @@ effects beyond unit and period and no longer stalls on a long panel.
   unweighted, the table Baker et al. (2026, section 4.1) ask for. It is
   the output of `sp.did_balance` for the largest cohort. Reported, not
   graded.
+- **Step 4 of `sp.did_workflow` reports overlap** when covariates are
+  declared: the number of comparison unit-cells whose estimated
+  propensity score reached the trimming bound, as the fit recorded it
+  (`wf.step("estimate").evidence["overlap"]`).
 - **The workflow report names the source of uncertainty** (new checklist
   item) and **states the assumption the imputation estimator imposes**:
   parallel trends between all groups in every period, pre-treatment
