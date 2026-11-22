@@ -1,8 +1,8 @@
 """``sp.iv_mediate(equations="joint")`` against Stata's ``gmm`` + ``nlcom``.
 
-``ivmediate`` (and ``sp.iv_mediate`` by default) sets the covariance
-between coefficients of different equations to zero. ``equations="joint"``
-keeps it: the three IV equations are one just-identified GMM system and
+``ivmediate`` (and ``sp.iv_mediate(equations="independent")``) sets the
+covariance between coefficients of different equations to zero.
+``equations="joint"``, the default since 1.45, keeps it: the three IV equations are one just-identified GMM system and
 the variance is its sandwich. Official Stata estimates the same system
 with ``gmm (eq1: ...) (eq2: ...) (eq3: ...), onestep winitial(identity)
 vce(robust | cluster)`` and ``nlcom`` then gives (total, direct, a * d)
@@ -72,7 +72,7 @@ def test_joint_variance_matches_stata_gmm(data, key):
 def test_joint_changes_only_the_cross_equation_terms(data, key):
     """Same coefficients, same total and direct variances as ``ivmediate``."""
     joint = _fit(data, equations="joint", **SPECS[key])
-    indep = _fit(data, **SPECS[key])
+    indep = _fit(data, equations="independent", **SPECS[key])
     assert joint.model_info["equations"] == "joint"
     assert indep.model_info["equations"] == "independent"
     np.testing.assert_array_equal(
@@ -99,7 +99,7 @@ def test_joint_variance_respects_total_equals_direct_plus_indirect(data, kw):
     c = np.array([1.0, -1.0, -1.0])
     scale = float(np.trace(joint.vcov.to_numpy()))
     assert abs(c @ joint.vcov.to_numpy() @ c) <= 1e-9 * scale
-    indep = _fit(data, covariates=COV, **kw)
+    indep = _fit(data, covariates=COV, equations="independent", **kw)
     assert c @ indep.vcov.to_numpy() @ c > 0.1 * scale
 
 

@@ -182,9 +182,11 @@ def mr_mode(
 ) -> ModeBasedResult:
     """Mode-based MR estimator (Hartwig, Davey Smith & Bowden 2017).
 
-    Matches ``MendelianRandomization::mr_mbe(stderror = "simple")`` to
-    machine precision in both weightings: same bandwidth rule, same
-    512-point density grid, same bootstrap construction.
+    Matches ``MendelianRandomization::mr_mbe`` to machine precision in
+    both weightings when ``stderror`` is given the value passed to
+    ``mr_mbe``: same bandwidth rule, same 512-point density grid, same
+    bootstrap construction. The default here is ``stderror="delta"``;
+    ``mr_mbe``'s own default is ``"simple"``.
 
     .. versionchanged:: 1.28.0
        The bandwidth was a weighted-SD / IQR rule rather than Hartwig et
@@ -222,9 +224,12 @@ def mr_mode(
         relaxes NOME in the same way). With weak or imprecise instruments
         the ``"simple"`` standard error can be several times too small
         (2.7 times on the ``TwoSampleMR`` example data). Not given, the
-        call uses ``"simple"`` and warns (``FutureWarning``): a later
-        release makes ``"delta"`` the default (owner decision
-        2026-11-13). Passing either value is silent.
+        call uses ``"delta"``.
+
+        .. versionchanged:: 1.45
+           The default is ``"delta"``; it was ``"simple"``. Pass
+           ``stderror="simple"`` for the earlier numbers (the ``mr_mbe``
+           default).
 
     References
     ----------
@@ -251,22 +256,7 @@ def mr_mode(
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
     if stderror is None:
-        from .._default_change import announce_default_change
-
-        announce_default_change(
-            "mr_mode",
-            "stderror",
-            today="'simple'",
-            later="'delta'",
-            why=(
-                "'simple' treats the exposure associations as known (NOME, "
-                "the mr_mbe default); 'delta' adds their sampling error, as "
-                "TwoSampleMR does, and gives a larger standard error. The "
-                "weighted-mode estimate can move too, since the weights use "
-                "the same ratio SEs."
-            ),
-        )
-        stderror = "simple"
+        stderror = "delta"
     if stderror not in ("simple", "delta"):
         raise ValueError("stderror must be 'simple' or 'delta'")
     sy = np.asarray(se_outcome, dtype=float)

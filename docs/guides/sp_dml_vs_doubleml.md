@@ -333,7 +333,7 @@ Beyond the four estimator classes that mirror DoubleML one-to-one,
   the same short-stacked nuisances and keeps every PLR option: the
   IV-type score, one- and two-way clusters, survey designs, weights and
   repeated cross-fitting. `result.model_info["stacking"]` reports the
-  weights. This is the PLR default from 1.45.
+  weights. This is the PLR default since 1.45.
 - **Unified result object** — every `sp.dml` call returns a
   `CausalResult`, so `.summary()`, `.to_latex()`, `.cite()` and the
   agent-side audit chain (`sp.audit`) work the same as for every

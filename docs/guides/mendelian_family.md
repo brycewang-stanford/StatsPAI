@@ -137,14 +137,14 @@ al.'s bandwidth `phi · 0.9 · min(sd, mad) · n^(-1/5)`, located on the
 same 512-point grid as `MendelianRandomization::mr_mbe` (`refine=True`
 climbs to the continuous mode instead).
 
-The default standard error treats the SNP-exposure associations as known
-(NOME; `mr_mbe(stderror = "simple")`). `stderror="delta"` adds their
-sampling error to each ratio's standard error, as `mr_mbe(stderror =
-"delta")` and `TwoSampleMR`'s weighted mode do. With imprecise
-instruments the difference is large (0.37 against 1.00 on the LDL-C / CHD
-example), so report the delta version unless NOME is defensible. A call
-that does not pass `stderror` still uses `"simple"` and warns
-(`FutureWarning`): a later release makes `"delta"` the default.
+`stderror="simple"` treats the SNP-exposure associations as known
+(NOME; the default of `mr_mbe`). `stderror="delta"`, the default here
+since 1.45, adds their sampling error to each ratio's standard error, as
+`mr_mbe(stderror = "delta")` and `TwoSampleMR`'s weighted mode do. With
+imprecise instruments the difference is large (0.37 against 1.00 on the
+LDL-C / CHD example), so report the delta version unless NOME is
+defensible. Pass `stderror="simple"` to reproduce `mr_mbe`'s default or
+numbers from before 1.45.
 
 Reference: Hartwig, Davey Smith & Bowden (2017), *IJE* 46(6).
 

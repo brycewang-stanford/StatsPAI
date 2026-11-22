@@ -79,6 +79,18 @@ class DoubleMLPLR(_DoubleMLBase):
 
     _SUPPORTS_STACKING = True
 
+    # Since 1.45 an unset PLR nuisance is short stacking over the roster
+    # of sp.dml_model_averaging; 'gbm' builds the earlier default.
+    def _default_ml_g(self) -> Any:
+        from ._stacking import as_short_stack
+
+        return as_short_stack("stack", "ml_g")
+
+    def _default_ml_m(self) -> Any:
+        from ._stacking import as_short_stack
+
+        return as_short_stack("stack", "ml_m")
+
     def _oof_nuisance(
         self,
         learner: Any,

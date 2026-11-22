@@ -115,7 +115,7 @@ coverage worse at every level, 86% at 50 points a side and 22% at 5.
 
 No first-stage learner was right under both kinds of confounding.
 
-| confounding | OLS, Lasso | random forest | gradient boosting (default) | model averaging |
+| confounding | OLS, Lasso | random forest | gradient boosting (default before 1.45) | model averaging (default since 1.45) |
 | --- | --- | --- | --- | --- |
 | linear | 94% to 95% | 91% to 93% | 90% to 92% | 94% to 95% |
 | nonlinear | 0% | 43% to 67% | 87% to 90% | 73% to 87% |
@@ -128,20 +128,22 @@ standard error.
 
 ```python
 a = sp.dml(df, y="y", treat="d", covariates=xs, model="plr")
-b = sp.dml_model_averaging(df, y="y", treat="d", covariates=xs)
+b = sp.dml(df, y="y", treat="d", covariates=xs, model="plr",
+           ml_g="gbm", ml_m="gbm")
 abs(a.estimate - b.estimate) / a.se
 ```
 
-From 1.45 (no earlier) the default of `sp.dml(model="plr")` is short
-stacking, the estimator `sp.dml_model_averaging` fits today. A second
+Since 1.45 the default of `sp.dml(model="plr")` is short stacking, the
+estimator `sp.dml_model_averaging` fits, so the comparison above needs a
+second learner passed by hand (`ml_g="gbm", ml_m="gbm"` is the default
+before 1.45). A second
 study (`tests/reliability/dml_default_candidates.py`) tried four other
 replacements, and none beat boosting everywhere. Short stacking was
 chosen on its worst case. Over fifteen design cells it covers better
 than boosting on eleven, and its lowest coverage is 72% against 54%. It
 loses under the smooth nonlinear confounding of the table above. When
-two confounders interact, no learner tested covered more than 4%. A call
-that leaves `ml_g` or `ml_m` unset warns; pass `ml_g="gbm", ml_m="gbm"`
-to keep today's estimates.
+two confounders interact, no learner tested covered more than 4%. Pass
+`ml_g="gbm", ml_m="gbm"` to reproduce estimates from before 1.45.
 
 ## Weak instruments and poor overlap
 

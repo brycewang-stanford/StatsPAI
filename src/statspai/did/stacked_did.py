@@ -190,14 +190,16 @@ def stacked_did(
         cluster-robust), which is what Stata ``reghdfe`` and R ``fixest``
         report for the same regression. ``'normal'``: the normal
         distribution. Not given, a ``family='gaussian'`` call uses
-        ``'normal'`` and warns (``FutureWarning``): a later release makes
-        ``'t'`` the default (owner decision 2026-11-13), as
-        ``sp.event_study`` and ``sp.sun_abraham`` did in 1.41. Passing
-        either value is silent. ``family='poisson'`` keeps the normal
-        distribution unless ``'t'`` is asked for, as ``ppmlhdfe`` and
-        ``fixest::fepois`` report z statistics. Coefficients and standard
-        errors do not depend on it. The rule used is in
-        ``model_info['conventions']``.
+        ``'t'``, as ``sp.event_study`` and ``sp.sun_abraham`` have done
+        since 1.41, and ``family='poisson'`` uses the normal
+        distribution, as ``ppmlhdfe`` and ``fixest::fepois`` report z
+        statistics. Coefficients and standard errors do not depend on
+        it. The rule used is in ``model_info['conventions']``.
+
+        .. versionchanged:: 1.45
+           The ``family='gaussian'`` default is ``'t'``; it was
+           ``'normal'``. Pass ``crit_dist='normal'`` for the earlier
+           p-values and intervals.
 
     Notes
     -----
@@ -704,33 +706,21 @@ def stacked_did(
         att_var = w @ V[:k_es, :k_es] @ w
         att_se = np.sqrt(max(att_var, 0.0))
 
-    # Reference distribution. Today's default is the normal; crit_dist='t'
-    # is the t(G - 1) of reghdfe / fixest on the stacked regression and
-    # becomes the default of family='gaussian' in a later release.
+    # Reference distribution. family='gaussian' defaults to the t(G - 1)
+    # of reghdfe / fixest on the stacked regression (since 1.45);
+    # family='poisson' keeps the normal, as ppmlhdfe and fixest::fepois
+    # report z statistics. An explicit crit_dist wins either way.
     n_clusters = int(pd.Series(stacked[cluster]).nunique())
+    crit_used = crit_arg
+    if crit_used is None:
+        crit_used = "t" if family == "gaussian" else "normal"
     ref_dist, ref_df = _crit.crit_spec(
         None,
         clustered=True,
         n_clusters=n_clusters,
         df_resid=None,
-        crit_dist=crit_arg,
+        crit_dist=crit_used,
     )
-    if crit_arg is None and family == "gaussian" and n_clusters >= 2:
-        from .._default_change import announce_default_change
-
-        announce_default_change(
-            "stacked_did",
-            "crit_dist",
-            today="'normal'",
-            later="'t'",
-            why=(
-                "'t' refers the p-values and confidence intervals to "
-                f"t(G-1) = t({n_clusters - 1}) here, as Stata reghdfe and R "
-                "fixest report for the stacked regression and as "
-                "sp.event_study and sp.sun_abraham have done since 1.41. "
-                "Estimates and standard errors do not change."
-            ),
-        )
     z_crit = _crit.crit_value(alpha, ref_dist, ref_df)
     att_pval = (
         _crit.two_sided_p(att / att_se, ref_dist, ref_df) if att_se > 0 else np.nan

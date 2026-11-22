@@ -104,7 +104,9 @@ def fit_rdrobust(**kw):
 
 
 def fit_rkd(df):
-    return coef(_sp().rkd(df, y="y", x="x", c=0))
+    # The stored row ran the default before 1.45 (the conventional
+    # headline); pinned so the script reproduces it.
+    return coef(_sp().rkd(df, y="y", x="x", c=0, headline="conventional"))
 
 
 def fit_honest(df):

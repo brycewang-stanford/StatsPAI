@@ -3933,7 +3933,8 @@ def _build_registry() -> None:
                     "scikit-learn estimator or an alias ('rf', 'gbm', 'lasso', "
                     "'ridge', 'linear', 'xgb', 'lgbm'). For model='plr' also "
                     "'stack' or a list of learners: short stacking of the "
-                    "roster (the announced 1.45 default is 'stack').",
+                    "roster. Not given under model='plr': 'stack' (since "
+                    "1.45; 'gbm' reproduces the earlier default).",
                 ),
                 ParamSpec(
                     "ml_m",
@@ -17650,7 +17651,8 @@ def _build_registry() -> None:
                 "both be endogenous; the instrument for the treatment "
                 "identifies the total, direct and indirect effects through "
                 "three just-identified IV regressions on partialled-out data. "
-                "Numbers equal Stata ivmediate 1.0.4 to rounding."
+                "With equations='independent' the numbers equal Stata "
+                "ivmediate 1.0.4 to rounding."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -17716,9 +17718,8 @@ def _build_registry() -> None:
                     "system, equal to Stata gmm + nlcom). They differ when "
                     "the mediator and outcome errors are correlated, where "
                     "'independent' was 25% too large or 13% too small in "
-                    "simulation. Not given: 'independent' with a "
-                    "FutureWarning ('joint' becomes the default in a later "
-                    "release)",
+                    "simulation. Not given: 'joint' (since 1.45; "
+                    "'independent' before)",
                     enum=["independent", "joint"],
                 ),
             ],
@@ -19423,8 +19424,7 @@ def _build_registry() -> None:
                     "bootstrap: 'simple' assumes the exposure associations "
                     "are known (NOME, the mr_mbe default); 'delta' adds "
                     "their sampling error (TwoSampleMR). Not given: "
-                    "'simple' with a FutureWarning ('delta' becomes the "
-                    "default in a later release)",
+                    "'delta' (since 1.45; 'simple' before)",
                     enum=["simple", "delta"],
                 ),
             ],
@@ -33697,9 +33697,8 @@ def _build_registry() -> None:
                     "Critical-value rule; estimates and SEs unchanged. 't': "
                     "t(G-1), G the clusters of the stacked regression (Stata "
                     "reghdfe, R fixest). 'normal': the normal distribution. "
-                    "Not given: 'normal' with a FutureWarning for "
-                    "family='gaussian' ('t' becomes the default in a later "
-                    "release); family='poisson' stays normal",
+                    "Not given: 't' for family='gaussian' (since 1.45; "
+                    "'normal' before); family='poisson' stays normal",
                     ["t", "normal"],
                 ),
             ],

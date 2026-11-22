@@ -120,9 +120,12 @@ def rkd(
         screen); the robust one is built for that bandwidth. Both sets of
         numbers are always in ``model_info['conventional']`` and
         ``model_info['robust']``. Not given, the call reports
-        ``'conventional'`` and warns (``FutureWarning``): a later release
-        makes ``'robust'`` the default (owner decision 2026-11-13).
-        Passing either value is silent.
+        ``'robust'``.
+
+        .. versionchanged:: 1.45
+           The default is ``'robust'``; it was ``'conventional'``. Pass
+           ``headline='conventional'`` for the earlier ``estimate``,
+           ``se``, ``pvalue`` and ``ci``.
 
     Returns
     -------
@@ -145,11 +148,12 @@ def rkd(
 
     It is ``sp.rdrobust(..., deriv=1, vce='hc1')`` -- R / Stata
     ``rdrobust(deriv=1)``, the kink estimator of Calonico, Cattaneo &
-    Titiunik -- reporting, with ``headline='conventional'`` (today's
-    default), the *conventional* estimate and its HC1 (or cluster)
-    standard error as the headline, with the robust bias-corrected
-    estimate, SE and interval in ``model_info['robust']``;
-    ``headline='robust'`` reports the latter as ``sp.rdrobust`` does.
+    Titiunik -- reporting, with ``headline='robust'`` (the default),
+    the bias-corrected estimate with the robust standard error and
+    interval as the headline, as ``sp.rdrobust`` does, with the
+    *conventional* estimate and its HC1 (or cluster) standard error in
+    ``model_info['conventional']``; ``headline='conventional'`` reports
+    the latter.
     Through 1.28.0 the default bandwidth was an ad hoc rule of thumb that
     no reference computes, and the fuzzy standard error was a delta
     method that dropped the covariance between the outcome and treatment
@@ -207,22 +211,7 @@ def rkd(
             },
         )
     if headline is None:
-        from .._default_change import announce_default_change
-
-        announce_default_change(
-            "rkd",
-            "headline",
-            today="'conventional'",
-            later="'robust'",
-            why=(
-                "'robust' reports the bias-corrected estimate with the "
-                "robust standard error and interval, as sp.rdrobust and R / "
-                "Stata rdrobust do; the conventional interval ignores the "
-                "smoothing bias at the MSE-optimal bandwidth. Both sets of "
-                "numbers are in model_info either way."
-            ),
-        )
-        headline = "conventional"
+        headline = "robust"
 
     # --- Parse data ---
     cols = [col for col in [y, x, treatment, cluster] if col is not None]

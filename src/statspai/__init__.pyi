@@ -393,6 +393,8 @@ from .did._honest_moments import honest_did_from_result as honest_did_from_resul
 from .did._staggered_rollout import staggered_cs as staggered_cs
 from .did._staggered_rollout import staggered_rollout as staggered_rollout
 from .did._staggered_rollout import staggered_sa as staggered_sa
+from .did._workflow_spec import DiDStep as DiDStep
+from .did._workflow_spec import did_protocol as did_protocol
 from .did._xtevent_smpath import xtevent_smpath as xtevent_smpath
 from .did.aggte import aggte as aggte
 from .did.analysis import DIDAnalysis as DIDAnalysis
@@ -497,6 +499,8 @@ from .did.wooldridge_did import etwfe as etwfe
 from .did.wooldridge_did import etwfe_emfx as etwfe_emfx
 from .did.wooldridge_did import twfe_decomposition as twfe_decomposition
 from .did.wooldridge_did import wooldridge_did as wooldridge_did
+from .did.workflow import DiDWorkflow as DiDWorkflow
+from .did.workflow import did_workflow as did_workflow
 from .did.xtevent import xtevent as xtevent
 from .dml._diagnostics import DMLDiagnostics as DMLDiagnostics
 from .dml._diagnostics import dml_diagnostics as dml_diagnostics

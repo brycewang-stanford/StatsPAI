@@ -571,12 +571,16 @@ def test_duplicated_covariate(spec: Spec) -> None:
     df = spec.data()
     first, second = spec.covs[0], spec.covs[1]
     df[second] = 2.0 * df[first]
+    # Penalised and tree learners are not invariant to a redundant column
+    # (a ridge penalty spreads over both copies), so for a learner-driven
+    # estimator the contract is checked with linear learners, as above.
+    kw = _lin_learners() if spec.eps_kw.get("_learners") else {}
     if spec.collinear is None:
-        res = _quiet(lambda: spec.fit(df, spec.covs))
+        res = _quiet(lambda: spec.fit(df, spec.covs, **kw))
     else:
         res = _fit_announcing_omission(spec, df, second)
     # x2 = 2 x1 adds nothing to x1: the fit must be the fit on x1 alone.
-    _same_numbers(res, _quiet(lambda: spec.fit(df, [first])))
+    _same_numbers(res, _quiet(lambda: spec.fit(df, [first], **kw)))
 
 
 # --------------------------------------------------------------------- #

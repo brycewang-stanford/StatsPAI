@@ -2,13 +2,58 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.45.0] — 2026-11-22
 
 A difference-in-differences study as a protocol. `sp.did_workflow` runs
 the nine steps a DiD paper is now expected to go through and grades each
 one; ⚠️ `sp.did_analysis` reported its pre-trend test and sensitivity
 analysis for a different estimator than the one it reported, and read
-the wrong key of the Bacon decomposition.
+the wrong key of the Bacon decomposition. ⚠️ The five defaults that
+1.44.0 and 1.44.1 announced for 1.45 take effect ("Changed" below); the
+`FutureWarning`s that announced them are gone.
+
+### Changed (defaults announced for 1.45)
+
+Calls that named the argument are unaffected. See MIGRATION.md, "1.44 →
+1.45: announced defaults take effect".
+
+- ⚠️ **`sp.dml(model="plr")` with `ml_g` or `ml_m` unset fits that
+  nuisance by short stacking** over Lasso, Ridge, random forest and
+  gradient boosting, the estimator of `sp.dml_model_averaging` (owner
+  decision 2026-11-17). It was gradient boosting alone. The estimate and
+  its standard error change, and a default fit takes six to seven times
+  as long. `ml_g="gbm", ml_m="gbm"` builds the earlier learners exactly.
+  `sp.DoubleML(model="plr")` follows. IRM, PLIV and IIVM defaults did
+  not change. `model_info["learner_note"]` and `sp.validation_scope`
+  describe the new default (`learners="stack"`; the coverage row of the
+  earlier default is now `learners="gbm"`).
+- ⚠️ **`sp.stacked_did(family="gaussian")` refers p-values and intervals
+  to t(G-1)**, G the clusters of the stacked regression, as Stata
+  `reghdfe` and R `fixest` report and as `sp.event_study` and
+  `sp.sun_abraham` have done since 1.41 (owner decision 2026-11-13).
+  Estimates and standard errors do not change. `crit_dist="normal"`
+  restores the earlier p-values and intervals. `family="poisson"` keeps
+  the normal distribution. `sp.did_summary` and
+  `sp.did_calibrated_simulation` no longer pin the normal rule, so the
+  stacked row of `sp.did_summary` reports the t interval too.
+- ⚠️ **`sp.rkd` reports the bias-corrected estimate with the robust
+  standard error and interval**, the headline of `sp.rdrobust(deriv=1)`
+  (owner decision 2026-11-13). `estimate`, `se`, `pvalue` and `ci`
+  change; `headline="conventional"` restores them. Both sets of numbers
+  stay in `model_info["conventional"]` and `model_info["robust"]`.
+- ⚠️ **`sp.mr_mode` defaults to `stderror="delta"`**, the `TwoSampleMR`
+  convention (owner decision 2026-11-13): the ratio standard errors
+  include the sampling error of the exposure associations. The standard
+  error, interval and p-value change, and the weighted-mode estimate can
+  move because its weights use the same standard errors.
+  `stderror="simple"` restores the earlier numbers, which are
+  `mr_mbe`'s default. `sp.mr("mode", ...)` follows.
+- ⚠️ **`sp.iv_mediate` defaults to `equations="joint"`** (owner decision
+  2026-11-13): the variance of the indirect effect keeps the covariance
+  between the three equations. Only the standard error, interval and
+  p-value of the indirect effect change. `equations="independent"`
+  restores Stata `ivmediate`'s numbers; `sp.from_stata` passes it when
+  it translates `ivmediate`.
 
 ### Added
 - **`sp.did_workflow`: a DiD study in nine graded steps.** Declare the

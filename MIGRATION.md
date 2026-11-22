@@ -5,7 +5,47 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44.6 → next release: ⚠️ `sp.did_analysis` diagnostics follow the main estimator; `sp.did_workflow`
+## 1.44 → 1.45: announced defaults take effect
+
+Five defaults that 1.44.0 and 1.44.1 announced with a `FutureWarning`
+changed in 1.45.0. The warnings are gone. A call that named the argument
+is unaffected; a call that relied on the default gets new numbers. The
+right-hand column restores the earlier ones.
+
+| Call | 1.45 default | To keep the 1.44 numbers |
+| --- | --- | --- |
+| `sp.dml(model="plr")`, `sp.DoubleML(model="plr")` without `ml_g` / `ml_m` | short stacking over Lasso, Ridge, random forest and gradient boosting | `ml_g="gbm", ml_m="gbm"` |
+| `sp.stacked_did(family="gaussian")` | `crit_dist="t"`, that is t(G-1) | `crit_dist="normal"` |
+| `sp.rkd` | `headline="robust"` | `headline="conventional"` |
+| `sp.mr_mode`, `sp.mr("mode", ...)` | `stderror="delta"` | `stderror="simple"` |
+| `sp.iv_mediate` | `equations="joint"` | `equations="independent"` |
+
+What moves in each case.
+
+- **`sp.dml` PLR.** The estimate and its standard error. A default fit
+  cross-fits four learners and takes six to seven times as long. Short
+  stacking covered better than gradient boosting on eleven of fifteen
+  simulated cells and worse under smooth additive confounding in ten
+  covariates (0.720 against 0.863 at n = 500). With interacting
+  confounders neither covers. `model_info["ml_g"]` reads `"ShortStack"`
+  and `model_info["stacking"]` holds the weights. Code that reads
+  `fit.ml_g` as a scikit-learn estimator should pass a learner. IRM, PLIV
+  and IIVM are unchanged.
+- **`sp.stacked_did`.** p-values and confidence intervals of the ATT and
+  of every event-study row. Estimates and standard errors do not move.
+  `family="poisson"` is unchanged. The stacked row of `sp.did_summary`
+  follows.
+- **`sp.rkd`.** `estimate`, `se`, `pvalue` and `ci`. The earlier headline
+  is still in `model_info["conventional"]`.
+- **`sp.mr_mode`.** The standard error, interval and p-value, and the
+  weighted-mode estimate where the weights change the mode. To match
+  `MendelianRandomization::mr_mbe` at its own default, pass
+  `stderror="simple"`.
+- **`sp.iv_mediate`.** The standard error, interval and p-value of the
+  indirect effect only. To match Stata `ivmediate`, pass
+  `equations="independent"`.
+
+## 1.44.6 → 1.45: ⚠️ `sp.did_analysis` diagnostics follow the main estimator; `sp.did_workflow`
 
 `sp.did_analysis` keeps its signature and its `main_result`. What it
 reports *about* that result changes, because three of the diagnostics

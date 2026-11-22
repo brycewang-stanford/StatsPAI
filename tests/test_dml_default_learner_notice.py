@@ -1,13 +1,14 @@
-"""Announced change of the ``sp.dml(model='plr')`` default learners.
+"""The ``sp.dml(model='plr')`` default learners after the 1.45 switch.
 
-The gradient-boosting default under-covers in the package's Monte Carlo
-checks (``tests/coverage_monte_carlo/mechanisms/results_dml_plr_learners.json``
-and ``tests/reliability/dml_learners_results.json``), so it is announced to
-be replaced no earlier than 1.45, by short stacking
-(``tests/reliability/dml_default_candidates.py`` records the choice).
-Today's numbers stay; a PLR call that
-relies on a default learner gets a ``FutureWarning`` naming it, and the pin
-the warning names reproduces the default bit for bit.
+Gradient boosting, the default through 1.44, under-covers in the
+package's Monte Carlo checks
+(``tests/coverage_monte_carlo/mechanisms/results_dml_plr_learners.json``
+and ``tests/reliability/dml_learners_results.json``). 1.44 announced its
+replacement by short stacking with a ``FutureWarning``
+(``tests/reliability/dml_default_candidates.py`` records the choice) and
+1.45 made the switch. The tests pin the switch: an unset PLR nuisance is
+the default roster, the warning is gone, and ``'gbm'`` builds the
+earlier default exactly.
 """
 
 from __future__ import annotations
@@ -42,41 +43,51 @@ def _future(fn):
     return out, [w for w in caught if issubclass(w.category, FutureWarning)]
 
 
-def test_default_plr_warns_at_the_callers_line(data):
-    _, fw = _future(lambda: sp.dml(data, y="y", treat="d", covariates=X))
-    assert len(fw) == 1
-    msg = str(fw[0].message)
-    assert "ml_g and ml_m not given" in msg
-    assert "From 1.45 (no earlier) the default is short stacking" in msg
-    assert "sp.dml_model_averaging" in msg
-    assert "ml_g='gbm', ml_m='gbm'" in msg
-    assert fw[0].filename == __file__
+def test_default_plr_is_short_stacking_and_silent(data):
+    default, fw = _future(lambda: sp.dml(data, y="y", treat="d", covariates=X))
+    assert fw == []
+    stack = sp.dml(data, y="y", treat="d", covariates=X, ml_g="stack", ml_m="stack")
+    assert float(default.estimate) == float(stack.estimate)
+    assert float(default.se) == float(stack.se)
+    assert default.model_info["ml_g"] == default.model_info["ml_m"] == "ShortStack"
 
 
-def test_the_named_pin_reproduces_the_default_bit_for_bit(data):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", FutureWarning)
-        default = sp.dml(data, y="y", treat="d", covariates=X)
+def test_gbm_alias_builds_the_default_before_1_45(data):
+    from sklearn.ensemble import GradientBoostingRegressor
+
+    def old():
+        return GradientBoostingRegressor(
+            n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42
+        )
+
     kept, fw = _future(
         lambda: sp.dml(data, y="y", treat="d", covariates=X, ml_g="gbm", ml_m="gbm")
     )
     assert fw == []
-    assert float(kept.estimate) == float(default.estimate)
-    assert float(kept.se) == float(default.se)
+    explicit = sp.dml(data, y="y", treat="d", covariates=X, ml_g=old(), ml_m=old())
+    assert float(kept.estimate) == float(explicit.estimate)
+    assert float(kept.se) == float(explicit.se)
 
 
-def test_one_learner_given_warns_for_the_other(data):
-    _, fw = _future(lambda: sp.dml(data, y="y", treat="d", covariates=X, ml_g="linear"))
-    assert len(fw) == 1
-    assert str(fw[0].message).startswith("dml(model='plr'): ml_m not given")
+def test_one_learner_given_stacks_the_other(data):
+    half, fw = _future(
+        lambda: sp.dml(data, y="y", treat="d", covariates=X, ml_g="linear")
+    )
+    assert fw == []
+    full = sp.dml(data, y="y", treat="d", covariates=X, ml_g="linear", ml_m="stack")
+    assert float(half.estimate) == float(full.estimate)
+    assert float(half.se) == float(full.se)
+    assert half.model_info["ml_m"] == "ShortStack"
+    assert "ml_g" not in half.model_info["stacking"]
 
 
-def test_class_entry_point_warns_on_fit(data):
+def test_class_entry_point_follows(data):
     est = sp.DoubleML(data, "y", "d", X, "plr", ml_m="linear")
-    _, fw = _future(est.fit)
-    assert len(fw) == 1
-    assert "ml_g not given" in str(fw[0].message)
-    assert fw[0].filename == __file__
+    fit, fw = _future(est.fit)
+    assert fw == []
+    direct = sp.dml(data, y="y", treat="d", covariates=X, ml_m="linear")
+    assert float(fit.estimate) == float(direct.estimate)
+    assert float(fit.se) == float(direct.se)
 
 
 @pytest.mark.parametrize("model", ["irm", "iivm"])

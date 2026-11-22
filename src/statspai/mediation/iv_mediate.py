@@ -17,8 +17,9 @@ The indirect effect is the product of the coefficient in (2) and the
 
 Numerical contract
 ------------------
-This follows Stata's ``ivmediate`` (SSC, version 1.0.4) exactly, which was
-used as a black box (``tests/reference_parity/test_iv_mediate_stata_parity.py``):
+With ``equations="independent"`` this follows Stata's ``ivmediate`` (SSC,
+version 1.0.4) exactly, which was used as a black box
+(``tests/reference_parity/test_iv_mediate_stata_parity.py``):
 
 - covariates, the fixed effect and the constant are partialled out of
   ``Y``, ``T``, ``M`` and ``Z`` first (Frisch-Waugh-Lovell);
@@ -342,8 +343,9 @@ def iv_mediate(
     """Total, direct and indirect effects with one instrument (``ivmediate``).
 
     Implements the instrumental-variables mediation estimator of Dippel,
-    Ferrara and Heblich [@dippel2020causal], reproducing Stata's
-    ``ivmediate`` (SSC) to rounding. The treatment and the mediator may both
+    Ferrara and Heblich [@dippel2020causal]. With
+    ``equations="independent"`` it reproduces Stata's ``ivmediate`` (SSC)
+    to rounding. The treatment and the mediator may both
     be endogenous; the single instrument ``instrument`` moves the treatment.
     Three IV regressions on variables with ``covariates``, the fixed effect
     ``absorb`` and the constant partialled out:
@@ -355,8 +357,9 @@ def iv_mediate(
 
     The indirect effect is the product of the second coefficient and the
     ``M`` coefficient of the third; its standard error is the delta method
-    with the equations treated as independent, as ``ivmediate`` does
-    (``equations="joint"`` keeps the covariance between equations).
+    on the three equations stacked as one system
+    (``equations="independent"`` drops the covariance between equations,
+    as ``ivmediate`` does).
 
     Parameters
     ----------
@@ -403,9 +406,12 @@ def iv_mediate(
         (``tests/reliability/se_screen/causal/mediation.py``). Point
         estimates, and the standard errors of the total and direct
         effects, do not depend on it. Not given, the call uses
-        ``"independent"`` and warns (``FutureWarning``): a later release
-        makes ``"joint"`` the default (owner decision 2026-11-13).
-        Passing either value is silent.
+        ``"joint"``.
+
+        .. versionchanged:: 1.45
+           The default is ``"joint"``; it was ``"independent"``. Pass
+           ``equations="independent"`` for the ``ivmediate`` standard
+           error, interval and p-value of the indirect effect.
 
     Returns
     -------
@@ -473,22 +479,7 @@ def iv_mediate(
             recovery_hint="Use e.g. level=0.95.",
         )
     if equations is None:
-        from .._default_change import announce_default_change
-
-        announce_default_change(
-            "iv_mediate",
-            "equations",
-            today="'independent'",
-            later="'joint'",
-            why=(
-                "'independent' is the ivmediate variance of the indirect "
-                "effect, which drops the covariance between the equations; "
-                "'joint' keeps it (Stata gmm + nlcom). Only the standard "
-                "error, interval and p-value of the indirect effect differ; "
-                "estimates do not."
-            ),
-        )
-        equations = "independent"
+        equations = "joint"
     if equations not in ("independent", "joint"):
         raise MethodIncompatibility(
             f"equations must be 'independent' or 'joint', got {equations!r}.",

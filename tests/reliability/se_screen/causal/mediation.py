@@ -109,6 +109,10 @@ IV_INDIRECT, IV_DIRECT = 0.7 * 1.2, 0.3
 def _iv_mediate(which, link=0.6, **kw):
     """``link`` is the loading of the mediator's own error on the outcome."""
 
+    # Rows without equations= ran the default before 1.45; pinned so the
+    # script reproduces the stored numbers.
+    kw.setdefault("equations", "independent")
+
     def fit(rng):
         n = N
         z = rng.normal(size=n)

@@ -44,19 +44,8 @@ def _future(rec, option):
     ]
 
 
-def _assert_announced(rec, option, today, later):
-    """Exactly one announcement, naming both values, at the caller's line."""
-    found = _future(rec, option)
-    assert len(found) == 1, [str(w.message) for w in rec]
-    text = str(found[0].message)
-    assert f"{option}={today}" in text and f"{option}={later}" in text
-    assert "MIGRATION.md" in text
-    # attributed to this file, not to a wrapper inside the package
-    assert Path(found[0].filename).name == Path(__file__).name
-
-
 # ---------------------------------------------------------------------------
-# A2. sp.stacked_did(crit_dist=): normal today, t(G-1) later
+# A2. sp.stacked_did(crit_dist=): t(G-1) since 1.45, normal before
 # ---------------------------------------------------------------------------
 
 
@@ -77,21 +66,26 @@ def _stacked(df, **kw):
     )
 
 
-def test_stacked_did_default_announces_t(stack_panel):
+def test_stacked_did_default_is_t(stack_panel):
     default, rec = _run(_stacked, stack_panel)
-    _assert_announced(rec, "crit_dist", "'normal'", "'t'")
+    assert not _future(rec, "crit_dist")
     normal, rec_n = _run(_stacked, stack_panel, crit_dist="normal")
     t, rec_t = _run(_stacked, stack_panel, crit_dist="t")
     assert not _future(rec_n, "crit_dist") and not _future(rec_t, "crit_dist")
-    # today's numbers, exactly
+    # the default is t(G - 1) since 1.45, exactly
     assert (default.estimate, default.se, default.pvalue, default.ci) == (
-        normal.estimate,
-        normal.se,
-        normal.pvalue,
-        normal.ci,
+        t.estimate,
+        t.se,
+        t.pvalue,
+        t.ci,
     )
-    pd.testing.assert_frame_equal(default.detail, normal.detail)
+    pd.testing.assert_frame_equal(default.detail, t.detail)
     assert default.model_info["conventions"] == {
+        "parity": None,
+        "crit_dist": "t",
+        "crit_df": 239,
+    }
+    assert normal.model_info["conventions"] == {
         "parity": None,
         "crit_dist": "normal",
         "crit_df": None,
@@ -130,9 +124,9 @@ def test_stacked_did_t_matches_fixest(stack_panel, tag, alpha):
         assert es.loc[k, "ci_upper"] == pytest.approx(ref.loc[k, "ul"], rel=1e-7)
 
 
-def test_stacked_did_poisson_and_library_callers_do_not_warn(stack_panel):
+def test_stacked_did_poisson_stays_normal_and_did_summary_follows(stack_panel):
     d = stack_panel.assign(count=np.exp(stack_panel["y"] / 4).round())
-    _, rec = _run(
+    pois, rec = _run(
         sp.stacked_did,
         d,
         y="count",
@@ -143,8 +137,12 @@ def test_stacked_did_poisson_and_library_callers_do_not_warn(stack_panel):
         family="poisson",
     )
     assert not _future(rec, "crit_dist")
-    # sp.did_summary calls stacked_did on the user's behalf with today's
-    # rule pinned: no announcement, and the row holds today's numbers
+    assert pois.model_info["conventions"]["crit_dist"] == "normal"
+    assert pois.pvalue == pytest.approx(
+        2 * stats.norm.sf(abs(pois.estimate / pois.se)), rel=1e-12
+    )
+    # sp.did_summary calls stacked_did on the user's behalf at its
+    # default, so the row holds the t(G - 1) p-value
     summary, rec = _run(
         sp.did_summary,
         stack_panel,
@@ -165,7 +163,7 @@ def test_stacked_did_poisson_and_library_callers_do_not_warn(stack_panel):
             time="year",
             first_treat="first_treat",
             aggregation="treated_obs",
-            crit_dist="normal",
+            crit_dist="t",
         )
     assert (row["estimate"], row["se"], row["pvalue"]) == (
         direct.estimate,

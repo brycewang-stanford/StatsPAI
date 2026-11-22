@@ -233,17 +233,31 @@ def test_a_weighted_regress_is_its_own_cell(card):
     assert weighted["outputs"]["se"]["status"] == "not_covered"
 
 
-def test_default_learner_dml_is_stochastic_only_and_the_linear_row_is_a_near_miss(card):
+def test_default_learner_dml_has_no_row_and_the_linear_row_is_a_near_miss(card):
+    # Since 1.45 the PLR default is short stacking, which no artifact ran.
     fit = _quiet(sp.dml, card, y="lwage", d="educ", X=["exper", "black"], model="plr")
     scope = sp.validation_scope(fit)
-    assert scope["configuration"]["learners"] == "default"
-    assert scope["status"] == "stochastic_only"
+    assert scope["configuration"]["learners"] == "stack"
+    assert scope["status"] == "not_covered"
     assert scope["outputs"]["estimate"]["status"] == "not_covered"
-    assert scope["outputs"]["coverage"]["status"] == "coverage_simulation"
+    assert scope["outputs"]["coverage"]["status"] == "not_covered"
     assert any(
         n["artifact"].endswith("08_dml.py") and n["differs_in"] == "learners"
         for n in scope["near_misses"]
     )
+    # The Track B coverage row ran gradient boosting, the default before
+    # 1.45; it is reached by name.
+    gbm = sp.validation_scope(
+        function="dml",
+        model="plr",
+        score="partialling out",
+        learners="gbm",
+        n_folds="5",
+        n_rep="1",
+        ipw="n/a",
+    )
+    assert gbm["status"] == "stochastic_only"
+    assert gbm["outputs"]["coverage"]["status"] == "coverage_simulation"
 
 
 def test_user_supplied_boosting_learner_is_not_the_default_learner_row(card):

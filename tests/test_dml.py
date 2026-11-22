@@ -159,7 +159,8 @@ class TestDMLGeneral:
             dml(plr_data, y="y", treat="d", covariates=["x1"], n_folds=1)
 
     def test_default_plr_learners_carry_a_coverage_note(self, plr_data):
-        """The default PLR learners have below-nominal coverage evidence.
+        """The default PLR learners have below-nominal coverage in some
+        designs.
 
         The fit says so in ``model_info`` and ``summary()``; a supplied
         learner, and the IRM model, carry no such note.
@@ -168,7 +169,8 @@ class TestDMLGeneral:
 
         default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
         assert default.model_info["default_learners"] is True
-        assert "0.54 to 0.94" in default.model_info["learner_note"]
+        assert "short stacking" in default.model_info["learner_note"]
+        assert "0.72" in default.model_info["learner_note"]
         assert "Learner Note" in default.summary()
 
         supplied = dml(
@@ -186,29 +188,34 @@ class TestDMLGeneral:
             == dml(plr_data, y="y", treat="d", covariates=["x1", "x2"]).estimate
         )
 
-    def test_default_plr_learners_announce_a_change(self, plr_data):
-        """Default-learner PLR warns (FutureWarning) at the user's line;
-        the pin it names builds the same learners, so it keeps the
-        estimate to the last bit and is silent."""
+    def test_default_plr_learners_are_short_stacking(self, plr_data):
+        """Since 1.45 an unset PLR nuisance is short stacking: silent,
+        and equal to the explicit ``'stack'`` request to the last bit.
+        ``'gbm'`` still builds the default before 1.45."""
+        from sklearn.ensemble import GradientBoostingRegressor
 
-        with pytest.warns(FutureWarning, match=r"From 1\.45 \(no earlier\)") as rec:
-            default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
-        hits = [w for w in rec if issubclass(w.category, FutureWarning)]
-        assert len(hits) == 1
-        assert hits[0].filename == __file__
-
+        kw = dict(y="y", treat="d", covariates=["x1", "x2"])
         with warnings.catch_warnings():
             warnings.simplefilter("error", FutureWarning)
-            pinned = dml(
-                plr_data,
-                y="y",
-                treat="d",
-                covariates=["x1", "x2"],
-                ml_g="gbm",
-                ml_m="gbm",
-            )
-        assert pinned.estimate == default.estimate
-        assert pinned.se == default.se
+            default = dml(plr_data, **kw)
+            stack = dml(plr_data, ml_g="stack", ml_m="stack", **kw)
+            half = dml(plr_data, ml_g="stack", **kw)
+            gbm = dml(plr_data, ml_g="gbm", ml_m="gbm", **kw)
+        assert (default.estimate, default.se) == (stack.estimate, stack.se)
+        assert (half.estimate, half.se) == (stack.estimate, stack.se)
+        assert default.model_info["ml_g"] == "ShortStack"
+        assert default.model_info["stacking"]["ml_g"]["candidates"] == [
+            "lasso",
+            "ridge",
+            "rf",
+            "gbm",
+        ]
+        old = GradientBoostingRegressor(
+            n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42
+        )
+        explicit = dml(plr_data, ml_g=old, ml_m=old, **kw)
+        assert (gbm.estimate, gbm.se) == (explicit.estimate, explicit.se)
+        assert gbm.model_info["ml_g"] == "GradientBoostingRegressor"
 
     def test_default_irm_learners_carry_no_note(self):
         rng = np.random.default_rng(0)

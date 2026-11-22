@@ -344,10 +344,15 @@ def test_one_stacked_nuisance_and_duplicate_labels():
     assert np.allclose(r.model_info["_d_resid"], ref.model_info["_d_resid"])
 
 
-def test_announcement_is_silent_for_a_roster_and_names_it():
+def test_the_default_is_the_stack_and_is_silent():
+    """Since 1.45 an unset PLR nuisance is the default roster."""
     df = _data(n=120)
     with warnings.catch_warnings():
         warnings.simplefilter("error", FutureWarning)
         sp.dml(df, y="y", treat="d", covariates=COV, ml_g=["ols"], ml_m=["ols"])
-    with pytest.warns(FutureWarning, match="ml_g='stack', ml_m='stack'"):
-        sp.dml(df, y="y", treat="d", covariates=COV, n_folds=2)
+        default = sp.dml(df, y="y", treat="d", covariates=COV, n_folds=2)
+        stack = sp.dml(
+            df, y="y", treat="d", covariates=COV, n_folds=2, ml_g="stack", ml_m="stack"
+        )
+    assert (default.estimate, default.se) == (stack.estimate, stack.se)
+    assert default.model_info["stacking"] == stack.model_info["stacking"]

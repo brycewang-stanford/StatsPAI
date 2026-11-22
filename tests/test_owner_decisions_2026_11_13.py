@@ -1,14 +1,12 @@
 """Owner decisions of 2026-11-13 (``docs/dev/2026-11-13-owner-decisions.md``).
 
-Four defaults are announced now and switched in a later release. For each
-one the tests pin the three properties of the announcement:
+Four defaults were announced in 1.44 and switched in 1.45. For each one
+the tests pin the properties of the switch:
 
-* a call that relies on the default gets a ``FutureWarning`` naming the
-  option;
-* passing the option explicitly, with either value, is silent;
-* the default still returns today's numbers (it equals the explicit call
-  with today's value, exactly), and the announced value returns the
-  reference's numbers (an identity, or a number of the reference program).
+* a call that relies on the default is silent (the ``FutureWarning`` of
+  1.44 is gone) and equals the explicit call with the new value, exactly;
+* the earlier value is still available and returns the earlier numbers
+  (an identity, or a number of the reference program).
 
 This file holds ``sp.mr_mode``, ``sp.rkd`` and ``sp.iv_mediate``, the
 dose-response headline and the swapped-policy errors of the two
@@ -46,19 +44,13 @@ def _future(rec, option):
     ]
 
 
-def _assert_announced(rec, option, today, later):
-    """Exactly one announcement, naming both values, at the caller's line."""
-    found = _future(rec, option)
-    assert len(found) == 1, [str(w.message) for w in rec]
-    text = str(found[0].message)
-    assert f"{option}={today}" in text and f"{option}={later}" in text
-    assert "MIGRATION.md" in text
-    # attributed to this file, not to a wrapper inside the package
-    assert Path(found[0].filename).name == Path(__file__).name
+def _assert_switched(rec, option):
+    """1.45 switched the default: the announcement is gone."""
+    assert not _future(rec, option), [str(w.message) for w in rec]
 
 
 # ---------------------------------------------------------------------------
-# A1. sp.mr_mode(stderror=): 'simple' today, 'delta' later
+# A1. sp.mr_mode(stderror=): 'delta' since 1.45, 'simple' before
 # ---------------------------------------------------------------------------
 
 
@@ -72,10 +64,10 @@ def mr_arrays():
     return bx, by, sx, sy
 
 
-def test_mr_mode_default_announces_delta(mr_arrays):
+def test_mr_mode_default_is_delta(mr_arrays):
     bx, by, sx, sy = mr_arrays
     default, rec = _run(sp.mr_mode, bx, by, sx, sy, n_boot=200, seed=3)
-    _assert_announced(rec, "stderror", "'simple'", "'delta'")
+    _assert_switched(rec, "stderror")
     simple, rec_s = _run(
         sp.mr_mode, bx, by, sx, sy, n_boot=200, seed=3, stderror="simple"
     )
@@ -83,25 +75,27 @@ def test_mr_mode_default_announces_delta(mr_arrays):
         sp.mr_mode, bx, by, sx, sy, n_boot=200, seed=3, stderror="delta"
     )
     assert not _future(rec_s, "stderror") and not _future(rec_d, "stderror")
-    # today's numbers, exactly
+    # the default is 'delta' since 1.45, exactly
     assert (default.estimate, default.se, default.ci, default.p_value) == (
-        simple.estimate,
-        simple.se,
-        simple.ci,
-        simple.p_value,
+        delta.estimate,
+        delta.se,
+        delta.ci,
+        delta.p_value,
     )
+    assert default.se != simple.se
     # the dispatcher relies on the same default
-    _, rec_disp = _run(
+    disp, rec_disp = _run(
         sp.mr,
         "mode",
         beta_exposure=bx,
         beta_outcome=by,
         se_exposure=sx,
         se_outcome=sy,
-        n_boot=50,
+        n_boot=200,
         seed=3,
     )
-    assert len(_future(rec_disp, "stderror")) == 1
+    assert not _future(rec_disp, "stderror")
+    assert (disp.estimate, disp.se) == (delta.estimate, delta.se)
     assert delta.method == simple.method == "weighted-mode"
 
 
@@ -121,7 +115,7 @@ def test_mr_mode_delta_uses_second_order_ratio_se(mr_arrays):
 
 
 # ---------------------------------------------------------------------------
-# A3. sp.rkd(headline=): conventional today, robust later
+# A3. sp.rkd(headline=): robust since 1.45, conventional before
 # ---------------------------------------------------------------------------
 
 
@@ -134,19 +128,20 @@ def kink_data():
     return pd.DataFrame({"y": y, "x": x})
 
 
-def test_rkd_default_announces_robust_headline(kink_data):
+def test_rkd_default_is_the_robust_headline(kink_data):
     default, rec = _run(sp.rkd, kink_data, y="y", x="x", c=0)
-    _assert_announced(rec, "headline", "'conventional'", "'robust'")
+    _assert_switched(rec, "headline")
     conv, rec_c = _run(sp.rkd, kink_data, y="y", x="x", c=0, headline="conventional")
     rob, rec_r = _run(sp.rkd, kink_data, y="y", x="x", c=0, headline="robust")
     assert not _future(rec_c, "headline") and not _future(rec_r, "headline")
-    # today's numbers, exactly
+    # the default is 'robust' since 1.45, exactly
     assert (default.estimate, default.se, default.pvalue, default.ci) == (
-        conv.estimate,
-        conv.se,
-        conv.pvalue,
-        conv.ci,
+        rob.estimate,
+        rob.se,
+        rob.pvalue,
+        rob.ci,
     )
+    assert default.model_info["headline"] == "robust"
     assert conv.estimate == conv.model_info["conventional"]["estimate"]
     assert conv.se == conv.model_info["conventional"]["se"]
     # both sets of numbers are stored whatever the headline
@@ -181,7 +176,7 @@ def test_rkd_robust_headline_is_rdrobust_deriv_1(kink_data):
 
 
 # ---------------------------------------------------------------------------
-# A4. sp.iv_mediate(equations=): independent today, joint later
+# A4. sp.iv_mediate(equations=): joint since 1.45, independent before
 # ---------------------------------------------------------------------------
 
 
@@ -196,16 +191,16 @@ def ivm_data():
     return pd.DataFrame({"y": y, "t": t, "m": m, "z": z})
 
 
-def test_iv_mediate_default_announces_joint(ivm_data):
+def test_iv_mediate_default_is_joint(ivm_data):
     kw = dict(y="y", treat="t", mediator="m", instrument="z")
     default, rec = _run(sp.iv_mediate, ivm_data, **kw)
-    _assert_announced(rec, "equations", "'independent'", "'joint'")
+    _assert_switched(rec, "equations")
     indep, rec_i = _run(sp.iv_mediate, ivm_data, equations="independent", **kw)
     joint, rec_j = _run(sp.iv_mediate, ivm_data, equations="joint", **kw)
     assert not _future(rec_i, "equations") and not _future(rec_j, "equations")
-    # today's numbers, exactly
-    pd.testing.assert_frame_equal(default.estimates, indep.estimates)
-    pd.testing.assert_frame_equal(default.vcov, indep.vcov)
+    # the default is 'joint' since 1.45, exactly
+    pd.testing.assert_frame_equal(default.estimates, joint.estimates)
+    pd.testing.assert_frame_equal(default.vcov, joint.vcov)
     # 'joint' changes the variance of the indirect effect only
     np.testing.assert_array_equal(
         joint.estimates["coef"].to_numpy(), indep.estimates["coef"].to_numpy()

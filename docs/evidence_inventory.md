@@ -17,7 +17,7 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `did_2x2` | 80 | 20 / 80 | 20 / 80 | -- | -- | -- | 3 / 80 | 20 / 80 |
 | `did_imputation` | 240 | 36 / 240 | 13 / 240 | 1 / 240 | -- | -- | -- | 12 / 240 |
 | `did_multiplegt_dyn` | 18432 | 136 / 18432 | 37 / 18432 | 26 / 18432 | 36 / 18432 | -- | -- | 37 / 18432 |
-| `dml` | 9120 | 33 / 9120 | 30 / 9120 | -- | -- | -- | -- | 30 / 9120 |
+| `dml` | 15200 | 33 / 15200 | 30 / 15200 | -- | -- | -- | -- | 30 / 15200 |
 | `ebalance` | 16 | 10 / 16 | 3 / 16 | -- | -- | -- | -- | 3 / 16 |
 | `etwfe` | 128 | 16 / 128 | 16 / 128 | 3 / 128 | -- | -- | -- | 16 / 128 |
 | `etwfe_glm` | 2880 | 51 / 2880 | 36 / 2880 | -- | -- | -- | -- | 36 / 2880 |
@@ -80,9 +80,9 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `did_multiplegt_dyn` | se | 0 | 1 | 0 | 0 | 18394 |
 | `did_multiplegt_dyn` | vcov | 0 | 0 | 0 | 0 | 18406 |
 | `did_multiplegt_dyn` | joint_test | 0 | 0 | 0 | 0 | 18396 |
-| `dml` | estimate | 0 | 0 | 0 | 0 | 9087 |
-| `dml` | se | 0 | 0 | 0 | 3 | 9087 |
-| `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
+| `dml` | estimate | 0 | 0 | 0 | 0 | 15167 |
+| `dml` | se | 0 | 0 | 0 | 3 | 15167 |
+| `dml` | coverage | 0 | 0 | 2 | 0 | 15198 |
 | `ebalance` | estimate | 0 | 0 | 0 | 0 | 6 |
 | `ebalance` | se | 0 | 0 | 0 | 3 | 10 |
 | `etwfe` | estimate | 0 | 0 | 0 | 0 | 112 |
@@ -339,7 +339,7 @@ Dimensions: `se_method` in {analytic, bootstrap}; `aggregation` in {simple, swit
 
 ### `dml`
 
-Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-type, ate, atte, late}; `learners` in {linear, default, other}; `n_folds` in {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}; `n_rep` in {1, >1}; `ipw` in {n/a, trim0.01, trim1e-12, other}.
+Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-type, ate, atte, late}; `learners` in {linear, default, stack, gbm, other}; `n_folds` in {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}; `n_rep` in {1, >1}; `ipw` in {n/a, trim0.01, trim1e-12, other}.
 
 | Kind | Outputs | Configuration run | Artifact | Entry point |
 | --- | --- | --- | --- | --- |
@@ -349,7 +349,7 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T2 | estimate, se | model=iivm; score=late; learners=linear; n_folds=5; n_rep=1; ipw=trim1e-12 | `tests/r_parity/71_dml_family.py` | `sp.dml(model='iivm')` |
 | T2 | estimate, se | model=plr; score=partialling out; learners=other; n_folds=4; n_rep=1; ipw=n/a | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='plr')` |
 | T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=4; n_rep=1; ipw=trim0.01 | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='irm')` |
-| B | coverage | model=plr; score=partialling out; learners=default; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5)` |
+| B | coverage | model=plr; score=partialling out; learners=gbm; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5, ml_g='gbm', ml_m='gbm')` |
 | B | coverage | model=irm; score=ate; learners=default; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='dml')` |
 | T2 | estimate, se | model=plr; score=iv-type; learners=linear; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |
 | T2 | estimate, se | model=plr; score=iv-type; learners=other; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |

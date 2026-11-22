@@ -25,7 +25,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
-from ._base import _announce_plr_default_change, _DoubleMLBase
+from ._base import _DoubleMLBase
 from ._external_predictions import build_oof_provenance_payload
 from .iivm import DoubleMLIIVM
 from .irm import DoubleMLIRM
@@ -111,7 +111,9 @@ def dml(
         target that is not 0/1 is refused. Up to 1.38.0 these two models
         called ``predict`` on a classifier and residualised on the hard
         label.
-        ``None`` falls back to the per-model gradient-boosting default.
+        ``None`` falls back to the per-model default: short stacking
+        (``'stack'``, below) for the ``ml_g`` and ``ml_m`` of
+        ``model='plr'``, gradient boosting elsewhere.
         For ``model='plr'``, ``ml_g`` and ``ml_m`` also take a roster,
         combined by short stacking (Ahrens, Hansen, Schaffer and Wiemann
         2025 [@ahrens2025model]): ``'stack'`` is Lasso, Ridge, random
@@ -264,29 +266,36 @@ def dml(
       (unit-clustered panel PLR), not in this cross-sectional entry
       point.
 
-    Default learners and coverage. When no learners are passed, the
-    nuisances are fitted by gradient boosting (100 trees, depth 3). That
-    default is a convenience, not a validated choice: on the Track B PLR
-    design (n = 500, nonlinear nuisances) its regularisation bias is about
-    half a Monte Carlo SD and the 95% interval covers 0.89 (0.94 at
-    n = 2,000), while the true nuisance functions give 0.95 and a random
-    forest or a spline Lasso about 0.94
-    (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``). The
+    Default learners and coverage. When no learners are passed, the PLR
+    nuisances are fitted by short stacking over Lasso, Ridge, random
+    forest and gradient boosting, and the nuisances of the other models
+    by gradient boosting (100 trees, depth 3). A default is a
+    convenience, not a validated choice. Gradient boosting alone, the PLR
+    default before 1.45, has a regularisation bias of about half a Monte
+    Carlo SD on the Track B PLR design (n = 500, nonlinear nuisances) and
+    its 95% interval covers 0.89 (0.94 at n = 2,000), while the true
+    nuisance functions give 0.95 and a random forest or a spline Lasso
+    about 0.94
+    (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``).
+    Short stacking covers 0.96 there and better than gradient boosting
+    under linear confounding, but less under smooth additive confounding
+    in ten covariates (0.72 against 0.86 at n = 500), and no learner of
+    the roster covers when the confounders interact
+    (``tests/reliability/dml_default_candidates.py``). It cross-fits four
+    learners, so a default fit takes six to seven times as long. The
     orthogonal score makes nuisance error second order, not zero; pass
     learners suited to the problem, and check ``sp.validation_scope`` for
     which learner configurations carry evidence.
     A PLR fit that used the defaults records this in
     ``model_info["learner_note"]``, which ``summary()`` prints.
 
-    Announced change: from 1.45 (no earlier) the PLR default is short
-    stacking over Lasso, Ridge, random forest and gradient boosting, the
-    estimator ``sp.dml_model_averaging`` fits now. A PLR call that leaves
-    ``ml_g`` or ``ml_m`` unset warns (``FutureWarning``) unless it passes
-    ``external_predictions``.
-    ``ml_g='gbm', ml_m='gbm'`` builds exactly today's default learners, so
-    it keeps current estimates and silences the warning;
-    ``ml_g='stack', ml_m='stack'`` fits the 1.45 default now. IRM, PLIV
-    and IIVM defaults are not part of the change.
+    .. versionchanged:: 1.45
+       A PLR nuisance left unset (``ml_g`` or ``ml_m``) is fitted by short
+       stacking over Lasso, Ridge, random forest and gradient boosting,
+       the estimator of ``sp.dml_model_averaging``; it was gradient
+       boosting alone. ``ml_g='gbm', ml_m='gbm'`` builds exactly the
+       earlier default learners and reproduces the earlier estimates.
+       IRM, PLIV and IIVM defaults did not change.
 
     Examples
     --------
@@ -356,8 +365,6 @@ def dml(
                 "did_you_mean": close,
             },
         )
-    if key == "plr" and external_predictions is None:
-        _announce_plr_default_change(ml_g is None, ml_m is None)
     estimator_cls = _MODEL_REGISTRY[key]
     estimator = estimator_cls(
         data=data,
@@ -498,7 +505,6 @@ class DoubleML:
                 f"model must be one of {self._VALID_MODELS}, got '{model}'"
             )
         self.model = key
-        self._unset_learners = (ml_g is None, ml_m is None)
         self._impl: _DoubleMLBase = _MODEL_REGISTRY[key](
             data=data,
             y=y,
@@ -565,8 +571,6 @@ class DoubleML:
         ----------
         See ``docs/dml_oof_audit.md`` for the audit contract.
         """
-        if self.model == "plr" and external_predictions is None:
-            _announce_plr_default_change(*self._unset_learners)
         return self._impl.fit(
             external_predictions=external_predictions,
             store_oof=store_oof,

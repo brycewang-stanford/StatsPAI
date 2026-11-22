@@ -21615,7 +21615,7 @@
     "name": "iv_forest"
   },
   {
-    "description": "Causal mediation with one instrument (Dippel, Ferrara and Heblich 2020; Stata ivmediate). Treatment and mediator may both be endogenous; the instrument for the treatment identifies the total, direct and indirect effects through three just-identified IV regressions on partialled-out data. Numbers equal Stata ivmediate 1.0.4 to rounding. Validation: certified parity evidence. Assumptions: Instrument exogenous and excluded from the outcome and mediator equations except through the treatment; The unobservables confounding treatment and mediator are not those confounding mediator and outcome (Dippel, Ferrara and Heblich), so the treatment is exogenous in the outcome equation once the mediator is instrumented; Linear, constant effects. Pre-conditions: one excluded instrument that moves the treatment; mediator varies given the treatment and the controls. Failure modes: First-stage F below 10 for the treatment or the mediator -> Weak instrument: effects and normal intervals are unreliable; report the two F statistics and consider a stronger instrument; Mediator is a linear function of treatment and controls -> The mediator effect holding the treatment fixed is not identified; use a mediat...",
+    "description": "Causal mediation with one instrument (Dippel, Ferrara and Heblich 2020; Stata ivmediate). Treatment and mediator may both be endogenous; the instrument for the treatment identifies the total, direct and indirect effects through three just-identified IV regressions on partialled-out data. With equations='independent' the numbers equal Stata ivmediate 1.0.4 to rounding. Validation: certified parity evidence. Assumptions: Instrument exogenous and excluded from the outcome and mediator equations except through the treatment; The unobservables confounding treatment and mediator are not those confounding mediator and outcome (Dippel, Ferrara and Heblich), so the treatment is exogenous in the outcome equation once the mediator is instrumented; Linear, constant effects. Pre-conditions: one excluded instrument that moves the treatment; mediator varies given the treatment and the controls. Failure modes: First-stage F below 10 for the treatment or the mediator -> Weak instrument: effects and normal intervals are unreliable; report the two F statistics and consider a stronger instrument; Mediator is a linear function of treatment and controls -> The mediator effect holding the treatment fixe...",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -21637,7 +21637,7 @@
           "x-statspai-role": "columns"
         },
         "equations": {
-          "description": "Covariance between the three equations in the variance of the indirect effect: 'independent' sets it to zero (ivmediate); 'joint' keeps it (sandwich of the stacked system, equal to Stata gmm + nlcom). They differ when the mediator and outcome errors are correlated, where 'independent' was 25% too large or 13% too small in simulation. Not given: 'independent' with a FutureWarning ('joint' becomes the default in a later release)",
+          "description": "Covariance between the three equations in the variance of the indirect effect: 'independent' sets it to zero (ivmediate); 'joint' keeps it (sandwich of the stacked system, equal to Stata gmm + nlcom). They differ when the mediator and outcome errors are correlated, where 'independent' was 25% too large or 13% too small in simulation. Not given: 'joint' (since 1.45; 'independent' before)",
           "enum": [
             "independent",
             "joint"
@@ -38655,7 +38655,7 @@
           "type": "number"
         },
         "headline": {
-          "description": "Which estimate fills ``estimate`` / ``se`` / ``pvalue`` / ``ci``. ``'conventional'`` is the local polynomial kink estimate with its HC1 (or cluster) standard error. ``'robust'`` is the bias-corrected estimate with the robust standard error and interval, the headline of ``sp.rdrobust`` and of R / Stata ``rdrobust``. At the MSE-optimal bandwidth the conventional interval ignores the smoothing bias and under-covers (bias 0.23 sampling SDs and SE / SD 0.79 in the 2026-11-13 calibration screen); the robust one is built for that bandwidth. Both sets of numbers are always in ``model_info['conventional']`` and ``model_info['robust']``. Not given, the call reports ``'conventional'`` and warns (``FutureWarning``): a later release makes ``'robust'`` the default (owner decision 2026-11-13). Passing either value is silent.",
+          "description": "Which estimate fills ``estimate`` / ``se`` / ``pvalue`` / ``ci``. ``'conventional'`` is the local polynomial kink estimate with its HC1 (or cluster) standard error. ``'robust'`` is the bias-corrected estimate with the robust standard error and interval, the headline of ``sp.rdrobust`` and of R / Stata ``rdrobust``. At the MSE-optimal bandwidth the conventional interval ignores the smoothing bias and under-covers (bias 0.23 sampling SDs and SE / SD 0.79 in the 2026-11-13 calibration screen); the robust one is built for that bandwidth. Both sets of numbers are always in ``model_info['conventional']`` and ``model_info['robust']``. Not given, the call reports ``'robust'``. .. versionchanged:: 1.45 The default is ``'robust'``; it was ``'conventional'``. Pass ``headline='conventional'`` for the earlier ``estimate``, ``se``, ``pvalue`` and ``ci``.",
           "enum": [
             "conventional",
             "robust"
@@ -42182,7 +42182,7 @@
           "x-statspai-role": "columns"
         },
         "crit_dist": {
-          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1), G the clusters of the stacked regression (Stata reghdfe, R fixest). 'normal': the normal distribution. Not given: 'normal' with a FutureWarning for family='gaussian' ('t' becomes the default in a later release); family='poisson' stays normal",
+          "description": "Critical-value rule; estimates and SEs unchanged. 't': t(G-1), G the clusters of the stacked regression (Stata reghdfe, R fixest). 'normal': the normal distribution. Not given: 't' for family='gaussian' (since 1.45; 'normal' before); family='poisson' stays normal",
           "enum": [
             "t",
             "normal"

@@ -5136,6 +5136,8 @@
         "learners": [
           "linear",
           "default",
+          "stack",
+          "gbm",
           "other"
         ],
         "n_folds": [
@@ -5175,26 +5177,26 @@
         "se"
       ],
       "invariant": {},
-      "cells": 9120,
+      "cells": 15200,
       "overall": {
         "covered": 30,
         "estimate_only": 3,
         "stochastic_only": 2,
-        "not_covered": 9085
+        "not_covered": 15165
       },
       "by_output": {
         "estimate": {
           "reference": 33,
-          "not_covered": 9087
+          "not_covered": 15167
         },
         "se": {
           "reference": 30,
           "disclosure": 3,
-          "not_covered": 9087
+          "not_covered": 15167
         },
         "coverage": {
           "coverage_simulation": 2,
-          "not_covered": 9118
+          "not_covered": 15198
         }
       },
       "rows": [
@@ -5382,7 +5384,7 @@
         {
           "kind": "B",
           "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
-          "entry_point": "sp.dml(model='plr', n_folds=5)",
+          "entry_point": "sp.dml(model='plr', n_folds=5, ml_g='gbm', ml_m='gbm')",
           "outputs": [
             "coverage"
           ],
@@ -5394,7 +5396,7 @@
               "partialling out"
             ],
             "learners": [
-              "default"
+              "gbm"
             ],
             "n_folds": [
               "5"
@@ -5406,7 +5408,7 @@
               "n/a"
             ]
           },
-          "compares": "95% CI coverage with the default learners: 0.883 (bias 0.5 MC SD, mean SE 0.88 of the MC SD); see mechanisms/dml_plr_learners.py"
+          "compares": "95% CI coverage with gradient boosting, the default before 1.45: 0.883 (bias 0.5 MC SD, mean SE 0.88 of the MC SD); see mechanisms/dml_plr_learners.py"
         },
         {
           "kind": "B",
@@ -20833,17 +20835,17 @@
       "reference": 3410,
       "seed_equivalence": 3,
       "disclosure": 4,
-      "not_covered": 294487
+      "not_covered": 300567
     },
     "se": {
       "reference": 1751,
       "stochastic_screen": 17,
       "disclosure": 32,
-      "not_covered": 296104
+      "not_covered": 302184
     },
     "coverage": {
       "coverage_simulation": 11,
-      "not_covered": 105577
+      "not_covered": 111657
     },
     "diagnostic": {
       "reference": 195,

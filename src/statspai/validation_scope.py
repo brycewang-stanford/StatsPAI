@@ -552,7 +552,12 @@ _LINEAR_LEARNERS = {"LinearRegression", "LogisticRegression"}
 def _x_dml(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     learners_used = {str(mi.get("ml_g")), str(mi.get("ml_m"))}
-    if mi.get("default_learners"):
+    if mi.get("default_learners") and learners_used == {"ShortStack"}:
+        # The PLR default since 1.45. Its predecessor, gradient boosting,
+        # is the value 'gbm', which no fitted result maps to: a supplied
+        # learner is not told apart from another of the same class.
+        learners = "stack"
+    elif mi.get("default_learners"):
         learners = "default"
     elif learners_used <= _LINEAR_LEARNERS:
         learners = "linear"
@@ -5084,7 +5089,7 @@ _add(
         {
             "model": ("plr", "irm", "pliv", "iivm"),
             "score": ("partialling out", "iv-type", "ate", "atte", "late"),
-            "learners": ("linear", "default", "other"),
+            "learners": ("linear", "default", "stack", "gbm", "other"),
             "n_folds": tuple(str(k) for k in range(2, 21)),
             "n_rep": ("1", ">1"),
             # propensity trimming / normalisation of the IRM and IIVM scores
@@ -5190,15 +5195,16 @@ _add(
                 {
                     "model": _vals("plr"),
                     "score": _vals("partialling out"),
-                    "learners": _vals("default"),
+                    "learners": _vals("gbm"),
                     "n_folds": _vals("5"),
                     "n_rep": _vals("1"),
                     "ipw": _vals("n/a"),
                 },
                 _COV,
-                "95% CI coverage with the default learners: 0.883 (bias 0.5 MC SD, "
-                "mean SE 0.88 of the MC SD); see mechanisms/dml_plr_learners.py",
-                "sp.dml(model='plr', n_folds=5)",
+                "95% CI coverage with gradient boosting, the default before "
+                "1.45: 0.883 (bias 0.5 MC SD, mean SE 0.88 of the MC SD); see "
+                "mechanisms/dml_plr_learners.py",
+                "sp.dml(model='plr', n_folds=5, ml_g='gbm', ml_m='gbm')",
             ),
             _Row(
                 "B",
@@ -5354,8 +5360,10 @@ _add(
             ),
         ),
         note="With default (flexible) learners the estimate depends on the learner, so "
-        "deterministic parity exists only for fixed learners and folds; the default-"
-        "learner PLR interval under-covers (0.883) on the Track B design. ipw 'other' "
+        "deterministic parity exists only for fixed learners and folds; the gradient-"
+        "boosting PLR interval (learners 'gbm', the default before 1.45) under-covers "
+        "(0.883) on the Track B design, and the short-stacking default since 1.45 "
+        "(learners 'stack') has no row. ipw 'other' "
         "rows ran trimming at 0.1 and normalize_ipw=True at the 0.01 threshold. "
         "n_folds 6-9 and 11-20 have no row. Under n_rep > 1 the per-repetition "
         "estimates and SEs and the median estimate match DoubleML, but the "
@@ -6410,7 +6418,7 @@ def validation_scope(
     **configuration
         Dimension values to use instead of (or in addition to) those read
         from ``result``, e.g. ``validation_scope(function="dml",
-        model="plr", learners="default", ...)``. Values must lie in the
+        model="plr", learners="stack", ...)``. Values must lie in the
         dimension's domain.
 
     Returns

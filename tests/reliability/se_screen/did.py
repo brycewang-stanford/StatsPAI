@@ -95,6 +95,11 @@ def d_block(rng, nu=40, nt=20, n_tr=10, t0=15, shift=0.5):
 
 # ------------------------------------------------------------------- fits
 def fit_stag(est, **kw):
+    if est == "stacked_did":
+        # The stored rows ran the default before 1.45 (normal critical
+        # values); pinned so the script reproduces them.
+        kw.setdefault("crit_dist", "normal")
+
     def fit(df):
         r = getattr(_sp(), est)(
             df, y="y", group="unit", time="t", first_treat="g", **kw

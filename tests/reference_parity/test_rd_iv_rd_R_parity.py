@@ -177,7 +177,7 @@ def test_rdrobust_deriv1_matches_stata(key, ST, kink):
     assert _rel([mi["bandwidth_h"], mi["bandwidth_b"]], [ref["h"], ref["b"]]) < 1e-8
     assert mi["polynomial_p"] == ref["p"]
     if "fuzzy" not in _KINK[key] and _KINK[key].get("vce") == "hc1":
-        rk = sp.rkd(kink, y="y", x="x", h=_KINK[key].get("h"))
+        rk = sp.rkd(kink, y="y", x="x", h=_KINK[key].get("h"), headline="conventional")
         assert _rel([rk.estimate, rk.se], [ref["coef"][0], ref["se"][0]]) < 1e-9
 
 
@@ -209,7 +209,11 @@ def test_rkd_matches_r(key, kw, R, kink):
     ref = R["kink"][key]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.rkd(kink, y="y", x="x", **kw)
+        r = sp.rkd(kink, y="y", x="x", headline="conventional", **kw)
+        default = sp.rkd(kink, y="y", x="x", **kw)
+    # The default headline (since 1.45) is the robust row of the reference.
+    assert _rel(default.estimate, ref["coef"][2]) < 1e-9
+    assert _rel(default.se, ref["se"][2]) < 1e-9
     assert _rel(r.estimate, ref["coef"][0]) < 1e-9
     # Through 1.28.0 the fuzzy SE was a delta method without the covariance
     # of the two kinks (3.6% off R on the h = 0.4 row).
