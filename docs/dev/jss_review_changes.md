@@ -6826,3 +6826,26 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `src/statspai/did/_flci.py`
+
+### 2026-11-23 — traces re-recorded (did_workflow absorb, guardrail, etwfe, pretrends)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `6dd79a289` re-records
+  `tests/r_parity/results/_implementation_trace.json` (modules 01, 14, 17,
+  35, 38, 51, 53, 54, 55, 56, 67, 76, 90) and
+  `tests/orig_parity/results/_implementation_trace.json` (modules 01, 04,
+  04b, 09).
+- **Reason.** `core/_design_guardrails.py` (the staggered-adoption check
+  reads the calendar nested in a group-by-period effect),
+  `did/wooldridge_did.py` (design columns attached in one concat) and
+  `did/pretrends.py` (integration tolerance above five pre-periods) are on
+  the traced paths of those modules.
+- **Effect on the paper.** None: every module was re-run without Rust
+  before re-recording and the committed results were kept. Differences are
+  rounding (at most 2.7e-10) except `76_pretrends` (1.7e-7, the
+  randomised integrator, whose tolerance is unchanged at its four
+  pre-periods).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
