@@ -6777,3 +6777,32 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-22 — release 1.45.0: five announced defaults switch
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `6c0250151` switches the defaults announced in 1.44.0 and
+  1.44.1 (`sp.dml` PLR learners, `sp.stacked_did(crit_dist=)`,
+  `sp.rkd(headline=)`, `sp.mr_mode(stderror=)`,
+  `sp.iv_mediate(equations=)`) and re-records
+  `tests/r_parity/results/_implementation_trace.json` for modules 08, 71
+  and 75.
+- **Reason.** `dml/_base.py`, `dml/double_ml.py`, `dml/plr.py` and
+  `did/stacked_did.py` are on the traced paths of those modules.
+- **Effect on the paper.** No Track A number: module 08 passes linear
+  learners, module 71 runs IRM, PLIV and IIVM, and module 75 records
+  estimates and standard errors, which the critical-value rule does not
+  touch. The three modules were re-run without Rust before re-recording
+  and the committed results were kept; differences are in the last
+  floating-point digit (at most 9.2e-15 relative). For the next
+  re-anchor: the manuscript's statements about the PLR default learner
+  (gradient boosting, coverage 0.883 on the Track B design) describe the
+  default before 1.45. `sp.validation_scope` now reports that row under
+  `learners='gbm'` and reports the 1.45 default as `learners='stack'`
+  with no coverage row. `docs/evidence_inventory.*`, `docs/scorecard.md`
+  and the schema files were regenerated.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `src/statspai/validation_scope.py`
