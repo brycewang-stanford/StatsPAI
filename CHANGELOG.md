@@ -22,6 +22,27 @@ effects beyond unit and period and no longer stalls on a long panel.
   of `sp.did_imputation(fe=[...])`, bit for bit. On noiseless data with
   region-by-year shocks the absorbed fit returns the true effect and the
   two-way fit does not (`tests/test_did_workflow_absorb_long_panel.py`).
+- **`wf.heterogeneity(by)`: effects by subgroup in `sp.did_workflow`.**
+  The heterogeneity analysis of Baker et al. (2026, section 4.5): the
+  units are split into the cells of a characteristic and the declared
+  analysis is run inside each, so every cell has its own comparison units
+  and its own parallel-trends assumption. Each row equals the workflow on
+  that cell's rows, bit for bit; the table carries each cell's share of
+  the treated units and the share-weighted average. A test that the cell
+  effects are equal is reported only when no cluster spans two cells. A
+  characteristic that changes within a unit is refused.
+- **`sp.did_workflow` carries the covariate balance table** (step 2,
+  `wf.step("design").evidence["balance"]`) when covariates are declared:
+  baseline levels and changes across the treatment date, weighted and
+  unweighted, the table Baker et al. (2026, section 4.1) ask for. It is
+  the output of `sp.did_balance` for the largest cohort. Reported, not
+  graded.
+- **The workflow report names the source of uncertainty** (new checklist
+  item) and **states the assumption the imputation estimator imposes**:
+  parallel trends between all groups in every period, pre-treatment
+  periods included, in place of the wording for a comparison with the
+  not-yet-treated. The guide `docs/guides/did_workflow.md` maps the eight
+  steps of Baker et al. to the workflow.
 - **Guide: "A staggered treatment on a multi-level panel"**
   (`docs/guides/did_multilevel_panel.md`). The usual tables of such a
   paper (two-way regression, event study, group heterogeneity, spillovers

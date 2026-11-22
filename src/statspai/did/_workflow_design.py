@@ -12,10 +12,10 @@ from ._workflow_common import (
     ESTIMATOR_LABEL,
     EVENT_WINDOW_DEFAULT_SPAN,
     FEW_CLUSTERS,
-    PT_TEXT,
     facts_of,
     fmt,
     pct,
+    pt_text,
 )
 from ._workflow_spec import DiDStep, design_facts
 
@@ -53,7 +53,7 @@ def run_declare(wf: "DiDWorkflow", step: DiDStep) -> None:
                 if o["control_group_implied"]
                 else source("control_group")
             ),
-            "Identifying assumption: " + PT_TEXT[o["control_group"]] + cov_text + ".",
+            "Identifying assumption: " + pt_text(o) + cov_text + ".",
         ),
         (
             "anticipation",
@@ -150,7 +150,7 @@ def run_declare(wf: "DiDWorkflow", step: DiDStep) -> None:
         step.status = "pass"
         step.finding = (
             f"Target: {ESTIMAND_TEXT[o['target']]}. Assumption: "
-            f"{PT_TEXT[o['control_group']]}{cov_text}. Clustered on "
+            f"{pt_text(o)}{cov_text}. Clustered on "
             f"{inp.cluster or inp.id!r}."
         )
 
@@ -293,6 +293,7 @@ def run_design(wf: "DiDWorkflow", step: DiDStep) -> None:
         )
 
     window_note = _default_window(wf, step, cohorts)
+    balance_note = _covariate_balance(wf, step) if not failures else ""
 
     head = (
         f"{facts['n_units']} units x {facts['n_periods']} periods; "
@@ -312,9 +313,67 @@ def run_design(wf: "DiDWorkflow", step: DiDStep) -> None:
         step.finding = head
     if window_note and not failures:
         step.finding += " " + window_note
+    if balance_note:
+        step.finding += " " + balance_note
     step.action = "; ".join(dict.fromkeys(actions))
     if failures:
         wf._blocked = "the design audit failed"
+
+
+def _covariate_balance(wf: "DiDWorkflow", step: DiDStep) -> str:
+    """Balance of the conditioning covariates, in levels and in changes.
+
+    Baker et al. (2026, section 4.1) ask for this table before covariates
+    enter: group means and normalised differences of the baseline levels
+    and of the changes across the treatment date, with and without the
+    weights. It describes the largest cohort against its comparison
+    group (balance is a two-group statistic). Their benchmark of 0.25 is
+    reported, not graded: the covariates are already conditioned on, and
+    the table says what that conditioning has to absorb.
+    """
+    from .balance import did_balance
+
+    inp = wf._inputs
+    o = wf._options
+    if not inp.covariates:
+        return ""
+    covariates = list(inp.covariates)
+    control = (
+        "nevertreated" if o["control_group"] == "nevertreated" else "notyettreated"
+    )
+    result = wf._optional(
+        step,
+        "did_balance",
+        lambda: did_balance(
+            inp.data,
+            covariates,
+            g=inp.cohort,
+            t=inp.time,
+            i=inp.id,
+            weights=inp.weights,
+            control_group=control,
+        ),
+    )
+    if result is None:
+        return ""
+    step.objects["balance"] = result
+    step.evidence["balance"] = result.table
+    step.evidence["balance_flagged"] = list(result.flagged)
+    worst = float(result.max_abs_norm_diff)
+    if result.flagged:
+        return (
+            f"Before conditioning, {', '.join(result.flagged)} differ"
+            f"{'s' if len(result.flagged) == 1 else ''} between the largest "
+            "cohort and its comparison group by more than "
+            f"{result.threshold:g} standard deviations in levels or in "
+            f"changes (largest {worst:.2f}); that is what conditioning has "
+            "to absorb. wf.step('design').evidence['balance'] has the table."
+        )
+    return (
+        "The covariates are balanced between the largest cohort and its "
+        f"comparison group (largest normalised difference {worst:.2f}, in "
+        "levels or in changes)."
+    )
 
 
 def _default_window(wf: "DiDWorkflow", step: DiDStep, cohorts: Any) -> str:

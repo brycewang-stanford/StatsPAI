@@ -21,7 +21,13 @@ Internal version-to-version migrations are at the top; the long-form
   unaffected.
 - **`sp.pretrends_power`** with more than five pre-periods moves in about
   the fifth digit (integration tolerance 1e-5 in place of 1e-7).
-- New, nothing to migrate: `sp.did_workflow(absorb=[...])`.
+- **`sp.did_workflow` report text.** `wf.checklist` gains the row
+  "Source of uncertainty" after "Standard errors"; read rows by `item`,
+  not by position. With `estimator="bjs"` the "Identifying assumption"
+  now reads "parallel trends between all groups in every period ...".
+  No number changes.
+- New, nothing to migrate: `sp.did_workflow(absorb=[...])`,
+  `wf.heterogeneity(by)`, the balance table in step 2.
 
 ## 1.45.0 → 1.45.1: ⚠️ smoothness FLCI of `sp.honest_did`
 

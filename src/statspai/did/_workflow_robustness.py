@@ -13,11 +13,11 @@ from ._workflow_common import (
     ESTIMAND_TEXT,
     ESTIMATOR_LABEL,
     JACKKNIFE_AUTO_MAX_CLUSTERS,
-    PT_TEXT,
     facts_of,
     fmt,
     headline_of,
     pct,
+    pt_text,
 )
 from ._workflow_spec import DiDStep
 
@@ -363,9 +363,9 @@ def run_report(wf: "DiDWorkflow", step: DiDStep) -> None:
 
     items.append(("Target parameter", ESTIMAND_TEXT[o["target"]]))
     cov = ", conditional on " + ", ".join(inp.covariates) if inp.covariates else ""
-    items.append(
-        ("Identifying assumption", PT_TEXT[o["control_group"]].capitalize() + cov)
-    )
+    if o.get("absorb"):
+        cov += ", within cells of " + ", ".join(o["absorb"])
+    items.append(("Identifying assumption", pt_text(o).capitalize() + cov))
     if facts:
         items.append(
             (
@@ -413,6 +413,14 @@ def run_report(wf: "DiDWorkflow", step: DiDStep) -> None:
                 f"({design.evidence.get('n_clusters')} clusters, "
                 f"{design.evidence.get('n_treated_clusters')} treated); "
                 "pointwise and simultaneous intervals reported",
+            )
+        )
+        items.append(
+            (
+                "Source of uncertainty",
+                f"sampling: the {inp.cluster or inp.id} clusters are treated "
+                "as independent draws from a larger population; treatment "
+                "dates and the comparison group are held fixed",
             )
         )
     if head is not None:

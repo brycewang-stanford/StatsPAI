@@ -70,6 +70,25 @@ PT_TEXT = {
     "lastcohort": "parallel trends between each treated cohort and the "
     "last-treated cohort before it is treated",
 }
+#: What the imputation estimator assumes. It fits unit and period effects
+#: on every untreated observation, so trends must be parallel across all
+#: groups in every period before treatment as well, the assumption Baker
+#: et al. (2026, section 5.2) call PT-GT-all. It is stronger than the
+#: comparison against the not-yet-treated from the period before treatment
+#: that Callaway-Sant'Anna imposes, and stating which of the two holds is
+#: their recommendation.
+PT_TEXT_ALL_PERIODS = (
+    "parallel trends between all groups in every period: untreated "
+    "outcomes follow unit and period effects in all untreated "
+    "observations, pre-treatment periods included"
+)
+
+
+def pt_text(options: Dict[str, Any]) -> str:
+    """The parallel-trends assumption the declared estimator imposes."""
+    if options["estimator"] == "bjs":
+        return PT_TEXT_ALL_PERIODS
+    return PT_TEXT[options["control_group"]]
 
 
 def fmt(x: Any, digits: int = 4) -> str:

@@ -214,6 +214,62 @@ caveats still open. `wf.report()` returns the same content as one
 paragraph, and `wf.cite()` returns the `paper.bib` keys of the methods that
 were actually run (`sp.bibtex(wf.cite().split())` resolves them).
 
+## Effects by subgroup
+
+Heterogeneity is a design of its own. Baker et al. (2026, section 4.5)
+[@baker2026difference] split the units into the cells of a discrete
+characteristic and run the same DiD inside each cell. Every cell then has
+its own treated and comparison units and its own parallel-trends
+assumption.
+
+```python
+table = wf.heterogeneity("region")
+table[["region", "share_of_treated", "estimate", "se"]]
+table.attrs["equality_test"]
+```
+
+Each row is the workflow's headline on the rows of one cell. Nothing new
+is estimated. `share_of_treated` is the cell's share of the treated units,
+weighted when the workflow has weights, and
+`attrs["share_weighted_average"]` averages the cell effects with those
+shares. A cell without treated units, or without comparison units, is
+listed with the reason and no number.
+
+The test that the cell effects are equal is reported only when no cluster
+spans two cells. Estimates from cells that share clusters are correlated,
+and a test that treats them as independent would be wrong.
+
+The characteristic must be constant within the unit. One that moves over
+time may have been changed by the treatment; split on its pre-treatment
+value. More than 20 cells is refused: bin the variable first.
+
+## The eight steps of Baker et al.
+
+The guide closes with a checklist. This is where the workflow answers
+each item.
+
+| Baker et al. (2026) | In the workflow |
+| --- | --- |
+| 1. Define the target parameter | Step 1: `target`, `weights`; the estimand is printed with every estimate |
+| 2. State the identification assumptions and the evidence | Step 1 states the parallel-trends assumption the estimator imposes, with covariates and absorbed effects. Step 2 holds the covariate balance table in levels and changes. Step 6 holds the pre-trend test and its power; step 8 the test of sensitivity to the outcome scale |
+| 3. Choose the estimation method | Step 4: `estimator`, and `estimator_options` for regression adjustment, weighting or the doubly robust form |
+| 4. Discuss the sources of uncertainty | Step 1: `cluster`. Step 2 counts treated and comparison clusters. The report names what is treated as random |
+| 5. Estimate | Steps 4 and 5: the summary effect, and the event study with pointwise and simultaneous bands |
+| 6. Sensitivity analysis | Step 7: the largest violation of parallel trends the conclusion survives |
+| 7. Heterogeneity analysis | `wf.heterogeneity(by)`, and `target='group'` or `'calendar'` for effects by cohort or date |
+| 8. Keep learning | Each step's `action` says what to do when it fails |
+
+Two points of wording follow the guide. The imputation estimator
+(`estimator='bjs'`) fits unit and period effects on every untreated
+observation. Its assumption is parallel trends between all groups in every
+period, pre-treatment periods included. That is stronger than a comparison
+with the not-yet-treated from the period before treatment, and step 1 says
+which one is in force. The covariate balance table is reported and not
+graded: the covariates are already conditioned on, and the table shows
+what that conditioning has to absorb. The benchmark of 0.25 standard
+deviations is the one the guide states, with its own caveat that no
+threshold is universal.
+
 ## Reading the statuses
 
 | Status | Meaning |

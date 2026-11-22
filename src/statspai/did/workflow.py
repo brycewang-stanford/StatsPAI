@@ -133,6 +133,7 @@ class DiDWorkflow(ResultProtocolMixin):
         self._es_result: Any = None
         self._headline: Optional[Dict[str, Any]] = None
         self._path: Optional[pd.DataFrame] = None
+        self._heterogeneity: Dict[str, pd.DataFrame] = {}
         self._sensitivity: Optional[Dict[str, Any]] = None
         self._robustness: Optional[pd.DataFrame] = None
         self._emitted: Set[Tuple[Any, str]] = set()
@@ -324,6 +325,56 @@ class DiDWorkflow(ResultProtocolMixin):
         return self._need(
             step.evidence.get("checklist"), "report", "the reporting checklist"
         ).copy()
+
+    def heterogeneity(self, by: str) -> pd.DataFrame:
+        """The headline estimate inside each cell of a unit characteristic.
+
+        The units are split by ``by`` and the declared analysis (same
+        target, comparison group, estimator, covariates, weights and
+        clustering) is run on each cell, so every cell has its own treated
+        and comparison units and its own parallel-trends assumption. This
+        is the heterogeneity analysis of Baker et al. (2026, section 4.5)
+        [@baker2026difference]. It adds no estimator.
+
+        Parameters
+        ----------
+        by : str
+            A column that is constant within each unit and takes between 2
+            and 20 values. A characteristic that changes over time is
+            refused: bin its pre-treatment value instead.
+
+        Returns
+        -------
+        pandas.DataFrame
+            One row per cell: ``n_units``, ``share_of_treated`` (the
+            cell's share of the treated units, weighted when the workflow
+            has weights), ``estimate``, ``se``, ``ci_lower``, ``ci_upper``,
+            ``pvalue`` and a ``note`` saying why a cell was not estimated.
+            ``.attrs`` holds ``headline``, ``share_weighted_average`` (the
+            cell effects averaged with their shares) and
+            ``equality_test``, a chi-squared test that the cell effects
+            are equal. The test is reported only when no cluster spans two
+            cells, because only then are the cell estimates independent.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> df = sp.dgp_did(n_units=160, n_periods=6, staggered=True, seed=0)
+        >>> df["region"] = df["unit"] % 2
+        >>> wf = sp.did_workflow(df, y="y", id="unit", time="time",
+        ...                      cohort="first_treat", through="estimate")
+        >>> table = wf.heterogeneity("region")
+        >>> table["region"].tolist()
+        [0, 1]
+        >>> bool(abs(table["share_of_treated"].sum() - 1.0) < 1e-12)
+        True
+        """
+        from ._workflow_heterogeneity import run_heterogeneity
+
+        self._need(self._headline, "estimate", "the estimate")
+        table = run_heterogeneity(self, by)
+        self._heterogeneity[by] = table
+        return table
 
     def report(self) -> str:
         """The reporting statement: what was estimated, in one paragraph."""
