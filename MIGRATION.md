@@ -5,6 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.45.1 → next release: `sp.did_workflow` on long panels; ⚠️ placebo dates
+
+- **`sp.did_workflow` without `event_window`.** A panel with more than
+  five event times on a side is now reported over the five nearest to
+  treatment (steps 5 to 7); step 2 says which range was available. To keep
+  the full range pass it: `event_window=(-17, 15)`. The headline estimate
+  of step 4 does not depend on the window for `target="overall"`. Panels
+  with five or fewer event times a side are unaffected.
+- ⚠️ **`sp.assign_placebo_dates`.** Units whose event date is 0 or
+  infinite are now never treated and receive a placebo date. Before, 0
+  was an event in "period 0": those units got no placebo date and 0 was
+  one of the dates drawn for the others. If 0 really is a period of your
+  panel, nothing changes. Missing-coded never-treated units are
+  unaffected.
+- **`sp.pretrends_power`** with more than five pre-periods moves in about
+  the fifth digit (integration tolerance 1e-5 in place of 1e-7).
+- New, nothing to migrate: `sp.did_workflow(absorb=[...])`.
+
 ## 1.45.0 → 1.45.1: ⚠️ smoothness FLCI of `sp.honest_did`
 
 A correctness fix with no API change. The fixed-length interval of

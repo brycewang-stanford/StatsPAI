@@ -2,6 +2,74 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+A staggered treatment on a multi-level panel (units within places, many
+years, region-by-year shocks), worked through against a county-by-species
+study of a local infrastructure roll-out. `sp.did_workflow` takes fixed
+effects beyond unit and period and no longer stalls on a long panel.
+
+### Added
+
+- **`sp.did_workflow(absorb=[...])`: fixed effects beyond unit and
+  period.** `absorb=["state#year", "species#year"]` (or a column of cell
+  labels) states parallel trends within those cells, so a shock common to
+  a state in a year is not a violation. The imputation estimator is the
+  one of the three that takes them: it becomes the default and `'cs'` /
+  `'sa'` are refused. Step 1 declares the cells, and step 8 reports the
+  same estimator with unit and period effects only, in place of the
+  alternative estimators, which cannot absorb them. The numbers are those
+  of `sp.did_imputation(fe=[...])`, bit for bit. On noiseless data with
+  region-by-year shocks the absorbed fit returns the true effect and the
+  two-way fit does not (`tests/test_did_workflow_absorb_long_panel.py`).
+- **Guide: "A staggered treatment on a multi-level panel"**
+  (`docs/guides/did_multilevel_panel.md`). The usual tables of such a
+  paper (two-way regression, event study, group heterogeneity, spillovers
+  by distance, an instrument, counts against logs) and the call that
+  replaces each.
+
+### Changed
+
+- **`sp.did_workflow` without `event_window` reports at most five event
+  times on each side of treatment.** On a 22-period panel the workflow
+  used every lead and lag: the power calculation of step 6 integrates a
+  normal over one dimension per lead and the sets of step 7 enumerate
+  vertices, and neither finished (no result after ten minutes with
+  seventeen leads; 15 seconds now). Step 2 states the range the panel
+  offers and the one reported. A panel with five or fewer event times a
+  side is reported in full as before, and an explicit `event_window` is
+  never changed.
+- **`sp.pretrends_power` / `sp.pretrends_slope_for_power` with more than
+  five pre-periods** integrate the rejection probability to 1e-5, SciPy's
+  default, in place of 1e-7. The tighter setting costs 3 seconds a call
+  at eight pre-periods and 15 at seventeen, and the slope search makes
+  dozens of calls. With five or fewer pre-periods nothing changes.
+
+### Fixed
+
+- ⚠️ **`sp.assign_placebo_dates` read a cohort of 0 as an event in period
+  0.** The staggered estimators code a never-treated unit as 0 or as an
+  infinite value as often as missing. Such units got no placebo date, and
+  the value 0 entered the distribution the placebo dates were drawn from.
+  0 and infinite values are now never treated, unless the period column
+  itself contains 0. Missing-coded input is unchanged.
+- **The staggered-adoption warning of `sp.feols` / `sp.fepois` with a
+  group-by-period fixed effect.** With `| county + state_year` the check
+  took the state-by-year cell for the calendar and reported "switches on
+  at 33 different dates" for a treatment with 12 adoption years, with a
+  weight share computed on that axis. With the interaction written in the
+  formula (`state:year`, `state^year`) it did not run at all. It now
+  finds the time-named column that the absorbed effect nests and counts
+  on it; the share equals `sp.bacon_decomposition` on the same panel.
+- **`sp.etwfe` no longer emits pandas `PerformanceWarning`** ("DataFrame
+  is highly fragmented") on panels with many cohort-by-period cells. The
+  design columns are attached in one concatenation. Estimates are
+  unchanged.
+- **`sp.did_workflow(estimator="bjs", estimator_options={"fe": [...]})`**
+  raised, because the lead regression of the default pre-trend method is
+  pinned for the unit-and-period model only. With another Y(0) model the
+  workflow now asks for the in-sample leads.
+
 ## [1.45.1] — 2026-11-22
 
 ⚠️ The smoothness FLCI of `sp.honest_did` and `sp.breakdown_m` no longer

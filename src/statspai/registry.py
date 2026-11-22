@@ -34820,7 +34820,8 @@ def _build_registry() -> None:
                     False,
                     None,
                     "(first, last) event time to report and, for "
-                    "target='event', to average over.",
+                    "target='event', to average over. Not given: all event "
+                    "times, at most five on each side of treatment.",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
@@ -34873,6 +34874,16 @@ def _build_registry() -> None:
                     0,
                     "Seed for simulated critical values (simultaneous bands, "
                     "honest-DiD) and the functional-form test.",
+                ),
+                ParamSpec(
+                    "absorb",
+                    "list",
+                    False,
+                    None,
+                    "Fixed effects beyond unit and period (a column of cell "
+                    "labels, or 'state#year'): parallel trends is assumed "
+                    "within those cells. Selects the imputation estimator; "
+                    "'cs' and 'sa' are refused.",
                 ),
             ],
             returns="DiDWorkflow",

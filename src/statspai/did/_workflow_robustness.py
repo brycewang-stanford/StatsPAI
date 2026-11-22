@@ -56,7 +56,37 @@ def run_robustness(wf: "DiDWorkflow", step: DiDStep) -> None:
     concerns: List[str] = []
 
     # (a) the other estimators of the family, on one estimand
-    if inp.weights:
+    if o.get("absorb"):
+        rows.append(
+            _row(
+                "estimator",
+                "not run",
+                {},
+                "The other estimators take no fixed effects beyond unit and "
+                "period, so they would answer under a different assumption.",
+            )
+        )
+        alt = wf._optional(
+            step,
+            "unit and period effects only",
+            lambda: fit_estimator(
+                wf,
+                control_group=o["control_group"],
+                covariates=inp.covariates,
+                absorb=[],
+            )[2],
+        )
+        if alt is not None:
+            rows.append(
+                _row(
+                    "fixed effects",
+                    "unit and period only",
+                    alt,
+                    "Parallel trends across the absorbed cells; a gap to the "
+                    "headline is what the absorbed effects are doing.",
+                )
+            )
+    elif inp.weights:
         rows.append(
             _row(
                 "estimator",
@@ -253,7 +283,9 @@ def run_robustness(wf: "DiDWorkflow", step: DiDStep) -> None:
     step.evidence["table"] = table
 
     comparable = table[
-        table["check"].isin(["estimator", "comparison group", "covariates"])
+        table["check"].isin(
+            ["estimator", "comparison group", "covariates", "fixed effects"]
+        )
         & np.isfinite(pd.to_numeric(table["estimate"], errors="coerce"))
     ]
     est = head["estimate"]

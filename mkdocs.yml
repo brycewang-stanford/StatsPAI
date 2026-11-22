@@ -163,6 +163,7 @@ nav:
       - "DiD paper gallery: five published applications reproduced": guides/did_paper_gallery.md
       - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
       - "The DiD protocol in nine steps": guides/did_workflow.md
+      - "A staggered treatment on a multi-level panel": guides/did_multilevel_panel.md
       - "Choosing a DID estimator": guides/choosing_did_estimator.md
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md
       - "Choosing an IV estimator": guides/choosing_iv_estimator.md

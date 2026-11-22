@@ -70,6 +70,7 @@ def fit_estimator(
     *,
     control_group: str,
     covariates: Optional[List[str]],
+    absorb: Optional[List[str]] = None,
 ) -> Tuple[Any, Any, Dict[str, Any]]:
     """Fit the declared estimator; return (fit, event-study result, headline)."""
     inp = wf._inputs
@@ -158,7 +159,20 @@ def fit_estimator(
         weights=inp.weights,
         alpha=alpha,
     )
+    absorbed = list(o.get("absorb") or []) if absorb is None else list(absorb)
     kwargs.update(extra)
+    if absorbed:
+        kwargs["fe"] = [inp.id, inp.time, *absorbed]
+    elif absorb is not None:
+        kwargs.pop("fe", None)
+    custom_model = any(
+        kwargs.get(k) is not None for k in ("fe", "unit_covariates", "time_covariates")
+    )
+    if custom_model and "pretrend_method" not in kwargs:
+        # The Stata-style lead regression is pinned for the unit + period
+        # model only; with another Y(0) model the leads are the averages
+        # of the untreated residuals at each lead.
+        kwargs["pretrend_method"] = "in-sample"
     fit = did_imputation(inp.data, **kwargs)
     head = (
         headline_from_result(fit, ESTIMAND_TEXT["overall"])

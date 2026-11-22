@@ -95,7 +95,9 @@ def assign_placebo_dates(
         Unit identifier.
     event_time : str
         Event date of each unit, constant within the unit; missing for
-        never-treated units.
+        never-treated units. ``0`` and infinite values are read as never
+        treated too, the coding of the staggered estimators, unless the
+        period column itself contains 0.
     time : str, optional
         Period column. When given, a relative-time column
         ``<column>_rel = time - date`` is added, and ``require_observed``
@@ -195,6 +197,15 @@ def assign_placebo_dates(
     units = _sorted_units(ev.index)
     ev = ev.reindex(units)
     st = st.reindex(units)
+    # The staggered estimators code a never-treated unit as 0 (R did,
+    # Stata csdid) or +/-inf as often as missing. Read here as an event
+    # date, 0 would make every such unit "treated in period 0" and enter
+    # the distribution the placebo dates are drawn from. It is a date only
+    # when the period column itself contains 0.
+    if pd.api.types.is_numeric_dtype(ev):
+        zero_is_a_period = time is not None and bool((data[time] == 0).any())
+        codes = [np.inf, -np.inf] + ([] if zero_is_a_period else [0])
+        ev = ev.mask(ev.isin(codes))
     treated = ev.notna()
     if not treated.any():
         raise DataInsufficient(

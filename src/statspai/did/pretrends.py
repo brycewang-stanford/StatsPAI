@@ -310,6 +310,17 @@ def _pre_arrays(
 
 
 _RECTANGLE_TOL = 1e-7
+#: Above this many pre-periods the 1e-7 tolerance is out of reach: Genz's
+#: integrator needs seconds per call from eight dimensions on (15 s at
+#: seventeen), and the slope search calls it dozens of times. SciPy's own
+#: default, 1e-5, is used there.
+_RECTANGLE_TIGHT_DIM = 5
+_RECTANGLE_LOOSE_TOL = 1e-5
+
+
+def _rectangle_tol(k: int) -> float:
+    """Integration tolerance for a ``k``-dimensional rectangle."""
+    return _RECTANGLE_TOL if k <= _RECTANGLE_TIGHT_DIM else _RECTANGLE_LOOSE_TOL
 
 
 def _normal_rectangle_probability(
@@ -338,7 +349,9 @@ def _normal_rectangle_probability(
     try:
         # SciPy's default absolute tolerance is 1e-5, which leaves the power
         # (and the slope solved from it) moving in the fifth digit from one
-        # call to the next. 1e-7 costs a few hundredths of a second.
+        # call to the next. 1e-7 costs a few hundredths of a second with up
+        # to five pre-periods; beyond that see ``_rectangle_tol``.
+        tol = _rectangle_tol(len(mean))
         prob = float(
             mvn.cdf(
                 upper,
@@ -346,8 +359,8 @@ def _normal_rectangle_probability(
                 cov=cov,
                 lower_limit=lower,
                 allow_singular=True,
-                abseps=_RECTANGLE_TOL,
-                releps=_RECTANGLE_TOL,
+                abseps=tol,
+                releps=tol,
             )
         )
     except TypeError:  # pragma: no cover - SciPy < 1.10

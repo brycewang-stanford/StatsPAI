@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 7.83,
+   "seconds": 1.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -59,7 +59,7 @@
     "src/statspai/core/_agent_summary.py": "e29b8cf929da497c7ba41df0f3a6a3c5b116e1253c638b4105e9dceb839cd68f",
     "src/statspai/core/_call_record.py": "d54627764ab09e6a852aea12ea218e9f8e58bc15fa646fd03063d1f460cf923c",
     "src/statspai/core/_collinear.py": "98b4c0642e99303d8c1e3b77fbeb2d01892f1d93727206fddefcd9254d3dac05",
-    "src/statspai/core/_design_guardrails.py": "921cbc9404bbc378c6d3f4ef2de7fb5d384304720fdae1fdd508fd34c64699d5",
+    "src/statspai/core/_design_guardrails.py": "9885c6e12f0fbe0d02f4601151d42264550371e7bd0e0d08c796890be6627fcf",
     "src/statspai/core/_formula_dtypes.py": "01b9a7d423980b44f93017d46e823ce8cf852b1d6b657fa766db313c1fba722f",
     "src/statspai/core/_numba_kernels.py": "67905c98664cbdee764197b55dc1f609d3bb6e7c9516645613988aaa2aff83d0",
     "src/statspai/core/_spec_counter.py": "32795c131b5547cc87ea89691dde5c4c40b9183442b6eebb649aca01884a46af",
@@ -179,7 +179,7 @@
    "result_sha256": "b98ff256c9dcee03be2b3479563e8cbd510a91941ab95af8ecc62b07e5eab05a"
   },
   "04_lalonde_original": {
-   "seconds": 9.53,
+   "seconds": 1.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -202,7 +202,7 @@
     "src/statspai/core/_agent_summary.py": "e29b8cf929da497c7ba41df0f3a6a3c5b116e1253c638b4105e9dceb839cd68f",
     "src/statspai/core/_call_record.py": "d54627764ab09e6a852aea12ea218e9f8e58bc15fa646fd03063d1f460cf923c",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/_design_guardrails.py": "921cbc9404bbc378c6d3f4ef2de7fb5d384304720fdae1fdd508fd34c64699d5",
+    "src/statspai/core/_design_guardrails.py": "9885c6e12f0fbe0d02f4601151d42264550371e7bd0e0d08c796890be6627fcf",
     "src/statspai/core/_formula_dtypes.py": "01b9a7d423980b44f93017d46e823ce8cf852b1d6b657fa766db313c1fba722f",
     "src/statspai/core/_numba_kernels.py": "67905c98664cbdee764197b55dc1f609d3bb6e7c9516645613988aaa2aff83d0",
     "src/statspai/core/_spec_counter.py": "32795c131b5547cc87ea89691dde5c4c40b9183442b6eebb649aca01884a46af",
@@ -231,7 +231,7 @@
    "result_sha256": "dc4b349d76249d59ded1f4ac66ccad31621f9d6e6b4de6f9ddcbdf9913859663"
   },
   "04b_nsw_psid_original": {
-   "seconds": 9.56,
+   "seconds": 1.12,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -254,7 +254,7 @@
     "src/statspai/core/_agent_summary.py": "e29b8cf929da497c7ba41df0f3a6a3c5b116e1253c638b4105e9dceb839cd68f",
     "src/statspai/core/_call_record.py": "d54627764ab09e6a852aea12ea218e9f8e58bc15fa646fd03063d1f460cf923c",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/_design_guardrails.py": "921cbc9404bbc378c6d3f4ef2de7fb5d384304720fdae1fdd508fd34c64699d5",
+    "src/statspai/core/_design_guardrails.py": "9885c6e12f0fbe0d02f4601151d42264550371e7bd0e0d08c796890be6627fcf",
     "src/statspai/core/_formula_dtypes.py": "01b9a7d423980b44f93017d46e823ce8cf852b1d6b657fa766db313c1fba722f",
     "src/statspai/core/_numba_kernels.py": "67905c98664cbdee764197b55dc1f609d3bb6e7c9516645613988aaa2aff83d0",
     "src/statspai/core/_spec_counter.py": "32795c131b5547cc87ea89691dde5c4c40b9183442b6eebb649aca01884a46af",
@@ -560,7 +560,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 16.72,
+   "seconds": 2.14,
    "error": null,
    "boundary_calls": [
     {
@@ -615,7 +615,7 @@
     "src/statspai/core/_agent_summary.py": "e29b8cf929da497c7ba41df0f3a6a3c5b116e1253c638b4105e9dceb839cd68f",
     "src/statspai/core/_call_record.py": "d54627764ab09e6a852aea12ea218e9f8e58bc15fa646fd03063d1f460cf923c",
     "src/statspai/core/_covariates.py": "fd24fed93e39e53273dc7aad0a85e04085658b947d2f5f073b861438235fece6",
-    "src/statspai/core/_design_guardrails.py": "921cbc9404bbc378c6d3f4ef2de7fb5d384304720fdae1fdd508fd34c64699d5",
+    "src/statspai/core/_design_guardrails.py": "9885c6e12f0fbe0d02f4601151d42264550371e7bd0e0d08c796890be6627fcf",
     "src/statspai/core/_formula_dtypes.py": "01b9a7d423980b44f93017d46e823ce8cf852b1d6b657fa766db313c1fba722f",
     "src/statspai/core/_numba_kernels.py": "67905c98664cbdee764197b55dc1f609d3bb6e7c9516645613988aaa2aff83d0",
     "src/statspai/core/_spec_counter.py": "32795c131b5547cc87ea89691dde5c4c40b9183442b6eebb649aca01884a46af",

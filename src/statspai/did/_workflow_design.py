@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, List
 
 import numpy as np
 import pandas as pd
@@ -10,6 +10,7 @@ import pandas as pd
 from ._workflow_common import (
     ESTIMAND_TEXT,
     ESTIMATOR_LABEL,
+    EVENT_WINDOW_DEFAULT_SPAN,
     FEW_CLUSTERS,
     PT_TEXT,
     facts_of,
@@ -34,6 +35,8 @@ def run_declare(wf: "DiDWorkflow", step: DiDStep) -> None:
         return "declared" if name in explicit else "default"
 
     cov_text = ", conditional on " + ", ".join(inp.covariates) if inp.covariates else ""
+    if o.get("absorb"):
+        cov_text += ", within cells of " + ", ".join(o["absorb"])
     window = o["event_window"]
     rows = [
         (
@@ -61,7 +64,11 @@ def run_declare(wf: "DiDWorkflow", step: DiDStep) -> None:
         ),
         (
             "event_window",
-            "all available" if window is None else tuple(window),
+            (
+                f"all available, at most {EVENT_WINDOW_DEFAULT_SPAN} on each side"
+                if window is None
+                else tuple(window)
+            ),
             source("event_window"),
             "Event times reported, and averaged over when the target is "
             "'event'. The window is part of the estimand.",
@@ -88,8 +95,23 @@ def run_declare(wf: "DiDWorkflow", step: DiDStep) -> None:
         (
             "estimator",
             o["estimator"],
-            source("estimator"),
+            (
+                "implied by absorb"
+                if o.get("estimator_implied")
+                else source("estimator")
+            ),
             ESTIMATOR_LABEL[o["estimator"]] + ".",
+        ),
+        (
+            "absorb",
+            ", ".join(o["absorb"]) if o.get("absorb") else "none",
+            source("absorb"),
+            (
+                "Fixed effects beyond unit and period: trends are compared "
+                "within these cells only."
+                if o.get("absorb")
+                else "Unit and period fixed effects only."
+            ),
         ),
         (
             "outcome",
@@ -270,6 +292,8 @@ def run_design(wf: "DiDWorkflow", step: DiDStep) -> None:
             "trends cannot be probed with pre-treatment data"
         )
 
+    window_note = _default_window(wf, step, cohorts)
+
     head = (
         f"{facts['n_units']} units x {facts['n_periods']} periods; "
         f"{facts['n_cohorts']} treated cohort(s) with "
@@ -286,9 +310,42 @@ def run_design(wf: "DiDWorkflow", step: DiDStep) -> None:
     else:
         step.status = "pass"
         step.finding = head
+    if window_note and not failures:
+        step.finding += " " + window_note
     step.action = "; ".join(dict.fromkeys(actions))
     if failures:
         wf._blocked = "the design audit failed"
+
+
+def _default_window(wf: "DiDWorkflow", step: DiDStep, cohorts: Any) -> str:
+    """Bound the reported event times when ``event_window`` was not given.
+
+    A long panel offers more event times than a report can use: the joint
+    pre-test spreads its power over every lead, and the power calculation
+    of step 6 and the sensitivity sets of step 7 become intractable. The
+    default keeps the ``EVENT_WINDOW_DEFAULT_SPAN`` event times nearest to
+    treatment on each side. A panel with fewer is reported in full, and an
+    explicit ``event_window`` is never touched.
+    """
+    o = wf._options
+    if "event_window" in wf._explicit or not len(cohorts):
+        return ""
+    leads = int(cohorts["n_pre_periods"].max())
+    lags = int(cohorts["n_post_periods"].max()) - 1
+    span = EVENT_WINDOW_DEFAULT_SPAN
+    if leads <= span and lags <= span:
+        return ""
+    window = (-min(leads, span), min(lags, span))
+    o["event_window"] = window
+    step.evidence["event_window_default"] = {
+        "window": window,
+        "available": (-leads, lags),
+    }
+    return (
+        f"Event times run from {-leads} to {lags}; with no event_window "
+        f"given, steps 5 to 7 report {window[0]} to {window[1]}. Pass "
+        "event_window= to report another range."
+    )
 
 
 # ===================================================================== #

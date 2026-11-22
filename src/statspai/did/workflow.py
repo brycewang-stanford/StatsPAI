@@ -458,6 +458,40 @@ class DiDWorkflow(ResultProtocolMixin):
 
 
 @records_call("did_workflow")
+def _check_absorb(absorb: Any, data: Any, estimator: Optional[str]) -> List[str]:
+    """Validate ``absorb=``; returns the list of fixed-effect terms."""
+    if absorb is None:
+        return []
+    terms = [absorb] if isinstance(absorb, str) else list(absorb)
+    if not terms:
+        return []
+    columns = set(map(str, getattr(data, "columns", [])))
+    for term in terms:
+        parts = str(term).split("#") if isinstance(term, str) else [None]
+        missing = [p for p in parts if p not in columns]
+        if not isinstance(term, str) or missing:
+            raise MethodIncompatibility(
+                f"did_workflow: absorb term {term!r} names a column that is "
+                "not in the data.",
+                recovery_hint="absorb takes column names, or 'a#b' for the "
+                "interaction of two columns, e.g. absorb=['state#year'].",
+                diagnostics={"term": repr(term), "missing": missing},
+            )
+    if estimator is not None and str(estimator).lower() not in (
+        "bjs",
+        "did_imputation",
+        "imputation",
+    ):
+        raise MethodIncompatibility(
+            f"did_workflow: estimator={estimator!r} takes no fixed effects "
+            "beyond unit and period, so absorb= cannot be honoured.",
+            recovery_hint="Drop estimator= (absorb selects the imputation "
+            "estimator) or pass estimator='bjs'.",
+            diagnostics={"estimator": str(estimator), "absorb": terms},
+        )
+    return [str(t) for t in terms]
+
+
 def did_workflow(
     data: pd.DataFrame,
     y: str,
@@ -480,6 +514,7 @@ def did_workflow(
     jackknife: Optional[bool] = None,
     estimator_options: Optional[Dict[str, Any]] = None,
     seed: int = 0,
+    absorb: Optional[Sequence[str]] = None,
 ) -> DiDWorkflow:
     """Run a difference-in-differences study as a nine-step protocol.
 
@@ -557,7 +592,9 @@ def did_workflow(
         (default 0).
     event_window : (int, int), optional
         First and last event time to report and, for ``target='event'``,
-        to average over. Default: every event time the data identify.
+        to average over. Default: every event time the data identify, and
+        the five nearest to treatment on each side when the panel offers
+        more (the design step states both ranges).
     alpha : float, default 0.05
         Significance level.
     through : str or None, default 'report'
@@ -576,6 +613,16 @@ def did_workflow(
     seed : int, default 0
         Seed for the simulated critical values (simultaneous bands,
         honest-DiD) and the functional-form test.
+    absorb : sequence of str, optional
+        Fixed effects beyond unit and period, for example a
+        region-by-year or a species-by-year cell (a column of cell labels,
+        or ``'state#year'`` for the interaction of two columns). Parallel
+        trends is then assumed within those cells only: a shock common to
+        a region in a year is not a violation. The imputation estimator
+        (``estimator='bjs'``) is the one of the three that takes them, so
+        it becomes the default and ``'cs'`` / ``'sa'`` are refused. The
+        robustness step adds the estimate without the absorbed effects,
+        and skips the alternative estimators, which cannot absorb them.
 
     Returns
     -------
@@ -629,9 +676,10 @@ def did_workflow(
     [@goodmanbacon2021difference]; Roth (2022) [@roth2022pretest];
     Rambachan and Roth (2023) [@rambachan2023more].
     """
+    absorbed = _check_absorb(absorb, data, estimator)
     options, explicit = check_options(
         target=target,
-        estimator=estimator,
+        estimator=("bjs" if absorbed and estimator is None else estimator),
         control_group=control_group,
         anticipation=anticipation,
         event_window=event_window,
@@ -657,6 +705,13 @@ def did_workflow(
         explicit.add("cluster")
     if weights is not None:
         explicit.add("weights")
+    options["absorb"] = absorbed
+    if absorbed:
+        explicit.add("absorb")
+        if estimator is None:
+            # chosen by absorb=, not by the caller and not a silent default
+            explicit.discard("estimator")
+            options["estimator_implied"] = True
     wf = DiDWorkflow(inputs, options, explicit)
     if through is not None:
         wf.run(through)

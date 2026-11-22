@@ -37,6 +37,13 @@ RM_BENCHMARK = 1.0
 #: The cluster jackknife refits once per cluster; run it unprompted only
 #: where the cluster count makes the analytic interval doubtful.
 JACKKNIFE_AUTO_MAX_CLUSTERS = 100
+#: Event times reported on each side of treatment when ``event_window`` is
+#: not given and the panel offers more. A reporting default, not a
+#: finding: the joint pre-test loses power with every lead it adds, and
+#: the cost of its power calculation and of the Rambachan-Roth sets grows
+#: steeply with the number of event times (minutes at eight leads, no
+#: answer at seventeen). The step that applies it says so.
+EVENT_WINDOW_DEFAULT_SPAN = 5
 
 AGG_TYPE = {
     "overall": "simple",

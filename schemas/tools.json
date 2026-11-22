@@ -11525,6 +11525,14 @@
     "description": "Run a difference-in-differences study as a nine-step protocol and grade each step: (1) declare the target, the comparison group and the clustering level; (2) audit the design (absorbing adoption, cohorts, never-treated units, balance, cluster counts); (3) report the Goodman-Bacon share of the TWFE coefficient on already-treated controls; (4) estimate with a heterogeneity-robust estimator; (5) report the event-study path with simultaneous bands; (6) test pre-trends and report the trend the test would miss; (7) bound violations of parallel trends (Rambachan-Roth breakdown value); (8) vary the estimator, comparison group, covariates, standard error and outcome scale; (9) write the reporting statement. Each step returns a status (pass / caution / fail / info / skipped), a finding with its numbers and an action. The path, the pre-trend test and the sensitivity analysis all come from the estimator that produced the headline. Can be advanced one step at a time. Do NOT use when: You only need the point estimate -- call sp.did directly; Treatment switches on and off -- use sp.did_multiplegt_dyn or sp.panel_match; Repeated cross-sections without a unit id -- use sp.callaway_santanna(panel=F...",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Fixed effects beyond unit and period (a column of cell labels, or 'state#year'): parallel trends is assumed within those cells. Selects the imputation estimator; 'cs' and 'sa' are refused.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
@@ -11575,7 +11583,7 @@
           "type": "object"
         },
         "event_window": {
-          "description": "(first, last) event time to report and, for target='event', to average over.",
+          "description": "(first, last) event time to report and, for target='event', to average over. Not given: all event times, at most five on each side of treatment.",
           "items": {
             "type": "string"
           },

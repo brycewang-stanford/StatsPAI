@@ -105,8 +105,9 @@ choice made by omission still moves the number.
 | `cluster` | the unit id | the level treatment is assigned at |
 | `weights` | none | unweighted effects are for the average treated unit, weighted ones for the population the units represent |
 | `anticipation` | 0 | periods before treatment in which units may already respond |
-| `event_window` | all event times | the horizons reported and, for `target='event'`, averaged over |
+| `event_window` | all event times, at most five on each side | the horizons reported and, for `target='event'`, averaged over |
 | `estimator` | `'cs'` | `'sa'` (Sun-Abraham) and `'bjs'` (imputation) are the alternatives |
+| `absorb` | none | fixed effects beyond unit and period, such as `'state#year'`; parallel trends is then assumed within those cells, and the estimator is `'bjs'` |
 
 ### 2. Design
 

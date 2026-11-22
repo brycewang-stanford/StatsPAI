@@ -1854,6 +1854,7 @@ def _etwfe_repeated_cs(
     event_cols: List[str] = []
     event_meta: List[Tuple[int, int, int]] = []
     ref_period: Dict[int, int] = {}
+    new_cols: Dict[str, Any] = {}
     for g in cohorts:
         if cgroup == "never":
             # R: `.Dtreat = t != g - 1`.  The latest pre-adoption period is
@@ -1877,11 +1878,14 @@ def _etwfe_repeated_cs(
                 if rel >= 0
                 else f"_coh{int(g)}_rel_neg{abs(rel)}"
             )
-            df[col] = ((df["_ft"] == g) & (df[time] == tt)).astype(float)
+            new_cols[col] = ((df["_ft"] == g) & (df[time] == tt)).astype(float)
             event_cols.append(col)
             event_meta.append((int(g), rel, int(tt)))
     if not event_cols:
         raise DataInsufficient("No cohort × period cells could be created.")
+    # One concat, not one insert per cell: a long staggered panel has
+    # hundreds of cells and pandas warns about a fragmented frame.
+    df = pd.concat([df, pd.DataFrame(new_cols, index=df.index)], axis=1)
 
     design_cols = coh_dummies + time_dummies + event_cols + ctrl_cols
     keep = ["_y"] + design_cols + (["_w"] if weights is not None else []) + xvar
@@ -1901,6 +1905,7 @@ def _etwfe_repeated_cs(
     x_centers: Dict[str, float] = {}
     if xvar:
         cell_key = [dfv["_ft"].fillna(-1.0), dfv[time]]
+        slope_data: Dict[str, Any] = {}
         for x in xvar:
             raw = dfv[x].astype(float)
             x_centers[x] = float(raw.mean())
@@ -1908,13 +1913,14 @@ def _etwfe_repeated_cs(
             cols_x: List[str] = []
             for col in event_cols:
                 name = f"{col}_x_{x}"
-                dfv[name] = dfv[col] * x_dm
+                slope_data[name] = dfv[col] * x_dm
                 cols_x.append(name)
             for tt in periods[1:]:
                 name = f"_T_{int(tt)}_x_{x}"
-                dfv[name] = (dfv[time] == tt).astype(float) * x_dm
+                slope_data[name] = (dfv[time] == tt).astype(float) * x_dm
                 cols_x.append(name)
             slope_cols[x] = cols_x
+        dfv = pd.concat([dfv, pd.DataFrame(slope_data, index=dfv.index)], axis=1)
         design_cols = design_cols + [c for x in xvar for c in slope_cols[x]]
 
     y_vec = dfv["_y"].values

@@ -170,16 +170,24 @@ def _parse(
             mains.update(n for n in _NAME.findall(term) if n in cols)
         elif _IDENT.match(term) and term in cols:
             regressors.append(term)
+    interactions: Dict[str, List[str]] = {}
     if fe is None and len(parts) == 2:
         for term in _split_top(parts[1], "+"):
             if term in cols:
                 effects.append(term)
+                continue
+            # an interacted effect: state:year, state^year, state#year
+            factors = [f.strip() for f in re.split(r"[:^#]", term)]
+            if len(factors) > 1 and all(f in cols for f in factors):
+                effects.append(term)
+                interactions[term] = factors
     effects = [e for i, e in enumerate(effects) if e not in effects[:i]]
     return {
         "outcome": outcome,
         "regressors": regressors,
         "mains": mains,
         "fe": effects,
+        "interactions": interactions,
     }
 
 
@@ -384,6 +392,30 @@ def _time_rank(col: pd.Series, name: str) -> int:
 # ---------------------------------------------------------------------- #
 
 
+def _nested_time_pairs(codes: _CodeCache, fe: List[str]) -> List[Tuple[str, str]]:
+    """``(unit, calendar)`` orientations where ``calendar`` is a time-named
+    column of the frame that one of the absorbed effects determines."""
+    frame = codes.frame
+    out: List[Tuple[str, str]] = []
+    for c in frame.columns:
+        name = str(c)
+        if name in fe or name.lower() not in _TIME_NAMES:
+            continue
+        try:
+            ccode, n_c = codes.get(name, sort=True)
+        except TypeError:
+            continue
+        for t in fe:
+            tcode, n_t = codes.get(t)
+            if n_c >= n_t:
+                continue
+            cells = np.unique(tcode.astype(np.int64) * n_c + ccode)
+            if cells.size != n_t:  # t does not determine the calendar
+                continue
+            out.extend((u, name) for u in fe if u != t and (u, name) not in out)
+    return out
+
+
 def _staggered(
     codes: _CodeCache,
     d: np.ndarray,
@@ -396,9 +428,15 @@ def _staggered(
         pairs = [(unit, time)] if unit in fe and time in fe else []
     else:
         pairs = sorted(permutations(fe, 2), key=lambda p: _time_rank(frame[p[1]], p[1]))
+    # A group-by-period effect (state x year) absorbs the period effect, so
+    # the calendar is a column the effect nests, not the effect itself.
+    # Read against the interaction, every state would have its own
+    # "adoption dates" and the count and the weights would be those of a
+    # panel that does not exist.
+    nested = [] if unit and time else _nested_time_pairs(codes, fe)
     found: List[Tuple[int, int, str, str, np.ndarray, np.ndarray, int]] = []
-    for u, t in pairs:
-        rank = _time_rank(frame[t], t)
+    for u, t in nested + pairs:
+        rank = -1 if (u, t) in nested else _time_rank(frame[t], t)
         if found and rank > found[0][0]:
             break  # a more time-like orientation already fits
         try:
@@ -653,6 +691,20 @@ def _run(
     time: Optional[str],
     poisson: bool,
 ) -> List[Dict[str, Any]]:
+    # An interacted effect becomes a column of cell labels, so that the
+    # checks below can read it like any other absorbed effect.
+    inter = {
+        name: factors
+        for name, factors in (spec.get("interactions") or {}).items()
+        if name not in data.columns
+    }
+    if inter:
+        data = data.assign(
+            **{
+                name: data.groupby(factors, sort=False, dropna=False).ngroup()
+                for name, factors in inter.items()
+            }
+        )
     cols = set(map(str, data.columns))
     y = spec["outcome"]
     fe = [f for f in spec["fe"] if f in cols]

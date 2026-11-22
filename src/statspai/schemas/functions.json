@@ -35424,6 +35424,14 @@
     "name": "did_workflow",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "Fixed effects beyond unit and period (a column of cell labels, or 'state#year'): parallel trends is assumed within those cells. Selects the imputation estimator; 'cs' and 'sa' are refused.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
@@ -35479,7 +35487,7 @@
           "type": "object"
         },
         "event_window": {
-          "description": "(first, last) event time to report and, for target='event', to average over.",
+          "description": "(first, last) event time to report and, for target='event', to average over. Not given: all event times, at most five on each side of treatment.",
           "items": {
             "type": "string"
           },
