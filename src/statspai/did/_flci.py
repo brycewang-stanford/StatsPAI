@@ -52,7 +52,7 @@ Trends." *Review of Economic Studies*, 90(5), 2555-2591. [@rambachan2023more]
 
 from __future__ import annotations
 
-from typing import Any, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 import numpy as np
 from scipy import optimize, special
@@ -335,7 +335,7 @@ class _FLCIProgram:
         # Linear objective and constraints: exact Jacobians, so SLSQP does not
         # finite-difference them (and is not limited by that step's error).
         self._obj_jac = np.concatenate([np.ones(n_pre), np.zeros(n_pre)])
-        self._base_cons = [
+        self._base_cons: List[Dict[str, Any]] = [
             {
                 "type": "ineq",
                 "fun": lambda x: x[:n_pre] - tril @ x[n_pre:],
@@ -468,7 +468,7 @@ class _FLCIProgram:
             return np.inf
         if h <= 0.0:
             return float(m_bar * b)
-        return folded_normal_quantile(1 - alpha, m_bar * b / h) * h
+        return float(folded_normal_quantile(1 - alpha, m_bar * b / h) * h)
 
     def ci_m0(self, alpha: float) -> Optional[FLCIResult]:
         """The FLCI at ``M = 0`` in closed form, or ``None`` if ``Sigma_pre``

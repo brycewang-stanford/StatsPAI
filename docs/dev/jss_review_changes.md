@@ -6811,7 +6811,8 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 
 The freeze is inactive (not submitted); recorded for the next re-anchor.
 
-- **Commit.** `944ba67b1` changes `src/statspai/did/_flci.py` (the FLCI is
+- **Commit.** `944ba67b1` (and the type-annotation follow-up that
+  re-records the same two traces) changes `src/statspai/did/_flci.py` (the FLCI is
   searched over the bias bound, with a strictly convex inner program) and
   re-records `tests/r_parity/results/_implementation_trace.json` for
   modules 10 and 21.
