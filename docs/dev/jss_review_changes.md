@@ -6756,3 +6756,24 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-22 — traces re-recorded (`sp.did_workflow`)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `83565673b` re-records
+  `tests/r_parity/results/_implementation_trace.json` (modules 03, 13, 15,
+  24, 25, 26, 27, 53, 65, 66, 90) and
+  `tests/orig_parity/results/_implementation_trace.json` (module 08).
+- **Reason.** `src/statspai/__init__.py` changed: it exports
+  `did_workflow`, `did_protocol`, `DiDWorkflow` and `DiDStep`. These
+  twelve modules reach a lazily exported name during estimation, so the
+  file is on their traced path. No estimator source they execute changed.
+- **Effect on the paper.** None: the twelve modules were re-run without
+  Rust before re-recording and no committed result changed. Differences
+  from the committed files are rounding (at most 5.5e-15) except
+  `25_lmm` (1.7e-10), `26_glmm_logit` (5.1e-11) and `27_glmm_aghq`
+  (4.1e-11), the optimiser stopping tolerance.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
