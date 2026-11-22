@@ -5,6 +5,43 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.44.6 → next release: ⚠️ `sp.did_analysis` diagnostics follow the main estimator; `sp.did_workflow`
+
+`sp.did_analysis` keeps its signature and its `main_result`. What it
+reports *about* that result changes, because three of the diagnostics
+described something else.
+
+- **Event study, pre-trend test, honest-DiD.** They used to come from a
+  TWFE event study regardless of `method`. They now come from the
+  estimator that was fitted: `sp.aggte(fit, type="dynamic")` for
+  `method='cs'`, the fit itself for `method='sa'`. Expect
+  `result.event_study_result`, `result.sensitivity` and
+  `result.diagnostics["pretrend_pvalue"]` to change on staggered panels.
+  The old numbers are still one call away:
+  `sp.event_study(df, y=..., treat_time=..., time=..., unit=...)`.
+- **Bacon.** Code that read `"negative weight"` from `steps_log` or
+  `summary()` should read `result.bacon["already_treated_control_weight_share"]`.
+- **`cluster=`** now reaches Callaway-Sant'Anna. If you passed it, the
+  standard error of `main_result` changes to the clustered one.
+- `result.degradations` lists sub-steps that could not be computed;
+  each one also raises a `WorkflowDegradedWarning`. Under
+  `-W error` such a failure is now an error.
+
+New code should use `sp.did_workflow`, which runs the same pieces as a
+graded nine-step protocol:
+
+```python
+# before
+r = sp.did_analysis(df, y="y", treat="first_treat", time="year", id="unit")
+# after
+wf = sp.did_workflow(df, y="y", id="unit", time="year", cohort="first_treat")
+wf.estimate, wf.ci            # was r.main_result.estimate, r.main_result.ci
+wf.event_study                # was r.event_study_result
+wf.sensitivity                # was r.sensitivity
+```
+
+`sp.did_analysis` is not deprecated.
+
 ## 1.44.5 → 1.44.6: ⚠️ fuzzy RD first-stage F, same-security event pairs; `sp.winsor` returns polars
 
 Two correctness fixes to reported diagnostics, and one return-type

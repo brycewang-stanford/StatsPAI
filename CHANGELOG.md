@@ -4,6 +4,95 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+A difference-in-differences study as a protocol. `sp.did_workflow` runs
+the nine steps a DiD paper is now expected to go through and grades each
+one; ⚠️ `sp.did_analysis` reported its pre-trend test and sensitivity
+analysis for a different estimator than the one it reported, and read
+the wrong key of the Bacon decomposition.
+
+### Added
+- **`sp.did_workflow`: a DiD study in nine graded steps.** Declare the
+  target, the comparison group and the clustering level; audit the
+  design; diagnose two-way fixed effects; estimate with a
+  heterogeneity-robust estimator; report the event-study path with
+  simultaneous bands; test pre-trends and report the trend that test
+  would miss; bound violations of parallel trends; vary the estimator,
+  the comparison group, the covariates, the standard error and the
+  outcome scale; write the reporting statement. Every step returns a
+  status (`pass` / `caution` / `fail` / `info` / `skipped`), a finding
+  with its numbers and an action.
+
+  ```python
+  wf = sp.did_workflow(df, y="lemp", id="countyreal", time="year",
+                       cohort="first_treat", target="overall",
+                       control_group="nevertreated", cluster="countyreal")
+  wf.summary(); wf.steps; wf.step("pretrends").evidence
+  wf.estimate, wf.ci, wf.event_study, wf.robustness, wf.report()
+  ```
+
+  It adds no estimator. Each number is the output of the public
+  function that step names (`sp.aggte`, `sp.uniform_bands`,
+  `sp.pretrends_test`, `sp.breakdown_m`, `sp.bacon_decomposition`,
+  `sp.did_summary`, `sp.cs_jackknife`, `sp.functional_form_test`), and
+  the tests assert that equality. The path, the pre-trend test and the
+  sensitivity analysis come from the estimator that produced the
+  headline (`estimator='cs'`, `'sa'` or `'bjs'`).
+  - Treatment timing as `cohort=` (first treated period) or `treat=` (a
+    0/1 path). With `treat=` a path that switches back off fails the
+    design step, and nothing is estimated.
+  - A design that cannot identify the declared target stops at step 2
+    with the way out (no never-treated units, repeated unit-period rows,
+    no comparison group).
+  - `through=None` returns the plan; `wf.advance()` runs the next step
+    and `wf.run("design")` runs up to one. `skip=` leaves out the
+    optional steps.
+  - The statuses use benchmarks the cited papers state: the sensitivity
+    step passes when the sign survives `Mbar = 1`
+    [@rambachan2023more]; the pre-trend step cautions when a linear
+    trend the test detects with 80% power would account for the whole
+    estimate [@roth2022pretest]; the design step flags fewer than ten
+    treated or comparison clusters.
+  - A supporting check that cannot be computed is left out, recorded in
+    `wf.degradations` and announced with a `WorkflowDegradedWarning`.
+  - Exports: `to_markdown`, `to_latex`, `to_excel` (one sheet per
+    table), `to_word`, `to_dict(detail=)`, `plot`, `cite`.
+  Guide: `docs/guides/did_workflow.md`. Order of the steps after Baker
+  et al. (2026) [@baker2026difference] and Roth et al. (2023)
+  [@roth2023whats].
+- **`sp.did_protocol()`** returns the nine steps as a table (question,
+  functions, `paper.bib` keys) without touching data.
+- MCP prompt `did_step_by_step` walks an agent through
+  `did_workflow`; `sp.search_functions` finds it from Chinese queries
+  (规范流程, 标准流程, 分析流程, 操作步骤, 检查清单).
+
+### Fixed
+- ⚠️ **correctness fix: `sp.did_analysis` diagnostics now describe the
+  estimate it reports.**
+  - The event study, the pre-trend p-value and the honest-DiD table
+    were always computed from a TWFE event study (`sp.event_study`),
+    whatever the main estimator was. With `method='cs'` (the default
+    for staggered data) they now come from
+    `sp.aggte(fit, type="dynamic")`, and with `method='sa'` from the
+    Sun-Abraham fit itself. `event_study_result`, `sensitivity` and
+    `diagnostics["pretrend_pvalue"]` change accordingly; `main_result`
+    does not. On the simulated `mpdta` panel the pre-trend p-value
+    moves from 0.494 to 0.574.
+  - The Bacon step read `negative_weight_share`, which is zero by
+    construction in a Goodman-Bacon decomposition, and printed "TWFE
+    likely reliable". It now reports the weight on comparisons that use
+    already-treated units as controls (26.7% on `mpdta`) and no longer
+    calls TWFE reliable.
+  - `cluster=` was not passed to Callaway-Sant'Anna, so the reported
+    standard error ignored it. It is now `clustervars=`.
+  - `method='bjs'` with the default window asked for four leads and
+    raised on panels whose longest pre-treatment history is four
+    periods or fewer. The default now asks for at most (longest
+    history - 1) leads.
+  - A sub-step that fails is recorded in `result.degradations` and
+    warned about (`WorkflowDegradedWarning`); it used to be a line in
+    the step log only.
+
+
 ## [1.44.6] — 2026-11-22
 
 Review of Ian Gow's StatsPAI edition of *Empirical Research in

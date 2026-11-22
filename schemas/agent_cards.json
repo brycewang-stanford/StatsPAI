@@ -77533,6 +77533,7 @@
   {
     "alias_of": null,
     "alternatives": [
+      "did_workflow",
       "callaway_santanna",
       "harvest_did",
       "did",
@@ -77547,7 +77548,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, the event study of that same estimator, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. For the graded nine-step protocol use sp.did_workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -77610,6 +77611,7 @@
       "description": "DIDAnalysis",
       "fields": {
         "bacon": "Optional[Dict[str, Any]]",
+        "degradations": "List[Dict[str, Any]]",
         "design": "str",
         "diagnostics": "Optional[Dict[str, Any]]",
         "event_study_result": "Optional[CausalResult]",
@@ -77620,7 +77622,7 @@
       }
     },
     "signature": {
-      "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, the event study of that same estimator, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. For the graded nine-step protocol use sp.did_workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_analysis",
       "parameters": {
         "properties": {
@@ -77755,6 +77757,321 @@
       "API/unit contract evidence: tests/test_did_imputation_branches.py"
     ],
     "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "did",
+      "cs_report",
+      "did_analysis",
+      "did_summary"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [
+      "Parallel trends against the declared comparison group (conditional on covariates when given)",
+      "No anticipation beyond the declared window",
+      "Absorbing treatment: once treated, always treated"
+    ],
+    "category": "causal",
+    "cost_profile": "Roughly 10 estimator fits plus honest-DiD grids: about 10 s on a 500 x 5 panel. The cluster jackknife refits once per cluster and runs unprompted only at 100 clusters or fewer.",
+    "description": "Run a difference-in-differences study as a nine-step protocol and grade each step: (1) declare the target, the comparison group and the clustering level; (2) audit the design (absorbing adoption, cohorts, never-treated units, balance, cluster counts); (3) report the Goodman-Bacon share of the TWFE coefficient on already-treated controls; (4) estimate with a heterogeneity-robust estimator; (5) report the event-study path with simultaneous bands; (6) test pre-trends and report the trend the test would miss; (7) bound violations of parallel trends (Rambachan-Roth breakdown value); (8) vary the estimator, comparison group, covariates, standard error and outcome scale; (9) write the reporting statement. Each step returns a status (pass / caution / fail / info / skipped), a finding with its numbers and an action. The path, the pre-trend test and the sensitivity analysis all come from the estimator that produced the headline. Can be advanced one step at a time. Do NOT use when: You only need the point estimate -- call sp.did directly; Treatment switches on and off -- use sp.did_multiplegt_dyn or sp.panel_match; Repeated cross-sections without a unit id -- use sp.callaway_santanna(panel=False). Cost: Roughly 10 estimator fits plus honest-DiD grids: about 10 s on a 500 x 5 panel. The cluster jackknife refits once per cluster and runs unprompted only at 100 clusters or fewer.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.did_workflow(df, y=\"lemp\", id=\"countyreal\", time=\"year\", cohort=\"first_treat\", target=\"overall\", control_group=\"nevertreated\", cluster=\"countyreal\")",
+    "failure_modes": [
+      {
+        "alternative": "sp.did_multiplegt_dyn",
+        "exception": "(none -- step 2 status 'fail', estimation not run)",
+        "remedy": "The treatment is not absorbing; use the treatment path estimators.",
+        "symptom": "Design step fails: treatment switches back off"
+      },
+      {
+        "alternative": "",
+        "exception": "(none -- step 2 status 'fail', estimation not run)",
+        "remedy": "Pass control_group='notyettreated'.",
+        "symptom": "Design step fails: no never-treated units"
+      },
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "Pass cohort= (first treated period per unit) or a 0/1 treat column that switches on at treatment.",
+        "symptom": "treat is a group dummy on more than two periods"
+      },
+      {
+        "alternative": "",
+        "exception": "(none -- a WorkflowDegradedWarning is emitted)",
+        "remedy": "The check is left out and recorded in wf.degradations with the reason; the step's other evidence stands.",
+        "symptom": "A supporting check cannot be computed"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "did_workflow",
+    "not_recommended_when": [
+      "You only need the point estimate -- call sp.did directly",
+      "Treatment switches on and off -- use sp.did_multiplegt_dyn or sp.panel_match",
+      "Repeated cross-sections without a unit id -- use sp.callaway_santanna(panel=False)"
+    ],
+    "pre_conditions": [
+      "long panel with a unit id and a period column",
+      "treatment timing as a first-treated-period column (cohort) or a 0/1 treatment path (treat)",
+      "one row per unit and period"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "cost_profile": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "not_recommended_when": "curated",
+      "pre_conditions": "curated",
+      "reference": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026) JEL 64(2) [@baker2026difference]; Roth, Sant'Anna, Bilinski & Poe (2023) Journal of Econometrics 235(2), 2218-2244 [@roth2023whats]",
+    "returns": {
+      "class": "DiDWorkflow",
+      "description": "DiDWorkflow",
+      "fields": {
+        "checklist": "Any",
+        "ci": "Any",
+        "degradations": "Any",
+        "design": "Any",
+        "estimand": "Any",
+        "estimate": "Any",
+        "event_study": "Any",
+        "event_study_result": "Any",
+        "fit": "Any",
+        "headline": "Any",
+        "pending": "Any",
+        "pvalue": "Any",
+        "robustness": "Any",
+        "se": "Any",
+        "sensitivity": "Any",
+        "steps": "Any",
+        "verdict": "Any"
+      }
+    },
+    "signature": {
+      "description": "Run a difference-in-differences study as a nine-step protocol and grade each step: (1) declare the target, the comparison group and the clustering level; (2) audit the design (absorbing adoption, cohorts, never-treated units, balance, cluster counts); (3) report the Goodman-Bacon share of the TWFE coefficient on already-treated controls; (4) estimate with a heterogeneity-robust estimator; (5) report the event-study path with simultaneous bands; (6) test pre-trends and report the trend the test would miss; (7) bound violations of parallel trends (Rambachan-Roth breakdown value); (8) vary the estimator, comparison group, covariates, standard error and outcome scale; (9) write the reporting statement. Each step returns a status (pass / caution / fail / info / skipped), a finding with its numbers and an action. The path, the pre-trend test and the sensitivity analysis all come from the estimator that produced the headline. Can be advanced one step at a time. Do NOT use when: You only need the point estimate -- call sp.did directly; Treatment switches on and off -- use sp.did_multiplegt_dyn or sp.panel_match; Repeated cross-sections without a unit id -- use sp.callaway_santanna(panel=False). Cost: Roughly 10 estimator fits plus honest-DiD grids: about 10 s on a 500 x 5 panel. The cluster jackknife refits once per cluster and runs unprompted only at 100 clusters or fewer.",
+      "name": "did_workflow",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level.",
+            "type": "number"
+          },
+          "anticipation": {
+            "description": "Periods before treatment in which units may respond (default 0).",
+            "type": "integer"
+          },
+          "cluster": {
+            "description": "Level treatment is assigned at; defaults to id, and the declare step reports the default.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "cohort": {
+            "description": "Each unit's first treated period (0 or NaN = never treated). Pass this or treat.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "control_group": {
+            "description": "Comparison group, i.e. the parallel-trends assumption. 'nevertreated' or 'notyettreated' with estimator='cs'; 'nevertreated' or 'lastcohort' with 'sa'; 'bjs' uses 'notyettreated'.",
+            "enum": [
+              "nevertreated",
+              "notyettreated",
+              "lastcohort"
+            ],
+            "type": "string"
+          },
+          "covariates": {
+            "description": "Covariates for conditional parallel trends.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "estimator": {
+            "description": "Callaway-Sant'Anna ('cs', default), Sun-Abraham ('sa') or imputation ('bjs').",
+            "enum": [
+              "cs",
+              "sa",
+              "bjs"
+            ],
+            "type": "string"
+          },
+          "estimator_options": {
+            "description": "Extra keyword arguments for the estimator, e.g. {'allow_unbalanced_panel': True}.",
+            "type": "object"
+          },
+          "event_window": {
+            "description": "(first, last) event time to report and, for target='event', to average over.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "description": "Unit identifier",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "jackknife": {
+            "description": "Cluster-jackknife standard error in the robustness step (estimator='cs'); None runs it at 100 clusters or fewer.",
+            "type": "boolean"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Seed for simulated critical values (simultaneous bands, honest-DiD) and the functional-form test.",
+            "type": "integer"
+          },
+          "skip": {
+            "description": "Steps to leave out, among 'twfe', 'pretrends', 'sensitivity', 'robustness'.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "target": {
+            "description": "Summary of the group-time effects: average over treated unit-periods ('overall', the default), over event times ('event'), over cohorts ('group') or over calendar periods ('calendar').",
+            "enum": [
+              "overall",
+              "event",
+              "group",
+              "calendar"
+            ],
+            "type": "string"
+          },
+          "through": {
+            "default": "report",
+            "description": "Last step to run; None returns the plan with every step pending (continue with wf.advance() or wf.run(step)).",
+            "enum": [
+              "declare",
+              "design",
+              "twfe",
+              "estimate",
+              "event_study",
+              "pretrends",
+              "sensitivity",
+              "robustness",
+              "report"
+            ],
+            "type": "string"
+          },
+          "time": {
+            "description": "Period column",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "0/1 indicator of being treated in that row; the cohort is derived as the first treated period and a path that switches back off fails the design step.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "weights": {
+            "description": "Unit weights; they change the target parameter.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "id",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_did_workflow.py -- every number the workflow reports is asserted equal to the public function behind that step (aggte, uniform_bands, pretrends_test, breakdown_m, bacon_decomposition, did_summary, cs_jackknife), and the TWFE coefficient to sp.feols; statuses are checked on panels with a known answer.",
+      "API/unit contract evidence: tests/test_did_workflow.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "did_workflow",
+      "did_design_contract"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "The steps of a modern difference-in-differences study as a table, without touching data: step number, key, title, the question the step answers, the sp functions that answer it and the paper.bib keys behind it. This is the order sp.did_workflow runs.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "sp.did_protocol()",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "did_protocol",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "reference": "curated",
+      "returns": "curated"
+    },
+    "reference": "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026) JEL 64(2) [@baker2026difference]; Roth, Sant'Anna, Bilinski & Poe (2023) Journal of Econometrics 235(2), 2218-2244 [@roth2023whats]",
+    "returns": {
+      "class": "DataFrame",
+      "description": "DataFrame",
+      "fields": {}
+    },
+    "signature": {
+      "description": "The steps of a modern difference-in-differences study as a table, without touching data: step number, key, title, the question the step answers, the sp functions that answer it and the paper.bib keys behind it. This is the order sp.did_workflow runs.",
+      "name": "did_protocol",
+      "parameters": {
+        "properties": {},
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_did_workflow.py -- every function the table names is registered and every reference key resolves in paper.bib.",
+      "API/unit contract evidence: tests/test_did_workflow.py"
+    ],
+    "validation_status": "api_stable"
   },
   {
     "alias_of": null,

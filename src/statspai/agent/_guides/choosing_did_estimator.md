@@ -9,6 +9,10 @@ alternative is **forward engineering** — fix the target parameter, state
 the assumption, and *derive* the estimator. This guide follows that
 order, because the estimator is the last decision, not the first.
 
+To run the whole sequence on your panel and have each step graded, use
+`sp.did_workflow` ([The DiD protocol in nine steps](did_workflow.md)).
+This page explains the choices that protocol asks you to declare.
+
 ## 0. Four questions before you pick anything
 
 ### Q1 — What is the target parameter?

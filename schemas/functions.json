@@ -35292,7 +35292,7 @@
     }
   },
   {
-    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, the event study of that same estimator, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object. For the graded nine-step protocol use sp.did_workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_analysis",
     "parameters": {
       "properties": {
@@ -35416,6 +35416,158 @@
         "time",
         "id"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Run a difference-in-differences study as a nine-step protocol and grade each step: (1) declare the target, the comparison group and the clustering level; (2) audit the design (absorbing adoption, cohorts, never-treated units, balance, cluster counts); (3) report the Goodman-Bacon share of the TWFE coefficient on already-treated controls; (4) estimate with a heterogeneity-robust estimator; (5) report the event-study path with simultaneous bands; (6) test pre-trends and report the trend the test would miss; (7) bound violations of parallel trends (Rambachan-Roth breakdown value); (8) vary the estimator, comparison group, covariates, standard error and outcome scale; (9) write the reporting statement. Each step returns a status (pass / caution / fail / info / skipped), a finding with its numbers and an action. The path, the pre-trend test and the sensitivity analysis all come from the estimator that produced the headline. Can be advanced one step at a time. Do NOT use when: You only need the point estimate -- call sp.did directly; Treatment switches on and off -- use sp.did_multiplegt_dyn or sp.panel_match; Repeated cross-sections without a unit id -- use sp.callaway_santanna(panel=False). Cost: Roughly 10 estimator fits plus honest-DiD grids: about 10 s on a 500 x 5 panel. The cluster jackknife refits once per cluster and runs unprompted only at 100 clusters or fewer.",
+    "name": "did_workflow",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "anticipation": {
+          "description": "Periods before treatment in which units may respond (default 0).",
+          "type": "integer"
+        },
+        "cluster": {
+          "description": "Level treatment is assigned at; defaults to id, and the declare step reports the default.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "cohort": {
+          "description": "Each unit's first treated period (0 or NaN = never treated). Pass this or treat.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "control_group": {
+          "description": "Comparison group, i.e. the parallel-trends assumption. 'nevertreated' or 'notyettreated' with estimator='cs'; 'nevertreated' or 'lastcohort' with 'sa'; 'bjs' uses 'notyettreated'.",
+          "enum": [
+            "nevertreated",
+            "notyettreated",
+            "lastcohort"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Covariates for conditional parallel trends.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Long panel",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "estimator": {
+          "description": "Callaway-Sant'Anna ('cs', default), Sun-Abraham ('sa') or imputation ('bjs').",
+          "enum": [
+            "cs",
+            "sa",
+            "bjs"
+          ],
+          "type": "string"
+        },
+        "estimator_options": {
+          "description": "Extra keyword arguments for the estimator, e.g. {'allow_unbalanced_panel': True}.",
+          "type": "object"
+        },
+        "event_window": {
+          "description": "(first, last) event time to report and, for target='event', to average over.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Unit identifier",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "jackknife": {
+          "description": "Cluster-jackknife standard error in the robustness step (estimator='cs'); None runs it at 100 clusters or fewer.",
+          "type": "boolean"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Seed for simulated critical values (simultaneous bands, honest-DiD) and the functional-form test.",
+          "type": "integer"
+        },
+        "skip": {
+          "description": "Steps to leave out, among 'twfe', 'pretrends', 'sensitivity', 'robustness'.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "target": {
+          "description": "Summary of the group-time effects: average over treated unit-periods ('overall', the default), over event times ('event'), over cohorts ('group') or over calendar periods ('calendar').",
+          "enum": [
+            "overall",
+            "event",
+            "group",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "through": {
+          "default": "report",
+          "description": "Last step to run; None returns the plan with every step pending (continue with wf.advance() or wf.run(step)).",
+          "enum": [
+            "declare",
+            "design",
+            "twfe",
+            "estimate",
+            "event_study",
+            "pretrends",
+            "sensitivity",
+            "robustness",
+            "report"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Period column",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 indicator of being treated in that row; the cohort is derived as the first treated period and a path that switches back off fails the design step.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "weights": {
+          "description": "Unit weights; they change the target parameter.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "id",
+        "time"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "The steps of a modern difference-in-differences study as a table, without touching data: step number, key, title, the question the step answers, the sp functions that answer it and the paper.bib keys behind it. This is the order sp.did_workflow runs.",
+    "name": "did_protocol",
+    "parameters": {
+      "properties": {},
+      "required": [],
       "type": "object"
     }
   },

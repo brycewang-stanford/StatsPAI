@@ -47,6 +47,7 @@ from ._staggered_rollout import (
     staggered_rollout,
     staggered_sa,
 )
+from ._workflow_spec import DiDStep, did_protocol
 from ._xtevent_smpath import xtevent_smpath
 from .aggte import aggte
 from .analysis import DIDAnalysis, did_analysis
@@ -138,6 +139,7 @@ from .summary import (
 from .sun_abraham import sun_abraham
 from .twowayfeweights import twowayfeweights
 from .wooldridge_did import drdid, etwfe, etwfe_emfx, twfe_decomposition, wooldridge_did
+from .workflow import DiDWorkflow, did_workflow
 from .xtevent import xtevent
 
 bjs = did_imputation
@@ -1243,6 +1245,10 @@ __all__ = [
     "event_study_convention",
     "did_analysis",
     "DIDAnalysis",
+    "did_workflow",
+    "did_protocol",
+    "DiDWorkflow",
+    "DiDStep",
     "did_multiplegt",
     "did_imputation",
     "bjs",

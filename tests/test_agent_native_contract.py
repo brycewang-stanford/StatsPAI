@@ -69,9 +69,9 @@ def _leading_token(target: str) -> str:
 
 
 def _mcp_tool_names() -> set[str]:
+    from statspai.agent.pipeline_tools import PIPELINE_TOOL_NAMES
     from statspai.agent.tools import tool_manifest
     from statspai.agent.workflow_tools import WORKFLOW_TOOL_NAMES
-    from statspai.agent.pipeline_tools import PIPELINE_TOOL_NAMES
 
     return (
         {t["name"] for t in tool_manifest()}
@@ -226,10 +226,10 @@ def _executable_tool_name(name: str) -> bool:
     routers like ``sensitivity``), or resolves through the registry-
     driven auto dispatch (``_resolve_fn``).
     """
-    from statspai.agent.workflow_tools import WORKFLOW_TOOL_NAMES
     from statspai.agent.pipeline_tools import PIPELINE_TOOL_NAMES
     from statspai.agent.tools import TOOL_REGISTRY
     from statspai.agent.tools._dispatch import _resolve_fn
+    from statspai.agent.workflow_tools import WORKFLOW_TOOL_NAMES
 
     if name in WORKFLOW_TOOL_NAMES or name in PIPELINE_TOOL_NAMES:
         return True
@@ -282,6 +282,8 @@ _KNOWN_PARAMETERLESS_TOOLS = {
     "multi_score_rd",
     # Catalog / utility tools.
     "available_methods",
+    # The nine steps of the DiD protocol as a table; it reads no data.
+    "did_protocol",
     "list_replications",
     "etable",
     # Inference helpers whose only inputs are result handles / arrays

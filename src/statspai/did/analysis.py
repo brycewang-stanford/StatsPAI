@@ -70,6 +70,7 @@ class DIDAnalysis:
     sensitivity: Optional[pd.DataFrame] = None
     diagnostics: Optional[Dict[str, Any]] = None
     steps_log: List[str] = field(default_factory=list)
+    degradations: List[Dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> str:
         """Print comprehensive analysis summary."""
@@ -94,17 +95,22 @@ class DIDAnalysis:
         # Bacon decomposition
         if self.bacon is not None:
             lines.append("--- Bacon Decomposition ---")
-            neg_wt = self.bacon.get("negative_weight_share", 0)
+            forbidden = float(self.bacon.get("already_treated_control_weight_share", 0))
             lines.append(
                 f"  TWFE estimate          = {self.bacon.get('beta_twfe', 'N/A'):.6f}"
             )
-            lines.append(f"  Negative weight share  = {neg_wt:.1%}")
-            if neg_wt > 0.1:
-                lines.append("  ⚠ Substantial negative weights — TWFE may be biased.")
-                lines.append("    Recommended: Callaway-Sant'Anna or Sun-Abraham.")
+            lines.append(f"  Already-treated controls = {forbidden:.1%} of the weight")
+            if forbidden > 0:
+                lines.append(
+                    "  ⚠ TWFE uses already-treated units as controls; it is biased"
+                )
+                lines.append(
+                    "    when effects differ across cohorts or over time. Report a"
+                )
+                lines.append("    heterogeneity-robust estimator (Callaway-Sant'Anna).")
             else:
                 lines.append(
-                    "  ✓ Negative weight share is small — TWFE likely reliable."
+                    "  ✓ No comparison uses already-treated units as controls."
                 )
             lines.append("")
 
@@ -113,9 +119,14 @@ class DIDAnalysis:
             raw_mi = self.event_study_result.model_info
             mi = raw_mi if isinstance(raw_mi, dict) else {}
             lines.append("--- Event Study ---")
-            pretrend_p = mi.get("pretrend_pvalue")
+            pretrend_p = (self.diagnostics or {}).get("pretrend_pvalue")
+            if pretrend_p is None:
+                pretrend_p = mi.get("pretrend_pvalue")
             if pretrend_p is None and isinstance(mi.get("pretrend_test"), dict):
                 pretrend_p = mi["pretrend_test"].get("pvalue")
+            source = (self.diagnostics or {}).get("event_study_source")
+            if source:
+                lines.append(f"  Path from              : {source}")
             if pretrend_p is not None:
                 lines.append(f"  Pre-trend test p-value = {pretrend_p:.4f}")
                 if pretrend_p < 0.05:
@@ -133,11 +144,12 @@ class DIDAnalysis:
         # Sensitivity
         if self.sensitivity is not None and len(self.sensitivity) > 0:
             lines.append("--- Sensitivity (Honest DID) ---")
-            # Find breakdown M
-            breakdown = self.sensitivity[self.sensitivity["rejects_zero"]].tail(1)
-            if len(breakdown) > 0:
-                m_star = breakdown.iloc[0]["M"]
-                lines.append(f"  Breakdown M* = {m_star:.4f}")
+            m_star = self.sensitivity.attrs.get("breakdown_m")
+            if m_star is None:
+                last = self.sensitivity[self.sensitivity["rejects_zero"]].tail(1)
+                m_star = last.iloc[0]["M"] if len(last) else None
+            if m_star is not None and bool(self.sensitivity["rejects_zero"].iloc[0]):
+                lines.append(f"  Breakdown M* = {float(m_star):.4f}")
                 lines.append(
                     "  (Largest violation magnitude where effect remains significant)"
                 )
@@ -159,6 +171,22 @@ class DIDAnalysis:
         if self.event_study_result is not None:
             return self.event_study_result.plot(**kwargs)
         return self.main_result.plot(**kwargs)
+
+
+def _default_bjs_leads(data: pd.DataFrame, cohort: str, time: str) -> int:
+    """Leads the imputation pre-trend regression can carry by default.
+
+    At most four, and at most one fewer than the longest pre-treatment
+    history: with a lead for every pre-treatment period no reference period
+    is left and ``did_imputation`` refuses.
+    """
+    periods = np.sort(pd.unique(data[time].dropna()))
+    g = pd.to_numeric(data[cohort], errors="coerce")
+    g = g[np.isfinite(g) & (g > 0) & (g <= periods[-1])]
+    if g.empty:
+        return 0
+    longest = int(np.searchsorted(periods, g.max(), side="left"))
+    return int(max(0, min(4, longest - 1)))
 
 
 # Design-based estimators: identification comes from random adoption *timing*,
@@ -281,12 +309,14 @@ def did_analysis(
     ...                          run_bacon=False, run_sensitivity=False)
     """
     robust = require_bool(robust, argument="robust")
+    from ..workflow._degradation import record_degradation
+    from .aggte import aggte
     from .bacon import bacon_decomposition
     from .callaway_santanna import callaway_santanna
     from .did_2x2 import did_2x2
     from .did_imputation import did_imputation
-    from .event_study import event_study
     from .honest_did import honest_did
+    from .pretrends import pretrends_test
     from .sun_abraham import sun_abraham
 
     steps: List[str] = []
@@ -294,6 +324,10 @@ def did_analysis(
     es_result = None
     sens_result = None
     diag: Dict[str, Any] = {}
+    degradations: List[Dict[str, Any]] = []
+
+    def _degrade(section: str, exc: BaseException) -> None:
+        record_degradation(degradations, section=f"did_analysis.{section}", exc=exc)
 
     # ── Step 1: Detect design ──────────────────────────────────────── #
     if method == "auto":
@@ -344,20 +378,22 @@ def did_analysis(
                 id=id,
                 alpha=alpha,
             )
-            neg_wt = bacon_result.get("negative_weight_share", 0)
+            forbidden = float(
+                bacon_result.get("already_treated_control_weight_share", 0)
+            )
             steps.append(
                 f"Bacon decomposition: {bacon_result.get('n_comparisons', '?')} "
-                f"sub-comparisons, negative weight = {neg_wt:.1%}"
+                f"sub-comparisons, {forbidden:.1%} of the TWFE weight on "
+                "already-treated controls"
             )
-
-            # Auto-recommend method based on Bacon
-            if method == "cs" and neg_wt > 0.1:
+            if forbidden > 0:
                 steps.append(
-                    "⚠ High negative weights — Callaway-Sant'Anna recommended "
-                    "(already selected)."
+                    "⚠ TWFE uses already-treated units as controls — report a "
+                    "heterogeneity-robust estimator."
                 )
             diag["bacon"] = bacon_result
         except Exception as e:
+            _degrade("bacon_decomposition", e)
             steps.append(f"Bacon decomposition skipped: {e}")
 
     # ── Step 3: Main estimation ────────────────────────────────────── #
@@ -396,6 +432,7 @@ def did_analysis(
             estimator=estimator,
             control_group=control_group,
             alpha=alpha,
+            clustervars=cluster if cluster and cluster != id else None,
         )
         method_label = f"Callaway-Sant'Anna ({estimator.upper()})"
     elif method in ("sa", "sun_abraham", "sunab"):
@@ -437,7 +474,7 @@ def did_analysis(
             )
         bjs_horizon = None
         if run_event_study:
-            lo, hi = event_window or (-4, 4)
+            lo, hi = event_window or (-_default_bjs_leads(data, treat, time), 4)
             bjs_horizon = list(range(int(lo), int(hi) + 1))
         main_result = did_imputation(
             data,
@@ -504,8 +541,12 @@ def did_analysis(
         f"(SE = {main_result.se:.6f}, p = {main_result.pvalue:.4f})"
     )
 
-    # ── Step 4: Event study ────────────────────────────────────────── #
-    bjs_methods = ("bjs", "did_imputation", "borusyak_jaravel_spiess")
+    # ── Step 4: Event study, from the estimator that was reported ───── #
+    # The path, the pre-trend test and the sensitivity analysis describe the
+    # main estimate only if they come from the same estimator. Releases through
+    # 1.44.6 ran a TWFE event study here, whatever the main estimator was.
+    cs_methods = ("cs", "callaway_santanna")
+    sa_methods = ("sa", "sun_abraham", "sunab")
     if run_event_study and method in _DESIGN_BASED_METHODS:
         steps.append(
             "Event study / pre-trend test skipped: this estimator identifies "
@@ -513,49 +554,40 @@ def did_analysis(
             "test neither supports nor threatens it. Use "
             "estimand='eventstudy' for the design-based event study."
         )
-    elif (
-        run_event_study
-        and design == "staggered"
-        and id is not None
-        and method not in bjs_methods
-    ):
-        try:
-            window = event_window or (-4, 4)
-            es_result = event_study(
-                data,
-                y=y,
-                treat_time=treat,
-                time=time,
-                unit=id,
-                window=window,
-                cluster=cluster,
-                alpha=alpha,
-            )
-            raw_mi = es_result.model_info
-            mi = raw_mi if isinstance(raw_mi, dict) else {}
-            pretrend_p = mi.get("pretrend_pvalue")
-            if pretrend_p is not None:
-                steps.append(
-                    f"Event study: pre-trend test p = {pretrend_p:.4f}"
-                    + (" ✓" if pretrend_p >= 0.05 else " ⚠ VIOLATION")
-                )
-            else:
-                steps.append("Event study: computed (no pre-trend p-value)")
-            diag["pretrend_pvalue"] = pretrend_p
-        except Exception as e:
-            steps.append(f"Event study skipped: {e}")
+    elif run_event_study and method in cs_methods:
+        window_kw: Dict[str, Any] = {}
+        if event_window is not None:
+            window_kw = {"min_e": event_window[0], "max_e": event_window[1]}
+        es_result = aggte(main_result, type="dynamic", alpha=alpha, **window_kw)
+        diag["event_study_source"] = "Callaway-Sant'Anna, aggte(type='dynamic')"
+    elif run_event_study and method in sa_methods:
+        es_result = main_result
+        diag["event_study_source"] = "Sun-Abraham interaction-weighted path"
     elif run_event_study and es_result is not None:
-        raw_mi = es_result.model_info
-        mi = raw_mi if isinstance(raw_mi, dict) else {}
-        pt = mi.get("pretrend_test")
-        pretrend_p = pt.get("pvalue") if isinstance(pt, dict) else None
+        diag["event_study_source"] = "BJS imputation (pre-trend leads included)"
+    elif run_event_study and method == "sdid":
+        steps.append(
+            "Event study skipped: synthetic DiD reports one effect per "
+            "cohort, not a path of leads and lags."
+        )
+
+    if es_result is not None:
+        pretrend_p = None
+        try:
+            pretrend_p = float(pretrends_test(es_result, alpha=alpha)["pvalue"])
+        except Exception as e:
+            _degrade("pretrends_test", e)
         if pretrend_p is not None:
             steps.append(
-                f"Event study: BJS pre-trend test p = {pretrend_p:.4f}"
+                f"Event study ({diag['event_study_source']}): pre-trend test "
+                f"p = {pretrend_p:.4f}"
                 + (" ✓" if pretrend_p >= 0.05 else " ⚠ VIOLATION")
             )
         else:
-            steps.append("Event study: BJS coefficients computed")
+            steps.append(
+                f"Event study ({diag['event_study_source']}): computed "
+                "(no pre-trend p-value)"
+            )
         diag["pretrend_pvalue"] = pretrend_p
 
     # ── Step 5: Honest DID sensitivity ─────────────────────────────── #
@@ -569,7 +601,13 @@ def did_analysis(
             sens_result = honest_did(es_result, e=0, method="smoothness", alpha=alpha)
             steps.append("Honest DID sensitivity analysis: computed")
         except Exception as e:
+            _degrade("honest_did", e)
             steps.append(f"Sensitivity analysis skipped: {e}")
+
+    steps.append(
+        "For the graded nine-step protocol (design audit, power of the "
+        "pre-test, robustness, reporting statement) see sp.did_workflow."
+    )
 
     return DIDAnalysis(
         design=design,
@@ -580,4 +618,5 @@ def did_analysis(
         sensitivity=sens_result,
         diagnostics=diag,
         steps_log=steps,
+        degradations=degradations,
     )

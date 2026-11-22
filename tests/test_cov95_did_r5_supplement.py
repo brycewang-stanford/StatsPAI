@@ -19,11 +19,8 @@ import pandas as pd
 import pytest
 
 from statspai.core.results import CausalResult
-from statspai.did.callaway_santanna import (
-    _estimate_single_att,
-    _aggregate_event_study,
-)
 from statspai.did.analysis import DIDAnalysis
+from statspai.did.callaway_santanna import _aggregate_event_study, _estimate_single_att
 
 # ----------------------------------------------------------------------
 # _estimate_single_att degenerate-cell returns (lines 416, 424, 432, 445)
@@ -123,26 +120,36 @@ def _dummy_result():
     )
 
 
-def test_summary_substantial_negative_weights():
+def test_summary_reports_the_already_treated_control_share():
+    # The Bacon share that matters is the weight on comparisons that use
+    # already-treated units as controls; `negative_weight_share` is zero by
+    # construction in a Goodman-Bacon decomposition and was what the summary
+    # used to read.
     a = DIDAnalysis(
         design="staggered",
         method_used="TWFE",
         main_result=_dummy_result(),
-        bacon={"negative_weight_share": 0.35, "beta_twfe": 0.9},
+        bacon={
+            "negative_weight_share": 0.0,
+            "already_treated_control_weight_share": 0.35,
+            "beta_twfe": 0.9,
+        },
     )
     txt = a.summary()
-    assert "Substantial negative weights" in txt
+    assert "35.0% of the weight" in txt
+    assert "already-treated units as controls" in txt
+    assert "likely reliable" not in txt
 
 
-def test_summary_small_negative_weights():
+def test_summary_no_already_treated_controls():
     a = DIDAnalysis(
         design="staggered",
         method_used="TWFE",
         main_result=_dummy_result(),
-        bacon={"negative_weight_share": 0.01, "beta_twfe": 0.9},
+        bacon={"already_treated_control_weight_share": 0.0, "beta_twfe": 0.9},
     )
     txt = a.summary()
-    assert "small" in txt
+    assert "No comparison uses already-treated units as controls" in txt
 
 
 def test_summary_sensitivity_not_significant_at_m0():

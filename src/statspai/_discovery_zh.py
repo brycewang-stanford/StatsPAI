@@ -36,6 +36,16 @@ ZH_TERMS: Tuple[Tuple[str, str], ...] = (
     ("\u500d\u5dee\u6cd5", "difference in differences"),
     # 差分中的差分
     ("\u5dee\u5206\u4e2d\u7684\u5dee\u5206", "difference in differences"),
+    # 规范流程
+    ("\u89c4\u8303\u6d41\u7a0b", "workflow protocol step by step"),
+    # 标准流程
+    ("\u6807\u51c6\u6d41\u7a0b", "workflow protocol step by step"),
+    # 分析流程
+    ("\u5206\u6790\u6d41\u7a0b", "workflow protocol"),
+    # 操作步骤
+    ("\u64cd\u4f5c\u6b65\u9aa4", "workflow step by step"),
+    # 检查清单
+    ("\u68c0\u67e5\u6e05\u5355", "checklist protocol"),
     # 三重差分
     ("\u4e09\u91cd\u5dee\u5206", "triple difference"),
     # 交错处理

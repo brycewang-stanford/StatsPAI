@@ -14,6 +14,7 @@ def _rpc(method, params=None, request_id=1):
 
 REQUIRED_PROMPTS = {
     "audit_did_result",
+    "did_step_by_step",
     "audit_iv_result",
     "audit_rd_result",
     "design_then_estimate",

@@ -67,6 +67,54 @@ PROMPTS: List[Dict[str, Any]] = [
         ),
     },
     {
+        "name": "did_step_by_step",
+        "description": (
+            "Run the nine-step DiD protocol (declare, design "
+            "audit, TWFE diagnosis, estimate, event study, "
+            "pre-trends and their power, sensitivity, "
+            "robustness, reporting statement) and walk through "
+            "the status of every step."
+        ),
+        "arguments": [
+            *_DATA_ARGS,
+            {"name": "y", "required": True, "description": "Outcome column."},
+            {"name": "id", "required": True, "description": "Unit id column."},
+            {"name": "time", "required": True, "description": "Period column."},
+            {
+                "name": "cohort",
+                "required": False,
+                "description": (
+                    "First-treated-period column (0 or NaN = never "
+                    "treated). Give this or treat."
+                ),
+            },
+            {
+                "name": "treat",
+                "required": False,
+                "description": "0/1 treatment path. Give this or cohort.",
+            },
+        ],
+        "_template": (
+            "Call `did_workflow` (through `call_function` if it is not in "
+            "your tool list) with {data_source}, y={y}, id={id}, "
+            "time={time}[[, cohort={cohort}]][[, treat={treat}]]. Before "
+            "calling, ask the user for the target ('overall', 'event', "
+            "'group' or 'calendar'), the comparison group "
+            "('nevertreated' or 'notyettreated') and the level treatment "
+            "was assigned at (cluster); pass the ones they state and "
+            "leave the rest out, so that step 1 reports what was left to "
+            "a default. Then go through `steps` in order. For each step "
+            "give its `status` and `finding` verbatim; for every "
+            "'caution' or 'fail' give the `action`. If step 2 is 'fail', "
+            "stop there: nothing was estimated, and the action names the "
+            "design or the function to use instead. Do not describe a "
+            "non-rejecting pre-trend test as support for parallel "
+            "trends; report the step 6 power statement and the step 7 "
+            "breakdown value next to the estimate. Close with the "
+            "`statement` in step 9 and a `bibtex` lookup of `citations`."
+        ),
+    },
+    {
         "name": "audit_iv_result",
         "description": (
             "End-to-end IV workflow: 2SLS + first-stage F + "

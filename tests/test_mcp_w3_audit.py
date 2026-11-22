@@ -429,7 +429,7 @@ def test_every_prompt_renders_with_a_data_handle_and_no_leftovers():
         if "data_id" in names:
             assert "data_id=d_abc" in text, p["name"]
         rendered += 1
-    assert rendered == len(PROMPTS) == 13
+    assert rendered == len(PROMPTS) == 14
 
 
 def test_prompt_needs_exactly_one_data_source_and_real_statuses():

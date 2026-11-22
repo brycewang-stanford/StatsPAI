@@ -34626,9 +34626,10 @@ def _build_registry() -> None:
             description=(
                 "Workflow wrapper that runs a full DiD pipeline: auto-detects "
                 "2×2 vs. staggered, runs the right estimator (CS by default), "
-                "optionally runs Bacon decomposition, event study, and "
-                "Rambachan-Roth sensitivity, and aggregates into a "
-                "DIDAnalysis report object."
+                "optionally runs Bacon decomposition, the event study of "
+                "that same estimator, and Rambachan-Roth sensitivity, and "
+                "aggregates into a DIDAnalysis report object. For the graded "
+                "nine-step protocol use sp.did_workflow."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -34693,8 +34694,303 @@ def _build_registry() -> None:
                 "(2023) Journal of Econometrics 235(2), 2218-2244 "
                 "[@roth2023whats], cited throughout."
             ),
-            alternatives=["callaway_santanna", "harvest_did"],
+            alternatives=["did_workflow", "callaway_santanna", "harvest_did"],
             typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="did_workflow",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_did_workflow.py -- "
+                "every number the workflow reports is asserted equal to the "
+                "public function behind that step (aggte, uniform_bands, "
+                "pretrends_test, breakdown_m, bacon_decomposition, "
+                "did_summary, cs_jackknife), and the TWFE coefficient to "
+                "sp.feols; statuses are checked on panels with a known "
+                "answer.",
+            ],
+            category="causal",
+            description=(
+                "Run a difference-in-differences study as a nine-step "
+                "protocol and grade each step: (1) declare the target, the "
+                "comparison group and the clustering level; (2) audit the "
+                "design (absorbing adoption, cohorts, never-treated units, "
+                "balance, cluster counts); (3) report the Goodman-Bacon share "
+                "of the TWFE coefficient on already-treated controls; "
+                "(4) estimate with a heterogeneity-robust "
+                "estimator; (5) report the event-study path with "
+                "simultaneous bands; (6) test pre-trends and report the "
+                "trend the test would miss; (7) bound violations of "
+                "parallel trends (Rambachan-Roth breakdown value); (8) vary "
+                "the estimator, comparison group, covariates, standard "
+                "error and outcome scale; (9) write the reporting "
+                "statement. Each step returns a status (pass / caution / "
+                "fail / info / skipped), a finding with its numbers and an "
+                "action. The path, the pre-trend test and the sensitivity "
+                "analysis all come from the estimator that produced the "
+                "headline. Can be advanced one step at a time."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Long panel"),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec("id", "str", True, description="Unit identifier"),
+                ParamSpec("time", "str", True, description="Period column"),
+                ParamSpec(
+                    "cohort",
+                    "str",
+                    False,
+                    None,
+                    "Each unit's first treated period (0 or NaN = never "
+                    "treated). Pass this or treat.",
+                ),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    False,
+                    None,
+                    "0/1 indicator of being treated in that row; the cohort "
+                    "is derived as the first treated period and a path that "
+                    "switches back off fails the design step.",
+                ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates for conditional parallel trends.",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Unit weights; they change the target parameter.",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Level treatment is assigned at; defaults to id, and the "
+                    "declare step reports the default.",
+                ),
+                ParamSpec(
+                    "target",
+                    "str",
+                    False,
+                    None,
+                    "Summary of the group-time effects: average over treated "
+                    "unit-periods ('overall', the default), over event times "
+                    "('event'), over cohorts ('group') or over calendar "
+                    "periods ('calendar').",
+                    ["overall", "event", "group", "calendar"],
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    None,
+                    "Comparison group, i.e. the parallel-trends assumption. "
+                    "'nevertreated' or 'notyettreated' with estimator='cs'; "
+                    "'nevertreated' or 'lastcohort' with 'sa'; 'bjs' uses "
+                    "'notyettreated'.",
+                    ["nevertreated", "notyettreated", "lastcohort"],
+                ),
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    None,
+                    "Callaway-Sant'Anna ('cs', default), Sun-Abraham ('sa') "
+                    "or imputation ('bjs').",
+                    ["cs", "sa", "bjs"],
+                ),
+                ParamSpec(
+                    "anticipation",
+                    "int",
+                    False,
+                    None,
+                    "Periods before treatment in which units may respond "
+                    "(default 0).",
+                ),
+                ParamSpec(
+                    "event_window",
+                    "tuple",
+                    False,
+                    None,
+                    "(first, last) event time to report and, for "
+                    "target='event', to average over.",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "through",
+                    "str",
+                    False,
+                    "report",
+                    "Last step to run; None returns the plan with every step "
+                    "pending (continue with wf.advance() or wf.run(step)).",
+                    [
+                        "declare",
+                        "design",
+                        "twfe",
+                        "estimate",
+                        "event_study",
+                        "pretrends",
+                        "sensitivity",
+                        "robustness",
+                        "report",
+                    ],
+                ),
+                ParamSpec(
+                    "skip",
+                    "list",
+                    False,
+                    None,
+                    "Steps to leave out, among 'twfe', 'pretrends', "
+                    "'sensitivity', 'robustness'.",
+                ),
+                ParamSpec(
+                    "jackknife",
+                    "bool",
+                    False,
+                    None,
+                    "Cluster-jackknife standard error in the robustness step "
+                    "(estimator='cs'); None runs it at 100 clusters or fewer.",
+                ),
+                ParamSpec(
+                    "estimator_options",
+                    "dict",
+                    False,
+                    None,
+                    "Extra keyword arguments for the estimator, e.g. "
+                    "{'allow_unbalanced_panel': True}.",
+                ),
+                ParamSpec(
+                    "seed",
+                    "int",
+                    False,
+                    0,
+                    "Seed for simulated critical values (simultaneous bands, "
+                    "honest-DiD) and the functional-form test.",
+                ),
+            ],
+            returns="DiDWorkflow",
+            example=(
+                'sp.did_workflow(df, y="lemp", id="countyreal", time="year", '
+                'cohort="first_treat", target="overall", '
+                'control_group="nevertreated", cluster="countyreal")'
+            ),
+            tags=[
+                "did",
+                "workflow",
+                "protocol",
+                "checklist",
+                "procedure",
+                "steps",
+                "event_study",
+                "pretrends",
+                "sensitivity",
+                "robustness",
+                "reporting",
+                "agent",
+            ],
+            reference=(
+                "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna "
+                "(2026) JEL 64(2) [@baker2026difference]; Roth, Sant'Anna, "
+                "Bilinski & Poe (2023) Journal of Econometrics 235(2), "
+                "2218-2244 [@roth2023whats]"
+            ),
+            pre_conditions=[
+                "long panel with a unit id and a period column",
+                "treatment timing as a first-treated-period column (cohort) "
+                "or a 0/1 treatment path (treat)",
+                "one row per unit and period",
+            ],
+            assumptions=[
+                "Parallel trends against the declared comparison group "
+                "(conditional on covariates when given)",
+                "No anticipation beyond the declared window",
+                "Absorbing treatment: once treated, always treated",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Design step fails: treatment switches back off",
+                    exception="(none -- step 2 status 'fail', estimation not run)",
+                    remedy=(
+                        "The treatment is not absorbing; use the treatment "
+                        "path estimators."
+                    ),
+                    alternative="sp.did_multiplegt_dyn",
+                ),
+                FailureMode(
+                    symptom="Design step fails: no never-treated units",
+                    exception="(none -- step 2 status 'fail', estimation not run)",
+                    remedy="Pass control_group='notyettreated'.",
+                ),
+                FailureMode(
+                    symptom="treat is a group dummy on more than two periods",
+                    exception="MethodIncompatibility",
+                    remedy=(
+                        "Pass cohort= (first treated period per unit) or a "
+                        "0/1 treat column that switches on at treatment."
+                    ),
+                ),
+                FailureMode(
+                    symptom="A supporting check cannot be computed",
+                    exception="(none -- a WorkflowDegradedWarning is emitted)",
+                    remedy=(
+                        "The check is left out and recorded in "
+                        "wf.degradations with the reason; the step's other "
+                        "evidence stands."
+                    ),
+                ),
+            ],
+            alternatives=["did", "cs_report", "did_analysis", "did_summary"],
+            not_recommended_when=[
+                "You only need the point estimate -- call sp.did directly",
+                "Treatment switches on and off -- use sp.did_multiplegt_dyn "
+                "or sp.panel_match",
+                "Repeated cross-sections without a unit id -- use "
+                "sp.callaway_santanna(panel=False)",
+            ],
+            cost_profile=(
+                "Roughly 10 estimator fits plus honest-DiD grids: about 10 s "
+                "on a 500 x 5 panel. The cluster jackknife refits once per "
+                "cluster and runs unprompted only at 100 clusters or fewer."
+            ),
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="did_protocol",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_did_workflow.py -- "
+                "every function the table names is registered and every "
+                "reference key resolves in paper.bib.",
+            ],
+            category="causal",
+            description=(
+                "The steps of a modern difference-in-differences study as a "
+                "table, without touching data: step number, key, title, the "
+                "question the step answers, the sp functions that answer it "
+                "and the paper.bib keys behind it. This is the order "
+                "sp.did_workflow runs."
+            ),
+            params=[],
+            returns="DataFrame",
+            example="sp.did_protocol()",
+            tags=["did", "workflow", "protocol", "checklist", "agent"],
+            reference=(
+                "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna "
+                "(2026) JEL 64(2) [@baker2026difference]; Roth, Sant'Anna, "
+                "Bilinski & Poe (2023) Journal of Econometrics 235(2), "
+                "2218-2244 [@roth2023whats]"
+            ),
+            alternatives=["did_workflow", "did_design_contract"],
         )
     )
 
@@ -41751,6 +42047,8 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
         "tests/test_cov95_did_analysis.py",
         "tests/test_did_imputation_branches.py",
     ],
+    "did_workflow": ["tests/test_did_workflow.py"],
+    "did_protocol": ["tests/test_did_workflow.py"],
     "did_bcf": ["tests/test_did_frontiers.py", "tests/test_cov95_did_r3_did_bcf.py"],
     "did_forest": ["tests/test_did_forest.py"],
     "forest_group_effects": ["tests/test_forest_fe_imputation.py"],
