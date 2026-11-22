@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import functools
 import sys
-from typing import Any, Callable, Dict, Optional, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import pandas as pd
 
@@ -149,7 +149,7 @@ def _first_frame(
     args: Tuple[Any, ...], kwargs: Dict[str, Any]
 ) -> Optional[Tuple[Any, Any]]:
     """``(position or name, value)`` of the data argument, if it is polars."""
-    candidates = [(0, args[0])] if args else []
+    candidates: List[Tuple[Any, Any]] = [(0, args[0])] if args else []
     if "data" in kwargs:
         candidates.append(("data", kwargs["data"]))
     for where, value in candidates:
@@ -183,8 +183,9 @@ def _restore(
         return out
     where, original = hit
     as_pandas = converted[0][0] if where == 0 else converted[1]["data"]
-    import polars as pl
+    import importlib
 
+    pl: Any = importlib.import_module("polars")
     lazy = type(original).__name__ == "LazyFrame"
     frame = original.collect() if lazy else original
     if len(out) != frame.height or not isinstance(out.index, pd.RangeIndex):

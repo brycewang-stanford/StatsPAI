@@ -4,8 +4,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.44.6] — 2026-11-22
+
 Review of Ian Gow's StatsPAI edition of *Empirical Research in
-Accounting* (every chapter read against 1.44.5, each suggestion run).
+Accounting* (every chapter read against 1.44.5, each suggestion run):
+⚠️ the fuzzy RD first-stage F, ⚠️ event studies with repeated events of
+one security, `sp.winsor` on polars frames, and normal-reference
+inference for regression results.
 
 ### Added
 - **`sp.winsor` gives a polars frame back to a polars caller.** A polars

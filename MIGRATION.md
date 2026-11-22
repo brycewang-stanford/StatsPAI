@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.44.5 → next: ⚠️ fuzzy RD first-stage F, same-security event pairs; `sp.winsor` returns polars
+## 1.44.5 → 1.44.6: ⚠️ fuzzy RD first-stage F, same-security event pairs; `sp.winsor` returns polars
 
 Two correctness fixes to reported diagnostics, and one return-type
 change for polars callers.

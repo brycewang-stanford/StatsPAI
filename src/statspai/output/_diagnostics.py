@@ -278,7 +278,7 @@ def _iv_hansen_J_p_cell(result: Any) -> str:
     return ""
 
 
-def _iv_overid_label(results: List[Any]) -> str:
+def _iv_overid_label(results: Sequence[Any]) -> str:
     """Row label naming the over-identification test the columns report.
 
     A conventional (homoskedastic) 2SLS fit stores Sargan's test, a robust
