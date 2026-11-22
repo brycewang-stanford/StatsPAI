@@ -2,6 +2,27 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- ⚠️ **`sp.honest_did(method="smoothness")` and `sp.breakdown_m`: the
+  fixed-length interval no longer depends on the SciPy version.** The
+  half-length is minimised over a family of affine estimators and is flat
+  near its minimum. The family was indexed by the standard deviation, with
+  the worst-case bias from an SLSQP solve accurate to about 1e-7, and that
+  error moved the minimiser. On the unilateral-divorce event study at
+  `M = 1` the bounds were (-8.35544, 6.74971) under SciPy 1.15 and
+  (-8.35139, 6.75379) under SciPy 1.17, against (-8.35540, 6.74974) from
+  Stata `honestdid`. The family is now indexed by the bias bound and the
+  smallest standard deviation at that bound is a strictly convex quadratic
+  program. Both SciPy versions give (-8.35540, 6.74974), and they agree
+  with each other to 2e-8. Intervals move by up to 6e-4 of a bound where
+  the minimum is flat and by less than 1e-9 on well-conditioned cases
+  (Track A modules 10 and 21 move by at most 1.8e-10). The length of the
+  interval changes by parts in a million; its centre is what moves.
+  `tests/reference_parity/test_honest_flci_frontier.py`.
+
 ## [1.45.0] — 2026-11-22
 
 A difference-in-differences study as a protocol. `sp.did_workflow` runs

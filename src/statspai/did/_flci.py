@@ -267,17 +267,32 @@ class _FLCIProgram:
 
     The worst-case bias ``b(h)`` of the best affine estimator whose standard
     deviation is at most ``h`` does not depend on ``M``; the half-length for a
-    given ``M`` is ``min_h q_{1-alpha}(|N(M b(h) / h, 1)|) h``. Solving ``b(h)``
-    is the expensive step (one SLSQP program), so it is memoised: a sweep over
-    many ``M`` -- which is what :func:`breakdown_m_sd` does -- reuses every
-    solve.
+    given ``M`` is ``min_h q_{1-alpha}(|N(M b(h) / h, 1)|) h``.
 
-    The minimisation over ``h`` is a grid scan (``n_grid`` points between the
-    minimum attainable SD and the SD of the minimum-bias estimator) followed
-    by a bounded Brent refinement inside the bracket around the best grid
-    point. Through 1.28.0 the best grid point itself was reported, which left
-    a discretisation error of order ``(h_max - h_min) / n_grid`` in ``h``
-    (7e-4 relative on a CI bound of the event study in
+    The frontier is traced from the other side. ``b(h)`` is a program with
+    a linear objective and one quadratic constraint, and SLSQP leaves it
+    accurate to about 1e-7 only, differently in each SciPy version. The
+    half-length is flat in ``h`` near its minimum, so that error moved the
+    minimiser, and with it the centre of the interval, by 6e-4 of a
+    confidence bound between SciPy 1.15 and 1.17 (the divorce-law event
+    study of the DiD paper at ``M = 1``). Its inverse ``h(b)``, the smallest
+    standard deviation of an affine estimator whose worst-case bias is at
+    most ``b``, is a quadratic program with linear constraints and a
+    strictly convex objective in the weights, which SLSQP solves to
+    rounding. The half-length is therefore minimised over ``b``:
+    ``min_b q_{1-alpha}(|N(M b / h(b), 1)|) h(b)``, the same minimum over
+    the same frontier. The two SciPy versions then agree to 1e-8, and the
+    bounds equal Stata ``honestdid`` to the digits it prints.
+
+    Each ``h(b)`` solve is memoised: a sweep over many ``M`` -- which is
+    what :func:`breakdown_m_sd` does -- reuses every one.
+
+    The minimisation over ``b`` is a grid scan (``n_grid`` points between
+    the bias of the minimum-bias estimator and that of the minimum-variance
+    estimator) followed by a bounded Brent refinement inside the bracket
+    around the best grid point. Through 1.28.0 the best grid point itself
+    was reported, which left a discretisation error of order
+    ``1 / n_grid`` (7e-4 relative on a CI bound of the event study in
     ``tests/reference_parity/test_did_synth_R_parity.py`` at ``M = 0.01``);
     the refinement removes it.
     """
@@ -365,52 +380,94 @@ class _FLCIProgram:
         if not np.isfinite(h_max) or h_max <= self.h_min:
             h_max = self.h_min * 1.5 + 1e-8
         self.h_max = h_max
-        self.grid = np.linspace(self.h_min, self.h_max, int(n_grid))
-        self._cache: dict = {}
 
-    def bias(self, h: float) -> tuple:
-        """``(b(h), x(h))``: worst-case bias per unit of ``M`` and its solution."""
-        key = float(h)
-        hit = self._cache.get(key)
+        # The frontier in terms of the bias bound: from the minimum-bias
+        # estimator (largest SD) to the minimum-variance one (smallest SD).
+        # ``u`` is set to its smallest feasible value, |cumsum(w)|.
+        self._tril = tril
+        w_min_var = var_fit.x[n_pre:]
+        self._x0_min_var = np.concatenate([np.abs(tril @ w_min_var), w_min_var])
+        self.b_min = float(self.const + self._x0_min_bias[:n_pre].sum())
+        self.b_max = float(self.const + self._x0_min_var[:n_pre].sum())
+        if not np.isfinite(self.b_max) or self.b_max < self.b_min:
+            self.b_max = self.b_min
+        self.b_grid = np.linspace(self.b_min, self.b_max, int(n_grid))
+        self._sd_cache: dict = {}
+
+    def sd(self, b: float) -> tuple:
+        """``(h(b), x(b))``: the smallest standard deviation of an affine
+        estimator whose worst-case bias per unit of ``M`` is at most ``b``,
+        and its solution.
+
+        A quadratic program with linear constraints. The objective is
+        strictly convex in the weights ``w``, so the weights are unique and
+        SLSQP reaches them to rounding from any feasible start; the smallest
+        variance over the converged starts is kept. (Solving for the bias
+        at a given SD instead, SLSQP also stopped after one iteration at a
+        start where the variance constraint was slack and reported success
+        there; through 1.28.0 that froze the bias for every large SD and
+        widened the interval. Hence more than one start here as well.)
+        """
+        key = float(b)
+        hit = self._sd_cache.get(key)
         if hit is not None:
             return hit
+        n_pre = self.n_pre
+        budget = key - self.const
         cons = self._base_cons + [
             {
                 "type": "ineq",
-                "fun": lambda x, h=key: h**2 - self._variance(x),
-                "jac": lambda x: -self._variance_jac(x),
+                "fun": lambda x: budget - x[:n_pre].sum(),
+                "jac": lambda x: -self._obj_jac,
             }
         ]
-        # Two starting points. SLSQP stops after one iteration at the
-        # default start (u = 1, w uniform) whenever the variance constraint
-        # is slack there, reporting "success" at a point that is not the
-        # optimum of this convex program: through 1.28.0 that froze b(h) at
-        # the start's objective for every h above some threshold (b = 4.0
-        # where HonestDiD's ECOS solve gives 3.60 ... 3.00 on the e = 1 event
-        # study of tests/reference_parity/test_did_synth_R_parity.py), which
-        # cut the h search short and widened the FLCI. The second start is the
-        # minimum-bias estimator, feasible for every h >= h_max; the smaller
-        # objective of the two converged solves is kept.
         best = None
-        for x0 in (self._x0, self._x0_min_bias):
+        for x0 in (self._x0_min_bias, self._x0_min_var, self._x0):
             fit = optimize.minimize(
-                lambda x: self.const + x[: self.n_pre].sum(),
+                self._variance,
                 x0,
-                jac=lambda x: self._obj_jac,
+                jac=self._variance_jac,
                 constraints=cons,
                 method="SLSQP",
-                options={"maxiter": 500, "ftol": 1e-12},
+                options={"maxiter": 1000, "ftol": 1e-12},
             )
-            if fit.success and (best is None or fit.fun < best.fun):
+            # Status 8 ("positive directional derivative for linesearch")
+            # is what SLSQP reports when it is already at the optimum and
+            # no step improves the objective to within ftol; SciPy 1.17
+            # returns it where 1.15 reported success at the same point.
+            if not (fit.success or fit.status == 8):
+                continue
+            if not np.isfinite(fit.fun):
+                continue
+            # SLSQP may stop a hair outside the feasible set; a start that
+            # overshoots the bias budget is not a solution of this program.
+            if fit.x[:n_pre].sum() - budget > 1e-9 * max(1.0, abs(budget)):
+                continue
+            if (
+                any(
+                    np.min(c["fun"](fit.x)) < -1e-9
+                    for c in self._base_cons
+                    if c["type"] == "ineq"
+                )
+                or abs(self._base_cons[2]["fun"](fit.x)) > 1e-9
+            ):
+                continue
+            if best is None or fit.fun < best.fun:
                 best = fit
-        out = (float(best.fun), best.x) if best is not None else (np.inf, None)
-        self._cache[key] = out
+        if best is None:
+            out: tuple = (np.inf, None)
+        else:
+            out = (float(np.sqrt(max(best.fun, 0.0))), best.x)
+        self._sd_cache[key] = out
         return out
 
-    def half_length(self, h: float, m_bar: float, alpha: float) -> float:
-        b, x = self.bias(h)
-        if not np.isfinite(b) or x is None:
+    def half_length_at_bias(self, b: float, m_bar: float, alpha: float) -> float:
+        """Half-length of the FLCI built on the estimator ``x(b)``."""
+        h, x = self.sd(b)
+        if not np.isfinite(h) or x is None:
             return np.inf
+        if h <= 0.0:
+            return float(m_bar * b)
         return folded_normal_quantile(1 - alpha, m_bar * b / h) * h
 
     def ci_m0(self, alpha: float) -> Optional[FLCIResult]:
@@ -470,28 +527,32 @@ class _FLCIProgram:
             closed = self.ci_m0(alpha)
             if closed is not None:
                 return closed
-        halves = np.array([self.half_length(h, m_bar, alpha) for h in self.grid])
+        halves = np.array(
+            [self.half_length_at_bias(b, m_bar, alpha) for b in self.b_grid]
+        )
         if not np.isfinite(halves).any():  # pragma: no cover - pathological sigma
             raise ConvergenceFailure(
-                "FLCI: the worst-case-bias program did not solve at any h.",
+                "FLCI: the minimum-variance program did not solve at any "
+                "bias bound.",
                 recovery_hint="Use backend='r', or widen the event-study window.",
-                diagnostics={"h_min": self.h_min, "h_max": self.h_max},
+                diagnostics={"b_min": self.b_min, "b_max": self.b_max},
             )
         i = int(np.argmin(halves))
-        h_star = float(self.grid[i])
-        lo = float(self.grid[max(i - 1, 0)])
-        hi = float(self.grid[min(i + 1, len(self.grid) - 1)])
+        b_star = float(self.b_grid[i])
+        lo = float(self.b_grid[max(i - 1, 0)])
+        hi = float(self.b_grid[min(i + 1, len(self.b_grid) - 1)])
         if refine and hi > lo:
             ref = optimize.minimize_scalar(
-                lambda h: self.half_length(h, m_bar, alpha),
+                lambda b: self.half_length_at_bias(b, m_bar, alpha),
                 bounds=(lo, hi),
                 method="bounded",
-                options={"xatol": 1e-12 * hi},
+                options={"xatol": 1e-12 * max(hi, 1.0)},
             )
             if np.isfinite(ref.fun) and ref.fun <= halves[i]:
-                h_star = float(ref.x)
-        bias_star, x_star = self.bias(h_star)
-        half_length = self.half_length(h_star, m_bar, alpha)
+                b_star = float(ref.x)
+        h_star, x_star = self.sd(b_star)
+        bias_star = b_star
+        half_length = self.half_length_at_bias(b_star, m_bar, alpha)
 
         n_pre = self.n_pre
         w = x_star[n_pre:]

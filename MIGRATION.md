@@ -5,6 +5,22 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.45.0 → next release: ⚠️ smoothness FLCI of `sp.honest_did`
+
+A correctness fix with no API change. The fixed-length interval of
+`sp.honest_did(method="smoothness")`, and `sp.breakdown_m` on the same
+restriction, used to depend on the installed SciPy: the optimiser left the
+centre of the interval undetermined to about 6e-4 of a bound where the
+half-length is flat. The interval is now the same under SciPy 1.15 and
+1.17 to about 2e-8 and equals Stata `honestdid` to the digits it prints.
+
+- Expect bounds to move in the fourth or fifth significant digit on event
+  studies with strongly correlated pre-period coefficients, and not at all
+  (below 1e-9) elsewhere. The interval's length barely changes.
+- Stored numbers from an earlier release are reproduced only by that
+  release under the SciPy it ran on.
+- `M = 0` (closed form) and the relative-magnitudes sets are unaffected.
+
 ## 1.44 → 1.45: announced defaults take effect
 
 Five defaults that 1.44.0 and 1.44.1 announced with a `FutureWarning`
