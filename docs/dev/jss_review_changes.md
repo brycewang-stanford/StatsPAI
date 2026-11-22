@@ -6806,3 +6806,22 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
   - `src/statspai/validation_scope.py`
+
+### 2026-11-22 — smoothness FLCI of `sp.honest_did` (after 1.45.0, unreleased)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `944ba67b1` changes `src/statspai/did/_flci.py` (the FLCI is
+  searched over the bias bound, with a strictly convex inner program) and
+  re-records `tests/r_parity/results/_implementation_trace.json` for
+  modules 10 and 21.
+- **Reason.** ⚠️ correctness fix: the interval depended on the SciPy
+  version by up to 6e-4 of a bound on an ill-conditioned event study.
+- **Effect on the paper.** No printed number: modules 10 and 21 were
+  re-run without Rust before re-recording and move by at most 1.8e-10, so
+  the committed results were kept. A manuscript number produced by
+  `sp.honest_did(method="smoothness")` on other data may move in its
+  fourth or fifth significant digit at the next re-anchor.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `src/statspai/did/_flci.py`
