@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.45.0 → next release: ⚠️ smoothness FLCI of `sp.honest_did`
+## 1.45.0 → 1.45.1: ⚠️ smoothness FLCI of `sp.honest_did`
 
 A correctness fix with no API change. The fixed-length interval of
 `sp.honest_did(method="smoothness")`, and `sp.breakdown_m` on the same

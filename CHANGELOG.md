@@ -2,7 +2,10 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.45.1] — 2026-11-22
+
+⚠️ The smoothness FLCI of `sp.honest_did` and `sp.breakdown_m` no longer
+depends on the installed SciPy version.
 
 ### Fixed
 
