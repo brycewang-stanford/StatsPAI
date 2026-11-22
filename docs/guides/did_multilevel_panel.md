@@ -135,6 +135,19 @@ het.model_info["hetby"]
 The low-flying species lose 0.571 (truth 0.6) and the others 0.414
 (truth 0.4).
 
+The workflow offers the same split as a design of its own:
+
+```python
+wf.heterogeneity("low_flying")
+```
+
+It runs the whole declared analysis inside each cell, with that cell's
+own comparison units: 0.558 for the low-flying species and 0.420 for the
+others. The cells hold two thirds and one third of the treated units, and
+their share-weighted average is -0.466, the headline. No test of equality
+is reported here, because every county holds species of both kinds and the
+two estimates share clusters.
+
 ## Spillovers
 
 Birds cross county lines, so an untreated neighbour may not be a clean
