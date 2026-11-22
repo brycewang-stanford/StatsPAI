@@ -43,6 +43,10 @@ effects beyond unit and period and no longer stalls on a long panel.
   periods included, in place of the wording for a comparison with the
   not-yet-treated. The guide `docs/guides/did_workflow.md` maps the eight
   steps of Baker et al. to the workflow.
+- **Three more published numbers of Baker et al. (2026) are pinned**
+  (`tests/external_parity/test_did_paper_gallery.py`): the event-study
+  averages of Figures 3, 8 and 9 (-0.70, 0.09, -2.25), reproduced at the
+  printed precision by `sp.callaway_santanna` + `sp.aggte`.
 - **Guide: "A staggered treatment on a multi-level panel"**
   (`docs/guides/did_multilevel_panel.md`). The usual tables of such a
   paper (two-way regression, event study, group heterogeneity, spillovers

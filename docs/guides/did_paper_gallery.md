@@ -78,11 +78,29 @@ sp.callaway_santanna(s, y="crude_rate_20_64", g="treat_year", t="year",
 | Regression / IPW / DR, unweighted (Table 7) | -1.62 / -0.86 / -1.23 | not run | rounds to the paper |
 | TWFE with time-varying covariates (Table 5 col 6) | -1.37 | -1.369975 | -1.369979 |
 | Staggered TWFE, weighted / unweighted | | -0.935153 / -1.011909 | same to 6 decimals |
+| Event-study average, 2014 group (Figure 3) | -0.70 (2.01) | not run | -0.70 (2.02) |
+| Event-study average, staggered, not-yet-treated (Figure 8) | 0.09 (1.92) | not run | 0.09 (1.89) |
+| Event-study average, staggered, doubly robust with covariates (Figure 9) | -2.25 (4.05) | not run | -2.25 (4.00) |
 
 The last digits of the covariate rows differ because the Stata do-file
 creates the covariates with `gen`, which stores them as float (about 7
 significant digits). The Table 5 standard error of column 6 (1.62) comes
 from R; Stata `reghdfe` and StatsPAI both give 1.6149.
+
+The three event-study averages are
+`sp.aggte(fit, type="dynamic", min_e=-5, max_e=5)` on
+`sp.callaway_santanna(..., weights="set_wt", base_period="universal")`.
+The paper's standard errors come from the multiplier bootstrap of R
+`did`; the ones here are analytic, so they agree to the second digit
+only. Figure 9 passes the six covariates as they vary over time.
+Callaway-Sant'Anna read them at each group's base period; freezing them
+at 2013 gives -2.01.
+
+The relative-magnitudes interval the paper reports for the 2014 effect,
+[-11.1, 5.1], is not reproduced to its printed digits:
+`sp.honest_did(es, e=0, method="relative_magnitude", m_grid=[1.0])` gives
+[-11.2, 5.5]. The inputs to the paper's interval are not in the text, so
+the gap is left open here.
 
 ## 2. Sant'Anna and Zhao (2020): doubly robust DiD on LaLonde
 

@@ -499,6 +499,52 @@ class TestBakerEtAlJEL:
         assert abs(float(simple.estimate) - st["att"]) <= STATA6
         assert abs(float(simple.se) - st["se"]) <= STATA6
 
+    @pytest.mark.parametrize(
+        "sample,control,covariates,printed",
+        [
+            # Figure 3 and the text below it: 2014 expansion against
+            # counties not expanded by 2019
+            ("2x2", "nevertreated", False, (-0.70, 2.01)),
+            # Figure 8: all four expansion groups, not-yet-treated controls
+            ("staggered", "notyettreated", False, (0.09, 1.92)),
+            # Figure 9: doubly robust on the six covariates, which
+            # Callaway-Sant'Anna read at each group's base period
+            ("staggered", "notyettreated", True, (-2.25, 4.05)),
+        ],
+    )
+    def test_event_study_averages_of_figures_3_8_9(
+        self, sample, control, covariates, printed
+    ):
+        """The average of the post-treatment event times 0..5, population
+        weighted, counties as clusters (JEL 64(2)).
+
+        Point estimates are checked at the two decimals the paper prints.
+        Its standard errors come from the multiplier bootstrap of R
+        ``did``, so they are compared with the analytic ones to 0.05.
+        """
+        d = _load("jel_medicaid", _did_gallery.JEL_MEDICAID, sample=sample)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cs = sp.callaway_santanna(
+                d,
+                y="crude_rate_20_64",
+                g="treat_year",
+                t="year",
+                i="county_code",
+                weights="set_wt",
+                control_group=control,
+                base_period="universal",
+                x=JEL_COVS if covariates else None,
+                estimator="dr",
+            )
+            es = sp.aggte(cs, type="dynamic", min_e=-5, max_e=5)
+        assert _paper_ok(float(es.estimate), printed[0], 2)
+        assert abs(float(es.se) - printed[1]) <= 0.05
+        if sample == "2x2":
+            # "the estimate for e = 0 is -2.6", the weighted 2 x 2 of Table 2
+            at_zero = es.detail.loc[es.detail["relative_time"] == 0, "att"]
+            assert _paper_ok(float(at_zero.iloc[0]), -2.6, 1)
+
 
 def test_fixture_provenance_is_recorded():
     for key in ("santanna_zhao_2020", "goodman_bacon_2021", "callaway_santanna_2021",
