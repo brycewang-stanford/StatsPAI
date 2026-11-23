@@ -546,6 +546,43 @@ class TestBakerEtAlJEL:
             assert _paper_ok(float(at_zero.iloc[0]), -2.6, 1)
 
 
+    def test_relative_magnitudes_interval_of_the_2014_effect(self):
+        """"[-11.1, 5.1]" for the 2014 effect when post-treatment
+        violations may be as large as the largest pre-treatment one.
+
+        The authors' script (``scripts/R/3_2XT.R`` and ``5_honestdid.R`` of
+        their replication repository) builds the event study over e = -5..0,
+        regression adjustment without covariates, and inverts the test on
+        100 grid points. The printed digits are those of that grid: on
+        1,000 points the same interval is [-11.30, 5.52].
+        """
+        d = _load("jel_medicaid", _did_gallery.JEL_MEDICAID, sample="2x2")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cs = sp.callaway_santanna(
+                d,
+                y="crude_rate_20_64",
+                g="treat_year",
+                t="year",
+                i="county_code",
+                weights="set_wt",
+                control_group="nevertreated",
+                base_period="universal",
+                estimator="reg",
+            )
+            es = sp.aggte(cs, type="dynamic", min_e=-5, max_e=0)
+            rm = sp.honest_did(
+                es,
+                e=0,
+                method="relative_magnitude",
+                m_grid=[1.0],
+                grid_points=100,
+            )
+        row = rm.iloc[0]
+        assert _paper_ok(float(row["ci_lower"]), -11.1, 1)
+        assert _paper_ok(float(row["ci_upper"]), 5.1, 1)
+
+
 def test_fixture_provenance_is_recorded():
     for key in ("santanna_zhao_2020", "goodman_bacon_2021", "callaway_santanna_2021",
                 "cheng_hoekstra_2013", "baker_et_al_jel"):

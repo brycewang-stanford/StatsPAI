@@ -2,6 +2,17 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **The relative-magnitudes interval of Baker et al. (2026) is pinned**
+  (`tests/external_parity/test_did_paper_gallery.py`): [-11.1, 5.1] for
+  the 2014 effect, reproduced by `sp.honest_did` with the authors' inputs
+  (event study over e = -5..0, 100 grid points). The gap noted in 1.46.0
+  came from a different event-study window and a finer grid, not from the
+  implementation. No source change.
+
 ## [1.46.0] — 2026-11-23
 
 A staggered treatment on a multi-level panel (units within places, many

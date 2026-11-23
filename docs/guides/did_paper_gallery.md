@@ -97,10 +97,17 @@ Callaway-Sant'Anna read them at each group's base period; freezing them
 at 2013 gives -2.01.
 
 The relative-magnitudes interval the paper reports for the 2014 effect,
-[-11.1, 5.1], is not reproduced to its printed digits:
-`sp.honest_did(es, e=0, method="relative_magnitude", m_grid=[1.0])` gives
-[-11.2, 5.5]. The inputs to the paper's interval are not in the text, so
-the gap is left open here.
+[-11.1, 5.1], is reproduced with the authors' inputs: the event study
+over e = -5..0 and 100 grid points for the test inversion.
+
+```python
+es = sp.aggte(cs, type="dynamic", min_e=-5, max_e=0)
+sp.honest_did(es, e=0, method="relative_magnitude", m_grid=[1.0],
+              grid_points=100)                   # [-11.13, 5.11]
+```
+
+The printed digits belong to that grid. On the default 1,000 points the
+interval is [-11.30, 5.52].
 
 ## 2. Sant'Anna and Zhao (2020): doubly robust DiD on LaLonde
 
