@@ -13390,6 +13390,14 @@ def _build_registry() -> None:
                     False,
                     "Unequal variances with Welch's df (Stata welch)",
                 ),
+                ParamSpec(
+                    "reverse",
+                    "bool",
+                    False,
+                    False,
+                    "Two unpaired samples: second minus first "
+                    "(treated minus control with by= on a 0/1 column)",
+                ),
                 ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
                 ParamSpec(
                     "n", "int | pair", False, None, "Observations (summary form)"

@@ -156,3 +156,71 @@ def test_stata_ttest_does_not_drop_an_option_silently():
     out = sp.from_stata("ttest y == x, unequal")
     assert out["untranslated_options"] == ["unequal"]
     assert sp.from_stata("ttest y x")["ok"] is False
+
+
+# ------------------------------------------------ reverse= and a group of one
+
+
+def test_reverse_swaps_the_two_samples_and_nothing_else(df):
+    for kw in (dict(by="g"), dict(by="g", unequal=True), dict(by="g", welch=True)):
+        fwd, rev = sp.ttest(df, "y", **kw), sp.ttest(df, "y", reverse=True, **kw)
+        assert rev.estimate == -fwd.estimate and rev.statistic == -fwd.statistic
+        assert rev.se == fwd.se and rev.df == fwd.df and rev.pvalue == fwd.pvalue
+        assert rev.pvalue_less == pytest.approx(fwd.pvalue_greater, rel=1e-12)
+        assert rev.pvalue_greater == pytest.approx(fwd.pvalue_less, rel=1e-12)
+        assert rev.ci == pytest.approx((-fwd.ci[1], -fwd.ci[0]), rel=1e-12)
+        pd.testing.assert_frame_equal(rev.groups, fwd.groups)
+    summary = dict(n=(12, 9), mean=(3.0, 2.2), sd=(1.1, 0.8))
+    assert sp.ttest(reverse=True, **summary).estimate == pytest.approx(-0.8)
+
+
+def test_reverse_needs_two_unpaired_samples(df):
+    with pytest.raises(MethodIncompatibility, match="reverse=True"):
+        sp.ttest(df, "y", reverse=True)
+    with pytest.raises(MethodIncompatibility, match="reverse=True"):
+        sp.ttest(df, "y", other="x", reverse=True)
+    with pytest.raises(MethodIncompatibility, match="reverse=True"):
+        sp.ttest(n=10, mean=88, sd=1.1, mu=85, reverse=True)
+
+
+def test_pooled_test_with_one_observation_in_a_group_equals_r():
+    # R 4.5.2: t.test(y[g == 1], y[g == 0], var.equal = TRUE), with
+    # sprintf("%.15g") on statistic, parameter, p.value, stderr, conf.int,
+    # the difference of the estimates, and p.value for
+    # alternative = "greater". The single treated observation adds nothing
+    # to the pooled variance; df stays n1 + n2 - 2.
+    y = [0.31, -1.2, 0.45, 2.1, 0.9, -0.3, 1.7, 0.05, 1.4, 3.3]
+    one = pd.DataFrame({"y": y, "g": [0] * 9 + [1]})
+    res = sp.ttest(one, "y", by="g", reverse=True)
+    assert res.statistic == pytest.approx(2.46244235923516, rel=1e-13)
+    assert res.df == 8
+    assert res.pvalue == pytest.approx(0.0391693028320928, rel=1e-12)
+    assert res.se == pytest.approx(1.09602114289781, rel=1e-13)
+    assert res.ci == pytest.approx((0.171459601095353, 5.22631817668242), rel=1e-13)
+    assert res.estimate == pytest.approx(2.69888888888889, rel=1e-13)
+    assert res.pvalue_greater == pytest.approx(0.0195846514160464, rel=1e-12)
+    # the group of one has a mean and no standard deviation of its own
+    assert res.groups.loc["1", "n"] == 1 and res.groups.loc["1", "mean"] == 3.3
+    assert np.isnan(res.groups.loc["1", "sd"])
+
+
+def test_a_group_of_one_is_still_refused_where_no_variance_exists():
+    y = [0.31, -1.2, 0.45, 2.1, 0.9, -0.3, 1.7, 0.05, 1.4, 3.3]
+    one = pd.DataFrame({"y": y, "g": [0] * 9 + [1]})
+    for kw in (dict(unequal=True), dict(welch=True)):
+        with pytest.raises(MethodIncompatibility, match="fewer than two"):
+            sp.ttest(one, "y", by="g", **kw)
+    with pytest.raises(MethodIncompatibility, match="fewer than two"):
+        sp.ttest(one.iloc[[0, 9]], "y", by="g")  # one and one: no variance at all
+
+
+def test_pooled_test_with_a_group_of_one_is_the_dummy_regression():
+    # The pooled two-sample t test is OLS of y on the group dummy with the
+    # classical variance, whatever the group sizes.
+    y = [0.31, -1.2, 0.45, 2.1, 0.9, -0.3, 1.7, 0.05, 1.4, 3.3]
+    one = pd.DataFrame({"y": y, "g": [0] * 9 + [1]})
+    res = sp.ttest(one, "y", by="g", reverse=True)
+    ols = sp.regress("y ~ g", data=one)
+    assert res.estimate == pytest.approx(ols.params["g"], rel=1e-12)
+    assert res.se == pytest.approx(ols.std_errors["g"], rel=1e-12)
+    assert res.pvalue == pytest.approx(ols.pvalues["g"], rel=1e-10)

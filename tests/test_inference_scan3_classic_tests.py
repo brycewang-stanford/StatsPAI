@@ -372,7 +372,9 @@ class TestTTest:
             dict(y="a", by="g", other="b"),
             dict(y="c1"),  # constant
             dict(y="a", by="g3"),
-            dict(y="a", by="solo"),
+            # a group of one has no variance of its own: refused when the
+            # variances are not pooled (the pooled test takes it, as R does)
+            dict(y="a", by="solo", unequal=True),
         ],
     )
     def test_invalid_requests_are_refused(self, kwargs):

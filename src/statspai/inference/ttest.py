@@ -12,6 +12,12 @@ are parameters here rather than defaults to guess:
   ``welch=True``.
 * A ``by=`` difference is the mean of the group with the smaller value
   minus the mean of the group with the larger one, as in Stata.
+  ``reverse=True`` gives the other sign (treated minus control for a 0/1
+  column).
+* The pooled test accepts a group of one observation next to a group of
+  two or more, as R's ``t.test(var.equal = TRUE)`` does: the single
+  observation adds nothing to the pooled variance and the degrees of
+  freedom stay ``n1 + n2 - 2``.
 """
 
 from __future__ import annotations
@@ -246,6 +252,7 @@ def ttest(
     paired: bool = True,
     unequal: bool = False,
     welch: bool = False,
+    reverse: bool = False,
     alpha: float = 0.05,
     n: Union[None, int, Sequence[int]] = None,
     mean: Union[None, float, Sequence[float]] = None,
@@ -277,7 +284,8 @@ def ttest(
     by : str, optional
         Grouping column with exactly two distinct non-missing values. The
         estimate is the mean of ``y`` in the group with the smaller value
-        minus the mean in the group with the larger one.
+        minus the mean in the group with the larger one (``reverse=True``
+        for the other sign).
     other : str, optional
         A second variable. With ``paired=True`` (default) the test is on the
         mean of ``y - other`` over rows where both are observed; with
@@ -295,6 +303,12 @@ def ttest(
         Two unpaired samples: unequal variances with Welch's (1947) degrees
         of freedom instead of Satterthwaite's, as Stata's ``welch`` option.
         Implies ``unequal=True``.
+    reverse : bool, default False
+        Two unpaired samples: report the second sample minus the first.
+        With ``by=`` on a 0/1 column that is treated minus control, where
+        the default is control minus treated. The statistic changes sign
+        and the two one-sided p-values swap; the two-sided p-value and
+        the rows of ``groups`` are unchanged.
     alpha : float, default 0.05
         ``1 - alpha`` is the confidence level of the intervals.
     n, mean, sd : number or pair of numbers, optional
@@ -310,8 +324,13 @@ def ttest(
     ------
     MethodIncompatibility
         When ``by`` does not have exactly two groups, when ``by`` and
-        ``other`` are both given, or when a sample has fewer than two
-        observations.
+        ``other`` are both given, when ``reverse=True`` is given without
+        two unpaired samples, or when a sample has fewer than two
+        observations. The pooled two-sample test (``unequal=False``) is
+        the exception: one of the two groups may have a single
+        observation, as in R's ``t.test(var.equal = TRUE)``. That group
+        has no standard deviation of its own (NaN in ``groups``) and
+        the pooled variance comes from the other group.
 
     Examples
     --------
@@ -326,6 +345,10 @@ def ttest(
     >>> one = sp.ttest(df, "y", mu=1.0)
     >>> one.method
     'One-sample t test'
+    >>> # treated minus control instead of group 0 minus group 1
+    >>> rev = sp.ttest(df, "y", by="g", reverse=True)
+    >>> bool(rev.estimate == -sp.ttest(df, "y", by="g").estimate)
+    True
     """
     if not 0 < alpha < 1:
         raise MethodIncompatibility(
@@ -379,6 +402,15 @@ def ttest(
     # relative to it (a constant difference of two varying columns leaves
     # rounding error of that order, not an exact 0)
     scale = 0.0
+    two_unpaired = (
+        len(samples) == 2 if summary else by is not None or (other and not paired)
+    )
+    if reverse and not two_unpaired:
+        raise MethodIncompatibility(
+            "ttest: reverse=True swaps the two samples of an unpaired "
+            "two-sample test; this call has one sample or a paired difference.",
+            recovery_hint="Drop reverse=, or for a paired test swap y and other.",
+        )
     # ---------------------------------------------- one sample / paired
     if summary and len(samples) == 1:
         ((label, base),) = samples.items()
@@ -431,15 +463,23 @@ def ttest(
             b = _column(data, str(other), "other").dropna().to_numpy()
             names = [y, str(other)]
         if not summary:
-            if a.size < 2:
+            # The pooled variance needs n1 + n2 - 2 >= 1, not two
+            # observations in each group: a single observation has no
+            # variance of its own and contributes none (R's t.test with
+            # var.equal = TRUE). Unequal variances need both.
+            least = 1 if not unequal and a.size + b.size > 2 else 2
+            if a.size < least:
                 raise too_small(names[0])
-            if b.size < 2:
+            if b.size < least:
                 raise too_small(names[1])
             ra, rb = _row(a, alpha), _row(b, alpha)
             scale = float(max(np.max(np.abs(a)), np.max(np.abs(b))))
         na, nb = int(ra["n"]), int(rb["n"])
-        va, vb = ra["sd"] ** 2, rb["sd"] ** 2
+        va = ra["sd"] ** 2 if na > 1 else 0.0
+        vb = rb["sd"] ** 2 if nb > 1 else 0.0
         est = ra["mean"] - rb["mean"]
+        if reverse:
+            est = -est
         if unequal:
             qa, qb = va / na, vb / nb
             se = float(np.sqrt(qa + qb))

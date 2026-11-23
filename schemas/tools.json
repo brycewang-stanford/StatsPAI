@@ -46645,6 +46645,11 @@
           "description": "Only used with other=",
           "type": "boolean"
         },
+        "reverse": {
+          "default": false,
+          "description": "Two unpaired samples: second minus first (treated minus control with by= on a 0/1 column)",
+          "type": "boolean"
+        },
         "sd": {
           "description": "Sample standard deviation (summary form)",
           "type": "number"

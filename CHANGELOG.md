@@ -2,6 +2,24 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`sp.ttest(reverse=True)`: the second sample minus the first.** With
+  `by=` on a 0/1 column the default difference is control minus treated;
+  `reverse=True` reports treated minus control. The statistic changes
+  sign and the two one-sided p-values swap, and nothing else changes.
+  It is refused for a one-sample or paired test.
+- **The pooled two-sample `sp.ttest` takes a group of one observation**
+  next to a group of two or more, as R's `t.test(var.equal = TRUE)` does:
+  the single observation adds nothing to the pooled variance and the
+  degrees of freedom stay `n1 + n2 - 2`. It was refused before. Equal to
+  R 4.5.2 to 13 digits (`tests/test_ttest.py`). With unequal variances a
+  group of one is still refused. Both from the earnings-management
+  chapter of Ian Gow's StatsPAI edition (iangow/era_statpai#29), where
+  every firm has a single event year.
+
 ## [1.46.1] — 2026-11-23
 
 Two requests from Ian Gow's Polars / StatsPAI edition of *Empirical
