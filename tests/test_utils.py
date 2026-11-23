@@ -274,3 +274,40 @@ class TestPwcorrMissingSemantics:
         m = sp.pwcorr(df, output="dataframe")
         assert np.isnan(m.loc["a", "k"])
         assert "." in sp.pwcorr(df)
+
+
+@pytest.mark.parametrize("trim", [False, True])
+def test_winsor_by_many_groups_equals_group_by_group(trim):
+    """`by=` cut-offs are each group's own percentiles, group by group.
+
+    The reference below masks one group at a time (the loop used through 1.46.0,
+    150 s for 20,000 groups on 2 million rows); the grouped path must
+    return the same floats, including with missing values and a subset.
+    """
+    rng = np.random.default_rng(56)
+    n = 6_000
+    df = pd.DataFrame(
+        {
+            "x": rng.standard_t(3, n),
+            "g": rng.integers(0, 700, n),
+            "h": rng.integers(0, 3, n),
+            "keep": rng.random(n) < 0.8,
+        }
+    )
+    df.loc[rng.random(n) < 0.05, "x"] = np.nan
+
+    out = winsor(df, vars=["x"], by=["g", "h"], cuts=(5, 95), subset="keep", trim=trim)
+    got = out["x_tr" if trim else "x_w"].to_numpy()
+
+    expected = np.full(n, np.nan)
+    x = df["x"].to_numpy()
+    use = df["keep"].to_numpy() & np.isfinite(x)
+    for _, rows in df[use].groupby(["g", "h"]).indices.items():
+        idx = np.flatnonzero(use)[rows]
+        lo, hi = np.percentile(x[idx], [5, 95], method="averaged_inverted_cdf")
+        expected[idx] = (
+            np.where((x[idx] < lo) | (x[idx] > hi), np.nan, x[idx])
+            if trim
+            else np.clip(x[idx], lo, hi)
+        )
+    np.testing.assert_array_equal(got, expected)

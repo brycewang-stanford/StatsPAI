@@ -13,6 +13,20 @@ All notable changes to StatsPAI will be documented in this file.
   came from a different event-study window and a finer grid, not from the
   implementation. No source change.
 
+### Performance
+
+- **`sp.winsor(by=...)` with many groups.** The cut-offs were found with
+  one row mask per group, so the cost grew with groups times rows: 150 s
+  for 20,000 groups on 2 million rows and five variables. One stable sort
+  on the group code now does it in 3.6 s. The values are the same floats
+  as before (`tests/test_utils.py`). Measured against the Polars
+  expression of `era_pl` after a question from Ian Gow
+  (iangow/era_statpai#17): without `by=` and by fiscal year the two take
+  0.3 s and 1.0 s against 0.4 s and 0.6 s. `sp.winsor` still holds a
+  pandas copy of the whole frame while it runs (about three times the
+  frame at peak), so on a frame near the size of memory the Polars
+  expression remains the better tool.
+
 ## [1.46.0] — 2026-11-23
 
 A staggered treatment on a multi-level panel (units within places, many

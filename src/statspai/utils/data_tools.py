@@ -360,18 +360,25 @@ def winsor(
             )
 
         winsorized = col.copy()
-        for gcode in np.unique(groups[use]):
-            rows = use & (groups == gcode)
-            lo_val, hi_val = np.percentile(
-                col[rows], [lo_pct, hi_pct], method=np_method
-            )
+        # One stable sort on the group code instead of one mask per group:
+        # a mask per group is O(groups x rows) (150 s for 20,000 groups on
+        # 2 million rows). The stable sort keeps the rows of a group in
+        # data order, so each group reaches np.percentile exactly as before.
+        used = np.flatnonzero(use)
+        used = used[np.argsort(groups[used], kind="stable")]
+        codes = groups[used]
+        starts = np.flatnonzero(np.r_[True, codes[1:] != codes[:-1]])[: len(used)]
+        stops = np.r_[starts[1:], len(used)]
+        for start, stop in zip(starts, stops):
+            rows = used[start:stop]
+            vals = col[rows]
+            lo_val, hi_val = np.percentile(vals, [lo_pct, hi_pct], method=np_method)
             if trim:
-                vals = col[rows]
                 winsorized[rows] = np.where(
                     (vals < lo_val) | (vals > hi_val), np.nan, vals
                 )
             else:
-                winsorized[rows] = np.clip(col[rows], lo_val, hi_val)
+                winsorized[rows] = np.clip(vals, lo_val, hi_val)
 
         if replace:
             df[var] = winsorized
