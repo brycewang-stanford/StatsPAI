@@ -52,6 +52,8 @@ for c in range(n_county):
 df = pd.DataFrame(rows, columns=["county", "species", "year", "state", "first_pv",
                                  "pv", "low_flying", "x_km", "y_km", "log_birds"])
 df["unit"] = df["county"] * 100 + df["species"]
+df["state_year"] = df["state"] * 10000 + df["year"]
+df["species_year"] = df["species"] * 10000 + df["year"]
 ```
 
 The unit is the county-species pair. `first_pv` is the year the county
@@ -60,7 +62,7 @@ first has a facility and 0 for a county that never has one.
 ## The two-way regression
 
 ```python
-twfe = sp.feols("log_birds ~ pv | unit + state:year + species:year", df,
+twfe = sp.feols("log_birds ~ pv | unit + state_year + species_year", df,
                 vcov={"CRV1": "county"})
 ```
 
@@ -69,7 +71,7 @@ The treatment switches on at 10 different dates, and part of the
 coefficient's weight sits on comparisons that use already-treated counties
 as controls. With effects that grow over time those comparisons bias the
 coefficient. The warning counts dates on the calendar even though the
-regression absorbs `state:year` and has no year effect of its own.
+regression absorbs `state_year` and has no year effect of its own.
 
 ## The workflow with absorbed effects
 
@@ -188,7 +190,7 @@ dated = sp.assign_placebo_dates(
 When adoption is instrumented, the fixed effects stay in the formula:
 
 ```python
-sp.feols("log_birds ~ 1 | unit + state:year + species:year | pv ~ z_post",
+sp.feols("log_birds ~ 1 | unit + state_year + species_year | pv ~ z_post",
          df, vcov={"CRV1": "county"})
 ```
 

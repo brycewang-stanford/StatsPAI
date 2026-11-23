@@ -186,7 +186,7 @@ def test_explicit_window_and_short_panels_are_left_alone():
 # guardrail: calendar nested in a group-by-period effect
 # --------------------------------------------------------------------- #
 @pytest.mark.parametrize(
-    "formula", ["y ~ d | unit + region_year", "y ~ d | unit + region:year"]
+    "formula", ["y ~ d | unit + region_year", "y ~ d | unit + region^year"]
 )
 def test_feols_guardrail_counts_adoption_dates_through_region_by_year(formula):
     df = _panel(noise=0.5)
