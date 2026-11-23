@@ -31,36 +31,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Performance
 
-- **`sp.winsor(by=...)` with many groups.** The cut-offs were found with
-  one row mask per group, so the cost grew with groups times rows: 150 s
-  for 20,000 groups on 2 million rows and five variables. One stable sort
-  on the group code now does it in 3.6 s. The values are the same floats
-  as before (`tests/test_utils.py`). Measured against the Polars
-  expression of `era_pl` after a question from Ian Gow
-  (iangow/era_statpai#17): without `by=` and by fiscal year the two take
-  0.3 s and 1.0 s against 0.4 s and 0.6 s. `sp.winsor` still holds a
-  pandas copy of the whole frame while it runs (about three times the
-  frame at peak), so on a frame near the size of memory the Polars
-  expression remains the better tool.
-
-### Changed
-
-- **`sp.match(replace=False)` no longer builds the full distance matrix**
-  (GitHub #56). With a fixed processing order (`m_order="largest"`,
-  `"smallest"`, `"data"` or the default `"smallest_min_dist"`), matching
-  on a propensity score searches the sorted control scores and skips used
-  controls, in memory proportional to the sample: 16,845 treated and
-  74,998 controls take about 0.3 seconds, where the distance matrix alone
-  was 10.1 GB. Other distances, and matching under `exact=`,
-  `covariate_calipers=` or `mahvars=`, compute one treated unit's
-  distances at a time. The matched pairs are the same: the estimate and
-  standard error are bit-identical to the previous row-by-row search on
-  432 designs (ties, calipers, 1 to 3 matches, both distances), and equal
-  an independent dense implementation of the greedy rule
-  (`tests/test_matching_noreplace_bounded_memory.py`). The dynamic orders
-  (`"closest"`, `"farthest"`) still need every row at every step; they
-  now announce the size of the matrix when it exceeds 1 GiB.
-
+- **`sp.winsor` on a Polars frame: speed with many groups, and memory.**
+  Measured against the Polars expression of `era_pl` after a question
+  from Ian Gow (iangow/era_statpai#17), on 2 million rows, 25 columns and
+  five variables. The values of the two are identical. (1) With `by=` the
+  cut-offs were found with one row mask per group, so the cost grew with
+  groups times rows: 150 s for 20,000 groups. One stable sort on the
+  group code now does it in 3.5 s, with the same floats as before
+  (`tests/test_utils.py`). (2) A Polars frame was converted to pandas
+  whole. Only the columns the call reads (`vars` and `by`) are converted
+  now, and the others stay in the caller's frame: the extra memory at
+  peak fell from about 1.0 GB to 0.43 GB on a 0.35 GB frame, against
+  0.33 GB for the expression. `vars=None` and a `subset=` query string
+  can read any column and still convert the frame. Without `by=` and by
+  fiscal year `sp.winsor` takes 0.2 s and 0.8 s, the expression 0.3 s
+  and 0.6 s; with 20,000 groups the expression (0.4 s) is still faster,
+  and it is the one that stays lazy.
 
 ## [1.46.0] — 2026-11-23
 

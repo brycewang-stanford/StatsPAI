@@ -134,13 +134,17 @@ def _make(fn):
         return fn(*converted[0], **converted[1])
     return accepting_frames
 
-def _make_same(fn):
+def _make_same(fn, needs):
     def same_frame_out(*args, **kwargs):
-        converted = _passthrough(args, kwargs)
+        narrow = _narrow(fn, needs, args, kwargs)
+        if narrow is None:
+            converted = _passthrough(args, kwargs)
+        else:
+            converted = _passthrough(narrow[0], narrow[1])
         if converted is None:
             return fn(*args, **kwargs)
         out = fn(*converted[0], **converted[1])
-        return _restore(args, kwargs, converted, out)
+        return _restore(args, kwargs, converted, out, narrow)
     return same_frame_out
 """
 
@@ -162,11 +166,58 @@ def _first_frame(
     return None
 
 
+def _narrow(
+    fn: Callable[..., Any],
+    needs: Optional[Callable[[Dict[str, Any]], Optional[List[str]]]],
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+) -> Optional[Tuple[Tuple[Any, ...], Dict[str, Any], Any]]:
+    """The call with its polars frame cut down to the columns ``fn`` reads.
+
+    Converting a wide frame to pandas to change five of its columns costs
+    several times the frame in memory. ``needs`` (see
+    :func:`returns_input_frame`) names the columns the call reads; only
+    those go to pandas, and :func:`_restore` puts the result back beside
+    the caller's other columns. Returns ``(args, kwargs, frame)`` with
+    ``frame`` the caller's (collected) frame, or None when there is nothing
+    to cut: pandas input (decided by a type check alone), a call ``needs``
+    cannot resolve, or a name that is not a column, which is left for
+    ``fn`` to report.
+    """
+    if needs is None:
+        return None
+    hit = _first_frame(args, kwargs)
+    if hit is None:
+        return None
+    where, original = hit
+    import inspect
+
+    try:
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+    except TypeError:
+        return None
+    bound.apply_defaults()
+    wanted = needs(dict(bound.arguments))
+    if wanted is None or not all(isinstance(c, str) for c in wanted):
+        return None
+    lazy = type(original).__name__ == "LazyFrame"
+    names = original.collect_schema().names() if lazy else original.columns
+    keep = [c for c in names if c in set(wanted)]
+    if len(keep) != len(set(wanted)) or len(keep) == len(names):
+        return None
+    frame = original.collect() if lazy else original
+    part = frame.select(keep)
+    if where == 0:
+        return (part,) + tuple(args[1:]), kwargs, frame
+    return args, {**kwargs, "data": part}, frame
+
+
 def _restore(
     args: Tuple[Any, ...],
     kwargs: Dict[str, Any],
     converted: Tuple[Tuple[Any, ...], Dict[str, Any]],
     out: Any,
+    narrow: Optional[Tuple[Tuple[Any, ...], Dict[str, Any], Any]] = None,
 ) -> Any:
     """Give a polars caller a polars frame back.
 
@@ -187,9 +238,28 @@ def _restore(
 
     pl: Any = importlib.import_module("polars")
     lazy = type(original).__name__ == "LazyFrame"
-    frame = original.collect() if lazy else original
+    if narrow is not None:
+        frame = narrow[2]
+    else:
+        frame = original.collect() if lazy else original
     if len(out) != frame.height or not isinstance(out.index, pd.RangeIndex):
+        if narrow is not None:  # pragma: no cover - a needs= function keeps rows
+            raise RuntimeError(
+                "a function decorated with returns_input_frame(needs=...) "
+                "must return one row per input row"
+            )
         result = pl.from_pandas(out, nan_to_null=True)
+        return result.lazy() if lazy else result
+    if narrow is not None:
+        # Only the columns the function read went to pandas: the caller's
+        # frame keeps every other column, changed ones are replaced in
+        # place and new ones are appended, as the full round trip does.
+        built = [
+            pl.from_pandas(out[name], nan_to_null=True).alias(str(name))
+            for name in out.columns
+            if not (name in as_pandas.columns and out[name].equals(as_pandas[name]))
+        ]
+        result = frame.with_columns(built)
         return result.lazy() if lazy else result
     columns = []
     for name in out.columns:
@@ -207,7 +277,11 @@ def _restore(
     return result.lazy() if lazy else result
 
 
-_shim_ns: Dict[str, Any] = {"_passthrough": _passthrough, "_restore": _restore}
+_shim_ns: Dict[str, Any] = {
+    "_passthrough": _passthrough,
+    "_restore": _restore,
+    "_narrow": _narrow,
+}
 exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
     compile(
         _SHIM_SOURCE,
@@ -217,9 +291,7 @@ exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
     _shim_ns,
 )
 _SHIM_FACTORY: Callable[[Callable[..., Any]], Callable[..., Any]] = _shim_ns["_make"]
-_SAME_FACTORY: Callable[[Callable[..., Any]], Callable[..., Any]] = _shim_ns[
-    "_make_same"
-]
+_SAME_FACTORY: Callable[..., Callable[..., Any]] = _shim_ns["_make_same"]
 
 
 #: One wrapper per original function, so aliases (``sp.bjs`` and
@@ -253,7 +325,11 @@ def accepts_frames(fn: Callable[..., Any]) -> Callable[..., Any]:
     return wrap(fn)
 
 
-def returns_input_frame(fn: Callable[..., Any]) -> Callable[..., Any]:
+def returns_input_frame(
+    fn: Optional[Callable[..., Any]] = None,
+    *,
+    needs: Optional[Callable[[Dict[str, Any]], Optional[List[str]]]] = None,
+) -> Any:
     """Decorator for functions that hand the data back with columns changed.
 
     ``sp.winsor(polars_frame, ...)`` then returns a polars frame (see
@@ -261,11 +337,21 @@ def returns_input_frame(fn: Callable[..., Any]) -> Callable[..., Any]:
     not use this: their results are pandas-based whatever came in. pandas
     arguments still pass by identity. :func:`install` leaves a function
     decorated here alone.
+
+    ``needs`` is optional: a function of the call's bound arguments (a
+    dict, defaults applied) returning the names of the columns the call
+    reads, or None when it cannot tell. With it, a polars frame sends only
+    those columns through pandas (see :func:`_narrow`); the function must
+    then return one row per input row and leave the row order alone.
     """
-    same_frame_out = functools.wraps(fn)(_SAME_FACTORY(fn))
-    setattr(same_frame_out, ATTR, fn)
-    _WRAPPERS[id(fn)] = (fn, same_frame_out)
-    return same_frame_out
+
+    def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
+        same_frame_out = functools.wraps(func)(_SAME_FACTORY(func, needs))
+        setattr(same_frame_out, ATTR, func)
+        _WRAPPERS[id(func)] = (func, same_frame_out)
+        return cast(Callable[..., Any], same_frame_out)
+
+    return decorate if fn is None else decorate(fn)
 
 
 def _eligible(obj: Any) -> bool:

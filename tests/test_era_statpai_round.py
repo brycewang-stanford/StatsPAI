@@ -85,6 +85,49 @@ def test_winsor_warning_points_at_the_caller():
     assert rec and rec[0].filename == __file__
 
 
+def test_winsor_polars_sends_only_the_columns_it_reads_to_pandas():
+    # A wide frame is not copied to pandas to change one column: the
+    # function receives vars and by, and the result is the full frame.
+    from statspai import _frame_input as fi
+
+    p = _polars_frame()
+    part = fi._narrow(
+        fi.bare(sp.winsor),
+        fi.bare(sp.winsor).__globals__["_winsor_columns"],
+        (p,),
+        {"vars": ["x"], "by": "fyear"},
+    )
+    assert part is not None and part[0][0].columns == ["fyear", "x"]
+    assert part[2] is p
+
+
+@pytest.mark.parametrize("subset", ["k >= 50", None])
+def test_winsor_polars_narrow_and_full_routes_agree(subset):
+    # A query string can name any column, so it converts the whole frame;
+    # the mask form reads vars and by only. Both equal the pandas route.
+    p = _polars_frame().with_columns(x_w=pl.lit(1.0), z=pl.col("x") * 2)
+    mask = None if subset is None else (p["k"] >= 50).to_numpy()
+    ref = sp.winsor(p.to_pandas(), vars=["x", "z"], by="fyear", subset=subset)
+    for sub in (subset, mask):
+        out = sp.winsor(p, vars=["x", "z"], by="fyear", subset=sub)
+        assert out.columns == list(ref.columns)  # x_w replaced in place
+        for name in ("x_w", "z_w"):
+            np.testing.assert_array_equal(
+                out[name].to_numpy(), ref[name].to_numpy(dtype=float)
+            )
+        assert out["d"].dtype == pl.Date and out["k"].dtype == pl.Int32
+
+
+def test_winsor_polars_unknown_column_is_reported_as_for_pandas():
+    p = _polars_frame()
+    with pytest.raises(Exception) as polars_err:
+        sp.winsor(p, vars=["nope"])
+    with pytest.raises(Exception) as pandas_err:
+        sp.winsor(p.to_pandas(), vars=["nope"])
+    assert type(polars_err.value) is type(pandas_err.value)
+    assert "nope" in str(polars_err.value)
+
+
 # ------------------------------------------ coef_only and the spec counter
 
 

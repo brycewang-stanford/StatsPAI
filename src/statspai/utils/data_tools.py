@@ -6,7 +6,7 @@ Provides:
 - winsor: Winsorize variables at specified percentiles
 """
 
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -197,7 +197,22 @@ def _pwcorr_latex(
     return "\n".join(lines)
 
 
-@returns_input_frame
+def _winsor_columns(arguments: Dict[str, Any]) -> Optional[List[str]]:
+    """Columns one ``sp.winsor`` call reads, or None when it may read any.
+
+    ``vars=None`` takes every numeric column and a ``subset`` query string
+    can name any column, so those calls convert the whole frame.
+    """
+    names, by = arguments.get("vars"), arguments.get("by")
+    if names is None or isinstance(names, str):
+        return None
+    if isinstance(arguments.get("subset"), str):
+        return None
+    by_cols = [] if by is None else [by] if isinstance(by, str) else list(by)
+    return [*names, *by_cols]
+
+
+@returns_input_frame(needs=_winsor_columns)
 def winsor(
     data: pd.DataFrame,
     vars: Optional[List[str]] = None,
