@@ -18769,7 +18769,7 @@
       "function": "pretrends_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 1.5945823955717316e-08,
+        "rel_vs_R": 5.808591756514323e-08,
         "rel_vs_Stata": null,
         "statistic": [
           "power_slope_0p02_t196",
@@ -18783,7 +18783,7 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 1.5945823955717316e-08,
+        "R": 5.808591756514323e-08,
         "Stata": null
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
@@ -18822,7 +18822,7 @@
       "function": "pretrends_slope_for_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 1.5945823955717316e-08,
+        "rel_vs_R": 5.808591756514323e-08,
         "rel_vs_Stata": null,
         "statistic": [
           "power_slope_0p02_t196",
@@ -18836,7 +18836,7 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 1.5945823955717316e-08,
+        "R": 5.808591756514323e-08,
         "Stata": null
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",

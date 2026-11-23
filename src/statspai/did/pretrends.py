@@ -21,6 +21,7 @@ References
 
 from __future__ import annotations
 
+import inspect
 import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -318,6 +319,16 @@ _RECTANGLE_TIGHT_DIM = 5
 _RECTANGLE_LOOSE_TOL = 1e-5
 
 
+#: SciPy >= 1.16 integrates the rectangle with a randomised lattice rule
+#: and draws a fresh shift on every call unless it is given a generator,
+#: so two calls on the same inputs differed in the seventh digit and the
+#: slope solved from the power moved with them. A fixed seed makes the
+#: integral, the power and the slope functions of their inputs again.
+#: Earlier SciPy has no ``rng`` argument and was already deterministic.
+_RECTANGLE_SEED = 20221115
+_CDF_TAKES_RNG = "rng" in inspect.signature(sp_stats.multivariate_normal.cdf).parameters
+
+
 def _rectangle_tol(k: int) -> float:
     """Integration tolerance for a ``k``-dimensional rectangle."""
     return _RECTANGLE_TOL if k <= _RECTANGLE_TIGHT_DIM else _RECTANGLE_LOOSE_TOL
@@ -352,6 +363,9 @@ def _normal_rectangle_probability(
         # call to the next. 1e-7 costs a few hundredths of a second with up
         # to five pre-periods; beyond that see ``_rectangle_tol``.
         tol = _rectangle_tol(len(mean))
+        extra: Dict[str, Any] = (
+            {"rng": np.random.default_rng(_RECTANGLE_SEED)} if _CDF_TAKES_RNG else {}
+        )
         prob = float(
             mvn.cdf(
                 upper,
@@ -361,6 +375,7 @@ def _normal_rectangle_probability(
                 allow_singular=True,
                 abseps=tol,
                 releps=tol,
+                **extra,
             )
         )
     except TypeError:  # pragma: no cover - SciPy < 1.10

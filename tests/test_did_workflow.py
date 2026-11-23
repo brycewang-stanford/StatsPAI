@@ -178,10 +178,9 @@ def test_pretrend_test_and_power_are_the_public_ones(wf, reference):
     assert ev["pvalue"] == test["pvalue"]
     assert ev["df"] == test["df"]
     slope = sp.pretrends_slope_for_power(es, target_power=0.8, alpha=0.05)["slope"]
-    # Not bit-identical across calls: the power integral is scipy's
-    # randomised multivariate-normal CDF (abseps 1e-5), so two calls on the
-    # same result differ around the eighth digit.
-    assert ev["slope_power_80"] == pytest.approx(slope, rel=1e-5)
+    # Bit-identical: the power integral is given a fixed generator, so the
+    # slope is a function of the event study alone.
+    assert ev["slope_power_80"] == slope
     slope = ev["slope_power_80"]
     post = wf.event_study.query("relative_time >= 0")
     # A linear violation that is zero at e = -1 biases horizon e by

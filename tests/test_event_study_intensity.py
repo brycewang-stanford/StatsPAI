@@ -9,6 +9,8 @@ it directly. Here: the same identity on simulated data (exact up to the
 absorber's tolerance) and recovery of a known dose-response path.
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -116,3 +118,58 @@ def test_scalar_treat_time_equals_a_constant_column(panel):
         window=(-3, 3),
     )
     assert plain.method == "OLS Event Study (TWFE)"  # historical path untouched
+
+
+# --------------------------------------------------------------------- #
+# a dose that is zero before treatment has no leads
+# --------------------------------------------------------------------- #
+def _dose_panel():
+    rng = np.random.default_rng(0)
+    rows = []
+    for u in range(60):
+        first = 0 if u < 20 else (5 if u % 2 else 7)
+        at_adoption = 1 + u % 4
+        for t in range(1, 11):
+            d = int(first > 0 and t >= first)
+            rows.append(
+                (
+                    u,
+                    t,
+                    first if first else np.nan,
+                    d * (at_adoption + (t - first if d else 0)),  # grows after
+                    at_adoption if first else 0.0,
+                    0.5 * d * at_adoption + rng.normal(0, 0.1),
+                )
+            )
+    return pd.DataFrame(rows, columns=["u", "t", "first", "dose", "dose0", "y"])
+
+
+def test_time_varying_dose_explains_the_missing_leads():
+    df = _dose_panel()
+    kw = dict(y="y", treat_time="first", time="t", unit="u", window=(-3, 2))
+    with pytest.warns(UserWarning, match="identically zero") as rec:
+        moving = sp.event_study(df, intensity="dose", **kw)
+    said = " ".join(str(w.message) for w in rec)
+    assert "fixed within the unit" in said and "did_multiplegt_dyn" in said
+    assert moving.detail["relative_time"].tolist() == [-1, 0, 1, 2]
+
+
+def test_dose_at_adoption_keeps_the_leads_and_recovers_the_effect():
+    """With the unit's dose at adoption the design is the exposure event
+    study: 0.5 per unit of dose after treatment, nothing before."""
+    df = _dose_panel()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        fit = sp.event_study(
+            df,
+            y="y",
+            treat_time="first",
+            time="t",
+            unit="u",
+            window=(-3, 2),
+            intensity="dose0",
+        )
+    path = fit.detail.set_index("relative_time")["att"]
+    assert path.index.tolist() == [-3, -2, -1, 0, 1, 2]
+    assert path.loc[[0, 1, 2]].to_numpy() == pytest.approx(0.5, abs=0.02)
+    assert np.abs(path.loc[[-3, -2]].to_numpy()).max() < 0.03

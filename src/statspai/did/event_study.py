@@ -322,6 +322,14 @@ def event_study(
         common shock with heterogeneous exposure. Rows with zero intensity
         are the comparison group. Estimated with ``sp.hdfe_ols`` (reghdfe's
         singleton, dof and cluster conventions).
+
+        The intensity is the unit's exposure to the event and should be
+        fixed within the unit. A dose that is zero until treatment starts
+        makes every lead regressor identically zero: the leads are left
+        out with a warning and no pre-trend can be tested. Pass the dose
+        at adoption as a unit-level column to keep them, or use
+        ``sp.did_multiplegt_dyn`` / ``sp.continuous_did`` for a dose that
+        moves over time.
     absorb : str or list of str, optional
         Fixed effects absorbed besides ``unit`` and ``time``, in
         ``sp.hdfe_ols`` syntax (``"occ"``, ``"city^time"``). Also routes the
@@ -635,14 +643,39 @@ def event_study(
         dummy_cols = [c for c, k in zip(dummy_cols, keep) if k]
         est_bins = [b for b, k in zip(est_bins, keep) if k]
         rel_periods = [b[0] for b in est_bins]
-        warnings.warn(
-            "event_study: no treated observation at event time(s) "
-            f"{[b[0] if b[0] == b[1] else b for b in empty_bins]}; they are "
-            "left out of the table and of the average. Narrow `window` to "
-            "the exposure the data cover.",
-            UserWarning,
-            stacklevel=2,
+        dropped = [b[0] if b[0] == b[1] else b for b in empty_bins]
+        dose_is_zero_before = (
+            intensity is not None
+            and all(b[1] < 0 for b in empty_bins)
+            and bool((df_clean.groupby("__unit__")[intensity].nunique() > 1).any())
         )
+        if dose_is_zero_before:
+            # A dose that is zero until treatment starts has no lead
+            # regressors: intensity x 1[event time = k] is identically zero
+            # for k < 0. The exposure design this option implements needs
+            # an intensity that is fixed within the unit.
+            warnings.warn(
+                f"event_study: {intensity!r} changes within units and is zero "
+                f"before treatment, so the lead regressors at event time(s) "
+                f"{dropped} are identically zero and are left out. There is "
+                "no pre-trend coefficient to test. intensity= is the exposure "
+                "of a unit to the event and must be fixed within the unit for "
+                "leads to exist: pass the dose at adoption, e.g. "
+                f"df.groupby(unit)[{intensity!r}].transform(lambda s: "
+                "s[s > 0].iloc[0] if (s > 0).any() else 0.0). For a dose that "
+                "moves over time use sp.did_multiplegt_dyn or "
+                "sp.continuous_did.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            warnings.warn(
+                "event_study: no treated observation at event time(s) "
+                f"{dropped}; they are left out of the table and of the "
+                "average. Narrow `window` to the exposure the data cover.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     # Prepare weights array (before demeaning)
     if weights is not None:

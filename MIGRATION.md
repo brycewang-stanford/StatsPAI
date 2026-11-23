@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.45.1 → next release: `sp.did_workflow` on long panels; ⚠️ placebo dates
+## 1.45.1 → 1.46.0: `sp.did_workflow` on long panels; ⚠️ placebo dates, pre-test power
 
 - **`sp.did_workflow` without `event_window`.** A panel with more than
   five event times on a side is now reported over the five nearest to
@@ -21,6 +21,11 @@ Internal version-to-version migrations are at the top; the long-form
   unaffected.
 - **`sp.pretrends_power`** with more than five pre-periods moves in about
   the fifth digit (integration tolerance 1e-5 in place of 1e-7).
+- ⚠️ **`sp.pretrends_power` / `sp.pretrends_slope_for_power` under SciPy
+  1.16 or later** are now the same on every call. Against a number stored
+  from an earlier release expect a difference of about 1e-7 relative,
+  once; after that the number no longer moves. Nothing changes under
+  earlier SciPy.
 - **`sp.did_workflow` report text.** `wf.checklist` gains the row
   "Source of uncertainty" after "Standard errors"; read rows by `item`,
   not by position. With `estimator="bjs"` the "Identifying assumption"
