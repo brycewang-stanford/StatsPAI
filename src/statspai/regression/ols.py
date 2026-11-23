@@ -1049,15 +1049,17 @@ class OLSRegression(BaseModel):
             Independent variables (alternative to formula)
         var_names : List[str], optional
             Variable names when using y, X directly
-        collinear : {'omit', 'raise'}, default 'omit'
+        collinear : {'omit', 'raise', 'pinv'}, default 'omit'
             Rank-deficient design: omit the later member of each collinear
-            set with a warning (Stata ``regress``), or raise
-            :class:`NumericalInstability`.
+            set with a warning (Stata ``regress``), raise
+            :class:`NumericalInstability`, or keep every column and return
+            the minimum-norm least-squares coefficients without inference
+            (``'pinv'``, see :func:`regress`).
         """
         super().__init__()
-        if collinear not in ("omit", "raise"):
+        if collinear not in ("omit", "raise", "pinv"):
             raise MethodIncompatibility(
-                f"collinear must be 'omit' or 'raise', got {collinear!r}"
+                f"collinear must be 'omit', 'raise' or 'pinv', got {collinear!r}"
             )
         self.collinear = collinear
 
@@ -1217,6 +1219,14 @@ class OLSRegression(BaseModel):
         # fail loudly (``collinear='raise'``). Never return unidentified
         # coefficients.
         collinear = getattr(self, "collinear", "omit")
+        # 'pinv' finds the deficiency exactly as 'omit' does (so the two
+        # agree on which designs are rank-deficient), fits the identified
+        # reduced design, then puts every column back with the minimum-norm
+        # coefficients. A full-rank design is fitted as usual.
+        pinv_mode = collinear == "pinv"
+        X_written, names_written = self.X, list(self.var_names)
+        if pinv_mode:
+            collinear = "omit"
         omitted: List[Dict[str, str]] = []
         if collinear == "omit":
             order = _written_column_order(
@@ -1331,6 +1341,18 @@ class OLSRegression(BaseModel):
                 )
                 self.X = np.delete(self.X, j, axis=1)
                 self.var_names = [v for i, v in enumerate(self.var_names) if i != j]
+
+        aliased: List[Dict[str, str]] = []
+        if pinv_mode and omitted:
+            aliased, omitted = omitted, []
+            results = _minimum_norm_results(
+                results,
+                self.y,
+                X_written,
+                kwargs.get("weights", None),
+                rank=self.X.shape[1],
+            )
+            self.X, self.var_names = X_written, names_written
 
         if omitted:
             warnings.warn(
@@ -1450,6 +1472,20 @@ class OLSRegression(BaseModel):
                 model_info["weights_as"] = _weights_as
         if omitted:
             model_info["omitted"] = omitted
+        if aliased:
+            # every column kept: the fit, not the individual coefficients,
+            # is identified
+            model_info["collinear"] = "pinv"
+            model_info["rank"] = int(results["rank"])
+            model_info["rank_deficient"] = True
+            model_info["aliased"] = aliased
+            model_info["inference"] = "unavailable"
+            model_info["inference_reason"] = (
+                "collinear='pinv': the design has rank "
+                f"{results['rank']} with {len(names_written)} columns, so the "
+                "minimum-norm coefficients are a convention, not identified "
+                "estimates (aliased: " + ", ".join(a["variable"] for a in aliased) + ")"
+            )
         coef_only = bool(kwargs.get("coef_only", False))
         if coef_only:
             model_info["coef_only"] = True
@@ -1522,7 +1558,7 @@ class OLSRegression(BaseModel):
             # -2 log L + 2k and -2 log L + k log N with k the number of
             # coefficients: Stata's `estat ic`. (R's AIC() counts the error
             # variance as one more parameter.)
-            n_coef = len(params)
+            n_coef = int(results["rank"]) if aliased else len(params)
             aic = -2.0 * log_likelihood + 2 * n_coef
             bic = -2.0 * log_likelihood + np.log(results["nobs"]) * n_coef
 
@@ -1826,6 +1862,46 @@ def _refuse_weights(weights: Any, what: str) -> None:
         )
 
 
+def _minimum_norm_results(
+    results: Dict[str, Any],
+    y: np.ndarray,
+    X: np.ndarray,
+    weights: Optional[np.ndarray],
+    rank: int,
+) -> Dict[str, Any]:
+    """Put every column of a rank-deficient design back into a fit.
+
+    ``results`` is the fit of the identified reduced design, whose fitted
+    values, sums of squares, R-squared and degrees of freedom (``n - rank``)
+    belong to the column space and are kept. The coefficients become the
+    minimum-norm least-squares solution on all of ``X`` (``pinv(X) @ y``, on
+    the ``sqrt(w)``-scaled design under analytic weights, the statsmodels
+    ``OLS.fit(method='pinv')`` convention), from the singular value
+    decomposition truncated at ``rank``. No variance is reported: the
+    individual coefficients are not identified.
+    """
+    Xw = np.asarray(X, dtype=float)
+    yw = np.asarray(y, dtype=float)
+    if weights is not None:
+        sw = np.sqrt(np.asarray(weights, dtype=float))
+        Xw = Xw * sw[:, None]
+        yw = yw * sw
+    U, s, Vt = np.linalg.svd(Xw, full_matrices=False)
+    params = Vt[:rank].T @ ((U[:, :rank].T @ yw) / s[:rank])
+    k = X.shape[1]
+    out = dict(results)
+    fitted = np.asarray(X, dtype=float) @ params
+    out.update(
+        params=params,
+        std_errors=np.full(k, np.nan),
+        var_cov=np.full((k, k), np.nan),
+        fitted_values=fitted,
+        residuals=np.asarray(y, dtype=float) - fitted,
+        rank=int(rank),
+    )
+    return out
+
+
 _NONROBUST_SPELLINGS = ("nonrobust", "false", "none", "ols", "oim", "iid", "classical")
 
 
@@ -1833,6 +1909,7 @@ def _refuse_coef_only_variance_options(**opts: Any) -> None:
     """``coef_only=True`` estimates no variance: refuse every option that
     only chooses one, rather than accept it and return NaN for it."""
     robust = opts.pop("robust")
+    pinv = bool(opts.pop("pinv", False))
     asked = []
     if robust is not False and str(robust).lower() not in _NONROBUST_SPELLINGS:
         asked.append(f"robust={robust!r}")
@@ -1840,6 +1917,18 @@ def _refuse_coef_only_variance_options(**opts: Any) -> None:
     for name, value in opts.items():
         if value is not None and value is not defaults.get(name, None):
             asked.append(f"{name}={value!r}")
+    if asked and pinv:
+        raise MethodIncompatibility(
+            "regress(collinear='pinv') reports no variance when the design is "
+            "rank-deficient and the classical one otherwise, so it cannot be "
+            "combined with " + ", ".join(asked) + ".",
+            recovery_hint=(
+                "Drop the variance options, or use collinear='omit' (the "
+                "default), which keeps an identified set of columns and "
+                "supports every variance estimator."
+            ),
+            diagnostics={"conflicting_options": asked},
+        )
     if asked:
         raise MethodIncompatibility(
             "regress(coef_only=True) returns coefficients without a variance, "
@@ -2005,6 +2094,25 @@ def regress(
         'predictors': 'drop'}``: ``'response'`` is the outcome,
         ``'predictors'`` every other column the call uses (weights and
         cluster included), and a role left out is ``'drop'``.
+    collinear : {'omit', 'raise', 'pinv'}, default 'omit'
+        What to do with a rank-deficient design. ``'omit'`` drops the later
+        member of each collinear set with a warning (Stata ``regress``) and
+        lists it in ``model_info['omitted']``. ``'raise'`` raises
+        ``NumericalInstability``. ``'pinv'`` keeps every column and returns
+        the minimum-norm least-squares coefficients, ``pinv(X) @ y`` (the
+        statsmodels ``OLS.fit(method='pinv')`` convention; under weights,
+        on the ``sqrt(w)``-scaled design). The fitted values, R-squared,
+        residual degrees of freedom (``n - rank``) and the F statistic
+        belong to the column space and are reported as for ``'omit'``; the
+        individual coefficients are a convention, not identified estimates,
+        so standard errors, t statistics, p-values and intervals are NaN and
+        ``model_info`` carries ``inference='unavailable'``,
+        ``rank_deficient=True``, ``rank`` and ``aliased`` (the columns
+        ``'omit'`` would have dropped). ``predict(newdata)`` then uses all
+        columns, so a forecast differs from the ``'omit'`` one wherever the
+        collinearity does not hold in ``newdata``. A full-rank design is
+        fitted as usual, with classical inference. Cannot be combined with
+        a variance option (the list under ``coef_only``).
     coef_only : bool, default False
         Return the least-squares coefficients without estimating a
         variance. Needed when a full-rank design has exactly as many
@@ -2048,6 +2156,24 @@ def regress(
     """
     if coef_only:
         _refuse_coef_only_variance_options(
+            robust=robust,
+            cluster=cluster,
+            vce=vce,
+            vcov=vcov,
+            conley_lat=conley_lat,
+            conley_lon=conley_lon,
+            conley_cutoff=conley_cutoff,
+            hac_lags=hac_lags,
+            hac_small=hac_small,
+            hac_panel=hac_panel,
+            ewc_df=ewc_df,
+            dfadjust=dfadjust,
+            design=design,
+            weights_as=weights_as,
+        )
+    elif collinear == "pinv":
+        _refuse_coef_only_variance_options(
+            pinv=True,
             robust=robust,
             cluster=cluster,
             vce=vce,
@@ -2617,7 +2743,8 @@ def regress(
         cluster=cluster,
         vcov="hac" if is_hac else ("ewc" if is_ewc else robust_kw),
         weights=weights,
-        count_specification=not coef_only,
+        count_specification=not coef_only
+        and _result.model_info.get("inference") != "unavailable",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov

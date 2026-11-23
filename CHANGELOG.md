@@ -12,6 +12,22 @@ All notable changes to StatsPAI will be documented in this file.
   (event study over e = -5..0, 100 grid points). The gap noted in 1.46.0
   came from a different event-study window and a finer grid, not from the
   implementation. No source change.
+- **`sp.regress(collinear="pinv")`: minimum-norm OLS on a rank-deficient
+  design** (GitHub #55). The opt-in keeps every column and returns
+  `pinv(X) @ y`, the convention of statsmodels `OLS.fit(method="pinv")`
+  (on the `sqrt(w)`-scaled design under weights), so a forecast from a
+  rolling window whose regressors happen to be collinear is the one that
+  code produced. The individual coefficients are a convention, not
+  identified estimates: standard errors, t statistics, p-values and
+  intervals are NaN, and `model_info` carries `inference="unavailable"`,
+  `rank_deficient=True`, `rank` and `aliased` (the columns the default
+  would have dropped). Fitted values, R-squared, residual degrees of
+  freedom (`n - rank`) and the F statistic belong to the column space and
+  are reported. A full-rank design is fitted as usual. Variance options
+  (`robust=`, `cluster=`, `vce=`, `design=` ...) are refused. The default
+  (`"omit"`) and `"raise"` are unchanged. Coefficients agree with
+  `numpy.linalg.pinv` to 1e-10 with and without weights and an intercept
+  (`tests/test_issue55_pinv_ols.py`).
 
 ### Performance
 
@@ -26,6 +42,25 @@ All notable changes to StatsPAI will be documented in this file.
   pandas copy of the whole frame while it runs (about three times the
   frame at peak), so on a frame near the size of memory the Polars
   expression remains the better tool.
+
+### Changed
+
+- **`sp.match(replace=False)` no longer builds the full distance matrix**
+  (GitHub #56). With a fixed processing order (`m_order="largest"`,
+  `"smallest"`, `"data"` or the default `"smallest_min_dist"`), matching
+  on a propensity score searches the sorted control scores and skips used
+  controls, in memory proportional to the sample: 16,845 treated and
+  74,998 controls take about 0.3 seconds, where the distance matrix alone
+  was 10.1 GB. Other distances, and matching under `exact=`,
+  `covariate_calipers=` or `mahvars=`, compute one treated unit's
+  distances at a time. The matched pairs are the same: the estimate and
+  standard error are bit-identical to the previous row-by-row search on
+  432 designs (ties, calipers, 1 to 3 matches, both distances), and equal
+  an independent dense implementation of the greedy rule
+  (`tests/test_matching_noreplace_bounded_memory.py`). The dynamic orders
+  (`"closest"`, `"farthest"`) still need every row at every step; they
+  now announce the size of the matrix when it exceeds 1 GiB.
+
 
 ## [1.46.0] — 2026-11-23
 

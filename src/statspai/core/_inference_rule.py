@@ -99,9 +99,14 @@ def inference_rule(result: Any) -> Dict[str, Any]:
         "n_obs": di.get("nobs"),
     }
     if mi.get("inference") == "unavailable":
-        # coef_only=True: no variance, so no reference distribution either
+        # coef_only=True, or collinear='pinv' on a rank-deficient design:
+        # no variance, so no reference distribution either
         rule.update(
-            vcov="not estimated (coef_only=True)",
+            vcov=(
+                "not estimated (collinear='pinv', rank-deficient design)"
+                if mi.get("rank_deficient")
+                else "not estimated (coef_only=True)"
+            ),
             distribution="none",
             df=None,
             joint_test="none",

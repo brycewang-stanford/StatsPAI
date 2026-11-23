@@ -1052,8 +1052,12 @@ def _build_registry() -> None:
                     "omit",
                     "Rank-deficient design: 'omit' drops the later member of each "
                     "collinear set with a warning (Stata regress), listed in "
-                    "model_info['omitted']; 'raise' raises",
-                    ["omit", "raise"],
+                    "model_info['omitted']; 'raise' raises; 'pinv' keeps every "
+                    "column and returns the minimum-norm coefficients "
+                    "(statsmodels method='pinv') with NaN standard errors, "
+                    "model_info['inference'] == 'unavailable' and the aliased "
+                    "columns in model_info['aliased']",
+                    ["omit", "raise", "pinv"],
                 ),
                 ParamSpec(
                     "hac_lags",

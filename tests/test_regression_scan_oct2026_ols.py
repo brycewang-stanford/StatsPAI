@@ -429,7 +429,7 @@ class TestRegressValidation:
         np.testing.assert_allclose(res.params, ref.params, rtol=1e-8)
         with pytest.raises(NumericalInstability):
             sp.regress("y ~ x1 + x2 + x3", df, collinear="raise")
-        with pytest.raises(MethodIncompatibility, match="'omit' or 'raise'"):
+        with pytest.raises(MethodIncompatibility, match="'omit', 'raise' or 'pinv'"):
             sp.regress("y ~ x1", df, collinear="drop")
 
     def test_constant_outcome_warns(self):

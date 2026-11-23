@@ -6876,3 +6876,25 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
   - `tests/r_parity/results/76_pretrends_py.json`
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+
+### 2026-11-23 — traces re-recorded (`collinear='pinv'`, matching without replacement)
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** The commit carrying this entry (GitHub #55, #56) re-records
+  `tests/r_parity/results/_implementation_trace.json` (modules 01, 11, 14,
+  51, 53, 54, 55, 56, 90) and
+  `tests/orig_parity/results/_implementation_trace.json` (modules 01, 04,
+  04b, 09).
+- **Reason.** `regression/ols.py` gains the opt-in
+  `collinear='pinv'` (the default path is unchanged) and
+  `matching/match.py` matches without replacement without building the
+  full distance matrix (the with-replacement path those modules run is
+  unchanged).
+- **Effect on the paper.** None: every module was re-run without Rust
+  before re-recording and the committed results were kept. Differences are
+  rounding (at most 2.7e-10, `55_hc2_hc3`); `51_newey`,
+  `04_lalonde_original` and `04b_nsw_psid_original` are byte-identical.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

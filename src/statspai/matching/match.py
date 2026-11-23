@@ -32,6 +32,7 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
     [@rosenbaum1983central]
 """
 
+import math
 import operator
 import warnings
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple, Union
@@ -868,7 +869,11 @@ class _LazyDistance:
     _CELLS = 1 << 24
 
     def __init__(
-        self, compute: Any, shape: Tuple[int, int], points: Any = None
+        self,
+        compute: Any,
+        shape: Tuple[int, int],
+        points: Any = None,
+        cache_rows: Optional[int] = None,
     ) -> None:
         self._compute = compute
         self.shape = shape
@@ -876,14 +881,18 @@ class _LazyDistance:
         #: (:mod:`._metric_tree`); returns ``None`` where it does not apply.
         self.points = points
         self._BLOCK = max(1, min(2048, self._CELLS // max(shape[1], 1)))
+        #: Rows computed per ``dist[i]`` miss. Rows read in sequence share a
+        #: block; rows read in an arbitrary order (matching without
+        #: replacement) are computed one at a time (``cache_rows=1``).
+        self._CACHE = self._BLOCK if cache_rows is None else max(1, int(cache_rows))
         self._start = -1
         self._rows: Optional[np.ndarray] = None
 
     def __getitem__(self, i: int) -> np.ndarray:
         i = int(i)
         if self._rows is None or not (self._start <= i < self._start + len(self._rows)):
-            self._start = (i // self._BLOCK) * self._BLOCK
-            stop = min(self._start + self._BLOCK, self.shape[0])
+            self._start = (i // self._CACHE) * self._CACHE
+            stop = min(self._start + self._CACHE, self.shape[0])
             self._rows = self._compute(np.arange(self._start, stop))
         row: np.ndarray = self._rows[i - self._start]
         return row
@@ -2886,10 +2895,16 @@ class MatchEstimator:
         With-replacement matching reads the matrix one target row at a time,
         so for it the rows are computed lazily in blocks (same ``cdist``
         call, bit-identical values): the full ``n_treated x n_control``
-        matrix was ~0.8 GB at n = 20,000 and grows quadratically. Without
-        replacement the processing order needs every row, so the matrix is
-        built in full as before.
+        matrix was ~0.8 GB at n = 20,000 and grows quadratically.
+
+        Without replacement the rows are read in the processing order, one
+        target at a time, so they are computed one at a time as well (the
+        ``'smallest_min_dist'`` order takes its row minima from blocks
+        first). Only the dynamic orders (``'closest'`` / ``'farthest'``),
+        which re-read every remaining row at every step, still build the
+        matrix in full.
         """
+        lazy_rows = not self.replace and self.m_order not in ("closest", "farthest")
         if self._pairs is not None and self.method == "nearest":
             pairs = self._pairs
 
@@ -2904,6 +2919,9 @@ class MatchEstimator:
             if self.replace:
                 # no ``points``: the k-d tree does not see the constraints
                 return _LazyDistance(block, (len(idx_from), len(idx_to)))
+            if lazy_rows:
+                return _LazyDistance(block, (len(idx_from), len(idx_to)), cache_rows=1)
+            self._warn_dense_distance(len(idx_from), len(idx_to))
             return block(np.arange(len(idx_from)))
         if self.replace and self.method not in ("kernel", "radius", "llr"):
             return _LazyDistance(
@@ -2911,7 +2929,34 @@ class MatchEstimator:
                 (len(idx_from), len(idx_to)),
                 points=lambda: self._metric_points(X, idx_from, idx_to),
             )
+        if lazy_rows and self.method == "nearest":
+            return _LazyDistance(
+                lambda rows: self._distance_block(X, idx_from[rows], idx_to, pscore),
+                (len(idx_from), len(idx_to)),
+                cache_rows=1,
+            )
+        if not self.replace:
+            self._warn_dense_distance(len(idx_from), len(idx_to))
         return self._distance_block(X, idx_from, idx_to, pscore)
+
+    #: Size of a dense distance matrix (bytes) from which it is announced.
+    _DENSE_WARN_BYTES = 1 << 30
+
+    def _warn_dense_distance(self, n_from: int, n_to: int) -> None:
+        """Say how large the full distance matrix is before allocating it."""
+        nbytes = 8 * int(n_from) * int(n_to)
+        if nbytes < self._DENSE_WARN_BYTES:
+            return
+        warnings.warn(
+            f"sp.match(replace=False, m_order={self.m_order!r}) builds the "
+            f"full {n_from:,} x {n_to:,} distance matrix "
+            f"({nbytes / 2**30:.1f} GiB) and rescans it at every step. The "
+            "static orders ('largest', 'smallest', 'data', "
+            "'smallest_min_dist') match in memory proportional to the "
+            "sample size.",
+            UserWarning,
+            stacklevel=5,
+        )
 
     def _mahvars_block(self, idx_from: np.ndarray, idx_to: np.ndarray) -> np.ndarray:
         """Mahalanobis distances on ``mahvars`` (pooled within-arm covariance)."""
@@ -3776,7 +3821,14 @@ class MatchEstimator:
         if mo == "data":
             return np.argsort(target_order, kind="stable")
         if mo == "smallest_min_dist":
-            return np.lexsort((target_order, np.min(dist, axis=1)))
+            if isinstance(dist, _LazyDistance):
+                parts = [np.min(b, axis=1) for b in dist.blocks() if b.shape[1]]
+                row_min = (
+                    np.concatenate(parts) if parts else np.full(dist.shape[0], np.inf)
+                )
+            else:
+                row_min = np.min(dist, axis=1)
+            return np.lexsort((target_order, row_min))
         if mo in ("smallest", "largest"):
             if pscore_target is None:
                 raise MethodIncompatibility(
@@ -3848,6 +3900,23 @@ class MatchEstimator:
         # so (see the `m_order` documentation on `sp.match`). The order is
         # a user choice, not an implementation detail.
         if not self.replace:
+            if (
+                self.distance == "propensity"
+                and self._pairs is None
+                and self.m_order not in ("closest", "farthest")
+                and pscore_target is not None
+                and pscore_pool is not None
+                and dist.shape[1] > 0
+                and bool(np.all(np.isfinite(pscore_target)))
+                and bool(np.all(np.isfinite(pscore_pool)))
+            ):
+                return self._nn_match_noreplace_score(
+                    np.asarray(pscore_target, dtype=float),
+                    np.asarray(pscore_pool, dtype=float),
+                    caliper,
+                    np.asarray(target_order, dtype=float),
+                    np.asarray(pool_order, dtype=float),
+                )
             used = np.zeros(dist.shape[1], dtype=bool)
             static_order = self._target_processing_order(
                 dist, target_order, pscore_target
@@ -3906,6 +3975,109 @@ class MatchEstimator:
         return self._nn_match_replace(
             dist, caliper, pool_order, pscore_target, pscore_pool
         )
+
+    def _nn_match_noreplace_score(
+        self,
+        target: np.ndarray,
+        pool: np.ndarray,
+        caliper: Optional[float],
+        target_order: np.ndarray,
+        pool_order: np.ndarray,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """Greedy matching without replacement on a scalar score.
+
+        The same rule as the row loop of :meth:`_nn_match_from_dist` (each
+        target, in the ``m_order`` order, takes its ``n_matches`` nearest
+        unused pool units inside the caliper, ties by pool order), found on
+        the sorted pool instead of a distance row. Distance is monotone in
+        the score gap, so a target's nearest unused units are the first
+        unused ones on either side of its place in the sorted pool; each
+        side is walked through ``n_matches`` units and on through any unit
+        at the same distance as the last, which is every unit the
+        (distance, pool order) sort can select. Used units are skipped
+        with path-compressed pointers, so the search needs memory
+        proportional to the sample, not ``n_target x n_pool`` distances.
+        """
+        n_target, n_pool = len(target), len(pool)
+        k_max = int(self.n_matches)
+        order = np.lexsort((pool_order, pool))
+        ps_arr = pool[order]
+        pos_all = np.searchsorted(ps_arr, target, side="left")
+
+        mo = self.m_order
+        if mo == "data":
+            proc = np.argsort(target_order, kind="stable")
+        elif mo == "smallest_min_dist":
+            left = _score_distance(target, ps_arr[np.clip(pos_all - 1, 0, n_pool - 1)])
+            left[pos_all == 0] = np.inf
+            right = _score_distance(target, ps_arr[np.clip(pos_all, 0, n_pool - 1)])
+            right[pos_all == n_pool] = np.inf
+            proc = np.lexsort((target_order, np.minimum(left, right)))
+        else:  # 'smallest' / 'largest'
+            key = target if mo == "smallest" else -target
+            proc = np.lexsort((target_order, key))
+
+        ps = ps_arr.tolist()
+        rank = pool_order[order].tolist()
+        col = order.tolist()
+        tgt = target.tolist()
+        pos_list = pos_all.tolist()
+        cal = None if caliper is None else float(caliper)
+        # nxt[j]: first unused sorted position >= j (n_pool: none);
+        # prv[j + 1] - 1: last unused sorted position <= j (-1: none).
+        nxt = list(range(n_pool + 1))
+        prv = list(range(n_pool + 1))
+        sqrt = math.sqrt
+
+        def _next(j: int) -> int:
+            r = j
+            while nxt[r] != r:
+                r = nxt[r]
+            while nxt[j] != r:
+                nxt[j], j = r, nxt[j]
+            return r
+
+        def _prev(j: int) -> int:
+            j += 1
+            r = j
+            while prv[r] != r:
+                r = prv[r]
+            while prv[j] != r:
+                prv[j], j = r, prv[j]
+            return r - 1
+
+        matches: List[np.ndarray] = [np.array([], dtype=int) for _ in range(n_target)]
+        weights: List[np.ndarray] = [np.array([], dtype=float) for _ in range(n_target)]
+        for i in proc.tolist():
+            p = tgt[i]
+            cand: List[Tuple[float, float, int, int]] = []
+            for step in (1, -1):
+                j = _next(pos_list[i]) if step == 1 else _prev(pos_list[i] - 1)
+                taken = 0
+                d_last = 0.0
+                while 0 <= j < n_pool:
+                    gap = p - ps[j]
+                    # as `_score_distance` forms it: a product, then a root
+                    d = sqrt(gap * gap)
+                    if cal is not None and d > cal:
+                        break
+                    if taken >= k_max and d > d_last:
+                        break
+                    cand.append((d, rank[j], col[j], j))
+                    taken += 1
+                    if taken <= k_max:
+                        d_last = d
+                    j = _next(j + 1) if step == 1 else _prev(j - 1)
+            if not cand:
+                continue
+            cand.sort()
+            chosen = cand[:k_max]
+            for _, _, _, j in chosen:
+                nxt[j] = j + 1
+                prv[j + 1] = j
+            matches[i] = np.array([c[2] for c in chosen], dtype=int)
+            weights[i] = np.ones(len(chosen), dtype=float) / len(chosen)
+        return matches, weights
 
     def _nn_match_row(
         self, d: np.ndarray, caliper: Optional[float], pool_order: np.ndarray
