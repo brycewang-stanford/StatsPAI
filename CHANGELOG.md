@@ -11,7 +11,8 @@ against the eight-step checklist of Baker et al. (2026). The workflow
 takes fixed effects beyond unit and period, no longer stalls on a long
 panel, and gains effects by subgroup, the covariate balance table and the
 overlap count. ⚠️ `sp.assign_placebo_dates` with a cohort coded 0, and
-`sp.pretrends_power`, which now returns the same number on every call.
+`sp.pretrends_power`, which now returns the same number on every call
+under SciPy 1.16 or later.
 
 ### Added
 
@@ -79,15 +80,17 @@ overlap count. ⚠️ `sp.assign_placebo_dates` with a cohort coded 0, and
   dozens of calls. With five or fewer pre-periods nothing changes.
 
 - ⚠️ **`sp.pretrends_power` and `sp.pretrends_slope_for_power` return the
-  same number on every call.** SciPy 1.16 and later integrate the
+  same number on every call under SciPy 1.16 or later.** Those versions
+  integrate the
   rejection probability with a randomised lattice and draw a new shift per
   call, so two calls on the same inputs differed in the seventh digit and
   the slope solved from the power moved with them. The integral is now
   given a fixed generator. Results move by at most 1.4e-7 relative from
   those of an earlier release on the same data (Track A module 76, whose
   Python results were regenerated; the gap to R is unchanged at 3.6e-4,
-  the reference's own integration). Earlier SciPy was already
-  deterministic and is unaffected.
+  the reference's own integration). Earlier SciPy integrates with a
+  routine that keeps its own generator state and cannot be seeded: there
+  two calls still differ around the eighth digit, as before.
 - **`sp.event_study(intensity=)` says why a dose has no leads.** With an
   intensity that is zero until treatment starts, every lead regressor is
   identically zero. The leads were dropped under a message about the

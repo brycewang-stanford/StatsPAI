@@ -324,7 +324,10 @@ _RECTANGLE_LOOSE_TOL = 1e-5
 #: so two calls on the same inputs differed in the seventh digit and the
 #: slope solved from the power moved with them. A fixed seed makes the
 #: integral, the power and the slope functions of their inputs again.
-#: Earlier SciPy has no ``rng`` argument and was already deterministic.
+#: Earlier SciPy integrates with a Fortran routine that keeps its own
+#: generator state and offers no way to set it: there two calls in one
+#: process still differ around the eighth digit, and nothing here can
+#: change that.
 _RECTANGLE_SEED = 20221115
 _CDF_TAKES_RNG = "rng" in inspect.signature(sp_stats.multivariate_normal.cdf).parameters
 

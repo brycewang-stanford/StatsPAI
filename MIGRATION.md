@@ -24,8 +24,9 @@ Internal version-to-version migrations are at the top; the long-form
 - ⚠️ **`sp.pretrends_power` / `sp.pretrends_slope_for_power` under SciPy
   1.16 or later** are now the same on every call. Against a number stored
   from an earlier release expect a difference of about 1e-7 relative,
-  once; after that the number no longer moves. Nothing changes under
-  earlier SciPy.
+  once; after that the number no longer moves. Under earlier SciPy
+  nothing changes: two calls still differ around the eighth digit,
+  because that integrator cannot be seeded.
 - **`sp.did_workflow` report text.** `wf.checklist` gains the row
   "Source of uncertainty" after "Standard errors"; read rows by `item`,
   not by position. With `estimator="bjs"` the "Identifying assumption"

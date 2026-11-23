@@ -3234,7 +3234,7 @@
    "result_sha256": "0e3a754a1d5d197441bfc0d19bdc8a20db1b7bb0b0caa10cca30e80e6c6b96d9"
   },
   "76_pretrends": {
-   "seconds": 4.7,
+   "seconds": 4.44,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -3242,7 +3242,7 @@
    "subprocesses": [],
    "exercised_sources": {
     "src/statspai/core/results.py": "d580921b924cf1460e30358635f1c4e02576e4bf90b1e13fe8ae1974a49d32a1",
-    "src/statspai/did/pretrends.py": "c65cb75d08d862716f938b2ac028c84e8397d43fe9004a4ab569d21a279345b2",
+    "src/statspai/did/pretrends.py": "d2e23a41e414590c9d264c52fc6893ccad10294119a33b5f0e7a0d968a140415",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
    "dependency_versions": {

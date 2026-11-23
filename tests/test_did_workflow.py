@@ -9,6 +9,7 @@ trends, a treated group on its own trend, a treatment that switches off).
 
 from __future__ import annotations
 
+import importlib
 import json
 import warnings
 
@@ -178,9 +179,14 @@ def test_pretrend_test_and_power_are_the_public_ones(wf, reference):
     assert ev["pvalue"] == test["pvalue"]
     assert ev["df"] == test["df"]
     slope = sp.pretrends_slope_for_power(es, target_power=0.8, alpha=0.05)["slope"]
-    # Bit-identical: the power integral is given a fixed generator, so the
-    # slope is a function of the event study alone.
-    assert ev["slope_power_80"] == slope
+    # Bit-identical where the power integral can be given a generator
+    # (SciPy >= 1.16). Earlier SciPy integrates with a routine whose
+    # generator cannot be seeded: two calls differ around the eighth digit.
+    pre = importlib.import_module("statspai.did.pretrends")
+    if pre._CDF_TAKES_RNG:
+        assert ev["slope_power_80"] == slope
+    else:
+        assert ev["slope_power_80"] == pytest.approx(slope, rel=1e-5)
     slope = ev["slope_power_80"]
     post = wf.event_study.query("relative_time >= 0")
     # A linear violation that is zero at e = -1 biases horizon e by
