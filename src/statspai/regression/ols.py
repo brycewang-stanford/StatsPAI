@@ -1445,7 +1445,7 @@ class OLSRegression(BaseModel):
                     stacklevel=2,
                 )
 
-        model_info = {
+        model_info: Dict[str, Any] = {
             "model_type": "OLS",
             "method": "Least Squares",
             "robust": robust,
