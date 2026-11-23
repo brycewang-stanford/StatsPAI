@@ -220,3 +220,57 @@ class TestFixefSizes:
         tex = sp.regtable(r, fixef_sizes=True).to_latex()
         assert "State" in tex
         assert "50" in tex
+
+
+class TestFixefSizesFromFeols:
+    """``fixef_sizes=True`` on fits that keep their absorbed effects."""
+
+    @pytest.fixture
+    def panel(self):
+        rng = np.random.default_rng(17)
+        n = 600
+        df = pd.DataFrame(
+            {
+                "id": rng.integers(0, 40, n),
+                "yr": rng.integers(2000, 2010, n),
+                "ind": rng.integers(0, 5, n),
+                "x": rng.normal(size=n),
+            }
+        )
+        df["y"] = df.x + rng.normal(size=n)
+        df["c"] = np.exp(df.x / 3).round()
+        df.loc[:20, "x"] = np.nan  # the counts are those of the sample used
+        return df
+
+    def test_counts_are_the_levels_of_the_estimation_sample(self, panel):
+        used = panel.dropna()
+        fits = [
+            sp.feols("y ~ x | id + yr", data=panel),
+            sp.feols("y ~ x | yr", data=panel),
+            sp.fepois("c ~ x | id + yr", data=panel),
+        ]
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            text = str(sp.regtable(*fits, fixef_sizes=True))
+        rows = {
+            line.split("  ")[0].strip(): line.split()
+            for line in text.splitlines()
+            if line.startswith("#")
+        }
+        assert rows["# Id"][-2:] == [str(used.id.nunique())] * 2  # (1) and (3)
+        assert len([c for c in rows["# Id"] if c.isdigit()]) == 2  # none for (2)
+        assert rows["# Yr"][-3:] == [str(used.yr.nunique())] * 3
+
+    def test_default_table_is_unchanged(self, panel):
+        fit = sp.feols("y ~ x | id + yr", data=panel)
+        assert "#" not in str(sp.regtable(fit))
+
+    def test_a_model_without_counts_is_named_not_left_blank(self, panel):
+        fits = [
+            sp.feols("y ~ x | id + yr", data=panel),
+            sp.feols("y ~ x | id + yr", data=panel),
+        ]
+        fits[1]._fe_state = None  # as a fit that does not keep its effects
+        with pytest.warns(UserWarning, match=r"fixef_sizes=True.*\(2\)"):
+            text = str(sp.regtable(*fits, fixef_sizes=True))
+        assert "# Id" in text

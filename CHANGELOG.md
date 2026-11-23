@@ -20,6 +20,17 @@ All notable changes to StatsPAI will be documented in this file.
   chapter of Ian Gow's StatsPAI edition (iangow/era_statpai#29), where
   every firm has a single event year.
 
+### Fixed
+
+- **`sp.regtable(fixef_sizes=True)` did nothing for `sp.feols`,
+  `sp.fepois` and `sp.feglm` fits.** The rows were built from
+  `model_info['n_fe_levels']`, which only the count models record, so
+  the table came back without them and without a word. The number of
+  levels of each absorbed effect on the estimation sample is now read
+  from the fit (`# Id  40`). A model that absorbs fixed effects without
+  recording their sizes (interacted effects such as `a^b`) is named in
+  a warning. The default table is unchanged.
+
 ## [1.46.1] — 2026-11-23
 
 Two requests from Ian Gow's Polars / StatsPAI edition of *Empirical

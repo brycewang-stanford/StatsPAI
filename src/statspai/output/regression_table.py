@@ -263,18 +263,30 @@ def _build_fe_size_rows(
     """Build per-FE level-count rows for ``fixef_sizes=True``.
 
     Reads ``model_info['n_fe_levels']`` from each result (a dict of
-    FE-name → int). Currently populated by count.py and the pyfixest
-    adapter family; other estimators silently contribute empty cells.
+    FE-name → int; count.py and the pyfixest adapter family), and
+    otherwise counts the levels of the absorbed effects a ``sp.feols`` /
+    ``sp.fepois`` / ``sp.feglm`` fit keeps for its estimation sample.
+    A model that has fixed effects and neither source is named in a
+    warning: its cells would be blank, which reads as "no fixed effects".
     Rows that would be empty across every column are dropped so plain
     OLS bundles stay clean.
     """
     rows: "OrderedDict[str, List[str]]" = OrderedDict()
     union: List[str] = []
     per_col: List[Dict[str, int]] = []
-    for r in flat_results:
+    uncounted: List[int] = []
+    for position, r in enumerate(flat_results, start=1):
         mi = getattr(r, "model_info", {}) or {}
         levels = mi.get("n_fe_levels") if isinstance(mi, dict) else None
         if levels is None or not isinstance(levels, dict):
+            state = getattr(r, "_fe_state", None)
+            names = getattr(state, "names", None)
+            labels = getattr(state, "levels", None)
+            if names and labels and len(names) == len(labels):
+                levels = {str(k): len(v) for k, v in zip(names, labels)}
+        if levels is None or not isinstance(levels, dict):
+            if isinstance(mi, dict) and mi.get("fixed_effects"):
+                uncounted.append(position)
             per_col.append({})
             continue
         coerced: Dict[str, int] = {}
@@ -287,6 +299,18 @@ def _build_fe_size_rows(
         for k in coerced:
             if k not in union:
                 union.append(k)
+    if uncounted:
+        warnings.warn(
+            "regtable(fixef_sizes=True): model(s) "
+            + ", ".join(f"({i})" for i in uncounted)
+            + " absorb fixed effects but do not record the number of "
+            "levels (interacted effects such as a^b, or an estimator "
+            "that does not keep them), so they get no '# <effect>' "
+            "cell. Count them on the estimation sample and pass "
+            "add_rows={'# Firm': [...]}.",
+            UserWarning,
+            stacklevel=3,
+        )
     if not union:
         return rows
     for tok in union:
@@ -3732,11 +3756,13 @@ def regtable(
         Hansen-J / first-stage F right under the main results block.
     fixef_sizes : bool, default False
         Auto-emit "# Firm: 1,234" / "# Year: 30" rows showing the
-        number of distinct levels per fixed effect. Reads
-        ``model_info['n_fe_levels']`` from each result — currently
-        populated by ``count.py`` (Poisson/NegBin) and the pyfixest
-        adapter; other estimators silently no-op. Mirrors R fixest's
-        ``etable(..., fixef_sizes=TRUE)``.
+        number of distinct levels per fixed effect on the estimation
+        sample. Available for ``sp.feols`` / ``sp.fepois`` / ``sp.feglm``
+        fits with additive fixed effects and for the count models that
+        record ``model_info['n_fe_levels']``. A model that absorbs fixed
+        effects without recording their sizes (interacted effects such
+        as ``a^b``) is named in a warning and gets no cell. Mirrors R
+        fixest's ``etable(..., fixef_sizes=TRUE)``.
     vcov : str, optional
         Re-report the SE / t / p / CI columns under another ``vce=``
         (also accepted as ``vce=``): ``"HC1"`` / ``"robust"``, ``"HC3"``,
@@ -4101,9 +4127,9 @@ def regtable(
 
     # --- fixef_sizes: emit "# <FE>: count" rows ------------------------
     # Reads ``model_info['n_fe_levels']`` (a dict of FE-name → integer
-    # count) per model — currently populated by count.py / nbreg /
-    # ppmlhdfe; other estimators are silent no-ops. Mirrors R fixest's
-    # ``fixef_sizes = TRUE``.
+    # count) per model, or the absorbed effects a feols / fepois / feglm
+    # fit keeps; a model with fixed effects and no count is named in a
+    # warning. Mirrors R fixest's ``fixef_sizes = TRUE``.
     if fixef_sizes:
         fe_size_rows = _build_fe_size_rows(flat_results)
         for label, vals in fe_size_rows.items():
