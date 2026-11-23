@@ -6849,3 +6849,30 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-23 — release 1.46.0: `76_pretrends` Python results regenerated
+
+The freeze is inactive (not submitted); recorded for the next re-anchor.
+
+- **Commit.** `f8699b779` regenerates
+  `tests/r_parity/results/76_pretrends_py.json` by a real run and
+  re-records `tests/r_parity/results/_implementation_trace.json` for
+  modules 76, 83 and 85.
+- **Reason.** ⚠️ `sp.pretrends_power` gives the rejection-probability
+  integral a fixed generator (`did/pretrends.py`), so its result no
+  longer changes between calls under SciPy 1.16 or later.
+  `did/event_study.py` (a warning text) is on the traced paths of modules
+  83 and 85.
+- **Effect on the paper.** The twelve power, Bayes-factor and slope rows
+  of module 76 move by at most 1.4e-7 relative. In the parity tables the
+  estimates are unchanged at the six digits printed; the gap columns of
+  eight rows change. On the `_t196` headline rows, which R computes with
+  an exact integrator, the largest relative gap goes from 1.3e-7 to
+  2.7e-7 (tolerance 1e-6); the largest gap of the module stays at 3.6e-4
+  on the rows where the reference integrates numerically. Modules 83 and
+  85 were re-run without Rust and their committed results kept
+  (differences at most 2.9e-14).
+- **Paths.**
+  - `tests/r_parity/results/76_pretrends_py.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
