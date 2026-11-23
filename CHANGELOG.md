@@ -2,7 +2,13 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.2] — 2026-11-24
+
+Follow-ups from Ian Gow's StatsPAI edition of *Empirical Research in
+Accounting*. `sp.ttest` gains `reverse=` and its pooled test takes a group
+of one observation, `sp.regtable(fixef_sizes=True)` now works for
+`sp.feols` fits, and a column that splits the treated rows into kinds is
+no longer reported as the level of assignment. No existing number changes.
 
 ### Added
 
