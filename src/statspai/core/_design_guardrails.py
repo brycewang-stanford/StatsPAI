@@ -541,6 +541,11 @@ def _assignment_level(
             continue  # varies within cells, or cells of about one row
         if tcode is None:
             n_paths = 2
+            if np.unique(gcode[d == 0]).size == 1:
+                # every untreated row shares one level: the column splits
+                # the treated rows into kinds of treatment ('none' /
+                # 'tipster' / 'nontipster'), it is not a unit of assignment
+                continue
         else:
             # one signature per level: the periods it is observed in and its
             # treatment in each (a missing period is not an untreated one)

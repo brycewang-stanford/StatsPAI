@@ -31,6 +31,17 @@ All notable changes to StatsPAI will be documented in this file.
   recording their sizes (interacted effects such as `a^b`) is named in
   a warning. The default table is unchanged.
 
+- **A column of treatment kinds is no longer taken for the level of
+  assignment.** With a 0/1 treatment and a column that splits the
+  treated rows into kinds and puts every untreated row in one level
+  (`wbflag` against `wbtype` = none / tipster / nontipster in
+  `cmsw_2018`), `sp.regress` warned that the treatment "is assigned at
+  the 'wbtype' level (3 groups)" and advised clustering on it. The
+  treatment is constant within such a column by construction. The
+  cross-sectional check now skips a column in which all untreated rows
+  share one level. One treated group among many untreated ones is still
+  flagged. Estimates are not affected, only the warning.
+
 ## [1.46.1] — 2026-11-23
 
 Two requests from Ian Gow's Polars / StatsPAI edition of *Empirical

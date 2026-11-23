@@ -334,6 +334,39 @@ def test_treatment_varying_within_states_is_not_flagged():
     assert "treatment_cluster_level" not in _tests(a) + _tests(b)
 
 
+def test_a_column_of_treatment_kinds_is_not_an_assignment_level():
+    # 'kind' splits the treated rows into two kinds and puts every
+    # untreated row in 'none' (cmsw_2018: wbflag against wbtype). The
+    # treatment is constant within it by construction; clustering on a
+    # three-level recoding of the treatment is not what the data call for.
+    rng = np.random.default_rng(29)
+    n = 900
+    treated = rng.random(n) < 0.15
+    kind = np.where(treated, np.where(rng.random(n) < 0.5, "tip", "other"), "none")
+    df = pd.DataFrame(
+        {
+            "treated": treated.astype(int),
+            "kind": kind,
+            "x": rng.normal(size=n),
+        }
+    )
+    df["y"] = 0.4 * df.treated + df.x + rng.normal(size=n)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        res = sp.regress("y ~ treated + x", df, robust="hc1")
+    assert "treatment_cluster_level" not in _tests(res)
+
+
+def test_one_treated_group_among_many_is_still_flagged():
+    # the mirror case is a real design: one treated state, many untreated
+    df = _state_panel()
+    df = df[df.year == 8].copy()
+    first = df.loc[df.treated == 1, "state"].iloc[0]
+    df["treated"] = (df.state == first).astype(int)
+    with pytest.warns(AssumptionWarning, match="assigned at the 'state' level"):
+        sp.regress("y ~ treated", df, robust="hc1")
+
+
 def test_cohort_column_is_not_mistaken_for_an_assignment_level():
     # g (the adoption date) is constant within g x period by construction;
     # it describes the treatment path, not where treatment was assigned
