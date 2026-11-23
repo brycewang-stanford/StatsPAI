@@ -91844,7 +91844,7 @@
       "tests/r_parity/21_honest_relmags.py",
       "tests/r_parity/21_honest_relmags.R",
       "tests/stata_parity/21_honest_relmags.do",
-      "tests/external_parity/test_honest_did_paper_parity.py"
+      "tests/external_parity/test_did_paper_gallery.py"
     ],
     "validation_status": "certified"
   },

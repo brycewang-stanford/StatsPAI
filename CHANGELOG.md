@@ -2,7 +2,13 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.1] — 2026-11-23
+
+Two requests from Ian Gow's Polars / StatsPAI edition of *Empirical
+Research in Accounting*, and a speed and memory pass on `sp.winsor`.
+`sp.regress(collinear="pinv")` returns the minimum-norm coefficients on a
+rank-deficient design, and `sp.match(replace=False)` no longer builds the
+full distance matrix. No existing number changes.
 
 ### Added
 
