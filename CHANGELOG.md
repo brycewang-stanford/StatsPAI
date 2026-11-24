@@ -2,7 +2,16 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.4] — 2026-11-25
+
+Reports from Ian Gow's StatsPAI edition of *Empirical Research in
+Accounting*. A binomial `sp.glmnet` on correlated predictors converges
+instead of crawling to its iteration limit (iangow/era_statpai#20).
+`sp.winsor` can count infinite values in its cut-offs and can compute
+the percentile as R does (GitHub #57). `sp.abnormal_returns` can return
+market-adjusted returns from the event window alone (GitHub #58). One
+correctness fix: `sp.winsor` cut-offs at a few uncommon percentiles now
+equal Stata's.
 
 ### Added
 

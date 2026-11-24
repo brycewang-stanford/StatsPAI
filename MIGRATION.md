@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## unreleased (after 1.46.3): ⚠️ `sp.winsor` cut-offs at a few uncommon percentiles; `include_infinite=`
+## 1.46.3 → 1.46.4: ⚠️ `sp.winsor` cut-offs at a few uncommon percentiles; `include_infinite=`
 
 `sp.winsor(method='stata')`, the default, now computes the percentile
 itself instead of calling `np.percentile(method="averaged_inverted_cdf")`.
