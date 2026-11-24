@@ -51605,12 +51605,12 @@
         },
         "include_infinite": {
           "default": false,
-          "description": "Count ``-inf`` and ``+inf`` as the smallest and largest values when computing the cutoffs, then pull them in (or, with ``trim=True``, set them to missing) like any other value, as R's ``farr::winsorize()`` and ``farr::truncate()`` do. By default infinite values are left out of the cutoffs and left as they are, with a warning. NaN is missing either way. Needs ``method='stata'``. A cutoff that is itself infinite (more infinite values in a tail than the percentile cuts off) leaves that tail unchanged.",
+          "description": "Count ``-inf`` and ``+inf`` as the smallest and largest values when computing the cutoffs, then pull them in (or, with ``trim=True``, set them to missing) like any other value, as R's ``farr::winsorize()`` and ``farr::truncate()`` do. By default infinite values are left out of the cutoffs and left as they are, with a warning. NaN is missing either way. Needs ``method='stata'`` or ``'r'``. A cutoff that is itself infinite (more infinite values in a tail than the percentile cuts off) leaves that tail unchanged.",
           "type": "boolean"
         },
         "method": {
           "default": "stata",
-          "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer; R's ``quantile(type = 2)``). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
+          "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer). ``'r'`` is R's ``quantile(type = 2)``, used by ``farr::winsorize``: the same definition, computed as R does. The two give the same cutoffs except at a few uncommon percentiles (see Notes). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
           "type": "string"
         },
         "replace": {

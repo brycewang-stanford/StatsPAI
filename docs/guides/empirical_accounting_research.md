@@ -159,6 +159,14 @@ percentile ranks and are pulled in to the cut-offs, or set to missing with
 sp.winsor(comp, ["mtb"], by="fyear", replace=True, include_infinite=True)
 ```
 
+Stata and R compute the same percentile with different arithmetic, and at
+a few uncommon percentiles they land one order statistic apart. With 100
+values the 7th percentile is 7.5 in Stata and 8 in R. The default
+`method="stata"` follows `winsor2`. Pass `method="r"` to follow
+`quantile(type = 2)`, so that `cuts=(7, 93)` equals
+`farr::winsorize(x, p_low = 0.07, p_high = 0.93)`. At 1, 2.5, 5, 10, 90,
+95, 97.5 and 99 the two are the same.
+
 A Poisson model can be quasi-separated. In the whistleblower regressions
 every firm with `mobflag = 1` paid no penalty, so that coefficient has no
 finite estimate. `sp.poisson` fits the rest, warns, and lists the

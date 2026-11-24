@@ -15,7 +15,7 @@ by a test in `tests/reference_parity/`.
 | `ppmlhdfe` "(omitted)" regressors | automatic | Regressors absorbed by the fixed effects are listed in `model_info['omitted']`. |
 | Hand-built stack + `ppmlhdfe y tp x, absorb(id#cohort year#cohort ...)` | `sp.stacked_did(df, y=..., group=..., time=..., first_treat=..., family="poisson", spec="pooled", absorb="...", control_group="notyettreated_rows")` | Later-treated units serve as controls only before their own treatment. `spec="event_study"` gives the event-time coefficients. |
 | `reghdfe ..., vce(cluster c)`: `e(r2)`, `e(r2_a)`, `e(r2_within)`, `e(df_a)`, `e(df_a_nested)` | `sp.hdfe_ols(...).r2`, `.r2_a`, `.r2_within`, `.df_a`, `.df_a_nested` | `r2_a` charges effects nested in the cluster, as `reghdfe` does. |
-| `winsor2 v, cuts(1 99)` | `sp.winsor(df, ["v"], cuts=(1, 99))` | Stata `_pctile` percentiles by default; `method="linear"` for numpy's. |
+| `winsor2 v, cuts(1 99)` | `sp.winsor(df, ["v"], cuts=(1, 99))` | Stata `_pctile` percentiles by default; `method="r"` for R's `quantile(type = 2)`, `method="linear"` for numpy's. |
 | `winsor2 v if year>=2007, by(g)` | `sp.winsor(df, ["v"], subset="year >= 2007", by="g")` | Outside `subset`, new columns are missing and `replace=True` leaves values unchanged. |
 | `logit y x i.g` ("predicts failure perfectly") | `sp.logit("y ~ x + C(g)", data=df)` | Default `perfect_prediction="drop"`; `"keep"` keeps the rows. Same for `probit` / `cloglog`. |
 | `psmatch2 d x, outcome(y) neighbor(1) ties ate common` | `sp.psmatch2(df, treat="d", covariates=["x"], outcome="y", common_support="minmax", ties=True, ate=True)` | PSM-DID on `_weight != .` uses `m.matched_data["_weight"].notna()`. ATU / ATE are in `m.result.model_info`. |

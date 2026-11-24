@@ -23,6 +23,10 @@ A cut-off moves by at most half the gap between two neighbouring order
 statistics. To get the old numbers, pass
 `method='averaged_inverted_cdf'`, which still goes to numpy.
 
+`method='r'` is new: R's `quantile(type = 2)`, for code that compares
+with `farr::winsorize`. For 100 values and `cuts=(7, 93)` it gives 8 and
+93.5, as R does. The default stays `'stata'`.
+
 `include_infinite=True` is new and opt-in. Without it infinite values are
 left out of the cut-offs and left as they are, with a warning, as before.
 

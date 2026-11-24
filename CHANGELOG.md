@@ -18,6 +18,16 @@ All notable changes to StatsPAI will be documented in this file.
   (`tests/reference_parity/test_winsor_pctile_parity.py`). The
   `winsor` operation of the MCP `transform_data` tool takes the same key.
   Requested in GitHub #57.
+- **`sp.winsor(method='r')`: the percentile as R computes it.** Stata's
+  `_pctile` and R's `quantile(type = 2)` share one definition and form
+  `n p / 100` differently, so they disagree on whether it is a whole
+  number at a few percentiles (13 of 12,257 on the grid of the fix
+  below). `method='stata'`, the default, follows `winsor2`.
+  `method='r'` follows R, so that `cuts=(lo, hi)` is
+  `farr::winsorize(v, p_low = lo / 100, p_high = hi / 100)` at every
+  percentile: equal to R 4.5.2 on the same grid. Both take
+  `include_infinite=True`. The usual 1, 2.5, 5, 10, 90, 95, 97.5 and 99
+  are the same under either.
 
 ### Fixed
 
@@ -54,8 +64,7 @@ All notable changes to StatsPAI will be documented in this file.
   18. The 1st, 5th, 10th, 90th, 95th and 99th percentiles are unaffected
   for every `n` up to two million, so the usual `cuts=(1, 99)` and
   `(5, 95)` give the numbers they gave before. R's `quantile(type = 2)`
-  has the same rounding at a different set of percentiles, so `sp.winsor`
-  and `farr::winsorize` can differ by one order statistic there.
+  rounds differently again; `method='r'` (above) reproduces it.
 
 ## [1.46.3] — 2026-11-24
 

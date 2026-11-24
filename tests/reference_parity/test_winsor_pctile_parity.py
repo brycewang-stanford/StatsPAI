@@ -12,6 +12,12 @@ number.  ``np.percentile(method="averaged_inverted_cdf")`` forms
 returned the 8th value where Stata returns 7.5.  The values are whole
 numbers or halves, so the comparison is exact equality.
 
+R 4.5.2 (``_fixtures/_generate_winsor_pctile_R.R``): ``quantile(type =
+2)`` on the same grid, and ``farr::winsorize`` / ``farr::truncate`` on
+``1..100`` at the same two pairs.  R forms ``n * (p / 100)`` with a fuzz
+of four machine epsilons and differs from Stata at 13 of the 12,257 grid
+points; ``method='r'`` follows it.
+
 R 4.5.2 with farr 1.0.9000 (``_fixtures/_generate_winsor_infinite_R.R``):
 ``farr::winsorize`` and ``farr::truncate`` on vectors holding ``-Inf`` and
 ``Inf``, which R counts as the smallest and largest values
@@ -45,35 +51,56 @@ def _cuts(case):
     return (round(100 * case["lo"], 10), round(100 * case["hi"], 10))
 
 
-def test_percentile_is_stata_pctile_on_the_whole_grid():
-    grid = pd.read_csv(_FIX / "winsor_pctile_Stata.csv")
+@pytest.mark.parametrize(
+    "method, file", [("stata", "winsor_pctile_Stata.csv"), ("r", "winsor_pctile_R.csv")]
+)
+def test_percentile_is_the_reference_on_the_whole_grid(method, file):
+    grid = pd.read_csv(_FIX / file)
     assert len(grid) == 119 * 103
     wrong = []
     for n, rows in grid.groupby("n"):
         df = pd.DataFrame({"x": np.arange(1.0, n + 1)})
         for p, want in zip(rows["p"], rows["pctile"]):
             # cuts=(p, 100): the minimum of the result is the p-th percentile
-            got = sp.winsor(df, ["x"], cuts=(p, 100))["x_w"].min()
+            got = sp.winsor(df, ["x"], cuts=(p, 100), method=method)["x_w"].min()
             if got != want:
                 wrong.append((n, p, got, want))
     assert not wrong, wrong[:5]
 
 
-def test_winsor2_where_n_p_over_100_is_whole():
-    ref = pd.read_csv(_FIX / "winsor_pctile_winsor2_Stata.csv")
-    df = ref[["x"]]
-    a = sp.winsor(df, ["x"], cuts=(7, 93))["x_w"]
-    b = sp.winsor(df, ["x"], cuts=(29, 57))["x_w"]
-    c = sp.winsor(df, ["x"], cuts=(7, 93), trim=True)["x_tr"]
-    pd.testing.assert_series_equal(a, ref["x_a"], check_names=False)
-    pd.testing.assert_series_equal(b, ref["x_b"], check_names=False)
-    pd.testing.assert_series_equal(c, ref["x_c"], check_names=False)
-    assert (a.min(), a.max()) == (7.5, 93.5)  # 7 and 8, 93 and 94 averaged
+def test_the_two_grids_differ_so_one_method_cannot_serve_both():
+    keys = ["n", "p"]
+    both = pd.read_csv(_FIX / "winsor_pctile_Stata.csv").merge(
+        pd.read_csv(_FIX / "winsor_pctile_R.csv"), on=keys, suffixes=("_stata", "_r")
+    )
+    differ = both[both["pctile_stata"] != both["pctile_r"]]
+    assert len(both) == 119 * 103 and len(differ) == 13
+    # none of them at the percentiles in common use
+    assert not set(differ["p"]) & {1, 2.5, 5, 10, 90, 95, 97.5, 99}
+
+
+@pytest.mark.parametrize(
+    "method, file, lower",
+    [
+        ("stata", "winsor_pctile_winsor2_Stata.csv", 7.5),  # 7 and 8 averaged
+        ("r", "winsor_pctile_farr_R.csv", 8.0),  # 100 * 0.07 > 7: the 8th
+    ],
+)
+def test_winsor2_and_farr_where_n_p_over_100_is_whole(method, file, lower):
+    ref = pd.read_csv(_FIX / file)
+    df = ref[["x"]].astype(float)
+    a = sp.winsor(df, ["x"], cuts=(7, 93), method=method)["x_w"]
+    b = sp.winsor(df, ["x"], cuts=(29, 57), method=method)["x_w"]
+    c = sp.winsor(df, ["x"], cuts=(7, 93), trim=True, method=method)["x_tr"]
+    for got, key in ((a, "x_a"), (b, "x_b"), (c, "x_c")):
+        np.testing.assert_array_equal(got.to_numpy(), ref[key].to_numpy(float))
+    assert (a.min(), a.max()) == (lower, 93.5)
 
 
 @pytest.mark.parametrize("name", _CASES)
 @pytest.mark.parametrize("replace", [False, True])
-def test_include_infinite_equals_farr(name, replace):
+@pytest.mark.parametrize("method", ["stata", "r"])
+def test_include_infinite_equals_farr(name, replace, method):
     case = _R[name]
     df = pd.DataFrame({"x": _num(case["x"])})
     for key, trim in (("w", False), ("t", True)):
@@ -83,6 +110,7 @@ def test_include_infinite_equals_farr(name, replace):
             cuts=_cuts(case),
             trim=trim,
             replace=replace,
+            method=method,
             include_infinite=True,
         )
         col = "x" if replace else "x_tr" if trim else "x_w"
