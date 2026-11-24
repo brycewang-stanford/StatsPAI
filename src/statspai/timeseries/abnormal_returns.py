@@ -78,6 +78,10 @@ class AbnormalReturnsResult(ResultProtocolMixin):
         the quantity behind the Kolari-Pynnonen adjustments.
     skipped : list
         Events left out, each with the reason.
+    inference : bool
+        False for a result of ``inference=False``: ``events`` then holds
+        the CARs only, ``tests`` is empty, and ``se``, ``pvalue`` and
+        ``mean_correlation`` are NaN.
 
     Examples
     --------
@@ -106,6 +110,7 @@ class AbnormalReturnsResult(ResultProtocolMixin):
         correlation: str,
         skipped: List[Dict[str, Any]],
         alpha: float,
+        inference: bool = True,
     ) -> None:
         self.method = f"Event study ({model} model)"
         self.estimand = "mean cumulative abnormal return"
@@ -124,12 +129,29 @@ class AbnormalReturnsResult(ResultProtocolMixin):
         self.n_obs = self.n_events
         self.caar = float(events["car"].mean())
         self.estimate = self.caar
+        self.inference = bool(inference)
+        if not self.inference:
+            self.se = float("nan")
+            self.pvalue = float("nan")
+            return
         row = tests.loc["cross_sectional"]
         self.se = float(self.caar / row["statistic"]) if row["statistic"] else np.nan
         self.pvalue = float(row["pvalue"])
 
     def summary(self) -> str:
         lo, hi = self.event_window
+        if not self.inference:
+            lines = [
+                self.method,
+                "=" * len(self.method),
+                f"Events: {self.n_events}   event window: [{lo}, {hi}]",
+                f"Mean CAR: {self.caar:.6f}",
+                "",
+                "Returns only (inference=False): no standard errors or tests.",
+            ]
+            if self.skipped:
+                lines.append(f"Events left out: {len(self.skipped)}")
+            return "\n".join(lines)
         lines = [
             self.method,
             "=" * len(self.method),
@@ -152,6 +174,11 @@ class AbnormalReturnsResult(ResultProtocolMixin):
         return "\n".join(lines)
 
     def __repr__(self) -> str:
+        if not self.inference:
+            return (
+                f"AbnormalReturnsResult(n_events={self.n_events}, "
+                f"caar={self.caar:.5g}, inference=False)"
+            )
         return (
             f"AbnormalReturnsResult(n_events={self.n_events}, "
             f"caar={self.caar:.5g}, p={self.pvalue:.4g})"
@@ -283,6 +310,7 @@ def abnormal_returns(
     min_obs: int = 30,
     correlation: str = "calendar",
     alpha: float = 0.05,
+    inference: bool = True,
 ) -> AbnormalReturnsResult:
     """Event study: abnormal returns around events, and tests of their mean.
 
@@ -330,6 +358,15 @@ def abnormal_returns(
         with different event dates that correlation is zero by
         construction.
     alpha : float, default 0.05
+    inference : bool, default True
+        ``False`` returns the abnormal returns and the CARs with no
+        standard errors and no tests: ``result.ar``, ``result.aar`` and
+        the ``car`` column of ``result.events``. The variance of a CAR is
+        the only thing ``model='market_adjusted'`` takes from the
+        estimation window, so that model then reads the event window
+        alone: ``estimation_window`` and ``min_obs`` are ignored and an
+        event with no earlier returns is kept. The other models still fit
+        on the estimation window. One usable event is enough.
 
     Returns
     -------
@@ -395,6 +432,14 @@ def abnormal_returns(
     >>> bool(0.02 < res.caar < 0.04) and bool(res.pvalue < 0.001)
     True
 
+    Market-adjusted returns from the event window alone:
+
+    >>> short = data[data["date"] >= days[279]]
+    >>> only = sp.abnormal_returns(short, events, model="market_adjusted",
+    ...                            market="mkt", inference=False)
+    >>> only.n_events, list(only.events.columns)
+    (20, ['id', 'event_date', 'event_day', 'n_est', 'car'])
+
     References
     ----------
     brown1985using, patell1976corporate, boehmer1991event, kolari2010event,
@@ -419,6 +464,14 @@ def abnormal_returns(
             f"got {alpha!r}.",
             recovery_hint="alpha=0.05 gives 95% intervals.",
         )
+    if not isinstance(inference, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"abnormal_returns: inference must be True or False, got {inference!r}."
+        )
+    infer = bool(inference)
+    # market-adjusted returns estimate nothing; without inference the
+    # estimation window has no use at all
+    fitted = infer or model_key != "market_adjusted"
     regressors: List[str] = []
     if model_key in ("market", "market_adjusted"):
         if not market:
@@ -460,7 +513,7 @@ def abnormal_returns(
             "abnormal_returns: a window is given as (first, last) with "
             "first <= last."
         )
-    if es_hi >= ev_lo:
+    if fitted and es_hi >= ev_lo:
         raise MethodIncompatibility(
             "abnormal_returns: the estimation window must end before the "
             f"event window begins; got estimation_window={estimation_window} "
@@ -471,7 +524,11 @@ def abnormal_returns(
     length = ev_hi - ev_lo + 1
     k = {"market_adjusted": 0, "mean_adjusted": 1}.get(model_key, 1 + len(regressors))
 
-    panel = data[[id, date, ret] + regressors].copy()
+    # only securities with an event are read: on a full CRSP file that is
+    # a small share of the rows, and the copy, the date parse and the sort
+    # below are the cost of the call
+    wanted = data[id].isin(pd.unique(events[id]))
+    panel = data.loc[wanted.to_numpy(), [id, date, ret] + regressors].copy()
     panel[date] = pd.to_datetime(panel[date])
     if panel.duplicated([id, date]).any():
         raise MethodIncompatibility(
@@ -513,6 +570,22 @@ def abnormal_returns(
         window = sec.iloc[pos + ev_lo : pos + ev_hi + 1]
         if window[[ret] + regressors].isna().any().any():
             skip("missing return in the event window")
+            continue
+        if not fitted:
+            ar = window[ret].to_numpy(dtype=float) - window[market].to_numpy(
+                dtype=float
+            )
+            records.append(
+                {
+                    "event": label,
+                    id: unit,
+                    "event_date": when,
+                    "event_day": sec[date].iloc[pos],
+                    "n_est": 0,
+                    "car": float(ar.sum()),
+                }
+            )
+            ar_columns[label] = pd.Series(ar, index=rel_index)
             continue
         # an event near the start of the series has a short or empty
         # estimation window; a negative stop would slice from the end
@@ -557,11 +630,24 @@ def abnormal_returns(
         # the market's, a suspended security with zero returns) leaves a
         # residual variance that is rounding noise: the standardised CAR
         # would be noise over noise.
+        car = float(ar.sum())
+        if not infer:
+            records.append(
+                {
+                    "event": label,
+                    id: unit,
+                    "event_date": when,
+                    "event_day": sec[date].iloc[pos],
+                    "n_est": n,
+                    "car": car,
+                }
+            )
+            ar_columns[label] = pd.Series(ar, index=rel_index)
+            continue
         if not s2 > (1e-10) ** 2 * float(np.mean(y_est**2)):
             skip("no residual variance in the estimation window")
             continue
         se = float(np.sqrt(var_car))
-        car = float(ar.sum())
         t = car / se
         records.append(
             {
@@ -591,11 +677,21 @@ def abnormal_returns(
             UserWarning,
             stacklevel=2,
         )
-    if len(records) < 2:
+    if not infer and not records:
+        raise DataInsufficient(
+            "abnormal_returns: no usable event.",
+            recovery_hint="Check the dates and the event window against "
+            "the return series; result.skipped reasons are in diagnostics.",
+            diagnostics={"skipped": skipped},
+        )
+    if infer and len(records) < 2:
         raise DataInsufficient(
             f"abnormal_returns: {len(records)} usable event(s); the tests "
             "compare events and need at least two.",
-            recovery_hint="Check the dates, the windows and min_obs.",
+            recovery_hint="Check the dates, the windows and min_obs. "
+            "inference=False returns the abnormal returns and CARs alone, "
+            "for one event or more, and with model='market_adjusted' "
+            "needs no estimation window.",
             diagnostics={"skipped": skipped},
         )
     table = pd.DataFrame(records).set_index("event")
@@ -605,6 +701,23 @@ def abnormal_returns(
         {"aar": ar_frame.mean(axis=1), "n": ar_frame.notna().sum(axis=1)}
     )
     aar["caar"] = aar["aar"].cumsum()
+    if not infer:
+        empty = pd.DataFrame({"statistic": [], "pvalue": []}, dtype=float)
+        empty.index.name = "test"
+        return AbnormalReturnsResult(
+            events=table,
+            ar=ar_frame,
+            aar=aar,
+            tests=empty,
+            model=model_key,
+            event_window=(ev_lo, ev_hi),
+            estimation_window=(es_lo, es_hi),
+            mean_correlation=float("nan"),
+            correlation=corr_key,
+            skipped=skipped,
+            alpha=alpha,
+            inference=False,
+        )
     r_bar = _mean_correlation(
         residuals, table[id].tolist() if corr_key == "calendar" else None
     )

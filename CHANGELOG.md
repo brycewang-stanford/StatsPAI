@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.abnormal_returns(inference=False)`: abnormal returns and CARs
+  with no standard errors or tests.** A market-adjusted return is the
+  return minus the market return, and nothing is estimated. The
+  estimation window was still required, because the variance of a CAR
+  comes from it, so an event with fewer than `min_obs` earlier returns
+  was left out and a short return file raised `DataInsufficient`. With
+  `inference=False` the result holds `ar`, `aar` and the `car` column of
+  `events`, `tests` is empty, and `se` and `pvalue` are NaN. For
+  `model='market_adjusted'` only the event window is read, so
+  `estimation_window` and `min_obs` are ignored. The other models still
+  fit on the estimation window. One usable event is enough. The returns
+  are those of the run with inference, to the last bit. Requested in
+  GitHub #58.
+
 - **`sp.winsor(include_infinite=True)`: count `-inf` and `+inf` in the
   cut-offs.** Infinite values are then the smallest and largest values of
   the variable. They enter the percentile ranks and are pulled in to the
@@ -31,6 +45,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.regtable` reports a `keep=` or `drop=` entry that matches nothing
+  once, at the call.** The warning came from each renderer, so a table
+  shown in a notebook warned twice, a table printed again warned again,
+  and the warning pointed at the print and not at the call that built
+  the table. With several panels an entry now warns only when it matches
+  no coefficient in any of them. The tables are unchanged.
+- **`sp.abnormal_returns` reads only the securities that have an event.**
+  It copied, parsed and sorted every row of the return file first. The
+  results are unchanged.
 - **`sp.glmnet(family="binomial")` no longer crawls and reports
   non-convergence on correlated predictors.** A ridge logit on 28
   normalised financial-statement items took about 4 s and warned that it

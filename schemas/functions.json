@@ -13698,6 +13698,11 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "inference": {
+          "default": true,
+          "description": "False: abnormal returns and CARs only, no standard errors or tests; model='market_adjusted' then needs no estimation window and one event is enough",
+          "type": "boolean"
+        },
         "market": {
           "description": "Market return column",
           "type": "string"

@@ -243,7 +243,7 @@ def _match_coef_names(
             f"{unmatched} matched no coefficient (an entry is an exact name, "
             "a glob with * / ?, or a regular expression).",
             UserWarning,
-            stacklevel=4,
+            stacklevel=6,
         )
     return out
 
@@ -829,6 +829,19 @@ class RegtableResult:
             self._flat_to_panel.extend([pi] * len(panel.models))
         self._auto_fmt_cache: Dict[Tuple[int, str], str] = {}
 
+        # A keep= / drop= entry that selects nothing in any panel is
+        # reported here, once, at the call that built the table. Every
+        # renderer resolves the rows again, and used to repeat the warning
+        # each time the table printed.
+        self._filter_vars(
+            list(
+                OrderedDict.fromkeys(
+                    v for panel in panels for m in panel.models for v in m.params.index
+                )
+            ),
+            warn=True,
+        )
+
     # --- helpers -----------------------------------------------------------
 
     def _display_pair(
@@ -1011,13 +1024,15 @@ class RegtableResult:
         for m in models:
             for v in m.params.index:
                 seen[v] = None
-        all_vars = list(seen)
+        return self._filter_vars(list(seen))
 
+    def _filter_vars(self, all_vars: List[str], warn: bool = False) -> List[str]:
+        """``all_vars`` after ``keep=``, ``drop=`` and ``order=``."""
         if self.keep is not None:
-            keep_set = _match_coef_names(all_vars, self.keep, "keep")
+            keep_set = _match_coef_names(all_vars, self.keep, "keep", warn=warn)
             all_vars = [v for v in all_vars if v in keep_set]
         if self.drop:
-            drop_set = _match_coef_names(all_vars, self.drop, "drop")
+            drop_set = _match_coef_names(all_vars, self.drop, "drop", warn=warn)
             all_vars = [v for v in all_vars if v not in drop_set]
         if self.order:
             ordered: List[str] = []

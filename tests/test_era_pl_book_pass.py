@@ -558,3 +558,34 @@ def test_bcf_longitudinal_needs_twenty_bootstrap_draws():
             n_trees_tau=5,
             n_bootstrap=5,
         )
+
+
+def test_regtable_reports_an_unmatched_filter_once_and_at_the_call():
+    # The warning used to come from every renderer, so a table printed in a
+    # notebook warned twice and a table never printed did not warn at all.
+    rng = np.random.default_rng(3)
+    df = pd.DataFrame({"x": rng.normal(size=120), "z": rng.normal(size=120)})
+    df["y"] = df["x"] + rng.normal(size=120)
+    fit = sp.regress("y ~ x + z", data=df)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        table = sp.regtable(fit, keep=["x", "nomatch"], drop=["zz"])
+        built = [str(w.message) for w in caught]
+        str(table), table.to_latex(), table._repr_html_()
+        after = [str(w.message) for w in caught]
+    assert len(built) == 2 and after == built
+    assert "keep= entry ['nomatch']" in built[0]
+    assert "drop= entry ['zz']" in built[1]
+    assert all(w.filename == __file__ for w in caught)
+
+
+def test_regtable_filter_matched_in_one_panel_is_silent():
+    rng = np.random.default_rng(4)
+    df = pd.DataFrame({"x": rng.normal(size=120), "z": rng.normal(size=120)})
+    df["y"] = df["x"] + rng.normal(size=120)
+    a = sp.regress("y ~ x", data=df)
+    b = sp.regress("y ~ x + z", data=df)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        text = str(sp.regtable([a], [b], drop=["z"]))
+    assert "\nz " not in text

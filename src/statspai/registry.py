@@ -15397,6 +15397,15 @@ def _build_registry() -> None:
                     ["calendar", "event"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "inference",
+                    "bool",
+                    False,
+                    True,
+                    "False: abnormal returns and CARs only, no standard "
+                    "errors or tests; model='market_adjusted' then needs "
+                    "no estimation window and one event is enough",
+                ),
             ],
             returns="AbnormalReturnsResult",
             example='sp.abnormal_returns(returns, events, market="mkt", '
@@ -15414,8 +15423,9 @@ def _build_registry() -> None:
             ],
             pre_conditions=[
                 "Daily (or periodic) returns per security in long format",
-                "An estimation window that ends before the event window",
-                "At least two usable events",
+                "An estimation window that ends before the event window "
+                "(not read by model='market_adjusted' with inference=False)",
+                "At least two usable events (one with inference=False)",
             ],
             failure_modes=[
                 FailureMode(

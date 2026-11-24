@@ -195,6 +195,23 @@ return, nothing estimated); `"mean_adjusted"` and `"factor"` are the other
 two standard models. Day 0 is the first trading day on or after the event
 date.
 
+When only the returns are wanted, `inference=False` leaves out the
+standard errors and the tests. The market-adjusted model then reads the
+event window alone, so an event at the start of the return file is kept
+and a single event is enough:
+
+```python
+res = sp.abnormal_returns(
+    returns, events, model="market_adjusted", market="mkt",
+    event_window=(-1, 1), inference=False,
+)
+res.ar        # daily abnormal returns, one column per event
+res.events    # id, event_date, event_day, n_est, car
+```
+
+With the default `inference=True` each event needs `min_obs=30` returns in
+the estimation window, because the variance of its CAR is estimated there.
+
 Which test to read. `patell` assumes the event leaves the variance of
 returns unchanged, which earnings announcements do not (that is Beaver's
 finding); `bmp` and the cross-sectional test allow for it. When event

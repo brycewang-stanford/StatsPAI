@@ -29412,8 +29412,8 @@
     ],
     "pre_conditions": [
       "Daily (or periodic) returns per security in long format",
-      "An estimation window that ends before the event window",
-      "At least two usable events"
+      "An estimation window that ends before the event window (not read by model='market_adjusted' with inference=False)",
+      "At least two usable events (one with inference=False)"
     ],
     "provenance": {
       "alternatives": "curated",
@@ -29441,6 +29441,7 @@
         "estimation_window": "Tuple[int, int]",
         "event_window": "Tuple[int, int]",
         "events": "pd.DataFrame",
+        "inference": "bool",
         "mean_correlation": "float",
         "method": "Any",
         "model": "str",
@@ -29524,6 +29525,11 @@
             "description": "Security column (in both frames)",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "inference": {
+            "default": true,
+            "description": "False: abnormal returns and CARs only, no standard errors or tests; model='market_adjusted' then needs no estimation window and one event is enough",
+            "type": "boolean"
           },
           "market": {
             "description": "Market return column",
