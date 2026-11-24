@@ -27028,6 +27028,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_accounting_research_parity.py",
+        "tests/reference_parity/test_winsor_pctile_parity.py",
         "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
       ],
       "also_verified_by": [

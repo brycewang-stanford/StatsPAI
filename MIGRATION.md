@@ -5,6 +5,27 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## unreleased (after 1.46.3): ⚠️ `sp.winsor` cut-offs at a few uncommon percentiles; `include_infinite=`
+
+`sp.winsor(method='stata')`, the default, now computes the percentile
+itself instead of calling `np.percentile(method="averaged_inverted_cdf")`.
+The two differ only when `n p / 100` is a whole number that
+`n * (p / 100)` misses in double precision. Stata's `winsor2` averages two
+order statistics there and numpy took the upper one.
+
+| Call | Before | Now (Stata 18) |
+| --- | --- | --- |
+| 100 values `1..100`, `cuts=(7, 93)` | 8 and 93.5 | 7.5 and 93.5 |
+| 100 values `1..100`, `cuts=(29, 57)` | 29 and 57 | 29.5 and 57.5 |
+| `cuts=(1, 99)`, `(5, 95)`, `(10, 90)`, any `n` up to two million | | unchanged |
+
+A cut-off moves by at most half the gap between two neighbouring order
+statistics. To get the old numbers, pass
+`method='averaged_inverted_cdf'`, which still goes to numpy.
+
+`include_infinite=True` is new and opt-in. Without it infinite values are
+left out of the cut-offs and left as they are, with a warning, as before.
+
 ## 1.46.2 → 1.46.3: the specification-search count is per dataset; `sp.silence`
 
 `model_info["multiplicity"]["specifications_tried"]` and the

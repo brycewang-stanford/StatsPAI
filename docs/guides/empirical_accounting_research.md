@@ -149,6 +149,16 @@ A row with a missing `fyear` is left alone, as in Stata's `winsor2, by()`;
 it. Set infinite values to missing and drop rows without a year first, and
 the two agree.
 
+When the sign of an infinite value carries information, pass
+`include_infinite=True` to do what `farr` does. `-inf` and `+inf` are then
+the smallest and largest values of the variable: they count in the
+percentile ranks and are pulled in to the cut-offs, or set to missing with
+`trim=True`. NaN stays missing.
+
+```python
+sp.winsor(comp, ["mtb"], by="fyear", replace=True, include_infinite=True)
+```
+
 A Poisson model can be quasi-separated. In the whistleblower regressions
 every firm with `mobflag = 1` paid no penalty, so that coefficient has no
 finite estimate. `sp.poisson` fits the rest, warns, and lists the

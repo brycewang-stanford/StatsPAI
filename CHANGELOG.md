@@ -2,6 +2,40 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`sp.winsor(include_infinite=True)`: count `-inf` and `+inf` in the
+  cut-offs.** Infinite values are then the smallest and largest values of
+  the variable. They enter the percentile ranks and are pulled in to the
+  cut-offs, or set to missing with `trim=True`, as `farr::winsorize()` and
+  `farr::truncate()` do in R. The default is unchanged: infinite values
+  are left out of the cut-offs and left as they are, with a warning. NaN
+  is missing either way. The option needs `method='stata'`. Equal to farr
+  1.0.9000 on eleven vectors, including a cut-off that is itself infinite
+  and a group of infinite values only
+  (`tests/reference_parity/test_winsor_pctile_parity.py`). The
+  `winsor` operation of the MCP `transform_data` tool takes the same key.
+  Requested in GitHub #57.
+
+### Fixed
+
+- **⚠️ correctness fix: `sp.winsor` cut-offs at a few uncommon
+  percentiles.** With `P = n p / 100`, Stata's `_pctile` averages two
+  order statistics when `P` is a whole number. `sp.winsor` passed the job
+  to `np.percentile(method="averaged_inverted_cdf")`, which forms
+  `n * (p / 100)`. For 100 values and `cuts=(7, 93)` that is
+  7.000000000000001, so the lower cut-off was the 8th value where
+  `winsor2` gives 7.5. The percentile is now computed as Stata does. On
+  the grid `n = 2..120` at every whole percentile and at 0.5, 2.5, 97.5
+  and 99.5, 18 of 12,257 cut-offs change and all 12,257 now equal Stata
+  18. The 1st, 5th, 10th, 90th, 95th and 99th percentiles are unaffected
+  for every `n` up to two million, so the usual `cuts=(1, 99)` and
+  `(5, 95)` give the numbers they gave before. R's `quantile(type = 2)`
+  has the same rounding at a different set of percentiles, so `sp.winsor`
+  and `farr::winsorize` can differ by one order statistic there.
+
 ## [1.46.3] — 2026-11-24
 
 Warnings in simulations, from the Extreme values chapter of Ian Gow's

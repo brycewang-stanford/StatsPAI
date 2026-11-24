@@ -109448,9 +109448,14 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "include_infinite": {
+            "default": false,
+            "description": "Count ``-inf`` and ``+inf`` as the smallest and largest values when computing the cutoffs, then pull them in (or, with ``trim=True``, set them to missing) like any other value, as R's ``farr::winsorize()`` and ``farr::truncate()`` do. By default infinite values are left out of the cutoffs and left as they are, with a warning. NaN is missing either way. Needs ``method='stata'``. A cutoff that is itself infinite (more infinite values in a tail than the percentile cuts off) leaves that tail unchanged.",
+            "type": "boolean"
+          },
           "method": {
             "default": "stata",
-            "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer; numpy's ``'averaged_inverted_cdf'``). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
+            "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer; R's ``quantile(type = 2)``). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
             "type": "string"
           },
           "replace": {
@@ -109491,6 +109496,7 @@
     "validation_notes": [
       "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_gow_ding_accounting.py",
       "tests/reference_parity/test_accounting_research_parity.py",
+      "tests/reference_parity/test_winsor_pctile_parity.py",
       "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
     ],
     "validation_status": "validated"

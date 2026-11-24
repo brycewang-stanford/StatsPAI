@@ -676,8 +676,8 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "{columns}, drop {columns}, rename {mapping}, dropna "
             "{columns?}, fillna {value | mapping}, assign {column, expr} "
             "(DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, "
-            "winsor {columns?, cuts?=[1,99], by?, trim?, method?} (replaces "
-            "in place), wide_to_long {stubnames, i, j, sep?, suffix?}, "
+            "winsor {columns?, cuts?=[1,99], by?, trim?, method?, "
+            "include_infinite?} (in place), wide_to_long {stubnames, i, j, sep?, suffix?}, "
             "long_to_wide {index, "
             "columns, values}, mice {columns?, m?} (single completed "
             "dataset), function {name, arguments?} (any sp.<name> taking "
@@ -2663,7 +2663,9 @@ _TRANSFORM_STEP_KEYS: Dict[str, frozenset] = {
     "assign": frozenset({"column", "expr"}),
     "sort": frozenset({"by", "ascending"}),
     "sample": frozenset({"n", "seed"}),
-    "winsor": frozenset({"columns", "cuts", "by", "trim", "method"}),
+    "winsor": frozenset(
+        {"columns", "cuts", "by", "trim", "method", "include_infinite"}
+    ),
     "wide_to_long": frozenset({"stubnames", "i", "j", "sep", "suffix"}),
     "long_to_wide": frozenset({"index", "columns", "values"}),
     "mice": frozenset({"columns", "m", "seed"}),
@@ -2979,6 +2981,8 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
         extra: Dict[str, Any] = {}
         if "method" in step:
             extra["method"] = str(step["method"])
+        if "include_infinite" in step:
+            extra["include_infinite"] = bool(step["include_infinite"])
         return winsor(
             df,
             vars=cols,

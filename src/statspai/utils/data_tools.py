@@ -6,6 +6,7 @@ Provides:
 - winsor: Winsorize variables at specified percentiles
 """
 
+import math
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -212,6 +213,37 @@ def _winsor_columns(arguments: Dict[str, Any]) -> Optional[List[str]]:
     return [*names, *by_cols]
 
 
+def _stata_pctile_cuts(vals: np.ndarray, lo_pct: float, hi_pct: float) -> List[float]:
+    """Stata ``_pctile`` (R ``quantile(type = 2)``) at two percentiles.
+
+    With ``P = n p / 100`` the percentile is the ``ceil(P)``-th order
+    statistic, or the mean of the ``P``-th and the next one when ``P`` is a
+    whole number. ``P`` is formed as ``(n * p) / 100`` so that a whole number
+    stays one: ``np.percentile(..., method="averaged_inverted_cdf")`` forms
+    ``n * (p / 100)``, which is 7.000000000000001 for ``n = 100, p = 7`` and
+    then returns the 8th value where Stata returns the mean of the 7th and
+    8th. The order statistics are picked, never interpolated, so infinite
+    values are ordinary members of the order; the mean of ``-inf`` and
+    ``+inf`` is NaN.
+    """
+    n = int(vals.size)
+    pairs = []
+    for pct in (lo_pct, hi_pct):
+        pos = n * float(pct) / 100.0
+        whole = math.floor(pos)
+        if pos == whole and 0 < whole < n:
+            pairs.append((whole - 1, whole))
+        else:
+            k = min(max(math.ceil(pos), 1), n) - 1
+            pairs.append((k, k))
+    ordered = np.partition(vals, sorted({i for pair in pairs for i in pair}))
+    # Python floats: inf + -inf is a silent NaN, not a numpy RuntimeWarning.
+    return [
+        float(ordered[a]) if a == b else (float(ordered[a]) + float(ordered[b])) / 2
+        for a, b in pairs
+    ]
+
+
 @returns_input_frame(needs=_winsor_columns)
 def winsor(
     data: pd.DataFrame,
@@ -223,6 +255,8 @@ def winsor(
     subset: Optional[Union[str, pd.Series, np.ndarray]] = None,
     by: Optional[Union[str, List[str]]] = None,
     trim: bool = False,
+    *,
+    include_infinite: bool = False,
 ) -> pd.DataFrame:
     """
     Winsorize variables at specified percentiles.
@@ -246,7 +280,7 @@ def winsor(
         Percentile definition. ``'stata'`` is Stata's ``_pctile``
         default, used by ``winsor2`` (the empirical
         quantile, averaging the two order statistics when ``n p / 100``
-        is an integer; numpy's ``'averaged_inverted_cdf'``). Any other
+        is an integer; R's ``quantile(type = 2)``). Any other
         value is passed to :func:`numpy.percentile` as its ``method``;
         ``'linear'`` reproduces StatsPAI before 1.33.
     subset : str, boolean Series or array, optional
@@ -264,6 +298,16 @@ def winsor(
         variable at a time removes a different set of rows for each; a
         regression on several trimmed variables loses every row trimmed in
         any of them.
+    include_infinite : bool, default False
+        Count ``-inf`` and ``+inf`` as the smallest and largest values when
+        computing the cutoffs, then pull them in (or, with ``trim=True``,
+        set them to missing) like any other value, as R's
+        ``farr::winsorize()`` and ``farr::truncate()`` do. By default
+        infinite values are left out of the cutoffs and left as they are,
+        with a warning. NaN is missing either way. Needs
+        ``method='stata'``. A cutoff that is itself infinite (more
+        infinite values in a tail than the percentile cuts off) leaves
+        that tail unchanged.
 
     Returns
     -------
@@ -302,9 +346,16 @@ def winsor(
     and ``trim=True`` equals ``farr::truncate(v, 0.01)``. With ``by=``
     it equals ``group_by(g) |> mutate(across(v, winsorize))``, with two
     exceptions that each raise a warning: infinite values are left out
-    of the cut-offs (farr counts them and pulls them in), and rows with
+    of the cut-offs (farr counts them and pulls them in;
+    ``include_infinite=True`` does the same), and rows with
     a missing group key are left alone (dplyr winsorizes them as one
     more group).
+
+    Stata and R can differ by one order statistic at a few percentiles
+    other than the usual 1, 5, 10, 90, 95 and 99: with 100 values the 7th
+    percentile is 7.5 in Stata (``100 * 7 / 100`` is exactly 7, so two
+    values are averaged) and 8 in R (``100 * 0.07`` is
+    7.000000000000001). ``method='stata'`` follows Stata.
 
     Before 1.33 the cutoffs used numpy's linear interpolation, which
     differs from ``winsor2`` on every variable whose ``n p / 100`` is not
@@ -315,12 +366,22 @@ def winsor(
 
     if vars is None:
         vars = list(df.select_dtypes(include=[np.number]).columns)
-    np_method = "averaged_inverted_cdf" if str(method).lower() == "stata" else method
+    stata_pctile = str(method).lower() == "stata"
+    if include_infinite and not stata_pctile:
+        raise MethodIncompatibility(
+            f"sp.winsor: include_infinite=True needs method='stata', got "
+            f"method={method!r}. The other methods interpolate between order "
+            "statistics, which is undefined next to an infinite value.",
+            recovery_hint="Drop method= (the default is 'stata'), or set the "
+            "infinite values to NaN first.",
+        )
     if trim and suffix == "_w":
         suffix = "_tr"
 
     check_columns(df, {"vars": list(vars), "by": by}, function="sp.winsor")
     lo_pct, hi_pct = cuts
+    if stata_pctile and not (0 <= lo_pct <= 100 and 0 <= hi_pct <= 100):
+        raise ValueError("Percentiles must be in the range [0, 100]")
     if subset is None:
         in_sample = np.ones(len(df), dtype=bool)
     elif isinstance(subset, str):
@@ -355,10 +416,10 @@ def winsor(
 
     for var in vars:
         col = df[var].values.astype(float)
-        valid = np.isfinite(col)
+        valid = ~np.isnan(col) if include_infinite else np.isfinite(col)
         use = valid & in_sample
         n_inf = int((np.isinf(col) & in_sample).sum())
-        if n_inf:
+        if n_inf and not include_infinite:
             left = "stay infinite" if replace else f"get NaN in {var + suffix}"
             _warn(
                 StatsPAIWarning,
@@ -369,8 +430,9 @@ def winsor(
                 "infinite values.",
                 stacklevel=3,
                 recovery_hint="Set infinite values to NaN (e.g. from a "
-                "division by zero) before winsorizing, or clip them first if "
-                "they should count as extreme observations.",
+                "division by zero) before winsorizing, or pass "
+                "include_infinite=True if they should count as extreme "
+                "observations, as in farr::winsorize.",
                 diagnostics={"variable": var, "n_infinite": n_inf},
             )
 
@@ -378,7 +440,7 @@ def winsor(
         # One stable sort on the group code instead of one mask per group:
         # a mask per group is O(groups x rows) (150 s for 20,000 groups on
         # 2 million rows). The stable sort keeps the rows of a group in
-        # data order, so each group reaches np.percentile exactly as before.
+        # data order, so each group reaches the percentile exactly as before.
         used = np.flatnonzero(use)
         used = used[np.argsort(groups[used], kind="stable")]
         codes = groups[used]
@@ -387,7 +449,14 @@ def winsor(
         for start, stop in zip(starts, stops):
             rows = used[start:stop]
             vals = col[rows]
-            lo_val, hi_val = np.percentile(vals, [lo_pct, hi_pct], method=np_method)
+            if stata_pctile:
+                lo_val, hi_val = _stata_pctile_cuts(vals, lo_pct, hi_pct)
+                # Midway between -inf and +inf there is no cut-off: that
+                # tail is left alone, as R's `x[x < NaN] <- ...` does.
+                lo_val = -np.inf if lo_val != lo_val else lo_val
+                hi_val = np.inf if hi_val != hi_val else hi_val
+            else:
+                lo_val, hi_val = np.percentile(vals, [lo_pct, hi_pct], method=method)
             if trim:
                 winsorized[rows] = np.where(
                     (vals < lo_val) | (vals > hi_val), np.nan, vals
