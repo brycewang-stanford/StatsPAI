@@ -173,7 +173,8 @@ def _sketch(data: Any, outcome: str) -> Optional[np.ndarray]:
         # the smallest couple of thousand are enough to find 256 distinct
         # ones unless the column is mostly ties, when there are few to find
         hashed = np.partition(hashed, 8 * _STORED)[: 8 * _STORED]
-    return np.unique(hashed)[:_STORED]
+    smallest: np.ndarray = np.unique(hashed)[:_STORED]
+    return smallest
 
 
 def record_specifications(
