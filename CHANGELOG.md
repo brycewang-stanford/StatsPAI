@@ -21,6 +21,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.glmnet(family="binomial")` no longer crawls and reports
+  non-convergence on correlated predictors.** A ridge logit on 28
+  normalised financial-statement items took about 4 s and warned that it
+  had not converged on 8 of 12 samples (iangow/era_statpai#20). Two
+  things stopped the Newton steps from shrinking. Coordinate descent
+  stops on the change in one sweep, and on correlated columns a sweep
+  moved the coefficients by less than its threshold while the outer step
+  was still above its own. And an observation whose fitted probability
+  sits at glmnet's guard of 1e-5 entered and left the guard on alternate
+  steps, so the iteration cycled between two fits about 1e-4 apart in
+  the linear index. A fit without a lasso term now solves each step
+  directly, a stalled coordinate descent gets a tighter threshold, and a
+  guard that cycles is held at its current membership. On 67,174 rows
+  and 99 positives the ridge fit takes 0.04 s (4 to 6 s before) and
+  equals scikit-learn's `newton-cholesky` at `tol=1e-10` to 5e-12 in
+  probability where no fitted probability is below the guard. Lasso and
+  elastic-net fits that converged before are unchanged to the last bit.
+  Ridge fits that converged before move by about 1e-11 in the linear
+  index. A fitted probability below 1e-5 is still treated as 0, as in R
+  `glmnet`, so such a fit differs from an unguarded logit by up to about
+  1e-5 in probability.
 - **⚠️ correctness fix: `sp.winsor` cut-offs at a few uncommon
   percentiles.** With `P = n p / 100`, Stata's `_pctile` averages two
   order statistics when `P` is a whole number. `sp.winsor` passed the job

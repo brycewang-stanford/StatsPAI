@@ -192,3 +192,68 @@ def test_converged_fits_are_unchanged_by_the_retry():
         cv=False,
     )
     np.testing.assert_allclose(one.params.to_numpy(), full.params.to_numpy(), atol=1e-7)
+
+
+# ------------------------------------------------- correlated predictors
+# iangow/era_statpai#20 (2026-11-24): a ridge logit on the 28 normalised
+# financial-statement items of the book's Chapter 26 took about 4 s and
+# warned that it had not converged on 8 of 12 samples, while its
+# probabilities were within 6e-5 of a tightly converged scikit-learn fit.
+
+
+def _correlated_frame(n: int, n_pos: int, p: int = 28) -> pd.DataFrame:
+    """Rare outcome on unit-length rows of items and near-sums of items."""
+    rng = np.random.default_rng(0)
+    size = rng.lognormal(5, 2.5, size=(n, 1))
+    base = np.abs(rng.standard_t(2.5, size=(n, 12))) * size
+    mix = rng.uniform(0, 1, size=(12, p - 12))
+    agg = base @ mix * (1 + 1e-2 * rng.standard_normal((n, p - 12)))
+    X = np.hstack([base, agg])
+    X = X / np.linalg.norm(X, axis=1, keepdims=True)
+    score = np.exp(3 * X[:, 0] - 2 * X[:, 5] + 1.5 * X[:, 9])
+    y = np.zeros(n)
+    y[rng.choice(n, n_pos, replace=False, p=score / score.sum())] = 1.0
+    df = pd.DataFrame((X - X.mean(0)) / X.std(0), columns=[f"x{j}" for j in range(p)])
+    df["y"] = y
+    return df
+
+
+def _penalised_gradient(df, fit, lam, alpha):
+    """Largest violation of the first-order conditions, standardised units.
+
+    Under glmnet's guard a fitted probability below 1e-5 counts as 0.
+    """
+    xs = [c for c in df.columns if c != "y"]
+    X = df[xs].to_numpy()
+    sd = X.std(axis=0)
+    beta = fit.params.to_numpy() * sd
+    prob = expit(fit.intercept + X @ fit.params.to_numpy())
+    resid = df["y"].to_numpy() - np.where(prob < 1e-5, 0.0, prob)
+    score = (X / sd).T @ resid / len(df) - lam * (1 - alpha) * beta
+    active = beta != 0
+    worst = np.abs(score[active] - lam * alpha * np.sign(beta[active])).max()
+    if (~active).any():
+        worst = max(worst, (np.abs(score[~active]) - lam * alpha).max())
+    return max(worst, abs(resid.mean()))
+
+
+# the first three warned on 1.46.3; the fourth converged there and stays put
+@pytest.mark.parametrize(
+    "alpha, n, n_pos",
+    [(0.0, 8000, 12), (1.0, 8000, 12), (1.0, 12000, 20), (0.5, 8000, 12)],
+)
+def test_correlated_predictors_converge_to_the_optimum(alpha, n, n_pos):
+    df = _correlated_frame(n, n_pos)
+    xs = [c for c in df.columns if c != "y"]
+    lam = 1 / len(df)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        fit = sp.glmnet(
+            df, y="y", x=xs, family="binomial", alpha=alpha, lambda_=lam, cv=False
+        )
+    assert not caught, [str(w.message) for w in caught]
+    assert fit.model_info["converged"] is True
+    # The optimum is where the penalised score vanishes (lam is about 1e-4).
+    # An observation whose probability sits at the guard can be on either
+    # side of it, which moves the score by at most 1e-5 * |x| / n.
+    assert _penalised_gradient(df, fit, lam, alpha) < 1e-7

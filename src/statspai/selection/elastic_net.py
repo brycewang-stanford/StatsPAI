@@ -39,6 +39,8 @@ __all__ = ["glmnet", "GlmnetResult"]
 
 _PMIN = 1e-5  # glmnet's guard on fitted probabilities
 _BIG = 9.9e35  # stands in for an infinite penalty
+_INNER_TOL_FLOOR = 1e-30  # below this a sweep is at rounding level
+_CYCLE_STEP = 1e-3  # a guard cycle is small; a diverging fit is not one
 
 
 def _soft(z: float, t: float) -> float:
@@ -83,6 +85,33 @@ def _cd_gaussian(
         if dmax < tol:
             return b, True
     return b, False
+
+
+def _solve_ridge(
+    gram: np.ndarray, xty: np.ndarray, b: np.ndarray, l2: np.ndarray
+) -> Optional[np.ndarray]:
+    """Minimiser of ``b'Gb/2 - b'c + sum(l2 b^2)/2``, by a direct solve.
+
+    The problem :func:`_cd_gaussian` solves when no coordinate carries a
+    lasso term. Coordinates with no variation keep their value, as they do
+    there. Returns ``None`` when the system is singular or the solution is
+    not finite (no penalty on collinear columns), and the caller falls back
+    to coordinate descent.
+    """
+    act = np.diag(gram) > 0.0
+    out = b.copy()
+    if not act.any():
+        return out
+    A = gram[np.ix_(act, act)] + np.diag(l2[act])
+    rhs = xty[act] - gram[np.ix_(act, ~act)] @ b[~act]
+    try:
+        sol = np.linalg.solve(A, rhs)
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(sol)):
+        return None
+    out[act] = sol
+    return out
 
 
 def _standardise(
@@ -282,16 +311,57 @@ class _Path:
     def _irls(
         self, b: np.ndarray, a0: float, l1: np.ndarray, l2: np.ndarray
     ) -> Tuple[np.ndarray, float, bool]:
-        """Penalised logistic regression by proximal Newton steps."""
+        """Penalised logistic regression by proximal Newton steps.
+
+        Each step minimises the penalised quadratic approximation at the
+        current fit. Without a lasso term that is a linear system and is
+        solved directly; with one it is solved by coordinate descent.
+
+        Newton steps shrink quadratically near the solution. Two things
+        stopped them from shrinking, and the fit then ran to the iteration
+        cap and was reported as not converged while sitting next to the
+        solution (iangow/era_statpai#20). Three steps in a row that do not
+        halve are taken as a stall and handled by its cause:
+
+        - The set of observations under the probability guard changed
+          during the stall. An observation whose fitted probability sits
+          at ``_PMIN`` enters and leaves the guard on alternate steps, and
+          the iteration cycles between two fits about 1e-4 apart in the
+          linear index. The guard set is then held at its current
+          membership, which makes the problem smooth. Only for steps
+          below ``_CYCLE_STEP``: a fit that is diverging (GitHub issue
+          #54) also moves the guard and is left to the warm-started retry.
+        - Otherwise coordinate descent is stopping short: its rule looks
+          at the change in one sweep, and on correlated predictors a sweep
+          can move the coefficients by less than the threshold while the
+          outer step is still above its own. The inner threshold is
+          tightened so that each step is a Newton step again.
+        """
         Z, y, n = self.Z, self.y, self.n
         ok = False
+        smooth = not np.any(l1 > 0.0)
+        inner_tol = self.tol * 1e-2
+        prev_step, stalled, guard_moved = np.inf, 0, False
+        guard: Optional[Tuple[np.ndarray, np.ndarray]] = None
+        held = False
         for _ in range(100):
             eta = a0 + Z @ b
             prob = expit(eta)
             w = prob * (1 - prob)
-            lo, hi = prob < _PMIN, prob > 1 - _PMIN
+            if held and guard is not None:
+                lo, hi = guard
+            else:
+                lo, hi = prob < _PMIN, prob > 1 - _PMIN
+                if guard is not None and not (
+                    np.array_equal(lo, guard[0]) and np.array_equal(hi, guard[1])
+                ):
+                    guard_moved = True
+                guard = (lo, hi)
             prob = np.where(lo, 0.0, np.where(hi, 1.0, prob))
             w = np.where(lo | hi, _PMIN, w)
+            if held:
+                # an observation outside the held set may now be past it
+                w = np.maximum(w, _PMIN * (1 - _PMIN))
             z = eta + (y - prob) / w
             sw = w.sum()
             if self.intercept:
@@ -302,15 +372,30 @@ class _Path:
             Zc = Z - xbar
             gram = (Zc * w[:, None]).T @ Zc / n
             xty = (Zc * w[:, None]).T @ (z - zbar) / n
-            new, inner = _cd_gaussian(
-                gram, xty, b.copy(), l1, l2, self.tol * 1e-2, self.max_iter
-            )
+            direct = _solve_ridge(gram, xty, b, l2) if smooth else None
+            if direct is not None:
+                new, inner = direct, True
+            else:
+                new, inner = _cd_gaussian(
+                    gram, xty, b.copy(), l1, l2, inner_tol, self.max_iter
+                )
             new_a0 = zbar - float(xbar @ new) if self.intercept else 0.0
             step = float(np.max(np.abs(Z @ (new - b) + (new_a0 - a0))))
             b, a0 = new, new_a0
             if step < 1e-10 and inner:
                 ok = True
                 break
+            if inner and step > 0.5 * prev_step:
+                stalled += 1
+            else:
+                stalled, guard_moved = 0, False
+            if stalled >= 3:
+                if guard_moved and not held and step < _CYCLE_STEP:
+                    held = True
+                elif direct is None and inner_tol > _INNER_TOL_FLOOR:
+                    inner_tol = max(inner_tol * 1e-4, _INNER_TOL_FLOOR)
+                stalled, guard_moved = 0, False
+            prev_step = step
         return b, a0, ok
 
 
