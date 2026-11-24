@@ -254,6 +254,15 @@ def _translate_varying_slopes(fml: str) -> Tuple[str, bool]:
     Stata ``reghdfe absorb(i.f#c.z)`` does not, so a constant FE is added.
     """
     parts = fml.split("|")
+    if len(parts) < 2:
+        raise MethodIncompatibility(
+            "feols(backend='native') cannot fit this formula: the native "
+            "engine reads plain columns, a:b / a*b products, i() and C() "
+            f"terms, and it found none of the others' fixed effects in {fml!r}.",
+            recovery_hint="Use backend='auto' (the default), which hands "
+            "the formula to pyfixest, or build the transformed column first.",
+            diagnostics={"formula": fml},
+        )
     fe_terms = [t.strip() for t in parts[1].split("+") if t.strip()]
     out: List[str] = []
     has_intercept_fe = False

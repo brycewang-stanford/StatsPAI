@@ -146,6 +146,17 @@ def _make_same(fn, needs):
         out = fn(*converted[0], **converted[1])
         return _restore(args, kwargs, converted, out, narrow)
     return same_frame_out
+
+def _make_part(fn, part):
+    def reading_part(*args, **kwargs):
+        cut = _cut(fn, part, args, kwargs)
+        if cut is not None:
+            args, kwargs = cut
+        converted = _passthrough(args, kwargs)
+        if converted is None:
+            return fn(*args, **kwargs)
+        return fn(*converted[0], **converted[1])
+    return reading_part
 """
 
 
@@ -210,6 +221,90 @@ def _narrow(
     if where == 0:
         return (part,) + tuple(args[1:]), kwargs, frame
     return args, {**kwargs, "data": part}, frame
+
+
+def _key_values(frame: Any, column: str) -> Any:
+    """The values of ``column`` in a pandas or polars frame, as a list."""
+    if isinstance(frame, pd.DataFrame):
+        if column not in frame.columns:
+            return None
+        return frame[column].dropna().unique().tolist()
+    cls = type(frame)
+    if cls.__module__.split(".", 1)[0] == "polars" and cls.__name__ in (
+        "DataFrame",
+        "LazyFrame",
+    ):
+        lazy = cls.__name__ == "LazyFrame"
+        names = frame.collect_schema().names() if lazy else frame.columns
+        if column not in names:
+            return None
+        keys = frame.select(column).unique().drop_nulls()
+        return (keys.collect() if lazy else keys).get_column(column).to_list()
+    return None
+
+
+def _cut(
+    fn: Callable[..., Any],
+    part: Callable[[Dict[str, Any]], Any],
+    args: Tuple[Any, ...],
+    kwargs: Dict[str, Any],
+) -> Optional[Tuple[Tuple[Any, ...], Dict[str, Any]]]:
+    """The call with its polars frame cut down to the part ``fn`` reads.
+
+    ``part`` (see :func:`reads_part`) names the columns the call reads
+    and, optionally, the rows: those whose ``column`` holds a value found
+    in a column of another frame of the call. The selection and the filter
+    run in polars, so a ten-million-row return file of which the call
+    reads forty securities is not copied into pandas first. Returns None
+    when there is nothing to cut: pandas input (decided by a type check
+    alone), a call ``part`` cannot resolve, or a name that is not a
+    column, which is left for ``fn`` to report. A row filter polars
+    refuses (keys of another type) is skipped; ``fn`` then meets the rows
+    it would have met without this step.
+    """
+    hit = _first_frame(args, kwargs)
+    if hit is None:
+        return None
+    where, original = hit
+    import inspect
+
+    try:
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+    except TypeError:
+        return None
+    bound.apply_defaults()
+    spec = part(dict(bound.arguments))
+    if spec is None:
+        return None
+    columns, rows = spec
+    if not all(isinstance(c, str) for c in columns):
+        return None
+    lazy = type(original).__name__ == "LazyFrame"
+    names = original.collect_schema().names() if lazy else original.columns
+    keep = [c for c in names if c in set(columns)]
+    if len(keep) != len(set(columns)):
+        return None
+    import importlib
+
+    pl: Any = importlib.import_module("polars")
+    query = original.lazy()
+    if rows is not None:
+        column, other, other_column = rows
+        keys = _key_values(other, other_column) if column in names else None
+        if keys is not None:
+            try:
+                filtered = query.filter(pl.col(column).is_in(keys))
+                filtered.collect_schema()
+                query = filtered
+            except Exception:  # noqa: BLE001 - keys of another type: no filter
+                pass
+    try:
+        cut = query.select(keep).collect()
+    except Exception:  # noqa: BLE001 - the filter failed late: read every row
+        cut = original.lazy().select(keep).collect()
+    if where == 0:
+        return (cut,) + tuple(args[1:]), kwargs
+    return args, {**kwargs, "data": cut}
 
 
 def _restore(
@@ -281,6 +376,7 @@ _shim_ns: Dict[str, Any] = {
     "_passthrough": _passthrough,
     "_restore": _restore,
     "_narrow": _narrow,
+    "_cut": _cut,
 }
 exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
     compile(
@@ -292,6 +388,7 @@ exec(  # noqa: S102  # nosec B102 - the fixed literal above, no user input
 )
 _SHIM_FACTORY: Callable[[Callable[..., Any]], Callable[..., Any]] = _shim_ns["_make"]
 _SAME_FACTORY: Callable[..., Callable[..., Any]] = _shim_ns["_make_same"]
+_PART_FACTORY: Callable[..., Callable[..., Any]] = _shim_ns["_make_part"]
 
 
 #: One wrapper per original function, so aliases (``sp.bjs`` and
@@ -352,6 +449,32 @@ def returns_input_frame(
         return cast(Callable[..., Any], same_frame_out)
 
     return decorate if fn is None else decorate(fn)
+
+
+def reads_part(
+    part: Callable[[Dict[str, Any]], Any],
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator for functions that read a small part of a large frame.
+
+    ``part`` is a function of the call's bound arguments (a dict, defaults
+    applied). It returns ``(columns, rows)``: the names of the columns of
+    ``data`` the call reads, and either None or ``(column, frame,
+    frame_column)``, meaning that only the rows of ``data`` whose
+    ``column`` holds a value of ``frame[frame_column]`` are read. It
+    returns None when it cannot tell. A polars ``data`` is then selected
+    and filtered in polars before it is converted (see :func:`_cut`). The
+    function must give the same result on the cut frame as on the whole
+    one. pandas arguments pass by identity, and :func:`install` leaves a
+    function decorated here alone.
+    """
+
+    def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
+        reading_part = functools.wraps(func)(_PART_FACTORY(func, part))
+        setattr(reading_part, ATTR, func)
+        _WRAPPERS[id(func)] = (func, reading_part)
+        return cast(Callable[..., Any], reading_part)
+
+    return decorate
 
 
 def _eligible(obj: Any) -> bool:

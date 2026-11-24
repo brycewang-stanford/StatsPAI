@@ -2,6 +2,35 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **`sp.feols`, `sp.fepois` and `sp.feglm` fit `a:b` and `a*b` products
+  and Boolean regressors on StatsPAI's own engine.** Under
+  `backend="auto"` a formula such as `y ~ treat*post | firm`, or any
+  formula with a Boolean regressor, went to pyfixest. The native engine
+  now builds the product column itself and reads a Boolean regressor as
+  its 0/1 indicator. Names and their order are the ones pyfixest
+  reports (`treat`, `post`, `treat:post`, main effects first).
+  Coefficients and standard errors equal those of the same model on a
+  precomputed product column to 1e-12, and pyfixest's to 1e-8. Products
+  of more than two columns, and products with a `C()` term on a Boolean
+  column, still go to pyfixest. A Boolean outcome also does.
+- **`sp.abnormal_returns` cuts a Polars return file in Polars.** Only the
+  columns the call reads and the securities named in `events` are
+  converted to pandas. Ten million rows with forty event securities took
+  about 2 s and several times the frame in memory, and now take 0.1 s.
+  The results are unchanged.
+
+### Fixed
+
+- **`sp.feols(backend="native")` no longer raises `IndexError` on a
+  formula it cannot parse.** Without a fixed-effects part, a Boolean
+  regressor or an interaction ended in `list index out of range`. Those
+  two cases are now fitted (see above). What the native engine still
+  cannot read raises `MethodIncompatibility` and names `backend="auto"`.
+
 ## [1.46.4] — 2026-11-25
 
 Reports from Ian Gow's StatsPAI edition of *Empirical Research in

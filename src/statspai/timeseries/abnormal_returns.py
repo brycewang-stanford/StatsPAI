@@ -42,6 +42,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._frame_input import reads_part
 from .._input_validation import missing_named_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import ColumnNotFound, DataInsufficient, MethodIncompatibility
@@ -294,6 +295,25 @@ def _mean_correlation(
     return float(values.mean()) if values.size else 0.0
 
 
+def _part_read(arguments: Dict[str, Any]) -> Any:
+    """Columns of ``data`` a call reads, and the securities it reads them
+    for: those of ``events`` (see ``_frame_input.reads_part``)."""
+    names = [arguments.get(k) for k in ("id", "date", "ret")]
+    key = str(arguments.get("model")).lower()
+    if key in ("market", "market_adjusted"):
+        names.append(arguments.get("market"))
+    elif key == "factor":
+        factors = arguments.get("factors")
+        if not isinstance(factors, (list, tuple)):
+            return None
+        names += list(factors)
+    if not all(isinstance(c, str) for c in names):
+        return None
+    unit = arguments["id"]
+    return list(dict.fromkeys(names)), (unit, arguments.get("events"), unit)
+
+
+@reads_part(_part_read)
 def abnormal_returns(
     data: pd.DataFrame,
     events: pd.DataFrame,

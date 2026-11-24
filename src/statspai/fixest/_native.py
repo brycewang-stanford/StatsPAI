@@ -55,6 +55,25 @@ _C_TERM = re.compile(rf"^{_C_FACTOR}\Z")
 #: column (Stata ``i.year#c.x``, and the interaction of ``c.x##i.year``).
 _C_BY_VAR = re.compile(rf"^(?P<c>{_C_FACTOR})\s*:\s*(?P<v>[A-Za-z_][A-Za-z0-9_]*)\Z")
 _VAR_BY_C = re.compile(rf"^(?P<v>[A-Za-z_][A-Za-z0-9_]*)\s*:\s*(?P<c>{_C_FACTOR})\Z")
+#: ``a:b`` / ``a*b`` of two numeric or Boolean columns: their product.
+_VAR_BY_VAR = re.compile(
+    r"^(?P<a>[A-Za-z_][A-Za-z0-9_]*)\s*(?P<op>[:*])\s*(?P<b>[A-Za-z_][A-Za-z0-9_]*)\Z"
+)
+
+
+@dataclass
+class Product:
+    """``a:b``: the product of two numeric or Boolean columns."""
+
+    a: str
+    b: str
+
+    @property
+    def label(self) -> str:
+        return f"{self.a}:{self.b}"
+
+
+_Term = Union[str, "ITerm", Product]
 
 
 @dataclass
@@ -127,7 +146,7 @@ class Plan:
 
 def _split_formula(
     fml: Any,
-) -> Optional[Tuple[str, List[Union[str, ITerm]], List[str]]]:
+) -> Optional[Tuple[str, List[_Term], List[str]]]:
     if not isinstance(fml, str) or fml.count("~") != 1 or fml.count("|") > 1:
         return None
     lhs, rest = (s.strip() for s in fml.split("~"))
@@ -138,11 +157,24 @@ def _split_formula(
         return None
     if fe_s and not fe_s.strip():
         return None
-    rhs: List[Union[str, ITerm]] = []
+    if any(_VAR_BY_VAR.match(t) and "*" in t for t in tokens):
+        # a*b is a + b + a:b; a main effect also written on its own
+        # appears once
+        spelled: List[str] = []
+        for t in tokens:
+            star = _VAR_BY_VAR.match(t)
+            if star and star.group("op") == "*":
+                a, b = star.group("a"), star.group("b")
+                spelled += [a, b, f"{a}:{b}"]
+            else:
+                spelled.append(t)
+        tokens = list(dict.fromkeys(spelled))
+    rhs: List[_Term] = []
     for t in tokens:
         if t == "1":
             continue
         m = _I_TERM.match(t)
+        vv = _VAR_BY_VAR.match(t)
         c = _C_TERM.match(t)
         cv = _C_BY_VAR.match(t) or _VAR_BY_C.match(t)
         if m:
@@ -158,6 +190,8 @@ def _split_formula(
             rhs.append(term)
         elif _NAME.match(t):
             rhs.append(t)
+        elif vv and vv.group("a") != vv.group("b"):
+            rhs.append(Product(vv.group("a"), vv.group("b")))
         else:
             return None
     if not rhs or any(not _NAME.match(t) for t in fe):
@@ -166,6 +200,9 @@ def _split_formula(
     names = [lhs] + plain + fe
     if len(set(names)) != len(names):
         return None
+    pairs = [frozenset((t.a, t.b)) for t in rhs if isinstance(t, Product)]
+    if len(set(pairs)) != len(pairs):
+        return None  # a:b and b:a
     labels = [
         (item.label, item.var)
         for item in rhs
@@ -182,7 +219,8 @@ def _split_formula(
     # the column order formulaic gives the design matrix.
     rhs.sort(
         key=lambda item: int(
-            isinstance(item, ITerm) and item.categorical and item.var is not None
+            isinstance(item, Product)
+            or (isinstance(item, ITerm) and item.categorical and item.var is not None)
         )
     )
     return lhs, rhs, fe
@@ -306,10 +344,15 @@ def _split_iv(
     return lhs, exog, fe, endog, instr
 
 
-def _base_columns(rhs: List[Union[str, ITerm]]) -> List[str]:
+def _base_columns(rhs: List[_Term]) -> List[str]:
     out: List[str] = []
     for t in rhs:
-        cols = [t] if isinstance(t, str) else [t.factor] + ([t.var] if t.var else [])
+        if isinstance(t, str):
+            cols = [t]
+        elif isinstance(t, Product):
+            cols = [t.a, t.b]
+        else:
+            cols = [t.factor] + ([t.var] if t.var else [])
         out += [c for c in cols if c not in out]
     return out
 
@@ -319,9 +362,9 @@ _NO_REFERENCE = object()
 
 
 def _expand_i_terms(
-    rhs: List[Union[str, ITerm]], work: pd.DataFrame
+    rhs: List[_Term], work: pd.DataFrame
 ) -> Union[str, Tuple[List[str], Dict[str, np.ndarray], Dict[str, str]]]:
-    """Dummy columns for the ``i()`` terms, in formula order.
+    """Dummy columns for the ``i()`` terms and products, in formula order.
 
     Levels are sorted and the reference level left out, as the delegate
     reports them; a dummy is named ``factor::level`` (``factor::level:var``
@@ -333,6 +376,14 @@ def _expand_i_terms(
     for t in rhs:
         if isinstance(t, str):
             names.append(t)
+            continue
+        if isinstance(t, Product):
+            internal = f"__i{len(renames)}__"
+            cols[internal] = work[t.a].to_numpy(dtype=np.float64) * work[t.b].to_numpy(
+                dtype=np.float64
+            )
+            renames[internal] = t.label
+            names.append(internal)
             continue
         f = work[t.factor]
         if pd.api.types.is_bool_dtype(f) or not (
@@ -448,7 +499,7 @@ def plan(
     iv = _split_iv(fml) if iv_ok else None
     endog: List[str] = []
     instr: List[str] = []
-    rhs: List[Union[str, ITerm]]
+    rhs: List[_Term]
     if iv is not None:
         lhs, exog_names, fe, endog, instr = iv
         rhs = list(exog_names)
@@ -475,8 +526,15 @@ def plan(
         return "duplicated column names"
     factors = {t.factor for t in rhs if isinstance(t, ITerm)}
     numeric = [lhs] + [c for c in base if c not in factors]
+    # A Boolean regressor is its 0/1 indicator under its own name, as the
+    # delegate reports it; a Boolean outcome or weight is left to it.
+    booleans = [
+        c
+        for c in numeric[1:]
+        if c != lhs and c != weights and pd.api.types.is_bool_dtype(data[c])
+    ]
     for c in numeric + ([weights] if weights is not None else []):
-        if not _numeric(data[c]):
+        if c not in booleans and not _numeric(data[c]):
             return f"column {c!r} is not numeric"
     # Rows fixest drops: a missing value in any used column. A missing
     # cluster id is left to pyfixest, which reports it.
@@ -506,8 +564,10 @@ def plan(
         yb = work[lhs].to_numpy()
         if ((yb < 0) | (yb > 1)).any():
             return "binomial outcome outside [0, 1]"
+    if booleans:
+        work = work.assign(**{c: work[c].astype(np.float64) for c in booleans})
     renames: Dict[str, str] = {}
-    if factors:
+    if factors or any(isinstance(t, Product) for t in rhs):
         expanded = _expand_i_terms(rhs, work)
         if isinstance(expanded, str):
             return expanded

@@ -188,3 +188,87 @@ def test_warnings_still_point_at_the_caller():
         warnings.simplefilter("always")
         wrapped(1)
     assert rec[0].filename == __file__
+
+
+# --- reads_part: a polars frame is cut in polars before it is converted -----
+
+
+def _event_frames():
+    rng = np.random.default_rng(8)
+    days = pd.bdate_range("2019-01-01", periods=320)
+    mkt = rng.normal(0, 0.01, 320)
+    rows = [
+        pd.DataFrame(
+            {
+                "id": j,
+                "date": days,
+                "ret": 0.8 * mkt + rng.normal(0, 0.012, 320),
+                "mkt": mkt,
+                "other": rng.normal(size=320),
+            }
+        )
+        for j in range(30)
+    ]
+    events = pd.DataFrame({"id": range(6), "event_date": days[290:296]})
+    return pd.concat(rows, ignore_index=True), events
+
+
+def test_reads_part_gives_the_pandas_result():
+    pl = pytest.importorskip("polars")
+    pytest.importorskip("pyarrow")
+    data, events = _event_frames()
+    want = sp.abnormal_returns(data, events, market="mkt")
+    for frame, ev in (
+        (pl.from_pandas(data), pl.from_pandas(events)),
+        (pl.from_pandas(data).lazy(), pl.from_pandas(events).lazy()),
+        (pl.from_pandas(data), events),
+    ):
+        got = sp.abnormal_returns(frame, ev, market="mkt")
+        pd.testing.assert_frame_equal(
+            got.events.drop(columns=["event_date", "event_day"]),
+            want.events.drop(columns=["event_date", "event_day"]),
+            check_exact=True,
+        )
+        pd.testing.assert_frame_equal(got.tests, want.tests, check_exact=True)
+
+
+def test_reads_part_hands_over_only_the_part(monkeypatch):
+    pl = pytest.importorskip("polars")
+    pytest.importorskip("pyarrow")
+    from statspai import _frame_input
+
+    data, events = _event_frames()
+    seen = []
+    original = _frame_input._polars
+
+    def spy(value):
+        seen.append((value.height, list(value.columns)))
+        return original(value)
+
+    monkeypatch.setattr(_frame_input, "_polars", spy)
+    sp.abnormal_returns(pl.from_pandas(data), pl.from_pandas(events), market="mkt")
+    # six of thirty securities, four of five columns; then the event list
+    assert seen[0] == (6 * 320, ["id", "date", "ret", "mkt"])
+
+
+def test_reads_part_leaves_pandas_and_bad_calls_alone():
+    pl = pytest.importorskip("polars")
+    pytest.importorskip("pyarrow")
+    from statspai import _frame_input
+    from statspai.exceptions import ColumnNotFound
+
+    data, events = _event_frames()
+    fn = _frame_input.bare(sp.abnormal_returns)
+    # pandas: no cut, decided on the type alone
+    assert _frame_input._cut(fn, lambda a: 1 / 0, (data, events), {}) is None
+    # a column that does not exist is reported by the function itself
+    with pytest.raises(ColumnNotFound):
+        sp.abnormal_returns(pl.from_pandas(data), events, market="nope")
+    # event ids of another type: the filter is skipped, the function then
+    # reports that it found no returns for those securities
+    text = events.assign(id=events["id"].astype(str))
+    with pytest.warns(UserWarning, match="left out"):
+        with pytest.raises(Exception, match="usable event"):
+            sp.abnormal_returns(
+                pl.from_pandas(data), pl.from_pandas(text), market="mkt"
+            )
