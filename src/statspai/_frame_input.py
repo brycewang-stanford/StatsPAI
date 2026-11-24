@@ -258,9 +258,9 @@ def _cut(
     reads forty securities is not copied into pandas first. Returns None
     when there is nothing to cut: pandas input (decided by a type check
     alone), a call ``part`` cannot resolve, or a name that is not a
-    column, which is left for ``fn`` to report. A row filter polars
-    refuses (keys of another type) is skipped; ``fn`` then meets the rows
-    it would have met without this step.
+    column, which is left for ``fn`` to report. The row filter is skipped
+    when the keys are of another type than the column; ``fn`` then meets
+    the rows it would have met without this step.
     """
     hit = _first_frame(args, kwargs)
     if hit is None:
@@ -292,16 +292,19 @@ def _cut(
         column, other, other_column = rows
         keys = _key_values(other, other_column) if column in names else None
         if keys is not None:
+            have = original.collect_schema()[column]
             try:
-                filtered = query.filter(pl.col(column).is_in(keys))
-                filtered.collect_schema()
-                query = filtered
-            except Exception:  # noqa: BLE001 - keys of another type: no filter
-                pass
-    try:
-        cut = query.select(keep).collect()
-    except Exception:  # noqa: BLE001 - the filter failed late: read every row
-        cut = original.lazy().select(keep).collect()
+                wanted = pl.Series(keys)
+            except (TypeError, ValueError, pl.exceptions.PolarsError):
+                wanted = None  # keys of mixed types: read every row
+            # The filter runs only when the two columns hold one kind of
+            # value; comparing integers with strings is left to ``fn``.
+            if wanted is not None and (
+                wanted.dtype == have
+                or (wanted.dtype.is_integer() and have.is_integer())
+            ):
+                query = query.filter(pl.col(column).is_in(wanted.to_list()))
+    cut = query.select(keep).collect()
     if where == 0:
         return (cut,) + tuple(args[1:]), kwargs
     return args, {**kwargs, "data": cut}
