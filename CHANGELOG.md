@@ -2,7 +2,14 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.3] — 2026-11-24
+
+Warnings in simulations, from the Extreme values chapter of Ian Gow's
+StatsPAI edition (iangow/era_statpai#25). The specification-search count
+is kept per dataset, so the planned models of a Monte Carlo loop are no
+longer counted once per draw, and `sp.silence(...)` withholds a named
+diagnostic's warning inside a block while keeping it on the result. No
+estimate, standard error or p-value changes.
 
 ### Added
 

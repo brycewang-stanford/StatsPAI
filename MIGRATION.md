@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.46.2 → next: the specification-search count is per dataset; `sp.silence`
+## 1.46.2 → 1.46.3: the specification-search count is per dataset; `sp.silence`
 
 `model_info["multiplicity"]["specifications_tried"]` and the
 `specification_search` warning count the distinct specifications fitted
