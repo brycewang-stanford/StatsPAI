@@ -151,11 +151,13 @@ def test_coef_only_by_group_loop_is_not_a_specification_search():
 
 
 def test_fits_with_inference_are_still_counted():
+    # six models of one set of observations: a search
     sp.reset_spec_counter()
+    g = _groups(1)[0].assign(z=np.arange(30.0), w=np.arange(30.0) ** 2)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        for g in _groups(6):
-            fit = sp.regress("y ~ x", data=g)
+        for rhs in ("x", "x + z", "x + w", "x + z + w", "z", "w"):
+            fit = sp.regress(f"y ~ {rhs}", data=g)
     assert fit.model_info["multiplicity"]["specifications_tried"] == 6
     sp.reset_spec_counter()
 

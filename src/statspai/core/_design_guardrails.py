@@ -907,10 +907,13 @@ def stored_design_violations(obj: Any) -> List[Dict[str, Any]]:
 
 def _warn(found: List[Dict[str, Any]], entry: str, stacklevel: int) -> None:
     from ..exceptions import AssumptionWarning
+    from ._silence import is_silenced
 
     for v in found:
         if v.get("severity") not in ("warning", "error"):
             continue
+        if is_silenced(v.get("test")):
+            continue  # sp.silence(...): recorded on the result, not warned
         warnings.warn(
             AssumptionWarning(
                 f"{entry}: {v['message']}",

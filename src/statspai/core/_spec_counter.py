@@ -9,16 +9,31 @@ estimated, and the result carries how many distinct ones this Python
 process (an MCP server included) has fitted for that outcome, so the
 number can be reported next to the p-value.
 
-Keys are cheap on purpose (no hashing of the data):
+Keys are cheap on purpose:
 
 * the *family* is the outcome name plus the set of column names of the
-  frame, so a simulation loop over fresh draws of the same frame layout
-  stays one family, and an unrelated dataset is another;
+  frame, so an unrelated dataset is another family;
 * a *specification* is the entry point, the formula, the absorbed effects,
   the variance estimator, the weights and the number of rows used, so the
   same call repeated (bootstrap replicates, re-runs) counts once while a
   new control set, a new subsample or another standard error counts as a
-  new specification.
+  new specification;
+* within a family the specifications are counted per *dataset*. A search
+  is many models of one set of observations, so a fit joins the count of
+  the fits whose outcome values it shares, and starts its own count when
+  it shares none. Fresh draws in a Monte Carlo loop and the disjoint
+  groups of a by-group loop are then separate datasets (the number of
+  rows used differs from draw to draw whenever a draw has missing or
+  truncated values, which used to make each draw a "new specification"),
+  while a subsample of data already fitted still adds to that data's
+  count, down to a subsample of about 2 percent of its rows. Sharing is
+  read from a small sketch of the outcome column, the smallest hashes of
+  its distinct values, in one vectorised pass over the column. Subgroups
+  fitted one by one without the pooled sample ever being fitted share
+  nothing with one another and are not counted together. An outcome
+  with few distinct values (a 0/1 indicator, a
+  small count) cannot tell two datasets apart and is counted as one, as
+  before; so is an outcome that is not a column of the frame.
 """
 
 from __future__ import annotations
@@ -27,6 +42,7 @@ import threading
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, Optional, Set, Tuple
 
+import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
@@ -48,9 +64,82 @@ MULTIPLICITY_WARNING = 20
 
 _MAX_FAMILIES = 256
 _MAX_SPECS = 100_000
+#: Datasets remembered per family (least recently fitted dropped first).
+_MAX_DATASETS = 128
+#: A fit asks with the ``_SKETCH`` smallest hashes of its distinct outcome
+#: values and leaves its ``_STORED`` smallest behind. A subsample keeping a
+#: share f of the rows of data fitted earlier then shares about
+#: ``min(64, 256 f)`` of the hashes it asks with: it is recognised down to
+#: about 2 percent of the rows.
+_SKETCH = 64
+_STORED = 256
+_MAX_DATASET_HASHES = 1024
+#: Shared hashes from which two fits are on the same observations. Fits on
+#: unrelated continuous data share none, and a common value or two (zeros)
+#: does not join them.
+_MIN_SHARED = 4
 
 _LOCK = threading.Lock()
-_FAMILIES: "OrderedDict[Tuple[str, Tuple[str, ...]], Set[str]]" = OrderedDict()
+
+
+class _Family:
+    """The datasets of one (outcome, columns) family and their specifications."""
+
+    __slots__ = ("datasets", "owner", "next_id")
+
+    def __init__(self) -> None:
+        #: dataset id -> (specifications, hashes of its outcome values)
+        self.datasets: "OrderedDict[int, Tuple[Set[str], Set[int]]]" = OrderedDict()
+        #: outcome-value hash -> the dataset it was last seen in
+        self.owner: Dict[int, int] = {}
+        self.next_id = 0
+
+    def dataset(self, sketch: Optional[np.ndarray], create: bool) -> Optional[Set[str]]:
+        """Specifications of the dataset ``sketch`` belongs to."""
+        if sketch is None:
+            key, hashes = -1, []  # no sketch: one dataset for the family
+        else:
+            hashes = [int(h) for h in sketch]
+            hits: Dict[int, int] = {}
+            for h in hashes[:_SKETCH]:
+                d = self.owner.get(h)
+                if d is not None:
+                    hits[d] = hits.get(d, 0) + 1
+            need = max(1, min(_MIN_SHARED, min(len(hashes), _SKETCH) // 2))
+            key = -2
+            if hits:
+                best = max(hits, key=lambda d: hits[d])
+                if hits[best] >= need:
+                    key = best
+        entry = self.datasets.get(key) if key != -2 else None
+        if entry is None:
+            if not create:
+                return None
+            if key == -2:
+                key = self.next_id
+                self.next_id += 1
+            entry = (set(), set())
+            self.datasets[key] = entry
+            while len(self.datasets) > _MAX_DATASETS:
+                old, (_, gone) = self.datasets.popitem(last=False)
+                for h in gone:
+                    if self.owner.get(h) == old:
+                        del self.owner[h]
+        elif create:
+            self.datasets.move_to_end(key)
+        if create:
+            seen = entry[1]
+            for h in hashes:
+                if len(seen) < _MAX_DATASET_HASHES or h in seen:
+                    seen.add(h)
+                    self.owner[h] = key
+        return entry[0]
+
+    def n_specifications(self) -> int:
+        return sum(len(specs) for specs, _ in self.datasets.values())
+
+
+_FAMILIES: "OrderedDict[Tuple[str, Tuple[str, ...]], _Family]" = OrderedDict()
 
 
 def _family(data: Any, outcome: str) -> Tuple[str, Tuple[str, ...]]:
@@ -58,6 +147,33 @@ def _family(data: Any, outcome: str) -> Tuple[str, Tuple[str, ...]]:
     if isinstance(data, pd.DataFrame):
         cols = tuple(sorted(str(c) for c in data.columns))
     return (str(outcome), cols)
+
+
+def _sketch(data: Any, outcome: str) -> Optional[np.ndarray]:
+    """The ``_STORED`` smallest hashes of the distinct outcome values, sorted.
+
+    Two frames holding the same observations, or one a subsample of the
+    other, share most of these; frames of unrelated values share none.
+    None when the outcome is not a column (a transformed outcome such as
+    ``log(y)``) or cannot be hashed.
+    """
+    if not isinstance(data, pd.DataFrame) or outcome not in data.columns:
+        return None
+    col = data[outcome]
+    if not isinstance(col, pd.Series):
+        return None  # duplicated column name
+    try:
+        values = col.to_numpy()
+        hashed = pd.util.hash_array(values[~pd.isna(values)])
+    except (TypeError, ValueError):
+        return None
+    if hashed.size == 0:
+        return None
+    if hashed.size > 8 * _STORED:
+        # the smallest couple of thousand are enough to find 256 distinct
+        # ones unless the column is mostly ties, when there are few to find
+        hashed = np.partition(hashed, 8 * _STORED)[: 8 * _STORED]
+    return np.unique(hashed)[:_STORED]
 
 
 def record_specifications(
@@ -69,15 +185,18 @@ def record_specifications(
     where ``k`` counts distinct specifications, this call's included.
     """
     key = _family(data, outcome)
+    sketch = _sketch(data, str(outcome))
     with _LOCK:
-        seen = _FAMILIES.get(key)
-        if seen is None:
-            seen = set()
-            _FAMILIES[key] = seen
+        family = _FAMILIES.get(key)
+        if family is None:
+            family = _Family()
+            _FAMILIES[key] = family
             while len(_FAMILIES) > _MAX_FAMILIES:
                 _FAMILIES.popitem(last=False)
         else:
             _FAMILIES.move_to_end(key)
+        seen = family.dataset(sketch, create=True)
+        assert seen is not None
         for s in specs:
             if len(seen) >= _MAX_SPECS:
                 break
@@ -88,16 +207,20 @@ def record_specifications(
         "outcome": str(outcome),
         "scope": (
             "distinct specifications of this outcome fitted in this Python "
-            "session on a frame with the same columns (sp.regress / feols / "
-            "fepois / hdfe_ols / panel / spec_curve)"
+            "session on these observations or a sample sharing them, in a "
+            "frame with the same columns (sp.regress / feols / fepois / "
+            "hdfe_ols / panel / spec_curve)"
         ),
     }
 
 
 def specification_count(data: Any, outcome: str) -> int:
     """Distinct specifications recorded so far for ``outcome`` on ``data``."""
+    sketch = _sketch(data, str(outcome))
     with _LOCK:
-        return len(_FAMILIES.get(_family(data, outcome), ()))
+        family = _FAMILIES.get(_family(data, outcome))
+        seen = None if family is None else family.dataset(sketch, create=False)
+        return 0 if seen is None else len(seen)
 
 
 def reset_specification_counter(outcome: Optional[str] = None) -> None:
@@ -159,7 +282,7 @@ def reset_spec_counter(y: Optional[str] = None) -> Dict[str, Any]:
         )
     with _LOCK:
         keys = [k for k in _FAMILIES if outcome is None or k[0] == str(outcome)]
-        n_specs = sum(len(_FAMILIES[k]) for k in keys)
+        n_specs = sum(_FAMILIES[k].n_specifications() for k in keys)
         for k in keys:
             del _FAMILIES[k]
     return {

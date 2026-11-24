@@ -14658,6 +14658,32 @@
     }
   },
   {
+    "description": "Withhold the warnings of named diagnostics inside a with block: 'listwise_deletion', 'specification_search', 'treatment_cluster_level', 'staggered_twfe'. The diagnostics still run and stay on each result (result.violations(), model_info); only the warning is skipped. For simulation loops and for diagnostics already read and answered, in place of warnings.filterwarnings on the message text.",
+    "name": "silence",
+    "parameters": {
+      "properties": {
+        "diagnostics": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Name(s) of the diagnostics, as in warning.diagnostics['test'] and result.violations()"
+        }
+      },
+      "required": [
+        "diagnostics"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Forget the session's specification-search count (the 'specification_search' violation that sp.regress / feols / fepois / hdfe_ols / panel / spec_curve results report). Call it before a new, pre-specified analysis in the same Python process or MCP server. Returns how much was forgotten.",
     "name": "reset_spec_counter",
     "parameters": {

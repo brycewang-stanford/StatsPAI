@@ -16493,6 +16493,40 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="silence",
+            # Session housekeeping, not an estimator: a context manager.
+            category="utils",
+            description=(
+                "Withhold the warnings of named diagnostics inside a with "
+                "block: 'listwise_deletion', 'specification_search', "
+                "'treatment_cluster_level', 'staggered_twfe'. The diagnostics "
+                "still run and stay on each result (result.violations(), "
+                "model_info); only the warning is skipped. For simulation "
+                "loops and for diagnostics already read and answered, in "
+                "place of warnings.filterwarnings on the message text."
+            ),
+            params=[
+                ParamSpec(
+                    "diagnostics",
+                    "str | list[str]",
+                    True,
+                    None,
+                    "Name(s) of the diagnostics, as in "
+                    "warning.diagnostics['test'] and result.violations()",
+                ),
+            ],
+            returns="context manager (also usable as a decorator)",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_silence_diagnostics.py",
+            ],
+            example='with sp.silence("listwise_deletion"): fit = sp.regress("y ~ x", df)',
+            tags=["warnings", "diagnostics", "simulation", "session"],
+            alternatives=["reset_spec_counter"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="reset_spec_counter",
             # Session housekeeping, not an estimator: it clears the
             # specification-search count and returns how much it cleared.

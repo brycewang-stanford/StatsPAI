@@ -768,7 +768,11 @@ def _note_listwise_deletion(
             model_info.setdefault("listwise_deletion", info)
     except Exception:
         return
+    from ..core._silence import is_silenced
     from ..exceptions import AssumptionWarning
+
+    if is_silenced("listwise_deletion"):
+        return  # sp.silence(...): recorded in model_info, not warned
 
     name = function.split(".")[-1]
     warnings.warn(
@@ -781,7 +785,7 @@ def _note_listwise_deletion(
                 "variables. Impute with sp.mice to check, or drop the rows "
                 "explicitly to silence this note."
             ),
-            diagnostics=info,
+            diagnostics={"test": "listwise_deletion", **info},
         ),
         stacklevel=3,
     )

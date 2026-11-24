@@ -50,7 +50,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mcmc` | 18,990 | 29 | 50 |
 | `panel` | 17,824 | 32 | 32 |
 | `smart` | 17,810 | 22 | 31 |
-| `core` | 17,261 | 34 | 7 |
+| `core` | 18,991 | 37 | 8 |
 | `forest` | 16,927 | 18 | 33 |
 | `diagnostics` | 16,114 | 28 | 47 |
 | `output` | 15,489 | 23 | 42 |

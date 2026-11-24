@@ -31914,6 +31914,87 @@
   {
     "alias_of": null,
     "alternatives": [
+      "reset_spec_counter"
+    ],
+    "api_contract": "deprecation-cycle",
+    "assumptions": [],
+    "category": "utils",
+    "cost_profile": "",
+    "description": "Withhold the warnings of named diagnostics inside a with block: 'listwise_deletion', 'specification_search', 'treatment_cluster_level', 'staggered_twfe'. The diagnostics still run and stay on each result (result.violations(), model_info); only the warning is skipped. For simulation loops and for diagnostics already read and answered, in place of warnings.filterwarnings on the message text.",
+    "evidence": {
+      "grade": null,
+      "grade_basis": "no numerical evidence",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [],
+      "source": null,
+      "status": "unverified",
+      "tests": [],
+      "tolerance": ""
+    },
+    "example": "with sp.silence(\"listwise_deletion\"): fit = sp.regress(\"y ~ x\", df)",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Use the name in warning.diagnostics['test'] (or 'test' in result.violations()). Other warnings are filtered with warnings.filterwarnings.",
+        "symptom": "silence: <unknown or names> is not a diagnostic that can be silenced. Known: <sorted(DIAGNOSTICS)>."
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "silence",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "provenance": {
+      "alternatives": "curated",
+      "example": "curated",
+      "failure_modes": "source",
+      "returns": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": null,
+      "description": "context manager (also usable as a decorator)",
+      "fields": {}
+    },
+    "signature": {
+      "description": "Withhold the warnings of named diagnostics inside a with block: 'listwise_deletion', 'specification_search', 'treatment_cluster_level', 'staggered_twfe'. The diagnostics still run and stay on each result (result.violations(), model_info); only the warning is skipped. For simulation loops and for diagnostics already read and answered, in place of warnings.filterwarnings on the message text.",
+      "name": "silence",
+      "parameters": {
+        "properties": {
+          "diagnostics": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "description": "Name(s) of the diagnostics, as in warning.diagnostics['test'] and result.violations()"
+          }
+        },
+        "required": [
+          "diagnostics"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_silence_diagnostics.py"
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "spec_curve",
       "romano_wolf",
       "adjust_pvalues"

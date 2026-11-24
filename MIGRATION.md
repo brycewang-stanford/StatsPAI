@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.46.2 → next: the specification-search count is per dataset; `sp.silence`
+
+`model_info["multiplicity"]["specifications_tried"]` and the
+`specification_search` warning count the distinct specifications fitted
+to one set of observations. Before, the count ran over every frame with
+the same column names, and each distinct number of rows used was a new
+specification.
+
+| Situation | Before | Now |
+| --- | --- | --- |
+| The same models on fresh simulated draws whose complete rows vary | one more specification per draw, warning from the 20th | each draw is its own dataset, no warning |
+| The same model on disjoint groups, pooled sample never fitted | one specification per group size | each group is its own dataset |
+| Subsamples of data fitted earlier (trimming, a year range, a subgroup) | counted | counted, down to about 2 percent of the rows |
+| Another control set, variance estimator or weight on the same data | counted | counted |
+| Outcome with few distinct values (0/1) | counted over all frames | unchanged |
+
+Code that read the count in a by-group or simulation loop sees smaller
+numbers. Nothing else changes: no estimate, standard error or p-value.
+
+A warning filter written against the text of a diagnostic can be replaced
+by its name:
+
+```python
+with sp.silence(["listwise_deletion", "specification_search"]):
+    fits = [sp.regress("y ~ x", data=draw()) for _ in range(6000)]
+```
+
 ## 1.45.1 → 1.46.0: `sp.did_workflow` on long panels; ⚠️ placebo dates, pre-test power
 
 - **`sp.did_workflow` without `event_window`.** A panel with more than

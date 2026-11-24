@@ -538,3 +538,93 @@ def test_spec_curve_specifications_count_toward_later_fits():
         r = sp.regress("y ~ treated", df)
     assert r.model_info["multiplicity"]["specifications_tried"] == 7
     assert "specification_search" in _tests(r)
+
+
+# ---------------------------------------------------------------------- #
+#  The count is per dataset: a search is many models of one sample
+# ---------------------------------------------------------------------- #
+
+
+def _draw(rng, n=400, holes=0):
+    df = pd.DataFrame({"x": rng.normal(size=n), "z": rng.normal(size=n)})
+    df["y"] = 0.5 * df.x + rng.normal(size=n)
+    if holes:
+        df.loc[rng.choice(n, size=holes, replace=False), "x"] = np.nan
+    return df
+
+
+def test_monte_carlo_draws_are_not_a_specification_search():
+    # 200 draws, each with a different number of complete rows (the number
+    # of rows used is part of a specification): every draw is new data,
+    # fitted with the same two planned models.
+    rng = np.random.default_rng(31)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", AssumptionWarning)
+        warnings.filterwarnings("ignore", message=".*listwise deletion.*")
+        for _ in range(200):
+            df = _draw(rng, holes=int(rng.integers(1, 40)))
+            sp.regress("y ~ x", df)
+            last = sp.regress("y ~ x + z", df)
+    assert last.model_info["multiplicity"]["specifications_tried"] == 2
+    assert "specification_search" not in _tests(last)
+
+
+def test_subsamples_of_fitted_data_still_count_as_a_search():
+    # trimming, a year restriction, dropping a group: the classic search
+    # over samples. Each shares its observations with the data fitted
+    # first, down to a small share of the rows.
+    rng = np.random.default_rng(32)
+    df = _draw(rng, n=4000)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sp.regress("y ~ x", df)
+        for cut in (3500, 3000, 2000, 1000, 400, 120):
+            last = sp.regress("y ~ x", df.iloc[:cut])
+    assert last.model_info["multiplicity"]["specifications_tried"] == 7
+    assert "specification_search" in _tests(last)
+
+
+def test_disjoint_groups_join_the_pooled_sample_they_come_from():
+    rng = np.random.default_rng(33)
+    # groups of unequal size (the row count is what tells two samples of
+    # one model apart)
+    df = _draw(rng, n=3000).assign(
+        g=np.searchsorted(
+            np.cumsum([200, 300, 400, 500, 700, 900]), np.arange(3000), side="right"
+        )
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sp.regress("y ~ x", df)
+        for k in range(6):
+            last = sp.regress("y ~ x", df[df.g == k])
+    assert last.model_info["multiplicity"]["specifications_tried"] == 7
+
+
+def test_an_outcome_with_few_values_is_counted_as_one_dataset():
+    # a 0/1 outcome cannot tell two draws apart; the count stays the
+    # conservative one (every distinct row count is a specification)
+    rng = np.random.default_rng(34)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for n in (300, 310, 320):
+            df = pd.DataFrame({"x": rng.normal(size=n)})
+            df["y"] = (rng.random(n) < 0.4).astype(int)
+            last = sp.regress("y ~ x", df)
+    assert last.model_info["multiplicity"]["specifications_tried"] == 3
+
+
+def test_reset_forgets_every_dataset_of_the_outcome():
+    rng = np.random.default_rng(35)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for _ in range(3):
+            df = _draw(rng)
+            sp.regress("y ~ x", df)
+            sp.regress("y ~ x + z", df)
+    out = sp.reset_spec_counter("y")
+    assert out["families_cleared"] == 1 and out["specifications_cleared"] == 6
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        again = sp.regress("y ~ x", df)
+    assert again.model_info["multiplicity"]["specifications_tried"] == 1

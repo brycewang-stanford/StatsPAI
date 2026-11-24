@@ -2,6 +2,40 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`sp.silence(...)`: withhold a named diagnostic's warning inside a
+  block.** `with sp.silence("listwise_deletion"):` (or a list of names,
+  or as a decorator) skips the warning of `'listwise_deletion'`,
+  `'specification_search'`, `'treatment_cluster_level'` or
+  `'staggered_twfe'`. The diagnostic still runs and stays on the result
+  (`result.violations()`, `model_info`), so a silenced fit can be
+  audited. It replaces `warnings.filterwarnings` on the wording of a
+  message, which changes between releases. A name that is not a
+  diagnostic is refused. The listwise-deletion warning now carries its
+  name in `warning.diagnostics["test"]`, as the design warnings do.
+
+### Changed
+
+- **The specification-search count is per dataset, so a simulation is
+  not a search.** The count that `sp.regress` / `sp.feols` / `sp.fepois`
+  / `sp.hdfe_ols` / `sp.panel` report (`model_info["multiplicity"]`, the
+  `specification_search` warning from 20) treated every distinct number
+  of rows used as a new specification. In a Monte Carlo loop where each
+  draw has missing or truncated values that number changes from draw to
+  draw, so the planned models were counted once per draw: 29,906
+  warnings over the 6,000 draws of one appendix (iangow/era_statpai#25).
+  A fit now joins the count of the fits whose outcome values it shares
+  and starts its own count when it shares none. Fresh draws and the
+  disjoint groups of a by-group loop are separate datasets. A subsample
+  of data fitted earlier still adds to that data's count, down to about
+  2 percent of its rows, and so do subgroups fitted after the pooled
+  sample. An outcome with few distinct values (a 0/1 indicator) cannot
+  tell two datasets apart and is counted as before. No estimate,
+  standard error or p-value changes.
+
 ## [1.46.2] — 2026-11-24
 
 Follow-ups from Ian Gow's StatsPAI edition of *Empirical Research in

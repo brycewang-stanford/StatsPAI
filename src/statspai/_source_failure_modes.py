@@ -1974,6 +1974,16 @@ SOURCE_FAILURE_MODES: Dict[str, List[Dict[str, str]]] = {
             "symptom": "signrank: every difference is zero.",
         },
     ],
+    "silence": [
+        {
+            "exception": "statspai.MethodIncompatibility",
+            "remedy": "Use the name in warning.diagnostics['test'] (or "
+            "'test' in result.violations()). Other warnings are "
+            "filtered with warnings.filterwarnings.",
+            "symptom": "silence: <unknown or names> is not a diagnostic that "
+            "can be silenced. Known: <sorted(DIAGNOSTICS)>.",
+        }
+    ],
     "simex": [
         {
             "exception": "statspai.MethodIncompatibility",
