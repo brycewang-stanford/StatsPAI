@@ -755,7 +755,7 @@ def abnormal_returns(
                 fill = (
                     benchmark & ~np.isfinite(y_win) & (day > cpos[0]) & (day < cpos[-1])
                 )
-                y_win = np.where(fill, 0.0, y_win)
+                y_win[fill] = 0.0
                 use = observed | fill
             if not use.any():
                 skip("no return in the event window")

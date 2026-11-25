@@ -2,7 +2,13 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.6] — 2026-11-26
+
+One change from Ian Gow's reading of the Event studies chapter
+(iangow/era_statpai#38). `sp.abnormal_returns` counts the days the market
+was open instead of the rows of each security, and can keep an event
+whose window lacks a day. Results change only for a security with no row
+on a trading day of its windows.
 
 ### Changed
 

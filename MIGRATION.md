@@ -5,7 +5,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-## 1.46.5 → next release: ⚠️ `sp.abnormal_returns` counts market trading days
+## 1.46.5 → 1.46.6: ⚠️ `sp.abnormal_returns` counts market trading days
 
 Relative days in `sp.abnormal_returns` now count the days the market was
 open, which are the distinct dates of `data` over all its securities.
