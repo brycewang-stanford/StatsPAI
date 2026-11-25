@@ -15415,6 +15415,28 @@ def _build_registry() -> None:
                     "errors or tests; model='market_adjusted' then needs "
                     "no estimation window and one event is enough",
                 ),
+                ParamSpec(
+                    "calendar",
+                    "str | sequence",
+                    False,
+                    "market",
+                    "Trading days that relative days count: 'market' (the "
+                    "distinct dates of data), 'security' (each security's "
+                    "own rows), or a sequence of trading dates such as "
+                    "the date column of an index file",
+                ),
+                ParamSpec(
+                    "incomplete",
+                    "str",
+                    False,
+                    "skip",
+                    "An event whose window has a day without a return: "
+                    "'skip' leaves it out, 'sum' adds up the days it has, "
+                    "'zero' counts a missing return as zero where the "
+                    "benchmark is known; events['n_days'] counts the days "
+                    "with a return",
+                    ["skip", "sum", "zero"],
+                ),
             ],
             returns="AbnormalReturnsResult",
             example='sp.abnormal_returns(returns, events, market="mkt", '

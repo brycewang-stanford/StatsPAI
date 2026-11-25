@@ -206,7 +206,7 @@ res = sp.abnormal_returns(
     event_window=(-1, 1), inference=False,
 )
 res.ar        # daily abnormal returns, one column per event
-res.events    # id, event_date, event_day, n_est, car
+res.events    # id, event_date, event_day, n_est, window_days, n_days, raw, car
 ```
 
 With the default `inference=True` each event needs `min_obs=30` returns in
@@ -224,6 +224,31 @@ res = sp.abnormal_returns(
 )
 res.events[["raw", "car"]]   # raw and market-adjusted sums, one row per event
 ```
+
+Relative days count the days the market was open, which by default are
+the distinct dates of `returns` over all its securities. A security that
+has no row on one of those days does not shift the window. To take the
+trading days from an index file, pass its dates, as in
+`calendar=dsi["date"]`. `calendar="security"` counts each security's own
+rows instead.
+
+An event whose window has a day without a return is left out, with a
+warning. `incomplete="sum"` keeps it and adds up the days it has, and
+`res.events` reports `window_days` and `n_days` so the choice of which
+events to keep stays with you:
+
+```python
+res = sp.abnormal_returns(
+    returns, events, model="market_adjusted", market="mkt",
+    event_window=(-2, 2), inference=False, incomplete="sum",
+)
+ev = res.events
+ev[ev["n_days"] == ev["window_days"]]   # the complete windows
+```
+
+`incomplete="zero"` counts a missing return as zero and still subtracts
+the market return of that day. That is right when the next return covers
+the gap.
 
 Which test to read. `patell` assumes the event leaves the variance of
 returns unchanged, which earnings announcements do not (that is Beaver's

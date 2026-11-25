@@ -13635,6 +13635,21 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "calendar": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "market",
+          "description": "Trading days that relative days count: 'market' (the distinct dates of data), 'security' (each security's own rows), or a sequence of trading dates such as the date column of an index file"
+        },
         "correlation": {
           "default": "calendar",
           "description": "Pairing of residuals for the cross-correlation adjustment; 'event' is estudy's",
@@ -13701,6 +13716,16 @@
           "description": "Security column (in both frames)",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "incomplete": {
+          "default": "skip",
+          "description": "An event whose window has a day without a return: 'skip' leaves it out, 'sum' adds up the days it has, 'zero' counts a missing return as zero where the benchmark is known; events['n_days'] counts the days with a return",
+          "enum": [
+            "skip",
+            "sum",
+            "zero"
+          ],
+          "type": "string"
         },
         "inference": {
           "default": true,

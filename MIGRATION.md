@@ -5,6 +5,25 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.46.5 → next release: ⚠️ `sp.abnormal_returns` counts market trading days
+
+Relative days in `sp.abnormal_returns` now count the days the market was
+open, which are the distinct dates of `data` over all its securities.
+They used to count the rows of each security. The change follows the
+convention of the event-study literature and of Stata's `estudy`.
+
+| Return file | Before | Now |
+| --- | --- | --- |
+| Every event security has a row on every trading day | | unchanged |
+| A security has no row on a day inside its event window | the window reached one day further out | the event is left out with a warning; `incomplete="sum"` keeps it |
+| A security has no row on days of its estimation window | the window reached further back | those days are absent and `n_est` is smaller |
+
+`calendar="security"` gives the earlier numbers. A sequence of dates, for
+example `calendar=dsi["date"]`, sets the trading days directly.
+
+`result.events` has two new columns after `n_est`: `window_days` and
+`n_days`. Code that selects columns by position needs the new order.
+
 ## 1.46.3 → 1.46.4: ⚠️ `sp.winsor` cut-offs at a few uncommon percentiles; `include_infinite=`
 
 `sp.winsor(method='stata')`, the default, now computes the percentile

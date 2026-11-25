@@ -58,8 +58,10 @@ class AbnormalReturnsResult(ResultProtocolMixin):
     events : pd.DataFrame
         One row per event: ``id``, ``event_date`` as given, ``event_day``
         (the trading day used as day 0), ``n_est`` (estimation
-        observations), ``raw`` (the sum of the returns themselves over
-        the event window), ``car``, its standard error ``se``, ``t``,
+        observations), ``window_days`` (trading days in the event
+        window), ``n_days`` (those of them with a return), ``raw`` (the
+        sum of the returns themselves over the event window), ``car``,
+        its standard error ``se``, ``t``,
         ``pvalue``, the standardised CAR ``scar``, and the residual
         variance ``resid_var`` with its degrees of freedom ``dof``.
     ar : pd.DataFrame
@@ -315,7 +317,46 @@ def _part_read(arguments: Dict[str, Any]) -> Any:
     if not all(isinstance(c, str) for c in names):
         return None
     unit = arguments["id"]
-    return list(dict.fromkeys(names)), (unit, arguments.get("events"), unit)
+    rows: Tuple[Any, ...] = (unit, arguments.get("events"), unit)
+    calendar = arguments.get("calendar", "market")
+    if isinstance(calendar, str) and calendar.lower() == "market":
+        # the trading days are the dates of the whole file: one row of
+        # each date is read along with the rows of the event securities
+        rows += (arguments["date"],)
+    return list(dict.fromkeys(names)), rows
+
+
+_INCOMPLETE = ("skip", "sum", "zero")
+
+
+def _trading_days(calendar: Any, data: pd.DataFrame, date: str) -> Optional[Any]:
+    """The trading calendar as a sorted ``DatetimeIndex``; None for
+    ``calendar='security'`` (each security's own rows)."""
+    if isinstance(calendar, str):
+        key = calendar.lower()
+        if key == "security":
+            return None
+        if key != "market":
+            raise MethodIncompatibility(
+                "abnormal_returns: calendar must be 'market', 'security' or "
+                f"a sequence of trading dates, got {calendar!r}.",
+                recovery_hint="calendar='market' counts the dates of data; "
+                "a sequence such as the date column of an index file gives "
+                "the trading days directly.",
+            )
+        values: Any = pd.unique(data[date])
+    else:
+        values = calendar.to_numpy() if hasattr(calendar, "to_numpy") else calendar
+        values = np.asarray(list(values) if not hasattr(values, "ndim") else values)
+        if values.ndim != 1 or values.size == 0:
+            raise MethodIncompatibility(
+                "abnormal_returns: calendar must be 'market', 'security' or "
+                "a one-dimensional sequence of trading dates.",
+                recovery_hint="Pass one column of dates, for example the "
+                "date column of the market index file.",
+            )
+    days = pd.DatetimeIndex(pd.to_datetime(values))
+    return days[~days.isna()].unique().sort_values()
 
 
 @reads_part(_part_read)
@@ -337,6 +378,8 @@ def abnormal_returns(
     correlation: str = "calendar",
     alpha: float = 0.05,
     inference: bool = True,
+    calendar: Any = "market",
+    incomplete: str = "skip",
 ) -> AbnormalReturnsResult:
     """Event study: abnormal returns around events, and tests of their mean.
 
@@ -379,7 +422,8 @@ def abnormal_returns(
     estimation_window : (int, int), default (-250, -11)
         Trading days, relative to the event day, on which the model is
         fitted. It must end before the event window begins. Days before
-        the security's first observation are simply absent.
+        the security's first observation, and days without a row for it,
+        are simply absent.
     min_obs : int, default 30
         An event with fewer estimation-window returns is left out, with a
         warning.
@@ -401,6 +445,26 @@ def abnormal_returns(
         alone: ``estimation_window`` and ``min_obs`` are ignored and an
         event with no earlier returns is kept. The other models still fit
         on the estimation window. One usable event is enough.
+    calendar : {'market', 'security'} or sequence of dates, default 'market'
+        The trading days that relative days count. ``'market'``: the
+        distinct dates of ``data``, over all its securities, so a day on
+        which the market was open and a security has no row is still a
+        day. A sequence of dates (the date column of an index file such
+        as CRSP's ``dsi``) gives the trading days directly; every date of
+        an event security must be among them. ``'security'``: each
+        security's own rows, the behaviour of 1.46.5 and earlier. The three agree
+        when every event security has a row on every trading day.
+    incomplete : {'skip', 'sum', 'zero'}, default 'skip'
+        What to do with an event whose window has a day without a return
+        (a missing value, no row for that day, or a window that runs past
+        either end of the calendar). ``'skip'`` leaves the event out, with
+        a warning. ``'sum'`` adds up the days that have a return.
+        ``'zero'`` counts a missing return as zero where the benchmark of
+        that day is known and the security has returns on both sides of
+        it, which is right when the next return covers the gap; other
+        days are left out as under ``'sum'``. ``result.events`` gives
+        ``window_days`` and ``n_days`` (days with a return), so incomplete
+        events can be told apart and filtered afterwards.
 
     Returns
     -------
@@ -415,9 +479,12 @@ def abnormal_returns(
     the mean CAR only up to the shortest window. ``result.caar`` and the
     tests use each event's own CAR and its own window length.
 
-    *Day 0.* The event day is the security's first trading day on or after
-    the event date, so an announcement on a Saturday is assigned to Monday.
-    Relative days count the security's own trading days.
+    *Day 0.* The event day is the first trading day on or after the event
+    date, so an announcement on a Saturday is assigned to Monday. Relative
+    days count trading days of ``calendar``: by default the days on which
+    the market was open, as the dates of ``data`` show them, not the days
+    on which the security itself traded. A security without a row on a
+    day of its window has an incomplete window (``incomplete``).
 
     *Variance of a CAR.* For the regression models it is the variance of
     the forecast error, ``s^2 [L + 1'X*(X'X)^{-1}X*'1]`` with ``s^2`` the
@@ -478,8 +545,8 @@ def abnormal_returns(
     >>> short = data[data["date"] >= days[279]]
     >>> only = sp.abnormal_returns(short, events, model="market_adjusted",
     ...                            market="mkt", inference=False)
-    >>> only.n_events, list(only.events.columns)
-    (20, ['id', 'event_date', 'event_day', 'n_est', 'raw', 'car'])
+    >>> only.n_events, list(only.events.columns)[3:]
+    (20, ['n_est', 'window_days', 'n_days', 'raw', 'car'])
 
     References
     ----------
@@ -510,6 +577,14 @@ def abnormal_returns(
             f"abnormal_returns: inference must be True or False, got {inference!r}."
         )
     infer = bool(inference)
+    gaps = str(incomplete).lower()
+    if gaps not in _INCOMPLETE:
+        raise MethodIncompatibility(
+            f"abnormal_returns: incomplete must be one of {_INCOMPLETE}, "
+            f"got {incomplete!r}.",
+            recovery_hint="incomplete='skip' leaves out an event with a day "
+            "without a return; 'sum' adds up the days it has.",
+        )
     # market-adjusted returns estimate nothing; without inference the
     # estimation window has no use at all
     fitted = infer or model_key != "market_adjusted"
@@ -572,6 +647,7 @@ def abnormal_returns(
     # only securities with an event are read: on a full CRSP file that is
     # a small share of the rows, and the copy, the date parse and the sort
     # below are the cost of the call
+    days = _trading_days(calendar, data, date)
     wanted = data[id].isin(pd.unique(events[id]))
     panel = data.loc[wanted.to_numpy(), [id, date, ret] + regressors].copy()
     panel[date] = pd.to_datetime(panel[date])
@@ -591,6 +667,31 @@ def abnormal_returns(
         # event is then known by its position in the list
         ev = ev.reset_index(drop=True)
 
+    # each security's rows placed on the trading calendar: ``cpos`` is
+    # the calendar position of a row, so a day the security has no row
+    # for is a gap in ``cpos``
+    placed: Dict[Any, Tuple[Any, np.ndarray]] = {}
+
+    def place(unit: Any, sec: pd.DataFrame) -> Tuple[Any, np.ndarray]:
+        if unit not in placed:
+            own = pd.DatetimeIndex(sec[date])
+            if days is None:
+                placed[unit] = (own, np.arange(len(sec)))
+            else:
+                cpos = days.get_indexer(own)
+                if (cpos < 0).any():
+                    stray = own[cpos < 0]
+                    raise MethodIncompatibility(
+                        f"abnormal_returns: {len(stray)} date(s) of security "
+                        f"{unit!r} are not in calendar (first: "
+                        f"{stray[0].date()}).",
+                        recovery_hint="calendar must hold every trading "
+                        "date of data; calendar='market' takes them from "
+                        "data itself.",
+                    )
+                placed[unit] = (days, cpos)
+        return placed[unit]
+
     records: List[Dict[str, Any]] = []
     ar_columns: Dict[Any, pd.Series] = {}
     raw_columns: Dict[Any, pd.Series] = {}
@@ -607,8 +708,9 @@ def abnormal_returns(
         if sec is None or pd.isna(when):
             skip("no returns for this security" if sec is None else "no event date")
             continue
-        pos = int(np.searchsorted(sec[date].to_numpy(), np.datetime64(when)))
-        if pos >= len(sec):
+        cal, cpos = place(unit, sec)
+        pos = int(cal.searchsorted(when))
+        if pos >= len(cal):
             skip("event date after the last return")
             continue
         last = pos
@@ -616,44 +718,91 @@ def abnormal_returns(
             if row[event_end] < when:
                 skip("event end before the event date")
                 continue
-            last = int(
-                np.searchsorted(sec[date].to_numpy(), np.datetime64(row[event_end]))
-            )
-        if pos + ev_lo < 0 or last + ev_hi >= len(sec):
-            skip("event window runs outside the return series")
-            continue
-        window = sec.iloc[pos + ev_lo : last + ev_hi + 1]
-        length = len(window)
+            last = int(cal.searchsorted(row[event_end]))
+        first_day, last_day = pos + ev_lo, last + ev_hi
+        length = last_day - first_day + 1
         rel_index = np.arange(ev_lo, ev_lo + length)
+        on_calendar = (first_day + np.arange(length) >= 0) & (
+            first_day + np.arange(length) < len(cal)
+        )
+        lo_row = int(np.searchsorted(cpos, first_day))
+        hi_row = int(np.searchsorted(cpos, last_day, side="right"))
+        window = sec.iloc[lo_row:hi_row]
+        slot = cpos[lo_row:hi_row] - first_day
+        y_win = np.full(length, np.nan)
+        y_win[slot] = window[ret].to_numpy(dtype=float)
+        x_win = np.full((length, len(regressors)), np.nan)
+        if regressors:
+            x_win[slot] = window[regressors].to_numpy(dtype=float)
+        # a day counts when its return and its benchmark are both there
+        benchmark = on_calendar & np.isfinite(x_win).all(axis=1)
+        if regressors:
+            has_row = np.zeros(length, dtype=bool)
+            has_row[slot] = True
+            benchmark &= has_row
+        observed = benchmark & np.isfinite(y_win)
+        use = observed
+        if not observed.all():
+            if gaps == "skip":
+                skip(
+                    "event window runs outside the return series"
+                    if not on_calendar.all()
+                    else "missing return in the event window"
+                )
+                continue
+            if gaps == "zero":
+                day = first_day + np.arange(length)
+                fill = (
+                    benchmark & ~np.isfinite(y_win) & (day > cpos[0]) & (day < cpos[-1])
+                )
+                y_win = np.where(fill, 0.0, y_win)
+                use = observed | fill
+            if not use.any():
+                skip("no return in the event window")
+                continue
+        whole = bool(use.all())
+        n_used = int(use.sum())
+
+        def spread(values: np.ndarray) -> pd.Series:
+            """Values of the days in use, on the days of the window."""
+            if whole:
+                return pd.Series(values, index=rel_index)
+            out = np.full(length, np.nan)
+            out[use] = values
+            return pd.Series(out, index=rel_index)
+
+        if not whole:
+            y_win, x_win = y_win[use], x_win[use]
         head = {
             "event": label,
             id: unit,
             "event_date": when,
-            "event_day": sec[date].iloc[pos],
+            "event_day": cal[pos],
         }
         if event_end:
             head["event_end"] = row[event_end]
-            head["end_day"] = sec[date].iloc[last]
-        if window[[ret] + regressors].isna().any().any():
-            skip("missing return in the event window")
-            continue
+            head["end_day"] = cal[min(last, len(cal) - 1)]
+        counts = {"window_days": int(length), "n_days": int(observed.sum())}
         if not fitted:
-            ar = window[ret].to_numpy(dtype=float) - window[market].to_numpy(
-                dtype=float
-            )
-            raw = window[ret].to_numpy(dtype=float)
+            ar = y_win - x_win[:, 0]
             records.append(
-                {**head, "n_est": 0, "raw": float(raw.sum()), "car": float(ar.sum())}
+                {
+                    **head,
+                    "n_est": 0,
+                    **counts,
+                    "raw": float(y_win.sum()),
+                    "car": float(ar.sum()),
+                }
             )
-            ar_columns[label] = pd.Series(ar, index=rel_index)
-            raw_columns[label] = pd.Series(raw, index=rel_index)
+            ar_columns[label] = spread(ar)
+            raw_columns[label] = spread(y_win)
             continue
-        # an event near the start of the series has a short or empty
-        # estimation window; a negative stop would slice from the end
-        start = max(pos + es_lo, 0)
-        stop = max(pos + es_hi + 1, start)
+        # the estimation days the security has a row for; an event near
+        # the start of the series has a short or empty estimation window
+        start = int(np.searchsorted(cpos, pos + es_lo))
+        stop = max(int(np.searchsorted(cpos, pos + es_hi, side="right")), start)
         est = sec.iloc[start:stop]
-        rel_est = np.arange(start, stop) - pos
+        rel_est = cpos[start:stop] - pos
         ok = est[[ret] + regressors].notna().all(axis=1).to_numpy()
         est, rel_est = est[ok], rel_est[ok]
         n = len(est)
@@ -662,21 +811,17 @@ def abnormal_returns(
             continue
 
         y_est = est[ret].to_numpy(dtype=float)
-        y_win = window[ret].to_numpy(dtype=float)
         if model_key == "market_adjusted":
             res_est = y_est - est[market].to_numpy(dtype=float)
-            ar = y_win - window[market].to_numpy(dtype=float)
+            ar = y_win - x_win[:, 0]
             s2 = float(np.var(res_est, ddof=1))
-            var_car = s2 * length
+            var_car = s2 * n_used
             dof = n - 1
         else:
             X = np.column_stack(
                 [np.ones(n)] + [est[c].to_numpy(dtype=float) for c in regressors]
             )
-            Xw = np.column_stack(
-                [np.ones(length)]
-                + [window[c].to_numpy(dtype=float) for c in regressors]
-            )
+            Xw = np.column_stack([np.ones(n_used), x_win])
             if np.linalg.matrix_rank(X) < X.shape[1]:
                 skip("collinear regressors in the estimation window")
                 continue
@@ -686,16 +831,18 @@ def abnormal_returns(
             dof = n - k
             s2 = float(res_est @ res_est) / dof
             ones = Xw.sum(axis=0)
-            var_car = s2 * (length + float(ones @ np.linalg.solve(X.T @ X, ones)))
+            var_car = s2 * (n_used + float(ones @ np.linalg.solve(X.T @ X, ones)))
         # A return series the model reproduces exactly (a return equal to
         # the market's, a suspended security with zero returns) leaves a
         # residual variance that is rounding noise: the standardised CAR
         # would be noise over noise.
         car = float(ar.sum())
         if not infer:
-            records.append({**head, "n_est": n, "raw": float(y_win.sum()), "car": car})
-            ar_columns[label] = pd.Series(ar, index=rel_index)
-            raw_columns[label] = pd.Series(y_win, index=rel_index)
+            records.append(
+                {**head, "n_est": n, **counts, "raw": float(y_win.sum()), "car": car}
+            )
+            ar_columns[label] = spread(ar)
+            raw_columns[label] = spread(y_win)
             continue
         if not s2 > (1e-10) ** 2 * float(np.mean(y_est**2)):
             skip("no residual variance in the estimation window")
@@ -706,6 +853,7 @@ def abnormal_returns(
             {
                 **head,
                 "n_est": n,
+                **counts,
                 "raw": float(y_win.sum()),
                 "car": car,
                 "se": se,
@@ -716,8 +864,8 @@ def abnormal_returns(
                 "resid_var": s2,
             }
         )
-        ar_columns[label] = pd.Series(ar, index=rel_index)
-        raw_columns[label] = pd.Series(y_win, index=rel_index)
+        ar_columns[label] = spread(ar)
+        raw_columns[label] = spread(y_win)
         key = est[date].to_numpy() if corr_key == "calendar" else rel_est
         residuals[label] = pd.Series(res_est, index=key)
         standardised[label] = pd.Series(res_est / np.sqrt(s2), index=rel_est)
@@ -725,7 +873,9 @@ def abnormal_returns(
     if skipped:
         warnings.warn(
             f"abnormal_returns: {len(skipped)} event(s) left out "
-            f"(first: {skipped[0]['reason']}); see result.skipped.",
+            f"(first: {skipped[0]['reason']}); see result.skipped. "
+            "incomplete='sum' keeps an event with days missing from its "
+            "window and reports the days it has in n_days.",
             UserWarning,
             stacklevel=2,
         )

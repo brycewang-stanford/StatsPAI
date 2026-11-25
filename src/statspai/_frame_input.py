@@ -289,7 +289,11 @@ def _cut(
     pl: Any = importlib.import_module("polars")
     query = original.lazy()
     if rows is not None:
-        column, other, other_column = rows
+        column, other, other_column = rows[:3]
+        # an optional fourth name: one row of every distinct value of
+        # that column is read as well (the dates of a return file, which
+        # are its trading calendar)
+        every = rows[3] if len(rows) > 3 else None
         keys = _key_values(other, other_column) if column in names else None
         if keys is not None:
             have = original.collect_schema()[column]
@@ -303,7 +307,10 @@ def _cut(
                 wanted.dtype == have
                 or (wanted.dtype.is_integer() and have.is_integer())
             ):
-                query = query.filter(pl.col(column).is_in(wanted.to_list()))
+                chosen = pl.col(column).is_in(wanted.to_list())
+                if every is not None and every in names:
+                    chosen = chosen | pl.col(every).is_first_distinct()
+                query = query.filter(chosen)
     cut = query.select(keep).collect()
     if where == 0:
         return (cut,) + tuple(args[1:]), kwargs
@@ -463,8 +470,9 @@ def reads_part(
     applied). It returns ``(columns, rows)``: the names of the columns of
     ``data`` the call reads, and either None or ``(column, frame,
     frame_column)``, meaning that only the rows of ``data`` whose
-    ``column`` holds a value of ``frame[frame_column]`` are read. It
-    returns None when it cannot tell. A polars ``data`` is then selected
+    ``column`` holds a value of ``frame[frame_column]`` are read. A fourth
+    element names a column of which one row per distinct value is read
+    too. It returns None when it cannot tell. A polars ``data`` is then selected
     and filtered in polars before it is converted (see :func:`_cut`). The
     function must give the same result on the cut frame as on the whole
     one. pandas arguments pass by identity, and :func:`install` leaves a

@@ -2,6 +2,35 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **⚠️ `sp.abnormal_returns` counts the market's trading days, not the
+  security's own rows.** Relative days used to count the rows of each
+  security, so for a security with no row on a day the market was open
+  "day -1" was a different date than for the others. They now count the
+  distinct dates of `data` over all its securities (`calendar="market"`,
+  the new default), which is the convention of the literature and of
+  Stata's `estudy`. A sequence of dates, such as the date column of
+  CRSP's `dsi`, gives the trading days directly. `calendar="security"`
+  is the earlier behaviour. Results are unchanged when every event
+  security has a row on every trading day. Otherwise an event whose
+  window has a day without a row is now left out with a warning (see
+  `incomplete=`), and its estimation window holds fewer days. Raised by
+  Ian Gow in iangow/era_statpai#38.
+
+### Added
+
+- **`sp.abnormal_returns(incomplete=...)` and the day counts.**
+  `result.events` has `window_days` (trading days in the event window)
+  and `n_days` (those with a return). `incomplete="skip"`, the default,
+  leaves out an event with a day missing, as before. `"sum"` adds up the
+  days that have a return. `"zero"` counts a missing return as zero where
+  the benchmark of that day is known and the security has returns on
+  both sides, and leaves other days out. The variance of a CAR uses the
+  days in use.
+
 ## [1.46.5] — 2026-11-25
 
 Two more reports from Ian Gow's StatsPAI edition of *Empirical Research
