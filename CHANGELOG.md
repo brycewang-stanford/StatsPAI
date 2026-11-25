@@ -2,7 +2,14 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.46.5] — 2026-11-25
+
+Two more reports from Ian Gow's StatsPAI edition of *Empirical Research
+in Accounting*. `sp.abnormal_returns` takes events of different lengths
+and reports raw returns next to abnormal ones (iangow/era_statpai#38).
+`sp.feols` fits two-column products and Boolean regressors on its own
+engine, and `sp.regtable` prints the "Cluster SE" row whichever engine
+ran the fit (iangow/era_statpai#37). No estimate changes.
 
 ### Added
 
