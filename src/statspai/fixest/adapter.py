@@ -146,6 +146,17 @@ def _pyfixest_to_econometric_results(
                     model_info["n_clusters"] = min(g_vals)
     except (AttributeError, TypeError, ValueError):  # pragma: no cover
         pass
+    # The clustering columns, under the key the native engine uses. Without
+    # it sp.regtable printed no "Cluster SE" row for a fit that pyfixest
+    # ran, and one for the same call on the native engine.
+    if str(vcov_type).upper().startswith("CRV"):
+        cl_vars = pf_get(fit, "_clustervar", None)
+        if isinstance(cl_vars, str):
+            cl_vars = [cl_vars]
+        if isinstance(cl_vars, (list, tuple)) and all(
+            isinstance(c, str) for c in cl_vars
+        ):
+            model_info["clustervar"] = list(cl_vars)
 
     data_info: Dict[str, Any] = {
         "nobs": nobs,

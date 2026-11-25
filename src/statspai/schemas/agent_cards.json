@@ -29448,6 +29448,7 @@
         "n_events": "Any",
         "n_obs": "Any",
         "pvalue": "Any",
+        "returns": "Optional[pd.DataFrame]",
         "se": "Any",
         "skipped": "List[Dict[str, Any]]",
         "tests": "pd.DataFrame"
@@ -29496,6 +29497,10 @@
           "event_date": {
             "default": "event_date",
             "description": "Event date column of events",
+            "type": "string"
+          },
+          "event_end": {
+            "description": "Column of events with the last date of a multi-day event; the window then ends event_window[1] days after that day",
             "type": "string"
           },
           "event_window": {

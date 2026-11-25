@@ -142,3 +142,37 @@ def test_a_boolean_outcome_is_still_left_to_the_delegate(frame):
     df = frame.assign(yb=frame["y"] > 1)
     res = _fit("yb ~ x | g", df)
     assert res.model_info["backend"] == "pyfixest"
+
+
+@pytest.mark.parametrize(
+    "kw,label",
+    [
+        ({"vcov": {"CRV1": "g"}}, "g"),
+        ({"vcov": {"CRV1": "g + h"}}, "g, h"),
+        ({"cluster": "g"}, "g"),
+    ],
+)
+def test_both_engines_print_the_same_cluster_row(frame, kw, label):
+    # A fit pyfixest ran recorded no clustering columns, so its table had
+    # no "Cluster SE" row where the native fit of the same call had one.
+    pytest.importorskip("pyfixest")
+    rows = {}
+    for backend in ("native", "pyfixest"):
+        fit = _fit("y ~ x + w | g", frame, backend=backend, **kw)
+        assert fit.model_info["backend"].endswith(backend)
+        assert fit.model_info["clustervar"] == label.split(", ")
+        rows[backend] = [
+            line for line in str(sp.regtable(fit)).splitlines() if "Cluster" in line
+        ]
+    assert rows["native"] == rows["pyfixest"]
+    assert (
+        len(rows["native"]) == 1
+        and rows["native"][0].split()[-len(label.split()) :] == label.split()
+    )
+
+
+def test_an_unclustered_delegate_fit_prints_no_cluster_row(frame):
+    pytest.importorskip("pyfixest")
+    fit = _fit("y ~ x | g", frame, backend="pyfixest", vcov="hetero")
+    assert "clustervar" not in fit.model_info
+    assert "Cluster" not in str(sp.regtable(fit))

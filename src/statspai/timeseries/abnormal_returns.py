@@ -58,12 +58,15 @@ class AbnormalReturnsResult(ResultProtocolMixin):
     events : pd.DataFrame
         One row per event: ``id``, ``event_date`` as given, ``event_day``
         (the trading day used as day 0), ``n_est`` (estimation
-        observations), ``car``, its standard error ``se``, ``t``,
+        observations), ``raw`` (the sum of the returns themselves over
+        the event window), ``car``, its standard error ``se``, ``t``,
         ``pvalue``, the standardised CAR ``scar``, and the residual
         variance ``resid_var`` with its degrees of freedom ``dof``.
     ar : pd.DataFrame
         Abnormal returns in the event window; rows are relative days,
         columns are events (the index of ``events``).
+    returns : pd.DataFrame
+        The returns themselves on the same days, in the same layout.
     aar : pd.DataFrame
         By relative day: the average abnormal return ``aar``, the number
         of events ``n`` and the running sum ``caar``.
@@ -112,11 +115,13 @@ class AbnormalReturnsResult(ResultProtocolMixin):
         skipped: List[Dict[str, Any]],
         alpha: float,
         inference: bool = True,
+        returns: Optional[pd.DataFrame] = None,
     ) -> None:
         self.method = f"Event study ({model} model)"
         self.estimand = "mean cumulative abnormal return"
         self.events = events
         self.ar = ar
+        self.returns = returns
         self.aar = aar
         self.tests = tests
         self.model = model
@@ -322,6 +327,7 @@ def abnormal_returns(
     date: str = "date",
     ret: str = "ret",
     event_date: str = "event_date",
+    event_end: Optional[str] = None,
     model: str = "market",
     market: Optional[str] = None,
     factors: Optional[Sequence[str]] = None,
@@ -348,6 +354,13 @@ def abnormal_returns(
     event_date : str
         Column of ``events`` with the event date. ``events`` names the
         security in the same ``id`` column.
+    event_end : str, optional
+        Column of ``events`` with the last date of an event that runs over
+        several days (a conference, a trial). The event window then runs
+        from ``event_window[0]`` days relative to the event day to
+        ``event_window[1]`` days after the end day, so events differ in
+        length. The end day is found as day 0 is: the first trading day on
+        or after the date. A missing end date means a one-day event.
     model : {'market', 'market_adjusted', 'mean_adjusted', 'factor'}
         The model of normal returns. ``'market'``: a regression of the
         return on the market return, fitted on the estimation window.
@@ -361,7 +374,8 @@ def abnormal_returns(
         Factor return columns, for ``'factor'``.
     event_window : (int, int), default (-1, 1)
         First and last trading day of the window, relative to the event
-        day (day 0).
+        day (day 0). With ``event_end`` the last day is relative to the
+        end day of each event.
     estimation_window : (int, int), default (-250, -11)
         Trading days, relative to the event day, on which the model is
         fitted. It must end before the event window begins. Days before
@@ -394,6 +408,13 @@ def abnormal_returns(
 
     Notes
     -----
+    *Events of several days.* With ``event_end`` the rows of ``result.ar``
+    count days from the event day and a shorter event has missing values
+    in the later rows. ``result.aar`` averages the events that have the
+    day and gives their number in ``n``, so its running sum ``caar`` is
+    the mean CAR only up to the shortest window. ``result.caar`` and the
+    tests use each event's own CAR and its own window length.
+
     *Day 0.* The event day is the security's first trading day on or after
     the event date, so an announcement on a Saturday is assigned to Monday.
     Relative days count the security's own trading days.
@@ -458,7 +479,7 @@ def abnormal_returns(
     >>> only = sp.abnormal_returns(short, events, model="market_adjusted",
     ...                            market="mkt", inference=False)
     >>> only.n_events, list(only.events.columns)
-    (20, ['id', 'event_date', 'event_day', 'n_est', 'car'])
+    (20, ['id', 'event_date', 'event_day', 'n_est', 'raw', 'car'])
 
     References
     ----------
@@ -515,7 +536,12 @@ def abnormal_returns(
             data_cols["market"] = market
     for name, frame, cols in (
         ("data", data, data_cols),
-        ("events", events, {"id": id, "event_date": event_date}),
+        (
+            "events",
+            events,
+            {"id": id, "event_date": event_date}
+            | ({"event_end": event_end} if event_end is not None else {}),
+        ),
     ):
         named = missing_named_columns(cols, frame.columns)
         if named:
@@ -541,7 +567,6 @@ def abnormal_returns(
             recovery_hint="An overlap lets the event move the model of "
             "normal returns.",
         )
-    length = ev_hi - ev_lo + 1
     k = {"market_adjusted": 0, "mean_adjusted": 1}.get(model_key, 1 + len(regressors))
 
     # only securities with an event are read: on a full CRSP file that is
@@ -557,8 +582,10 @@ def abnormal_returns(
         )
     panel = panel.sort_values([id, date])
     by_id = {key: grp.reset_index(drop=True) for key, grp in panel.groupby(id)}
-    ev = events[[id, event_date]].copy()
+    ev = events[[id, event_date] + ([event_end] if event_end else [])].copy()
     ev[event_date] = pd.to_datetime(ev[event_date])
+    if event_end:
+        ev[event_end] = pd.to_datetime(ev[event_end])
     if not ev.index.is_unique:
         # two event lists stacked with pd.concat repeat their labels; an
         # event is then known by its position in the list
@@ -566,10 +593,10 @@ def abnormal_returns(
 
     records: List[Dict[str, Any]] = []
     ar_columns: Dict[Any, pd.Series] = {}
+    raw_columns: Dict[Any, pd.Series] = {}
     residuals: Dict[Any, pd.Series] = {}
     standardised: Dict[Any, pd.Series] = {}
     skipped: List[Dict[str, Any]] = []
-    rel_index = np.arange(ev_lo, ev_hi + 1)
     for label, row in ev.iterrows():
         unit, when = row[id], row[event_date]
 
@@ -584,10 +611,29 @@ def abnormal_returns(
         if pos >= len(sec):
             skip("event date after the last return")
             continue
-        if pos + ev_lo < 0 or pos + ev_hi >= len(sec):
+        last = pos
+        if event_end and not pd.isna(row[event_end]):
+            if row[event_end] < when:
+                skip("event end before the event date")
+                continue
+            last = int(
+                np.searchsorted(sec[date].to_numpy(), np.datetime64(row[event_end]))
+            )
+        if pos + ev_lo < 0 or last + ev_hi >= len(sec):
             skip("event window runs outside the return series")
             continue
-        window = sec.iloc[pos + ev_lo : pos + ev_hi + 1]
+        window = sec.iloc[pos + ev_lo : last + ev_hi + 1]
+        length = len(window)
+        rel_index = np.arange(ev_lo, ev_lo + length)
+        head = {
+            "event": label,
+            id: unit,
+            "event_date": when,
+            "event_day": sec[date].iloc[pos],
+        }
+        if event_end:
+            head["event_end"] = row[event_end]
+            head["end_day"] = sec[date].iloc[last]
         if window[[ret] + regressors].isna().any().any():
             skip("missing return in the event window")
             continue
@@ -595,17 +641,12 @@ def abnormal_returns(
             ar = window[ret].to_numpy(dtype=float) - window[market].to_numpy(
                 dtype=float
             )
+            raw = window[ret].to_numpy(dtype=float)
             records.append(
-                {
-                    "event": label,
-                    id: unit,
-                    "event_date": when,
-                    "event_day": sec[date].iloc[pos],
-                    "n_est": 0,
-                    "car": float(ar.sum()),
-                }
+                {**head, "n_est": 0, "raw": float(raw.sum()), "car": float(ar.sum())}
             )
             ar_columns[label] = pd.Series(ar, index=rel_index)
+            raw_columns[label] = pd.Series(raw, index=rel_index)
             continue
         # an event near the start of the series has a short or empty
         # estimation window; a negative stop would slice from the end
@@ -652,17 +693,9 @@ def abnormal_returns(
         # would be noise over noise.
         car = float(ar.sum())
         if not infer:
-            records.append(
-                {
-                    "event": label,
-                    id: unit,
-                    "event_date": when,
-                    "event_day": sec[date].iloc[pos],
-                    "n_est": n,
-                    "car": car,
-                }
-            )
+            records.append({**head, "n_est": n, "raw": float(y_win.sum()), "car": car})
             ar_columns[label] = pd.Series(ar, index=rel_index)
+            raw_columns[label] = pd.Series(y_win, index=rel_index)
             continue
         if not s2 > (1e-10) ** 2 * float(np.mean(y_est**2)):
             skip("no residual variance in the estimation window")
@@ -671,11 +704,9 @@ def abnormal_returns(
         t = car / se
         records.append(
             {
-                "event": label,
-                id: unit,
-                "event_date": when,
-                "event_day": sec[date].iloc[pos],
+                **head,
                 "n_est": n,
+                "raw": float(y_win.sum()),
                 "car": car,
                 "se": se,
                 "t": t,
@@ -686,6 +717,7 @@ def abnormal_returns(
             }
         )
         ar_columns[label] = pd.Series(ar, index=rel_index)
+        raw_columns[label] = pd.Series(y_win, index=rel_index)
         key = est[date].to_numpy() if corr_key == "calendar" else rel_est
         residuals[label] = pd.Series(res_est, index=key)
         standardised[label] = pd.Series(res_est / np.sqrt(s2), index=rel_est)
@@ -717,6 +749,8 @@ def abnormal_returns(
     table = pd.DataFrame(records).set_index("event")
     ar_frame = pd.DataFrame(ar_columns)
     ar_frame.index.name = "day"
+    raw_frame = pd.DataFrame(raw_columns)
+    raw_frame.index.name = "day"
     aar = pd.DataFrame(
         {"aar": ar_frame.mean(axis=1), "n": ar_frame.notna().sum(axis=1)}
     )
@@ -737,6 +771,7 @@ def abnormal_returns(
             skipped=skipped,
             alpha=alpha,
             inference=False,
+            returns=raw_frame,
         )
     r_bar = _mean_correlation(
         residuals, table[id].tolist() if corr_key == "calendar" else None
@@ -772,4 +807,5 @@ def abnormal_returns(
         correlation=corr_key,
         skipped=skipped,
         alpha=alpha,
+        returns=raw_frame,
     )

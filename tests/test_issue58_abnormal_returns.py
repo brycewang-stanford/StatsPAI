@@ -67,6 +67,9 @@ def test_the_example_of_the_issue_gives_the_two_sums():
     assert res.tests.empty
     assert np.isnan(res.se) and np.isnan(res.pvalue)
     assert "se" not in res.events.columns
+    # the returns themselves, next to the abnormal returns
+    assert res.events["raw"].tolist() == pytest.approx([0.02, 0.012], abs=1e-15)
+    assert res.returns[1].tolist() == [0.005, 0.0, 0.007]
     assert "inference=False" in res.summary()
 
 
@@ -180,3 +183,109 @@ def test_the_returns_only_result_serialises():
     d = res.to_dict()
     assert d["estimate"] == pytest.approx(0.009, abs=1e-15)
     assert "inference=False" in repr(res)
+
+
+# --- events of several days (iangow/era_statpai#38) -------------------------
+
+
+def test_event_end_gives_each_event_its_own_window():
+    data, events, days = _panel()
+    events = events.assign(end=events["event_date"])
+    # event 0 runs three trading days, event 1 ends on a Saturday (-> Monday)
+    events.loc[0, "end"] = days[292]
+    events.loc[1, "end"] = days[291] + pd.Timedelta(days=4 - days[291].weekday() + 1)
+    res = sp.abnormal_returns(
+        data,
+        events,
+        model="market_adjusted",
+        market="mkt",
+        event_end="end",
+        event_window=(-1, 1),
+        inference=False,
+    )
+    by_id = {j: g.reset_index(drop=True) for j, g in data.groupby("id")}
+
+    def want(j, first, last):
+        g = by_id[j]
+        a = g.index[g["date"] == first][0] - 1
+        b = g.index[g["date"] == last][0] + 1
+        part = g.iloc[a : b + 1]
+        return part["ret"].sum(), (part["ret"] - part["mkt"]).sum(), len(part)
+
+    monday = days[days > events.loc[1, "end"]][0]
+    assert events.loc[1, "end"].weekday() == 5
+    for label, first, last in ((0, days[290], days[292]), (1, days[291], monday)):
+        raw, car, n = want(label, first, last)
+        assert res.events.loc[label, "raw"] == pytest.approx(raw, rel=1e-13)
+        assert res.events.loc[label, "car"] == pytest.approx(car, rel=1e-13)
+        assert res.ar[label].notna().sum() == n
+        assert res.events.loc[label, "end_day"] == last
+    # the other events are one-day events: three days each, as without event_end
+    plain = sp.abnormal_returns(
+        data, events, model="market_adjusted", market="mkt", inference=False
+    )
+    np.testing.assert_array_equal(
+        res.events["car"].to_numpy()[2:], plain.events["car"].to_numpy()[2:]
+    )
+    assert res.ar.index.tolist() == list(range(-1, res.ar.shape[0] - 1))
+    assert res.aar["n"].iloc[0] == len(events) and res.aar["n"].iloc[-1] < len(events)
+    assert res.caar == pytest.approx(res.events["car"].mean(), rel=1e-15)
+
+
+def test_event_end_variance_uses_the_length_of_each_window():
+    data, events, days = _panel()
+    events = events.assign(end=events["event_date"])
+    events.loc[0, "end"] = days[294]  # five event days, seven in the window
+    res = sp.abnormal_returns(
+        data, events, model="market_adjusted", market="mkt", event_end="end"
+    )
+    ev = res.events
+    np.testing.assert_allclose(
+        ev["se"].to_numpy() ** 2,
+        ev["resid_var"].to_numpy() * res.ar.notna().sum().to_numpy(),
+        rtol=1e-12,
+    )
+    assert res.ar[0].notna().sum() == 7 and res.ar[1].notna().sum() == 3
+
+
+def test_event_end_equal_to_the_event_date_changes_nothing():
+    data, events, _ = _panel()
+    same = events.assign(end=events["event_date"])
+    same.loc[3, "end"] = pd.NaT  # a missing end date: a one-day event
+    a = sp.abnormal_returns(data, events, market="mkt")
+    b = sp.abnormal_returns(data, same, market="mkt", event_end="end")
+    pd.testing.assert_frame_equal(
+        a.events, b.events.drop(columns=["event_end", "end_day"]), check_exact=True
+    )
+    pd.testing.assert_frame_equal(a.tests, b.tests, check_exact=True)
+    pd.testing.assert_frame_equal(a.ar, b.ar, check_exact=True)
+
+
+def test_event_end_refusals():
+    from statspai.exceptions import ColumnNotFound
+
+    data, events, days = _panel()
+    with pytest.raises(ColumnNotFound):
+        sp.abnormal_returns(data, events, market="mkt", event_end="end")
+    bad = events.assign(end=events["event_date"])
+    bad.loc[0, "end"] = days[200]  # before the event date
+    bad.loc[1, "end"] = days[-1]  # the window then runs off the series
+    with pytest.warns(UserWarning, match="left out"):
+        res = sp.abnormal_returns(data, bad, market="mkt", event_end="end")
+    assert [s["reason"] for s in res.skipped] == [
+        "event end before the event date",
+        "event window runs outside the return series",
+    ]
+
+
+def test_raw_is_the_sum_of_the_returns_in_the_window():
+    data, events, days = _panel()
+    res = sp.abnormal_returns(data, events, market="mkt", event_window=(-2, 2))
+    g = data[data["id"] == 4].reset_index(drop=True)
+    i = g.index[g["date"] == events.loc[4, "event_date"]][0]
+    assert res.events.loc[4, "raw"] == pytest.approx(
+        g["ret"].iloc[i - 2 : i + 3].sum(), rel=1e-13
+    )
+    np.testing.assert_array_equal(
+        res.returns[4].to_numpy(), g["ret"].iloc[i - 2 : i + 3].to_numpy()
+    )

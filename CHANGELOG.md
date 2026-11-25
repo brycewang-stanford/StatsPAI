@@ -4,6 +4,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`sp.abnormal_returns(event_end=...)`: events that run over several
+  days.** `event_end` names a column of `events` with the last date of
+  the event. The window then runs from `event_window[0]` days relative to
+  the event day to `event_window[1]` days after the end day, so events
+  differ in length, and each CAR's variance uses its own length. The end
+  day is the first trading day on or after the date, as day 0 is. A
+  missing end date is a one-day event. Without `event_end` nothing
+  changes.
+- **`sp.abnormal_returns` reports the returns themselves.**
+  `result.events` has a `raw` column, the sum of the returns over the
+  event window, next to `car`, and `result.returns` holds the daily
+  returns in the layout of `result.ar`. On the 69 Apple media events of
+  Gow and Ding's Event studies chapter, 19 of them multi-day, one call
+  with `inference=False` gives the chapter's raw and market-adjusted
+  sums to 1e-17 on a synthetic return file (iangow/era_statpai#38).
+
 ### Changed
 
 - **`sp.feols`, `sp.fepois` and `sp.feglm` fit `a:b` and `a*b` products
@@ -25,6 +43,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.regtable` prints the "Cluster SE" row for a clustered fit that
+  pyfixest ran.** A fit from pyfixest recorded no clustering columns, so
+  its table had no such row, while the same call on the native engine had
+  one. A table with one column from each engine showed the row for one
+  column only. The pyfixest path now records the columns as the native
+  engine does (`model_info["clustervar"]`). No estimate changes.
 - **`sp.feols(backend="native")` no longer raises `IndexError` on a
   formula it cannot parse.** Without a fixed-effects part, a Boolean
   regressor or an interaction ended in `list index out of range`. Those

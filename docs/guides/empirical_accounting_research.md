@@ -212,6 +212,19 @@ res.events    # id, event_date, event_day, n_est, car
 With the default `inference=True` each event needs `min_obs=30` returns in
 the estimation window, because the variance of its CAR is estimated there.
 
+An event can run over several days, such as a conference. `event_end`
+names the column with its last date, and the window then ends
+`event_window[1]` trading days after that day. `res.events["raw"]` is the
+sum of the returns themselves over the same window:
+
+```python
+res = sp.abnormal_returns(
+    returns, events, model="market_adjusted", market="mkt",
+    event_end="end_event_date", event_window=(-1, 1), inference=False,
+)
+res.events[["raw", "car"]]   # raw and market-adjusted sums, one row per event
+```
+
 Which test to read. `patell` assumes the event leaves the variance of
 returns unchanged, which earnings announcements do not (that is Beaver's
 finding); `bmp` and the cross-sectional test allow for it. When event

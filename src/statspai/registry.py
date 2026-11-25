@@ -15351,6 +15351,15 @@ def _build_registry() -> None:
                     "Event date column of events",
                 ),
                 ParamSpec(
+                    "event_end",
+                    "str",
+                    False,
+                    None,
+                    "Column of events with the last date of a multi-day "
+                    "event; the window then ends event_window[1] days "
+                    "after that day",
+                ),
+                ParamSpec(
                     "model",
                     "str",
                     False,
