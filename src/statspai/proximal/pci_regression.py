@@ -228,7 +228,7 @@ def proximal_regression(
     h0 = intercept + alpha_D * 0.0 + alpha_W * Wp + Xc @ np.array(alpha_X)
 
     # --- Treatment bridge q(Z, X): logistic propensity P(D=1 | Z, X) ---
-    prop_design = np.column_stack([np.ones(n), Zp, Xc])
+    prop_design = np.column_stack([Zp, Xc])
     propensity_fallback = False
     lr = None
     try:
