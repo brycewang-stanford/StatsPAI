@@ -6898,3 +6898,28 @@ The freeze is inactive (not submitted); recorded for the next re-anchor.
 - **Paths.**
   - `tests/r_parity/results/_implementation_trace.json`
   - `tests/orig_parity/results/_implementation_trace.json`
+
+### 2026-11-28 — two coverage rows added; DML traces re-recorded
+
+The freeze is inactive (not submitted); recorded for the re-anchor to
+1.46.7 that follows.
+
+- **Commit.** `2b4dbea05` adds two rows to
+  `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` and
+  re-records `tests/r_parity/results/_implementation_trace.json`
+  (modules 08, 71).
+- **Reason.** The PLR default (short stacking, since 1.45) and the
+  Sun-Abraham default headline (since 1.41) had no coverage row.
+  `dml/_base.py` records the learner aliases a fit was given, which is on
+  the path of the two DML modules.
+- **Effect on the paper.** The coverage table grows from thirteen to
+  fifteen rows: `sp.dml(model='plr') theta, default short stacking`
+  (0.949, bias -0.0026, SE/SD 1.01) and `sp.sun_abraham default ATT
+  (staggered)` (0.950, SE/SD 1.02). The thirteen existing rows are
+  unchanged; the gradient-boosting PLR row was re-run with its learner
+  named and is bit-identical. Modules 08 and 71 were re-run without Rust
+  before re-recording and their committed results kept (last-digit
+  rounding only).
+- **Paths.**
+  - `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json`
+  - `tests/r_parity/results/_implementation_trace.json`
