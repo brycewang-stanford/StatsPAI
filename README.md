@@ -848,15 +848,15 @@ compared as well as the point estimates.
 Beyond point-parity, a Track-B coverage study runs `B=1000` Monte Carlo
 replications per estimator and checks that 95% confidence intervals hit their
 nominal rate on known-truth DGPs, against a 99% Wilson acceptance band of
-`[0.935, 0.967]`. The thirteen materialized nominal rows (twelve known-truth DGPs) — OLS on an RCT (0.952),
+`[0.935, 0.967]`. The fifteen materialized nominal rows (twelve known-truth DGPs) — OLS on an RCT (0.952),
 a 2×2 DiD (0.955), strong-instrument IV (0.962), Callaway–Sant'Anna staggered
-ATT (0.947), Sun–Abraham overall ATT (0.950), a two-way FE panel through `sp.panel` (0.948) and through `sp.fast.feols` (0.955),
+ATT (0.947), Sun–Abraham overall ATT (0.950 under the current and the pre-1.41 defaults), a two-way FE panel through `sp.panel` (0.948) and through `sp.fast.feols` (0.955),
 entropy balancing (0.945), a causal-forest AIPW ATE at 2,000 trees (0.959), DML
 IRM ATE (0.968), SDID with placebo SEs (0.928), sharp RD with the robust CI
-(0.934), and DML PLR with the default learners (0.883) — each also record bias,
+(0.934), and DML PLR (0.949 with the default short stacking, 0.883 with gradient boosting, the default before 1.45) — each also record bias,
 Monte Carlo SD and SE calibration. The SDID and RD shortfalls come with
 calibrated SEs (RD's intervals equal R `rdrobust`'s draw by draw); the PLR
-shortfall is regularisation bias of the default gradient-boosting nuisances
+shortfall under gradient boosting is regularisation bias of the nuisances
 (0.95 with the true nuisances); see `tests/coverage_monte_carlo/FINDINGS.md`. The committed artifacts live under
 `tests/coverage_monte_carlo/results_b1000/`.
 

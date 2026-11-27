@@ -650,26 +650,28 @@ def test_coverage_findings_track_b1000_artifacts() -> None:
 
     assert "results_b1000/coverage_b1000.json" in findings
     assert "results_b1000/coverage_robustness_b1000.json" in findings
-    # Twelve rows plus sp.fast.feols through its own entry point (JSS v2 review).
-    assert len(canonical) == 13
+    # Twelve rows plus sp.fast.feols through its own entry point (JSS v2
+    # review), plus a row for the current default of Sun-Abraham and of DML
+    # PLR next to the row for the default each replaced.
+    assert len(canonical) == 15
     # Every row carries the diagnostics that explain its rate (JSS review,
     # 2026-09): bias, Monte Carlo SD, mean SE and their ratio.
     for row in canonical:
         for key in ("bias", "mc_sd", "mean_se", "se_sd_ratio", "mean_ci_length"):
             assert key in row, (row["name"], key)
-    assert (
-        "DML PLR with the default gradient-boosting learners under-covers" in findings
-    )
+    assert "DML PLR with gradient-boosting learners" in findings
+    assert "short stacking, covers 0.949" in findings
     assert "947/1000 = 0.947" in findings
     assert "twelve known-truth DGPs" in findings
     assert "twelve known-truth" in parity_long
-    # Thirteen rows since the JSS v2 review: sp.fast.feols joins sp.panel
-    # on the same FE-panel DGP, so the DGP count stays at twelve.
-    assert "holds\nthirteen" in parity_compact or "holds thirteen" in parity_compact
-    assert "materialized thirteen-row" in computational_details
-    assert "thirteen materialized nominal rows" in root_readme
-    assert "13 个已物化 nominal 行" in root_readme_cn
-    assert "thirteen" in manuscript_md_export
+    # Fifteen rows: sp.fast.feols joins sp.panel on the same FE-panel DGP,
+    # and two estimators carry a row per default, so the DGP count stays
+    # at twelve.
+    assert "holds\nfifteen" in parity_compact or "holds fifteen" in parity_compact
+    assert "materialized fifteen-row" in computational_details
+    assert "fifteen materialized nominal rows" in root_readme
+    assert "15 个已物化 nominal 行" in root_readme_cn
+    assert "fifteen" in manuscript_md_export
     assert "十三个 $B=1{,}000$ 行" in manuscript_zh_export
 
     for row in canonical:

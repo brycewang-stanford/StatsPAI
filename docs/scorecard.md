@@ -58,7 +58,7 @@ matters. This is the rule `test_coverage.py` applies.
 SE/SD near 1 means the reported standard error matches the sampling
 spread of the estimate.
 
-**11 of 13 rows inside the band.** The rows outside it
+**13 of 15 rows inside the band.** The rows outside it
 are explained in
 [`tests/coverage_monte_carlo/FINDINGS.md`](https://github.com/brycewang-stanford/StatsPAI/blob/main/tests/coverage_monte_carlo/FINDINGS.md);
 they are reported, not removed.
@@ -70,6 +70,7 @@ they are reported, not removed.
 | `sp.ivreg (HC1) on strong-Z IV` | 1,000 | 0.962 | yes | 0.98 |
 | `sp.callaway_santanna simple ATT (staggered)` | 1,000 | 0.947 | yes | 1.01 |
 | `sp.sun_abraham overall ATT (staggered)` | 1,000 | 0.950 | yes | 1.02 |
+| `sp.sun_abraham default ATT (staggered)` | 1,000 | 0.950 | yes | 1.02 |
 | `sp.panel two-way FE` | 1,000 | 0.948 | yes | 0.99 |
 | `sp.fast.feols two-way FE (CR1 by unit)` | 1,000 | 0.955 | yes | 0.99 |
 | `sp.rdrobust sharp (robust CI)` | 1,000 | 0.934 | yes | 0.98 |
@@ -77,6 +78,7 @@ they are reported, not removed.
 | `sp.ebalance (CIA, ATT)` | 1,000 | 0.945 | yes | 0.97 |
 | `sp.causal_question(design='dml') IRM ATE` | 1,000 | 0.968 | yes | 1.04 |
 | `sp.dml(model='plr') theta` | 1,000 | 0.883 | **no** | 0.88 |
+| `sp.dml(model='plr') theta, default short stacking` | 1,000 | 0.949 | yes | 1.01 |
 | `sp.causal_question(design='causal_forest') AIPW ATE` | 1,000 | 0.959 | yes | 1.04 |
 
 ## 3. Speed against the reference on the same task

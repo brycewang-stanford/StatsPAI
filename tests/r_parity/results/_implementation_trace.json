@@ -373,7 +373,7 @@
    "result_sha256": "b56ae69bb3f71491c6f5c403d5e0762995b29f747064b0b86630108ca5282a8d"
   },
   "08_dml": {
-   "seconds": 1.78,
+   "seconds": 9.83,
    "error": null,
    "boundary_calls": [
     {
@@ -450,13 +450,13 @@
     "src/statspai/core/results.py": "d580921b924cf1460e30358635f1c4e02576e4bf90b1e13fe8ae1974a49d32a1",
     "src/statspai/datasets/__init__.py": "5f99835b809b1e96a443101ebfed40842e704382122bb457c729d264f11ec019",
     "src/statspai/datasets/_canonical.py": "091e5ef32706251e1c79affd958ea980ec66e9c1770bb6c61a3c284b7848bb28",
-    "src/statspai/dml/_base.py": "64b23ef72a76dfc4873ccb1d326d2c34120bef3bc93ccdd12b48ef4ebef58e6c",
+    "src/statspai/dml/_base.py": "9bbd9dc0072557e4b255b0b0a3e05afd89618e52dc9be22239f2dd2f1cdb54fc",
     "src/statspai/dml/_benchmark.py": "0b1883098872d93652f4a88fdd27e23d2b350c4b5f37837687a1a6362b90b822",
     "src/statspai/dml/_external_predictions.py": "b6f2a2dff8f17dca988907a7dc07a0c0bb6d7204f7ff68ac40426422fe526295",
     "src/statspai/dml/_learners.py": "3405f8409da26b4e2d605b99aa561397ba7f91e552b9ab8a6c9e1433ccbbadfd",
     "src/statspai/dml/_oof_retention.py": "f35b7958405b6c20a3ff9d2c16530bab8f48ded2357c93748544ee9b9a0babeb",
     "src/statspai/dml/_stacking.py": "7c71d6c63ac021e83be5d5217c39e01e6b32a442f81dbb37164be1f1cc2ab92f",
-    "src/statspai/dml/double_ml.py": "5721547b1322fa3c56bd61ee33037cd4f51d6fbeb5e033ddfb7ca30a2c59ceef",
+    "src/statspai/dml/double_ml.py": "da93be19d6fb49755f2ecfec0e223dbce3bc629a742f21bcae04666187a3bb48",
     "src/statspai/dml/model_averaging.py": "1269942cca44429242a35819449b0f095c8eb6dfb79d5828a6e9e57782445e98",
     "src/statspai/dml/plr.py": "48308aee638dd18115d3f9166fb662d93052a7e5019cef8203d37b4458d5f089",
     "src/statspai/exceptions.py": "3c61427fbf9b9a6d85a2916ef09a5e0ad437d6f67ed9099ddae79643888e326d",
@@ -2984,7 +2984,7 @@
    "result_sha256": "ee4756c004056c4cc0e0fb79fb43a03d44cc6476cc274336cb33199e46365c32"
   },
   "71_dml_family": {
-   "seconds": 2.06,
+   "seconds": 12.95,
    "error": null,
    "boundary_calls": [
     {
@@ -3060,7 +3060,7 @@
     "src/statspai/core/_validate.py": "ef11061c5579736699aaea7013740df07b3126883baef2216a24efcd8e9a6b9f",
     "src/statspai/core/_vcov_spec.py": "4789c520ca480591d544ddf80f5102687c58f3e9f8e7a18f47d12863a32244bf",
     "src/statspai/core/results.py": "d580921b924cf1460e30358635f1c4e02576e4bf90b1e13fe8ae1974a49d32a1",
-    "src/statspai/dml/_base.py": "64b23ef72a76dfc4873ccb1d326d2c34120bef3bc93ccdd12b48ef4ebef58e6c",
+    "src/statspai/dml/_base.py": "9bbd9dc0072557e4b255b0b0a3e05afd89618e52dc9be22239f2dd2f1cdb54fc",
     "src/statspai/dml/_benchmark.py": "0b1883098872d93652f4a88fdd27e23d2b350c4b5f37837687a1a6362b90b822",
     "src/statspai/dml/_external_predictions.py": "b6f2a2dff8f17dca988907a7dc07a0c0bb6d7204f7ff68ac40426422fe526295",
     "src/statspai/dml/_irm_score.py": "1605650dc478da65b0b1d8c7a2a3198ab7177209789012286e519c654ee3076c",
@@ -3069,7 +3069,7 @@
     "src/statspai/dml/_oof_score.py": "518e203028b5a22e9729e451533f1a71fa685a453f2e433179a92d4e4cf5f1bb",
     "src/statspai/dml/_oof_validation.py": "249a0e709a4e4df4a292de9c874ae636355df14b8b3786a04cf53d1018ef710d",
     "src/statspai/dml/_stacking.py": "7c71d6c63ac021e83be5d5217c39e01e6b32a442f81dbb37164be1f1cc2ab92f",
-    "src/statspai/dml/double_ml.py": "5721547b1322fa3c56bd61ee33037cd4f51d6fbeb5e033ddfb7ca30a2c59ceef",
+    "src/statspai/dml/double_ml.py": "da93be19d6fb49755f2ecfec0e223dbce3bc629a742f21bcae04666187a3bb48",
     "src/statspai/dml/iivm.py": "7dedf11a57e6e7a4acd1640b1b36ee1b2b5b65195ae313e43e1ae19c52fd7882",
     "src/statspai/dml/irm.py": "fe27ead62e9d84eb112f3ce6926821e0dc32eed2d1ab3b3ccbade85acb9a7151",
     "src/statspai/dml/pliv.py": "aff1d51532ff59ddde9874a5d98c3cebe2222b12a72f243b4d60a405d814b155",

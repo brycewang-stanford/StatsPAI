@@ -553,12 +553,15 @@ def _x_dml(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     learners_used = {str(mi.get("ml_g")), str(mi.get("ml_m"))}
     if mi.get("default_learners") and learners_used == {"ShortStack"}:
-        # The PLR default since 1.45. Its predecessor, gradient boosting,
-        # is the value 'gbm', which no fitted result maps to: a supplied
-        # learner is not told apart from another of the same class.
+        # The PLR default since 1.45.
         learners = "stack"
     elif mi.get("default_learners"):
         learners = "default"
+    elif list(mi.get("learner_aliases") or ()) == ["gbm", "gbm"]:
+        # Its predecessor, gradient boosting. Only the string alias maps
+        # here: a supplied estimator object is not told apart from another
+        # of the same class with different settings.
+        learners = "gbm"
     elif learners_used <= _LINEAR_LEARNERS:
         learners = "linear"
     else:
@@ -2395,7 +2398,24 @@ _add(
                     "crit_dist": _vals("normal"),
                 },
                 _COV,
-                "95% CI coverage of the default event-time aggregate",
+                "95% CI coverage of the event-time aggregate with normal "
+                "intervals, the defaults before 1.41 (0.950)",
+                "sp.sun_abraham()",
+            ),
+            _Row(
+                "B",
+                _B,
+                {
+                    "control_group": _vals("nevertreated"),
+                    "aggregation": _vals("fixest_att"),
+                    "share_variance": _vals("estimated"),
+                    "window_rule": _vals("report"),
+                    "crit_dist": _vals("t_cluster"),
+                },
+                _COV,
+                "95% CI coverage of the default headline since 1.41, the "
+                "cell-weighted ATT with Student-t intervals on the cluster "
+                "degrees of freedom (0.950, mean SE 1.02 of the MC SD)",
                 "sp.sun_abraham()",
             ),
             _Row(
@@ -5210,6 +5230,23 @@ _add(
                 "B",
                 _B,
                 {
+                    "model": _vals("plr"),
+                    "score": _vals("partialling out"),
+                    "learners": _vals("stack"),
+                    "n_folds": _vals("5"),
+                    "n_rep": _vals("1"),
+                    "ipw": _vals("n/a"),
+                },
+                _COV,
+                "95% CI coverage with the default since 1.45, short stacking, "
+                "on the same draws: 0.949 (bias 0.05 MC SD, mean SE 1.01 of "
+                "the MC SD). One design; lower on others, see the note",
+                "sp.dml(model='plr', n_folds=5)",
+            ),
+            _Row(
+                "B",
+                _B,
+                {
                     "model": _vals("irm"),
                     "score": _vals("ate"),
                     "learners": _vals("default"),
@@ -5362,8 +5399,10 @@ _add(
         note="With default (flexible) learners the estimate depends on the learner, so "
         "deterministic parity exists only for fixed learners and folds; the gradient-"
         "boosting PLR interval (learners 'gbm', the default before 1.45) under-covers "
-        "(0.883) on the Track B design, and the short-stacking default since 1.45 "
-        "(learners 'stack') has no row. ipw 'other' "
+        "(0.883) on the Track B design, where the short-stacking default since 1.45 "
+        "(learners 'stack') covers 0.949. That is one design: in the package's "
+        "other simulations short stacking covered as low as 0.72 (smooth additive "
+        "confounding, tests/reliability/dml_learners.py). ipw 'other' "
         "rows ran trimming at 0.1 and normalize_ipw=True at the 0.01 threshold. "
         "n_folds 6-9 and 11-20 have no row. Under n_rep > 1 the per-repetition "
         "estimates and SEs and the median estimate match DoubleML, but the "

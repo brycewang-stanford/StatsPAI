@@ -5181,8 +5181,8 @@
       "overall": {
         "covered": 30,
         "estimate_only": 3,
-        "stochastic_only": 2,
-        "not_covered": 15165
+        "stochastic_only": 3,
+        "not_covered": 15164
       },
       "by_output": {
         "estimate": {
@@ -5195,8 +5195,8 @@
           "not_covered": 15167
         },
         "coverage": {
-          "coverage_simulation": 2,
-          "not_covered": 15198
+          "coverage_simulation": 3,
+          "not_covered": 15197
         }
       },
       "rows": [
@@ -5409,6 +5409,35 @@
             ]
           },
           "compares": "95% CI coverage with gradient boosting, the default before 1.45: 0.883 (bias 0.5 MC SD, mean SE 0.88 of the MC SD); see mechanisms/dml_plr_learners.py"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.dml(model='plr', n_folds=5)",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "stack"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "95% CI coverage with the default since 1.45, short stacking, on the same draws: 0.949 (bias 0.05 MC SD, mean SE 1.01 of the MC SD). One design; lower on others, see the note"
         },
         {
           "kind": "B",
@@ -17403,8 +17432,8 @@
           "not_covered": 45
         },
         "coverage": {
-          "coverage_simulation": 1,
-          "not_covered": 107
+          "coverage_simulation": 2,
+          "not_covered": 106
         },
         "vcov": {
           "reference": 6,
@@ -17496,7 +17525,33 @@
               "normal"
             ]
           },
-          "compares": "95% CI coverage of the default event-time aggregate"
+          "compares": "95% CI coverage of the event-time aggregate with normal intervals, the defaults before 1.41 (0.950)"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.sun_abraham()",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "fixest_att"
+            ],
+            "share_variance": [
+              "estimated"
+            ],
+            "window_rule": [
+              "report"
+            ],
+            "crit_dist": [
+              "t_cluster"
+            ]
+          },
+          "compares": "95% CI coverage of the default headline since 1.41, the cell-weighted ATT with Student-t intervals on the cluster degrees of freedom (0.950, mean SE 1.02 of the MC SD)"
         },
         {
           "kind": "T2",
@@ -20844,8 +20899,8 @@
       "not_covered": 302184
     },
     "coverage": {
-      "coverage_simulation": 11,
-      "not_covered": 111657
+      "coverage_simulation": 13,
+      "not_covered": 111655
     },
     "diagnostic": {
       "reference": 195,
@@ -21066,6 +21121,16 @@
         "within_2_mc_se_of_nominal": true
       },
       {
+        "design": "sp.sun_abraham default ATT (staggered)",
+        "B": 1000,
+        "covered": 950,
+        "failures": 0,
+        "rate": 0.95,
+        "mc_se": 0.0069,
+        "se_to_sd_ratio": 1.015,
+        "within_2_mc_se_of_nominal": true
+      },
+      {
         "design": "sp.panel two-way FE",
         "B": 1000,
         "covered": 948,
@@ -21134,6 +21199,16 @@
         "mc_se": 0.0102,
         "se_to_sd_ratio": 0.885,
         "within_2_mc_se_of_nominal": false
+      },
+      {
+        "design": "sp.dml(model='plr') theta, default short stacking",
+        "B": 1000,
+        "covered": 949,
+        "failures": 0,
+        "rate": 0.949,
+        "mc_se": 0.007,
+        "se_to_sd_ratio": 1.006,
+        "within_2_mc_se_of_nominal": true
       },
       {
         "design": "sp.causal_question(design='causal_forest') AIPW ATE",

@@ -19,9 +19,10 @@ The suite now validates all three faces of the inference machinery:
 ## Headline B=1000 Coverage Audit
 
 The canonical Track B audit materializes twelve known-truth DGPs in
-thirteen rows at `B=1000` (each row records B=1000 draws; the two-way FE
+fifteen rows at `B=1000` (each row records B=1000 draws; the two-way FE
 panel is run through `sp.panel` and, since the JSS v2 review, through the
-suite's HDFE member `sp.fast.feols` itself), and since the 2026-09 JSS review
+suite's HDFE member `sp.fast.feols` itself; Sun-Abraham and DML PLR each
+have a row for the current default and one for the default it replaced), and since the 2026-09 JSS review
 each row records every draw's estimate, SE and interval, so the table
 reports why a rate is what it is: bias, Monte Carlo SD, mean reported SE
 and their ratio (SE calibration). The 99% Wilson band around nominal 0.95
@@ -41,14 +42,16 @@ accepts and the manuscript calls mildly conservative.
 | `sp.regress` 2x2 DiD | 2-period homogeneous DiD | 0.955 | +0.0017 | 0.0974 | 0.0999 | 1.03 |
 | `sp.ivreg` (HC1) | Strong binary-Z IV | 0.962 | -0.0041 | 0.3687 | 0.3627 | 0.98 |
 | `sp.callaway_santanna` (REG, simple ATT) | Homogeneous staggered timing | 0.947 | -0.0007 | 0.1080 | 0.1090 | 1.01 |
-| `sp.sun_abraham` (overall ATT) | Homogeneous staggered timing | 0.950 | -0.0007 | 0.1214 | 0.1234 | 1.02 |
+| `sp.sun_abraham` (event-time ATT, normal intervals; default before 1.41) | Homogeneous staggered timing | 0.950 | -0.0007 | 0.1214 | 0.1234 | 1.02 |
+| `sp.sun_abraham` (default: cell-weighted ATT, t intervals) | Same draws | 0.950 | -0.0007 | 0.1080 | 0.1096 | 1.02 |
 | `sp.panel` two-way FE | Known-coefficient FE panel | 0.948 | -0.0024 | 0.1245 | 0.1233 | 0.99 |
 | `sp.fast.feols` (CR1 by unit) | Same FE panel, same draws | 0.955 | -0.0057 | 0.1026 | 0.1013 | 0.99 |
 | `sp.rdrobust` sharp (robust CI) | Known-jump curved RD | 0.934 | -0.0061 | 0.1222 | 0.1201 | 0.98 |
 | `sp.sdid` (placebo SE) | Factor-model panel, 1 treated | 0.928 | +0.0003 | 0.3095 | 0.3071 | 0.99 |
 | `sp.ebalance` (M-estimation SE) | CIA with 2 covariates | 0.945 | -0.0014 | 0.0799 | 0.0774 | 0.97 |
 | `sp.causal_question(design="dml")` | Binary-treatment IRM ATE | 0.968 | -0.0074 | 0.1582 | 0.1653 | 1.04 |
-| `sp.dml(model="plr")`, default learners | Continuous-treatment PLR | 0.883 | -0.0261 | 0.0533 | 0.0472 | 0.88 |
+| `sp.dml(model="plr")`, gradient boosting (default before 1.45) | Continuous-treatment PLR | 0.883 | -0.0261 | 0.0533 | 0.0472 | 0.88 |
+| `sp.dml(model="plr")`, default short stacking | Same draws | 0.949 | -0.0026 | 0.0490 | 0.0493 | 1.01 |
 | `sp.causal_question(design="causal_forest")`, 2,000 trees | AIPW-IF ATE DGP | 0.959 | +0.0095 | 0.0934 | 0.0968 | 1.04 |
 
 Interpretation:
@@ -64,11 +67,14 @@ Interpretation:
   reference procedure's own finite-sample behaviour: R `rdrobust` 4.0.0
   returns the same intervals draw by draw to 6e-12 and covers in exactly
   the same draws (`mechanisms/rd_drawwise_reference.py`).
-- DML PLR with the default gradient-boosting learners under-covers (0.883):
-  bias is half a Monte Carlo SD. `sp.dml` equals DoubleML to 1e-16 on the
+- DML PLR with gradient-boosting learners, the default before 1.45,
+  under-covers (0.883): bias is half a Monte Carlo SD. The default since
+  1.45, short stacking, covers 0.949 on the same draws (bias 0.05 SD,
+  SE/SD 1.01). That is one design: short stacking covered as low as 0.72
+  under smooth additive confounding (`tests/reliability/dml_learners.py`). `sp.dml` equals DoubleML to 1e-16 on the
   same folds and learners; with the true nuisances coverage is 0.952, with a
-  random forest 0.940, with a spline Lasso 0.938, and with the default
-  learner 0.936 at n = 2,000 (`mechanisms/dml_plr_learners.py`). The DML
+  random forest 0.940, with a spline Lasso 0.938, and with gradient
+  boosting 0.936 at n = 2,000 (`mechanisms/dml_plr_learners.py`). The DML
   IRM row (0.968) is a different configuration and does not stand in for PLR.
 - Entropy balancing covered 1.000 before 2026-09 because its SE held the
   weights fixed (twice the Monte Carlo SD); the M-estimation SE is calibrated.

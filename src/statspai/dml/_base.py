@@ -416,6 +416,12 @@ class _DoubleMLBase:
         # to the default learners, and a user-supplied learner is not them
         # even when it has the same class.
         self._default_learners = ml_g is None and ml_m is None and ml_r is None
+        # A string alias names one fixed configuration, so a fit that asked
+        # for 'gbm' on both nuisances is the PLR default before 1.45 exactly,
+        # and sp.validation_scope can attach that default's coverage row.
+        self._learner_aliases = [
+            v.strip().lower() if isinstance(v, str) else None for v in (ml_g, ml_m)
+        ]
         stack_g = self._stack_request(ml_g, "ml_g", context)
         stack_m = self._stack_request(ml_m, "ml_m", context)
         self._stack_request(ml_r, "ml_r", context, allowed=False)
@@ -1434,6 +1440,7 @@ class _DoubleMLBase:
             "ml_g": type(self.ml_g).__name__,
             "ml_m": type(self.ml_m).__name__,
             "default_learners": bool(getattr(self, "_default_learners", False)),
+            "learner_aliases": list(getattr(self, "_learner_aliases", [None, None])),
             "n_covariates": len(self.covariates),
             "fold_source": fold_source,
         }

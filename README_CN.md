@@ -644,7 +644,7 @@ VERDICT: ✓ AGREE   (4/4 engines ran)
 
 未安装的引擎（pyfixest，或带 `fixest` 的 R）会被跳过。每个引擎都按同一个方差估计量（包括 `cluster=` 与 `vcov=`）和同一套小样本修正来计算，所以比较的不只是点估计，还有标准误。
 
-除了点估计对齐，Track-B 覆盖研究对每个估计量跑 `B=1000` 次蒙特卡洛重复，检查 95% 置信区间在已知真值 DGP 上是否达到名义覆盖率，接受带为 99% Wilson 区间 `[0.935, 0.967]`。13 个已物化 nominal 行（12 个已知真值 DGP）——RCT 上的 OLS (0.952)、2×2 DiD (0.955)、强工具 IV (0.962)、Callaway–Sant'Anna 交错 ATT (0.947)、Sun–Abraham 总体 ATT (0.950)、双向固定效应面板（`sp.panel` 0.948，`sp.fast.feols` 0.955）、熵平衡 (0.945)、2,000 棵树的 causal-forest AIPW ATE (0.959)、DML IRM ATE (0.968)、SDID 安慰剂 SE (0.928)、sharp RD robust CI (0.934)、默认学习器的 DML PLR (0.883)——每行同时记录偏差、Monte Carlo 标准差和 SE 校准比。SDID 与 RD 的不足伴随校准良好的 SE（RD 的区间与 R `rdrobust` 逐次抽样一致）；PLR 的不足来自默认梯度提升干扰函数的正则化偏差（用真实干扰函数时为 0.95），详见 `tests/coverage_monte_carlo/FINDINGS.md`。已提交的工件在 `tests/coverage_monte_carlo/results_b1000/`。
+除了点估计对齐，Track-B 覆盖研究对每个估计量跑 `B=1000` 次蒙特卡洛重复，检查 95% 置信区间在已知真值 DGP 上是否达到名义覆盖率，接受带为 99% Wilson 区间 `[0.935, 0.967]`。15 个已物化 nominal 行（12 个已知真值 DGP）——RCT 上的 OLS (0.952)、2×2 DiD (0.955)、强工具 IV (0.962)、Callaway–Sant'Anna 交错 ATT (0.947)、Sun–Abraham 总体 ATT（当前默认与 1.41 前的默认均为 0.950）、双向固定效应面板（`sp.panel` 0.948，`sp.fast.feols` 0.955）、熵平衡 (0.945)、2,000 棵树的 causal-forest AIPW ATE (0.959)、DML IRM ATE (0.968)、SDID 安慰剂 SE (0.928)、sharp RD robust CI (0.934)、DML PLR（默认 short stacking 0.949，1.45 前的默认梯度提升 0.883）——每行同时记录偏差、Monte Carlo 标准差和 SE 校准比。SDID 与 RD 的不足伴随校准良好的 SE（RD 的区间与 R `rdrobust` 逐次抽样一致）；梯度提升下 PLR 的不足来自干扰函数的正则化偏差（用真实干扰函数时为 0.95），详见 `tests/coverage_monte_carlo/FINDINGS.md`。已提交的工件在 `tests/coverage_monte_carlo/results_b1000/`。
 
 ---
 

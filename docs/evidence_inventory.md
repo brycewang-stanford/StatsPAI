@@ -82,7 +82,7 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `did_multiplegt_dyn` | joint_test | 0 | 0 | 0 | 0 | 18396 |
 | `dml` | estimate | 0 | 0 | 0 | 0 | 15167 |
 | `dml` | se | 0 | 0 | 0 | 3 | 15167 |
-| `dml` | coverage | 0 | 0 | 2 | 0 | 15198 |
+| `dml` | coverage | 0 | 0 | 3 | 0 | 15197 |
 | `ebalance` | estimate | 0 | 0 | 0 | 0 | 6 |
 | `ebalance` | se | 0 | 0 | 0 | 3 | 10 |
 | `etwfe` | estimate | 0 | 0 | 0 | 0 | 112 |
@@ -160,7 +160,7 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `sdid` | coverage | 0 | 0 | 1 | 0 | 287 |
 | `sun_abraham` | estimate | 0 | 0 | 0 | 0 | 45 |
 | `sun_abraham` | se | 0 | 0 | 0 | 0 | 45 |
-| `sun_abraham` | coverage | 0 | 0 | 1 | 0 | 107 |
+| `sun_abraham` | coverage | 0 | 0 | 2 | 0 | 106 |
 | `sun_abraham` | vcov | 0 | 0 | 0 | 0 | 102 |
 | `sun_abraham` | interval | 0 | 0 | 0 | 0 | 104 |
 | `synth` | estimate | 0 | 0 | 0 | 1 | 8 |
@@ -350,6 +350,7 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T2 | estimate, se | model=plr; score=partialling out; learners=other; n_folds=4; n_rep=1; ipw=n/a | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='plr')` |
 | T2 | estimate, se | model=irm; score=ate/atte; learners=linear; n_folds=4; n_rep=1; ipw=trim0.01 | `tests/external_parity/test_dml_classifier_nuisance_and_irm_sensitivity.py` | `sp.dml(model='irm')` |
 | B | coverage | model=plr; score=partialling out; learners=gbm; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5, ml_g='gbm', ml_m='gbm')` |
+| B | coverage | model=plr; score=partialling out; learners=stack; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5)` |
 | B | coverage | model=irm; score=ate; learners=default; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='dml')` |
 | T2 | estimate, se | model=plr; score=iv-type; learners=linear; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |
 | T2 | estimate, se | model=plr; score=iv-type; learners=other; n_folds=5; n_rep=1; ipw=n/a | `tests/test_dml_ivtype_reference.py` | `sp.dml(model='plr', score='IV-type')` |
@@ -933,6 +934,7 @@ Dimensions: `control_group` in {nevertreated, lastcohort, control_cohort}; `aggr
 | T2 | estimate, se | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/r_parity/05_sunab.py` | `sp.sun_abraham(aggregation='fixest_att')` |
 | T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_sunab_event_time_aggregate_parity.py` | `sp.sun_abraham()` |
 | B | coverage | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=report; crit_dist=normal | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
+| B | coverage | control_group=nevertreated; aggregation=fixest_att; share_variance=estimated; window_rule=report; crit_dist=t_cluster | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.sun_abraham()` |
 | T2 | vcov | control_group=nevertreated; aggregation=event_time; share_variance=fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.sun_abraham(share_variance=False)` |
 | T2 | estimate, se | control_group=nevertreated; aggregation=event_time; share_variance=estimated; window_rule=bin; crit_dist=normal | `tests/reference_parity/test_dcdh_textbook_stata_parity.py` | `sp.sun_abraham(window_rule='bin')` |
 | T2 | estimate, se | control_group=control_cohort/lastcohort; aggregation=event_time/fixest_att; share_variance=estimated/fixed; window_rule=report; crit_dist=normal | `tests/reference_parity/test_sunab_options_parity.py` | `sp.sun_abraham(control_group='lastcohort')` |
@@ -1101,6 +1103,7 @@ Reference evidence says an estimator reproduces another implementation. Whether 
 | sp.ivreg (HC1) on strong-Z IV | 1000 | 0 | 0.962 | 0.0060 | 0.984 | yes |
 | sp.callaway_santanna simple ATT (staggered) | 1000 | 0 | 0.947 | 0.0071 | 1.009 | yes |
 | sp.sun_abraham overall ATT (staggered) | 1000 | 0 | 0.950 | 0.0069 | 1.017 | yes |
+| sp.sun_abraham default ATT (staggered) | 1000 | 0 | 0.950 | 0.0069 | 1.015 | yes |
 | sp.panel two-way FE | 1000 | 0 | 0.948 | 0.0070 | 0.990 | yes |
 | sp.fast.feols two-way FE (CR1 by unit) | 1000 | 0 | 0.955 | 0.0066 | 0.987 | yes |
 | sp.rdrobust sharp (robust CI) | 1000 | 0 | 0.934 | 0.0079 | 0.982 | **no** |
@@ -1108,6 +1111,7 @@ Reference evidence says an estimator reproduces another implementation. Whether 
 | sp.ebalance (CIA, ATT) | 1000 | 0 | 0.945 | 0.0072 | 0.969 | yes |
 | sp.causal_question(design='dml') IRM ATE | 1000 | 0 | 0.968 | 0.0056 | 1.045 | **no** |
 | sp.dml(model='plr') theta | 1000 | 0 | 0.883 | 0.0102 | 0.885 | **no** |
+| sp.dml(model='plr') theta, default short stacking | 1000 | 0 | 0.949 | 0.0070 | 1.006 | yes |
 | sp.causal_question(design='causal_forest') AIPW ATE | 1000 | 0 | 0.959 | 0.0063 | 1.036 | yes |
 
 Designs built to break an assumption. The band is the range documented in advance for that design, not a pass mark for nominal coverage.

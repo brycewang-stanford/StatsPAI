@@ -80,6 +80,22 @@
     "wall_s": 20.7
   },
   {
+    "name": "sp.sun_abraham default ATT (staggered)",
+    "B": 1000,
+    "covered": 950,
+    "rate": 0.95,
+    "truth": 1.5,
+    "bias": -0.0006580938750957444,
+    "mc_sd": 0.10797343048412587,
+    "mean_se": 0.10960502933394085,
+    "median_se": 0.10951837377060364,
+    "se_sd_ratio": 1.0151111143037626,
+    "rmse": 0.10792143677865065,
+    "mean_ci_length": 0.43227270975542315,
+    "failures": 0,
+    "wall_s": 8.6
+  },
+  {
     "name": "sp.panel two-way FE",
     "B": 1000,
     "covered": 948,
@@ -190,6 +206,22 @@
     "mean_ci_length": 0.18492723214823467,
     "failures": 0,
     "wall_s": 242.5
+  },
+  {
+    "name": "sp.dml(model='plr') theta, default short stacking",
+    "B": 1000,
+    "covered": 949,
+    "rate": 0.949,
+    "truth": 1.0,
+    "bias": -0.002607316963210815,
+    "mc_sd": 0.049006671899908566,
+    "mean_se": 0.04930538954746613,
+    "median_se": 0.0491060217637095,
+    "se_sd_ratio": 1.0060954485578548,
+    "rmse": 0.04905150699582256,
+    "mean_ci_length": 0.19327357551350252,
+    "failures": 0,
+    "wall_s": 2129.4
   },
   {
     "name": "sp.causal_question(design='causal_forest') AIPW ATE",

@@ -1,7 +1,7 @@
 """Why does DML PLR under-cover on the Track B design?
 
 Track B's PLR row (``run_b1000.coverage_dml_plr``: n = 500, theta = 1,
-gradient-boosting nuisances by default) covers 0.883 with bias -0.026 and
+gradient-boosting nuisances, the default until 1.45) covers 0.883 with bias -0.026 and
 SE/SD 0.88. ``sp.dml`` returns DoubleML's numbers to 1e-16 on the same folds
 and learners, so the question is about the procedure, not the code. This
 script varies one thing at a time on the same DGP (B draws each):
@@ -87,6 +87,10 @@ def run(n: int, learner: str) -> dict:
         kw = {}
         if learner == "oracle":
             kw = {"model_y": _Oracle(_e_y), "model_d": _Oracle(_e_d)}
+        elif learner == "gbm_default":
+            # Gradient boosting was the PLR default until 1.45; naming it
+            # keeps these rows on the learner they were run with.
+            kw = {"ml_g": "gbm", "ml_m": "gbm"}
         elif LEARNERS[learner]() is not None:
             kw = {"model_y": LEARNERS[learner](), "model_d": LEARNERS[learner]()}
         with warnings.catch_warnings():

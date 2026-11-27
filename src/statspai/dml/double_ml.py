@@ -277,7 +277,8 @@ def dml(
     nuisance functions give 0.95 and a random forest or a spline Lasso
     about 0.94
     (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``).
-    Short stacking covers 0.96 there and better than gradient boosting
+    Short stacking covers 0.96 there (0.949 over the 1,000 draws of the
+    Track B row) and better than gradient boosting
     under linear confounding, but less under smooth additive confounding
     in ten covariates (0.72 against 0.86 at n = 500), and no learner of
     the roster covers when the confounders interact

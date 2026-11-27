@@ -227,9 +227,23 @@ def coverage_dml_plr() -> dict:
     The IRM row above answers a different question (binary treatment,
     interactive model). The twelve-estimator suite lists ``sp.dml(model=
     "plr")``, so it gets its own row: continuous treatment, nonlinear
-    nuisances, ``theta = 1``, five-fold cross-fitting with the default
-    learners.
+    nuisances, ``theta = 1``, five-fold cross-fitting with gradient
+    boosting on both nuisances. That was the default learner until 1.45,
+    and the call names it so the row keeps describing the fit it ran.
     """
+    return _coverage_dml_plr(
+        "sp.dml(model='plr') theta",
+        ml_g="gbm",
+        ml_m="gbm",
+    )
+
+
+def coverage_dml_plr_stack() -> dict:
+    """The same design under the PLR default since 1.45, short stacking."""
+    return _coverage_dml_plr("sp.dml(model='plr') theta, default short stacking")
+
+
+def _coverage_dml_plr(name: str, **learners) -> dict:
     truth = 1.0
     acc = _Draws(truth)
     for seed in range(B):
@@ -241,10 +255,17 @@ def coverage_dml_plr() -> dict:
         y = truth * d + x1 + 0.5 * x2**2 + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
         r = sp.dml(
-            df, y="y", d="d", X=["x1", "x2"], model="plr", n_folds=5, random_state=seed
+            df,
+            y="y",
+            d="d",
+            X=["x1", "x2"],
+            model="plr",
+            n_folds=5,
+            random_state=seed,
+            **learners,
         )
         acc.add(r.estimate, r.se, r.ci)
-    return acc.summary("sp.dml(model='plr') theta")
+    return acc.summary(name)
 
 
 def coverage_causal_forest() -> dict:
@@ -401,7 +422,28 @@ def coverage_sun_abraham() -> dict:
     Same DGP as ``coverage_cs`` (cohorts {3,5,7,never}, homogeneous
     truth), so the interaction-weighted aggregation is checked directly
     rather than only through cross-estimator agreement.
+
+    This row ran the pre-1.41 defaults (equal-weight event-time headline,
+    normal intervals), pinned so it reproduces.
     """
+    return _coverage_sun_abraham(
+        "sp.sun_abraham overall ATT (staggered)",
+        aggregation="event_time",
+        crit_dist="normal",
+    )
+
+
+def coverage_sun_abraham_default() -> dict:
+    """The same draws under the defaults since 1.41.
+
+    The headline is the cohort-by-period cell-weighted ATT of
+    ``fixest::summary(agg = "att")`` with Student-t intervals on the
+    cluster degrees of freedom.
+    """
+    return _coverage_sun_abraham("sp.sun_abraham default ATT (staggered)")
+
+
+def _coverage_sun_abraham(name: str, **options) -> dict:
     truth = 1.5
     acc = _Draws(truth)
     cohorts = [3, 5, 7, 0]
@@ -417,19 +459,9 @@ def coverage_sun_abraham() -> dict:
                 y = 0.2 * t + truth * post + ui + rng.normal(scale=0.8)
                 rows.append({"i": i, "t": t, "g": g, "y": y})
         df = pd.DataFrame(rows)
-        # The committed B=1,000 row ran the pre-1.41 defaults (equal-weight
-        # event-time headline, normal intervals); pinned so it reproduces.
-        r = sp.sun_abraham(
-            df,
-            y="y",
-            g="g",
-            t="t",
-            i="i",
-            aggregation="event_time",
-            crit_dist="normal",
-        )
+        r = sp.sun_abraham(df, y="y", g="g", t="t", i="i", **options)
         acc.add(r.estimate, r.se, r.ci)
-    return acc.summary("sp.sun_abraham overall ATT (staggered)")
+    return acc.summary(name)
 
 
 def main() -> None:
@@ -444,6 +476,7 @@ def main() -> None:
         coverage_iv,
         coverage_cs,
         coverage_sun_abraham,
+        coverage_sun_abraham_default,
         coverage_panel_fe,
         coverage_fast_feols,
         coverage_rd,
@@ -451,6 +484,7 @@ def main() -> None:
         coverage_ebalance,
         coverage_dml,
         coverage_dml_plr,
+        coverage_dml_plr_stack,
         coverage_causal_forest,
     ]
     only = set(os.environ.get("STATSPAI_B1000_ONLY", "").split(",")) - {""}

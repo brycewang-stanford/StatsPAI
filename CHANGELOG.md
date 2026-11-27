@@ -2,6 +2,45 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.46.7] — 2026-11-28
+
+Coverage evidence for two defaults that had none. The short-stacking
+default of `sp.dml(model="plr")` (since 1.45) and the cell-weighted
+headline of `sp.sun_abraham` (since 1.41) each get a 1,000-draw coverage
+row, and `sp.validation_scope` reports them. No estimate changes.
+
+### Added
+
+- **Coverage rows for the current PLR and Sun-Abraham defaults.**
+  `tests/coverage_monte_carlo/run_b1000.py` runs the PLR design under
+  the default short stacking and covers 0.949 (bias 0.05 of a Monte
+  Carlo SD, mean SE 1.01 of that SD), against 0.883 for gradient
+  boosting, the default before 1.45, on the same draws. This is one
+  design. Short stacking covered as low as 0.72 under smooth additive
+  confounding in `tests/reliability/dml_learners.py`, and that figure
+  stays in `model_info["learner_note"]`. The Sun-Abraham design under
+  the default headline (cell-weighted ATT, Student-t intervals) covers
+  0.950, as the event-time headline with normal intervals does.
+- **`sp.validation_scope` on a default PLR fit** returns
+  `stochastic_only` with the new row attached, where it returned
+  `not_covered`. A default `sp.sun_abraham` fit now has a coverage row
+  next to its reference rows.
+- **A fit with `ml_g="gbm", ml_m="gbm"` is recognised as the earlier
+  default.** `sp.dml` records the string aliases it was given in
+  `model_info["learner_aliases"]`, and `sp.validation_scope` maps such a
+  fit to `learners="gbm"`, so the 0.883 row reaches the fit that
+  reproduces it. An estimator object of the same class still reads as
+  `"other"`, since its settings are not compared.
+
+### Fixed
+
+- **The gradient-boosting coverage row did not name its learner.**
+  `coverage_dml_plr` called `sp.dml` with no learners, so after the 1.45
+  default change a rerun of the script would have produced short-stacking
+  numbers under the stored row's name. The call now passes
+  `ml_g="gbm", ml_m="gbm"` and reproduces the stored row bit for bit.
+  `mechanisms/dml_plr_learners.py` is pinned the same way.
+
 ## [1.46.6] — 2026-11-26
 
 One change from Ian Gow's reading of the Event studies chapter

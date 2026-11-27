@@ -233,20 +233,39 @@ def test_a_weighted_regress_is_its_own_cell(card):
     assert weighted["outputs"]["se"]["status"] == "not_covered"
 
 
-def test_default_learner_dml_has_no_row_and_the_linear_row_is_a_near_miss(card):
-    # Since 1.45 the PLR default is short stacking, which no artifact ran.
+def test_default_learner_dml_has_a_coverage_row_only(card):
+    # Since 1.45 the PLR default is short stacking. Its evidence is one
+    # coverage row; no reference pins the estimate, so the linear-learner
+    # parity module stays a near miss.
     fit = _quiet(sp.dml, card, y="lwage", d="educ", X=["exper", "black"], model="plr")
     scope = sp.validation_scope(fit)
     assert scope["configuration"]["learners"] == "stack"
-    assert scope["status"] == "not_covered"
+    assert scope["status"] == "stochastic_only"
     assert scope["outputs"]["estimate"]["status"] == "not_covered"
-    assert scope["outputs"]["coverage"]["status"] == "not_covered"
+    assert scope["outputs"]["coverage"]["status"] == "coverage_simulation"
+    assert "0.949" in scope["outputs"]["coverage"]["evidence"][0]["compares"]
     assert any(
         n["artifact"].endswith("08_dml.py") and n["differs_in"] == "learners"
         for n in scope["near_misses"]
     )
-    # The Track B coverage row ran gradient boosting, the default before
-    # 1.45; it is reached by name.
+    # Gradient boosting, the default before 1.45, has its own coverage
+    # row. A fit that names it by the 'gbm' alias reaches that row, and so
+    # does a query by name.
+    old = sp.validation_scope(
+        _quiet(
+            sp.dml,
+            card,
+            y="lwage",
+            d="educ",
+            X=["exper", "black"],
+            model="plr",
+            ml_g="gbm",
+            ml_m="gbm",
+        )
+    )
+    assert old["configuration"]["learners"] == "gbm"
+    assert old["status"] == "stochastic_only"
+    assert "0.883" in old["outputs"]["coverage"]["evidence"][0]["compares"]
     gbm = sp.validation_scope(
         function="dml",
         model="plr",
@@ -780,16 +799,16 @@ def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
     assert fixed["outputs"]["vcov"]["evidence"][0]["artifact"].endswith(
         "test_event_study_vcov_R_parity.py"
     )
-    # The coverage simulation (Track B, frozen) ran the pre-1.41 default
-    # only: the event-time headline with normal intervals. The 1.41 default
-    # (fixest_att, t(G-1)) has no coverage row until Track B is rerun.
+    # The coverage simulation has one row for the pre-1.41 default (the
+    # event-time headline with normal intervals) and one for the default
+    # since 1.41 (fixest_att, t(G-1)). Neither ran share_variance=False.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         old = sp.validation_scope(
             sp.sun_abraham(mp, **keys, aggregation="event_time", crit_dist="normal")
         )
     assert old["outputs"]["coverage"]["status"] == "coverage_simulation"
-    assert default["outputs"]["coverage"]["status"] == "not_covered"
+    assert default["outputs"]["coverage"]["status"] == "coverage_simulation"
     assert fixed["outputs"]["coverage"]["status"] == "not_covered"
     # A by-name query that omits the new dimension means the default.
     by_name = sp.validation_scope(
