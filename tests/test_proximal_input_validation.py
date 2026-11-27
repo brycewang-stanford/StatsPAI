@@ -186,3 +186,45 @@ def test_proximal_regression_refuses_a_continuous_treatment():
         sp.proximal_regression(df, y="y", treat="d", z_proxy="q", w_proxy="s")
     fit = sp.proximal(df, y="y", treat="d", proxy_z=["q"], proxy_w=["s"])
     assert abs(fit.estimate - 2.0) < 4 * fit.se
+
+
+def test_proximal_regression_propensity_coefs_align_with_logit():
+    """propensity_coefs must report the full intercept and every covariate slope."""
+    from sklearn.linear_model import LogisticRegression
+
+    rng = np.random.default_rng(7)
+    n = 400
+    u = rng.normal(size=n)
+    x1 = rng.normal(size=n)
+    x2 = rng.normal(size=n)
+    z = 0.7 * u + 0.5 * rng.normal(size=n)
+    w = 0.7 * u + 0.5 * rng.normal(size=n)
+    logits = 0.4 + 1.5 * z - 0.8 * x1 + 0.6 * x2
+    d = (rng.random(n) < 1.0 / (1.0 + np.exp(-logits))).astype(int)
+    y = 1.2 * d + 0.9 * u + 0.3 * x1 - 0.4 * x2 + rng.normal(size=n)
+    df = pd.DataFrame({"Y": y, "D": d, "Z": z, "W": w, "X1": x1, "X2": x2})
+
+    res = sp.proximal_regression(
+        df, y="Y", treat="D", z_proxy="Z", w_proxy="W", covariates=["X1", "X2"]
+    )
+    lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500).fit(
+        df[["Z", "X1", "X2"]].to_numpy(), d
+    )
+    assert set(res.propensity_coefs.keys()) == {"intercept", "Z", "X1", "X2"}
+    assert res.propensity_coefs["intercept"] == pytest.approx(
+        float(lr.intercept_[0]), abs=1e-10
+    )
+    for name, expected in zip(["Z", "X1", "X2"], lr.coef_[0]):
+        assert res.propensity_coefs[name] == pytest.approx(float(expected), abs=1e-10)
+
+    res_no_cov = sp.proximal_regression(df, y="Y", treat="D", z_proxy="Z", w_proxy="W")
+    lr_no_cov = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500).fit(
+        df[["Z"]].to_numpy(), d
+    )
+    assert set(res_no_cov.propensity_coefs.keys()) == {"intercept", "Z"}
+    assert res_no_cov.propensity_coefs["intercept"] == pytest.approx(
+        float(lr_no_cov.intercept_[0]), abs=1e-10
+    )
+    assert res_no_cov.propensity_coefs["Z"] == pytest.approx(
+        float(lr_no_cov.coef_[0][0]), abs=1e-10
+    )
