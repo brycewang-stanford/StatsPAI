@@ -587,7 +587,18 @@ class OLSEstimator(BaseEstimator):
         # undefined and the fit is degenerate. Warn explicitly rather than
         # relying on a NumPy divide-by-zero RuntimeWarning, which newer NumPy
         # (>= 2.x) no longer reliably emits.
-        if n > 1 and float(np.ptp(np.asarray(y, dtype=float))) == 0.0:
+        # Without a constant column the regression is not explaining
+        # variation around a mean: regressing 1 on u1, u2 is the standard
+        # robust LM statistic (Wooldridge example 8.3), whose R-squared is
+        # the uncentred one, so a constant y is the design, not a problem.
+        _Xf = np.asarray(X, dtype=float)
+        _has_const = bool(
+            k
+            and np.any(
+                (np.ptp(_Xf, axis=0) == 0.0) & (np.abs(_Xf[0]) > 0.0) if n else False
+            )
+        )
+        if n > 1 and _has_const and float(np.ptp(np.asarray(y, dtype=float))) == 0.0:
             warnings.warn(
                 "OLS outcome has zero variance (constant y): the model cannot "
                 "explain any variation and R-squared is undefined.",
@@ -1987,7 +1998,10 @@ def regress(
         Lazarus, Lewis, Stock and Watson (2018), with t and F critical
         values whose degrees of freedom are the number of cosine terms: in
         time-series regressions it rejects a true null much less often than
-        Newey-West with a short lag length.
+        Newey-West with a short lag length. ``'newey'`` is Stata's
+        ``newey``: ``'hac'`` with ``hac_small=True`` (the ``N / (N - K)``
+        factor), so ``robust='newey', hac_lags=2`` reproduces
+        ``newey y x, lag(2)``.
     cluster : str or list of two str, optional
         Variable name for clustering. A list of two names gives two-way
         clustering by inclusion-exclusion, with the whole meat scaled by
@@ -2243,6 +2257,12 @@ def regress(
     # --- Stata grammar: vce='robust' / True / 'cluster firm' / 'vce(hc3)' ---
     # ``vce='robust'`` (Stata's most common spelling) used to raise, and
     # ``vce='cluster'`` worked only by accident when cluster= was also set.
+    if isinstance(robust, str) and robust.strip().lower() == "newey":
+        # Stata's ``newey``: Newey-West with the N / (N - K) factor. The
+        # bare 'hac' is sandwich::NeweyWest(adjust = FALSE) / statsmodels,
+        # which is 7% smaller on Wooldridge example 12.7 (0.0426 vs 0.0457).
+        robust = "hac"
+        hac_small = True
     if not isinstance(robust, dict):
         from ..core._vcov_spec import parse_se_request
 

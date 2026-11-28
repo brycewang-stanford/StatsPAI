@@ -21,7 +21,7 @@ coefficient name as zero.
 from __future__ import annotations
 
 import re
-from typing import Any, List, Sequence, Tuple, Union
+from typing import Any, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -34,6 +34,7 @@ from ._covariance import coefficient_scale, inference_df, require_covariance
 def test(
     result: Any,
     hypothesis: Union[str, Sequence[str]],
+    omitted: Literal["error", "skip"] = "error",
 ) -> dict[str, Any]:
     """
     Wald test for linear restrictions on coefficients.
@@ -65,6 +66,12 @@ def test(
           calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``"i.race"``
           on its own tests every level of the factor jointly (Stata's
           ``testparm i.race``).
+    omitted : {'error', 'skip'}, default 'error'
+        What to do with a restriction on a coefficient the fit omitted as
+        collinear. ``'error'`` refuses the test; ``'skip'`` drops those
+        restrictions and tests the rest, as Stata's ``test`` does
+        (``(1) o.judge_pre_8 = 0 ... constraint 1 dropped``); the dropped
+        ones are listed under ``omitted_dropped``.
 
     Returns
     -------
@@ -100,9 +107,14 @@ def test(
     True
     >>> restr = sp.test(result, "x1 + x2 = 1")  # beta1 + beta2 = 1?
     """
+    if omitted not in ("error", "skip"):
+        raise MethodIncompatibility(
+            f"test(): omitted={omitted!r} is not 'error' or 'skip'."
+        )
     result = coefficient_scale(result)
     params = _params(result)
-    R, r = _parse_hypothesis(hypothesis, params)
+    skipped: Optional[List[str]] = [] if omitted == "skip" else None
+    R, r = _parse_hypothesis(hypothesis, params, skipped)
     R, r = _independent_restrictions(R, r, str(hypothesis))
     V = require_covariance(result, R, f"test({hypothesis!r})")
 
@@ -131,6 +143,7 @@ def test(
             recovery_hint="Check for coefficients with zero variance.",
         ) from exc
 
+    extra = {"omitted_dropped": list(skipped)} if skipped else {}
     df_resid = inference_df(result)
     if hotelling:
         # An orthogonal-series long-run variance with B terms (robust='ewc'):
@@ -145,6 +158,7 @@ def test(
             "hypothesis": hypothesis,
             "chi2": wald,
             "distribution": "F",
+            **extra,
         }
     if np.isfinite(df_resid):
         f_stat = wald / q
@@ -155,6 +169,7 @@ def test(
             "hypothesis": hypothesis,
             "chi2": wald,
             "distribution": "F",
+            **extra,
         }
     return {
         "statistic": wald,
@@ -163,6 +178,7 @@ def test(
         "hypothesis": hypothesis,
         "chi2": wald,
         "distribution": "chi2",
+        **extra,
     }
 
 
@@ -354,6 +370,10 @@ def _factor_matches(name: str, names: List[str]) -> List[int]:
     return hits
 
 
+class _OmittedTerm(MethodIncompatibility):
+    """A restriction names a coefficient the fit omitted (collinear)."""
+
+
 def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
     names = list(params.index)
     if name in names:
@@ -382,12 +402,13 @@ def _resolve_name(name: str, params: pd.Series, expression: str) -> int:
         # Stata keeps the term at 0 and drops the constraint ("constraint
         # dropped"); a test of it is not a test of anything identified
         reason = f" ({omitted[name]})" if omitted[name] else ""
-        raise MethodIncompatibility(
+        raise _OmittedTerm(
             f"{name!r} in {expression!r} was omitted from the model{reason}, "
             "so a restriction on it is not estimable.",
-            recovery_hint="Restate the hypothesis on an identified combination: "
-            "with x2 = c*x1 omitted, the coefficient on x1 is the effect of "
-            "x1 + c*x2.",
+            recovery_hint="Restate the hypothesis on an identified combination "
+            "(with x2 = c*x1 omitted, the coefficient on x1 is the effect of "
+            "x1 + c*x2), or pass omitted='skip' to drop the restrictions on "
+            "omitted terms as Stata's test does ('constraint dropped').",
             diagnostics={"omitted": dict(omitted)},
         )
     for token, real in zip(names, shown):
@@ -527,6 +548,7 @@ def _shield_names(text: str, params: pd.Series) -> Tuple[str, pd.Series]:
 def _parse_hypothesis(
     hypothesis: Any,
     params: pd.Series,
+    skipped: Optional[List[str]] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Parse a hypothesis string into the restriction matrix R and vector r.
@@ -545,7 +567,19 @@ def _parse_hypothesis(
                 "test() takes a hypothesis string or a list of them, e.g. "
                 "['x1 = 0', 'x2 = x3']."
             )
-        stacked = [_parse_hypothesis(h, params) for h in hypothesis]
+        stacked = []
+        for h in hypothesis:
+            try:
+                stacked.append(_parse_hypothesis(h, params, skipped))
+            except _OmittedTerm:
+                if skipped is None:
+                    raise
+                if h not in skipped:
+                    skipped.append(h)
+        if not stacked:
+            raise MethodIncompatibility(
+                f"Every restriction in {hypothesis!r} involves an omitted term."
+            )
         return (
             np.vstack([rows for rows, _ in stacked]),
             np.concatenate([values for _, values in stacked]),
@@ -576,7 +610,13 @@ def _parse_hypothesis(
     values: List[float] = []
     for group in groups:
         if "=" in group:
-            g_rows, g_values = _parse_equality_chain(group, params)
+            try:
+                g_rows, g_values = _parse_equality_chain(group, params)
+            except _OmittedTerm:
+                if skipped is None:
+                    raise
+                skipped.append(group.strip())
+                continue
         else:
             # Stata's `test x1 x2`: every listed coefficient equals zero.
             g_rows, g_values = [], []
@@ -585,7 +625,13 @@ def _parse_hypothesis(
                 shown = params.attrs.get("display", list(params.index))
                 several = _factor_matches(name, [str(n) for n in shown])
                 if len(several) < 2 or name in params.index:
-                    several = [_resolve_name(name, params, hypothesis)]
+                    try:
+                        several = [_resolve_name(name, params, hypothesis)]
+                    except _OmittedTerm:
+                        if skipped is None:
+                            raise
+                        skipped.append(name)
+                        continue
                 for position in several:
                     row = np.zeros(len(params), dtype=float)
                     row[position] = 1.0
@@ -594,6 +640,11 @@ def _parse_hypothesis(
         rows.extend(g_rows)
         values.extend(g_values)
     if not rows:
+        if skipped:
+            raise _OmittedTerm(
+                f"Every restriction in {hypothesis!r} involves an omitted "
+                f"term ({', '.join(skipped)}); nothing is left to test."
+            )
         raise MethodIncompatibility(f"Cannot parse hypothesis {hypothesis!r}.")
     return np.vstack(rows), np.asarray(values, dtype=float)
 

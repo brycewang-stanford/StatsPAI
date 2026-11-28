@@ -154,7 +154,8 @@ class TestWeightedVarianceMenu:
         "bad, exc, match",
         [
             (np.inf, DataInsufficient, "infinite value"),
-            (0.0, MethodIncompatibility, "strictly positive"),
+            # 0.0 leaves the sample since 1.47 (Stata's aweight rule), see
+            # tests/test_textbook_parity_nov28.py
             (-1.0, MethodIncompatibility, "strictly positive"),
         ],
     )

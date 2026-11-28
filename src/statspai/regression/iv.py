@@ -3646,6 +3646,22 @@ def ivreg(
     se_kw = vce if vce is not None else robust
     # The fitted model, kept for the weak-identification statistics.
     _models: List[Any] = []
+    # ``small=False`` is ``ivregress`` without ``small`` (z, no N-K); the
+    # default is the small-sample fit, as for sp.iv.
+    small = kwargs.pop("small", True)
+    _special_se = isinstance(se_kw, str) and se_kw.strip().lower() in (
+        "wild",
+        "cr2",
+        "cr3",
+        "conley",
+        "jackknife",
+    )
+    if small is not True and (_special_se or isinstance(cluster, (list, tuple))):
+        raise MethodIncompatibility(
+            "ivreg: small=False is defined for the conventional, robust and "
+            "one-way clustered variances (ivregress).",
+            recovery_hint="Drop small=False for this standard-error choice.",
+        )
 
     def _two_sls_only(what: str) -> None:
         # The wild / CR2 / CR3 / Conley / two-way variances below are
@@ -3870,8 +3886,8 @@ def ivreg(
     reject_unknown_kwargs(
         kwargs,
         function="ivreg",
-        # ``small`` / ``iv_diag`` used to be listed here and then dropped
-        # downstream without effect; they are rejected until implemented.
+        # ``iv_diag`` used to be listed here and then dropped downstream
+        # without effect; it is rejected until implemented.
         known=("method", "alpha", "weights", "weights_as"),
     )
     result = iv(
@@ -3880,6 +3896,7 @@ def ivreg(
         robust=se_kw,
         cluster=cluster,
         _model_sink=_models,
+        small=small,
         **kwargs,
     )
     _attach_weak_id(_models, result, augmented_diagnostics)

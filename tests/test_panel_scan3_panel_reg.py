@@ -323,13 +323,32 @@ class TestRefusals:
                 bad, "y ~ x1 + x2", entity="id", time="t", weights="w", missing="raise"
             )
 
-    @pytest.mark.parametrize("bad", [0.0, -1.0])
-    def test_bad_weight_is_refused(self, bad):
+    def test_negative_weight_is_refused(self):
         df = _panel()
         w = df["w"].to_numpy().copy()
-        w[3] = bad
+        w[3] = -1.0
         with pytest.raises(MethodIncompatibility, match="strictly positive"):
             sp.panel(df.assign(w=w), "y ~ x1 + x2", entity="id", time="t", weights="w")
+
+    def test_zero_weight_row_leaves_the_sample(self):
+        # Stata's [aweight=] drops a w == 0 row (1.47; refused before)
+        df = _panel()
+        w = df["w"].to_numpy().copy()
+        w[3] = 0.0
+        with pytest.warns(sp.AssumptionWarning, match="zero weight"):
+            got = sp.panel(
+                df.assign(w=w), "y ~ x1 + x2", entity="id", time="t", weights="w"
+            )
+        want = sp.panel(
+            df.assign(w=w).drop(index=df.index[3]),
+            "y ~ x1 + x2",
+            entity="id",
+            time="t",
+            weights="w",
+        )
+        np.testing.assert_allclose(
+            np.asarray(got.params, float), np.asarray(want.params, float), rtol=1e-12
+        )
 
     def test_fd_cannot_cluster_on_time_through_linearmodels(self):
         # linearmodels' path refuses; the default (ssc='stata' since 1.42) is

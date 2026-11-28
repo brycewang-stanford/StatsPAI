@@ -87,6 +87,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -215,7 +216,7 @@
           },
           "robust": {
             "default": "nonrobust",
-            "description": "Standard error type",
+            "description": "Standard error type ('newey' = Stata newey: 'hac' with the N/(N-K) factor)",
             "enum": [
               "nonrobust",
               "hc0",
@@ -223,7 +224,9 @@
               "hc2",
               "hc3",
               "hc4",
-              "hac"
+              "hac",
+              "newey",
+              "ewc"
             ],
             "type": "string"
           },
@@ -367,6 +370,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -658,6 +662,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -1497,6 +1502,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -2053,6 +2059,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -2218,6 +2225,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -2394,6 +2402,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -2597,6 +2606,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -2757,6 +2767,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -3151,6 +3162,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -3370,6 +3382,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -5570,7 +5583,7 @@
           },
           "placebo": {
             "default": true,
-            "description": "Run placebo inference. For ``method='classic'`` pass ``n_jobs=`` (e.g. ``-1``) to fit the in-space placebos in parallel worker processes; results are bit-identical to the serial loop. See :class:`SyntheticControl`. The classic fit then also returns ``model_info['placebo_table']`` (pre- and post-treatment MSPE and their ratio, per unit) and ``model_info['placebo_effects']`` (two-, right- and left-sided placebo p-values per post-treatment period, the treated unit counted among the units compared). Further keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out of those p-values the pretend units whose pre-treatment MSPE exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits as if the treatment had started at ``t`` (``model_info['placebo_time']``); ``loo=True`` drops, one at a time, each donor with a weight of at least 0.0005 and reports the range of the synthetic path (``model_info['loo']``); ``placebo_units=[...]`` restricts the pretend-treated units of those tables (and of ``pvalue``); ``pre_periods=[...]`` and ``post_periods=[...]`` restrict the periods the fit and the effect use. These are the reports of Stata's ``synth2``.",
+            "description": "Run placebo inference. For ``method='classic'`` pass ``n_jobs=`` (e.g. ``-1``) to fit the in-space placebos in parallel worker processes; results are bit-identical to the serial loop. See :class:`SyntheticControl`. The classic fit then also returns ``model_info['placebo_table']`` (pre- and post-treatment MSPE and their ratio, per unit) and ``model_info['placebo_effects']`` (two-, right- and left-sided placebo p-values per post-treatment period, the treated unit counted among the units compared). Further keywords of ``method='classic'``: ``placebo_cutoff=c`` leaves out of those p-values the pretend units whose pre-treatment MSPE exceeds ``c`` times the treated unit's; ``placebo_time=t`` refits as if the treatment had started at ``t`` (``model_info['placebo_time']``); ``loo=True`` drops, one at a time, each donor with a weight of at least 0.0005 and reports the range of the synthetic path (``model_info['loo']``); ``placebo_units=[...]`` restricts the pretend-treated units of those tables (and of ``pvalue``); ``pre_periods=[...]`` and ``post_periods=[...]`` restrict the periods the fit and the effect use. These are the reports of Stata's ``synth2``. ``mspe_period=[...]`` is Stata ``synth``'s ``mspeperiod()``: the periods over which the outcome MSPE that chooses the predictor weights ``V`` (and the regression-based ``V``) is computed, the pre-treatment periods by default. The in-space placebos use the same window, and each placebo's donor pool keeps the treated unit (Abadie, Diamond and Hainmueller's loop; ``placebo_weights`` shows its weight).",
             "type": "boolean",
             "x-statspai-source": "signature"
           },
@@ -11227,6 +11240,11 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "constant": {
+            "default": false,
+            "description": "method='fd' only: intercept in the differenced equation (Stata regress D.y D.x; default is the nocons fit)",
+            "type": "boolean"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -14690,6 +14708,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -14876,6 +14895,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15041,6 +15061,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15197,6 +15218,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15375,6 +15397,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15570,6 +15593,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15765,6 +15789,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -15983,6 +16008,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -16183,6 +16209,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -16347,6 +16374,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -16527,6 +16555,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -16981,6 +17010,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -17118,6 +17148,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -17267,6 +17298,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -28493,6 +28525,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -29279,6 +29312,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -29693,6 +29727,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -32890,6 +32925,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -33032,6 +33068,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -33167,6 +33204,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -35270,6 +35308,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -71715,6 +71754,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -81999,6 +82039,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -90475,6 +90516,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -90629,6 +90671,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -99504,6 +99547,13 @@
             "description": "Long-format panel ``(unit, time, outcome, ...)``.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "mspe_period": {
+            "description": "mspe_period parameter (Optional[Sequence[Any]]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "n_jobs": {
             "default": 1,
@@ -109976,6 +110026,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -110216,6 +110267,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -110448,6 +110500,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -110628,6 +110681,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -110906,6 +110960,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -111137,6 +111192,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -111909,6 +111965,15 @@
             ],
             "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``)."
           },
+          "omitted": {
+            "default": "error",
+            "description": "What to do with a restriction on a coefficient the fit omitted as collinear. ``'error'`` refuses the test; ``'skip'`` drops those restrictions and tests the rest, as Stata's ``test`` does (``(1) o.judge_pre_8 = 0 ... constraint 1 dropped``); the dropped ones are listed under ``omitted_dropped``.",
+            "enum": [
+              "error",
+              "skip"
+            ],
+            "type": "string"
+          },
           "result": {
             "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix. After a fit reported as incidence-rate ratios (``irr=True``) the restrictions are on the coefficients ``b``, not on ``exp(b)``, as Stata's ``test`` after ``poisson, irr``.",
             "type": "string"
@@ -112117,6 +112182,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -112291,6 +112357,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -115106,6 +115173,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -115233,6 +115301,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -115784,6 +115853,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -115917,6 +115987,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -128296,6 +128367,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -128475,6 +128547,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -128644,6 +128717,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -128813,6 +128887,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -128982,6 +129057,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -129213,6 +129289,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -129431,6 +129508,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -129600,6 +129678,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -129773,6 +129852,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -129978,6 +130058,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -130170,6 +130251,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -130360,6 +130442,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -131632,6 +131715,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -131882,6 +131966,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -132119,6 +132204,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -132725,6 +132811,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -139856,6 +139943,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -140515,6 +140603,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -140672,6 +140761,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -140850,6 +140940,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -141010,6 +141101,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -141916,6 +142008,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -142103,13 +142196,19 @@
       "description": "SURResult",
       "fields": {
         "breusch_pagan": "Optional[Dict[str, Any]]",
+        "data_info": "Any",
         "equations": "Dict[str, Dict[str, Any]]",
         "method": "str",
+        "model_info": "Any",
         "n_equations": "int",
         "n_obs": "int",
+        "params": "Any",
         "params_all": "ndarray",
+        "pvalues": "Any",
         "se_all": "ndarray",
-        "sigma": "DataFrame"
+        "sigma": "DataFrame",
+        "std_errors": "Any",
+        "tvalues": "Any"
       }
     },
     "signature": {
@@ -142269,13 +142368,19 @@
       "description": "SURResult",
       "fields": {
         "breusch_pagan": "Optional[Dict[str, Any]]",
+        "data_info": "Any",
         "equations": "Dict[str, Dict[str, Any]]",
         "method": "str",
+        "model_info": "Any",
         "n_equations": "int",
         "n_obs": "int",
+        "params": "Any",
         "params_all": "ndarray",
+        "pvalues": "Any",
         "se_all": "ndarray",
-        "sigma": "DataFrame"
+        "sigma": "DataFrame",
+        "std_errors": "Any",
+        "tvalues": "Any"
       }
     },
     "signature": {
@@ -142411,6 +142516,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -142602,6 +142708,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -142792,6 +142899,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -145526,6 +145634,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -151965,6 +152074,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152096,6 +152206,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152225,6 +152336,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152365,6 +152477,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152515,6 +152628,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152681,6 +152795,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",
@@ -152851,6 +152966,7 @@
       "fields": {
         "alpha": "float",
         "data_info": "Optional[Dict[str, Any]]",
+        "df_resid": "Any",
         "diagnostics": "Optional[Dict[str, Any]]",
         "model_info": "Dict[str, Any]",
         "n_obs": "Any",

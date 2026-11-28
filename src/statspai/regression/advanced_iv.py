@@ -31,7 +31,7 @@ High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.
 
 import re
 import warnings
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -88,6 +88,58 @@ def _parse_liml_formula(
             ),
         )
     return lhs.strip(), _terms(parts[0]), _terms(parts[1]), _terms(parts[2])
+
+
+def _omit_collinear_iv(
+    df: pd.DataFrame,
+    x_endog: List[str],
+    x_exog: List[str],
+    z: List[str],
+    who: str,
+) -> Tuple[List[str], List[str], List[Dict[str, str]]]:
+    """Omit perfectly collinear exogenous regressors and instruments.
+
+    Scans the constant, then ``x_exog``, then ``z`` in the order written,
+    and omits the later member of each dependent set, as Stata's
+    ``ivregress`` / ``jive`` do (``note: t6 omitted because of
+    collinearity``). An endogenous regressor that the exogenous columns
+    reproduce is refused, since dropping it would change the question.
+    """
+    from ..core._collinear import drop_collinear
+
+    n = len(df)
+    cols = list(x_exog) + list(z)
+
+    def _design(names: List[str]) -> np.ndarray:
+        return np.column_stack(
+            [np.ones(n)] + [df[v].to_numpy(dtype=float) for v in names]
+        )
+
+    _, kept, omitted, _ = drop_collinear(
+        _design(cols), ["_cons"] + cols, who, stacklevel=4
+    )
+    kept_set = set(kept)
+    x_exog = [v for v in x_exog if v in kept_set]
+    z = [v for v in z if v in kept_set]
+    if not z:
+        raise MethodIncompatibility(
+            f"{who}: every excluded instrument is collinear with the included "
+            "exogenous regressors",
+            recovery_hint="Pass instruments that vary independently of x_exog.",
+        )
+    endog_cols = x_exog + list(x_endog)
+    _, _, endog_omitted, _ = drop_collinear(
+        _design(endog_cols), ["_cons"] + endog_cols, who, stacklevel=4
+    )
+    if endog_omitted:
+        raise MethodIncompatibility(
+            f"{who}: endogenous regressor(s) "
+            + ", ".join(o["variable"] for o in endog_omitted)
+            + " collinear with the included exogenous regressors",
+            recovery_hint="Remove the endogenous regressor or the exogenous "
+            "regressors it duplicates.",
+        )
+    return x_exog, z, omitted
 
 
 @records_call("liml")
@@ -188,6 +240,7 @@ def liml(
     refuse_label_columns(data, list(x_endog) + list(x_exog) + list(z), function="liml")
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
+    x_exog, z, omitted = _omit_collinear_iv(df, x_endog, list(x_exog), list(z), "liml")
 
     Y = df[y].values.astype(float)
     X_endog = df[x_endog].values.astype(float).reshape(n, -1)
@@ -371,6 +424,7 @@ def liml(
             "endog_vars": x_endog,
             "instruments": z,
             "first_stage_f": first_stage_f,
+            "omitted": omitted,
         },
         data_info={
             "n_obs": n,
@@ -503,6 +557,9 @@ def jive(
     refuse_label_columns(data, list(x_endog) + list(x_exog) + list(z), function="jive")
     df = data.dropna(subset=[y] + x_endog + x_exog + z)
     n = len(df)
+    # A rank-deficient Z or X used to go straight into ``inv`` and returned
+    # meaningless numbers without a warning (Mixtape judge_fe example).
+    x_exog, z, omitted = _omit_collinear_iv(df, x_endog, list(x_exog), list(z), "jive")
 
     Y = df[y].values.astype(float)
     X_endog = df[x_endog].values.astype(float).reshape(n, -1)
@@ -595,6 +652,7 @@ def jive(
             "instruments": z,
             "variant": variant,
             "first_stage_f": first_stage_f,
+            "omitted": omitted,
         },
         data_info={"n_obs": n, "df_resid": n - k, "dep_var": y},
         diagnostics={"n_instruments": len(z), "n_endogenous": len(x_endog)},

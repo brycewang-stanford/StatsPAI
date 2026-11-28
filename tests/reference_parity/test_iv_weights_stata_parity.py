@@ -135,20 +135,29 @@ def test_unknown_options_are_rejected(bad: Dict[str, Any]) -> None:
         sp.ivreg(FORMULA, data=_data(), **bad)
 
 
-def test_small_is_an_iv_option_but_not_an_ivreg_one() -> None:
-    """``sp.iv(small=)`` selects ivregress's convention (1.33);
-    ``sp.ivreg`` has no such option and still rejects it."""
+def test_small_is_an_iv_and_an_ivreg_option() -> None:
+    """``sp.iv(small=)`` selects ivregress's convention (1.33); ``sp.ivreg``
+    passes it through since 1.47, so both give the same fit."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        sp.iv(FORMULA, data=_data(), small=False)
-    with pytest.raises(TypeError, match="unexpected keyword"):
-        sp.ivreg(FORMULA, data=_data(), small=True)
+        a = sp.iv(FORMULA, data=_data(), small=False)
+        b = sp.ivreg(FORMULA, data=_data(), small=False)
+    np.testing.assert_allclose(b.std_errors, a.std_errors, rtol=1e-14)
 
 
 def test_bad_weights_fail_loudly() -> None:
+    # a zero weight leaves the sample, as in Stata (1.47); a negative one
+    # is refused
     df = _data().assign(w0=lambda d: d["w"].where(d["id"] != 3, 0.0))
+    with pytest.warns(Warning, match="zero weight"):
+        res = sp.iv(FORMULA, data=df, weights="w0")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ref = sp.iv(FORMULA, data=df[df["w0"] > 0], weights="w0")
+    np.testing.assert_allclose(res.params, ref.params, rtol=1e-12)
+    df = df.assign(wn=lambda d: d["w"].where(d["id"] != 3, -1.0))
     with pytest.raises(MethodIncompatibility, match="strictly positive"):
-        sp.iv(FORMULA, data=df, weights="w0")
+        sp.iv(FORMULA, data=df, weights="wn")
     with pytest.raises(MethodIncompatibility, match="not a column"):
         sp.iv(FORMULA, data=df, weights="nope")
 

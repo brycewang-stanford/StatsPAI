@@ -14041,7 +14041,7 @@
         },
         "version": {
           "default": "iid",
-          "description": "``'iid'`` is Koenker's N R-squared, valid without normal errors; ``'normal'`` (``'hettest'`` only) is the original score statistic, the default of Stata's ``estat hettest``; ``'fstat'`` is the F statistic of the auxiliary regression, for ``'hettest'``, ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``.",
+          "description": "``'iid'`` is Koenker's N R-squared, valid without normal errors; ``'normal'`` (``'hettest'`` only) is the original score statistic, the default of Stata's ``estat hettest``; ``'fstat'`` is the F statistic of the auxiliary regression, for ``'hettest'``, ``'white'``, ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``. Any other test refuses a ``version`` other than ``'iid'``.",
           "enum": [
             "iid",
             "normal",
@@ -29437,6 +29437,11 @@
           "description": "Cluster variable: entity, time, twoway, or any column name",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "constant": {
+          "default": false,
+          "description": "method='fd' only: intercept in the differenced equation (Stata regress D.y D.x; default is the nocons fit)",
+          "type": "boolean"
         },
         "entity": {
           "description": "Unit identifier column",
@@ -45727,6 +45732,15 @@
             }
           ],
           "description": "Hypothesis specification (Stata ``test`` syntax), or a list of them to be tested jointly (``[\"x1 = 0\", \"x2 = 2*x3\"]``). A coefficient is named as the result names it, including names such as ``I(exper ** 2)`` or ``np.log(sales)``. Examples: - ``\"x1 = 0\"`` -- beta_x1 = 0 - ``\"x1 = x2\"`` -- beta_x1 = beta_x2 - ``\"x1 = x2 = 0\"`` -- joint: beta_x1 = beta_x2 and beta_x2 = 0 - ``\"x1 x2\"`` -- joint: beta_x1 = 0 and beta_x2 = 0 - ``\"(x1 = 0) (x2 + x3 = 1)\"`` -- grouped restrictions - ``\"x1 = 0, x2 + x3 = 1\"`` -- the same, in the comma-separated spelling of statsmodels' ``f_test`` - ``\"x1 - 2*x2 = 0\"`` -- linear restriction; ``_cons`` names the intercept whatever the estimator calls it. - ``\"2.race = 3.race\"``, ``\"1.union#c.grade\"`` -- Stata's factor-variable names for the coefficients the formula engine calls ``C(race)[T.2]`` and ``grade:C(union)[T.1]``; ``\"i.race\"`` on its own tests every level of the factor jointly (Stata's ``testparm i.race``)."
+        },
+        "omitted": {
+          "default": "error",
+          "description": "What to do with a restriction on a coefficient the fit omitted as collinear. ``'error'`` refuses the test; ``'skip'`` drops those restrictions and tests the rest, as Stata's ``test`` does (``(1) o.judge_pre_8 = 0 ... constraint 1 dropped``); the dropped ones are listed under ``omitted_dropped``.",
+          "enum": [
+            "error",
+            "skip"
+          ],
+          "type": "string"
         },
         "result": {
           "description": "Fitted model with ``.params`` and ``.std_errors``; restrictions that involve several coefficients also need its covariance matrix. After a fit reported as incidence-rate ratios (``irr=True``) the restrictions are on the coefficients ``b``, not on ``exp(b)``, as Stata's ``test`` after ``poisson, irr``.",

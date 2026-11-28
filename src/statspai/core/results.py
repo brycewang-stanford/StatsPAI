@@ -447,7 +447,6 @@ _FOREIGN_RESULT_NAMES: Dict[str, str] = {
     "fvalue": "it is `.diagnostics['F-statistic']`",
     "f_pvalue": "it is `.diagnostics['Prob (F-statistic)']`",
     "f_statistic": "it is `.diagnostics['F-statistic']`",
-    "df_resid": "it is `.data_info['df_resid']`",
     "mse_resid": "it is `.data_info['rss'] / .data_info['df_resid']`",
     "scale": "it is `.data_info['rss'] / .data_info['df_resid']`",
     "ssr": "it is `.data_info['rss']`",
@@ -505,6 +504,20 @@ class EconometricResults:
         """Estimation sample size (``data_info['nobs']``), ``None`` if unrecorded."""
         n = (getattr(self, "data_info", None) or {}).get("nobs")
         return None if n is None else int(n)
+
+    @property
+    def df_resid(self) -> float:
+        """Residual degrees of freedom (``data_info['df_resid']``).
+
+        statsmodels' name. A fit that recorded none has no ``df_resid``
+        (``AttributeError``), so ``hasattr`` reads as "it is known".
+        """
+        df = (getattr(self, "data_info", None) or {}).get("df_resid")
+        if df is None:
+            raise AttributeError(
+                "df_resid: this fit recorded no residual degrees of freedom"
+            )
+        return df
 
     @property
     def n_obs(self) -> int:

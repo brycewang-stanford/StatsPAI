@@ -5,6 +5,21 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+## 1.46.7 → 1.47.0: ⚠️ collinear IV columns, date regressors, Heckman N, zero weights
+
+| Call | Before | Now |
+| --- | --- | --- |
+| `sp.jive` / `sp.liml` with a dummy set summing to the constant (or collinear instruments) | the inverse of a singular matrix, no warning | the later collinear column is omitted with a note (`model_info["omitted"]`) |
+| A `datetime64` column as a regressor in any formula | one dummy per date (patsy), nanoseconds (`poisson`, `qreg`) or a numpy error | `MethodIncompatibility`; convert to a day count, or write `C(date)` for date dummies |
+| `sp.heckman(..., method="twostep").n_obs` | selected rows | the full sample, as `method="mle"`; `model_info["n_selected"]` has the selected rows |
+| Zero weights in `sp.regress` and the other regression commands | refused | the rows leave the sample with a note |
+| `sp.estat(r, test, version=...)` for a test without that option | ignored | refused |
+
+The coefficients of full-rank IV designs, of formulas without date columns
+and of positive-weight fits do not change. Code that filtered zero weights
+by hand gives the same numbers. Code that read the two-step `n_obs` as the
+selected count should read `model_info["n_selected"]`.
+
 ## 1.46.5 → 1.46.6: ⚠️ `sp.abnormal_returns` counts market trading days
 
 Relative days in `sp.abnormal_returns` now count the days the market was

@@ -86,6 +86,46 @@ class SURResult(ResultProtocolMixin):
         self.method = method
         self.breusch_pagan = breusch_pagan  # test of diagonal Sigma
 
+    def _stacked(self, key: str) -> pd.Series:
+        """One equation entry stacked over equations, labelled ``eq:var``
+        as Stata labels the system's ``e(b)``."""
+        parts = []
+        for eq_name, eq_info in self.equations.items():
+            s = pd.Series(eq_info[key], dtype=float)
+            s.index = [f"{eq_name}:{v}" for v in s.index]
+            parts.append(s)
+        return pd.concat(parts) if parts else pd.Series(dtype=float)
+
+    @property
+    def params(self) -> pd.Series:
+        """All coefficients, labelled ``equation:variable``."""
+        return self._stacked("params")
+
+    @property
+    def std_errors(self) -> pd.Series:
+        """Standard errors of :attr:`params`, same labels."""
+        return self._stacked("se")
+
+    @property
+    def tvalues(self) -> pd.Series:
+        """z statistics (Stata's ``sureg`` / ``reg3`` report z)."""
+        se = self.std_errors
+        return self.params / se.where(se > 0)
+
+    @property
+    def pvalues(self) -> pd.Series:
+        """Two-sided normal p-values of :attr:`tvalues`."""
+        z = self.tvalues
+        return pd.Series(2 * stats.norm.sf(np.abs(z.to_numpy())), index=z.index)
+
+    @property
+    def data_info(self) -> Dict[str, Any]:
+        return {"nobs": self.n_obs, "n_equations": self.n_equations}
+
+    @property
+    def model_info(self) -> Dict[str, Any]:
+        return {"model_type": f"System ({self.method})", "method": self.method}
+
     def summary(self) -> str:
         lines = [
             f"Seemingly Unrelated Regression ({self.method})",

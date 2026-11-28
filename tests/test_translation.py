@@ -961,8 +961,8 @@ TIER2_ROUND_TRIPS = [
     ("margins, dydx(x1) at(x2=0)", "margins", {"variables": ["x1"], "at": {"x2": 0}}),
     ("marginsplot", "marginsplot", {}),
     ("contrast i.x1", "contrast", {"variable": "x1"}),
-    ("test x1 x2", "test", {"hypothesis": "x1 x2"}),
-    ("test x1 = x2", "test", {"hypothesis": "x1 = x2"}),
+    ("test x1 x2", "test", {"hypothesis": "x1 x2", "omitted": "skip"}),
+    ("test x1 = x2", "test", {"hypothesis": "x1 = x2", "omitted": "skip"}),
     ("lincom x1 - 2*x2", "lincom", {"expression": "x1 - 2*x2"}),
     ("lincom x1 + x2, level(90)", "lincom", {"expression": "x1 + x2", "alpha": 0.1}),
     ("estat ptrends", "estat", {"test": "ptrends", "print_results": False}),
@@ -1085,7 +1085,7 @@ TIER3_ROUND_TRIPS = [
     ),
     # An introductory course's tests and models (numbers against Stata:
     # tests/reference_parity/test_textbook_syllabus_stata_parity.py)
-    ("testparm i.race x1", "test", {"hypothesis": "i.race x1"}),
+    ("testparm i.race x1", "test", {"hypothesis": "i.race x1", "omitted": "skip"}),
     ("nlcom _b[x1]/_b[x2]", "nlcom", {"expression": "_b[x1]/_b[x2]"}),
     ("ttesti 10 88 1.1 85", "ttest", {"n": 10, "mean": 88.0, "sd": 1.1, "mu": 85.0}),
     ("prtest d == 0.4", "prtest", {"y": "d", "p": 0.4}),

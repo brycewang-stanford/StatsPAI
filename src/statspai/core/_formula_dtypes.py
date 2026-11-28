@@ -104,6 +104,65 @@ def _split_codes(codes: Iterable[str]) -> Tuple[Set[str], Set[str]]:
     return generated, categorical
 
 
+def refuse_datetime_formula_columns(data: pd.DataFrame, formula: Any) -> None:
+    """Refuse a ``datetime64`` column that a formula reads as a value.
+
+    patsy treats any non-numeric column as categorical, so a bare
+    ``datetime64`` regressor (what ``pd.read_stata`` returns for a ``%td``
+    date) became one dummy per date: a different model from the linear
+    term Stata fits on the day count, and on the Mixtape ``judge_fe``
+    file (332k rows) an 11 GB design. ``C(date)`` asks for the dummies
+    explicitly and is allowed.
+    """
+    if not isinstance(data, pd.DataFrame) or not data.columns.is_unique:
+        return
+    dated = datetime_columns(data)
+    if not dated:
+        return
+    codes = formula_factor_codes(formula)
+    read: Set[str] = set()
+    for code in codes:
+        if _CATEGORICAL.match(code):
+            continue
+        read |= _names_in(code)
+    hits = [c for c in dated if str(c) in read]
+    if hits:
+        raise_datetime_regressors([str(c) for c in hits])
+
+
+def datetime_columns(data: pd.DataFrame) -> List[str]:
+    """Names of the ``datetime64`` / ``Period`` columns of ``data``."""
+    return [
+        str(c)
+        for c in data.columns
+        if pd.api.types.is_datetime64_any_dtype(data[c].dtype)
+        or isinstance(data[c].dtype, pd.PeriodDtype)
+    ]
+
+
+def raise_datetime_regressors(hits: List[str], function: str = "") -> None:
+    """The one refusal for a date column used as a numeric regressor."""
+    from ..exceptions import MethodIncompatibility
+
+    shown = ", ".join(repr(c) for c in hits)
+    first = hits[0]
+    who = f"{function}: " if function else ""
+    raise MethodIncompatibility(
+        f"{who}formula column(s) {shown} hold dates (datetime64). As a "
+        "regressor a date is either one dummy per distinct date (a date "
+        "fixed effect) or a count of nanoseconds; neither is the linear "
+        "time term Stata fits on a %td variable.",
+        recovery_hint=(
+            f"For Stata's day count use df['{first}'] = "
+            f"(df['{first}'] - pd.Timestamp('1960-01-01')).dt.days (or "
+            "read the file with pd.read_stata(..., convert_dates=False)); "
+            f"for a year use df['{first}'].dt.year; for date dummies "
+            f"write C({first})."
+        ),
+        diagnostics={"datetime_columns": list(hits)},
+    )
+
+
 def float_generated_term_columns(data: pd.DataFrame, formula: Any) -> pd.DataFrame:
     """Cast the integer columns read by generated terms to ``float64``.
 

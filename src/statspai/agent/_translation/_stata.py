@@ -3849,9 +3849,11 @@ def _h_test(cmd: StataCommand) -> Dict[str, Any]:
             command="test",
         )
     hypothesis = _FV_COEFFICIENT.sub(_fv_coefficient, " ".join(cmd.varlist))
-    args: Dict[str, Any] = {"hypothesis": hypothesis}
+    # Stata drops a restriction on an omitted (collinear) term and tests
+    # the rest ("constraint 1 dropped"); sp.test refuses it unless asked.
+    args: Dict[str, Any] = {"hypothesis": hypothesis, "omitted": "skip"}
     notes = ["sp.test takes a fitted result; pipe the previous estimator's result_id."]
-    python = f"sp.test(result, hypothesis={args['hypothesis']!r})"
+    python = f"sp.test(result, hypothesis={args['hypothesis']!r}, omitted='skip')"
     return _emit("test", args, python, notes)
 
 
@@ -3905,8 +3907,12 @@ def _h_testparm(cmd: StataCommand) -> Dict[str, Any]:
             "list the variables.",
             command="testparm",
         )
-    args: Dict[str, Any] = {"hypothesis": " ".join(cmd.varlist)}
-    return _emit("test", args, f"sp.test(result, hypothesis={args['hypothesis']!r})")
+    args: Dict[str, Any] = {"hypothesis": " ".join(cmd.varlist), "omitted": "skip"}
+    return _emit(
+        "test",
+        args,
+        f"sp.test(result, hypothesis={args['hypothesis']!r}, omitted='skip')",
+    )
 
 
 _B_OPERATOR = re.compile(r"_b\[\s*([^\]]+?)\s*\]")

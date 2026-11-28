@@ -112,6 +112,7 @@ def test_gmm_rejects_non_entity_cluster(pn):
 
 
 def test_nonpositive_weights_raise(pn):
-    bad = pn.assign(w=pn.w.where(pn.index != 0, 0.0))
+    # zero leaves the sample as in Stata (1.47); negative is refused
+    bad = pn.assign(w=pn.w.where(pn.index != 0, -1.0))
     with pytest.raises(MethodIncompatibility, match="strictly positive"):
         _fit(bad, method="fe", weights="w")

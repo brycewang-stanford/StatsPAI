@@ -2,6 +2,89 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+Fixes from a replay of Wooldridge's *Introductory Econometrics* (7e) and the
+Stata code of the *Mixtape* against Stata 18 MP (349 of 350 and 248 of 248
+numbers already agreed). Each fix is pinned against Stata on the books'
+original files in `tests/test_textbook_parity_nov28.py`.
+
+### Fixed
+
+- **⚠️ correctness fix: `sp.jive` and `sp.liml` omit collinear columns.**
+  A set of dummies summing to the constant, among the controls or the
+  instruments, went straight into a matrix inverse. On the Mixtape judge
+  data `sp.jive` returned 0.1599 for `jail3` (Stata `jive` 0.1624) and a
+  constant of -1, with no warning. The later member of each dependent set
+  is now omitted in Stata's order (constant, controls, instruments), with
+  a note and `model_info["omitted"]`. An endogenous regressor that the
+  controls reproduce is refused. Full-rank designs are unchanged.
+- **⚠️ correctness fix: a `datetime64` regressor is refused.** patsy turned
+  a date column into one dummy per date, a date fixed effect where Stata
+  fits a linear term on the day count (and 11 GB of design on the 332,000
+  rows of `judge_fe`). `sp.poisson` and `sp.qreg` read it as nanoseconds,
+  and `sp.feols`, `sp.ivreg` and `sp.panel` failed inside numpy. Every
+  formula entry now raises `MethodIncompatibility` with the conversion to
+  Stata's day count. `C(date)` and a date fixed effect after `|` still work.
+- **⚠️ `sp.heckman(method="twostep").n_obs` is the full sample** (753 on
+  Wooldridge example 17.5), as with `method="mle"` and Stata's `e(N)`. It
+  was the selected rows (428). `model_info["n_selected"]` and
+  `["n_censored"]` are unchanged.
+- **⚠️ zero analytic weights leave the sample** in `sp.regress`, `sp.ivreg`,
+  `sp.iv`, `sp.feols` / `fepois` / `feglm`, `sp.panel`, `sp.glm`,
+  `sp.logit`, `sp.probit`, `sp.poisson`, `sp.qreg` and `sp.tobit`, with a
+  note and `data_info["n_zero_weight_dropped"]`. These calls refused the
+  data before ("weights must be strictly positive"). Stata and R `fixest`
+  drop such rows (Mixtape example 9.4, N = 736). Negative weights are still
+  refused. `sp.rdrobust` keeps zero weights, as R `rdrobust` does.
+- **`PanelResults.hausman_test()` names the RE model it used.** It refits RE
+  on the FE regressors, which differs from `hausman fe re` when your RE
+  model has time-invariant regressors (Wooldridge example 14.4: 37.01
+  against 26.36). The new `efficient=` argument takes your RE fit and gives
+  Stata's number. The docstring no longer claims equivalence in general,
+  and the result carries `re_specification`.
+- **`sp.estat(r, "white", version="fstat")`** returns the F form of White's
+  test (F(2, 85) = 9.64 in Wooldridge example 8.5). The option was ignored.
+  Any test that has no `version=` option now refuses a non-default value.
+- **A column named `inf` or `nan` works inside an interaction**
+  (`partyWH:inf`, Wooldridge example 10.6). patsy read it as a number.
+- **Year dummies are no longer flagged as group-level treatments.** A 0/1
+  regressor that is constant within each period is a common shock. The
+  check reported `d82` as "assigned at the 'year' level" in pooled cross
+  sections, and at the 'educ' or 'fare' level in panels.
+- **A constant outcome without an intercept does not warn.** Regressing 1
+  on the scores without a constant is the robust LM statistic (Wooldridge
+  example 8.3).
+- **Rows dropped only at the start or end of the data** (lags, leads,
+  differences) give one listwise-deletion note per data frame, not one per
+  regression. Interior gaps are still reported every time.
+
+### Added
+
+- **`robust="newey"` in `sp.regress`**: Stata's `newey`, that is
+  `robust="hac"` with `hac_small=True`.
+- **`sp.ivreg(..., small=False)`**: `ivregress` without `small`, as
+  `sp.iv` already allowed.
+- **`sp.test(..., omitted="skip")`** drops restrictions on terms omitted as
+  collinear and tests the rest, as Stata's `test` does ("constraint
+  dropped"). They are listed in `omitted_dropped`. `sp.stata("test ...")`
+  and `testparm` translate with it.
+- **`sp.panel(..., method="fd", constant=True)`**: an intercept in the
+  differenced equation, Stata's `regress D.y D.x` (Wooldridge equation
+  13.20).
+- **`sp.panel(..., robust=True)`** means `robust="robust"`.
+- **Random-effects components in `model_info`**: `sigma_u`, `sigma_e`,
+  `rho` and `theta`, equal to Stata's `xtreg, re theta` to 1e-15.
+- **`sp.synth(..., mspe_period=[...])`**: Stata `synth`'s `mspeperiod()`,
+  the periods over which the outcome MSPE that chooses `V` is computed.
+- **`params`, `std_errors`, `tvalues` and `pvalues` on `SURResult`**
+  (`sp.sureg`, `sp.three_sls`), labelled `equation:variable`, so `tidy()`
+  and `sp.regtable` accept system results.
+- **`result.df_resid`** on regression results.
+- **Stata-defaults guide**: a table of the textbook commands whose
+  defaults differ (`newey`, `estat ovtest`, `estat hettest`, `ivregress`,
+  `hausman`, `mspeperiod()` and others), in `docs/guides/stata_defaults.md`.
+
 ## [1.46.7] — 2026-11-28
 
 Coverage evidence for two defaults that had none. The short-stacking

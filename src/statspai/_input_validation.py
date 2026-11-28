@@ -970,6 +970,110 @@ _AUXILIARY_ROW_PARAMS = (
 )
 
 
+#: weight arguments whose zero rows Stata drops from the sample
+#: (``[aweight=]``, ``[pweight=]``, ``[fweight=]``; ``iweight`` keeps them)
+_ZERO_DROPPED_WEIGHTS = ("weights", "weight", "aweights", "pweights", "fweights")
+
+#: the regression commands whose references drop zero-weight rows (Stata's
+#: ``regress`` / ``glm`` / ``logit`` ... and R ``fixest``). Others keep them:
+#: R ``rdrobust`` counts a zero-weight row in N and the bandwidth selector.
+_ZERO_WEIGHT_DROPPERS = frozenset(
+    {
+        "regress",
+        "ivreg",
+        "iv",
+        "feols",
+        "fepois",
+        "feglm",
+        "panel",
+        "glm",
+        "logit",
+        "probit",
+        "poisson",
+        "qreg",
+        "tobit",
+    }
+)
+
+
+def _drop_zero_weight_rows(
+    bound: Any, arguments: Mapping[str, Any], *, data_arg: str, function: str
+) -> int:
+    """Drop rows whose weight column is exactly zero, as Stata does.
+
+    Stata's ``regress y x [aweight=w]`` leaves a ``w == 0`` row out of the
+    sample (Mixtape example 9.4: one state with ``totpop = 0``, N = 736),
+    while the estimators refused the data ("weights must be strictly
+    positive"). A negative weight is still the estimator's to refuse.
+    Returns the number of rows dropped.
+    """
+    if function not in _ZERO_WEIGHT_DROPPERS:
+        return 0
+    frame = bound.arguments.get(data_arg)
+    if not isinstance(frame, pd.DataFrame) or not frame.columns.is_unique:
+        return 0
+    cols = [
+        v
+        for key in _ZERO_DROPPED_WEIGHTS
+        for v in [arguments.get(key)]
+        if isinstance(v, str) and v in frame.columns
+    ]
+    if not cols:
+        return 0
+    values = frame[cols].apply(pd.to_numeric, errors="coerce")
+    if bool((values < 0).any().any()):
+        return 0
+    zero = (values == 0).any(axis=1).to_numpy()
+    n_zero = int(zero.sum())
+    if n_zero == 0 or n_zero == len(frame):
+        return 0
+    import warnings
+
+    from .exceptions import AssumptionWarning
+
+    warnings.warn(
+        f"{function}: {n_zero} row(s) with zero weight in "
+        f"{', '.join(map(repr, cols))} left out of the sample, as Stata "
+        "does for aweight / pweight / fweight; result.data_info"
+        "['n_zero_weight_dropped'] records the count.",
+        AssumptionWarning,
+        stacklevel=3,
+    )
+    bound.arguments[data_arg] = frame.loc[~zero]
+    return n_zero
+
+
+def _refuse_datetime_formula_args(
+    frame: Any, arguments: Mapping[str, Any], *, function: str
+) -> None:
+    """Refuse a date column that a formula argument reads as a number.
+
+    The patsy entries refuse it in ``_coerce_string_extension_dtypes``;
+    the estimators with their own formula parser (``feols``, ``ivreg``,
+    ``panel``, ``poisson``, ``qreg``) read the column as nanoseconds or
+    fail inside numpy. A date used as a label (``C(date)``, a fixed effect
+    after ``|``) is fine.
+    """
+    if not isinstance(frame, pd.DataFrame) or not frame.columns.is_unique:
+        return
+    from .core._formula_dtypes import datetime_columns, raise_datetime_regressors
+
+    dated = datetime_columns(frame)
+    if not dated:
+        return
+    for value in arguments.values():
+        if not (isinstance(value, str) and "~" in value):
+            continue
+        used = set(_named_columns(value, dated))
+        if not used:
+            continue
+        used -= label_only_columns(value, frame.columns)
+        if used:
+            raise_datetime_regressors(
+                [c for c in dated if c in used], function=function
+            )
+
+
 def checks_input(
     function: str,
     *,
@@ -1028,6 +1132,9 @@ def checks_input(
                 inf_ok=inf_ok,
                 data_arg=data_arg,
             )
+            _refuse_datetime_formula_args(
+                arguments.get(data_arg), arguments, function=function
+            )
             # A missing weight (or offset / exposure) is a missing value in a
             # used column: under "drop" the row leaves the sample, as the
             # other used columns' rows do (Stata's marksample, R's na.omit).
@@ -1064,7 +1171,16 @@ def checks_input(
                         )
                         bound.arguments[data_arg] = frame.loc[~gone.to_numpy()]
                         args, kwargs = bound.args, dict(bound.kwargs)
+            n_zero_weight = _drop_zero_weight_rows(
+                bound, arguments, data_arg=data_arg, function=function
+            )
+            if n_zero_weight:
+                args, kwargs = bound.args, dict(bound.kwargs)
             result = fn(*args, **kwargs)
+            if n_zero_weight:
+                _note = getattr(result, "data_info", None)
+                if isinstance(_note, dict):
+                    _note["n_zero_weight_dropped"] = n_zero_weight
             if record is not None:
                 diagnostics = getattr(result, "diagnostics", None)
                 if isinstance(diagnostics, dict):

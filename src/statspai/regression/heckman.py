@@ -415,7 +415,8 @@ def heckman(
         pvalue=main_p,
         ci=ci,
         alpha=alpha,
-        n_obs=n_eff,
+        # Stata e(N): the full sample; e(N_selected) is in model_info
+        n_obs=int(n_total),
         detail=detail,
         model_info=model_info,
         _citation_key="heckman",

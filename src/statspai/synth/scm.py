@@ -43,7 +43,7 @@ import tempfile
 import warnings
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,12 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._input_validation import MissingPolicy, checks_input
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 
 def _require_dataframe(value: Any, name: str) -> pd.DataFrame:
@@ -459,6 +464,13 @@ def _dispatch_synth_impl(
         those tables (and of ``pvalue``); ``pre_periods=[...]`` and
         ``post_periods=[...]`` restrict the periods the fit and the effect
         use. These are the reports of Stata's ``synth2``.
+        ``mspe_period=[...]`` is Stata ``synth``'s ``mspeperiod()``: the
+        periods over which the outcome MSPE that chooses the predictor
+        weights ``V`` (and the regression-based ``V``) is computed, the
+        pre-treatment periods by default. The in-space placebos use the
+        same window, and each placebo's donor pool keeps the treated unit
+        (Abadie, Diamond and Hainmueller's loop; ``placebo_weights`` shows
+        its weight).
     alpha : float, default 0.05
         Significance level.
     inference : str, optional
@@ -736,6 +748,7 @@ def _dispatch_synth_impl(
         placebo_units = kwargs.pop("placebo_units", None)
         pre_periods = kwargs.pop("pre_periods", None)
         post_periods = kwargs.pop("post_periods", None)
+        mspe_period = kwargs.pop("mspe_period", None)
         loo = bool(kwargs.pop("loo", False))
         # Anything left over used to be dropped here, so a misspelled option
         # (``v_methd=``) silently fell back to the default.
@@ -783,6 +796,7 @@ def _dispatch_synth_impl(
                 alpha=alpha,
                 n_jobs=n_jobs,
                 perfect_fit=perfect_fit,
+                mspe_period=mspe_period,
             )
 
         result = build().fit(placebo=placebo)
@@ -1502,8 +1516,10 @@ class SyntheticControl:
         alpha: float = 0.05,
         n_jobs: Optional[int] = 1,
         perfect_fit: str = "legacy",
+        mspe_period: Optional[Sequence[Any]] = None,
     ):
         self.data = _require_dataframe(data, "data")
+        self._mspe_period = None if mspe_period is None else list(mspe_period)
         self.outcome = _require_column_name(outcome, "outcome")
         self.unit = _require_column_name(unit, "unit")
         self.time = _require_column_name(time, "time")
@@ -1618,6 +1634,26 @@ class SyntheticControl:
                 },
             ) from exc
 
+        # The periods whose outcome MSPE the weights minimise (Stata's
+        # ``mspeperiod()``); the pre-treatment periods unless given.
+        self.mspe_mask = self.pre_mask
+        if self._mspe_period is not None:
+            known = set(self.times.tolist())
+            bad = [t for t in self._mspe_period if t not in known]
+            if bad or not self._mspe_period:
+                raise MethodIncompatibility(
+                    "synth(mspe_period=): every entry must be a period of the " "data.",
+                    diagnostics={"mspe_period": bad},
+                )
+            self.mspe_mask = np.isin(self.times, self._mspe_period)
+            if np.any(self.mspe_mask & self.post_mask):
+                warnings.warn(
+                    "synth(mspe_period=) includes periods at or after "
+                    "treatment_time: the weights are then fitted to "
+                    "outcomes the treatment may already have moved.",
+                    AssumptionWarning,
+                    stacklevel=4,
+                )
         if self.pre_mask.sum() < 2:
             raise DataInsufficient(
                 "Need at least 2 pre-treatment periods",
@@ -1900,8 +1936,8 @@ class SyntheticControl:
         -------
         CausalResult
         """
-        Y_pre_treated = self.Y_treated[self.pre_mask]
-        Y_pre_donors = self.Y_donors[self.pre_mask]
+        Y_pre_treated = self.Y_treated[self.mspe_mask]
+        Y_pre_donors = self.Y_donors[self.mspe_mask]
 
         if self.v_method == "regression" and not self._has_predictors:
             raise MethodIncompatibility(
@@ -2294,6 +2330,7 @@ class SyntheticControl:
             "X_all": np.column_stack([self.X_treated[:, None], self.X_donors]),
             "pre_mask": self.pre_mask,
             "post_mask": self.post_mask,
+            "mspe_mask": self.mspe_mask,
             "has_predictors": self._has_predictors,
             "run_nested": self._should_run_nested(),
         }
@@ -2400,6 +2437,7 @@ def _placebo_one(
     post_mask: np.ndarray,
     has_predictors: bool,
     run_nested: bool,
+    mspe_mask: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """Fit the in-space placebo for donor ``i`` (column ``i + 1``).
 
@@ -2423,6 +2461,10 @@ def _placebo_one(
     if not has_predictors:
         X_placebo = Y_pre_p
         X_placebo_donors = Y_pre_d
+    if mspe_mask is not None:
+        # the outcome rows the weights are fitted to (mspe_period=)
+        Y_pre_p = Y_placebo[mspe_mask]
+        Y_pre_d = Y_placebo_donors[mspe_mask]
 
     try:
         sol = solve(

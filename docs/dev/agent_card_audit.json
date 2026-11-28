@@ -4,8 +4,8 @@
   "n_functions": 93,
   "n_with_defects": 0,
   "enum_values": {
-    "ok": 715,
-    "precondition": 63,
+    "ok": 688,
+    "precondition": 67,
     "rejected": 0
   },
   "functions": [
@@ -65,6 +65,12 @@
           },
           "hac": {
             "status": "ok"
+          },
+          "newey": {
+            "status": "ok"
+          },
+          "ewc": {
+            "status": "ok"
           }
         },
         "collinear": {
@@ -73,13 +79,8 @@
           },
           "raise": {
             "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
           },
-          "raise": {
+          "pinv": {
             "status": "ok"
           }
         }
@@ -139,14 +140,6 @@
             "with": {
               "weights": "ypos"
             }
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
           }
         }
       },
@@ -353,14 +346,6 @@
           "efficient": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -421,14 +406,6 @@
               "weights": "ypos"
             }
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -487,14 +464,6 @@
               "weights": "ypos"
             }
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -543,14 +512,6 @@
             "with": {
               "weights": "ypos"
             }
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
           }
         }
       },
@@ -624,14 +585,6 @@
           "silverman": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -700,14 +653,6 @@
             "with": {
               "weights": "wt"
             }
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
           }
         }
       },
@@ -809,14 +754,6 @@
             "status": "ok"
           },
           "linearmodels": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         }
@@ -957,14 +894,6 @@
             "error": "MethodIncompatibility: sp.did: crit_dist='normal' is implemented by the 2x2 and Sun-Abraham estimators; method='callaway_santanna' has no crit_dist option (Callawa"
           },
           "legacy": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         },
@@ -1140,14 +1069,6 @@
           "stata": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -1252,14 +1173,6 @@
           "lastcohort": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -1347,14 +1260,6 @@
             "status": "ok"
           },
           "symmetric": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         }
@@ -1670,6 +1575,14 @@
           "treated_obs": {
             "status": "ok"
           }
+        },
+        "crit_dist": {
+          "t": {
+            "status": "ok"
+          },
+          "normal": {
+            "status": "ok"
+          }
         }
       },
       "alternatives": [
@@ -1730,14 +1643,6 @@
             "status": "ok"
           },
           "normal": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         }
@@ -1901,14 +1806,6 @@
             "status": "ok"
           },
           "off": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         },
@@ -2170,14 +2067,6 @@
           "kernel_ridge": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -2352,14 +2241,6 @@
             "with": {
               "model": "irm"
             }
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
           }
         }
       },
@@ -2718,11 +2599,26 @@
             "status": "ok"
           }
         },
-        "missing": {
-          "drop": {
+        "distance": {
+          "propensity": {
             "status": "ok"
           },
-          "raise": {
+          "mahalanobis": {
+            "status": "ok"
+          },
+          "euclidean": {
+            "status": "ok"
+          },
+          "exact": {
+            "status": "precondition",
+            "error": "DataInsufficient: match: exact matching found no treated units with exact matches.\n  -> recovery: Consider distance='mahalanobis', method='cem', or coarser co"
+          }
+        },
+        "estimand": {
+          "ATT": {
+            "status": "ok"
+          },
+          "ATE": {
             "status": "ok"
           }
         }
@@ -2804,14 +2700,6 @@
           "probit": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -2886,14 +2774,6 @@
           "poisson": {
             "status": "precondition",
             "error": "MethodIncompatibility: aipw: outcome_model='poisson' needs a non-negative outcome."
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
           }
         }
       },
@@ -3195,14 +3075,6 @@
               "weights": "ypos"
             }
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -3473,14 +3345,6 @@
           "scls": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -3593,14 +3457,6 @@
           "native": {
             "status": "ok"
           }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
-            "status": "ok"
-          }
         }
       },
       "alternatives": [
@@ -3651,14 +3507,6 @@
             "status": "ok"
           },
           "native": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         }
@@ -3717,14 +3565,6 @@
             "status": "ok"
           },
           "mle": {
-            "status": "ok"
-          }
-        },
-        "missing": {
-          "drop": {
-            "status": "ok"
-          },
-          "raise": {
             "status": "ok"
           }
         }
@@ -3878,6 +3718,14 @@
             "status": "ok"
           },
           "reimers": {
+            "status": "ok"
+          }
+        },
+        "means": {
+          "fixed": {
+            "status": "ok"
+          },
+          "stochastic": {
             "status": "ok"
           }
         }
@@ -5773,7 +5621,16 @@
         "actual": "SpecCurveResult",
         "matches": true
       },
-      "enums": {},
+      "enums": {
+        "collinear": {
+          "drop": {
+            "status": "ok"
+          },
+          "omit": {
+            "status": "ok"
+          }
+        }
+      },
       "alternatives": [
         {
           "name": "diagnose_result",
@@ -5897,6 +5754,31 @@
             "with": {
               "by_arm": "True"
             }
+          }
+        },
+        "outcome_model": {
+          "linear": {
+            "status": "ok"
+          },
+          "logit": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: g_computation: outcome_model='logit' needs a 0/1 outcome.\n  -> recovery: Recode the outcome to 0/1, or use outcome_model='linear' or 'poisso"
+          },
+          "poisson": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: g_computation: outcome_model='poisson' needs a non-negative outcome.\n  -> recovery: Use outcome_model='linear' for this outcome."
+          }
+        },
+        "contrast": {
+          "difference": {
+            "status": "ok"
+          },
+          "ratio": {
+            "status": "ok"
+          },
+          "odds_ratio": {
+            "status": "precondition",
+            "error": "MethodIncompatibility: g_computation: contrast='odds_ratio' is not defined for these standardised means (a ratio needs positive means, an odds ratio means strictly"
           }
         }
       },
@@ -6124,6 +6006,9 @@
           },
           "breslow": {
             "status": "ok"
+          },
+          "exact": {
+            "status": "ok"
           }
         },
         "ssc": {
@@ -6257,6 +6142,17 @@
             "status": "ok"
           },
           "n": {
+            "status": "ok"
+          }
+        },
+        "vce": {
+          "opg": {
+            "status": "ok"
+          },
+          "oim": {
+            "status": "ok"
+          },
+          "robust": {
             "status": "ok"
           }
         }
@@ -6536,6 +6432,14 @@
             "status": "ok"
           },
           "uniform": {
+            "status": "ok"
+          }
+        },
+        "headline": {
+          "conventional": {
+            "status": "ok"
+          },
+          "robust": {
             "status": "ok"
           }
         }

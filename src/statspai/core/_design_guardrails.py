@@ -749,6 +749,12 @@ def _run(
             t_col = next((f for f in fe if str(f).lower() in _TIME_NAMES), None)
         if cluster_cols is None:
             continue
+        if _is_period_effect(codes, d, t_col, frame.columns):
+            # a year dummy (d82) is a function of time alone, so it is
+            # constant within every group x period cell and any column
+            # looked like its assignment level ('educ', 'fare'); a period
+            # effect is a common shock, not a group-level treatment
+            continue
         candidates = list(fe) + [c for c in cluster_cols if c not in fe]
         skip = set(spec["regressors"]) | {y} | spec["mains"] | set(candidates)
         candidates += [
@@ -760,6 +766,32 @@ def _run(
         if level is not None:
             out.append(_cluster_violation(name, level, cluster_cols, vcov, tool, entry))
     return out
+
+
+def _is_period_effect(
+    codes: "_CodeCache", d: np.ndarray, time: Optional[str], columns: Any
+) -> bool:
+    """Whether a 0/1 regressor is constant within each period.
+
+    The period is the declared or absorbed time column, or any column with
+    a time-like name (``year``, ``t``, ...) when none is declared.
+    """
+    times = [time] if time is not None else []
+    times += [
+        c
+        for c in columns
+        if isinstance(c, str) and c.lower() in _TIME_NAMES and c not in times
+    ]
+    for t in times:
+        try:
+            tcode, n_t = codes.get(t)
+        except (TypeError, KeyError, ValueError):
+            continue
+        if tcode.min() < 0 or n_t < 2 or n_t * 2 > len(d):
+            continue
+        if _within(tcode, n_t, d)[0]:
+            return True
+    return False
 
 
 def _staggered_violation(

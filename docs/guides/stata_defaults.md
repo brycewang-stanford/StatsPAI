@@ -25,6 +25,31 @@ by a test in `tests/reference_parity/`.
 | `csdid y, time(t) gvar(g) cluster(c) agg(group)` without `ivar()` (rows as repeated cross-sections) | `sp.callaway_santanna(..., panel=False, clustervars="c")` then `sp.aggte(r, type="group", agg_weights="csdid", share_variance=False)` | Any row-level cluster, e.g. `city#year`. Equal to `csdid` v1, including its estimated cell-count weights. |
 | `csdid2` with no never-treated units | `control_group="notyettreated"` | `csdid2` switches to not-yet-treated controls without saying so; StatsPAI asks for it explicitly. |
 
+## Textbook commands (Wooldridge, Mixtape)
+
+Checked against Stata 18 MP on the books' original `.dta` files in
+`tests/test_textbook_parity_nov28.py` (runs when `STATSPAI_WOOLDRIDGE_DIR` /
+`STATSPAI_MIXTAPE_DIR` point at the files).
+
+| Stata | StatsPAI | Notes |
+| --- | --- | --- |
+| `newey y x, lag(2)` | `sp.regress("y ~ x", df, robust="newey", hac_lags=2)` | `robust="hac"` alone omits the `N/(N-K)` factor (R `NeweyWest(adjust = FALSE)`, statsmodels); `"newey"` is `"hac"` plus `hac_small=True`. |
+| `estat ovtest` | `sp.estat(r, "reset", powers=4)` | The default `powers=3` is Wooldridge's and R `lmtest::resettest`'s. Stata builds the powers in single precision, so the F agrees to about 1e-6. |
+| `estat hettest` | `sp.estat(r, "hettest", variables="fitted", version="normal")` | The default is Koenker's N R² on all regressors, Stata's `estat hettest, rhs iid`. |
+| `ivregress 2sls y (x = z) w` | `sp.ivreg("y ~ (x ~ z) + w", df, small=False)` (or `sp.iv(..., small=False)`) | The default is `ivregress ..., small` (t and F, `N - K`). |
+| `xtreg ..., fe` / `xtreg ..., re` / `hausman fe re` | `fe.hausman_test(efficient=re)` or `sp.hausman(fe, re)` | Without `efficient=`, `hausman_test()` refits RE on the FE regressors; with time-invariant regressors in your RE model that is a different model. |
+| `xtreg ..., re theta`: `e(sigma_u)`, `e(sigma_e)`, `e(rho)`, `e(theta)` | `re.model_info["sigma_u"]`, `["sigma_e"]`, `["rho"]`, `["theta"]` | `theta` is a scalar on a balanced panel, else its min / median / max. |
+| `regress D.y D.x` after `xtset` | `sp.panel(df, "y ~ x", entity=..., time=..., method="fd", constant=True)` | The default is `regress D.y D.x, nocons`. The intercept is `const`. |
+| `heckman ..., twostep`: `e(N)`, `e(N_selected)` | `res.n_obs`, `res.model_info["n_selected"]` | Both methods report the full sample as `n_obs` (two-step reported the selected rows through 1.46.7). |
+| `test x1 x2` with a term omitted as collinear ("constraint dropped") | `sp.test(r, "x1 x2", omitted="skip")` | The default refuses the test. `out["omitted_dropped"]` lists the dropped restrictions. `sp.stata("test ...")` translates with `omitted="skip"`. |
+| `regress y x [aweight=w]` with some `w == 0` | `sp.regress("y ~ x", df, weights="w")` | Zero-weight rows leave the sample with a note (`data_info["n_zero_weight_dropped"]`), as in Stata and R `fixest`. Negative weights are refused. `sp.rdrobust` keeps them, as R `rdrobust` does. |
+| `jive y (x = z1-z8) w1-w6, robust` with collinear dummies | `sp.jive(df, y=..., x_endog=[...], x_exog=[...], z=[...], robust="hc1")` | Collinear exogenous regressors and instruments are omitted in Stata's order and listed in `model_info["omitted"]`. Same for `sp.liml`. |
+| `synth ..., mspeperiod(1985(1)1993)` | `sp.synth(..., mspe_period=list(range(1985, 1994)))` | The window the outcome MSPE (and the regression-based `V`) is computed over. The default is the pre-treatment periods. The in-space placebos keep the treated unit in each donor pool, as the ADH loop does. |
+| A `%td` date as a regressor | Convert first: `df["d"] = (df["d"] - pd.Timestamp("1960-01-01")).dt.days` | A `datetime64` column in a formula is refused: patsy would make one dummy per date. Read with `pd.read_stata(..., convert_dates=False)` to keep Stata's day count. `C(date)` still asks for date dummies. |
+| `regress` keeps the first of a collinear set | `sp.regress` omits the last | The coefficients of the kept columns are the same; the table lists a different dummy as omitted. |
+| `synth` builds the synthetic path from weights rounded to three decimals, `e(RMSPE)` from unrounded ones | Unrounded throughout | Round `model_info["weights"]` yourself to print Stata's synthetic series. |
+| `regtable` of models with different N (lags) | `sp.regtable(..., consistency_check=False)` | Turns off the sample-size note. |
+
 ## Known remaining differences
 
 - **Propensity scores from `logit`.** StatsPAI and Stata agree to about

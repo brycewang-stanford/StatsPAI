@@ -1036,8 +1036,19 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "nonrobust",
-                    "Standard error type",
-                    ["nonrobust", "hc0", "hc1", "hc2", "hc3", "hc4", "hac"],
+                    "Standard error type ('newey' = Stata newey: 'hac' with "
+                    "the N/(N-K) factor)",
+                    [
+                        "nonrobust",
+                        "hc0",
+                        "hc1",
+                        "hc2",
+                        "hc3",
+                        "hc4",
+                        "hac",
+                        "newey",
+                        "ewc",
+                    ],
                 ),
                 ParamSpec(
                     "cluster",
@@ -7658,6 +7669,14 @@ def _build_registry() -> None:
                     "gmm_lags", "str", False, "(2, 5)", "GMM instrument lag range"
                 ),
                 ParamSpec("twostep", "bool", False, False, "Two-step GMM"),
+                ParamSpec(
+                    "constant",
+                    "bool",
+                    False,
+                    False,
+                    "method='fd' only: intercept in the differenced equation "
+                    "(Stata regress D.y D.x; default is the nocons fit)",
+                ),
                 _MISSING_PARAM,
             ],
             returns="PanelResults",

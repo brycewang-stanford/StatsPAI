@@ -670,6 +670,9 @@ def _coerce_string_extension_dtypes(
         data = data.assign(**offenders)
     data = _widen_narrow_integers(data)
     if formula is not None:
+        from ._formula_dtypes import refuse_datetime_formula_columns
+
+        refuse_datetime_formula_columns(data, formula)
         # integer arithmetic inside I(...) wraps around even in int64
         data = float_generated_term_columns(data, formula)
     return data
@@ -754,7 +757,11 @@ def _alias_keyword_columns(
 
     if not isinstance(data, pd.DataFrame):
         return formula, data, {}
-    names = [c for c in data.columns if isinstance(c, str) and keyword.iskeyword(c)]
+    names = [
+        c
+        for c in data.columns
+        if isinstance(c, str) and (keyword.iskeyword(c) or _reads_as_number(c))
+    ]
     if not names:
         return formula, data, {}
     pattern = re.compile(
@@ -774,6 +781,23 @@ def _alias_keyword_columns(
         return formula, data, {}
     renamed = data.rename(columns={name: key for key, name in used.items()})
     return rewritten, renamed, used
+
+
+def _reads_as_number(name: str) -> bool:
+    """An identifier patsy's tokenizer turns into a number (``inf``, ``nan``).
+
+    patsy treats any token ``float()`` accepts as a numeric literal, so a
+    column called ``inf`` (inflation in Wooldridge's ``fair`` data) fails
+    inside an interaction: "numbers besides '0' and '1' are only allowed
+    with **".
+    """
+    if not name.isidentifier():
+        return False
+    try:
+        float(name)
+    except ValueError:
+        return False
+    return True
 
 
 def _unalias(text: str, aliases: Dict[str, str]) -> str:

@@ -301,11 +301,17 @@ def white(
     result: Any,
     *,
     variables: Union[None, str] = None,
+    version: str = "iid",
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
     """White's general test: N R^2 from the regression of the squared
     residuals on the regressors, their squares and their cross-products.
     Redundant terms (the square of a dummy) do not count as restrictions.
+
+    ``version='fstat'`` reports the F statistic of that auxiliary
+    regression, ``(R^2 / q) / ((1 - R^2) / (N - q - 1))`` (Wooldridge,
+    *Introductory Econometrics*, section 8.3); Stata's ``imtest`` reports
+    only the chi-squared form.
 
     ``variables='fitted'`` is the special case that regresses the squared
     residuals on the fitted values and their squares: two restrictions
@@ -320,6 +326,13 @@ def white(
             f"sp.estat white: variables={variables!r} is not 'rhs' or 'fitted'.",
             recovery_hint="Use variables='fitted' for the special form of the "
             "test, or leave it out for the general one.",
+        )
+    version = str(version).lower()
+    if version not in ("iid", "fstat"):
+        raise MethodIncompatibility(
+            f"sp.estat white: version={version!r} is not 'iid' or 'fstat'.",
+            recovery_hint="Use version='iid' (the default, N R-squared) or "
+            "version='fstat'.",
         )
     special = variables == "fitted"
     if special:
@@ -337,9 +350,20 @@ def white(
     e2 = e**2
     _, rss = _fit(np.column_stack([np.ones(n), Z]), e2)
     tss = float(((e2 - e2.mean()) ** 2).sum())
-    stat = n * (1.0 - rss / tss) if tss > 0 else 0.0
-    pval = float(sp_stats.chi2.sf(stat, df))
+    r2 = 1.0 - rss / tss if tss > 0 else 0.0
+    if version == "fstat":
+        df2 = n - df - 1
+        stat = (r2 / df) / ((1.0 - r2) / df2)
+        pval = float(sp_stats.f.sf(stat, df, df2))
+        label = f"F({df}, {df2})"
+    else:
+        stat = n * r2
+        pval = float(sp_stats.chi2.sf(stat, df))
+        label = f"chi2({df})"
+    out_f = {"df1": df, "df2": df2} if version == "fstat" else {}
     return {
+        **out_f,
+        "version": version,
         "test": "White's test for heteroskedasticity"
         + (" (fitted values and their squares)" if special else ""),
         "H0": "Homoskedasticity",
@@ -350,7 +374,7 @@ def white(
         ),
         "variables": "fitted" if special else "rhs",
         "statistic": float(stat),
-        "statistic_label": f"chi2({df})",
+        "statistic_label": label,
         "df": df,
         "pvalue": pval,
         "interpretation": _decision(

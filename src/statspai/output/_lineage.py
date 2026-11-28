@@ -728,6 +728,47 @@ _MISSING_BY_DESIGN = frozenset(
 )
 
 
+#: frames that already carried an edge-rows-only listwise note, by id
+_EDGE_NOTED: Dict[int, Any] = {}
+
+
+def _is_shift_column(data: Any, col: Any) -> bool:
+    """Whether ``data[col]`` is a lag, lead or difference of another column.
+
+    Its missing values must be one block at the start (lag, difference)
+    or the end (lead) of the frame, and the rest must equal another
+    numeric column shifted by the block length, or that column's
+    difference. Missing values that merely happen to sit in the first rows
+    are not a lag and keep their note on every fit.
+    """
+    import numpy as np
+    import pandas as pd
+
+    values = pd.to_numeric(data[col], errors="coerce").to_numpy(dtype=float)
+    miss = np.isnan(values)
+    n = len(values)
+    k = int(miss.sum())
+    if k == 0 or k >= n:
+        return False
+    lag = bool(miss[:k].all())
+    lead = bool(miss[n - k :].all())
+    if not (lag or lead):
+        return False
+    body = values[k:] if lag else values[: n - k]
+    for other in data.columns:
+        if other == col or not pd.api.types.is_numeric_dtype(data[other]):
+            continue
+        o = data[other].to_numpy(dtype=float)
+        if lag:
+            cands = (o[: n - k], o[k:] - o[: n - k])
+        else:
+            cands = (o[k:], o[k:] - o[: n - k])
+        for cand in cands:
+            if np.allclose(body, cand, rtol=1e-12, atol=0.0, equal_nan=True):
+                return True
+    return False
+
+
 def _note_listwise_deletion(
     result: Any,
     function: str,
@@ -745,6 +786,7 @@ def _note_listwise_deletion(
     sample for other reasons do not match and stay silent. Never raises.
     """
     try:
+        import numpy as np
         import pandas as pd
 
         if function.split(".")[-1] in _MISSING_BY_DESIGN:
@@ -762,7 +804,17 @@ def _note_listwise_deletion(
         if nobs is None or nobs != len(data) - n_dropped:
             return
         by_column = {c: int(n) for c, n in incomplete.sum().items() if n}
+        rows = incomplete.any(axis=1).to_numpy()
+        head = int(np.argmin(rows)) if not rows.all() else len(rows)
+        tail = int(np.argmin(rows[::-1])) if not rows.all() else len(rows)
+        edge_only = (
+            head + tail == n_dropped
+            and n_dropped < len(rows)
+            and all(_is_shift_column(data, c) for c in by_column)
+        )
         info = {"n_rows_dropped_missing": n_dropped, "missing_by_column": by_column}
+        if edge_only:
+            info["edge_rows_only"] = True
         model_info = getattr(result, "model_info", None)
         if isinstance(model_info, dict):
             model_info.setdefault("listwise_deletion", info)
@@ -775,10 +827,31 @@ def _note_listwise_deletion(
         return  # sp.silence(...): recorded in model_info, not warned
 
     name = function.split(".")[-1]
+    edge_note = ""
+    if edge_only:
+        # Rows dropped only at the start / end of the frame are what a lag,
+        # lead or difference leaves (sp.lag, x.shift(1)): one note per frame,
+        # not one per regression (Wooldridge ch. 11, 12 and 18 printed a
+        # dozen each). Interior gaps are reported every time.
+        key = id(data)
+        seen = _EDGE_NOTED.get(key)
+        if seen is not None and seen() is data:
+            return
+        try:
+            import weakref
+
+            _EDGE_NOTED[key] = weakref.ref(data)
+        except TypeError:
+            pass
+        edge_note = (
+            " The dropped rows are all at the start or end of the data, as "
+            "lags, leads and differences leave them; further notes of this "
+            "kind for this data frame are not repeated."
+        )
     warnings.warn(
         AssumptionWarning(
             f"{name}: {n_dropped} of {len(data)} rows dropped for missing "
-            f"values (listwise deletion) -- by column: {by_column}.",
+            f"values (listwise deletion) -- by column: {by_column}." + edge_note,
             recovery_hint=(
                 "Estimates use complete cases only, which is unbiased only if "
                 "missingness is unrelated to the outcome given the model's "

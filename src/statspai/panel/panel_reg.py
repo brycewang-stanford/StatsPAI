@@ -202,7 +202,10 @@ class PanelResults(EconometricResults):
     # ------------------------------------------------------------------
 
     def hausman_test(
-        self, alpha: float = 0.05, sigmamore: bool = False
+        self,
+        alpha: float = 0.05,
+        sigmamore: bool = False,
+        efficient: Any = None,
     ) -> Dict[str, Any]:
         """
         Hausman (1978) specification test: FE vs RE.
@@ -218,19 +221,46 @@ class PanelResults(EconometricResults):
             matrices on the RE disturbance variance. Use it when the
             classical statistic is negative (``recommendation ==
             "inconclusive"``).
+        efficient : PanelResults, optional
+            The random-effects fit to compare with (called on a FE result)
+            or the fixed-effects fit (called on a RE result). The test is
+            then ``sp.hausman(fe, re)``, which is Stata's ``hausman fe re``
+            for these two fits, including a RE model with time-invariant
+            regressors such as ``educ``.
 
         Returns
         -------
         dict
             'statistic', 'df', 'pvalue', 'recommendation' ('FE', 'RE' or
-            'inconclusive'), 'psd_violation', 'sigmamore', 'interpretation'
+            'inconclusive'), 'psd_violation', 'sigmamore', 'interpretation',
+            and 're_specification' saying which RE model was used.
+
+        Notes
+        -----
+        Without ``efficient`` the RE model is refitted on **this** result's
+        regressors, so the statistic is Stata's ``hausman fe re`` only when
+        your RE model has the same regressors. A RE model that adds
+        time-invariant regressors is a different model and gives a different
+        statistic (Wooldridge example 14.4: 37.01 here against 26.36 for
+        ``hausman fe re``); pass that fit as ``efficient=``.
         """
+        if efficient is not None:
+            from ..diagnostics.hausman import hausman as _hausman
+
+            own = str(getattr(self, "_method", "") or "").lower()
+            if own == "re":
+                out = _hausman(efficient, self, sigmamore=sigmamore, alpha=alpha)
+            else:
+                out = _hausman(self, efficient, sigmamore=sigmamore, alpha=alpha)
+            out = dict(out)
+            out["re_specification"] = "the RE fit passed as efficient="
+            return out
         panel_data, dep_var, indep_vars, entity, time = self._stored_design(
             "Hausman test"
         )
         from .panel_diagnostics import _hausman_from_data
 
-        return _hausman_from_data(
+        out = _hausman_from_data(
             panel_data,
             dep_var,
             indep_vars,
@@ -239,6 +269,13 @@ class PanelResults(EconometricResults):
             alpha,
             sigmamore=sigmamore,
         )
+        out["re_specification"] = (
+            "RE refitted on this result's regressors ("
+            + ", ".join(indep_vars)
+            + "); pass efficient=<your RE fit> to compare with a RE model "
+            "that has other regressors"
+        )
+        return out
 
     # ------------------------------------------------------------------
     # Breusch-Pagan LM test: Pooled OLS vs RE
@@ -711,6 +748,7 @@ def panel(
     seed: Optional[int] = None,
     ssc: Optional[str] = None,
     weights_as: Optional[str] = None,
+    constant: bool = False,
 ) -> PanelResults:
     """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
     for the full docstring on methods and parameters.
@@ -758,6 +796,7 @@ def panel(
             wild_weight_type=wild_weight_type,
             seed=seed,
             ssc=ssc,
+            constant=constant,
         )
     _panel_design_checks(_result, data, formula, entity, time, method, robust, cluster)
     try:
@@ -784,6 +823,7 @@ def panel(
                 "conley_lon": conley_lon,
                 "conley_cutoff": conley_cutoff,
                 "ssc": ssc,
+                "constant": constant,
             },
             data=data,
             overwrite=False,
@@ -817,6 +857,7 @@ def _dispatch_panel_impl(
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
     ssc: Optional[str] = None,
+    constant: bool = False,
 ) -> PanelResults:
     """
     Unified panel regression with Stata-style syntax.
@@ -935,6 +976,12 @@ def _dispatch_panel_impl(
         Wild weight distribution (``'rademacher'``, ``'webb'``, ``'mammen'``).
     seed : int, optional
         RNG seed for ``vce='wild'``.
+    constant : bool, default False
+        ``method='fd'`` only: estimate an intercept in the differenced
+        equation, Stata's ``regress D.y D.x`` (without it the fit is
+        ``regress D.y D.x, nocons``). The intercept is the coefficient
+        ``const``; in levels it is a linear time trend. Wooldridge's
+        first-difference equations (chapter 13) include it.
 
     Returns
     -------
@@ -1000,6 +1047,11 @@ def _dispatch_panel_impl(
     """
     # --- Resolve method alias ---
     data = _require_panel_dataframe(data)
+    # robust=True / False, as sp.regress and most estimators accept them
+    if robust is True:
+        robust = "robust"
+    elif robust is False or robust is None:
+        robust = "nonrobust"
     if not isinstance(method, str):
         raise _panel_method_error(
             f"method must be a string, got {type(method).__name__}.",
@@ -1016,6 +1068,13 @@ def _dispatch_panel_impl(
             recovery_hint="Choose one of the supported panel estimators.",
         )
     canonical = _METHOD_ALIASES[method_key]
+    if constant and canonical != "fd":
+        raise _panel_method_error(
+            f"constant=True applies to method='fd' only (got {method!r}); the "
+            "other methods choose their constant themselves.",
+            diagnostics={"method": canonical, "constant": constant},
+            recovery_hint="Drop constant=, or use method='fd'.",
+        )
 
     # --- Parse formula ---
     if not isinstance(formula, str) or "~" not in formula:
@@ -1281,6 +1340,7 @@ def _dispatch_panel_impl(
             weights=weights,
             alpha=alpha,
             ssc=ssc_key,
+            fd_constant=bool(constant),
         )
 
 
@@ -1493,6 +1553,7 @@ def _fit_linearmodels(
     weights: Optional[str],
     alpha: float,
     ssc: Optional[str] = None,
+    fd_constant: bool = False,
 ) -> PanelResults:
     # linearmodels is a core dependency (see pyproject.toml ``dependencies``);
     # import lazily to keep module-import time low, but do not mask a broken
@@ -1508,6 +1569,16 @@ def _fit_linearmodels(
 
     if method == "fd":
         data = _fd_row_order(data, [dep_var, *indep_vars], entity, time)
+        if fd_constant:
+            # The position of the period among the panel's periods differences
+            # to 1 between consecutive periods (the only pairs FD keeps), so
+            # it is the intercept of the differenced equation: Stata's
+            # ``regress D.y D.x`` (Wooldridge ch. 13), a trend in levels.
+            periods = np.sort(pd.unique(data[time].dropna()))
+            data = data.assign(
+                **{_FD_CONSTANT: np.searchsorted(periods, data[time]).astype(float)}
+            )
+            indep_vars = [_FD_CONSTANT, *indep_vars]
     panel_data = data.set_index([entity, time])
     dep = _indexed_columns(panel_data, [dep_var])[dep_var]
     exog = _indexed_columns(panel_data, indep_vars)
@@ -1710,6 +1781,9 @@ def _fd_row_order(
 
 
 _WEIGHTED_METHODS = frozenset({"fe", "twoway", "pooled"})
+
+#: the regressor that carries the intercept of a first-difference fit
+_FD_CONSTANT = "const"
 
 
 def _panel_weights(panel_data: pd.DataFrame, weights: str) -> pd.Series:
@@ -2092,6 +2166,10 @@ def _convert_lm_result(
     if hasattr(lm_result, "f_statistic") and lm_result.f_statistic is not None:
         diagnostics["F-statistic"] = float(lm_result.f_statistic.stat)
         diagnostics["F p-value"] = float(lm_result.f_statistic.pval)
+    if method == "re":
+        # Stata's xtreg, re reports these (sigma_u, sigma_e, rho, theta);
+        # they were reachable only through the private _lm_result.
+        _re_components(lm_result, model_info)
 
     result = PanelResults(
         params=params,
@@ -2115,6 +2193,38 @@ def _convert_lm_result(
     ):
         _model_test_from_own_variance(result)
     return result
+
+
+def _re_components(lm_result: Any, model_info: Dict[str, Any]) -> None:
+    """Write the random-effects variance components and theta.
+
+    ``sigma_u`` / ``sigma_e`` are the square roots of the unit and the
+    idiosyncratic variance, ``rho = sigma_u^2 / (sigma_u^2 + sigma_e^2)``
+    and ``theta`` the GLS quasi-demeaning weight, one per unit; a scalar
+    when every unit has the same number of periods (Stata ``xtreg, re
+    theta``), else its minimum, median and maximum as Stata prints them.
+    """
+    try:
+        vd = lm_result.variance_decomposition
+        s2_u, s2_e = float(vd["Effects"]), float(vd["Residual"])
+        model_info["sigma_u"] = float(np.sqrt(max(s2_u, 0.0)))
+        model_info["sigma_e"] = float(np.sqrt(max(s2_e, 0.0)))
+        total = s2_u + s2_e
+        model_info["rho"] = float(s2_u / total) if total > 0 else float("nan")
+        theta = np.asarray(lm_result.theta, dtype=float).ravel()
+        theta = theta[np.isfinite(theta)]
+        if theta.size:
+            unique = np.unique(np.round(theta, 12))
+            if unique.size == 1:
+                model_info["theta"] = float(theta[0])
+            else:
+                model_info["theta"] = {
+                    "min": float(theta.min()),
+                    "median": float(np.median(theta)),
+                    "max": float(theta.max()),
+                }
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return
 
 
 def _model_test_from_own_variance(result: PanelResults) -> None:

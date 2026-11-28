@@ -346,8 +346,10 @@ class TestValidationAndPredict:
             sp.ivreg(F, df, vce="cr2")
         with pytest.raises(MethodIncompatibility, match="conley_lat"):
             sp.ivreg(F, df, vce="conley")
-        with pytest.raises(TypeError, match="unexpected keyword"):
-            sp.ivreg(F, df, small=False)
+        # small= is passed through since 1.47; refused where ivregress has no
+        # counterpart
+        with pytest.raises(MethodIncompatibility, match="small=False"):
+            sp.ivreg(F, df, vce="cr2", cluster="g", small=False)
 
     def test_predict_plugs_observed_regressors_into_the_structural_form(self):
         df = _data()

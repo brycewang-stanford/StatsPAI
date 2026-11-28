@@ -6,55 +6,55 @@ Each card is checked against a real call on small data: the required arguments, 
 
 - functions audited: **93**
 - functions with a card defect: **0**
-- enum values tried: **778** (715 accepted, 63 need a precondition, 0 refused by the function)
+- enum values tried: **755** (688 accepted, 67 need a precondition, 0 refused by the function)
 
 `precondition` means the call failed for a reason other than the value itself: it needs other arguments, other data or an optional package. Those are listed below so the card can say what the value needs. `rejected` means the schema advertises a value the function does not accept, which is a defect.
 
 | Function | Result class | Enum values ok / precondition / rejected | Card fields curated / inherited / other | Defects |
 | --- | --- | ---: | ---: | --- |
-| `regress` | EconometricResults | 13 / 0 / 0 | 8 / 0 / 0 | none |
-| `ivreg` | EconometricResults | 4 / 0 / 0 | 4 / 0 / 6 | none |
-| `iv` | EconometricResults | 23 / 17 / 0 | 10 / 0 / 0 | none |
-| `logit` | EconometricResults | 6 / 0 / 0 | 1 / 0 / 8 | none |
-| `probit` | EconometricResults | 6 / 0 / 0 | 0 / 0 / 8 | none |
-| `poisson` | EconometricResults | 4 / 0 / 0 | 1 / 0 / 8 | none |
-| `qreg` | QuantileRegressionResult | 10 / 1 / 0 | 8 / 0 / 0 | none |
-| `feols` | EconometricResults | 9 / 0 / 0 | 8 / 0 / 2 | none |
-| `panel` | PanelResults | 17 / 0 / 0 | 8 / 0 / 0 | none |
-| `did` | CausalResult | 27 / 6 / 0 | 10 / 0 / 0 | none |
-| `callaway_santanna` | CausalResult | 28 / 0 / 0 | 5 / 0 / 5 | none |
-| `sun_abraham` | CausalResult | 15 / 0 / 0 | 5 / 0 / 5 | none |
-| `did_imputation` | CausalResult | 10 / 0 / 0 | 5 / 0 / 5 | none |
+| `regress` | EconometricResults | 14 / 0 / 0 | 8 / 0 / 0 | none |
+| `ivreg` | EconometricResults | 2 / 0 / 0 | 4 / 0 / 6 | none |
+| `iv` | EconometricResults | 21 / 17 / 0 | 10 / 0 / 0 | none |
+| `logit` | EconometricResults | 4 / 0 / 0 | 1 / 0 / 8 | none |
+| `probit` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
+| `poisson` | EconometricResults | 2 / 0 / 0 | 1 / 0 / 8 | none |
+| `qreg` | QuantileRegressionResult | 8 / 1 / 0 | 8 / 0 / 0 | none |
+| `feols` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 2 | none |
+| `panel` | PanelResults | 15 / 0 / 0 | 8 / 0 / 0 | none |
+| `did` | CausalResult | 25 / 6 / 0 | 10 / 0 / 0 | none |
+| `callaway_santanna` | CausalResult | 26 / 0 / 0 | 5 / 0 / 5 | none |
+| `sun_abraham` | CausalResult | 13 / 0 / 0 | 5 / 0 / 5 | none |
+| `did_imputation` | CausalResult | 8 / 0 / 0 | 5 / 0 / 5 | none |
 | `gardner_did` | CausalResult | 4 / 0 / 0 | 6 / 0 / 4 | none |
 | `etwfe` | CausalResult | 18 / 4 / 0 | 5 / 0 / 5 | none |
-| `stacked_did` | CausalResult | 11 / 0 / 0 | 10 / 0 / 0 | none |
-| `event_study` | CausalResult | 6 / 0 / 0 | 10 / 0 / 0 | none |
+| `stacked_did` | CausalResult | 13 / 0 / 0 | 10 / 0 / 0 | none |
+| `event_study` | CausalResult | 4 / 0 / 0 | 10 / 0 / 0 | none |
 | `bacon_decomposition` | BaconDecompositionResult | 3 / 0 / 0 | 10 / 0 / 0 | none |
-| `rdrobust` | CausalResult | 27 / 1 / 0 | 9 / 0 / 1 | none |
+| `rdrobust` | CausalResult | 25 / 1 / 0 | 9 / 0 / 1 | none |
 | `rddensity` | CausalResult | 2 / 0 / 0 | 6 / 0 / 3 | none |
-| `synth` | CausalResult | 35 / 7 / 0 | 10 / 0 / 0 | none |
+| `synth` | CausalResult | 33 / 7 / 0 | 10 / 0 / 0 | none |
 | `sdid` | CausalResult | 10 / 2 / 0 | 3 / 0 / 7 | none |
-| `dml` | CausalResult | 8 / 2 / 0 | 10 / 0 / 0 | none |
+| `dml` | CausalResult | 6 / 2 / 0 | 10 / 0 / 0 | none |
 | `metalearner` | CausalResult | 5 / 0 / 0 | 8 / 0 / 0 | none |
 | `causal_forest` | CausalForest | 2 / 3 / 0 | 8 / 0 / 0 | none |
 | `psm` | CausalResult | 0 / 0 / 0 | 1 / 0 / 6 | none |
-| `match` | CausalResult | 39 / 1 / 0 | 9 / 0 / 0 | none |
-| `ipw` | CausalResult | 9 / 0 / 0 | 3 / 0 / 5 | none |
-| `aipw` | CausalResult | 6 / 4 / 0 | 8 / 0 / 0 | none |
+| `match` | CausalResult | 42 / 2 / 0 | 9 / 0 / 0 | none |
+| `ipw` | CausalResult | 7 / 0 / 0 | 3 / 0 / 5 | none |
+| `aipw` | CausalResult | 4 / 4 / 0 | 8 / 0 / 0 | none |
 | `tmle` | CausalResult | 9 / 2 / 0 | 8 / 0 / 0 | none |
 | `nbreg` | EconometricResults | 8 / 0 / 0 | 8 / 0 / 0 | none |
-| `glm` | EconometricResults | 24 / 0 / 0 | 0 / 0 / 8 | none |
+| `glm` | EconometricResults | 22 / 0 / 0 | 0 / 0 / 8 | none |
 | `ppmlhdfe` | EconometricResults | 5 / 0 / 0 | 1 / 0 / 9 | none |
 | `hdfe_ols` | FEOLSResult | 15 / 0 / 0 | 8 / 0 / 2 | none |
 | `ologit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
 | `mlogit` | EconometricResults | 0 / 0 / 0 | 0 / 0 / 9 | none |
-| `tobit` | LimitedDepResult | 4 / 0 / 0 | 8 / 0 / 0 | none |
+| `tobit` | LimitedDepResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
 | `cloglog` | EconometricResults | 4 / 0 / 0 | 0 / 0 / 8 | none |
-| `fepois` | EconometricResults | 7 / 0 / 0 | 6 / 0 / 2 | none |
-| `feglm` | EconometricResults | 5 / 0 / 0 | 1 / 0 / 7 | none |
-| `heckman` | LimitedDepResult | 5 / 0 / 0 | 3 / 0 / 4 | none |
+| `fepois` | EconometricResults | 5 / 0 / 0 | 6 / 0 / 2 | none |
+| `feglm` | EconometricResults | 3 / 0 / 0 | 1 / 0 / 7 | none |
+| `heckman` | LimitedDepResult | 3 / 0 / 0 | 3 / 0 / 4 | none |
 | `mediate` | CausalResult | 7 / 5 / 0 | 8 / 0 / 0 | none |
-| `oaxaca` | OaxacaResult | 3 / 0 / 0 | 5 / 0 / 3 | none |
+| `oaxaca` | OaxacaResult | 5 / 0 / 0 | 5 / 0 / 3 | none |
 | `ebalance` | CausalResult | 5 / 0 / 0 | 1 / 0 / 7 | none |
 | `cbps` | CausalResult | 4 / 0 / 0 | 0 / 0 / 8 | none |
 | `lee_bounds` | CausalResult | 5 / 0 / 0 | 1 / 0 / 7 | none |
@@ -79,21 +79,21 @@ Each card is checked against a real call on small data: the required arguments, 
 | `gsynth` | CausalResult | 7 / 0 / 0 | 3 / 0 / 7 | none |
 | `psmatch2` | PSMatch2Result | 20 / 0 / 0 | 8 / 0 / 0 | none |
 | `xtnbreg` | EconometricResults | 7 / 0 / 0 | 8 / 0 / 0 | none |
-| `spec_curve` | SpecCurveResult | 0 / 0 / 0 | 8 / 0 / 0 | none |
+| `spec_curve` | SpecCurveResult | 2 / 0 / 0 | 8 / 0 / 0 | none |
 | `iv_diag` | IVDiagResult | 3 / 0 / 0 | 5 / 0 / 5 | none |
-| `g_computation` | CausalResult | 5 / 0 / 0 | 3 / 0 / 5 | none |
+| `g_computation` | CausalResult | 8 / 3 / 0 | 3 / 0 / 5 | none |
 | `sqreg` | DataFrame | 0 / 0 / 0 | 1 / 0 / 8 | none |
 | `qte` | QTEResult | 7 / 0 / 0 | 8 / 0 / 0 | none |
 | `kaplan_meier` | KMResult | 6 / 0 / 0 | 1 / 0 / 8 | none |
-| `cox` | CoxResult | 6 / 0 / 0 | 1 / 0 / 8 | none |
+| `cox` | CoxResult | 7 / 0 / 0 | 1 / 0 / 8 | none |
 | `var` | VARResult | 4 / 0 / 0 | 6 / 0 / 2 | none |
-| `arima` | ARIMAResult | 5 / 0 / 0 | 0 / 0 / 8 | none |
+| `arima` | ARIMAResult | 8 / 0 / 0 | 0 / 0 / 8 | none |
 | `its` | ITSResult | 0 / 0 / 0 | 1 / 0 / 7 | none |
 | `kitagawa_decompose` | KitagawaResult | 3 / 0 / 0 | 0 / 0 / 7 | none |
 | `cic` | CICResult | 0 / 0 / 0 | 8 / 0 / 0 | none |
 | `hausman_test` | dict | 0 / 0 / 0 | 1 / 0 / 6 | none |
 | `power` | PowerResult | 0 / 0 / 0 | 4 / 0 / 2 | none |
-| `rkd` | RKDResult | 3 / 0 / 0 | 5 / 0 / 5 | none |
+| `rkd` | RKDResult | 5 / 0 / 0 | 5 / 0 / 5 | none |
 | `rosenbaum_bounds` | RosenbaumResult | 8 / 0 / 0 | 1 / 0 / 6 | none |
 | `front_door` | CausalResult | 7 / 0 / 0 | 3 / 0 / 5 | none |
 | `lasso_select` | SelectionResult | 3 / 0 / 0 | 1 / 0 / 8 | none |
@@ -152,6 +152,7 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.causal_forest(fe='twoway')`: MethodIncompatibility: CausalForest(fe='twoway').fit() requires unit= ids. -> recovery: Pass unit=<panel unit ids> (and time= for 'twoway').
 - `sp.causal_forest(split_rule='cffe')`: MethodIncompatibility: CausalForest: split_rule='cffe' is the tau-heterogeneity criterion of a causal forest with fixed effects. -> recovery: Pass fe='twoway' (w
 - `sp.match(method='radius')`: MethodIncompatibility: match: radius matching requires caliper > 0 (the radius bandwidth)
+- `sp.match(distance='exact')`: DataInsufficient: match: exact matching found no treated units with exact matches. -> recovery: Consider distance='mahalanobis', method='cem', or coarser co
 - `sp.aipw(se_method='sandwich')`: MethodIncompatibility: se_method='sandwich' is the stacked M-estimation variance of the full-sample parametric AIPW ATE; it requires cross_fit=False and estimand='
 - `sp.aipw(outcome_model='logit')`: MethodIncompatibility: aipw: outcome_model='logit' needs an outcome in [0, 1].
 - `sp.aipw(outcome_model='probit')`: MethodIncompatibility: aipw: outcome_model='probit' needs an outcome in [0, 1].
@@ -171,6 +172,9 @@ Each card is checked against a real call on small data: the required arguments, 
 - `sp.aggte(agg_weights='csdid')`: MethodIncompatibility: agg_weights='csdid' weights each cell by its own count of treated observations (repeated cross-sections) or of treated units seen in both of
 - `sp.aggte(parity='r')`: MethodIncompatibility: aggte: parity='r' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when ATT(
 - `sp.aggte(parity='stata')`: MethodIncompatibility: aggte: parity='stata' was passed, but the fit was estimated with parity=None. The base period and comparison-group conventions are set when
+- `sp.g_computation(outcome_model='logit')`: MethodIncompatibility: g_computation: outcome_model='logit' needs a 0/1 outcome. -> recovery: Recode the outcome to 0/1, or use outcome_model='linear' or 'poisso
+- `sp.g_computation(outcome_model='poisson')`: MethodIncompatibility: g_computation: outcome_model='poisson' needs a non-negative outcome. -> recovery: Use outcome_model='linear' for this outcome.
+- `sp.g_computation(contrast='odds_ratio')`: MethodIncompatibility: g_computation: contrast='odds_ratio' is not defined for these standardised means (a ratio needs positive means, an odds ratio means strictly
 
 ## Arguments the schema requires beyond the signature
 

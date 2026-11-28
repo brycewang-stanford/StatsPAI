@@ -157,7 +157,8 @@ def estat(
         ``'normal'`` (``'hettest'`` only) is the original score statistic,
         the default of Stata's ``estat hettest``; ``'fstat'`` is the F
         statistic of the auxiliary regression, for ``'hettest'``,
-        ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``.
+        ``'white'``, ``'bgodfrey'``, ``'durbinalt'`` and ``'archlm'``. Any
+        other test refuses a ``version`` other than ``'iid'``.
     rhs : bool, default False
         ``'reset'`` only: add powers of the regressors instead of powers of
         the fitted values (Stata's ``estat ovtest, rhs``).
@@ -240,6 +241,17 @@ def estat(
         is_dynamic_panel_result,
     )
 
+    # version= is read by five tests only; elsewhere it was dropped without
+    # a word (sp.estat(r, 'reset', version='fstat') gave the chi2 form).
+    _versioned = ("hettest", "white", "bgodfrey", "durbinalt", "archlm")
+    if str(version).lower() != "iid" and test not in _versioned:
+        raise MethodIncompatibility(
+            f"sp.estat {test}: version={version!r} is not an option of this " "test.",
+            recovery_hint="version= applies to "
+            + ", ".join(repr(t) for t in _versioned)
+            + "; leave it out for this test.",
+        )
+
     _dispatch = {
         "abond": lambda: estat_abond(result, alpha=alpha),
         "sargan": lambda: estat_sargan(result, alpha=alpha),
@@ -250,6 +262,7 @@ def estat(
         "white": lambda: _reg.white(
             result,
             variables=variables if isinstance(variables, str) else None,
+            version=version,
             alpha=alpha,
         ),
         "imtest": lambda: _reg.imtest(result, alpha=alpha),
@@ -258,20 +271,20 @@ def estat(
             result,
             lags=lags,
             fill=fill,
-            version="fstat" if version == "fstat" else "iid",
+            version=version,
             alpha=alpha,
         ),
         "beta": lambda: _reg.beta(result),
         "durbinalt": lambda: _reg.durbinalt(
             result,
             lags=lags,
-            version="fstat" if version == "fstat" else "iid",
+            version=version,
             alpha=alpha,
         ),
         "archlm": lambda: _reg.archlm(
             result,
             lags=lags,
-            version="fstat" if version == "fstat" else "iid",
+            version=version,
             alpha=alpha,
         ),
         "dwatson": lambda: _estat_dwatson(result, alpha=alpha),
@@ -301,8 +314,6 @@ def estat(
     if test in _var_tests:
         needs = "companion" if test.startswith("vec") else "lag_exclusion"
         if not hasattr(result, needs):
-            from ..exceptions import MethodIncompatibility
-
             raise MethodIncompatibility(
                 f"sp.estat: {test!r} applies to a model fitted by "
                 + ("sp.vec." if test.startswith("vec") else "sp.var."),
