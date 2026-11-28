@@ -4,6 +4,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.47.0] — 2026-11-28
+
 Fixes from a replay of Wooldridge's *Introductory Econometrics* (7e) and the
 Stata code of the *Mixtape* against Stata 18 MP (349 of 350 and 248 of 248
 numbers already agreed). Each fix is pinned against Stata on the books'
