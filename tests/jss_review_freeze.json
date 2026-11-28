@@ -1,8 +1,8 @@
 {
   "description": "SHA-256 (LF-normalised) of the experiment artifacts the JSS manuscript re-tabulates, frozen at the submitted release. Written by scripts/jss_review_freeze.py; checked by tests/test_jss_review_freeze.py against docs/dev/jss_review_changes.md.",
-  "release": "1.40.2",
-  "tag": "v1.40.2",
-  "frozen_on": "2026-10-27",
+  "release": "1.46.7",
+  "tag": "v1.46.7",
+  "frozen_on": "2026-11-28",
   "active": false,
   "globs": [
     "tests/r_parity/results/*.json",
@@ -18,7 +18,7 @@
     "tests/coverage_monte_carlo/mechanisms/results_feols_ssc.json": "c7e7f244a95e5648a181be1fd84608dd81798bd2c6ce35fb4012c149efbfdf39",
     "tests/coverage_monte_carlo/mechanisms/results_forest_trees.json": "05596abf41b3510a3fa741e4178ce3a36faa1da17ebbae5f7ea8de4e05f91152",
     "tests/coverage_monte_carlo/mechanisms/results_rd_drawwise.json": "e3dd455318e6386d2d5ee0ce61f8e05dd0d38e7e3cd008029532be4ce4b2134f",
-    "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json": "898990c978815e6de52df90a5c0f35ad52d48d2956e3cf8352d11f3c0ad46c07",
+    "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json": "967cb86cf126aa6cadf39c2600304f330239cb5df2fd26855de5bfdcd92a6dad",
     "tests/coverage_monte_carlo/results_b1000/coverage_robustness_b1000.json": "8228d4b813e3f89b66e7cdf4a7d8dec105bf4bbac2bf93adb1bdf5bc4ff5ad1a",
     "tests/coverage_monte_carlo/results_b1000/size_power_b1000.json": "5e616e60d73bf98bdfc002dc35578c88772a5c121f683d6b1f51c6155a28be80",
     "tests/orig_parity/results/01_card_original_R.json": "07617a58aa9a93e2773aa376e735ca84f7fbf8828cffa812d65b683340708292",
@@ -46,7 +46,7 @@
     "tests/orig_parity/results/10_nhefs_ch17_survival_py.json": "861b7e6615d6a2c91d93d4e18046fabce9f85f978111ddda148655d7b40a055c",
     "tests/orig_parity/results/11_nhefs_evalue_R.json": "3bcc799fb96790cbafa84bc7cd26de8cd9468e3739447b44345df9eb216b728d",
     "tests/orig_parity/results/11_nhefs_evalue_py.json": "8baf6dc0617611a943ebce819b26cd84f079117c636ba9e5668da481b9106f06",
-    "tests/orig_parity/results/_implementation_trace.json": "690c38be29b2e2ac40f82053cb1a7c87343c54cb0ae2cfe4c29908e8a8985bfc",
+    "tests/orig_parity/results/_implementation_trace.json": "2853a809c3ae0ba5cada2697a647c3a4ef169d79ae70c14aeaa7d1e4af7a2670",
     "tests/perf/results/01_hdfe_R.json": "43bf77aef92554834b1f5246a99ad14049b27eb37973db00e20ed5f9ea261be3",
     "tests/perf/results/01_hdfe_py.json": "f44d0e0fdd14117b4ee34466911a283dba242fcc87b810d99108bf00ebfc93ec",
     "tests/perf/results/02_csdid_R.json": "702ec6d1c1603d70ce3ef177a365f1367f74f69de2f93dcb66d0a26855f2a9c0",
@@ -208,7 +208,7 @@
     "tests/r_parity/results/75_stacked_R.json": "a3dc83f9e45170a43cc619cf667f998d6d8c11201ad59ea7104e9017272d2191",
     "tests/r_parity/results/75_stacked_py.json": "0e3a754a1d5d197441bfc0d19bdc8a20db1b7bb0b0caa10cca30e80e6c6b96d9",
     "tests/r_parity/results/76_pretrends_R.json": "82e3e68fdff72db098968a6d3a3ebe93c66ab80e895863909de5fd33d9f08274",
-    "tests/r_parity/results/76_pretrends_py.json": "a0971581d2c48e0fd0558a16a037201ed4036432dfc90a73768e0d380ae44907",
+    "tests/r_parity/results/76_pretrends_py.json": "3eaef1fed886caefe1e690a9f5a98366648501f701bfff9a70124f0fca3297bc",
     "tests/r_parity/results/77_ddd_R.json": "f5708b6036fc632f00b80ded696b5c4f0f56400a4d812e05081c385101f0f149",
     "tests/r_parity/results/77_ddd_py.json": "76f4bb098eb07f7c7d0e691262c1e7e158a620700ffe692e9963fa421e76b5fa",
     "tests/r_parity/results/78_multiplegt_dyn_R.json": "dd022998c78b4465ef886e84ee18b59f328972138d303979bd14eeb3fccd2238",
@@ -235,7 +235,11 @@
     "tests/r_parity/results/88_rdbwselect_py.json": "a3cc7aa4bbe422070af077fad15e0c8b2953dc9c8e2b91fda454124db56f3912",
     "tests/r_parity/results/89_rdms_R.json": "8663507e8901f2cc364e8820c7dd941fb3d65e2c532a4d2c942927ba71ae2de4",
     "tests/r_parity/results/89_rdms_py.json": "3a396cea2303bce2063f8e3a95b6706084bde6cc19eb78629ca543d8327fd094",
-    "tests/r_parity/results/_implementation_trace.json": "26d87e2c104e5424a162bc095770e0bf4fe395450b4bc2014cfe0090b408772d",
+    "tests/r_parity/results/90_eivreg_R.json": "2dc66121be5bafa8c30325c91bd0b8226fd0b8b1536bfce32fc03734be72e13c",
+    "tests/r_parity/results/90_eivreg_py.json": "7b0323eacffa8c1c99eeb5b09bcb1f44be06199eacc05667b13b0cd085574939",
+    "tests/r_parity/results/91_biprobit_R.json": "d550818ca4fa179e67df1cee030215ce5d49a010aa04629bf31498e5166480df",
+    "tests/r_parity/results/91_biprobit_py.json": "7070028a46ec49eec6911eb48c8e91637686d6a4fb8a2298feed199d99bc7da8",
+    "tests/r_parity/results/_implementation_trace.json": "eb197c454af9699fef1dfcaae19cf1bcd1b86826526c90ff32bd01150c1c77f9",
     "tests/reference_parity/_fixtures/grf_seed_mc_R.json": "c5556d98ac8cbd06d33815a4c256e1166d17415ca4634d1b9c26669eb238f405",
     "tests/reference_parity/_fixtures/grf_seed_mc_m13_R.json": "8708acfd7d21242b36a2abe710d1cc2a82f0916a0bf317b2b84f6410105584ad",
     "tests/reference_parity/_fixtures/grf_seed_mc_m13_py.json": "bf61232b6223ee949b7f53cdd775e6eb501519849189147d9af325a87584425b",
@@ -324,6 +328,8 @@
     "tests/stata_parity/results/86_fect_Stata.json": "7ade0de6e0b4fcc46458a9dcd9c172e6a6a2b256956cfc93f13d0a48e2946660",
     "tests/stata_parity/results/87_interflex_Stata.json": "6abf4507be8e2328175ba2d94b29c9c131cd3060b09571e8de62b51f370da5af",
     "tests/stata_parity/results/88_rdbwselect_Stata.json": "17d1033df18094f38867f18a9ec29dddd2145453b609129a4ce873505f13bfb6",
-    "tests/stata_parity/results/89_rdms_Stata.json": "5f1c3f56bbb0f8add4658ec2d53bdc9d5e09f6c72a88bcddb89bdb0350e0514d"
+    "tests/stata_parity/results/89_rdms_Stata.json": "5f1c3f56bbb0f8add4658ec2d53bdc9d5e09f6c72a88bcddb89bdb0350e0514d",
+    "tests/stata_parity/results/90_eivreg_Stata.json": "b6439a1f44cb73dec092c766587808d54882a5307159f1ff4582178f39026dfd",
+    "tests/stata_parity/results/91_biprobit_Stata.json": "0f40ef9c06cb4df7c796534102a1b6c0f26a30c898f17e2e59f1307add0d2e31"
   }
 }

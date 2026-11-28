@@ -246,7 +246,7 @@ Colab 等远程 runtime 回传 benchmark 结果时不直推 main，按 [`docs/de
 
 - **论文不追版本**，只在投稿、返修、接收后定稿三个时点改锚。平时发新版论文一个字不改。不要为了论文的检查通过而发补丁版本。同一时间只能有一个会话改某篇论文的仓库。
 - **JOSS 已发表**（2026-09-03，DOI `10.21105/joss.10604`）。`paper.md` / `paper.bib` 的已发表内容不要再改；对外引用用 `sp.citation()`。
-- **JSS 审稿期冻结**：`tests/jss_review_freeze.json` 哈希了稿件读取的全部冻结产物。当前状态（2026-10-27）：未投稿，`"active": false`，锚点 1.40.2。启用后，改动任何冻结产物都要在 `docs/dev/jss_review_changes.md` 登记日期、commit sha、路径、对论文的影响。不要为了表格好看重生成冻结产物，不要改稿件。
+- **JSS 审稿期冻结**：`tests/jss_review_freeze.json` 哈希了稿件读取的全部冻结产物。当前状态（2026-11-28）：未投稿，`"active": false`，锚点 1.46.7。启用后，改动任何冻结产物都要在 `docs/dev/jss_review_changes.md` 登记日期、commit sha、路径、对论文的影响。不要为了表格好看重生成冻结产物，不要改稿件。
 - **Zenodo 只由 Publish GitHub Release 触发**（见 §7）。JOSS 的归档是 v1.23.0，version DOI `10.5281/zenodo.22085759`。
 
 ---
@@ -265,4 +265,4 @@ Memory 在 `~/.claude/projects/-Users-brycewang-Documents-GitHub-StatsPAI/memory
 
 ---
 
-*最后更新：2026-10-30。过期信息会蔓延到每一次 agent 会话，持续维护本文件；新的细则写进 `docs/dev/handbook/` 或 `docs/dev/modules/`，这里只加一行指针。*
+*最后更新：2026-11-28。过期信息会蔓延到每一次 agent 会话，持续维护本文件；新的细则写进 `docs/dev/handbook/` 或 `docs/dev/modules/`，这里只加一行指针。*
