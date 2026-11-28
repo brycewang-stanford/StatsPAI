@@ -6923,3 +6923,35 @@ The freeze is inactive (not submitted); recorded for the re-anchor to
 - **Paths.**
   - `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json`
   - `tests/r_parity/results/_implementation_trace.json`
+
+### 2026-11-28 — re-anchor to 1.46.7: Track C re-timed, manifest re-hashed
+
+The freeze is inactive (not submitted). The manifest is hashed on tag
+`v1.46.7`; this entry logs the one change to frozen artifacts after the tag.
+
+- **Commit.** `6fd4ba9ba` replaces the Track C results
+  (`tests/perf/results/*.json`) and their table, figure and timed-path trace,
+  measured on the tag with `tests/perf/run_when_idle.sh`.
+- **Reason.** `scripts/trace_perf_path.py --check` reported all four timing
+  modules stale for 1.46.7 (source files on each timed path had changed
+  since the 1.40.2 measurement).
+- **Effect on the paper.** Section 6 and its table now report the 1.46.7
+  timings. Ratios at the largest size: HDFE 2.4x (unchanged), CS-DiD 2.2x
+  (was 2.3x), SCM 3.5x (unchanged), DML 1.06x (was 1.09x, still a tie).
+- **Re-derivation on the tag (no file changed).** R side 91 of 91 modules
+  and Stata side 87 of 87 reproduce within 1e-9. Python side 90 of 91; module
+  76 reproduces to 3.4e-8 under the lock's SciPy 1.15.3 because its stored
+  values are those of SciPy 1.17, which the paper discloses. The fifteen
+  coverage rows reproduce within 1.5e-9, the size/power, stress and mechanism
+  files and both forest seed files exactly, the original-data modules within
+  1.6e-11.
+- **Paths.**
+  - `tests/perf/results/01_hdfe_R.json`
+  - `tests/perf/results/01_hdfe_py.json`
+  - `tests/perf/results/02_csdid_R.json`
+  - `tests/perf/results/02_csdid_py.json`
+  - `tests/perf/results/03_scm_R.json`
+  - `tests/perf/results/03_scm_py.json`
+  - `tests/perf/results/04_dml_doubleml_py.json`
+  - `tests/perf/results/04_dml_py.json`
+  - `tests/perf/results/_timed_path.json`
